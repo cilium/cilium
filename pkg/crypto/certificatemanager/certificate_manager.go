@@ -32,8 +32,9 @@ type CertificateManager interface {
 
 type SecretManager interface {
 	GetSecrets(ctx context.Context, secret *api.Secret, ns string) (string, map[string][]byte, bool, error)
-	GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error)
+	GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, bool, error)
 	SetSecretSyncNamespace(ns string)
+	GetSecretSyncNamespace() string
 }
 
 var defaultManagerConfig = managerConfig{
@@ -79,6 +80,16 @@ func NewManager(cfg managerConfig, clientset k8sClient.Clientset, logger logrus.
 // in the envoy Cell.
 func (m *manager) SetSecretSyncNamespace(ns string) {
 	m.secretSyncNamespace = ns
+}
+
+// GetSecretSyncNamespace returns the configured secret synchronization namespace.
+// An empty value means that secret synchronization is not enabled, and that
+// the agent should read values from secrets used in policy directly, which requires
+// the agent to have read access to all namespaces.
+// Secret Synchronization config includes granting access to the policy-secrets-namespace, configured
+// in the envoy Cell.
+func (m *manager) GetSecretSyncNamespace() string {
+	return m.secretSyncNamespace
 }
 
 // GetSecrets returns either local or k8s secrets, giving precedence for local secrets if configured.
@@ -196,18 +207,25 @@ func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 }
 
 // GetSecretString returns a secret string stored in a k8s secret
-func (m *manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error) {
-	// TODO: Update this and to handle read-from-file
-	name, secrets, _, err := m.GetSecrets(ctx, secret, ns)
+func (m *manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, bool, error) {
+	name, secrets, fromFile, err := m.GetSecrets(ctx, secret, ns)
 	if err != nil {
-		return "", err
+		return "", fromFile, err
+	}
+
+	// If the value hasn't been read from a file, we're going to be inserting a reference to an SDS secret instead,
+	// so we don't need to validate the values. Envoy will handle validation.
+	if !fromFile {
+		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes")
+		return "", fromFile, nil
 	}
 
 	if len(secrets) == 1 {
 		// get the lone item by looping into the map
 		for _, value := range secrets {
-			return string(value), nil
+			return string(value), fromFile, nil
 		}
 	}
-	return "", fmt.Errorf("Secret %s must have exactly one item", name)
+
+	return "", false, fmt.Errorf("Secret %s must have exactly one item", name)
 }

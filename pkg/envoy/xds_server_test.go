@@ -453,7 +453,7 @@ var L4Policy2 = &policy.L4Policy{
 }
 
 func TestGetHTTPRule(t *testing.T) {
-	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "")
+	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "", "")
 	require.Equal(t, ExpectedHeaders1, obtained.Headers)
 	require.True(t, canShortCircuit)
 }
