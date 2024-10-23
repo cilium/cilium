@@ -668,3 +668,157 @@ func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 	_, err = UpsertIPsecEndpoint(log, params)
 	require.NoError(t, err)
 }
+
+func TestZeroPolicyMarkIn(t *testing.T) {
+	log := setupIPSecSuitePrivileged(t)
+
+	_, local, err := net.ParseCIDR("1.1.3.4/16")
+	require.NoError(t, err)
+	_, remote, err := net.ParseCIDR("1.2.3.4/16")
+	require.NoError(t, err)
+
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	key := &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
+		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
+	}
+
+	ipSecKeysGlobal["1.1.3.4"] = key
+	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[""] = key
+
+	params := &IPSecParameters{
+		LocalBootID:    "local-boot-id",
+		RemoteBootID:   "remote-boot-id",
+		RemoteNodeID:   0xBEEF,
+		Dir:            IPSecDirIn,
+		SourceSubnet:   remote,
+		DestSubnet:     local,
+		SourceTunnelIP: &remote.IP,
+		DestTunnelIP:   &local.IP,
+		ZeroOutputMark: false,
+		ZeroPolicyMark: true,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
+	require.NoError(t, err)
+
+	getState := &netlink.XfrmState{
+		Src:   remote.IP,
+		Dst:   local.IP,
+		Proto: netlink.XFRM_PROTO_ESP,
+		Spi:   int(key.Spi),
+		Mark:  generateDecryptMark(linux_defaults.RouteMarkDecrypt, params.RemoteNodeID)}
+
+	state, err := netlink.XfrmStateGet(getState)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	require.Nil(t, state.Aead)
+	require.NotNil(t, state.Auth)
+	require.Equal(t, "hmac(sha256)", state.Auth.Name)
+	require.Equal(t, authKey, state.Auth.Key)
+	require.NotNil(t, state.Crypt)
+	require.Equal(t, "cbc(aes)", state.Crypt.Name)
+	require.Equal(t, cryptKey, state.Crypt.Key)
+	// ESN bit is not set, so ReplayWindow should be 0
+	require.Equal(t, 0, state.ReplayWindow)
+
+	tmpls := []netlink.XfrmPolicyTmpl{
+		{
+			Src:   remote.IP,
+			Dst:   local.IP,
+			Proto: netlink.XFRM_PROTO_ESP,
+			Reqid: params.ReqID,
+			Mode:  netlink.XFRM_MODE_TUNNEL,
+		},
+	}
+	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
+		Src:   remote,
+		Dst:   local,
+		Dir:   netlink.XFRM_DIR_IN,
+		Mark:  &netlink.XfrmMark{},
+		Tmpls: tmpls,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+
+	// test that the mark is set to zero
+	require.Equal(t, *policy.Mark, netlink.XfrmMark{
+		Value: 0,
+		Mask:  0xffffffff,
+	})
+}
+
+func TestZeroPolicyMarkOut(t *testing.T) {
+	log := setupIPSecSuitePrivileged(t)
+
+	_, local, err := net.ParseCIDR("1.1.3.4/16")
+	require.NoError(t, err)
+	_, remote, err := net.ParseCIDR("1.2.3.4/16")
+	require.NoError(t, err)
+
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	key := &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
+		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
+	}
+
+	ipSecKeysGlobal["1.1.3.4"] = key
+	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[""] = key
+
+	params := &IPSecParameters{
+		LocalBootID:    "local-boot-id",
+		RemoteBootID:   "remote-boot-id",
+		RemoteNodeID:   0xBEEF,
+		Dir:            IPSecDirOut,
+		SourceSubnet:   remote,
+		DestSubnet:     local,
+		SourceTunnelIP: &remote.IP,
+		DestTunnelIP:   &local.IP,
+		ZeroOutputMark: false,
+		ZeroPolicyMark: true,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
+	require.NoError(t, err)
+
+	tmpls := []netlink.XfrmPolicyTmpl{
+		{
+			Src:   remote.IP,
+			Dst:   local.IP,
+			Proto: netlink.XFRM_PROTO_ESP,
+			Reqid: params.ReqID,
+			Mode:  netlink.XFRM_MODE_TUNNEL,
+		},
+	}
+	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
+		Src:   remote,
+		Dst:   local,
+		Dir:   netlink.XFRM_DIR_OUT,
+		Mark:  &netlink.XfrmMark{},
+		Tmpls: tmpls,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+
+	// test that the mark is set to zero
+	require.Equal(t, *policy.Mark, netlink.XfrmMark{
+		Value: 0,
+		Mask:  0xffffffff,
+	})
+}
