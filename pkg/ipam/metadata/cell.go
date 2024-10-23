@@ -5,6 +5,7 @@ package metadata
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -28,7 +29,8 @@ type managerParams struct {
 	DaemonConfig *option.DaemonConfig
 
 	NamespaceResource resource.Resource[*slim_core_v1.Namespace]
-	PodResource       k8s.LocalPodResource
+	DB                *statedb.DB
+	Pods              statedb.Table[k8s.LocalPod]
 }
 
 func newIPAMMetadataManager(params managerParams) Manager {
@@ -37,8 +39,9 @@ func newIPAMMetadataManager(params managerParams) Manager {
 	}
 
 	manager := &manager{
+		db:                params.DB,
 		namespaceResource: params.NamespaceResource,
-		podResource:       params.PodResource,
+		pods:              params.Pods,
 	}
 	params.Lifecycle.Append(manager)
 
