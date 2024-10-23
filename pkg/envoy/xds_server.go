@@ -1118,14 +1118,15 @@ func getKafkaL7Rules(l7Rules []kafka.PortRule) *cilium.KafkaNetworkPolicyRules {
 	return rules
 }
 
-func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.HeaderMatch, ns string) (string, error) {
+func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.HeaderMatch, ns string) (string, bool, error) {
 	value := ""
 	var err error
+	var fromFile bool
 	if hdr.Secret != nil {
 		if secretManager == nil {
 			err = fmt.Errorf("HeaderMatches: Nil secretManager")
 		} else {
-			value, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+			value, fromFile, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
 		}
 	}
 	// Only use Value if secret was not obtained
@@ -1137,10 +1138,10 @@ func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.He
 		}
 	}
 
-	return value, err
+	return value, fromFile, err
 }
 
-func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
+func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRuleHTTP, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRule, bool) {
 	// Count the number of header matches we need
 	cnt := len(h.Headers) + len(h.HeaderMatches)
 	if h.Path != "" {
@@ -1237,7 +1238,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
 		}
 		// Fetch the secret
-		value, err := getSecretString(secretManager, hdr, ns)
+		value, fromFile, err := getSecretString(secretManager, hdr, ns)
 		if err != nil {
 			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
 			// Envoy treats an empty exact match value as matching ANY value; adding
@@ -1268,7 +1269,20 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 						},
 					})
 				} else {
-					// Only header presence needed
+					// Value is empty, but could be we need to set an SDS value for it instead
+					if !fromFile {
+						// Need to add a HeaderMatch so we can specify the SDS value here.
+						log.Debugf("HeaderMatches: Adding %s because SDS value is required", hdr.Name)
+						headerMatches = append(headerMatches, &cilium.HeaderMatch{
+							MismatchAction: mismatch_action,
+							Name:           hdr.Name,
+							ValueSdsSecret: namespacedNametoSyncedSDSSecretName(types.NamespacedName{
+								Namespace: hdr.Secret.Namespace,
+								Name:      hdr.Secret.Name,
+							}, policySecretsNamespace),
+						})
+					}
+					// Check for header presence in headers
 					headers = append(headers, &envoy_config_route.HeaderMatcher{
 						Name:                 hdr.Name,
 						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
@@ -1276,11 +1290,22 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 				}
 			} else {
 				log.Debugf("HeaderMatches: Adding %s", hdr.Name)
-				headerMatches = append(headerMatches, &cilium.HeaderMatch{
-					MismatchAction: mismatch_action,
-					Name:           hdr.Name,
-					Value:          value,
-				})
+				if !fromFile && hdr.Secret != nil {
+					headerMatches = append(headerMatches, &cilium.HeaderMatch{
+						MismatchAction: mismatch_action,
+						Name:           hdr.Name,
+						ValueSdsSecret: namespacedNametoSyncedSDSSecretName(types.NamespacedName{
+							Namespace: hdr.Secret.Namespace,
+							Name:      hdr.Secret.Name,
+						}, policySecretsNamespace),
+					})
+				} else {
+					headerMatches = append(headerMatches, &cilium.HeaderMatch{
+						MismatchAction: mismatch_action,
+						Name:           hdr.Name,
+						Value:          value,
+					})
+				}
 			}
 		}
 	}
@@ -1409,7 +1434,7 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 	return fmt.Sprintf("%s/%s-%s", policySecretsNamespace, namespacedName.Namespace, namespacedName.Name)
 }
 
-func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
+func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *api.L7Rules, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRules, bool) {
 	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
 		// Assume none of the rules have side-effects so that rule evaluation can
 		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
@@ -1419,7 +1444,7 @@ func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *
 		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
 		for _, l7 := range l7Rules.HTTP {
 			var cs bool
-			rule, cs := getHTTPRule(secretManager, &l7, ns)
+			rule, cs := getHTTPRule(secretManager, &l7, ns, policySecretsNamespace)
 			httpRules = append(httpRules, rule)
 			if !cs {
 				canShortCircuit = false
@@ -1498,7 +1523,7 @@ func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.Cache
 				httpRules = l7Rules.EnvoyHTTPRules
 				canShortCircuit = l7Rules.CanShortCircuit
 			} else {
-				httpRules, canShortCircuit = GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "")
+				httpRules, canShortCircuit = GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "", policySecretsNamespace)
 			}
 			r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{
 				HttpRules: httpRules,
