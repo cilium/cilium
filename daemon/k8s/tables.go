@@ -10,15 +10,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ResourcesCell provides a set of handles to Kubernetes resources used throughout the
-// agent. Each of the resources share a client-go informer and backing store so we only
-// have one watch API call for each resource kind and that we maintain only one copy of each object.
-//
-// See pkg/k8s/resource/resource.go for documentation on the Resource[T] type.
-
 // TablesCell provides a set of StateDB tables for common Kubernetes objects.
 // The tables are populated with the StateDB k8s reflector (pkg/k8s/statedb.go).
-// Some tables are provided as OnDemand[Table[T]]
+//
+// NOTE: When adding new k8s tables make sure to provide and register from a
+// single provider to ensure reflector starts before anyone depending on the table.
+// See [NewPodTableAndReflector] for example.
 var TablesCell = cell.Module(
 	"k8s-tables",
 	"StateDB tables of Kubernetes objects",

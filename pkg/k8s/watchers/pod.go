@@ -45,7 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
@@ -91,6 +90,7 @@ type k8sPodWatcherParams struct {
 	IPCache           *ipcache.IPCache
 	ServiceManager    service.ServiceManager
 	DB                *statedb.DB
+	Pods              statedb.Table[agentK8s.LocalPod]
 	NodeAddrs         statedb.Table[datapathTables.NodeAddress]
 	LRPManager        *redirectpolicy.Manager
 	BandwidthManager  datapath.BandwidthManager
@@ -112,10 +112,11 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		bandwidthManager:      params.BandwidthManager,
 		resources:             params.Resources,
 		db:                    params.DB,
+		pods:                  params.Pods,
 		nodeAddrs:             params.NodeAddrs,
 
 		controllersStarted: make(chan struct{}),
-		podStoreSet:        make(chan struct{}),
+		allPodsStoreSet:    make(chan struct{}),
 	}
 }
 
@@ -140,14 +141,14 @@ type K8sPodWatcher struct {
 	bandwidthManager      datapath.BandwidthManager
 	resources             agentK8s.Resources
 	db                    *statedb.DB
+	pods                  statedb.Table[agentK8s.LocalPod]
 	nodeAddrs             statedb.Table[datapathTables.NodeAddress]
 
-	podStoreMU lock.RWMutex
-	podStore   cache.Store
-	// podStoreSet is a channel that is closed when the podStore cache is
+	allPodsStoreMU lock.RWMutex
+	allPodsStore   cache.Store
+	// allPodsStoreSet is a channel that is closed when the podStore cache is
 	// variable is written for the first time.
-	podStoreSet  chan struct{}
-	podStoreOnce sync.Once
+	allPodsStoreSet chan struct{}
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -203,49 +204,63 @@ func (k *K8sPodWatcher) createAllPodsController(slimClient slimclientset.Interfa
 }
 
 func (k *K8sPodWatcher) podsInit(asyncControllers *sync.WaitGroup) {
-	var once sync.Once
+	var (
+		apiOnce      sync.Once
+		podStoreOnce sync.Once
+	)
 	watchNodePods := func() context.CancelFunc {
 		ctx, cancel := context.WithCancel(context.Background())
 		var synced atomic.Bool
-		go func() {
-			pods := make(map[resource.Key]*slim_corev1.Pod)
-			for ev := range k.resources.LocalPods.Events(ctx) {
-				switch ev.Kind {
-				case resource.Sync:
-					// Set the pod store now that resource has synchronized. Only
-					// error expected is if we're being stopped (context cancelled).
-					podStore, err := k.resources.LocalPods.Store(ctx)
-					if err == nil {
-						k.podStoreMU.Lock()
-						k.podStore = podStore.CacheStore()
-						k.podStoreMU.Unlock()
-						k.podStoreOnce.Do(func() {
-							close(k.podStoreSet)
-						})
-					}
-					synced.Store(true)
-				case resource.Upsert:
-					newPod := ev.Object
-					oldPod := pods[ev.Key]
-					if oldPod == nil {
-						k.addK8sPodV1(newPod)
-					} else {
-						k.updateK8sPodV1(oldPod, newPod)
-					}
-					k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
-					pods[ev.Key] = newPod
-				case resource.Delete:
-					k.deleteK8sPodV1(ev.Object)
-					k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
-					delete(pods, ev.Key)
-				}
 
-				ev.Done(nil)
+		go func() {
+			_, initWatch := k.pods.Initialized(k.db.ReadTxn())
+			select {
+			case <-ctx.Done():
+			case <-initWatch:
+			}
+			synced.Store(true)
+		}()
+
+		go func() {
+			pods := make(map[types.NamespacedName]*slim_corev1.Pod)
+			wtxn := k.db.WriteTxn(k.pods)
+			changeIter, err := k.pods.Changes(wtxn)
+			wtxn.Commit()
+			if err != nil {
+				return
+			}
+
+			for {
+				changes, watch := changeIter.Next(k.db.ReadTxn())
+				for change := range changes {
+					pod := change.Object.Pod
+					name := types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}
+					if !change.Deleted {
+						oldPod := pods[name]
+						if oldPod == nil {
+							k.addK8sPodV1(pod)
+						} else {
+							k.updateK8sPodV1(oldPod, pod)
+						}
+						k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
+						pods[name] = pod
+
+					} else {
+						k.deleteK8sPodV1(pod)
+						k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
+						delete(pods, name)
+					}
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case <-watch:
+				}
 			}
 		}()
 
 		k.k8sResourceSynced.BlockWaitGroupToSyncResources(ctx.Done(), nil, synced.Load, resources.K8sAPIGroupPodV1Core)
-		once.Do(func() {
+		apiOnce.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
 		})
@@ -271,17 +286,17 @@ func (k *K8sPodWatcher) podsInit(asyncControllers *sync.WaitGroup) {
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
 		k.k8sResourceSynced.BlockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, resources.K8sAPIGroupPodV1Core)
-		once.Do(func() {
+		apiOnce.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 
-		k.podStoreMU.Lock()
-		k.podStore = podStore
-		k.podStoreMU.Unlock()
-		k.podStoreOnce.Do(func() {
-			close(k.podStoreSet)
+		k.allPodsStoreMU.Lock()
+		k.allPodsStore = podStore
+		k.allPodsStoreMU.Unlock()
+		podStoreOnce.Do(func() {
+			close(k.allPodsStoreSet)
 		})
 
 		// Replace pod controller by only receiving events from our own
@@ -1052,16 +1067,33 @@ func (k *K8sPodWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 func (k *K8sPodWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
 	k.k8sResourceSynced.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
-	<-k.podStoreSet
-	k.podStoreMU.RLock()
-	defer k.podStoreMU.RUnlock()
+
+	pod, _, found := k.pods.Get(k.db.ReadTxn(), agentK8s.PodByName(namespace, name))
+	if !found {
+		// As fallback try to look up from the allPodStore if it is available.
+		select {
+		case <-k.allPodsStoreSet:
+			return k.getCachedPodFromAllPodStore(namespace, name)
+		default:
+			return nil, k8sErrors.NewNotFound(schema.GroupResource{
+				Group:    "core",
+				Resource: "pod",
+			}, name)
+		}
+	}
+	return pod.Pod, nil
+}
+
+func (k *K8sPodWatcher) getCachedPodFromAllPodStore(namespace, name string) (*slim_corev1.Pod, error) {
+	k.allPodsStoreMU.RLock()
+	defer k.allPodsStoreMU.RUnlock()
 	pName := &slim_corev1.Pod{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 	}
-	podInterface, exists, err := k.podStore.Get(pName)
+	podInterface, exists, err := k.allPodsStore.Get(pName)
 	if err != nil {
 		return nil, err
 	}

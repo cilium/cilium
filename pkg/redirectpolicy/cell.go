@@ -5,6 +5,7 @@ package redirectpolicy
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	serviceapi "github.com/cilium/cilium/api/v1/server/restapi/service"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -25,15 +26,16 @@ var Cell = cell.Module(
 type lrpManagerParams struct {
 	cell.In
 
+	DB             *statedb.DB
 	Svc            service.ServiceManager
 	SvcCache       *k8s.ServiceCache
-	Lpr            agentK8s.LocalPodResource
+	Pods           statedb.Table[agentK8s.LocalPod]
 	Ep             endpointmanager.EndpointManager
 	MetricsManager LRPMetrics
 }
 
 func newLRPManager(params lrpManagerParams) *Manager {
-	return NewRedirectPolicyManager(params.Svc, params.SvcCache, params.Lpr, params.Ep, params.MetricsManager)
+	return NewRedirectPolicyManager(params.DB, params.Svc, params.SvcCache, params.Pods, params.Ep, params.MetricsManager)
 }
 
 func newLRPApiHandler(lrpManager *Manager) serviceapi.GetLrpHandler {

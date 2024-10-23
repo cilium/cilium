@@ -30,7 +30,7 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		fakeClientSet,
 		&K8sPodWatcher{
 			controllersStarted: make(chan struct{}),
-			podStoreSet:        make(chan struct{}),
+			allPodsStoreSet:    make(chan struct{}),
 		},
 		nil,
 		nil,

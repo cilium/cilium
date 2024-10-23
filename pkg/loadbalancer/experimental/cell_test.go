@@ -27,6 +27,7 @@ func TestCell(t *testing.T) {
 	h := hive.New(
 		client.FakeClientCell,
 		daemonk8s.ResourcesCell,
+		daemonk8s.TablesCell,
 		maglev.Cell,
 		Cell,
 		cell.Provide(source.NewSources),

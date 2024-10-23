@@ -9,9 +9,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,6 +39,13 @@ func TestScript(t *testing.T) {
 			h := hive.New(
 				client.FakeClientCell,
 				TablesCell,
+
+				// Instantiate the tables we're testing. Without this the
+				// tables and reflectors would not be created (as nothing
+				// would depend on them).
+				cell.Invoke(
+					func(statedb.Table[LocalPod]) {},
+				),
 			)
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)

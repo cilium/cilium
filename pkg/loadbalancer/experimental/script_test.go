@@ -55,12 +55,14 @@ func TestScript(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
+
 	scripttest.Test(t,
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
+				daemonk8s.TablesCell,
 				Cell,
 				cell.Config(TestConfig{
 					// By default 10% of the time the LBMap operations fail
