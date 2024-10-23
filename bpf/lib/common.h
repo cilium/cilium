@@ -562,7 +562,7 @@ enum {
 	.type		= (t),		\
 	.subtype	= (s),		\
 	.source		= EVENT_SOURCE,	\
-	.hash		= get_hash_recalc(ctx)
+	.hash		= get_hash(ctx)   /* Avoids hash recalculation, assumes hash has been already calculated */
 
 #define __notify_pktcap_hdr(o, c)	\
 	.len_orig	= (o),		\
