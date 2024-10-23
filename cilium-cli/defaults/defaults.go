@@ -89,7 +89,7 @@ const (
 	FlowWaitTimeout   = 10 * time.Second
 	FlowRetryInterval = 500 * time.Millisecond
 
-	PolicyWaitTimeout = 15 * time.Second
+	PolicyWaitTimeout = 30 * time.Second
 
 	ConnectRetry      = 3
 	ConnectRetryDelay = 3 * time.Second
