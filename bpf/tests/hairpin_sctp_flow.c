@@ -18,7 +18,6 @@
 
 /* Use to-container for ingress policy: */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
-#undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
 static __always_inline __maybe_unused int
