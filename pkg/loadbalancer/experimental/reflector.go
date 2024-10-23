@@ -13,10 +13,13 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container"
@@ -49,12 +52,13 @@ var ReflectorCell = cell.Module(
 type reflectorParams struct {
 	cell.In
 
+	DB                *statedb.DB
 	Log               *slog.Logger
 	Lifecycle         cell.Lifecycle
 	JobGroup          job.Group
 	ServicesResource  stream.Observable[resource.Event[*slim_corev1.Service]]
 	EndpointsResource stream.Observable[resource.Event[*k8s.Endpoints]]
-	PodsResource      stream.Observable[resource.Event[*slim_corev1.Pod]]
+	Pods              statedb.Table[daemonK8s.LocalPod]
 	Writer            *Writer
 	ExtConfig         ExternalConfig
 }
@@ -65,12 +69,11 @@ func registerK8sReflector(p reflectorParams) {
 	}
 	initComplete := p.Writer.RegisterInitializer("k8s")
 	p.JobGroup.Add(job.OneShot("reflector", func(ctx context.Context, health cell.Health) error {
-		runResourceReflector(ctx, p, initComplete)
-		return nil
+		return runResourceReflector(ctx, p, initComplete)
 	}))
 }
 
-func runResourceReflector(ctx context.Context, p reflectorParams, initComplete func(WriteTxn)) {
+func runResourceReflector(ctx context.Context, p reflectorParams, initComplete func(WriteTxn)) error {
 	const (
 		bufferSize = 300
 		waitTime   = 10 * time.Millisecond
@@ -92,14 +95,15 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			bufferEvent[*k8s.Endpoints],
 		),
 	)
-	podEvents := stream.ToChannel(
+	podChanges := stream.ToChannel(
 		ctx,
 		stream.Buffer(
-			p.PodsResource,
+			statedb.Observable(p.DB, p.Pods),
 			bufferSize, waitTime,
-			bufferEvent[*slim_corev1.Pod],
+			bufferPod,
 		),
 	)
+	_, podsInitialized := p.Pods.Initialized(p.DB.ReadTxn())
 
 	// Keep track of currently existing backends by endpoint slice.
 	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
@@ -138,9 +142,9 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			}
 			for range epEvents {
 			}
-			for range podEvents {
+			for range podChanges {
 			}
-			return
+			return nil
 		case buf, ok := <-svcEvents:
 			if !ok {
 				continue
@@ -231,29 +235,32 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			}
 			txn.Commit()
 
-		case buf, ok := <-podEvents:
+		case buf, ok := <-podChanges:
 			if !ok {
 				continue
 			}
 
 			txn := p.Writer.WriteTxn()
-			for _, ev := range buf {
-				obj := ev.Object
-				switch ev.Kind {
-				case resource.Sync:
-					markSync(txn)
-				case resource.Upsert:
-					if err := upsertHostPort(p, txn, obj); err != nil {
+			for _, change := range buf {
+				obj := change.Object.Pod
+				if change.Deleted {
+					if err := deleteHostPort(p, txn, obj); err != nil {
 						panic(err)
 					}
-
-				case resource.Delete:
-					if err := deleteHostPort(p, txn, obj); err != nil {
+				} else {
+					if err := upsertHostPort(p, txn, obj); err != nil {
 						panic(err)
 					}
 				}
 			}
 			txn.Commit()
+
+		case <-podsInitialized:
+			txn := p.Writer.WriteTxn()
+			markSync(txn)
+			txn.Commit()
+			podsInitialized = nil
+
 		}
 	}
 }
@@ -640,5 +647,14 @@ func bufferEvent[Obj runtime.Object](buf map[resource.Key]resource.Event[Obj], e
 	}
 	ev.Done(nil)
 	buf[ev.Key] = ev
+	return buf
+}
+
+func bufferPod(buf map[types.NamespacedName]statedb.Change[daemonK8s.LocalPod], change statedb.Change[daemonK8s.LocalPod]) map[types.NamespacedName]statedb.Change[daemonK8s.LocalPod] {
+	if buf == nil {
+		buf = map[types.NamespacedName]statedb.Change[daemonK8s.LocalPod]{}
+	}
+	pod := change.Object
+	buf[types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}] = change
 	return buf
 }
