@@ -588,6 +588,9 @@
             "integer"
           ]
         },
+        "lbSourceRangeAllTypes": {
+          "type": "boolean"
+        },
         "mapDynamicSizeRatio": {
           "type": [
             "null",
