@@ -134,7 +134,7 @@ type PolicyRepository interface {
 	Release(rs ruleSlice)
 	ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64)
 	SearchRLocked(lbls labels.LabelArray) api.Rules
-	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool))
+	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool))
 	Start()
 }
 
@@ -178,7 +178,7 @@ type Repository struct {
 	certManager   certificatemanager.CertificateManager
 	secretManager certificatemanager.SecretManager
 
-	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
 // Lock acquiers the lock of the whole policy tree.
@@ -219,7 +219,7 @@ func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) Au
 	return p.policyCache.GetAuthTypes(localID, remoteID)
 }
 
-func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
+func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)) {
 	p.getEnvoyHTTPRules = f
 }
 
@@ -227,7 +227,7 @@ func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium
 	if p.getEnvoyHTTPRules == nil {
 		return nil, true
 	}
-	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns)
+	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns, p.secretManager.GetSecretSyncNamespace())
 }
 
 // GetPolicyCache() returns the policy cache used by the Repository
