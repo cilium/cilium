@@ -256,15 +256,9 @@ accessible from endpoints that have both labels ``env=prod`` and
 Services based
 --------------
 
-.. note::
-
-	Services based rules rules will only take effect on Kubernetes services
-        without a selector.
-
 Traffic from pods to services running in your cluster can be allowed via
 ``toServices`` statements in Egress rules. Currently Kubernetes
-`Services without a Selector
-<https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors>`_
+`Services <https://kubernetes.io/docs/concepts/services-networking/service>`_
 are supported when defined by their name and namespace or label selector.
 For services backed by pods, use `Endpoints Based` rules on the backend pod
 labels.
@@ -288,8 +282,8 @@ namespace ``default``.
         .. literalinclude:: ../../../examples/policies/l3/service/service.json
 
 This example shows how to allow all endpoints with the label ``id=app2``
-to talk to all endpoints of all kubernetes services without selectors which
-have ``external:yes`` set as the label.
+to talk to all endpoints of all kubernetes services which
+have ``serviceName:myservice`` set as the label.
 
 .. only:: html
 
@@ -304,12 +298,6 @@ have ``external:yes`` set as the label.
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/l3/service/service-labels.json
-
-Limitations
-~~~~~~~~~~~
-
-``toServices`` statements must not be combined with ``toPorts`` statements in the
-same rule. If a rule combines both these statements, the policy is rejected.
 
 .. _Entities based:
 
