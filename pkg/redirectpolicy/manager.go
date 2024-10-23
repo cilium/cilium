@@ -874,9 +874,6 @@ func (rpm *Manager) processConfig(config *LRPConfig, pods ...*podMetadata) {
 // If a pod has multiple IPs, then there will be multiple backend entries created
 // for the pod with common <port, protocol>.
 func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podMetadata) {
-	var bes4 []backend
-	var bes6 []backend
-
 	// Generate and map pod backends to the policy frontend. The policy config
 	// is already sanitized, and has matching backend and frontend port protocol.
 	// We currently don't check which backends are updated before upserting a
@@ -885,6 +882,10 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 	bePort := config.backendPorts[0]
 	feM := config.frontendMappings[0]
 	for _, pod := range pods {
+		var (
+			bes4   []backend
+			bes6   []backend
+		)
 		for _, ip := range pod.ips {
 			beIP := net.ParseIP(ip)
 			if beIP == nil {
@@ -928,10 +929,9 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 	// are scaled up.
 	upsertFes := make([]*feMapping, 0, len(config.frontendMappings))
 	for _, feM := range config.frontendMappings {
+		shouldUpsert := false
 		namedPort := feM.fePort
 		var (
-			bes4   []backend
-			bes6   []backend
 			bePort *bePortInfo
 			ok     bool
 		)
@@ -943,6 +943,10 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 			continue
 		}
 		for _, pod := range pods {
+			var (
+				bes4   []backend
+				bes6   []backend
+			)
 			if _, ok = pod.namedPorts[namedPort]; ok {
 				// Generate pod backends.
 				for _, ip := range pod.ips {
@@ -973,11 +977,13 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 			}
 			if len(bes4) > 0 {
 				rpm.updateFrontendMapping(config, feM, pod.id, bes4)
+				shouldUpsert = true
 			} else if len(bes6) > 0 {
 				rpm.updateFrontendMapping(config, feM, pod.id, bes6)
+				shouldUpsert = true
 			}
 		}
-		if len(bes4) > 0 || len(bes6) > 0 {
+		if shouldUpsert {
 			upsertFes = append(upsertFes, feM)
 		}
 	}
