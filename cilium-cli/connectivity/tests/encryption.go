@@ -197,6 +197,26 @@ func isWgEncap(t *check.Test) bool {
 	return true
 }
 
+// checkIPSecPodToPod checks whether in case of IPSec being enabled and used
+// during the podToPodEncryption test it should be executed or skipped due to:
+//
+// 1. missing backporting of the commit in previous versions;
+// 2. usage of IPv6, for which the test is flaky (see https://github.com/cilium/cilium/issues/35485).
+//
+// Once the above reasons are fixed, this function can be removed.
+func checkIPSecPodToPod(t *check.Test, ipFam features.IPFamily) error {
+	if e, ok := t.Context().Feature(features.EncryptionPod); !(ok && e.Enabled && e.Mode == "ipsec") {
+		return nil
+	}
+	if !versioncheck.MustCompile(">=1.17.0")(t.Context().CiliumVersion) {
+		return fmt.Errorf("enabling test for IPSec requires backporting")
+	}
+	if ipFam == features.IPFamilyV6 {
+		return fmt.Errorf("inactive IPv6 test with IPSec, see https://github.com/cilium/cilium/issues/35485")
+	}
+	return nil
+}
+
 // PodToPodEncryption is a test case which checks the following:
 //   - There is a connectivity between pods on different nodes when any
 //     encryption mode is on (either WireGuard or IPsec).
@@ -246,6 +266,10 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	}
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		if err := checkIPSecPodToPod(t, ipFam); err != nil {
+			t.Debugf("Skipping test: %v", err)
+			return
+		}
 		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true, wgEncap)
 	})
 }

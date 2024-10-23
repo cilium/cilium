@@ -29,13 +29,11 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),
-			// Once https://github.com/cilium/cilium/issues/33168 is fixed, we
-			// can enable for IPsec too.
-			features.RequireMode(features.EncryptionPod, "wireguard"),
+			features.RequireEnabled(features.EncryptionPod),
 		).
 		WithCiliumPolicy(clientsEgressL7HTTPFromAnyPolicyYAML).
 		WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
 		WithScenarios(
-			tests.PodToPodEncryption(features.RequireEnabled(features.EncryptionPod)),
+			tests.PodToPodEncryption(),
 		)
 }
