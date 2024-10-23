@@ -1392,13 +1392,44 @@ ignore the field regardless whether it is set. This means that any pod or any ho
 process in the cluster will be able to access the ``LoadBalancer`` service internally.
 
 The load balancer source range check feature is enabled by default, and it can be
-disabled by setting ``config.svcSourceRangeCheck=false``. It makes sense to disable
-the check when running on some cloud providers. E.g. `Amazon NLB
+disabled by setting ``config.svcSourceRangeCheck=false``.
+
+It makes sense to disable the check when running on some cloud providers e.g. `Amazon NLB
 <https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support>`__
 natively implements the check, so the kube-proxy replacement's feature can be disabled.
 Meanwhile `GKE internal TCP/UDP load balancer
 <https://cloud.google.com/kubernetes-engine/docs/how-to/service-parameters#lb_source_ranges>`__
 does not, so the feature must be kept enabled in order to restrict the access.
+
+By default the specified white-listed CIDRs in ``spec.loadBalancerSourceRanges``
+only apply to the ``LoadBalancer`` service, but not the corresponding ``NodePort``
+or ``ClusterIP`` service which get installed along with the ``LoadBalancer`` service.
+
+If this behavior is not desired, then there are two options available: One possibility
+is to avoid the creation of corresponding ``NodePort`` and ``ClusterIP`` services via
+``service.cilium.io/type`` annotation:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+    loadBalancerSourceRanges:
+    - 192.168.1.0/24
+
+The other possibility is to propagate the white-listed CIDRs to all externally
+exposed service types. Meaning, ``NodePort`` as well as ``ClusterIP`` (if
+externally accessible, see :ref:`External Access To ClusterIP Services <external_access_to_clusterip_services>`
+section) also filter traffic based on the source IP addresses.
+This option can be enabled in Helm via ``bpf.lbSourceRangeAllTypes=true``.
 
 Service Proxy Name Configuration
 ********************************
