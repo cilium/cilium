@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/cilium/cilium/daemon/k8s"
@@ -57,10 +58,10 @@ type Manager interface {
 }
 
 type manager struct {
+	db                *statedb.DB
 	namespaceResource resource.Resource[*slim_core_v1.Namespace]
 	namespaceStore    resource.Store[*slim_core_v1.Namespace]
-	podResource       k8s.LocalPodResource
-	podStore          resource.Store[*slim_core_v1.Pod]
+	pods              statedb.Table[k8s.LocalPod]
 }
 
 func (m *manager) Start(ctx cell.HookContext) (err error) {
@@ -69,17 +70,11 @@ func (m *manager) Start(ctx cell.HookContext) (err error) {
 		return fmt.Errorf("failed to obtain namespace store: %w", err)
 	}
 
-	m.podStore, err = m.podResource.Store(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to obtain pod store: %w", err)
-	}
-
 	return nil
 }
 
 func (m *manager) Stop(ctx cell.HookContext) error {
 	m.namespaceStore = nil
-	m.podStore = nil
 	return nil
 }
 
@@ -117,7 +112,7 @@ func determinePoolByAnnotations(annotations map[string]string, family ipam.Famil
 }
 
 func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string, err error) {
-	if m.namespaceStore == nil || m.podStore == nil {
+	if m.namespaceStore == nil || m.pods == nil {
 		return "", &ManagerStoppedError{}
 	}
 
@@ -133,13 +128,8 @@ func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 	}
 
 	// Check annotation on pod
-	pod, ok, err := m.podStore.GetByKey(resource.Key{
-		Name:      name,
-		Namespace: namespace,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to lookup pod %q: %w", namespace+"/"+name, err)
-	} else if !ok {
+	pod, _, found := m.pods.Get(m.db.ReadTxn(), k8s.PodByName(namespace, name))
+	if !found {
 		return "", &ResourceNotFound{Resource: "Pod", Namespace: namespace, Name: name}
 	} else if ippool, ok := determinePoolByAnnotations(pod.Annotations, family); ok {
 		return ippool, nil

@@ -22,9 +22,11 @@ import (
 	"github.com/cilium/stream"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -85,11 +87,6 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		Kind: resource.Sync,
 		Done: func(error) {},
 	}
-	pods := make(chan resource.Event[*slim_corev1.Pod], 1)
-	pods <- resource.Event[*slim_corev1.Pod]{
-		Kind: resource.Sync,
-		Done: func(error) {},
-	}
 	endpoints := make(chan resource.Event[*k8s.Endpoints], 1000)
 	endpoints <- resource.Event[*k8s.Endpoints]{
 		Kind: resource.Sync,
@@ -101,7 +98,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		db     *statedb.DB
 		bo     *experimental.BPFOps
 	)
-	h := testHive(maps, services, pods, endpoints, &writer, &db, &bo)
+	h := testHive(maps, services, endpoints, &writer, &db, &bo)
 
 	if err := h.Start(log, context.TODO()); err != nil {
 		panic(err)
@@ -505,7 +502,6 @@ var (
 
 func testHive(maps experimental.LBMaps,
 	services chan resource.Event[*slim_corev1.Service],
-	pods chan resource.Event[*slim_corev1.Pod],
 	endpoints chan resource.Event[*k8s.Endpoints],
 	writer **experimental.Writer,
 	db **statedb.DB,
@@ -523,6 +519,8 @@ func testHive(maps experimental.LBMaps,
 			"loadbalancer-test",
 			"Test module",
 
+			client.FakeClientCell,
+
 			cell.Provide(
 				func() experimental.Config {
 					return experimental.Config{
@@ -537,7 +535,6 @@ func testHive(maps experimental.LBMaps,
 					return experimental.StreamsOut{
 						ServicesStream:  stream.FromChannel(services),
 						EndpointsStream: stream.FromChannel(endpoints),
-						PodsStream:      stream.FromChannel(pods),
 					}
 				},
 
@@ -552,6 +549,8 @@ func testHive(maps experimental.LBMaps,
 					return maglev.New(maglevConfig, lc)
 				},
 			),
+
+			daemonk8s.PodTableCell,
 
 			cell.Invoke(func(db_ *statedb.DB, w *experimental.Writer, bo_ *experimental.BPFOps) {
 				*db = db_
