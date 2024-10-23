@@ -111,14 +111,15 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
 	}
 	dnsProxyConfig := dnsproxy.DNSProxyConfig{
-		Address:                "",
-		Port:                   port,
-		IPv4:                   option.Config.EnableIPv4,
-		IPv6:                   option.Config.EnableIPv6,
-		EnableDNSCompression:   option.Config.ToFQDNsEnableDNSCompression,
-		MaxRestoreDNSIPs:       option.Config.DNSMaxIPsPerRestoredRule,
-		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
-		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
+		Address:                     "",
+		Port:                        port,
+		IPv4:                        option.Config.EnableIPv4,
+		IPv6:                        option.Config.EnableIPv6,
+		EnableDNSCompression:        option.Config.ToFQDNsEnableDNSCompression,
+		MaxRestoreDNSIPs:            option.Config.DNSMaxIPsPerRestoredRule,
+		ConcurrencyLimit:            option.Config.DNSProxyConcurrencyLimit,
+		ConcurrencyGracePeriod:      option.Config.DNSProxyConcurrencyProcessingGracePeriod,
+		AllowNonTransparentFallback: !option.Config.EncryptionEnabled(),
 	}
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy(dnsProxyConfig, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
 		d.notifyOnDNSMsg)

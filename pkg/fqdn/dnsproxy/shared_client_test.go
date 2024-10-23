@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	clients = NewSharedClients()
+	clients = NewSharedClients(false)
 )
 
 func TestSharedClientSync(t *testing.T) {

@@ -667,6 +667,10 @@ type DNSProxyConfig struct {
 	MaxRestoreDNSIPs       int
 	ConcurrencyLimit       int
 	ConcurrencyGracePeriod time.Duration
+	// When encryption is enabled, we cannot allow traffic to egress using the node IP, as it would
+	// be sent in plaintext. Without encryption, we can fall back to binding a non-transparent
+	// socket.
+	AllowNonTransparentFallback bool
 }
 
 // StartDNSProxy starts a proxy used for DNS L7 redirects that listens on
@@ -709,7 +713,7 @@ func StartDNSProxy(
 		cache:                    make(regexCache),
 		EnableDNSCompression:     dnsProxyConfig.EnableDNSCompression,
 		maxIPsPerRestoredDNSRule: dnsProxyConfig.MaxRestoreDNSIPs,
-		DNSClients:               NewSharedClients(),
+		DNSClients:               NewSharedClients(dnsProxyConfig.AllowNonTransparentFallback),
 	}
 	if dnsProxyConfig.ConcurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(dnsProxyConfig.ConcurrencyLimit))

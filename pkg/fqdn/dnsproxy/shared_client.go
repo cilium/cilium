@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/dns"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
@@ -23,12 +24,14 @@ type SharedClients struct {
 	// SharedClient's lock must not be taken while this lock is held!
 	lock lock.Mutex
 	// clients are created and destroyed on demand, hence 'Mutex' needs to be taken.
-	clients map[string]*SharedClient
+	clients              map[string]*SharedClient
+	allowNonTransparency bool
 }
 
-func NewSharedClients() *SharedClients {
+func NewSharedClients(allowNontransparentFallback bool) *SharedClients {
 	return &SharedClients{
-		clients: make(map[string]*SharedClient),
+		clients:              make(map[string]*SharedClient),
+		allowNonTransparency: allowNontransparentFallback,
 	}
 }
 
@@ -76,7 +79,7 @@ func (s *SharedClients) ShutdownTCPClient(key string) {
 func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddrStr string) (client *SharedClient, closer func()) {
 	if key == "" {
 		// Simplified case when the client is actually not shared
-		client = newSharedClient(conf, serverAddrStr)
+		client = newSharedClient(conf, serverAddrStr, s.allowNonTransparency)
 		return client, client.close
 	}
 	for {
@@ -85,7 +88,7 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 		// locate client to re-use if possible.
 		client = s.clients[key]
 		if client == nil {
-			client = newSharedClient(conf, serverAddrStr)
+			client = newSharedClient(conf, serverAddrStr, s.allowNonTransparency)
 			s.clients[key] = client
 			s.lock.Unlock()
 			// new client, we are done
@@ -155,18 +158,21 @@ type SharedClient struct {
 	wg sync.WaitGroup
 	// size of receive buffers to allocate, must only grow
 	udpSize atomic.Uint32
+	// are we allowed to fall back to non-transparency if port allocation fails
+	allowNonTransparency bool
 
 	lock.Mutex // protects the fields below
 	refcount   int
 	conn       *dns.Conn
 }
 
-func newSharedClient(conf *dns.Client, serverAddr string) *SharedClient {
+func newSharedClient(conf *dns.Client, serverAddr string, allowNonTransparentFallback bool) *SharedClient {
 	return &SharedClient{
-		refcount:   1,
-		serverAddr: serverAddr,
-		Client:     conf,
-		requests:   make(chan request),
+		refcount:             1,
+		serverAddr:           serverAddr,
+		Client:               conf,
+		requests:             make(chan request),
+		allowNonTransparency: allowNonTransparentFallback,
 	}
 }
 
@@ -348,6 +354,13 @@ func (c *SharedClient) ExchangeSharedContext(ctx context.Context, m *dns.Msg) (r
 	c.Lock()
 	if c.conn == nil {
 		c.conn, err = c.DialContext(ctx, c.serverAddr)
+		// In transparent mode, the source port the pod allocated may be in use in our network
+		// namespace. Detect this case and (if allowed) fall back to non-transparency.
+		if errors.Is(err, unix.EADDRINUSE) && c.Dialer.LocalAddr != nil && c.allowNonTransparency {
+			c.Dialer.LocalAddr = nil
+			c.conn, err = c.DialContext(ctx, c.serverAddr)
+		}
+
 		if err != nil {
 			c.Unlock()
 			return nil, 0, fmt.Errorf("failed to dial connection to %v: %w", c.serverAddr, err)
