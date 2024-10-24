@@ -6,7 +6,7 @@ package install
 import (
 	"github.com/blang/semver/v4"
 
-	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/pkg/cli/k8s"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 

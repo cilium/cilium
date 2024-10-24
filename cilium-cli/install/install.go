@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium/cilium-cli/internal/utils"
-	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/pkg/cli/k8s"
 )
 
 const (
