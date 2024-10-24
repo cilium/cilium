@@ -376,6 +376,7 @@ func TestUpsertIPSecEndpointFwd(t *testing.T) {
 		DestTunnelIP:   &local.IP,
 		ZeroOutputMark: false,
 		RemoteRebooted: false,
+		Optional:       true,
 		ReqID:          DefaultReqID,
 	}
 
