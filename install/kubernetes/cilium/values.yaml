@@ -42,6 +42,8 @@ rbac:
 imagePullSecrets: []
 # - name: "image-pull-secret"
 
+# -- Configure iptables--random-fully. Disabled by default. View https://github.com/cilium/cilium/issues/13037 for more information.
+iptablesRandomFully: false
 # -- (string) Kubernetes config path
 # @default -- `"~/.kube/config"`
 kubeConfigPath: ""

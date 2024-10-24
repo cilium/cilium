@@ -3750,6 +3750,9 @@
       },
       "type": "object"
     },
+    "iptablesRandomFully": {
+      "type": "boolean"
+    },
     "ipv4": {
       "properties": {
         "enabled": {
