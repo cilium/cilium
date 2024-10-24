@@ -118,7 +118,8 @@ jobs:
           # Use complete matrix in case of scheduled run
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
+          VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* || "$VERSIONS" == "all" ]];then
             cp gke.json /tmp/matrix.json
           else
             jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
@@ -145,12 +146,20 @@ jobs:
       - name: Filter Matrix
         id: set-matrix
         run: |
+          CHANNEL=$(echo ${{ inputs.extra-args }} | grep "channel" | awk -F'=' '{print $2}' | tr '[:lower:]' '[:upper:]')
+          if [ "$CHANNEL" == "" ];then
+            FILTER="channels.channel=REGULAR"
+          elif [ "$CHANNEL" == "NONE" ];then
+            FILTER=""
+          else
+            FILTER="channels.channel=$CHANNEL"
+          fi
           cp /tmp/matrix.json /tmp/result.json
           jq -c '.k8s[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
             ZONE=$(echo $i | jq -r '.zone')
             gcloud --quiet container get-server-config \
-              --flatten="channels" \
+              --flatten="channels" --filter="$FILTER" \
               --format="yaml(channels.validVersions)" --zone $ZONE > /tmp/output
             if grep -q -F $VERSION /tmp/output; then
               echo "Version $VERSION is valid for zone $ZONE"
