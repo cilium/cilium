@@ -4,22 +4,18 @@ allowed-teams:
 triggers:
   /test:
     workflows:
-    - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
     - conformance-delegated-ipam.yaml
     - conformance-ipsec-e2e.yaml
-    - conformance-eks.yaml
     - conformance-externalworkloads.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
     - conformance-multi-pool.yaml
     - conformance-runtime.yaml
     - integration-test.yaml
-    - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
     - tests-l4lb.yaml
     - tests-e2e-upgrade.yaml
-    - tests-ipsec-upgrade.yaml
     - hubble-cli-integration-test.yaml
   /ci-aks:
     workflows:
