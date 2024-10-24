@@ -336,7 +336,8 @@ struct endpoint_info {
 	mac_t		mac;
 	mac_t		node_mac;
 	__u32		sec_id;
-	__u32		pad[3];
+	__u32		parent_ifindex;
+	__u32		pad[2];
 };
 
 struct edt_id {
