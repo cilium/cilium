@@ -60,16 +60,38 @@ func TestProvider(t *testing.T) {
 
 			assert.Empty(byLevel(db, statusTable, types.LevelStopped))
 
+			long := ""
+			hl := h.NewScope("toolong")
+			for range maxHealthProviderMsgLen + 1 {
+				long += "x"
+			}
+			hl.Degraded(long, fmt.Errorf("%s", long))
+			all = allStatus(db, statusTable)
+			found := false
+			for _, s := range all {
+				if s.ID.String() == "foo.bar.zzz.toolong" {
+					found = true
+					assert.Len(s.Message, maxHealthProviderMsgLen)
+					assert.Len(s.Error, maxHealthProviderMsgLen)
+					continue
+				}
+				assert.Zero(s.Stopped)
+			}
+			assert.True(found)
+
 			h2.Stopped("done")
 			all = allStatus(db, statusTable)
 
+			found = false
 			for _, s := range all {
 				if s.ID.String() == "foo.bar.zzz.xxx" {
+					found = true
 					assert.NotZero(s.Stopped)
 					continue
 				}
 				assert.Zero(s.Stopped)
 			}
+			assert.True(found)
 			return nil
 		}),
 	)
