@@ -590,6 +590,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 
 func TestClusterConfigConditions(t *testing.T) {
 	clusterConfigName := "cluster-config0"
+	peerConfigName := "peer-config0"
 
 	node := cilium_api_v2.CiliumNode{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -597,6 +598,12 @@ func TestClusterConfigConditions(t *testing.T) {
 			Labels: map[string]string{
 				"bgp": "rack1",
 			},
+		},
+	}
+
+	peerConfig := cilium_api_v2alpha1.CiliumBGPPeerConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: peerConfigName,
 		},
 	}
 
@@ -655,6 +662,81 @@ func TestClusterConfigConditions(t *testing.T) {
 				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
 			},
 		},
+		{
+			name: "MissingPeerConfig False",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+						{
+							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+								{
+									Name: "peer0",
+									PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+										Name: peerConfigName,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "MissingPeerConfig False nil PeerConfigRef",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+						{
+							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+								{
+									Name: "peer0",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "MissingPeerConfig True",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+						{
+							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+								{
+									Name: "peer0",
+									PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+										Name: peerConfigName + "-foo",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -675,6 +757,7 @@ func TestClusterConfigConditions(t *testing.T) {
 			// Setup resources
 			upsertNode(req, ctx, f, &node)
 			upsertBGPCC(req, ctx, f, tt.clusterConfig)
+			upsertBGPPC(req, ctx, f, &peerConfig)
 
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
 				// Check conditions
@@ -726,6 +809,22 @@ func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc
 		req.Fail(err.Error())
 	} else {
 		_, err = f.bgpcClient.Update(ctx, bgpcc, meta_v1.UpdateOptions{})
+	}
+	req.NoError(err)
+}
+
+func upsertBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc *cilium_api_v2alpha1.CiliumBGPPeerConfig) {
+	if bgppc == nil {
+		return
+	}
+
+	_, err := f.bgpcClient.Get(ctx, bgppc.Name, meta_v1.GetOptions{})
+	if err != nil && k8sErrors.IsNotFound(err) {
+		_, err = f.bgppcClient.Create(ctx, bgppc, meta_v1.CreateOptions{})
+	} else if err != nil {
+		req.Fail(err.Error())
+	} else {
+		_, err = f.bgppcClient.Update(ctx, bgppc, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
 }
