@@ -325,10 +325,6 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 		return statesUpdated, errs
 	}
 
-	if !n.nodeConfig.EnableIPSecEncryptedOverlay {
-		return statesUpdated, errs
-	}
-
 	localUnderlayIP := n.nodeConfig.NodeIPv4
 	if localUnderlayIP == nil {
 		n.log.Warn("unable to enable encrypted overlay IPsec, nil local internal IP")
@@ -344,7 +340,6 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMask}
 
 	params = ipsec.NewIPSecParamaters(template)
-	params.ReqID = ipsec.EncryptedOverlayReqID
 	params.Dir = ipsec.IPSecDirOut
 	params.SourceSubnet = localOverlayIPExactMatch
 	params.DestSubnet = remoteOverlayIPExactMatch
@@ -357,10 +352,9 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	}
 
 	params = ipsec.NewIPSecParamaters(template)
-	params.ReqID = ipsec.EncryptedOverlayReqID
 	params.Dir = ipsec.IPSecDirIn
-	params.SourceSubnet = remoteOverlayIPExactMatch
-	params.DestSubnet = localOverlayIPExactMatch
+	params.SourceSubnet = wildcardCIDR
+	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteUnderlayIP
 	params.DestTunnelIP = &localUnderlayIP
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
@@ -368,16 +362,6 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	if err != nil {
 		statesUpdated = false
 	}
-
-	params = ipsec.NewIPSecParamaters(template)
-	params.ReqID = ipsec.EncryptedOverlayReqID
-	params.Dir = ipsec.IPSecDirFwd
-	params.SourceSubnet = wildcardCIDR
-	params.DestSubnet = wildcardCIDR
-	params.SourceTunnelIP = &net.IP{}
-	params.DestTunnelIP = &localUnderlayIP
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
 	return statesUpdated, errs
 }
