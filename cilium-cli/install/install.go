@@ -18,7 +18,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
@@ -91,6 +90,10 @@ type AzureParameters struct {
 	IsBYOCNI             bool
 }
 
+type AWSParameters struct {
+	AwsNodeImageFamily string
+}
+
 type Parameters struct {
 	Namespace             string
 	Writer                io.Writer
@@ -102,6 +105,7 @@ type Parameters struct {
 	DatapathMode          string
 	IPv4NativeRoutingCIDR string
 	Azure                 AzureParameters
+	AWS                   AWSParameters
 
 	// HelmChartDirectory points to the location of a helm chart directory.
 	// Useful to test from upstream where a helm release is not available yet.
@@ -185,11 +189,6 @@ func (k *K8sInstaller) listVersions() error {
 	return err
 }
 
-func getChainingMode(values map[string]interface{}) string {
-	chainingMode, _, _ := unstructured.NestedString(values, "cni", "chainingMode")
-	return chainingMode
-}
-
 func (k *K8sInstaller) preinstall(ctx context.Context) error {
 	// TODO (ajs): Note that we have our own implementation of helm MergeValues at internal/helm/MergeValues, used
 	//  e.g. in hubble.go. Does using the upstream HelmOpts.MergeValues here create inconsistencies with which
@@ -224,18 +223,14 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 			}
 		}
 	case k8s.KindEKS:
-		chainingMode := getChainingMode(helmValues)
+		// detect AWS AMI type
+		if err := k.awsRetrieveNodeImageFamily(); err != nil {
+			return err
+		}
 
-		// Do not stop AWS DS if we are running in chaining mode
-		if chainingMode != "aws-cni" && !k.params.IsDryRun() {
-			if _, err := k.client.GetDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, metav1.GetOptions{}); err == nil {
-				k.Log("🔥 Patching the %q DaemonSet to evict its pods...", AwsNodeDaemonSetName)
-				patch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"%s":"%s"}}}}}`, AwsNodeDaemonSetNodeSelectorKey, AwsNodeDaemonSetNodeSelectorValue))
-				if _, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
-					k.Log("❌ Unable to patch the %q DaemonSet", AwsNodeDaemonSetName)
-					return err
-				}
-			}
+		// setup chaining mode
+		if err := k.awsSetupChainingMode(ctx, helmValues); err != nil {
+			return err
 		}
 	}
 
