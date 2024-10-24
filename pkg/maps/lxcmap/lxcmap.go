@@ -48,8 +48,8 @@ func LXCMap() *bpf.Map {
 }
 
 const (
-	// EndpointFlagHost indicates that this endpoint represents the host
-	EndpointFlagHost = 1
+	// EndpointFlagHostNS indicates that this endpoint resides in the host network namespace
+	EndpointFlagHostNS = 1
 )
 
 // EndpointFrontend is the interface to implement for an object to synchronize
@@ -140,14 +140,14 @@ func NewEndpointKey(ip net.IP) *EndpointKey {
 
 func (k *EndpointKey) New() bpf.MapKey { return &EndpointKey{} }
 
-// IsHost returns true if the EndpointInfo represents a host IP
+// IsHost returns true if the EndpointInfo represents an endpoint in host network
 func (v *EndpointInfo) IsHost() bool {
-	return v.Flags&EndpointFlagHost != 0
+	return v.Flags&EndpointFlagHostNS != 0
 }
 
 // String returns the human readable representation of an EndpointInfo
 func (v *EndpointInfo) String() string {
-	if v.Flags&EndpointFlagHost != 0 {
+	if v.Flags&EndpointFlagHostNS != 0 {
 		return "(localhost)"
 	}
 
@@ -184,7 +184,7 @@ func WriteEndpoint(f EndpointFrontend) error {
 // AddHostEntry adds a special endpoint which represents the local host
 func AddHostEntry(ip net.IP) error {
 	key := NewEndpointKey(ip)
-	ep := &EndpointInfo{Flags: EndpointFlagHost}
+	ep := &EndpointInfo{Flags: EndpointFlagHostNS}
 	return LXCMap().Update(key, ep)
 }
 
@@ -193,7 +193,7 @@ func AddHostEntry(ip net.IP) error {
 func SyncHostEntry(ip net.IP) (bool, error) {
 	key := NewEndpointKey(ip)
 	value, err := LXCMap().Lookup(key)
-	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
+	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHostNS == 0 {
 		err = AddHostEntry(ip)
 		if err == nil {
 			return true, nil

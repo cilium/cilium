@@ -325,7 +325,7 @@ struct tunnel_value {
 	__u16 pad;
 } __packed;
 
-#define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */
+#define ENDPOINT_F_HOSTNS		1 /* Endpoint resides in host network namespace */
 
 /* Value of endpoint map */
 struct endpoint_info {
