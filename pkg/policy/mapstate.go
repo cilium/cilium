@@ -592,6 +592,14 @@ func (obtained *mapState) diff(expected *mapState) (res string) {
 	return res
 }
 
+func (ms mapState) String() (res string) {
+	ms.forEach(func(kO Key, vO mapStateEntry) bool {
+		res += kO.String() + ": " + vO.String() + "\n"
+		return true
+	})
+	return res
+}
+
 // merge adds owners, and DerivedFromRules from a new 'entry' to an existing
 // entry 'e'. 'entry' is not modified.
 // Merge is only called if both entries are allow or deny entries, so deny precedence is not
