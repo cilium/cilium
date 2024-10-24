@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -59,7 +60,7 @@ type reflectorParams struct {
 	EndpointsResource stream.Observable[resource.Event[*k8s.Endpoints]]
 	PodsResource      stream.Observable[resource.Event[*slim_corev1.Pod]]
 	Writer            *Writer
-	ExtConfig         externalConfig
+	ExtConfig         ExternalConfig
 }
 
 func registerK8sReflector(p reflectorParams) {
@@ -153,8 +154,6 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			}
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
-				ev.Done(nil)
-
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -191,8 +190,6 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
-				ev.Done(nil)
-
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -254,7 +251,6 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
-				ev.Done(nil)
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -324,11 +320,11 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	}
 
 	// ClusterIP
-	clusterIPs := sets.New(svc.Spec.ClusterIPs...)
+	clusterIPs := container.NewImmSet(svc.Spec.ClusterIPs...)
 	if svc.Spec.ClusterIP != "" {
-		clusterIPs.Insert(svc.Spec.ClusterIP)
+		clusterIPs = clusterIPs.Insert(svc.Spec.ClusterIP)
 	}
-	for ip := range clusterIPs {
+	for _, ip := range clusterIPs.AsSlice() {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
 			continue
@@ -646,10 +642,7 @@ func bufferEvent[Obj runtime.Object](buf map[resource.Key]resource.Event[Obj], e
 	if buf == nil {
 		buf = map[resource.Key]resource.Event[Obj]{}
 	}
-
-	if ev, ok := buf[ev.Key]; ok {
-		ev.Done(nil)
-	}
+	ev.Done(nil)
 	buf[ev.Key] = ev
 	return buf
 }

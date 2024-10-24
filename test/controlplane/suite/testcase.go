@@ -16,10 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
-	discov1 "k8s.io/api/discovery/v1"
-	discov1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +35,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -79,9 +77,9 @@ func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *Cont
 	fd := clients.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(k8sVersion)
 
-	resources, ok := apiResources[k8sVersion]
+	resources, ok := k8stestutils.APIResources[k8sVersion]
 	if !ok {
-		panic(fmt.Sprintf("k8s version %s not found in apiResources", k8sVersion))
+		panic(fmt.Sprintf("k8s version %s not found in APIResources", k8sVersion))
 	}
 	clients.KubernetesFakeClientset.Resources = resources
 	clients.SlimFakeClientset.Resources = resources
@@ -380,72 +378,6 @@ func gvrAndName(obj k8sRuntime.Object) (gvr schema.GroupVersionResource, ns stri
 	name = objMeta.GetName()
 	return
 }
-
-var (
-	corev1APIResources = &metav1.APIResourceList{
-		GroupVersion: corev1.SchemeGroupVersion.String(),
-		APIResources: []metav1.APIResource{
-			{Name: "nodes", Kind: "Node"},
-			{Name: "pods", Namespaced: true, Kind: "Pod"},
-			{Name: "services", Namespaced: true, Kind: "Service"},
-			{Name: "endpoints", Namespaced: true, Kind: "Endpoint"},
-		},
-	}
-
-	ciliumv2APIResources = &metav1.APIResourceList{
-		TypeMeta:     metav1.TypeMeta{},
-		GroupVersion: cilium_v2.SchemeGroupVersion.String(),
-		APIResources: []metav1.APIResource{
-			{Name: cilium_v2.CNPluralName, Kind: cilium_v2.CNKindDefinition},
-			{Name: cilium_v2.CEPPluralName, Namespaced: true, Kind: cilium_v2.CEPKindDefinition},
-			{Name: cilium_v2.CIDPluralName, Namespaced: true, Kind: cilium_v2.CIDKindDefinition},
-			{Name: cilium_v2.CEGPPluralName, Namespaced: true, Kind: cilium_v2.CEGPKindDefinition},
-			{Name: cilium_v2.CNPPluralName, Namespaced: true, Kind: cilium_v2.CNPKindDefinition},
-			{Name: cilium_v2.CCNPPluralName, Namespaced: true, Kind: cilium_v2.CCNPKindDefinition},
-			{Name: cilium_v2.CLRPPluralName, Namespaced: true, Kind: cilium_v2.CLRPKindDefinition},
-			{Name: cilium_v2.CEWPluralName, Namespaced: true, Kind: cilium_v2.CEWKindDefinition},
-			{Name: cilium_v2.CCECPluralName, Namespaced: true, Kind: cilium_v2.CCECKindDefinition},
-			{Name: cilium_v2.CECPluralName, Namespaced: true, Kind: cilium_v2.CECKindDefinition},
-		},
-	}
-
-	discoveryV1APIResources = &metav1.APIResourceList{
-		TypeMeta:     metav1.TypeMeta{},
-		GroupVersion: discov1.SchemeGroupVersion.String(),
-		APIResources: []metav1.APIResource{
-			{Name: "endpointslices", Namespaced: true, Kind: "EndpointSlice"},
-		},
-	}
-
-	discoveryV1beta1APIResources = &metav1.APIResourceList{
-		GroupVersion: discov1beta1.SchemeGroupVersion.String(),
-		APIResources: []metav1.APIResource{
-			{Name: "endpointslices", Namespaced: true, Kind: "EndpointSlice"},
-		},
-	}
-
-	// apiResources is the list of API resources for the k8s version that we're mocking.
-	// This is mostly relevant for the feature detection at pkg/k8s/version/version.go.
-	// The lists here are currently not exhaustive and expanded on need-by-need basis.
-	apiResources = map[string][]*metav1.APIResourceList{
-		"1.24": {
-			corev1APIResources,
-			discoveryV1APIResources,
-			discoveryV1beta1APIResources,
-			ciliumv2APIResources,
-		},
-		"1.25": {
-			corev1APIResources,
-			discoveryV1APIResources,
-			ciliumv2APIResources,
-		},
-		"1.26": {
-			corev1APIResources,
-			discoveryV1APIResources,
-			ciliumv2APIResources,
-		},
-	}
-)
 
 func matchFieldSelector(obj k8sRuntime.Object, selector fields.Selector) bool {
 	if selector == nil {

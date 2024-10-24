@@ -89,6 +89,7 @@ func (fe *Frontend) TableHeader() []string {
 		"PortName",
 		"Backends",
 		"Status",
+		"StatusKind", // FIXME: Figure out a better way to do this.
 	}
 }
 
@@ -100,6 +101,7 @@ func (fe *Frontend) TableRow() []string {
 		string(fe.PortName),
 		showBackends(fe.Backends),
 		fe.Status.String(),
+		string(fe.Status.Kind),
 	}
 }
 

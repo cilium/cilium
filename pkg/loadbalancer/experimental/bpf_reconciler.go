@@ -12,7 +12,9 @@ import (
 	"net/netip"
 	"sort"
 
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
@@ -43,11 +45,11 @@ var ReconcilerCell = cell.Module(
 	),
 )
 
-func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
+func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], hive.ScriptCmdOut, error) {
 	if !w.IsEnabled() {
-		return nil, nil
+		return nil, hive.ScriptCmdOut{}, nil
 	}
-	return reconciler.Register(
+	r, err := reconciler.Register(
 		p,
 		w.fes,
 
@@ -66,12 +68,26 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (
 			30*time.Minute,
 		),
 	)
+	if err != nil {
+		return nil, hive.ScriptCmdOut{}, err
+	}
+	cmd := hive.NewScriptCmd(
+		"lb-prune",
+		script.Command(
+			script.CmdUsage{Summary: "Force pruning of LB maps"},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				r.Prune()
+				return nil, nil
+			},
+		),
+	)
+	return r, cmd, err
 }
 
 type BPFOps struct {
 	LBMaps LBMaps
 	log    *slog.Logger
-	cfg    externalConfig
+	cfg    ExternalConfig
 
 	serviceIDAlloc     idAllocator
 	restoredServiceIDs sets.Set[loadbalancer.ID]
@@ -103,7 +119,7 @@ type backendState struct {
 	id       loadbalancer.BackendID
 }
 
-func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg externalConfig, lbmaps LBMaps) *BPFOps {
+func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg ExternalConfig, lbmaps LBMaps) *BPFOps {
 	if !cfg.EnableExperimentalLB {
 		return nil
 	}
@@ -169,7 +185,7 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 
 // Delete implements reconciler.Operations.
 func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) error {
-	ops.log.Info("Delete", "address", fe.Address)
+	ops.log.Debug("Delete", "address", fe.Address)
 
 	if err := ops.deleteFrontend(fe); err != nil {
 		ops.log.Warn("Deleting frontend failed, retrying", "error", err)
@@ -195,19 +211,19 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 		}
 	}
 
-	ops.log.Info("Delete done", "address", fe.Address)
+	ops.log.Debug("Delete done", "address", fe.Address)
 	return nil
 }
 
 func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
-		ops.log.Info("Delete frontend: no ID found", "address", fe.Address)
+		ops.log.Debug("Delete frontend: no ID found", "address", fe.Address)
 		// Since no ID was found we can assume this frontend was never reconciled.
 		return nil
 	}
 
-	ops.log.Info("Delete frontend", "id", feID, "address", fe.Address)
+	ops.log.Debug("Delete frontend", "id", feID, "address", fe.Address)
 
 	// Clean up any potential affinity match entries. We do this regardless of
 	// whether or not SessionAffinity is enabled as it might've been toggled by
@@ -220,7 +236,7 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	}
 
 	for _, orphanState := range ops.orphanBackends(fe.Address, nil) {
-		ops.log.Info("Delete orphan backend", "address", orphanState.addr)
+		ops.log.Debug("Delete orphan backend", "address", orphanState.addr)
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend %d: %w", orphanState.id, err)
 		}
@@ -243,7 +259,7 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	numBackends := len(ops.backendReferences[fe.Address])
 	for i := 0; i <= numBackends; i++ {
 		svcKey.SetBackendSlot(i)
-		ops.log.Info("Delete service slot", "id", feID, "address", fe.Address, "slot", i)
+		ops.log.Debug("Delete service slot", "id", feID, "address", fe.Address, "slot", i)
 		err := ops.LBMaps.DeleteService(svcKey.ToNetwork())
 		if err != nil {
 			return fmt.Errorf("delete from services map: %w", err)
@@ -294,7 +310,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		if _, ok := ops.backendReferences[addr]; !ok {
 			addr.L4Addr.Protocol = loadbalancer.UDP
 			if _, ok := ops.backendReferences[addr]; !ok {
-				ops.log.Info("pruneServiceMaps: deleting", "id", svcValue.GetRevNat(), "addr", addr)
+				ops.log.Debug("pruneServiceMaps: deleting", "id", svcValue.GetRevNat(), "addr", addr)
 				toDelete = append(toDelete, svcKey.ToNetwork())
 			}
 		}
@@ -322,7 +338,7 @@ func (ops *BPFOps) pruneBackendMaps() error {
 		if _, ok := ops.backendStates[addr]; !ok {
 			addr.L4Addr.Protocol = loadbalancer.UDP
 			if _, ok := ops.backendStates[addr]; !ok {
-				ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", addr)
+				ops.log.Debug("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", addr)
 				toDelete = append(toDelete, beKey)
 			}
 
@@ -369,7 +385,7 @@ func (ops *BPFOps) pruneRevNat() error {
 	cb := func(key lbmap.RevNatKey, value lbmap.RevNatValue) {
 		key = key.ToHost()
 		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.GetKey())]; !ok {
-			ops.log.Info("pruneRevNat: deleting", "id", key.GetKey())
+			ops.log.Debug("pruneRevNat: deleting", "id", key.GetKey())
 			toDelete = append(toDelete, key)
 		}
 	}
@@ -404,7 +420,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 			ok = ok && cidrs.Has(prefix)
 		}
 		if !ok {
-			ops.log.Info("pruneSourceRanges: deleting", "id", key.GetRevNATID(), "cidr", key.GetCIDR())
+			ops.log.Debug("pruneSourceRanges: deleting", "id", key.GetRevNATID(), "cidr", key.GetCIDR())
 			toDelete = append(toDelete, key)
 		}
 	}
@@ -423,7 +439,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 
 // Prune implements reconciler.Operations.
 func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Frontend, statedb.Revision]) error {
-	ops.log.Info("Pruning")
+	ops.log.Debug("Pruning")
 	return errors.Join(
 		ops.pruneRestoredIDs(),
 		ops.pruneServiceMaps(),
@@ -530,7 +546,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
-		ops.log.Info("Delete orphan backend", "address", orphanState.addr)
+		ops.log.Debug("Delete orphan backend", "address", orphanState.addr)
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend: %w", err)
 		}
@@ -556,7 +572,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 		}
 
 		if ops.needsUpdate(be.L3n4Addr, be.Revision) {
-			ops.log.Info("Update backend", "backend", be, "id", beID, "addr", be.L3n4Addr)
+			ops.log.Debug("Update backend", "backend", be, "id", beID, "addr", be.L3n4Addr)
 			if err := ops.upsertBackend(beID, be.Backend); err != nil {
 				return fmt.Errorf("upsert backend: %w", err)
 			}
@@ -569,7 +585,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 		// changed.
 		// Since backends are iterated in the order of their state with active first
 		// the slot ids here are sequential.
-		ops.log.Info("Update service slot", "id", beID, "slot", i+1, "backendID", beID)
+		ops.log.Debug("Update service slot", "id", beID, "slot", i+1, "backendID", beID)
 
 		svcVal.SetBackendID(beID)
 		svcVal.SetRevNat(int(feID))
@@ -647,17 +663,17 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	// Update RevNat
-	ops.log.Info("Update RevNat", "id", feID, "address", fe.Address)
+	ops.log.Debug("Update RevNat", "id", feID, "address", fe.Address)
 	if err := ops.upsertRevNat(feID, svcKey, svcVal); err != nil {
 		return fmt.Errorf("upsert reverse nat: %w", err)
 	}
 
-	ops.log.Info("Update master service", "id", feID)
+	ops.log.Debug("Update master service", "id", feID)
 	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
-	ops.log.Info("Cleanup service slots", "id", feID, "active", activeCount, "previous", numPreviousBackends)
+	ops.log.Debug("Cleanup service slots", "id", feID, "active", activeCount, "previous", numPreviousBackends)
 	if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+inactiveCount); err != nil {
 		return fmt.Errorf("cleanup service slots: %w", err)
 	}
@@ -759,7 +775,7 @@ func (ops *BPFOps) upsertAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 		RevNATID:  uint16(id),
 	}
 	var value lbmap.AffinityMatchValue
-	ops.log.Info("upsertAffinityMatch", "key", key)
+	ops.log.Debug("upsertAffinityMatch", "key", key)
 	return ops.LBMaps.UpdateAffinityMatch(key.ToNetwork(), &value)
 }
 
@@ -772,7 +788,7 @@ func (ops *BPFOps) deleteAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 		BackendID: beID,
 		RevNATID:  uint16(id),
 	}
-	ops.log.Info("deleteAffinityMatch", "serviceID", id, "backendID", beID)
+	ops.log.Debug("deleteAffinityMatch", "serviceID", id, "backendID", beID)
 	return ops.LBMaps.DeleteAffinityMatch(key.ToNetwork())
 }
 
@@ -785,7 +801,7 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ID, svcKey lbmap.ServiceKey, svc
 	if revNATKey.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
-	ops.log.Info("upsertRevNat", "key", revNATKey, "value", revNATValue)
+	ops.log.Debug("upsertRevNat", "key", revNATKey, "value", revNATValue)
 
 	err := ops.LBMaps.UpdateRevNat(revNATKey.ToNetwork(), revNATValue.ToNetwork())
 	if err != nil {

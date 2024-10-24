@@ -4,6 +4,9 @@
 package experimental
 
 import (
+	"os"
+	"testing"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
@@ -37,6 +40,7 @@ var Cell = cell.Module(
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
 	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
+	cell.Provide(newLBMapsCommand),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
@@ -65,11 +69,32 @@ var TablesCell = cell.Module(
 	),
 )
 
-func newLBMaps(lc cell.Lifecycle, cfg LBMapsConfig, w *Writer) LBMaps {
+func newLBMaps(lc cell.Lifecycle, cfg Config, mapsCfg LBMapsConfig, w *Writer) LBMaps {
 	if !w.IsEnabled() {
 		return nil
 	}
-	r := &BPFLBMaps{Pinned: true, Cfg: cfg}
+
+	if testing.Testing() {
+		// We're beind tested, use unpinned maps if privileged, otherwise
+		// in-memory fake.
+		var m LBMaps
+		if os.Getuid() != 0 {
+			m = NewFakeLBMaps()
+		} else {
+			r := &BPFLBMaps{Pinned: false, Cfg: mapsCfg}
+			lc.Append(r)
+			m = r
+		}
+		if cfg.TestFaultInjectionProbability > 0.0 {
+			m = &FaultyLBMaps{
+				impl:               m,
+				failureProbability: cfg.TestFaultInjectionProbability,
+			}
+		}
+		return m
+	}
+
+	r := &BPFLBMaps{Pinned: true, Cfg: mapsCfg}
 	lc.Append(r)
 	return r
 }
@@ -81,7 +106,7 @@ type resourceIn struct {
 	PodsResource      daemonK8s.LocalPodResource
 }
 
-type streamsOut struct {
+type StreamsOut struct {
 	cell.Out
 	ServicesStream  stream.Observable[resource.Event[*slim_corev1.Service]]
 	EndpointsStream stream.Observable[resource.Event[*k8s.Endpoints]]
@@ -90,8 +115,8 @@ type streamsOut struct {
 
 // resourcesToStreams extracts the stream.Observable from resource.Resource.
 // This makes the reflector easier to test as its API surface is reduced.
-func resourcesToStreams(in resourceIn) streamsOut {
-	return streamsOut{
+func resourcesToStreams(in resourceIn) StreamsOut {
+	return StreamsOut{
 		ServicesStream:  in.ServicesResource,
 		EndpointsStream: in.EndpointsResource,
 		PodsStream:      in.PodsResource,
