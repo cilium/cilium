@@ -308,8 +308,8 @@ The Cilium developer community hangs out on Zoom to chat. Everybody is welcome.
 
 * Weekly, Wednesday,
   5:00 pm `Europe/Zurich time <https://time.is/Canton_of_Zurich>`__ (CET/CEST),
-  usually equivalent to 8:00 am PT, or 11:00 am ET. `Join Zoom`_
-* Third Wednesday of each month, 9:00 am `Japan time <https://time.is/Tokyo>`__ (JST). `Join Zoom`_
+  usually equivalent to 8:00 am PT, or 11:00 am ET. `Meeting Notes and Zoom Info`_
+* Third Wednesday of each month, 9:00 am `Japan time <https://time.is/Tokyo>`__ (JST). `APAC Meeting Notes and Zoom Info`_
 
 eBPF & Cilium Office Hours livestream
 -------------------------------------
@@ -354,7 +354,8 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`BPF and XDP Reference Guide`: https://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
-.. _`Join Zoom`: https://zoom.us/j/596609673
+.. _`Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#
+.. _`APAC Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1egv4qLydr0geP-GjQexYKm4tz3_tHy-LCBjVQcXcT5M/edit#
 
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
     :alt: Go Report Card
