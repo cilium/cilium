@@ -42,8 +42,9 @@ const (
 
 	HealthChecking Feature = "health-checking"
 
-	EncryptionPod  Feature = "encryption-pod"
-	EncryptionNode Feature = "encryption-node"
+	EncryptionPod        Feature = "encryption-pod"
+	EncryptionNode       Feature = "encryption-node"
+	EncryptionStrictMode Feature = "enable-encryption-strict-mode"
 
 	IPv4 Feature = "ipv4"
 	IPv6 Feature = "ipv6"
@@ -325,6 +326,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[Multicast] = Status{
 		Enabled: cm.Data[string(Multicast)] == "true",
+	}
+
+	fs[EncryptionStrictMode] = Status{
+		Enabled: cm.Data[string(EncryptionStrictMode)] == "true",
 	}
 }
 

@@ -179,6 +179,10 @@ func authRequiredDropReason(flow *flowpb.Flow) bool {
 	return flow.GetDropReasonDesc() == flowpb.DropReason_AUTH_REQUIRED
 }
 
+func unencryptedDropReason(flow *flowpb.Flow) bool {
+	return flow.GetDropReasonDesc() == flowpb.DropReason_UNENCRYPTED_TRAFFIC
+}
+
 type ExpectationsFunc func(a *Action) (egress, ingress Result)
 
 // WithExpectations sets the getExpectations test result function to use during tests
