@@ -268,6 +268,9 @@ var (
 			// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
 			// and clustermesh.
 			dial.ServiceResolverCell,
+
+			// Custom resolver containing the mappings of hostnames to IP addresses for clustermesh.
+			dial.ClustermeshResolverCell,
 		),
 	)
 
@@ -501,7 +504,15 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric) {
+func registerLegacyOnLeader(
+	lc cell.Lifecycle,
+	clientset k8sClient.Clientset,
+	resources operatorK8s.Resources,
+	factory store.Factory,
+	svcResolver *dial.ServiceResolver,
+	cfgMCSAPI cmoperator.MCSAPIConfig,
+	metrics *UnmanagedPodsMetric,
+) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:          ctx,

@@ -109,11 +109,12 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		syncTimeoutConfig: params.TimeoutConfig,
 	}
 	cm.common = common.NewClusterMesh(common.Configuration{
-		Config:           params.Config,
-		ClusterInfo:      params.ClusterInfo,
-		NewRemoteCluster: cm.newRemoteCluster,
-		ServiceResolver:  params.ServiceResolver,
-		Metrics:          params.CommonMetrics,
+		Config:              params.Config,
+		ClusterInfo:         params.ClusterInfo,
+		NewRemoteCluster:    cm.newRemoteCluster,
+		ServiceResolver:     params.ServiceResolver,
+		ClustermeshResolver: params.ClustermeshResolver,
+		Metrics:             params.CommonMetrics,
 	})
 
 	lc.Append(cm.common)
