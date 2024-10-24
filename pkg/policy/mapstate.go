@@ -112,11 +112,6 @@ func (ms *mapState) Empty() bool {
 	return len(ms.entries) == 0
 }
 
-func (ms *mapState) Lookup(k Key) (mapStateEntry, bool) {
-	v, ok := ms.entries[k]
-	return v, ok
-}
-
 func (ms *mapState) upsert(k Key, e mapStateEntry) {
 	_, exists := ms.entries[k]
 
@@ -391,7 +386,9 @@ func (ms *mapState) get(k Key) (mapStateEntry, bool) {
 			logfields.PolicyKey:  k,
 		}).Errorf("mapState.Get: invalid port prefix length for wildcard port")
 	}
-	return ms.Lookup(k)
+
+	v, ok := ms.entries[k]
+	return v, ok
 }
 
 // insert the Key and MapStateEntry into the MapState
