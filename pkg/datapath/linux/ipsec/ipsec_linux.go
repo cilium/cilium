@@ -122,6 +122,10 @@ type IPSecParameters struct {
 	// For IN/FWD this should identify the destination SA address of the state which
 	// decrypted the the packet.
 	DestTunnelIP *net.IP
+	// Controls whether the resulting policy is optionally enforced.
+	// At the XFRM level this is synonyms with the "level use" directive on a
+	// policy.
+	Optional bool
 	// The ReqID used for the resulting XFRM policy/state
 	ReqID int
 	// The remote node ID used for SPI identification and appropriate packet
@@ -131,6 +135,12 @@ type IPSecParameters struct {
 	// This is useful when you want the resulting encrypted packet to immediately
 	// handled by the stack and not Cilium's datapath.
 	ZeroOutputMark bool
+	// Whether to exclude a mark in the resulting policy.
+	// In the OUT direction this means the no mark on the skb is required for
+	// encryption to occur.
+	// In the IN direction this means no mark on the decrypted skb is required
+	// for the post-decryption policy check.
+	ZeroPolicyMark bool
 	// Whether the remote has been rebooted, this is used for bookkeping and
 	// informs the policy/state creation methods whether the creation should
 	// take place.
@@ -605,27 +615,34 @@ func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.
 	tmplDst := params.DestTunnelIP
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
-	if dir == netlink.XFRM_DIR_IN {
-		policy.Src = params.SourceSubnet
-		policy.Dst = params.DestSubnet
-		policy.Mark = &netlink.XfrmMark{
-			Mask: linux_defaults.IPsecMarkBitMask,
-		}
-		if proxyMark {
-			// We require a policy to match on packets going to the proxy which are
-			// therefore carrying the proxy mark. We however don't need a policy
-			// for the encrypted packets because there is already a state matching
-			// them.
-			policy.Mark.Value = linux_defaults.RouteMarkToProxy
-			// We must mark the IN policy for the proxy optional simply because it
-			// is lacking a corresponding state.
-			optional = 1
-			// We set the source tmpl address to 0/0 to explicit that it
-			// doesn't matter.
-			tmplSrc = &wildcardIP
-		} else {
-			policy.Mark.Value = linux_defaults.RouteMarkDecrypt
-		}
+	policy.Src = params.SourceSubnet
+	policy.Dst = params.DestSubnet
+	policy.Mark = &netlink.XfrmMark{
+		Mask: linux_defaults.IPsecMarkBitMask,
+	}
+	if proxyMark {
+		// We require a policy to match on packets going to the proxy which are
+		// therefore carrying the proxy mark. We however don't need a policy
+		// for the encrypted packets because there is already a state matching
+		// them.
+		policy.Mark.Value = linux_defaults.RouteMarkToProxy
+		// We must mark the IN policy for the proxy optional simply because it
+		// is lacking a corresponding state.
+		optional = 1
+		// We set the source tmpl address to 0/0 to explicit that it
+		// doesn't matter.
+		tmplSrc = &wildcardIP
+	} else {
+		policy.Mark.Value = linux_defaults.RouteMarkDecrypt
+	}
+	// clear mark if the caller specified a zero policy mark.
+	if params.ZeroPolicyMark {
+		policy.Mark.Mask = 0xffffffff
+		policy.Mark.Value = 0
+	}
+	// the user may want this policy to be optional.
+	if params.Optional {
+		optional = 1
 	}
 	ipSecAttachPolicyTempl(policy, key, *tmplSrc, *tmplDst, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
@@ -655,8 +672,12 @@ func IpSecReplacePolicyFwd(params *IPSecParameters) error {
 	// doesn't matter; we want all fwd packets to go through.
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
+	optional := 0
+	if params.Optional {
+		optional = 1
+	}
 
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, 1)
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -771,8 +792,19 @@ func ipSecReplacePolicyOut(params *IPSecParameters) error {
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
-	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, 0)
+	if params.ZeroPolicyMark {
+		// clear mark if the caller specified a zero policy mark.
+		policy.Mark = &netlink.XfrmMark{}
+	} else {
+		policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
+	}
+
+	optional := 0
+	if params.Optional {
+		optional = 1
+	}
+
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 

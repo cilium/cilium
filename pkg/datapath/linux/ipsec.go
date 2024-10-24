@@ -227,6 +227,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 		params.DestSubnet = wildcardCIDR
 		params.SourceTunnelIP = &net.IP{}
 		params.DestTunnelIP = &localIP
+		params.Optional = true
 		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
@@ -305,6 +306,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
+	params.Optional = true
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
@@ -321,10 +323,6 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	}
 
 	if n.datapathConfig.TunnelDevice == "" {
-		return statesUpdated, errs
-	}
-
-	if !n.nodeConfig.EnableIPSecEncryptedOverlay {
 		return statesUpdated, errs
 	}
 
@@ -368,6 +366,42 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 		statesUpdated = false
 	}
 
+	// We make an additional IN policy which checks for mark 0 and is
+	// optionally enforced.
+	//
+	// This handles two additional traffic scenarios introduced by VXLAN-in-ESP
+	// traffic.
+	// 1. When ESP traffic is decrypted, VXLAN is inside. Both the outter and
+	// 	  inner headers therefore share the same source and destination addresses,
+	//    the InternalIPs.
+	//    When XFRM sees the decrypted VXLAN traffic the skb mark is set to zero
+	//    by Cilium's datapath, as a way to signal the decryption processing is
+	//    done. The decrypted VXLAN packet however is subjected to XFRM policy
+	//    lookup again. Therefore, we need a policy which ALSO matches on the
+	//    zero mark, otherwise a policy lookup for this packet will be done and
+	//    nothing will match.
+	// 2. When in tunnel mode node-to-node traffic shares the same source and
+	// 	  destination addresses as both ESP and VXLAN traffic.
+	// 	  Therefore, this traffic is evaluated by our XFRM policies as well.
+	// 	  node-to-node traffic is passed to the stack by Cilium's datapath with
+	// 	  a mark set to zero. However, the traffic is NOT ESP. Therefore, the
+	// 	  same policy which fixes the above can be set to optional to allow
+	// 	  matching traffic with mark set to zero to not be enforced.
+	params = ipsec.NewIPSecParamaters(template)
+	params.ReqID = ipsec.EncryptedOverlayReqID
+	params.Dir = ipsec.IPSecDirIn
+	params.SourceSubnet = remoteOverlayIPExactMatch
+	params.DestSubnet = localOverlayIPExactMatch
+	params.SourceTunnelIP = &remoteUnderlayIP
+	params.DestTunnelIP = &localUnderlayIP
+	params.ZeroPolicyMark = true
+	params.Optional = true
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	if err != nil {
+		statesUpdated = false
+	}
+
 	params = ipsec.NewIPSecParamaters(template)
 	params.ReqID = ipsec.EncryptedOverlayReqID
 	params.Dir = ipsec.IPSecDirFwd
@@ -375,6 +409,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localUnderlayIP
+	params.Optional = true
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
@@ -474,6 +509,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		params.DestSubnet = wildcardCIDR6
 		params.SourceTunnelIP = &net.IP{}
 		params.DestTunnelIP = &localIP
+		params.Optional = true
 		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
@@ -554,6 +590,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
+	params.Optional = true
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
