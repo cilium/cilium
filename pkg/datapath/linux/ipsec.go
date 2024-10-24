@@ -227,6 +227,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 		params.DestSubnet = wildcardCIDR
 		params.SourceTunnelIP = &net.IP{}
 		params.DestTunnelIP = &localIP
+		params.Optional = true
 		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
@@ -305,6 +306,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
+	params.Optional = true
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
@@ -375,6 +377,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localUnderlayIP
+	params.Optional = true
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
@@ -474,6 +477,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		params.DestSubnet = wildcardCIDR6
 		params.SourceTunnelIP = &net.IP{}
 		params.DestTunnelIP = &localIP
+		params.Optional = true
 		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 		if err != nil {
@@ -554,6 +558,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localIP
+	params.Optional = true
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {

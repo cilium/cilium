@@ -122,6 +122,10 @@ type IPSecParameters struct {
 	// For IN/FWD this should identify the destination SA address of the state which
 	// decrypted the the packet.
 	DestTunnelIP *net.IP
+	// Controls whether the resulting policy is optionally enforced.
+	// At the XFRM level this is synonyms with the "level use" directive on a
+	// policy.
+	Optional bool
 	// The ReqID used for the resulting XFRM policy/state
 	ReqID int
 	// The remote node ID used for SPI identification and appropriate packet
@@ -636,6 +640,10 @@ func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.
 		policy.Mark.Mask = 0xffffffff
 		policy.Mark.Value = 0
 	}
+	// the user may want this policy to be optional.
+	if params.Optional {
+		optional = 1
+	}
 	ipSecAttachPolicyTempl(policy, key, *tmplSrc, *tmplDst, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
@@ -664,8 +672,12 @@ func IpSecReplacePolicyFwd(params *IPSecParameters) error {
 	// doesn't matter; we want all fwd packets to go through.
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
+	optional := 0
+	if params.Optional {
+		optional = 1
+	}
 
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, 1)
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -786,7 +798,13 @@ func ipSecReplacePolicyOut(params *IPSecParameters) error {
 	} else {
 		policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
 	}
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, 0)
+
+	optional := 0
+	if params.Optional {
+		optional = 1
+	}
+
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
