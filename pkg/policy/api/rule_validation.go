@@ -105,6 +105,7 @@ func (i *IngressRule) sanitize(hostPolicy bool) error {
 		"FromCIDR":      len(i.FromCIDR),
 		"FromCIDRSet":   len(i.FromCIDRSet),
 		"FromEntities":  len(i.FromEntities),
+		"FromServices":  len(i.FromServices),
 		"FromNodes":     len(i.FromNodes),
 		"FromGroups":    len(i.FromGroups),
 	}

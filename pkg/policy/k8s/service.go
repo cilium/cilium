@@ -26,7 +26,7 @@ import (
 // onServiceEvent processes a ServiceNotification and (if necessary)
 // recalculates all policies affected by this change.
 func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
-	err := p.updateToServicesPolicies(event.ID, event.Service, event.OldService)
+	err := p.updateMatchedServicesPolicies(event.ID, event.Service, event.OldService)
 	if err != nil {
 		p.log.WithError(err).WithFields(logrus.Fields{
 			logfields.Event:     event.Action,
@@ -35,11 +35,11 @@ func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
 	}
 }
 
-// updateToServicesPolicies is to be invoked when a service has changed (i.e. it was
+// updateMatchedServicesPolicies is to be invoked when a service has changed (i.e. it was
 // added, removed, its endpoints have changed, or its labels have changed).
 // This function then checks if any of the known CNP/CCNPs are affected by this
 // change, and recomputes them by calling resolveCiliumNetworkPolicyRefs.
-func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.Service) error {
+func (p *policyWatcher) updateMatchedServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.Service) error {
 	var errs []error
 	// newService is true if this is the first time we observe this service
 	newService := oldSVC == nil
@@ -49,7 +49,7 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 	// candidatePolicyKeys contains the set of policy names we need to process
 	// for this service update. By default, we consider all policies with
 	// a ToServices selector as candidates.
-	candidatePolicyKeys := p.toServicesPolicies
+	candidatePolicyKeys := p.matchedServicesPolicies
 	if !(newService || changedService) {
 		// If the service definition itself has not changed, and it's not the
 		// first time we process this service, we only need to check the
@@ -92,9 +92,9 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 	return errors.Join(errs...)
 }
 
-// resolveToServices translates all ToServices rules found in the provided CNP
-// and to corresponding ToCIDRSet rules. Mutates the passed in cnp in place.
-func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) {
+// resolveServices translates all ToServices/FromServices rules found in the provided CNP
+// and to corresponding ToCIDRSet/FromCIDRSet rules. Mutates the passed in cnp in place.
+func (p *policyWatcher) resolveServices(key resource.Key, cnp *types.SlimCNP) {
 	// We consult the service cache to obtain the service endpoints
 	// which are selected by the ToServices selectors found in the CNP.
 	p.svcCache.ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool {
@@ -103,7 +103,7 @@ func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) 
 		svcEndpoints := newServiceEndpoints(svcID, svc, eps)
 		svcEndpoints.enableHighScaleIPcache = p.config.EnableHighScaleIPcache
 		// This extracts the selected service endpoints from the rule
-		// and translates it to a ToCIDRSet
+		// and translates it to a ToCIDRSet/FromCIDRSet
 		numMatches := svcEndpoints.processRule(cnp.Spec)
 		for _, spec := range cnp.Specs {
 			numMatches += svcEndpoints.processRule(spec)
@@ -138,6 +138,15 @@ func (p *policyWatcher) cnpMatchesService(cnp *types.SlimCNP, svcID k8s.ServiceI
 		}
 	}
 
+	if hasMatchingFromServices(cnp.Spec, svcID, svc) {
+		return true
+	}
+
+	for _, spec := range cnp.Specs {
+		if hasMatchingFromServices(spec, svcID, svc) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -185,13 +194,43 @@ func hasMatchingToServices(spec *api.Rule, svcID k8s.ServiceID, svc *k8s.Service
 	return false
 }
 
-// hasToServices returns true if the CNP contains a ToServices rule
-func hasToServices(cnp *types.SlimCNP) bool {
+// hasMatchingFromServices returns true if the rule contains a FromServices rule which
+// matches the provided service svcID/svc
+func hasMatchingFromServices(spec *api.Rule, svcID k8s.ServiceID, svc *k8s.Service) bool {
+	if spec == nil {
+		return false
+	}
+	for _, ingress := range spec.Ingress {
+		for _, fromService := range ingress.FromServices {
+			if sel := fromService.K8sServiceSelector; sel != nil {
+				if serviceSelectorMatches(sel, svcID, svc) {
+					return true
+				}
+			} else if ref := fromService.K8sService; ref != nil {
+				if serviceRefMatches(ref, svcID) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// hasMatchServices returns true if the CNP contains a ToServices/FromServices rule
+func hasMatchServices(cnp *types.SlimCNP) bool {
 	if specHasToServices(cnp.Spec) {
 		return true
 	}
 	for _, spec := range cnp.Specs {
 		if specHasToServices(spec) {
+			return true
+		}
+	}
+	if specHasFromServices(cnp.Spec) {
+		return true
+	}
+	for _, spec := range cnp.Specs {
+		if specHasFromServices(spec) {
 			return true
 		}
 	}
@@ -209,6 +248,19 @@ func specHasToServices(spec *api.Rule) bool {
 		}
 	}
 
+	return false
+}
+
+// specHasFromServices returns true if the rule contains a FromServices rule
+func specHasFromServices(spec *api.Rule) bool {
+	if spec == nil {
+		return false
+	}
+	for _, ingress := range spec.Ingress {
+		if len(ingress.FromServices) > 0 {
+			return true
+		}
+	}
 	return false
 }
 
@@ -315,6 +367,22 @@ func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 					} else {
 						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svcID.Namespace)
 					}
+					numMatches++
+				}
+			}
+		}
+	}
+
+	for i, ingress := range rule.Ingress {
+		for _, fromService := range ingress.FromServices {
+			if sel := fromService.K8sServiceSelector; sel != nil {
+				if serviceSelectorMatches(sel, s.svcID, s.svc) {
+					appendEndpoints(&rule.Ingress[i].FromCIDRSet, s.endpoints())
+					numMatches++
+				}
+			} else if ref := fromService.K8sService; ref != nil {
+				if serviceRefMatches(ref, s.svcID) {
+					appendEndpoints(&rule.Ingress[i].FromCIDRSet, s.endpoints())
 					numMatches++
 				}
 			}

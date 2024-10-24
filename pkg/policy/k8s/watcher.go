@@ -60,9 +60,9 @@ type policyWatcher struct {
 	// cidr group. Groups with no references may not be inserted in to the ipcache.
 	cidrGroupRefs counter.Counter[string]
 
-	// toServicesPolicies is the set of policies that contain ToServices references
-	toServicesPolicies map[resource.Key]struct{}
-	cnpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
+	// matchedServicesPolicies is the set of policies that contain ToServices/FromServices references
+	matchedServicesPolicies map[resource.Key]struct{}
+	cnpByServiceID          map[k8s.ServiceID]map[resource.Key]struct{}
 }
 
 func (p *policyWatcher) watchResources(ctx context.Context) {

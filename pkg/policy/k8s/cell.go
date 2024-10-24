@@ -112,8 +112,8 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		cidrGroupCIDRs: make(map[string]sets.Set[netip.Prefix]),
 		cidrGroupRefs:  make(counter.Counter[string]),
 
-		toServicesPolicies: make(map[resource.Key]struct{}),
-		cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
+		matchServicesPolicies: make(map[resource.Key]struct{}),
+		cnpByServiceID:        make(map[k8s.ServiceID]map[resource.Key]struct{}),
 	}
 
 	params.Lifecycle.Append(cell.Hook{

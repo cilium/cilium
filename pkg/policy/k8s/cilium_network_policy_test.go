@@ -64,15 +64,15 @@ func Test_GH33432(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 
 	p := &policyWatcher{
-		log:                logrus.NewEntry(logger),
-		config:             &option.DaemonConfig{},
-		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
-		k8sAPIGroups:       &k8sSynced.APIGroups{},
-		policyManager:      policyManager,
-		svcCache:           fakeServiceCache{},
-		cnpCache:           map[resource.Key]*types.SlimCNP{},
-		toServicesPolicies: map[resource.Key]struct{}{},
-		cnpByServiceID:     map[k8s.ServiceID]map[resource.Key]struct{}{},
+		log:                   logrus.NewEntry(logger),
+		config:                &option.DaemonConfig{},
+		k8sResourceSynced:     &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
+		k8sAPIGroups:          &k8sSynced.APIGroups{},
+		policyManager:         policyManager,
+		svcCache:              fakeServiceCache{},
+		cnpCache:              map[resource.Key]*types.SlimCNP{},
+		matchServicesPolicies: map[resource.Key]struct{}{},
+		cnpByServiceID:        map[k8s.ServiceID]map[resource.Key]struct{}{},
 	}
 
 	err := p.onUpsert(cnp, cnpKey, k8sAPIGroupCiliumNetworkPolicyV2, cnpResourceID)

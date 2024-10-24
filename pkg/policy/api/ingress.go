@@ -77,6 +77,16 @@ type IngressCommonRule struct {
 	// +kubebuilder:validation:Optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
 
+	// FromServices is a list of services to which the endpoint subject
+	// to the rule is allowed to receive connections from.
+	//
+	// Example:
+	// Any endpoint with the label "app=backend-app" is allowed to
+	// receive connections from all cidrs backing the service
+	//
+	// +kubebuilder:validation:Optional
+	FromServices []Service `json:"fromServices,omitempty"`
+
 	// FromGroups is a directive that allows the integration with multiple outside
 	// providers. Currently, only AWS is supported, and the rule can select by
 	// multiple sub directives:
