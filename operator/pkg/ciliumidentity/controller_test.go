@@ -15,6 +15,9 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/google/go-cmp/cmp"
 	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/k8s"
@@ -438,8 +441,6 @@ func TestUpdateUsedCIDIsReverted(t *testing.T) {
 }
 
 func TestDeleteUsedCIDIsRecreated(t *testing.T) {
-	t.Skip("test disabled, see https://github.com/cilium/cilium/issues/35135")
-
 	ns1 := testCreateNSObj("ns1", nil)
 	pod1 := testCreatePodObj("pod1", "ns1", testLbsC, nil)
 	cid1 := testCreateCIDObjNs("1000", pod1, ns1)
@@ -472,59 +473,35 @@ func TestDeleteUsedCIDIsRecreated(t *testing.T) {
 		t.Fatalf("unexpected error while getting CID store: %s", err)
 	}
 
-	var (
-		lastErr  error
-		toDelete *capi_v2.CiliumIdentity
-	)
-	if err := testutils.WaitUntil(func() bool {
+	var cid *capi_v2.CiliumIdentity
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		cids := store.List()
+		assert.Len(ct, cids, 1)
 		if len(cids) != 1 {
-			lastErr = fmt.Errorf("expected 1 identity, got %d", len(cids))
-			return false
+			return
 		}
-		toDelete = cids[0]
-		return true
-	}, WaitUntilTimeout); err != nil {
-		t.Fatalf("timeout waiting for identities in store: %s", lastErr)
-	}
-
-	// Start listening to identities events but discard all events being replayed.
-	events := (*cidResource).Events(ctx)
-	for ev := range events {
-		ev.Done(nil)
-		if ev.Kind == resource.Sync {
-			break
+		cid = cids[0]
+		if !cmp.Equal(cid.SecurityLabels, cid1.SecurityLabels) {
+			t.Fatalf("expected labels %v, got %v", cid.SecurityLabels, cid1.SecurityLabels)
 		}
-	}
+	}, WaitUntilTimeout, 100*time.Millisecond)
 
-	// Update identity.
-	if err := fakeClient.CiliumV2().CiliumIdentities().Delete(ctx, toDelete.Name, metav1.DeleteOptions{}); err != nil {
-		t.Fatalf("delete CID: %v", err)
-	}
+	err = fakeClient.CiliumV2().CiliumIdentities().Delete(ctx, cid.Name, metav1.DeleteOptions{})
+	assert.NoError(t, err, "CiliumIdentity deletion should not return an error")
 
-	// Wait for delete event to propagate.
-	ev := <-events
-	if ev.Kind != resource.Delete {
-		t.Fatalf("expected delete event, got %v", ev.Kind)
-	}
-	if ev.Key.Name != toDelete.Name {
-		t.Fatalf("expected delete event for cid %s, got %v", toDelete.Name, ev.Key.Name)
-	}
-	if !cmp.Equal(ev.Object.SecurityLabels, toDelete.SecurityLabels) {
-		t.Fatalf("expected labels %v, got %v", toDelete.SecurityLabels, ev.Object.SecurityLabels)
-	}
-	ev.Done(nil)
+	_, err = fakeClient.CiliumV2().CiliumIdentities().Get(ctx, cid.Name, metav1.GetOptions{})
+	assert.True(t, errors.IsNotFound(err), "Expected NotFound error after deletion")
 
-	// Wait for reconciler to recreate the CID.
-	ev = <-events
-	if ev.Kind != resource.Upsert {
-		t.Fatalf("expected upsert event, got %v", ev.Kind)
-	}
-	if ev.Key.Name != toDelete.Name {
-		t.Fatalf("expected upsert event for cid %s, got %v", toDelete.Name, ev.Key.Name)
-	}
-	if !cmp.Equal(ev.Object.SecurityLabels, cid1.SecurityLabels) {
-		t.Fatalf("expected labels %v, got %v", cid1.SecurityLabels, ev.Object.SecurityLabels)
-	}
-	ev.Done(nil)
+	// Ensure the identity will be re-created
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		cids := store.List()
+		assert.Len(ct, cids, 1)
+		if len(cids) != 1 {
+			return
+		}
+		cid = cids[0]
+		if !cmp.Equal(cid.SecurityLabels, cid1.SecurityLabels) {
+			t.Fatalf("expected labels %v, got %v", cid.SecurityLabels, cid1.SecurityLabels)
+		}
+	}, WaitUntilTimeout, 100*time.Millisecond)
 }
