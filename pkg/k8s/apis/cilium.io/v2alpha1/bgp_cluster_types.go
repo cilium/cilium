@@ -152,3 +152,9 @@ type CiliumBGPClusterConfigStatus struct {
 	// +deepequal-gen=false
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+// Conditions for CiliumBGPClusterConfig
+const (
+	// Node selector selects nothing
+	BGPClusterConfigConditionNoMatchingNode = "cilium.io/NoMatchingNode"
+)
