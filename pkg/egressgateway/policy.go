@@ -57,6 +57,7 @@ type PolicyConfig struct {
 	id types.NamespacedName
 
 	endpointSelectors []api.EndpointSelector
+	nodeSelectors     []api.EndpointSelector
 	dstCIDRs          []netip.Prefix
 	excludedCIDRs     []netip.Prefix
 
@@ -81,12 +82,26 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 	return false
 }
 
-// updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
-	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
+// matchesNodeLabels determines if the given node lables is a match for the
+// policy config based on matching labels.
+func (config *PolicyConfig) matchesNodeLabels(nodeLabels map[string]string) bool {
+	if len(config.nodeSelectors) == 0 {
+		return true
+	}
+	labelsToMatch := k8sLabels.Set(nodeLabels)
+	for _, selector := range config.nodeSelectors {
+		if selector.Matches(labelsToMatch) {
+			return true
+		}
+	}
+	return false
+}
 
+// updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
+func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata, nodesAddresses2Labels map[string]map[string]string) {
+	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
 	for _, endpoint := range epDataStore {
-		if config.matchesEndpointLabels(endpoint) {
+		if config.matchesEndpointLabels(endpoint) && config.matchesNodeLabels(nodesAddresses2Labels[endpoint.nodeIP]) {
 			config.matchedEndpoints[endpoint.id] = endpoint
 		}
 	}
@@ -206,6 +221,7 @@ func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Pref
 // the internal representation of the egress gateway policy
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	var endpointSelectorList []api.EndpointSelector
+	var nodeSelectorList []api.EndpointSelector
 	var dstCidrList []netip.Prefix
 	var excludedCIDRs []netip.Prefix
 
@@ -263,6 +279,11 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	}
 
 	for _, egressRule := range cegp.Spec.Selectors {
+		if egressRule.NodeSelector != nil {
+			nodeSelectorList = append(
+				nodeSelectorList,
+				api.NewESFromK8sLabelSelector("", egressRule.NodeSelector))
+		}
 		if egressRule.NamespaceSelector != nil {
 			prefixedNsSelector := egressRule.NamespaceSelector
 			matchLabels := map[string]string{}
@@ -301,6 +322,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 
 	return &PolicyConfig{
 		endpointSelectors: endpointSelectorList,
+		nodeSelectors:     nodeSelectorList,
 		dstCIDRs:          dstCidrList,
 		excludedCIDRs:     excludedCIDRs,
 		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
