@@ -49,6 +49,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium-dbg shell](cilium-dbg_shell.md)	 - Connect to the Cilium shell
 * [cilium-dbg statedb](cilium-dbg_statedb.md)	 - Inspect StateDB
 * [cilium-dbg status](cilium-dbg_status.md)	 - Display status of daemon
+* [cilium-dbg sysdump](cilium-dbg_sysdump.md)	 - Provide instructions on dumping cluster-wide system state
 * [cilium-dbg troubleshoot](cilium-dbg_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 * [cilium-dbg version](cilium-dbg_version.md)	 - Print version information
 
