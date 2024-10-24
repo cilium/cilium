@@ -788,19 +788,16 @@ func (e *mapStateEntry) merge(entry *mapStateEntry) {
 			}
 		}
 
-		// Explicit auth takes precedence over defaulted one.
-		if entry.hasAuthType == ExplicitAuthType {
-			if e.hasAuthType == ExplicitAuthType {
-				// Numerically higher AuthType takes precedence when both are explicitly defined
-				if entry.AuthType > e.AuthType {
-					e.AuthType = entry.AuthType
-				}
-			} else {
-				e.hasAuthType = ExplicitAuthType
+		// Numerically higher AuthType takes precedence when both are
+		// either explicitly defined or derived
+		if entry.hasAuthType == e.hasAuthType {
+			if entry.AuthType > e.AuthType {
 				e.AuthType = entry.AuthType
 			}
-		} else if e.hasAuthType == DefaultAuthType {
-			e.AuthType = entry.AuthType // new default takes precedence
+		} else if entry.hasAuthType {
+			// Explicit auth takes precedence over derived one.
+			e.hasAuthType = ExplicitAuthType
+			e.AuthType = entry.AuthType
 		}
 	}
 
