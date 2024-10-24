@@ -193,7 +193,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 		epPolicy.Ready()
 	}
 	ip.Detach()
-	fmt.Printf("Number of MapState entries: %d\n", n/b.N)
+	b.Logf("Number of MapState entries: %d\n", n/b.N)
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
@@ -286,10 +286,9 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = nil
-	expectedEndpointPolicy.policyMapState = nil
+	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = mapState{}
+	expectedEndpointPolicy.policyMapState = mapState{}
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
@@ -382,10 +381,9 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = nil
-	expectedEndpointPolicy.policyMapState = nil
+	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = mapState{}
+	expectedEndpointPolicy.policyMapState = mapState{}
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
@@ -434,8 +432,8 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, nil, false)
 	policy.Ready()
 
-	rule1MapStateEntry := NewMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := newMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := newMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -464,7 +462,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(MapStateMap{
+		policyMapState: newMapState().withState(map[Key]mapStateEntry{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey():                  allowEgressMapStateEntry,
@@ -492,10 +490,9 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = nil
-	expectedEndpointPolicy.policyMapState = nil
+	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = mapState{}
+	expectedEndpointPolicy.policyMapState = mapState{}
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
@@ -592,8 +589,8 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := newMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := newMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -629,7 +626,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(MapStateMap{
+		policyMapState: newMapState().withState(map[Key]mapStateEntry{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey(): allowEgressMapStateEntry,
@@ -666,9 +663,8 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = nil
-	expectedEndpointPolicy.policyMapState = nil
+	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = mapState{}
+	expectedEndpointPolicy.policyMapState = mapState{}
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }

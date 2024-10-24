@@ -343,10 +343,9 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = nil
-	expectedEndpointPolicy.policyMapState = nil
+	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = mapState{}
+	expectedEndpointPolicy.policyMapState = mapState{}
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
@@ -455,10 +454,9 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = nil
-	expectedEndpointPolicy.policyMapState = nil
+	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = mapState{}
+	expectedEndpointPolicy.policyMapState = mapState{}
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
@@ -509,8 +507,8 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
 	policy.Ready()
 
-	rule1MapStateEntry := NewMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := newMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := newMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		Redirects: testRedirects,
@@ -539,7 +537,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(MapStateMap{
+		policyMapState: newMapState().withState(map[Key]mapStateEntry{
 			EgressKey():                  allowEgressMapStateEntry,
 			IngressKey().WithTCPPort(80): rule1MapStateEntry,
 		}),
@@ -563,10 +561,9 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = nil
-	expectedEndpointPolicy.policyMapState = nil
+	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
+	policy.policyMapState = mapState{}
+	expectedEndpointPolicy.policyMapState = mapState{}
 	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
@@ -669,8 +666,8 @@ func TestMapStateWithIngress(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := newMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := newMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		Redirects: testRedirects,
@@ -713,7 +710,7 @@ func TestMapStateWithIngress(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(MapStateMap{
+		policyMapState: newMapState().withState(map[Key]mapStateEntry{
 			EgressKey(): allowEgressMapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
 			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry.WithOwners(cachedSelectorWorld, cachedSelectorWorldV4),
@@ -750,10 +747,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = nil
-	expectedEndpointPolicy.policyMapState = nil
+	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
@@ -787,7 +781,7 @@ func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingr
 func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 	type fields struct {
 		selectorPolicy *selectorPolicy
-		PolicyMapState *mapState
+		PolicyMapState mapState
 	}
 	type args struct {
 		identity identity.NumericIdentity
@@ -836,7 +830,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(MapStateMap{
+				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
 					IngressKey(): {},
 				}),
 			},
@@ -853,7 +847,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(MapStateMap{
+				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
 					EgressKey(): {},
 				}),
 			},
@@ -870,8 +864,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(MapStateMap{
-					IngressKey(): {IsDeny: true},
+				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+					IngressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
 				}),
 			},
 			args: args{
@@ -887,8 +881,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(MapStateMap{
-					IngressKey(): {IsDeny: true},
+				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+					IngressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
 				}),
 			},
 			args: args{
@@ -904,8 +898,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(MapStateMap{
-					EgressKey(): {IsDeny: true},
+				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+					EgressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
 				}),
 			},
 			args: args{
@@ -921,8 +915,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: newMapState().withState(MapStateMap{
-					EgressKey(): {IsDeny: true},
+				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+					EgressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
 				}),
 			},
 			args: args{

@@ -12,8 +12,14 @@
 
 static __always_inline int
 __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *policy,
-		    __s8 *ext_err, __u16 *proxy_port)
+		    const struct policy_entry *policy2, __s8 *ext_err, __u16 *proxy_port)
 {
+	/* auth_type is derived from the matched policy entry, except if both L3/L4 and L4-only
+	 * match, and the chosen policy has no explicit auth type: in this case the auth type is
+	 * derived from the less specific policy entry.
+	 */
+	__u8 auth_type;
+
 #ifdef POLICY_ACCOUNTING
 	/* FIXME: Use per cpu counters */
 	__sync_fetch_and_add(&policy->packets, 1);
@@ -24,9 +30,23 @@ __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *
 		return DROP_POLICY_DENY;
 
 	*proxy_port = policy->proxy_port;
-	if (unlikely(policy->auth_type)) {
+
+	auth_type = policy->auth_type;
+	if (unlikely(!policy->has_explicit_auth_type &&
+		     policy2 && policy2->auth_type > auth_type)) {
+		/* Both L4-only and L3/4 policy matched, and the chosen more specific one does not
+		 * have an explicit auth type: Propagate the auth type from the more general policy
+		 * if its (explicit or propagated) auth_type is greater than the propagated
+		 * auth_type of the chosen policy (policy entry may have an auth_type propagated
+		 * from another entry with en explicit auth type. Numerically greater value has
+		 * precedence in that case).
+		 */
+		auth_type = policy2->auth_type;
+	}
+
+	if (unlikely(auth_type)) {
 		if (ext_err)
-			*ext_err = (__s8)policy->auth_type;
+			*ext_err = (__s8)auth_type;
 		return DROP_POLICY_AUTH_REQUIRED;
 	}
 	return CTX_ACT_OK;
@@ -49,6 +69,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		.protocol = proto,
 		.dport = dport,
 	};
+	__u8 p_len;
 
 #if defined(ALLOW_ICMP_FRAG_NEEDED) || defined(ENABLE_ICMP_RULE)
 	switch (ethertype) {
@@ -89,57 +110,44 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	}
 #endif /* ALLOW_ICMP_FRAG_NEEDED || ENABLE_ICMP_RULE */
 
-	/* Policy match precedence: Entries with longer prefix lengths get precedence. If both
-	 * entries have the same prefix length, then the one with non-wildcard L3 is chosen.
-	 * This is an extension of the following to fully support arbitrarily masked ports:
-	 *
-	 * 1. id/proto/port  (L3/L4)
-	 * 2. ANY/proto/port (L4-only)
-	 * 3. id/proto/ANY   (L3-proto)
-	 * 4. ANY/proto/ANY  (Proto-only)
-	 * 5. id/ANY/ANY     (L3-only)
-	 * 6. ANY/ANY/ANY    (All)
+	/* Policy match precedence when both L3 and L4-only lookups find a matching policy:
+	 * 1. If either entry is deny it is selected.
+	 * 2. The entry with longer prefix length is selected out of the two allow entries.
+	 * 3. Otherwise the allow entry with non-wildcard L3 is chosen.
 	 */
 
-	/* Start with L3/L4 lookup.
-	 *
-	 * Note: Untracked fragments always have zero ports in the tuple so they can
+	/* Note: Untracked fragments always have zero ports in the tuple so they can
 	 * only match entries that have fully wildcarded ports.
 	 */
+
+	/* L3/L4 lookup. */
 	policy = map_lookup_elem(map, &key);
 
-	/* This is a full L3/L4 match if port is not wildcarded,
-	 * need to check for L4-only policy first if it is.
-	 */
-	if (likely(policy && policy->lpm_prefix_length == LPM_FULL_PREFIX_BITS)) {
-		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
-			    dport << 16 | proto);
-		*match_type = POLICY_MATCH_L3_L4;		/* 1. id/proto/port */
+	/* policy can be chosen without the 2nd lookup if it is a deny policy */
+	if (likely(policy && policy->deny)) {
+		l4policy = NULL;
 		goto check_policy;
 	}
 
 	/* L4-only lookup. */
 	key.sec_label = 0;
-	/*
-	 * Untracked fragments always have zero ports in the tuple so they can
-	 * only match entries that have fully wildcarded ports.
-	 */
 	l4policy = map_lookup_elem(map, &key);
 
+	/* The found l4policy is chosen if:
+	 * - there is no full L3/L4 policy match, or
+	 * - L4-only policy is deny, or
+	 * - L4-only policy has longer LPM prefix length than the L3/L4 policy
+	 */
 	if (likely(l4policy &&
-		   (!policy || l4policy->lpm_prefix_length > policy->lpm_prefix_length))) {
-		__u8 p_len = l4policy->lpm_prefix_length;
-		*match_type =
-			p_len == 0 ? POLICY_MATCH_ALL :					/* 6. ANY/ANY/ANY */
-		  p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
-			POLICY_MATCH_L4_ONLY;						/* 2. ANY/proto/port */
+		   (!policy || l4policy->deny ||
+		    l4policy->lpm_prefix_length > policy->lpm_prefix_length))) {
 		goto check_l4_policy;
 	}
 
+	/* Otherwise there is no L4-only policy, or it is an allow policy with the same prefix
+	 * length as the L3/L4 policy, if one was found.
+	 */
 	if (likely(policy)) {
-		__u8 p_len = policy->lpm_prefix_length;
-		*match_type = p_len > 0 ? POLICY_MATCH_L3_PROTO :	/* 3. id/proto/ANY */
-			POLICY_MATCH_L3_ONLY;				/* 5. id/ANY/ANY */
 		goto check_policy;
 	}
 
@@ -149,10 +157,21 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	return DROP_POLICY;
 
 check_policy:
-	return __account_and_check(ctx, policy, ext_err, proxy_port);
+	cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id, dport << 16 | proto);
+	p_len = policy->lpm_prefix_length;
+	*match_type =
+		p_len > LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_L3_L4 :	/* 1. id/proto/port */
+		p_len > 0 ? POLICY_MATCH_L3_PROTO :			/* 3. id/proto/ANY */
+		POLICY_MATCH_L3_ONLY;					/* 5. id/ANY/ANY */
+	return __account_and_check(ctx, policy, l4policy, ext_err, proxy_port);
 
 check_l4_policy:
-	return __account_and_check(ctx, l4policy, ext_err, proxy_port);
+	p_len = l4policy->lpm_prefix_length;
+	*match_type =
+		p_len == 0 ? POLICY_MATCH_ALL :					/* 6. ANY/ANY/ANY */
+		p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
+		POLICY_MATCH_L4_ONLY;						/* 2. ANY/proto/port */
+	return __account_and_check(ctx, l4policy, policy, ext_err, proxy_port);
 }
 
 /**
