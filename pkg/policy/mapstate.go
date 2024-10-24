@@ -841,6 +841,13 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 		entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
 		entry.owners = entry.owners.Clone()
 		entry.dependents = maps.Clone(entry.dependents)
+
+		// Save old value before any changes, if any
+		if exists {
+			changes.insertOldIfNotExists(key, oldEntry)
+		}
+
+		// Callers already have cloned the containers, no need to do it again here
 		ms.insert(key, entry)
 	} else {
 		// Do not record and incremental add if nothing was done
