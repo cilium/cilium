@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,6 +28,11 @@ func (b *BGPResourceManager) reconcileBGPClusterConfigs(ctx context.Context) err
 		rcErr := b.reconcileBGPClusterConfig(ctx, config)
 		if rcErr != nil {
 			err = errors.Join(err, rcErr)
+		}
+
+		_, uErr := b.clientset.CiliumV2alpha1().CiliumBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
+		if uErr != nil {
+			err = errors.Join(err, uErr)
 		}
 	}
 	return err
@@ -52,7 +59,51 @@ func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, conf
 		err = errors.Join(err, dErr)
 	}
 
+	// Update ClusterConfig conditions
+	b.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0)
+
+	// Sort conditions to the stable order
+	slices.SortStableFunc(config.Status.Conditions, func(a, b meta_v1.Condition) int {
+		return strings.Compare(a.Type, b.Type)
+	})
+
 	return err
+}
+
+func (b *BGPResourceManager) updateNoMatchingNodeCondition(config *v2alpha1.CiliumBGPClusterConfig, noMatchingNode bool) {
+	noMatchingNodeCond := meta_v1.Condition{
+		Type:               v2alpha1.BGPClusterConfigConditionNoMatchingNode,
+		Status:             meta_v1.ConditionTrue,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "NoMatchingNode",
+		Message:            "No node matches spec.nodeSelector",
+	}
+	if !noMatchingNode {
+		noMatchingNodeCond.Status = meta_v1.ConditionFalse
+	}
+	b.updateCondition(config, noMatchingNodeCond)
+}
+
+func (b *BGPResourceManager) updateCondition(config *v2alpha1.CiliumBGPClusterConfig, newCond meta_v1.Condition) {
+	conditionExists := false
+	for i, oldCond := range config.Status.Conditions {
+		if oldCond.Type == newCond.Type {
+			if oldCond.Status != newCond.Status ||
+				oldCond.Reason != newCond.Reason ||
+				oldCond.Message != newCond.Message ||
+				oldCond.ObservedGeneration != newCond.ObservedGeneration {
+				// Old condition found and transitioned. Update.
+				config.Status.Conditions[i] = newCond
+			}
+			conditionExists = true
+			break
+		}
+	}
+	if !conditionExists {
+		// New condition. Append.
+		config.Status.Conditions = append(config.Status.Conditions, newCond)
+	}
 }
 
 func (b *BGPResourceManager) upsertNodeConfig(ctx context.Context, config *v2alpha1.CiliumBGPClusterConfig, nodeName string) error {
