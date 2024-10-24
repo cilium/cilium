@@ -72,6 +72,10 @@ const (
 	// means that it doesn't have any datapath bpf programs regenerated.
 	PropertyFakeEndpoint = "property-fake-endpoint"
 
+	// PropertyAtHostNS is used for endpoints that are reached via the host networking
+	// namespace, but have their own IP(s) from the node's pod CIDR range
+	PropertyAtHostNS = "property-at-host-network-namespace"
+
 	// PropertyWithouteBPFDatapath marks the endpoint that doesn't contain a
 	// eBPF datapath program.
 	PropertyWithouteBPFDatapath = "property-without-bpf-endpoint"
@@ -487,6 +491,10 @@ func (e *Endpoint) LXCMac() mac.MAC {
 	return e.mac
 }
 
+func (e *Endpoint) IsAtHostNS() bool {
+	return e.isProperty(PropertyAtHostNS)
+}
+
 func (e *Endpoint) IsHost() bool {
 	return e.isHost
 }
@@ -611,10 +619,19 @@ func CreateIngressEndpoint(owner regeneration.Owner, policyGetter policyRepoGett
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
 	ep.isIngress = true
+
 	// An ingress endpoint is defined without a veth interface and no bpf
 	// programs or maps are created for it. Thus, we will set its properties
 	// to not have a bpf policy map nor a bpf datapath.
+
+	// Ingress endpoint is reachable via the host networking namespace
+	// Host delivery flag is set in lxcmap
+	ep.properties[PropertyAtHostNS] = true
+
+	// Ingress endpoint has no bpf policy maps
 	ep.properties[PropertySkipBPFPolicy] = true
+
+	// Ingress endpoint has no bpf programs
 	ep.properties[PropertyWithouteBPFDatapath] = true
 
 	// node.GetIngressIPv4 has been parsed with net.ParseIP() and may be in IPv4 mapped IPv6
