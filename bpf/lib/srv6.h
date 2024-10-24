@@ -121,6 +121,54 @@ is_srv6_packet(const struct ipv6hdr *ip6)
 }
 
 # ifndef SKIP_SRV6_HANDLING
+
+#ifdef ENABLE_SRV6_FLOW_LABEL_PORT
+static __always_inline __u16
+calculate_flow_label(__be16 sport, __be16 dport)
+{
+	return (sport + dport) & 0xffff;
+}
+
+static __always_inline __u16
+get_ipv6_flow_label_port(struct __ctx_buff *ctx, __u8 nexthdr)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u16 flow_label = 0;
+	int off = ETH_HLEN;
+	__be16 protocol;
+	__be16 sport;
+	__be16 dport;
+
+	if (nexthdr == IPPROTO_IPIP) {
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return flow_label;
+
+		protocol = ip4->protocol;
+		off = off + sizeof(struct iphdr);
+
+		switch (protocol) {
+			case IPPROTO_UDP:
+				if (ctx_load_bytes(ctx, off, &sport, sizeof(__be16)) < 0)
+					return flow_label;
+				if (ctx_load_bytes(ctx, off + 2, &dport, sizeof(__be16)) < 0)
+					return flow_label;
+				flow_label = calculate_flow_label(sport, dport);
+				break;
+			case IPPROTO_TCP:
+				if (ctx_load_bytes(ctx, off, &sport, sizeof(__be16)) < 0)
+					return flow_label;
+				if (ctx_load_bytes(ctx, off + 2, &dport, sizeof(__be16)) < 0)
+					return flow_label;
+				flow_label = calculate_flow_label(sport, dport);
+				break;
+		}
+	}
+
+	return flow_label;
+}
+#endif /* ENABLE_SRV6_FLOW_LABEL_PORT */
+
 static __always_inline int
 srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 		   __u8 nexthdr, union v6addr *saddr, struct in6_addr *sid)
@@ -132,6 +180,14 @@ srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 		.nexthdr     = nexthdr,
 		.hop_limit   = IPDEFTTL,
 	};
+
+#ifdef ENABLE_SRV6_FLOW_LABEL_PORT
+	__u16 ipv6_flow_label;
+
+	ipv6_flow_label = get_ipv6_flow_label_port(ctx, nexthdr);
+	new_ip6.flow_lbl[1] = ipv6_flow_label & 0xff;
+	new_ip6.flow_lbl[2] = (ipv6_flow_label >> 8) & 0xff;
+#endif /* ENABLE_SRV6_FLOW_LABEL_PORT */
 
 #ifdef ENABLE_SRV6_SRH_ENCAP
 	/* If reduced encapsulation is disabled, the next header will be the

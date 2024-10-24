@@ -204,6 +204,9 @@ const (
 	// SRv6EncapMode is the encapsulation mode for SRv6.
 	SRv6EncapMode = "reduced"
 
+	// SRv6FlowLabelMode is the flow label calculation mode for SRv6.
+	SRv6FlowLabelMode = "none"
+
 	// EnableSCTP is the default value for SCTP support enablement
 	EnableSCTP = false
 
