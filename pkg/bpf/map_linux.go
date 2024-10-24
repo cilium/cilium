@@ -10,10 +10,14 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"iter"
+	"math"
 	"os"
 	"path"
 	"reflect"
 	"strings"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
@@ -749,6 +753,239 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 	}
 
 	return ErrMaxLookup
+}
+
+// BatchIterator provides a typed wrapper *Map that allows for batched iteration
+// of bpf maps.
+type BatchIterator[KT, VT any] struct {
+	m    *Map
+	err  error
+	keys []KT
+	vals []VT
+
+	chunkSize      int
+	maxDumpRetries uint32
+
+	// Iteration stats
+	batchSize int
+
+	opts *ebpf.BatchOptions
+}
+
+// NewBatchIterator returns a typed wrapper for *Map that allows for
+// iterating (i.e. "dumping") the map using the bpf batch api.
+//
+// Unlike the general *Map dump functions, this must reads into slices of
+// a concrete type (such as struct, or other scalar type), rather than into
+// pointers. This is because there is currently no safe way to allocate a
+// contiguous slice of key/value elements from either the underlying generic
+// pointer types or from MapKey/MapValue interface types.
+//
+// This means that attempting to use the pointer types that implement
+// MapKey/MapValue will fail upon iteration (via the Err() function).
+//
+// Example usage:
+//
+//	m := NewMap("cilium_test",
+//		ebpf.Hash,
+//		&TestKey{}, 	// *TestKey implements MapKey.
+//		&TestValue{}, 	// *TestValue implements MapValue.
+//		mapSize,
+//		BPF_F_NO_PREALLOC,
+//	)
+//
+//	// Note: TestKey & TestValue are not pointer types!
+//	iter := NewBatchIterator[TestKey, TestValue](m)
+//	for k, v := range iter {
+//		// ...
+//	}
+//
+// Following iteration, any unresolved errors encountered when iterating
+// the bpf map can be accessed via the Err() function.
+func NewBatchIterator[KT, VT any](m *Map) *BatchIterator[KT, VT] {
+	return &BatchIterator[KT, VT]{
+		m: m,
+	}
+}
+
+// Err returns errors encountered during the previous iteration when
+// IterateAll(...) is called.
+//
+// If the iterator is reused, the error will be reset,
+func (kvs BatchIterator[KT, VT]) Err() error {
+	return kvs.err
+}
+
+func (bi BatchIterator[KT, VT]) maxBatchedRetries() int {
+	if bi.maxDumpRetries > 0 {
+		return int(bi.maxDumpRetries)
+	}
+	return defaultBatchedRetries
+}
+
+const defaultBatchedRetries = 3
+
+type BatchIteratorOpt[KT any, VT any] func(*BatchIterator[KT, VT]) *BatchIterator[KT, VT]
+
+// WithEBPFBatchOpts returns a batch iterator option that allows for overriding
+// BPF_MAP_LOOKUP_BATCH options.
+func WithEBPFBatchOpts[KT, VT any](opts *ebpf.BatchOptions) BatchIteratorOpt[KT, VT] {
+	return func(in *BatchIterator[KT, VT]) *BatchIterator[KT, VT] {
+		in.opts = opts
+		return in
+	}
+}
+
+// WithMaxRetries returns a batch iterator option that allows overriding the default
+// max batch retries.
+//
+// Unless the starting chunk size is set to be the map size, it is possible for iteration
+// to fail with ENOSPC if the passed allocated chunk array size is not big enough to accomodate
+// a the bpf maps underlying hashmaps bucket size.
+//
+// If this happens, BatchIterator will automatically attempt to double the batch size and
+// retry the iteration from the same place - up to a number of retries.
+func WithMaxRetries[KT, VT any](retries uint32) BatchIteratorOpt[KT, VT] {
+	return func(in *BatchIterator[KT, VT]) *BatchIterator[KT, VT] {
+		in.maxDumpRetries = retries
+		return in
+	}
+}
+
+// WithStartingChunkSize returns a batch iterator option that allows overriding the dynamically
+// chosen starting chunk size.
+func WithStartingChunkSize[KT, VT any](size int) BatchIteratorOpt[KT, VT] {
+	return func(in *BatchIterator[KT, VT]) *BatchIterator[KT, VT] {
+		in.chunkSize = size
+		if in.chunkSize <= 0 {
+			in.chunkSize = 8
+		}
+		return in
+	}
+}
+
+// CountAll is a helper function that returns the count of all elements in a batched
+// iterator.
+func CountAll[KT, VT any](ctx context.Context, iter *BatchIterator[KT, VT]) (int, error) {
+	c := 0
+	for range iter.IterateAll(ctx) {
+		c++
+	}
+	return c, iter.Err()
+}
+
+func startingChunkSize(maxEntries int) int {
+	bucketSize := math.Sqrt(float64(maxEntries * 2))
+	nearest2 := math.Log2(bucketSize)
+	return int(math.Pow(2, math.Ceil(nearest2)))
+}
+
+func checkBatchType[T any]() error {
+	var kv T
+	if kind := reflect.TypeOf(kv).Kind(); kind != reflect.Struct {
+		return fmt.Errorf("BatchIterator: generic type(s) must be of kind struct, got: %s", kind)
+	}
+	return nil
+}
+
+// IterateAll returns an iterate Seq2 type which can be used to iterate a map
+// using the batched API.
+// In the case of a the iteration failing due to insufficient batch buffer size,
+// this will attempt to grow the buffer by a factor of 2 (up to a default: 3 amount
+// of retries) and re-attempt the iteration.
+// If the number of failures exceeds max retries, then iteration will stop and an error
+// will be returned via Err().
+//
+// All other errors will result in immediate termination of iterator.
+//
+// If the iteration fails, then the Err() function will return the error that caused the failure.
+func (bi *BatchIterator[KT, VT]) IterateAll(ctx context.Context, opts ...BatchIteratorOpt[KT, VT]) iter.Seq2[KT, VT] {
+	if bi.err = checkBatchType[KT](); bi.err != nil {
+		return nil
+	}
+
+	if bi.err = checkBatchType[VT](); bi.err != nil {
+		return nil
+	}
+
+	bi.chunkSize = startingChunkSize(int(bi.m.MaxEntries()))
+
+	for _, opt := range opts {
+		if opt != nil {
+			bi = opt(bi)
+		}
+	}
+
+	// reset values
+	bi.err = nil
+	bi.batchSize = 0
+	bi.keys = make([]KT, bi.chunkSize)
+	bi.vals = make([]VT, bi.chunkSize)
+
+	processed := 0
+	var cursor ebpf.MapBatchCursor
+	return func(yield func(KT, VT) bool) {
+		if bi.Err() != nil {
+			return
+		}
+
+	iterate:
+		for {
+			if ctx.Err() != nil {
+				bi.err = ctx.Err()
+				return
+			}
+		retry:
+			for retry := range bi.maxBatchedRetries() {
+				// Attempt to read batch into buffer.
+				c, batchErr := bi.m.BatchLookup(&cursor, bi.keys, bi.vals, nil)
+				bi.batchSize = c
+
+				done := errors.Is(batchErr, ebpf.ErrKeyNotExist)
+				// Lookup batch on LRU hash map may fail if the buffer passed is not big enough to
+				// accommodate the largest bucket size in the LRU map [1]
+				// Because bucket size, in general, cannot be known, we approximate a good starting
+				// buffer size from the approximation of how many entries there should be in the map
+				// before expect to see a hash map collision: sqrt(max_entries * 2)
+				//
+				// If we receive ENOSPC failures, we will try to recover by growing the batch buffer
+				// size (up to some max number of retries - default: 3) and retrying the iteration.
+				//
+				// [1] https://elixir.bootlin.com/linux/latest/source/kernel/bpf/hashtab.c#L1776
+				//
+				// Note: If this failure happens during the bpf syscall, it is expected that the underlying
+				// cursor will not have been swapped - meaning that we can retry the iteration at the same cursor.
+				if errors.Is(batchErr, unix.ENOSPC) {
+					if retry == bi.maxBatchedRetries()-1 {
+						bi.err = batchErr
+					} else {
+						bi.chunkSize *= 2
+						bi.keys = make([]KT, bi.chunkSize)
+						bi.vals = make([]VT, bi.chunkSize)
+					}
+					continue retry
+				} else if !done && batchErr != nil {
+					// If we're not done, and we didn't hit a ENOSPC then stop iteration and record
+					// the error.
+					bi.err = fmt.Errorf("failed to iterate map: %w", batchErr)
+					return
+				}
+
+				// Yield all received pairs.
+				for i := range bi.batchSize {
+					processed++
+					if !yield(bi.keys[i], bi.vals[i]) {
+						break iterate
+					}
+				}
+
+				if done {
+					break iterate
+				}
+				break retry // finish retry loop for this batch.
+			}
+		}
+	}
 }
 
 // Dump returns the map (type map[string][]string) which contains all
