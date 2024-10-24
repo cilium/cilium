@@ -119,6 +119,7 @@ jobs:
           - index: 5
             name: "native-wireguard"
             mode: "gke"
+            encryption: "wireguard"
 
           - index: 6
             name: "tunnel-wireguard"
