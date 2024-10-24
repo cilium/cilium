@@ -20,16 +20,19 @@ import (
 
 func TestFlowsToWorldHandler_MatchingFlow(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	opts := []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"namespace"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"dns", "ip"},
+	opts := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"dns", "ip"},
+			},
 		},
 	}
+
 	h := &flowsToWorldHandler{}
 	assert.NoError(t, h.Init(registry, opts))
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, strings.NewReader("")))
@@ -74,14 +77,16 @@ hubble_flows_to_world_total{destination="cilium.io",protocol="TCP",source="src-a
 
 func TestFlowsToWorldHandler_NonMatchingFlows(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	opts := []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"namespace"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"dns", "ip"},
+	opts := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"dns", "ip"},
+			},
 		},
 	}
 	h := &flowsToWorldHandler{}
@@ -158,18 +163,20 @@ func TestFlowsToWorldHandler_NonMatchingFlows(t *testing.T) {
 
 func TestFlowsToWorldHandler_AnyDrop(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	opts := []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"namespace"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"dns", "ip"},
-		},
-		{
-			Name:   "any-drop",
-			Values: []string{""},
+	opts := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"dns", "ip"},
+			},
+			{
+				Name:   "any-drop",
+				Values: []string{""},
+			},
 		},
 	}
 	h := &flowsToWorldHandler{}
@@ -200,18 +207,20 @@ hubble_flows_to_world_total{destination="cilium.io",protocol="TCP",source="src-a
 
 func TestFlowsToWorldHandler_IncludePort(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	opts := []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"namespace"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"dns", "ip"},
-		},
-		{
-			Name:   "port",
-			Values: []string{""},
+	opts := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"dns", "ip"},
+			},
+			{
+				Name:   "port",
+				Values: []string{""},
+			},
 		},
 	}
 	h := &flowsToWorldHandler{}
@@ -256,18 +265,20 @@ hubble_flows_to_world_total{destination="cilium.io",port="53",protocol="UDP",sou
 
 func TestFlowsToWorldHandler_SynOnly(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	opts := []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"namespace"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"dns", "ip"},
-		},
-		{
-			Name:   "syn-only",
-			Values: []string{""},
+	opts := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"dns", "ip"},
+			},
+			{
+				Name:   "syn-only",
+				Values: []string{""},
+			},
 		},
 	}
 	h := &flowsToWorldHandler{}

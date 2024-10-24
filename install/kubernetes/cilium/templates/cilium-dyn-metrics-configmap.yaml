@@ -1,0 +1,12 @@
+{{- if and .Values.hubble.metrics.dynamic.enabled .Values.hubble.metrics.dynamic.config.createConfigMap }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.hubble.metrics.dynamic.config.configMapName }}
+  namespace: {{ include "cilium.namespace" . }}
+data:
+  dyn-metrics.yaml: |
+    metrics:
+{{ .Values.hubble.metrics.dynamic.config.content | toYaml | indent 4 }}
+{{- end }}

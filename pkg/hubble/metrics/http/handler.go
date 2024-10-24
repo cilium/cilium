@@ -10,8 +10,13 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -21,20 +26,32 @@ type httpHandler struct {
 	responses *prometheus.CounterVec
 	duration  *prometheus.HistogramVec
 	context   *api.ContextOptions
+	cfg       *api.MetricConfig
+	AllowList filters.FilterFuncs
+	DenyList  filters.FilterFuncs
 	useV2     bool
 	exemplars bool
 
 	registeredMetrics []*prometheus.MetricVec
 }
 
-func (h *httpHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
-	c, err := api.ParseContextOptions(options)
+func (h *httpHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
 	h.context = c
+	h.cfg = options
+	h.AllowList, err = filters.BuildFilterList(context.Background(), h.cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	h.DenyList, err = filters.BuildFilterList(context.Background(), h.cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
 
-	for _, opt := range options {
+	for _, opt := range options.ContextOptionConfigs {
 		if strings.ToLower(opt.Name) == "exemplars" {
 			if len(opt.Values) >= 1 && opt.Values[0] == "true" {
 				h.exemplars = true
@@ -133,6 +150,10 @@ func (h *httpHandler) processMetricsV2(flow *flowpb.Flow) error {
 	reporter := h.reporter(flow)
 	traceID := h.traceID(flow)
 
+	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
+		return nil
+	}
+
 	labelValues, err := h.context.GetLabelValuesInvertSourceDestination(flow)
 	if err != nil {
 		return err
@@ -159,6 +180,10 @@ func (h *httpHandler) processMetricsV1(flow *flowpb.Flow) error {
 	}
 	reporter := h.reporter(flow)
 	traceID := h.traceID(flow)
+
+	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
+		return nil
+	}
 
 	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
@@ -195,4 +220,8 @@ func observerObserve(o prometheus.Observer, value float64, traceID string) {
 	} else {
 		o.Observe(value)
 	}
+}
+
+func (h *httpHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.requests) || registry.Unregister(h.responses) || registry.Unregister(h.duration)
 }

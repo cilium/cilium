@@ -81,6 +81,9 @@ type config struct {
 	// Hubble metrics server. The files must contain PEM encoded data.
 	MetricsServerTLSClientCAFiles []string `mapstructure:"hubble-metrics-server-tls-client-ca-files"`
 
+	// DynamicMetricConfigFilePath specifies the filepath with configuration of hubble metrics.
+	DynamicMetricConfigFilePath string `mapstructure:"hubble-dynamic-metrics-config-path"`
+
 	// FlowlogsConfigFilePath specifies the filepath with configuration of
 	// hubble flowlogs. e.g. "/etc/cilium/flowlog.yaml".
 	FlowlogsConfigFilePath string `mapstructure:"hubble-flowlogs-config-path"`
@@ -160,6 +163,8 @@ var defaultConfig = config{
 	MetricsServerTLSCertFile:      "",
 	MetricsServerTLSKeyFile:       "",
 	MetricsServerTLSClientCAFiles: []string{},
+	// Hubble metrics dynamic config CM path
+	DynamicMetricConfigFilePath: "",
 	// Hubble log export configuration
 	FlowlogsConfigFilePath: "",
 	ExportFilePath:         exporteroption.Default.Path,
@@ -215,6 +220,8 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.String("hubble-metrics-server-tls-cert-file", def.MetricsServerTLSCertFile, "Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.")
 	flags.String("hubble-metrics-server-tls-key-file", def.MetricsServerTLSKeyFile, "Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.")
 	flags.StringSlice("hubble-metrics-server-tls-client-ca-files", def.MetricsServerTLSClientCAFiles, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
+	// Hubble metrics dynamic config CM path
+	flags.String("hubble-dynamic-metrics-config-path", def.DynamicMetricConfigFilePath, "Filepath with dynamic configuration of hubble metrics")
 	// Hubble log export configuration
 	flags.String("hubble-flowlogs-config-path", def.FlowlogsConfigFilePath, "Filepath with configuration of hubble flowlogs")
 	flags.String("hubble-export-file-path", def.ExportFilePath, "Filepath to write Hubble events to. By specifying `stdout` the flows are logged instead of written to a rotated file.")

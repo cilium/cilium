@@ -9,9 +9,13 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	pkglabels "github.com/cilium/cilium/pkg/labels"
 )
@@ -25,18 +29,31 @@ const (
 type flowsToWorldHandler struct {
 	flowsToWorld *prometheus.CounterVec
 	context      *api.ContextOptions
+	cfg          *api.MetricConfig
+	AllowList    filters.FilterFuncs
+	DenyList     filters.FilterFuncs
 	anyDrop      bool
 	port         bool
 	synOnly      bool
 }
 
-func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
-	c, err := api.ParseContextOptions(options)
+func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
 	h.context = c
-	for _, opt := range options {
+	h.cfg = options
+	h.AllowList, err = filters.BuildFilterList(context.Background(), h.cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	h.DenyList, err = filters.BuildFilterList(context.Background(), h.cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+
+	for _, opt := range options.ContextOptionConfigs {
 		switch strings.ToLower(opt.Name) {
 		case "any-drop":
 			h.anyDrop = true
@@ -116,6 +133,10 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 		return nil
 	}
 
+	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
+		return nil
+	}
+
 	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
@@ -138,4 +159,8 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 	labels = append(labels, labelValues...)
 	h.flowsToWorld.WithLabelValues(labels...).Inc()
 	return nil
+}
+
+func (h *flowsToWorldHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.flowsToWorld)
 }

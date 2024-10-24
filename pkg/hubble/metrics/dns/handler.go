@@ -9,8 +9,13 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -18,84 +23,96 @@ type dnsHandler struct {
 	includeQuery bool
 	ignoreAAAA   bool
 
-	context *api.ContextOptions
+	context   *api.ContextOptions
+	cfg       *api.MetricConfig
+	AllowList filters.FilterFuncs
+	DenyList  filters.FilterFuncs
 
 	queries       *prometheus.CounterVec
 	responses     *prometheus.CounterVec
 	responseTypes *prometheus.CounterVec
 }
 
-func (d *dnsHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
-	c, err := api.ParseContextOptions(options)
+func (h *dnsHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
-	d.context = c
+	h.context = c
+	h.cfg = options
+	h.AllowList, err = filters.BuildFilterList(context.Background(), h.cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	h.DenyList, err = filters.BuildFilterList(context.Background(), h.cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
 
-	for _, opt := range options {
+	for _, opt := range options.ContextOptionConfigs {
 		switch strings.ToLower(opt.Name) {
 		case "query":
-			d.includeQuery = true
+			h.includeQuery = true
 		case "ignoreaaaa":
-			d.ignoreAAAA = true
+			h.ignoreAAAA = true
 		}
 	}
 
-	contextLabels := d.context.GetLabelNames()
+	contextLabels := h.context.GetLabelNames()
 	commonLabels := append(contextLabels, "rcode", "qtypes")
 	queryAndResponseLabels := append(commonLabels, "ips_returned")
 	responseTypeLabels := append(contextLabels, "type", "qtypes")
 
-	if d.includeQuery {
+	if h.includeQuery {
 		queryAndResponseLabels = append(queryAndResponseLabels, "query")
 		responseTypeLabels = append(responseTypeLabels, "query")
 	}
 
-	d.queries = prometheus.NewCounterVec(prometheus.CounterOpts{
+	h.queries = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "dns_queries_total",
 		Help:      "Number of DNS queries observed",
 	}, queryAndResponseLabels)
-	registry.MustRegister(d.queries)
+	registry.MustRegister(h.queries)
 
-	d.responses = prometheus.NewCounterVec(prometheus.CounterOpts{
+	h.responses = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "dns_responses_total",
 		Help:      "Number of DNS queries observed",
 	}, queryAndResponseLabels)
-	registry.MustRegister(d.responses)
+	registry.MustRegister(h.responses)
 
-	d.responseTypes = prometheus.NewCounterVec(prometheus.CounterOpts{
+	h.responseTypes = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "dns_response_types_total",
 		Help:      "Number of DNS queries observed",
 	}, responseTypeLabels)
-	registry.MustRegister(d.responseTypes)
+	registry.MustRegister(h.responseTypes)
 
 	return nil
 }
 
-func (d *dnsHandler) Status() string {
+func (h *dnsHandler) Status() string {
 	var status []string
-	if d.includeQuery {
+	if h.includeQuery {
 		status = append(status, "query")
 	}
-	if d.ignoreAAAA {
+	if h.ignoreAAAA {
 		status = append(status, "ignoreAAAA")
 	}
 
-	return strings.Join(append(status, d.context.Status()), ",")
+	return strings.Join(append(status, h.context.Status()), ",")
 }
 
-func (d *dnsHandler) Context() *api.ContextOptions {
-	return d.context
+func (h *dnsHandler) Context() *api.ContextOptions {
+	return h.context
 }
 
-func (d *dnsHandler) ListMetricVec() []*prometheus.MetricVec {
-	return []*prometheus.MetricVec{d.queries.MetricVec, d.responses.MetricVec, d.responseTypes.MetricVec}
+func (h *dnsHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{h.queries.MetricVec, h.responses.MetricVec, h.responseTypes.MetricVec}
 }
 
-func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (h *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if flow.GetL7() == nil {
 		return nil
 	}
@@ -105,11 +122,15 @@ func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 		return nil
 	}
 
-	if d.ignoreAAAA && len(dns.Qtypes) == 1 && dns.Qtypes[0] == "AAAA" {
+	if h.ignoreAAAA && len(dns.Qtypes) == 1 && dns.Qtypes[0] == "AAAA" {
 		return nil
 	}
 
-	contextLabels, err := d.context.GetLabelValues(flow)
+	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
+		return nil
+	}
+
+	contextLabels, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
 	}
@@ -122,32 +143,36 @@ func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	case flow.GetVerdict() == flowpb.Verdict_DROPPED:
 		rcode = "Policy denied"
 		labels := append(contextLabels, rcode, qtypes, ipsReturned)
-		if d.includeQuery {
+		if h.includeQuery {
 			labels = append(labels, dns.Query)
 		}
-		d.queries.WithLabelValues(labels...).Inc()
+		h.queries.WithLabelValues(labels...).Inc()
 	case !flow.GetIsReply().GetValue(): // dns request
 		labels := append(contextLabels, rcode, qtypes, ipsReturned)
-		if d.includeQuery {
+		if h.includeQuery {
 			labels = append(labels, dns.Query)
 		}
-		d.queries.WithLabelValues(labels...).Inc()
+		h.queries.WithLabelValues(labels...).Inc()
 	case flow.GetIsReply().GetValue(): // dns response
 		rcode = rcodeNames[dns.Rcode]
 		labels := append(contextLabels, rcode, qtypes, ipsReturned)
-		if d.includeQuery {
+		if h.includeQuery {
 			labels = append(labels, dns.Query)
 		}
-		d.responses.WithLabelValues(labels...).Inc()
+		h.responses.WithLabelValues(labels...).Inc()
 
 		for _, responseType := range dns.Rrtypes {
 			newLabels := append(contextLabels, responseType, qtypes)
-			if d.includeQuery {
+			if h.includeQuery {
 				newLabels = append(newLabels, dns.Query)
 			}
-			d.responseTypes.WithLabelValues(newLabels...).Inc()
+			h.responseTypes.WithLabelValues(newLabels...).Inc()
 		}
 	}
 
 	return nil
+}
+
+func (h *dnsHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.queries) || registry.Unregister(h.responses) || registry.Unregister(h.responseTypes)
 }

@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled }}
+{{- if and .Values.hubble.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) }}
 apiVersion: v1
 kind: Service
 metadata:
