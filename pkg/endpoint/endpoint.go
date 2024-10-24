@@ -57,7 +57,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/types"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
@@ -1566,20 +1565,6 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 	e.unlock()
 }
 
-// OnDNSPolicyUpdateLocked is called when the Endpoint's DNS policy has been updated
-func (e *Endpoint) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {
-	e.DNSRulesV2 = rules
-	// Keep V1 in tact in case of a downgrade.
-	e.DNSRules = make(restore.DNSRules)
-	for pp, rules := range rules {
-		proto := pp.Protocol()
-		// Filter out non-UDP/TCP protocol
-		if proto == uint8(u8proto.TCP) || proto == uint8(u8proto.UDP) {
-			e.DNSRules[pp.ToV1()] = rules
-		}
-	}
-}
-
 func (e *Endpoint) GetPolicyVersionHandle() *versioned.VersionHandle {
 	if e.desiredPolicy != nil {
 		return e.desiredPolicy.VersionHandle
@@ -2426,7 +2411,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 
 	// Update DNSRules if any. This is needed because DNSRules also encode allowed destination IPs
 	// and those can change anytime we have identity updates in the cluster.
-	e.OnDNSPolicyUpdateLocked(rules)
+	e.setDNSRulesLocked(rules)
 
 	if err := e.writeHeaderfile(e.StateDirectoryPath()); err != nil {
 		e.getLogger().WithFields(logrus.Fields{
