@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -208,6 +209,13 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	}
 
 	ops.log.Info("Delete frontend", "id", feID, "address", fe.Address)
+
+	// Delete Maglev.
+	if ops.cfg.NodePortAlg == option.NodePortAlgMaglev {
+		if err := ops.LBMaps.DeleteMaglev(lbmap.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
+			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
+		}
+	}
 
 	// Clean up any potential affinity match entries. We do this regardless of
 	// whether or not SessionAffinity is enabled as it might've been toggled by
@@ -421,6 +429,33 @@ func (ops *BPFOps) pruneSourceRanges() error {
 	return nil
 }
 
+func (ops *BPFOps) pruneMaglev() error {
+	type outerKeyWithIPVersion struct {
+		lbmap.MaglevOuterKey
+		ipv6 bool
+	}
+	toDelete := []outerKeyWithIPVersion{}
+	cb := func(key lbmap.MaglevOuterKey, value lbmap.MaglevOuterVal, _ lbmap.MaglevInnerKey, _ *lbmap.MaglevInnerVal, ipv6 bool) {
+		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.RevNatID)]; !ok {
+			ops.log.Debug("pruneMaglev: deleting", "id", key.RevNatID)
+			toDelete = append(toDelete, outerKeyWithIPVersion{key, ipv6})
+		}
+	}
+	err := ops.LBMaps.DumpMaglev(cb)
+	if err != nil {
+		return err
+	}
+	for _, okwiv := range toDelete {
+		err := ops.LBMaps.DeleteMaglev(okwiv.MaglevOuterKey, okwiv.ipv6)
+		if err != nil {
+			ops.log.Warn("Failed to delete from Maglev map",
+				"id", okwiv.MaglevOuterKey.RevNatID,
+				"error", err)
+		}
+	}
+	return nil
+}
+
 // Prune implements reconciler.Operations.
 func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Frontend, statedb.Revision]) error {
 	ops.log.Info("Pruning")
@@ -430,6 +465,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Fron
 		ops.pruneBackendMaps(),
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
+		ops.pruneMaglev(),
 		// TODO rest of the maps.
 	)
 }
@@ -598,6 +634,14 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 			activeCount++
 		} else {
 			inactiveCount++
+		}
+	}
+
+	// Update Maglev
+	if ops.cfg.NodePortAlg == option.NodePortAlgMaglev {
+		ops.log.Debug("Update Maglev", "feID", feID)
+		if err := ops.updateMaglev(fe, feID, orderedBackends[:activeCount]); err != nil {
+			return err
 		}
 	}
 
@@ -795,6 +839,23 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ID, svcKey lbmap.ServiceKey, svc
 
 }
 
+func (ops *BPFOps) updateMaglev(fe *Frontend, feID loadbalancer.ID, activeBackends []BackendWithRevision) error {
+	if len(activeBackends) > 0 {
+		maglevTable, err := ops.computeMaglevTable(fe.Service(), activeBackends)
+		if err != nil {
+			return fmt.Errorf("ops.computeMaglevTable failed: %w", err)
+		}
+		if err := ops.LBMaps.UpdateMaglev(lbmap.MaglevOuterKey{RevNatID: uint16(feID)}, maglevTable, fe.Address.IsIPv6()); err != nil {
+			return fmt.Errorf("ops.LBMaps.UpdateMaglev failed: %w", err)
+		}
+	} else {
+		if err := ops.LBMaps.DeleteMaglev(lbmap.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
+			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
+		}
+	}
+	return nil
+}
+
 var _ reconciler.Operations[*Frontend] = &BPFOps{}
 
 func (ops *BPFOps) updateBackendRefCounts(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) {
@@ -864,6 +925,31 @@ func (ops *BPFOps) updateBackendRevision(id loadbalancer.BackendID, addr loadbal
 func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L3n4Addr) {
 	delete(ops.backendStates, addr)
 	ops.backendIDAlloc.deleteLocalID(loadbalancer.ID(id))
+}
+
+func (ops *BPFOps) computeMaglevTable(svc *Service, bes []BackendWithRevision) ([]loadbalancer.BackendID, error) {
+	backendsMap := make(map[string]*loadbalancer.Backend, len(bes))
+	for _, be := range bes {
+		output := &loadbalancer.Backend{} // We only populate selected fields used in maglev.GetLookupTable().
+		output.L3n4Addr = be.L3n4Addr
+		id, err := ops.backendIDAlloc.lookupLocalID(output.L3n4Addr)
+		if err != nil {
+			return nil, fmt.Errorf("local id for address %s not found: %w", output.L3n4Addr.String(), err)
+		}
+		output.ID = loadbalancer.BackendID(id)
+		instance, ok := be.Instances.Get(svc.Name)
+		if !ok {
+			return nil, fmt.Errorf("instance of backend %q for service %q not found", be.String(), svc.Name.String())
+		}
+		output.Weight = instance.Weight
+		backendsMap[output.String()] = output
+	}
+	var maglevTable []int = maglev.GetLookupTable(backendsMap, uint64(option.Config.MaglevTableSize))
+	maglevTableTyped := make([]loadbalancer.BackendID, len(maglevTable))
+	for i, id := range maglevTable {
+		maglevTableTyped[i] = loadbalancer.BackendID(id)
+	}
+	return maglevTableTyped, nil
 }
 
 // sortedBackends sorts the backends in-place with the following sort order:

@@ -29,6 +29,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -186,7 +187,7 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 type MapDump = string
 
 // DumpLBMaps the load-balancing maps into a concise format for assertions in tests.
-func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, customIPString func(net.IP) string) (out []MapDump) {
+func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, customIPString func(net.IP) string) (out []MapDump, maglev []MapDump) {
 	out = []string{}
 
 	replaceAddr := func(addr net.IP, port uint16) (s string) {
@@ -300,7 +301,44 @@ func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, c
 		panic(err)
 	}
 
+	maglevCB := func(key lbmap.MaglevOuterKey, _ lbmap.MaglevOuterVal, _ lbmap.MaglevInnerKey, innerValue *lbmap.MaglevInnerVal, _ bool) {
+		key = lbmap.MaglevOuterKey{
+			RevNatID: byteorder.NetworkToHost16(key.RevNatID),
+		}
+		idCounts := make(map[loadbalancer.BackendID]int)
+		for _, backend := range innerValue.BackendIDs {
+			idCounts[backend]++
+		}
+		type idWithCount struct {
+			loadbalancer.BackendID
+			count int
+		}
+		var compactIDs []idWithCount
+		for id, count := range idCounts {
+			compactIDs = append(compactIDs, idWithCount{id, count})
+		}
+		slices.SortFunc(compactIDs, func(a, b idWithCount) int {
+			diff := a.count - b.count
+			if diff != 0 {
+				return -diff // Descending order by counts
+			}
+			return int(a.BackendID) - int(b.BackendID)
+		})
+		var ids []string
+		for _, idWithCount := range compactIDs {
+			ids = append(ids, fmt.Sprintf("%s(%d)", sanitizeID(idWithCount.BackendID, sanitizeIDs), idWithCount.count))
+		}
+		maglev = append(maglev, fmt.Sprintf("MAGLEV: ID=%s INNER=[%s]",
+			sanitizeID(byteorder.HostToNetwork16(key.RevNatID), sanitizeIDs),
+			strings.Join(ids, ", "),
+		))
+	}
+	if err := lbmaps.DumpMaglev(maglevCB); err != nil {
+		panic(err)
+	}
+
 	sort.Strings(out)
+	sort.Strings(maglev)
 	return
 }
 
@@ -494,7 +532,8 @@ func checkTablesAndMaps(db *statedb.DB, writer *Writer, maps LBMaps, expectedTab
 	if expectedData, err := expectedMapsF(); err == nil {
 		expectedMaps = strings.Split(strings.TrimSpace(string(expectedData)), "\n")
 	}
-	actualMaps := DumpLBMaps(maps, frontendAddrs[0], true, customIPString)
+	nonMaglev, maglev := DumpLBMaps(maps, frontendAddrs[0], true, customIPString)
+	actualMaps := append(nonMaglev, maglev...)
 
 	writeData(
 		"actual.maps",
