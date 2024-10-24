@@ -44,7 +44,7 @@ func (a *envoyAdminClient) get(path string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
+	body, err := safeio.ReadAllLimit(resp.Body, 100*safeio.MB)
 	if err != nil {
 		return "", fmt.Errorf("failed to read %q response: %w", path, err)
 	}
