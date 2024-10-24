@@ -135,8 +135,8 @@ func (g *GoBGPServer) getPeerConfigV1(ctx context.Context, n types.NeighborReque
 	// set peer password
 	peer.Conf.AuthPassword = n.Password
 
-	// set peer transport, for local port we do not set it ( default 0 - unset )
-	g.setPeerTransport(peer, existingPeer, peerAddr, peerPort, 0)
+	// set peer transport, set local address to wildcard
+	g.setPeerTransport(peer, existingPeer, netip.Addr{}, peerAddr, peerPort)
 
 	// set peer ebgp multihop
 	if n.Neighbor.EBGPMultihopTTL != nil {
@@ -186,8 +186,20 @@ func (g *GoBGPServer) getPeerConfigV2(ctx context.Context, n types.NeighborReque
 		return peer, needsReset, fmt.Errorf("failed to parse PeerAddress: %w", err)
 	}
 
-	localPort := uint32(*n.PeerConfig.Transport.LocalPort)
 	peerPort := uint32(*n.PeerConfig.Transport.PeerPort)
+
+	var localAddr netip.Addr
+	if n.Peer.LocalAddress != nil {
+		localAddr, err = netip.ParseAddr(*n.Peer.LocalAddress)
+		if err != nil {
+			return peer, needsReset, fmt.Errorf("failed to parse LocalAddress: %w", err)
+		}
+
+		// validate local and peer address configuration
+		if (peerAddr.Is4() && !localAddr.Is4()) || (peerAddr.Is6() && !localAddr.Is6()) {
+			return peer, needsReset, fmt.Errorf("mismatch between peer and local address IP families")
+		}
+	}
 
 	var existingPeer *gobgp.Peer
 	peer, existingPeer, err = g.getPeer(ctx, peerAddr, uint32(*n.Peer.PeerASN), isUpdate)
@@ -210,7 +222,7 @@ func (g *GoBGPServer) getPeerConfigV2(ctx context.Context, n types.NeighborReque
 	peer.Conf.AuthPassword = n.Password
 
 	// set peer transport
-	g.setPeerTransport(peer, existingPeer, peerAddr, peerPort, localPort)
+	g.setPeerTransport(peer, existingPeer, localAddr, peerAddr, peerPort)
 
 	// set peer ebgp multihop
 	if n.PeerConfig.EBGPMultihop != nil {
@@ -234,30 +246,34 @@ func (g *GoBGPServer) getPeerConfigV2(ctx context.Context, n types.NeighborReque
 		// immediately, therefore we need full session reset.
 		needsReset = existingPeer != nil &&
 			(peer.Timers.Config.HoldTime != existingPeer.Timers.Config.HoldTime ||
-				peer.Timers.Config.KeepaliveInterval != existingPeer.Timers.Config.KeepaliveInterval)
+				peer.Timers.Config.KeepaliveInterval != existingPeer.Timers.Config.KeepaliveInterval ||
+				peer.Transport.RemotePort != existingPeer.Transport.RemotePort ||
+				peer.Transport.LocalAddress != existingPeer.Transport.LocalAddress)
 	}
 
 	return peer, needsReset, nil
 }
 
-func (g *GoBGPServer) setPeerTransport(peer, existingPeer *gobgp.Peer, peerAddr netip.Addr, peerPort, localPort uint32) {
+func (g *GoBGPServer) setPeerTransport(peer, existingPeer *gobgp.Peer, localAddr, peerAddr netip.Addr, peerPort uint32) {
 	if existingPeer != nil {
 		peer.Transport = existingPeer.Transport
 	} else {
 		peer.Transport = &gobgp.Transport{}
 	}
 
-	// update local port, 0 is fine as well. In which case, linux will assign a random port.
-	peer.Transport.LocalPort = localPort
-
 	if peerPort > 0 {
 		peer.Transport.RemotePort = peerPort
 	}
 
-	if peerAddr.Is4() {
-		peer.Transport.LocalAddress = wildcardIPv4Addr
+	// if local address is not set, set it to wildcard
+	if localAddr.IsValid() {
+		peer.Transport.LocalAddress = localAddr.String()
 	} else {
-		peer.Transport.LocalAddress = wildcardIPv6Addr
+		if peerAddr.Is4() {
+			peer.Transport.LocalAddress = wildcardIPv4Addr
+		} else {
+			peer.Transport.LocalAddress = wildcardIPv6Addr
+		}
 	}
 }
 
