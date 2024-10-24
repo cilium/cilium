@@ -524,6 +524,20 @@ func (c *ChangeState) Empty() bool {
 	return len(c.Adds)+len(c.Deletes)+len(c.old) == 0
 }
 
+// Size returns the total number of Adds minus
+// the total number of true Deletes (Deletes
+// that are not also in Adds). The return value
+// can be negative.
+func (c *ChangeState) Size() int {
+	deleteLen := 0
+	for k := range c.Deletes {
+		if _, ok := c.Adds[k]; !ok {
+			deleteLen++
+		}
+	}
+	return len(c.Adds) - deleteLen
+}
+
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
