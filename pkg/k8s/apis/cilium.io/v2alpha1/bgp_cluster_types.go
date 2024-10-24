@@ -157,4 +157,6 @@ type CiliumBGPClusterConfigStatus struct {
 const (
 	// Node selector selects nothing
 	BGPClusterConfigConditionNoMatchingNode = "cilium.io/NoMatchingNode"
+	// Referenced peer configs are missing
+	BGPClusterConfigConditionMissingPeerConfigs = "cilium.io/MissingPeerConfigs"
 )
