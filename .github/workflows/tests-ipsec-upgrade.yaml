@@ -368,7 +368,7 @@ jobs:
           full-test: 'true'
 
       - name: Fetch artifacts
-        if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         shell: bash
         run: |
           kubectl get pods --all-namespaces -o wide
@@ -377,7 +377,7 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
 
       - name: Upload artifacts
-        if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-sysdumps-${{ matrix.name }}-${{ matrix.mode }}
