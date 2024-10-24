@@ -353,6 +353,10 @@ errors.
    yet, so Cilium drops the packets at the source. These drops will stop once
    the CiliumNode information is propagated across the cluster.
 
+ * Packet drops of type ``No valid SPI for encryption`` (code 205) may occur in
+   error cases, when Cilium dropped packets due to invalid encryption parameters.
+   Such packets would otherwise be dropped with a ``XfrmOutPolBlock`` error.
+
 Disabling Encryption
 ====================
 
