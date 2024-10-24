@@ -45,12 +45,17 @@ import (
 	"k8s.io/client-go/transport/spdy"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/cilium-cli/defaults"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/versioncheck"
+)
+
+const (
+	AgentContainerName                  = "cilium-agent"
+	ClusterMeshBinaryName               = "/usr/bin/clustermesh-apiserver"
+	ClusterMeshKVStoreMeshContainerName = "kvstoremesh"
 )
 
 func init() {
@@ -315,7 +320,7 @@ func (c *Client) PodLogs(namespace, name string, opts *corev1.PodLogOptions) *re
 
 func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, previous bool) (string, error) {
 	opts := &corev1.PodLogOptions{
-		Container:  defaults.AgentContainerName,
+		Container:  AgentContainerName,
 		Timestamps: true,
 		SinceTime:  &metav1.Time{Time: since},
 		Previous:   previous,
@@ -386,7 +391,7 @@ func (c *Client) ExecInPodWithWriters(connCtx, killCmdCtx context.Context, names
 }
 
 func (c *Client) CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error) {
-	stdout, err := c.ExecInPod(ctx, namespace, pod, defaults.AgentContainerName, []string{"cilium", "status", "-o", "json"})
+	stdout, err := c.ExecInPod(ctx, namespace, pod, AgentContainerName, []string{"cilium", "status", "-o", "json"})
 	if err != nil {
 		return nil, err
 	}
@@ -404,8 +409,8 @@ func (c *Client) CiliumStatus(ctx context.Context, namespace, pod string) (*mode
 var ErrKVStoreMeshStatusNotImplemented = errors.New("kvstoremesh-dbg status is not available")
 
 func (c *Client) KVStoreMeshStatus(ctx context.Context, namespace, pod string) ([]*models.RemoteCluster, error) {
-	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, pod, defaults.ClusterMeshKVStoreMeshContainerName,
-		[]string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "status", "-o", "json"})
+	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, pod, ClusterMeshKVStoreMeshContainerName,
+		[]string{ClusterMeshBinaryName, "kvstoremesh-dbg", "status", "-o", "json"})
 	if err != nil {
 		// Cilium v1.14 has a separate kvstoremesh container, with a separate binary
 		if strings.Contains(err.Error(), "stat /usr/bin/clustermesh-apiserver: no such file or directory") {
@@ -430,7 +435,7 @@ func (c *Client) KVStoreMeshStatus(ctx context.Context, namespace, pod string) (
 }
 
 func (c *Client) CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error) {
-	stdout, err := c.ExecInPod(ctx, namespace, pod, defaults.AgentContainerName, []string{"cilium", "endpoint", "list", "-o", "json"})
+	stdout, err := c.ExecInPod(ctx, namespace, pod, AgentContainerName, []string{"cilium", "endpoint", "list", "-o", "json"})
 	if err != nil {
 		return nil, err
 	}
@@ -952,7 +957,7 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 		ctx,
 		p.Namespace,
 		p.Name,
-		defaults.AgentContainerName,
+		AgentContainerName,
 		[]string{"cilium", "version", "-o", "jsonpath={$.Daemon.Version}"},
 	)
 	if err != nil {

@@ -11,8 +11,8 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium/pkg/cli/k8s"
 )
 
 // key is a context.Context value key type. It's unexported to avoid key collisions.

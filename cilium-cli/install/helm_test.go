@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
-	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/pkg/cli/k8s"
 )
 
 func TestK8sInstaller_getHelmValuesKind(t *testing.T) {
