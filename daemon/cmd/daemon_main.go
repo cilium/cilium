@@ -1273,6 +1273,9 @@ func initEnv(vp *viper.Viper) {
 		// before netkit and supporting legacy tc in this context does
 		// not make any sense whatsoever.
 		option.Config.EnableTCX = true
+		if err := probes.HaveNetkit(); err != nil {
+			log.Fatal("netkit devices need kernel 6.7.0 or newer and CONFIG_NETKIT")
+		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
