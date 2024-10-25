@@ -685,8 +685,8 @@ skip_egress_gateway:
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
-				    bool has_l4_header)
+snat_v4_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx, __u64 off,
+				     bool has_l4_header)
 {
 	__u32 inner_l3_off = off + sizeof(struct icmphdr);
 	struct ipv4_ct_tuple tuple = {};
@@ -756,7 +756,7 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 	if (IS_ERR(ret))
 		return ret;
 
-	/* Rewrite outer headers for ICMP_FRAG_NEEDED. No port rewrite needed. */
+	/* Rewrite outer headers. No port rewrite needed. */
 	return snat_v4_rewrite_headers(ctx, IPPROTO_ICMP, ETH_HLEN, has_l4_header, off,
 				       tuple.saddr, state->to_saddr, IPV4_SADDR_OFF,
 				       0, 0, 0);
@@ -827,9 +827,19 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		case ICMP_ECHOREPLY:
 			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
-			if (icmphdr.code != ICMP_FRAG_NEEDED)
+			switch (icmphdr.code) {
+			case ICMP_NET_UNREACH:
+			case ICMP_HOST_UNREACH:
+			case ICMP_PROT_UNREACH:
+			case ICMP_PORT_UNREACH:
+			case ICMP_FRAG_NEEDED:
+				break;
+			default:
 				return DROP_UNKNOWN_ICMP_CODE;
-			return snat_v4_nat_handle_icmp_frag_needed(ctx, off, has_l4_header);
+			}
+
+			return snat_v4_nat_handle_icmp_dest_unreach(ctx, off,
+								    has_l4_header);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
@@ -846,9 +856,9 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx,
-					__u64 inner_l3_off,
-					struct ipv4_nat_entry **state)
+snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
+					 __u64 inner_l3_off,
+					 struct ipv4_nat_entry **state)
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct iphdr iphdr;
@@ -961,14 +971,22 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			break;
 		case ICMP_DEST_UNREACH:
-			if (icmphdr.code != ICMP_FRAG_NEEDED)
+			switch (icmphdr.code) {
+			case ICMP_NET_UNREACH:
+			case ICMP_HOST_UNREACH:
+			case ICMP_PROT_UNREACH:
+			case ICMP_PORT_UNREACH:
+			case ICMP_FRAG_NEEDED:
+				break;
+			default:
 				return NAT_PUNT_TO_STACK;
+			}
 
 			inner_l3_off = off + sizeof(struct icmphdr);
 
-			ret = snat_v4_rev_nat_handle_icmp_frag_needed(ctx,
-								      inner_l3_off,
-								      &state);
+			ret = snat_v4_rev_nat_handle_icmp_dest_unreach(ctx,
+								       inner_l3_off,
+								       &state);
 			if (IS_ERR(ret))
 				return ret;
 
