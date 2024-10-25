@@ -24,5 +24,5 @@ cilium-dbg statedb dump [flags]
 
 ### SEE ALSO
 
-* [cilium-dbg statedb](cilium-dbg_statedb.md)	 - Inspect StateDB
+* [cilium-dbg statedb](cilium-dbg_statedb.md)	 - Inspect StateDB (deprecated)
 
