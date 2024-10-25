@@ -41,10 +41,10 @@ func newDebugEventsCommand(vp *viper.Viper) *cobra.Command {
 				return err
 			}
 
-			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+			ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, os.Kill)
 			defer cancel()
 
-			hubbleConn, err := conn.New(vp.GetString(config.KeyServer))
+			hubbleConn, err := conn.NewWithFlags(ctx, vp)
 			if err != nil {
 				return err
 			}
