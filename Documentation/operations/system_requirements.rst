@@ -253,6 +253,16 @@ to change the packet scheduling algorithm.
 
         CONFIG_NET_SCH_FQ=m
 
+Requirements for Netkit Device Mode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :ref:`netkit` requires the following kernel configuration option
+to create netkit devices.
+
+::
+
+        CONFIG_NETKIT=y
+
 .. _advanced_features:
 
 Required Kernel Versions for Advanced Features
