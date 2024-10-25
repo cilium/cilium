@@ -13,6 +13,7 @@ GO_TAGS ?=
 GOOS ?=
 GOARCH ?=
 
+include ../Makefile.defs
 # Add the ability to override variables
 -include Makefile.override
 
@@ -20,6 +21,11 @@ all: hubble
 
 hubble:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) -ldflags "-w -s -X 'github.com/cilium/cilium/hubble/pkg.GitBranch=${GIT_BRANCH}' -X 'github.com/cilium/cilium/hubble/pkg.GitHash=$(GIT_HASH)' -X 'github.com/cilium/cilium/hubble/pkg.Version=${VERSION}'" -o $(TARGET_DIR)/$(TARGET)$(EXT) $(SUBDIRS_HUBBLE_CLI)
+
+release:
+	cd ../ && \
+	$(CONTAINER_ENGINE) run --rm --workdir /cilium --volume `pwd`:/cilium --user "$(shell id -u):$(shell id -g)" \
+		$(CILIUM_BUILDER_IMAGE) sh -c "make -C hubble local-release"
 
 local-release: clean
 	set -o errexit; \
@@ -53,4 +59,4 @@ local-release: clean
 clean:
 	rm -f $(TARGET)
 
-.PHONY: all hubble
+.PHONY: all hubble release
