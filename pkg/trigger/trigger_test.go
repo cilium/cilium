@@ -118,3 +118,19 @@ func TestShutdownFunc(t *testing.T) {
 		t.Errorf("timed out while waiting for shutdown func")
 	}
 }
+
+func BenchmarkUntriggeredTrigger(b *testing.B) {
+	b.ReportAllocs()
+
+	for range b.N {
+		tr, err := NewTrigger(Parameters{
+			TriggerFunc:   func(reasons []string) {},
+			ShutdownFunc:  func() {},
+			sleepInterval: time.Millisecond,
+		})
+		require.NoError(b, err)
+
+		time.Sleep(time.Millisecond * 50)
+		tr.Shutdown()
+	}
+}
