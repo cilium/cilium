@@ -50,6 +50,7 @@
   key-two: 'cbc(aes)'
   key-type-one: '+'
   key-type-two: '+'
+  skip-minor-upgrade: 'true'
 - name: '6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20240710.064909'
@@ -62,6 +63,7 @@
   key-two: 'gcm(aes)'
   key-type-one: '+'
   key-type-two: '+'
+  skip-minor-upgrade: 'true'
 - name: '7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.15-20240710.064909'
@@ -84,3 +86,4 @@
   key-two: 'gcm(aes)'
   key-type-one: '+'
   key-type-two: '+'
+  skip-minor-upgrade: 'true'
