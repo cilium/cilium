@@ -1619,12 +1619,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			var err error
 			proxyPort, err = epPolicy.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
 			if err != nil {
-				// This happens for new redirects that have not been realized
-				// yet. The accumulated changes should only be consumed after new
-				// redirects have been realized. ConsumeMapChanges then maps this
-				// invalid value to the real redirect port before the entry is
-				// visible to the endpoint package.
-				proxyPort = unrealizedRedirectPort
+				log.WithFields(logrus.Fields{
+					logfields.EndpointSelector: cs,
+					logfields.Port:             port,
+					logfields.Protocol:         proto,
+					logfields.TrafficDirection: direction,
+					logfields.IsRedirect:       redirect,
+					logfields.Listener:         listener,
+					logfields.ListenerPriority: priority,
+				}).Warn("AccumulateMapChanges: Missing redirect.")
+				continue
 			}
 		}
 		var keysToAdd []Key
