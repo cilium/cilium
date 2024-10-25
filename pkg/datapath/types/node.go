@@ -174,6 +174,10 @@ type LocalNodeConfiguration struct {
 	// XDPConfig holds configuration options to determine how the node should
 	// handle XDP programs.
 	XDPConfig xdp.Config
+
+	// RoutingMode is the current routing mode of the local node.
+	// Can be 'native' or 'tunnel'.
+	RoutingMode string
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

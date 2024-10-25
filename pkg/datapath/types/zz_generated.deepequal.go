@@ -255,5 +255,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 
+	if in.RoutingMode != other.RoutingMode {
+		return false
+	}
+
 	return true
 }
