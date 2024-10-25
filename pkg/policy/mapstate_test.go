@@ -1111,7 +1111,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): {
 					ProxyPort: 8080,
 					priority:  8080,
-					Listener:  "listener1",
 				},
 			}),
 			args: args{
@@ -1119,14 +1118,12 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				entry: MapStateEntry{
 					ProxyPort: 9090,
 					priority:  1,
-					Listener:  "listener2",
 				},
 			},
 			want: testMapState(MapStateMap{
 				ingressKey(1, 3, 80, 0): {
 					ProxyPort: 9090,
 					priority:  1,
-					Listener:  "listener2",
 				},
 			}),
 			wantAdds: Keys{
@@ -1137,7 +1134,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): {
 					ProxyPort: 8080,
 					priority:  8080,
-					Listener:  "listener1",
 				},
 			},
 		},
@@ -1147,7 +1143,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 64, 10): {
 					ProxyPort: 8080,
 					priority:  8080,
-					Listener:  "listener1",
 				},
 			}),
 			args: args{
@@ -1155,14 +1150,12 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				entry: MapStateEntry{
 					ProxyPort: 9090,
 					priority:  1,
-					Listener:  "listener2",
 				},
 			},
 			want: testMapState(MapStateMap{
 				ingressKey(1, 3, 64, 10): {
 					ProxyPort: 9090,
 					priority:  1,
-					Listener:  "listener2",
 				},
 			}),
 			wantAdds: Keys{
@@ -1173,7 +1166,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 64, 10): {
 					ProxyPort: 8080,
 					priority:  8080,
-					Listener:  "listener1",
 				},
 			},
 		},
@@ -1183,7 +1175,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): {
 					ProxyPort: 8080,
 					priority:  8080,
-					Listener:  "listener1",
 				},
 			}),
 			args: args{
@@ -1191,14 +1182,12 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				entry: MapStateEntry{
 					ProxyPort: 8080,
 					priority:  1,
-					Listener:  "listener1",
 				},
 			},
 			want: testMapState(MapStateMap{
 				ingressKey(1, 3, 80, 0): {
 					ProxyPort: 8080,
 					priority:  1,
-					Listener:  "listener1",
 				},
 			}),
 			wantAdds:    Keys{},
@@ -1207,7 +1196,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): {
 					ProxyPort: 8080,
 					priority:  8080,
-					Listener:  "listener1",
 				},
 			},
 		},
@@ -1217,7 +1205,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 64, 10): {
 					ProxyPort: 8080,
 					priority:  8080,
-					Listener:  "listener1",
 				},
 			}),
 			args: args{
@@ -1225,14 +1212,12 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				entry: MapStateEntry{
 					ProxyPort: 8080,
 					priority:  1,
-					Listener:  "listener1",
 				},
 			},
 			want: testMapState(MapStateMap{
 				ingressKey(1, 3, 64, 10): {
 					ProxyPort: 8080,
 					priority:  1,
-					Listener:  "listener1",
 				},
 			}),
 			wantAdds:    Keys{},
@@ -1241,7 +1226,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 64, 10): {
 					ProxyPort: 8080,
 					priority:  8080,
-					Listener:  "listener1",
 				},
 			},
 		},
@@ -1419,7 +1403,6 @@ func testEntry(proxyPort uint16, deny bool, authType AuthType, owners ...MapStat
 	return MapStateEntry{
 		ProxyPort: proxyPort,
 		priority:  proxyPort,
-		Listener:  "",
 		AuthType:  authType,
 		IsDeny:    deny,
 		owners:    set.NewSet(owners...),
@@ -1792,7 +1775,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			if x.redirect {
 				proxyPort = 1
 			}
-			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
+			value := NewMapStateEntry(cs, nil, proxyPort, 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
@@ -2230,7 +2213,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.redirect {
 				proxyPort = 1
 			}
-			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
+			value := NewMapStateEntry(cs, nil, proxyPort, 0, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
@@ -2249,7 +2232,6 @@ func (e MapStateEntry) asDeny() MapStateEntry {
 	if !e.IsDeny {
 		e.IsDeny = true
 		e.ProxyPort = 0
-		e.Listener = ""
 		e.priority = 0
 		e.hasAuthType = DefaultAuthType
 		e.AuthType = AuthTypeDisabled
