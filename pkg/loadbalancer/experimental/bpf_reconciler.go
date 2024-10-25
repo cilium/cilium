@@ -12,7 +12,9 @@ import (
 	"net/netip"
 	"sort"
 
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
@@ -43,11 +45,11 @@ var ReconcilerCell = cell.Module(
 	),
 )
 
-func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
+func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], hive.ScriptCmdOut, error) {
 	if !w.IsEnabled() {
-		return nil, nil
+		return nil, hive.ScriptCmdOut{}, nil
 	}
-	return reconciler.Register(
+	r, err := reconciler.Register(
 		p,
 		w.fes,
 
@@ -66,6 +68,20 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (
 			30*time.Minute,
 		),
 	)
+	if err != nil {
+		return nil, hive.ScriptCmdOut{}, err
+	}
+	cmd := hive.NewScriptCmd(
+		"lb-prune",
+		script.Command(
+			script.CmdUsage{Summary: "Force pruning of LB maps"},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				r.Prune()
+				return nil, nil
+			},
+		),
+	)
+	return r, cmd, err
 }
 
 type BPFOps struct {

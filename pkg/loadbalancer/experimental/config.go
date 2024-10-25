@@ -11,7 +11,7 @@ import (
 )
 
 type Config struct {
-	EnableExperimentalLB bool
+	EnableExperimentalLB bool          `mapstructure:"enable-experimental-lb"`
 	RetryBackoffMin      time.Duration `mapstructure:"lb-retry-backoff-min"`
 	RetryBackoffMax      time.Duration `mapstructure:"lb-retry-backoff-max"`
 }
@@ -31,6 +31,16 @@ var DefaultConfig = Config{
 	EnableExperimentalLB: false,
 	RetryBackoffMin:      50 * time.Millisecond,
 	RetryBackoffMax:      time.Minute,
+}
+
+// TestConfig are the configuration options for testing. Only provided by tests and not present in the agent.
+type TestConfig struct {
+	TestFaultProbability float32 `mapstructure:"lb-test-fault-probability"`
+}
+
+func (def TestConfig) Flags(flags *pflag.FlagSet) {
+	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
+	flags.MarkHidden("lb-test-fault-probability")
 }
 
 // externalConfig are configuration options derived from external sources such as
