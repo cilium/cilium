@@ -161,10 +161,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		closer()
 
 		haveIDs := make(sets.Set[identity.NumericIdentity], testfactor)
-		res.endpointPolicy.GetPolicyMap().ForEach(func(k policy.Key, _ policy.MapStateEntry) bool {
+		for k := range res.endpointPolicy.Entries() {
 			haveIDs.Insert(k.Identity)
-			return true
-		})
+		}
 
 		// It is okay if we have *more* IDs than allocatedIDs, since we may have propagated
 		// an ID change through the policy system but not yet added to the extra list we're
