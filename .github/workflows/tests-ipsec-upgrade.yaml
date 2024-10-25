@@ -234,6 +234,7 @@ jobs:
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
+          ingress-controller: ${{ matrix.ingress-controller }}
           mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
 
@@ -255,6 +256,7 @@ jobs:
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
+          ingress-controller: ${{ matrix.ingress-controller }}
           mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
 
