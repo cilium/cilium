@@ -561,7 +561,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	struct endpoint_info *local_ep __maybe_unused;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct egress_gw_policy_entry *egress_gw_policy __maybe_unused;
-	bool is_reply __maybe_unused = false;
 	int ret;
 
 	ret = snat_v4_needs_masquerade_hook(ctx, target);
@@ -608,7 +607,12 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		err = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, tuple, NULL);
 		switch (err) {
 		case 0:
-			is_reply = ct_is_reply4(get_ct_map4(tuple), tuple);
+			/* If the packet is a reply it means that outside has
+			 * initiated the connection, so no need to SNAT the
+			 * reply.
+			 */
+			if (ct_is_reply4(get_ct_map4(tuple), tuple))
+				return NAT_PUNT_TO_STACK;
 
 			/* SNAT code has its own port extraction logic: */
 			tuple->dport = 0;
@@ -630,12 +634,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
  * always want to SNAT a packet if it's matched by an egress NAT policy.
  */
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
-	/* If the packet is a reply it means that outside has initiated the
-	 * connection, so no need to SNAT the reply.
-	 */
-	if (is_reply)
-		goto skip_egress_gateway;
-
 	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr,
 				       &target->ifindex)) {
 		if (target->addr == EGRESS_GATEWAY_NO_EGRESS_IP)
@@ -648,7 +646,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 		return NAT_NEEDED;
 	}
-skip_egress_gateway:
 #endif
 
 #ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
@@ -692,11 +689,7 @@ skip_egress_gateway:
 				return NAT_PUNT_TO_STACK;
 		}
 
-		/* If the packet is a reply it means that outside has
-		 * initiated the connection, so no need to SNAT the
-		 * reply.
-		 */
-		if (!is_reply && local_ep) {
+		if (local_ep) {
 			target->addr = IPV4_MASQUERADE;
 			return NAT_NEEDED;
 		}
@@ -1447,7 +1440,6 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	union v6addr masq_addr __maybe_unused;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct endpoint_info *local_ep __maybe_unused;
-	bool is_reply __maybe_unused = false;
 
 	/* See comments in snat_v4_needs_masquerade(). */
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
@@ -1470,7 +1462,8 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		err = ct_extract_ports6(ctx, l4_off, tuple);
 		switch (err) {
 		case 0:
-			is_reply = ct_is_reply6(get_ct_map6(tuple), tuple);
+			if (ct_is_reply6(get_ct_map6(tuple), tuple))
+				return NAT_PUNT_TO_STACK;
 
 			/* SNAT code has its own port extraction logic: */
 			tuple->dport = 0;
@@ -1522,7 +1515,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 				return NAT_PUNT_TO_STACK;
 		}
 
-		if (!is_reply && local_ep) {
+		if (local_ep) {
 			ipv6_addr_copy(&target->addr, &masq_addr);
 			return NAT_NEEDED;
 		}
