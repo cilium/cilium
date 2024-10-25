@@ -57,10 +57,18 @@ type policyEntryFlags uint8
 
 const (
 	policyFlagDeny policyEntryFlags = 1 << iota
+	policyFlagReserved1
+	policyFlagReserved2
+	policyFlagLPMShift         = iota
+	policyFlagMaskLPMPrefixLen = ((1 << 5) - 1) << policyFlagLPMShift
 )
 
 func (pef policyEntryFlags) is(pf policyEntryFlags) bool {
 	return pef&pf == pf
+}
+
+func (pef policyEntryFlags) getPrefixLen() uint8 {
+	return uint8(pef >> policyFlagLPMShift)
 }
 
 // String returns the string implementation of policyEntryFlags.
@@ -94,7 +102,8 @@ func (pe PolicyEntry) IsDeny() bool {
 }
 
 func (pe *PolicyEntry) String() string {
-	return fmt.Sprintf("%d %d %d %d", pe.GetProxyPort(), pe.LPMPrefixLength, pe.Packets, pe.Bytes)
+	prefixLen := pe.Flags.getPrefixLen()
+	return fmt.Sprintf("%d %d %d %d", pe.GetProxyPort(), prefixLen, pe.Packets, pe.Bytes)
 }
 
 func (pe *PolicyEntry) New() bpf.MapValue { return &PolicyEntry{} }
@@ -159,9 +168,7 @@ type PolicyEntry struct {
 	ProxyPortNetwork uint16           `align:"proxy_port"` // In network byte-order
 	Flags            policyEntryFlags `align:"deny"`
 	AuthType         uint8            `align:"auth_type"`
-	LPMPrefixLength  uint8            `align:"lpm_prefix_length"`
-	Pad1             uint8            `align:"pad1"`
-	Pad2             uint16           `align:"pad2"`
+	Pad1             uint32           `align:"pad1"`
 	Packets          uint64           `align:"packets"`
 	Bytes            uint64           `align:"bytes"`
 }
@@ -171,8 +178,15 @@ func (pe *PolicyEntry) GetProxyPort() uint16 {
 	return byteorder.NetworkToHost16(pe.ProxyPortNetwork)
 }
 
+// GetPrefixLen returns the prefix length for the protocol / destination port
+// (0 to 24 bits, 8 bits for unwildcarded protocol + 0 - 16 bits for the port)
+func (pe *PolicyEntry) GetPrefixLen() uint8 {
+	return pe.Flags.getPrefixLen()
+}
+
 type policyEntryFlagParams struct {
-	IsDeny bool
+	IsDeny    bool
+	PrefixLen uint8
 }
 
 // getPolicyEntryFlags returns a policyEntryFlags from the policyEntryFlagParams.
@@ -182,6 +196,8 @@ func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
 	if p.IsDeny {
 		flags |= policyFlagDeny
 	}
+
+	flags |= policyEntryFlags(p.PrefixLen << policyFlagLPMShift)
 
 	return flags
 }
@@ -321,12 +337,11 @@ func NewKey(trafficDirection trafficdirection.TrafficDirection, id identity.Nume
 
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
-func newEntry(authType uint8, proxyPort uint16, prefixLen uint8, flags policyEntryFlags) PolicyEntry {
+func newEntry(authType uint8, proxyPort uint16, flags policyEntryFlags) PolicyEntry {
 	return PolicyEntry{
 		ProxyPortNetwork: byteorder.HostToNetwork16(proxyPort),
 		Flags:            flags,
 		AuthType:         authType,
-		LPMPrefixLength:  prefixLen,
 	}
 }
 
@@ -334,8 +349,10 @@ func newEntry(authType uint8, proxyPort uint16, prefixLen uint8, flags policyEnt
 // network byte-order.
 // This is separated out to be used in unit testing.
 func newAllowEntry(key PolicyKey, authType uint8, proxyPort uint16) PolicyEntry {
-	prefixLen := uint8(key.Prefixlen - StaticPrefixBits)
-	return newEntry(authType, proxyPort, prefixLen, 0)
+	pef := getPolicyEntryFlags(policyEntryFlagParams{
+		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
+	})
+	return newEntry(authType, proxyPort, pef)
 }
 
 // newDenyEntry returns a deny PolicyEntry for the specified parameters in
@@ -343,10 +360,10 @@ func newAllowEntry(key PolicyKey, authType uint8, proxyPort uint16) PolicyEntry 
 // This is separated out to be used in unit testing.
 func newDenyEntry(key PolicyKey) PolicyEntry {
 	pef := getPolicyEntryFlags(policyEntryFlagParams{
-		IsDeny: true,
+		IsDeny:    true,
+		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
 	})
-	prefixLen := uint8(key.Prefixlen - StaticPrefixBits)
-	return newEntry(0, 0, prefixLen, pef)
+	return newEntry(0, 0, pef)
 }
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
@@ -439,6 +456,21 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	err := pm.DumpWithCallback(cb)
 
 	return entries, err
+}
+
+// DumpValid calls 'cb' for each key/value in the policy map where the prefix length fields
+// in the key and value agree. This should be used to filter out invalid entries so that
+// they will be rewritten with the valid values.
+func (pm *PolicyMap) DumpValid(cb func(key *PolicyKey, value *PolicyEntry)) error {
+	return pm.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+		k := key.(*PolicyKey)
+		v := value.(*PolicyEntry)
+
+		// Call 'cb' only for entries with valid prefix len
+		if v.GetPrefixLen() == uint8(k.Prefixlen-StaticPrefixBits) {
+			cb(k, v)
+		}
+	})
 }
 
 func newMap(path string) *PolicyMap {

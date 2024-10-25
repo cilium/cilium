@@ -1138,13 +1138,11 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapState, withDiffs bool) (
 func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	currentMap, insert := policy.NewMapStateWithInsert()
 
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		policymapKey := key.(*policymap.PolicyKey)
+	cb := func(policymapKey *policymap.PolicyKey, policymapEntry *policymap.PolicyEntry) {
 		// Convert from policymap.Key to policy.Key
 		policyKey := policy.KeyForDirection(trafficdirection.TrafficDirection(policymapKey.TrafficDirection)).
 			WithIdentity(identity.NumericIdentity(policymapKey.Identity)).
 			WithPortProtoPrefix(u8proto.U8proto(policymapKey.Nexthdr), policymapKey.GetDestPort(), policymapKey.GetPortPrefixLen())
-		policymapEntry := value.(*policymap.PolicyEntry)
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
 		policyEntry := policy.MapStateEntry{
 			ProxyPort: policymapEntry.GetProxyPort(),
@@ -1153,7 +1151,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 		}
 		insert(policyKey, policyEntry)
 	}
-	err := e.policyMap.DumpWithCallback(cb)
+	err := e.policyMap.DumpValid(cb)
 
 	return currentMap, err
 }

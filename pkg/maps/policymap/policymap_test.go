@@ -296,20 +296,20 @@ func TestPolicyMapWildcarding(t *testing.T) {
 		require.Equal(t, uint8(tt.args.proto), key.Nexthdr)
 
 		// key and entry need to agree on the prefix length
-		require.Equal(t, StaticPrefixBits+uint32(entry.LPMPrefixLength), key.Prefixlen)
+		require.Equal(t, StaticPrefixBits+uint32(entry.GetPrefixLen()), key.Prefixlen)
 
 		if key.Nexthdr == 0 {
 			require.Equal(t, uint16(0), key.DestPortNetwork)
 			require.Equal(t, StaticPrefixBits, key.Prefixlen)
-			require.Equal(t, uint8(0), entry.LPMPrefixLength)
+			require.Equal(t, uint8(0), entry.GetPrefixLen())
 		} else {
 			if key.DestPortNetwork == 0 {
 				require.Equal(t, StaticPrefixBits+NexthdrBits, key.Prefixlen)
-				require.Equal(t, uint8(NexthdrBits), entry.LPMPrefixLength)
+				require.Equal(t, uint8(NexthdrBits), entry.GetPrefixLen())
 			} else {
 				require.Equal(t, uint16(tt.args.dport), byteorder.NetworkToHost16(key.DestPortNetwork))
 				require.Equal(t, StaticPrefixBits+NexthdrBits+uint32(tt.args.dportPrefixLen), key.Prefixlen)
-				require.Equal(t, uint8(NexthdrBits)+tt.args.dportPrefixLen, entry.LPMPrefixLength)
+				require.Equal(t, uint8(NexthdrBits)+tt.args.dportPrefixLen, entry.GetPrefixLen())
 			}
 		}
 	}
