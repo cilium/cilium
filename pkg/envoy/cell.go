@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -102,6 +103,9 @@ type secretSyncConfig struct {
 
 	EnableGatewayAPI           bool
 	GatewayAPISecretsNamespace string
+
+	EnablePolicySecretsSync bool
+	PolicySecretsNamespace  string
 }
 
 func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
@@ -110,6 +114,8 @@ func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("ingress-secrets-namespace", r.IngressSecretsNamespace, "IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller")
 	flags.Bool("enable-gateway-api", false, "Enables Envoy secret sync for Gateway API related TLS secrets")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API")
+	flags.Bool("enable-policy-secrets-sync", r.EnablePolicySecretsSync, "Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy")
+	flags.String("policy-secrets-namespace", r.PolicySecretsNamespace, "PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP")
 }
 
 type xdsServerParams struct {
@@ -308,8 +314,9 @@ type syncerParams struct {
 
 	K8sClientset client.Clientset
 
-	Config    secretSyncConfig
-	XdsServer XDSServer
+	Config        secretSyncConfig
+	XdsServer     XDSServer
+	SecretManager certificatemanager.SecretManager
 }
 
 func registerSecretSyncer(params syncerParams) error {
@@ -327,10 +334,18 @@ func registerSecretSyncer(params syncerParams) error {
 		params.Config.EnvoySecretsNamespace:      func() bool { return option.Config.EnableEnvoyConfig },
 		params.Config.IngressSecretsNamespace:    func() bool { return params.Config.EnableIngressController },
 		params.Config.GatewayAPISecretsNamespace: func() bool { return params.Config.EnableGatewayAPI },
+		params.Config.PolicySecretsNamespace:     func() bool { return params.Config.EnablePolicySecretsSync },
 	} {
 		if len(namespace) > 0 && cond() {
 			namespaces[namespace] = struct{}{}
 		}
+	}
+
+	// Policy secret syncing requires notifying the included xDSServer of the configured value,
+	// so it can be correctly used by the code.
+	if params.Config.EnablePolicySecretsSync {
+		params.XdsServer.SetPolicySecretSyncNamespace(params.Config.PolicySecretsNamespace)
+		params.SecretManager.SetSecretSyncNamespace(params.Config.PolicySecretsNamespace)
 	}
 
 	if len(namespaces) == 0 {
@@ -345,7 +360,11 @@ func registerSecretSyncer(params syncerParams) error {
 
 	params.Lifecycle.Append(jobGroup)
 
-	secretSyncer := newSecretSyncer(params.Logger, params.XdsServer)
+	secretSyncerLogger := params.Logger.WithField("controller", "secretSyncer")
+
+	secretSyncer := newSecretSyncer(secretSyncerLogger, params.XdsServer)
+
+	secretSyncerLogger.Debug("Watching namespaces for secrets", "namespaces", namespaces)
 
 	for ns := range namespaces {
 		jobGroup.Add(job.Observer(

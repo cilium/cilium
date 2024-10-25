@@ -42,7 +42,7 @@ type PolicyContext interface {
 	// GetTLSContext resolves the given 'api.TLSContext' into CA
 	// certs and the public and private keys, using secrets from
 	// k8s or from the local file system.
-	GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error)
+	GetTLSContext(tls *api.TLSContext) (ca, public, private string, fromFile bool, err error)
 
 	// GetEnvoyHTTPRules translates the given 'api.L7Rules' into
 	// the protobuf representation the Envoy can consume. The bool
@@ -81,9 +81,9 @@ func (p *policyContext) GetSelectorCache() *SelectorCache {
 }
 
 // GetTLSContext() returns data for TLS Context via a CertificateManager
-func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
+func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, fromFile bool, err error) {
 	if p.repo.certManager == nil {
-		return "", "", "", fmt.Errorf("No Certificate Manager set on Policy Repository")
+		return "", "", "", false, fmt.Errorf("No Certificate Manager set on Policy Repository")
 	}
 	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
 }
@@ -134,7 +134,7 @@ type PolicyRepository interface {
 	Release(rs ruleSlice)
 	ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64)
 	SearchRLocked(lbls labels.LabelArray) api.Rules
-	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool))
+	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool))
 	Start()
 }
 
@@ -178,7 +178,7 @@ type Repository struct {
 	certManager   certificatemanager.CertificateManager
 	secretManager certificatemanager.SecretManager
 
-	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
 // Lock acquiers the lock of the whole policy tree.
@@ -219,7 +219,7 @@ func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) Au
 	return p.policyCache.GetAuthTypes(localID, remoteID)
 }
 
-func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
+func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)) {
 	p.getEnvoyHTTPRules = f
 }
 
@@ -227,7 +227,7 @@ func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium
 	if p.getEnvoyHTTPRules == nil {
 		return nil, true
 	}
-	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns)
+	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns, p.secretManager.GetSecretSyncNamespace())
 }
 
 // GetPolicyCache() returns the policy cache used by the Repository
@@ -377,7 +377,6 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, err
 		return cmp.Compare(a.key.idx, b.key.idx)
 	})
 	result, err := rules.resolveL4EgressPolicy(&policyCtx, ctx)
-
 	if err != nil {
 		return nil, err
 	}
@@ -738,8 +737,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
 	ingressEnabled, egressEnabled,
-		matchingRules :=
-		p.computePolicyEnforcementAndRules(securityIdentity)
+		matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),

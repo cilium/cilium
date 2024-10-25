@@ -86,8 +86,11 @@ func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, 
 		return err
 	}
 
-	result[features.SecretBackendK8s] = features.Status{
-		Enabled: canAccessK8sResourceSecret(cr),
+	// This could be enabled via configmap check, so only check if it's not enabled already.
+	if !result[features.PolicySecretBackendK8s].Enabled {
+		result[features.PolicySecretBackendK8s] = features.Status{
+			Enabled: canAccessK8sResourceSecret(cr),
+		}
 	}
 	return nil
 }
@@ -196,8 +199,10 @@ func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, r
 	}
 }
 
-const ciliumNetworkPolicyCRDName = "ciliumnetworkpolicies.cilium.io"
-const ciliumClusterwideNetworkPolicyCRDName = "ciliumclusterwidenetworkpolicies.cilium.io"
+const (
+	ciliumNetworkPolicyCRDName            = "ciliumnetworkpolicies.cilium.io"
+	ciliumClusterwideNetworkPolicyCRDName = "ciliumclusterwidenetworkpolicies.cilium.io"
+)
 
 func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result features.Set) error {
 	check := func(name string) (features.Status, error) {
