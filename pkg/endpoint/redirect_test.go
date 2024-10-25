@@ -482,7 +482,6 @@ func TestRedirectWithPriority(t *testing.T) {
 		},
 		mapKeyFooL7: {
 			ProxyPort:        crd2Port,
-			Listener:         "/cec2/listener2",
 			DerivedFromRules: labels.LabelArrayList{lblsL4AllowListener1, lblsL4L7AllowListener2Priority1},
 		},
 		mapKeyAllL7: {
@@ -540,7 +539,6 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		},
 		mapKeyFooL7: {
 			ProxyPort:        crd1Port,
-			Listener:         "/cec1/listener1",
 			DerivedFromRules: labels.LabelArrayList{lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1},
 		},
 		mapKeyAllL7: {
