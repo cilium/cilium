@@ -36,7 +36,7 @@ func (b *BGPResourceManager) reconcileBGPClusterConfigs(ctx context.Context) err
 
 func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, config *v2alpha1.CiliumBGPClusterConfig) error {
 	// get nodes which match node selector for given cluster config
-	matchingNodes, err := b.getMatchingNodes(config.Spec.NodeSelector, config.Name)
+	matchingNodes, err := b.getMatchingNodes(config.Spec.NodeSelector, config)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, conf
 	}
 
 	// delete node configs for this cluster that are not in the matching nodes
-	dErr := b.deleteStaleNodeConfigs(ctx, matchingNodes, config.Name)
+	dErr := b.deleteStaleNodeConfigs(ctx, matchingNodes, config)
 	if dErr != nil {
 		err = errors.Join(err, dErr)
 	}
@@ -251,7 +251,7 @@ func toNodeBGPInstance(clusterBGPInstances []v2alpha1.CiliumBGPInstance, overrid
 }
 
 // getMatchingNodes returns a map of node names that match the given cluster config's node selector.
-func (b *BGPResourceManager) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSelector, configName string) (sets.Set[string], error) {
+func (b *BGPResourceManager) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSelector, config *v2alpha1.CiliumBGPClusterConfig) (sets.Set[string], error) {
 	labelSelector, err := slim_meta_v1.LabelSelectorAsSelector(nodeSelector)
 	if err != nil {
 		return nil, err
@@ -263,7 +263,7 @@ func (b *BGPResourceManager) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSe
 	for _, n := range b.ciliumNodeStore.List() {
 		// nil node selector means match all nodes
 		if nodeSelector == nil || labelSelector.Matches(slim_labels.Set(n.Labels)) {
-			err := b.validNodeSelection(n, configName)
+			err := b.validNodeSelection(n, config)
 			if err != nil {
 				b.logger.Error(fmt.Sprintf("skipping node %s", n.Name), logfields.Error, err)
 				continue
@@ -277,10 +277,10 @@ func (b *BGPResourceManager) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSe
 
 // deleteStaleNodeConfigs deletes node configs that are not in the expected list for given cluster.
 // TODO there might be a race where stale node configs are not detected and deleted. Check issue #30320 for more details.
-func (b *BGPResourceManager) deleteStaleNodeConfigs(ctx context.Context, expectedNodes sets.Set[string], clusterRef string) error {
+func (b *BGPResourceManager) deleteStaleNodeConfigs(ctx context.Context, expectedNodes sets.Set[string], config *v2alpha1.CiliumBGPClusterConfig) error {
 	var err error
 	for _, existingNode := range b.nodeConfigStore.List() {
-		if expectedNodes.Has(existingNode.Name) || !IsOwner(existingNode.GetOwnerReferences(), clusterRef) {
+		if expectedNodes.Has(existingNode.Name) || !isOwner(existingNode.GetOwnerReferences(), config) {
 			continue
 		}
 
@@ -291,30 +291,30 @@ func (b *BGPResourceManager) deleteStaleNodeConfigs(ctx context.Context, expecte
 			err = errors.Join(err, dErr)
 		} else {
 			b.logger.Debug("Deleting BGP node config", "node_config", existingNode.Name,
-				"cluster_config", clusterRef)
+				"cluster_config", config.Name)
 		}
 	}
 	return err
 }
 
 // validNodeSelection checks if the node is already present in another cluster config.
-func (b *BGPResourceManager) validNodeSelection(node *cilium_api_v2.CiliumNode, expectedOwnerName string) error {
+func (b *BGPResourceManager) validNodeSelection(node *cilium_api_v2.CiliumNode, config *v2alpha1.CiliumBGPClusterConfig) error {
 	existingBGPNodeConfig, exists, err := b.nodeConfigStore.GetByKey(resource.Key{Name: node.Name})
 	if err != nil {
 		return err
 	}
 
-	if exists && !IsOwner(existingBGPNodeConfig.GetOwnerReferences(), expectedOwnerName) {
+	if exists && !isOwner(existingBGPNodeConfig.GetOwnerReferences(), config) {
 		return fmt.Errorf("BGPResourceManager node config %s already exist", existingBGPNodeConfig.Name)
 	}
 
 	return nil
 }
 
-// IsOwner checks if the expected is present in owners list.
-func IsOwner(owners []meta_v1.OwnerReference, expected string) bool {
+// isOwner checks if the expected is present in owners list.
+func isOwner(owners []meta_v1.OwnerReference, config *v2alpha1.CiliumBGPClusterConfig) bool {
 	for _, owner := range owners {
-		if owner.Name == expected {
+		if owner.UID == config.GetUID() {
 			return true
 		}
 	}
