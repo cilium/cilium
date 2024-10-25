@@ -9,12 +9,9 @@ import (
 	"strings"
 
 	"github.com/spf13/pflag"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/time"
@@ -81,26 +78,6 @@ type config struct {
 	// Hubble metrics server. The files must contain PEM encoded data.
 	MetricsServerTLSClientCAFiles []string `mapstructure:"hubble-metrics-server-tls-client-ca-files"`
 
-	// FlowlogsConfigFilePath specifies the filepath with configuration of
-	// hubble flowlogs. e.g. "/etc/cilium/flowlog.yaml".
-	FlowlogsConfigFilePath string `mapstructure:"hubble-flowlogs-config-path"`
-	// ExportFilePath specifies the filepath to write Hubble events to. e.g.
-	// "/var/run/cilium/hubble/events.log".
-	ExportFilePath string `mapstructure:"hubble-export-file-path"`
-	// ExportFileMaxSizeMB specifies the file size in MB at which to rotate the
-	// Hubble export file.
-	ExportFileMaxSizeMB int `mapstructure:"hubble-export-file-max-size-mb"`
-	// ExportFileMaxBackups specifies the number of rotated files to keep.
-	ExportFileMaxBackups int `mapstructure:"hubble-export-file-max-backups"`
-	// ExportFileCompress specifies whether rotated files are compressed.
-	ExportFileCompress bool `mapstructure:"hubble-export-file-compress"`
-	// ExportAllowlist specifies allow list filter use by exporter.
-	ExportAllowlist []*flowpb.FlowFilter `mapstructure:"hubble-export-allowlist"`
-	// ExportDenylist specifies deny list filter use by exporter.
-	ExportDenylist []*flowpb.FlowFilter `mapstructure:"hubble-export-denylist"`
-	// ExportFieldmask specifies list of fields to log in exporter.
-	ExportFieldmask []string `mapstructure:"hubble-export-fieldmask"`
-
 	// EnableRecorderAPI specifies if the Hubble Recorder API should be served.
 	EnableRecorderAPI bool `mapstructure:"enable-hubble-recorder-api"`
 	// RecorderStoragePath specifies the directory in which pcap files created
@@ -160,15 +137,6 @@ var defaultConfig = config{
 	MetricsServerTLSCertFile:      "",
 	MetricsServerTLSKeyFile:       "",
 	MetricsServerTLSClientCAFiles: []string{},
-	// Hubble log export configuration
-	FlowlogsConfigFilePath: "",
-	ExportFilePath:         exporteroption.Default.Path,
-	ExportFileMaxSizeMB:    exporteroption.Default.MaxSizeMB,
-	ExportFileMaxBackups:   exporteroption.Default.MaxBackups,
-	ExportFileCompress:     exporteroption.Default.Compress,
-	ExportAllowlist:        []*flowpb.FlowFilter{},
-	ExportDenylist:         []*flowpb.FlowFilter{},
-	ExportFieldmask:        []string{},
 	// Hubble recorder configuration
 	EnableRecorderAPI:     true,
 	RecorderStoragePath:   hubbleDefaults.RecorderStoragePath,
@@ -215,15 +183,6 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.String("hubble-metrics-server-tls-cert-file", def.MetricsServerTLSCertFile, "Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.")
 	flags.String("hubble-metrics-server-tls-key-file", def.MetricsServerTLSKeyFile, "Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.")
 	flags.StringSlice("hubble-metrics-server-tls-client-ca-files", def.MetricsServerTLSClientCAFiles, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
-	// Hubble log export configuration
-	flags.String("hubble-flowlogs-config-path", def.FlowlogsConfigFilePath, "Filepath with configuration of hubble flowlogs")
-	flags.String("hubble-export-file-path", def.ExportFilePath, "Filepath to write Hubble events to. By specifying `stdout` the flows are logged instead of written to a rotated file.")
-	flags.Int("hubble-export-file-max-size-mb", def.ExportFileMaxSizeMB, "Size in MB at which to rotate Hubble export file.")
-	flags.Int("hubble-export-file-max-backups", def.ExportFileMaxBackups, "Number of rotated Hubble export files to keep.")
-	flags.Bool("hubble-export-file-compress", def.ExportFileCompress, "Compress rotated Hubble export files.")
-	flags.StringSlice("hubble-export-allowlist", []string{}, "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
-	flags.StringSlice("hubble-export-denylist", []string{}, "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
-	flags.StringSlice("hubble-export-fieldmask", def.ExportFieldmask, "Specify list of fields to use for field mask in Hubble exporter.")
 	// Hubble recorder configuration
 	flags.Bool("enable-hubble-recorder-api", def.EnableRecorderAPI, "Enable the Hubble recorder API")
 	flags.String("hubble-recorder-storage-path", def.RecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
@@ -266,12 +225,6 @@ func (cfg *config) normalize() {
 }
 
 func (cfg config) validate() error {
-	if fm := cfg.ExportFieldmask; len(fm) > 0 {
-		_, err := fieldmaskpb.New(&flowpb.Flow{}, fm...)
-		if err != nil {
-			return fmt.Errorf("hubble-export-fieldmask contains invalid fieldmask '%v': %w", fm, err)
-		}
-	}
 	if len(cfg.RedactHttpHeadersAllow) > 0 && len(cfg.RedactHttpHeadersDeny) > 0 {
 		return fmt.Errorf("Only one of --hubble-redact-http-headers-allow and --hubble-redact-http-headers-deny can be specified, not both")
 	}
