@@ -487,6 +487,10 @@ func (e *Endpoint) LXCMac() mac.MAC {
 	return e.mac
 }
 
+func (e *Endpoint) IsAtHostNS() bool {
+	return false
+}
+
 func (e *Endpoint) IsHost() bool {
 	return e.isHost
 }

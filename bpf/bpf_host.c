@@ -333,7 +333,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack.
 		 */
-		if (ep->flags & ENDPOINT_F_HOST)
+		if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY)
 			return CTX_ACT_OK;
 
 #ifdef ENABLE_HOST_ROUTING
@@ -755,7 +755,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		/* Let through packets to the node-ip so they are processed by
 		 * the local ip stack.
 		 */
-		if (ep->flags & ENDPOINT_F_HOST)
+		if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY)
 			return CTX_ACT_OK;
 
 #ifdef ENABLE_HOST_ROUTING

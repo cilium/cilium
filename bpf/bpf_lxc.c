@@ -668,7 +668,7 @@ ct_recreate6:
 		ep = lookup_ip6_endpoint(ip6);
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-			if (ep->flags & ENDPOINT_F_HOST) {
+			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
 				if (is_defined(ENABLE_ROUTING)) {
 # ifdef HOST_IFINDEX
 					goto to_host;
@@ -1174,7 +1174,7 @@ ct_recreate4:
 		ep = __lookup_ip4_endpoint(daddr);
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-			if (ep->flags & ENDPOINT_F_HOST) {
+			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
 				if (is_defined(ENABLE_ROUTING)) {
 # ifdef HOST_IFINDEX
 					goto to_host;
