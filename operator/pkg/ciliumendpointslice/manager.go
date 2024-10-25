@@ -313,6 +313,13 @@ func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 		if ces, ok := c.desiredCESs.getCESTracker(cesName); ok {
 			// add a cep into the ces
 			c.addCEPtoCES(cep, ces)
+			if _, ok := c.desiredCESs.getCESTracker(cesName); !ok {
+				c.desiredCESs.insertCES(cesName, ces)
+			}
+
+			if cesName, exists := c.desiredCESs.getCESName(cepName); !exists {
+				c.desiredCESs.insertCEP(cepName, cesName)
+			}
 			return cesName
 		} else {
 			log.WithFields(logrus.Fields{
@@ -612,13 +619,21 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 	// 1) CES UPDATE to k8s-apiserver, removing CEP in old CES
 	// 2) CES CREATE to k8s-apiserver, inserting the given CEP in a new CES or
 	// 3) CES UPDATE to k8s-apiserver, inserting the given CEP in existing CES
-	if cesName, exists := c.desiredCESs.getCESName(GetCEPNameFromCCEP(cep, ns)); exists {
+	cepName := GetCEPNameFromCCEP(cep, ns)
+	if cesName, exists := c.desiredCESs.getCESName(cepName); exists {
 		if c.cesToIdentity[cesName] != cep.IdentityID {
-			c.RemoveCEPFromCache(GetCEPNameFromCCEP(cep, ns), DelayedCESSyncTime)
+			c.RemoveCEPFromCache(cepName, DelayedCESSyncTime)
 		} else {
 			if ces, ok := c.desiredCESs.getCESTracker(cesName); ok {
 				// add a cep into the ces
 				c.addCEPtoCES(cep, ces)
+				if _, ok := c.desiredCESs.getCESTracker(cesName); !ok {
+					c.desiredCESs.insertCES(cesName, ces)
+				}
+
+				if cesName, exists := c.desiredCESs.getCESName(cepName); !exists {
+					c.desiredCESs.insertCEP(cepName, cesName)
+				}
 				return cesName
 			} else {
 				log.WithFields(logrus.Fields{

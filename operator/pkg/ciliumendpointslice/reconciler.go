@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +52,15 @@ func (r *reconciler) reconcileCESCreate(cesToCreate string) (err error) {
 			logfields.CESName: cesToCreate,
 		}).Info("Unable to create CiliumEndpointSlice in k8s-apiserver")
 		return
+	}
+
+	if _, err := r.cesManager.getCESFromCache(cesToCreate); err != nil {
+		cesTracker := r.cesManager.createCES(cesToCreate)
+		cesTracker.ces = retCES
+		cesTracker.cepInserted += 1
+		if cesTracker.cesInsertedAt.IsZero() {
+			cesTracker.cesInsertedAt = time.Now()
+		}
 	}
 	// Update local datastore CES with latest object metadata values.
 	r.cesManager.updateCESInCache(retCES, false)
