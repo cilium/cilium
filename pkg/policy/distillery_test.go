@@ -352,16 +352,16 @@ var (
 	mapKeyAllowAllE_ = EgressKey()
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 0, "", 0, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 0, 0, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
 	}
 	mapEntryL7Auth_ = func(at AuthType, lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 0, "", 0, false, ExplicitAuthType, at).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 0, 0, false, ExplicitAuthType, at).WithOwners()
 	}
 	mapEntryL7Deny_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 0, "", 0, true, DefaultAuthType, AuthTypeDisabled).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 0, 0, true, DefaultAuthType, AuthTypeDisabled).WithOwners()
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) MapStateEntry {
-		entry := NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 1, "", 0, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
+		entry := NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 1, 0, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
 		entry.ProxyPort = 1
 		return entry
 	}
@@ -1478,7 +1478,7 @@ var (
 			labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 		},
 	}
-	mapEntryL3UnknownIngress          = NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	mapEntryL3UnknownIngress          = NewMapStateEntry(nil, derivedFrom, 0, 0, false, ExplicitAuthType, AuthTypeDisabled)
 	mapKeyL3HostEgress                = EgressKey().WithIdentity(identity.ReservedIdentityHost)
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
