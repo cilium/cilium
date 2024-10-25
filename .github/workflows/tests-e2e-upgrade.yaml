@@ -101,7 +101,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 23
+      max-parallel: 25
       matrix:
         include:
           - name: '1'
@@ -386,6 +386,30 @@ jobs:
             secondary-network: 'true'
             ingress-controller: 'true'
             host-fw: 'true'
+            skip-upgrade: 'true'
+
+          - name: '24'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-net-20241104.074922'
+            misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            ipv6: 'true'
+            tunnel: 'disabled'
+            ciliumendpointslice: 'true'
+            endpoint-routes: 'true'
+            skip-upgrade: 'true'
+
+          - name: '25'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-net-20241104.074922'
+            misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            ipv6: 'true'
+            tunnel: 'disabled'
+            ciliumendpointslice: 'true'
+            endpoint-routes: 'true'
             skip-upgrade: 'true'
 
           # Example of a feature that is being introduced, and we want to test
