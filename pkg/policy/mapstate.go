@@ -65,9 +65,6 @@ const (
 	LabelAllowLocalHostIngress = "allow-localhost-ingress"
 	LabelAllowAnyIngress       = "allow-any-ingress"
 	LabelAllowAnyEgress        = "allow-any-egress"
-
-	// Using largest possible port value since it has the lowest priority
-	unrealizedRedirectPort = uint16(65535)
 )
 
 // MapState is a map interface for policy maps
@@ -1400,32 +1397,18 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 	}
 
 	for i := range mc.synced {
-		if mc.synced[i].Add {
-			// Redirect entries for unrealized redirects come in with an invalid
-			// redirect port (65535), replace it with the actual proxy port number.
-			key := mc.synced[i].Key
-			entry := mc.synced[i].Value
-			if entry.ProxyPort == unrealizedRedirectPort {
-				var exists bool
-				proxyID := ProxyIDFromKey(uint16(p.PolicyOwner.GetID()), key, entry.Listener)
-				entry.ProxyPort, exists = p.Redirects[proxyID]
-				if !exists {
-					log.WithFields(logrus.Fields{
-						logfields.PolicyKey:   key,
-						logfields.PolicyEntry: entry,
-					}).Warn("consumeMapChanges: Skipping entry for unrealized redirect")
-					continue
-				}
-			}
+		key := mc.synced[i].Key
+		entry := mc.synced[i].Value
 
-			// insert but do not allow non-redirect entries to overwrite a redirect entry,
-			// nor allow non-deny entries to overwrite deny entries.
-			// Collect the incremental changes to the overall state in 'mc.adds' and 'mc.deletes'.
+		if mc.synced[i].Add {
+			// Insert the key to and collect the incremental changes to the overall
+			// state in 'changes'
 			p.policyMapState.denyPreferredInsertWithChanges(key, entry, features, changes)
 		} else {
-			// Delete the contribution of this cs to the key and collect incremental changes
-			cs, _ := mc.synced[i].Value.owners.Get() // get the sole selector
-			p.policyMapState.deleteKeyWithChanges(mc.synced[i].Key, cs, changes)
+			// Delete the contribution of this cs to the key and collect incremental
+			// changes
+			cs, _ := entry.owners.Get() // get the sole selector
+			p.policyMapState.deleteKeyWithChanges(key, cs, changes)
 		}
 	}
 
