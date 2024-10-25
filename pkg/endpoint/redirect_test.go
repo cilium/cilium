@@ -329,10 +329,9 @@ func (obtained LabelArrayListMap) Equals(expected LabelArrayListMap) bool {
 
 func (e *Endpoint) GetDesiredPolicyRuleLabels() LabelArrayListMap {
 	desiredLabels := make(LabelArrayListMap)
-	e.desiredPolicy.GetPolicyMap().ForEach(func(key policy.Key, entry policy.MapStateEntry) bool {
-		desiredLabels[key] = entry.GetRuleLabels()
-		return true
-	})
+	for k := range e.desiredPolicy.Entries() {
+		desiredLabels[k], _ = e.desiredPolicy.GetRuleLabels(k)
+	}
 	return desiredLabels
 }
 
@@ -393,7 +392,6 @@ func TestRedirectWithDeny(t *testing.T) {
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: {},
 		mapKeyAllL7: {
-			IsDeny:    false,
 			ProxyPort: httpPort,
 		},
 		mapKeyFoo: {
@@ -413,14 +411,14 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
 	// that port, as it is shadowed by the deny rule
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 
 	// Check that the redirect is realized
 	require.Len(t, ep.desiredPolicy.Redirects, 1)
-	require.Equal(t, 4, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 4, ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	s.datapathRegenCtxt.revertStack.Revert()
@@ -429,9 +427,9 @@ func TestRedirectWithDeny(t *testing.T) {
 	expected = policy.MapStateMap{}
 
 	// Check that the state before addRedirects is restored
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 }
 
@@ -540,14 +538,14 @@ func TestRedirectWithPriority(t *testing.T) {
 		mapKeyFooL7:     labels.LabelArrayList{lblsL4AllowListener1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
 		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80},                                     // lblsL4AllowListener1, lblsL4L7AllowListener2Priority1
 	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 
 	// Check that the redirect is realized
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
-	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 3, ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	s.datapathRegenCtxt.revertStack.Revert()
@@ -556,9 +554,9 @@ func TestRedirectWithPriority(t *testing.T) {
 	expected = policy.MapStateMap{}
 
 	// Check that the state before addRedirects is restored
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 }
 
@@ -595,14 +593,14 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		mapKeyFooL7:     labels.LabelArrayList{lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
 		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80},                                                // lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1
 	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 
 	// Check that the redirect is realized
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
-	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 3, ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	s.datapathRegenCtxt.revertStack.Revert()
@@ -611,8 +609,8 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	expected = policy.MapStateMap{}
 
 	// Check that the state before addRedirects is restored
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 }

@@ -796,7 +796,7 @@ func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
 
 	keyToLookup := policy.IngressKey().WithIdentity(id)
 
-	v, ok := e.desiredPolicy.GetPolicyMap().Get(keyToLookup)
+	v, ok := e.desiredPolicy.Get(keyToLookup)
 	return ok && !v.IsDeny
 }
 

@@ -132,6 +132,8 @@ func (k Key) WithIdentity(nid identity.NumericIdentity) Key {
 
 // TrafficDirection() returns the direction of the Key, 0 == ingress, 1 == egress
 func (k LPMKey) TrafficDirection() trafficdirection.TrafficDirection {
+	// Note that 0 and 1 are the only possible return values, the shift below reduces the byte
+	// to a single bit.
 	return trafficdirection.TrafficDirection(k.bits >> directionBitShift)
 }
 

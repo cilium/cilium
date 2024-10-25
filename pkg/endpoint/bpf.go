@@ -481,7 +481,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	stats.mapSync.Start()
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy != e.desiredPolicy {
-		if e.realizedPolicy.GetPolicyMap().Empty() {
+		if e.realizedPolicy.Empty() {
 			// Realized policy is empty, sync with the dump from the datapath
 			var policyMapDump policy.MapStateMap
 			policyMapDump, err = e.dumpPolicyMapToMapStateMap()
@@ -870,7 +870,7 @@ type policyMapPressureUpdater interface {
 }
 
 func (e *Endpoint) updatePolicyMapPressureMetric() {
-	value := float64(e.realizedPolicy.GetPolicyMap().Len()) / float64(e.policyMap.MaxEntries())
+	value := float64(e.realizedPolicy.Len()) / float64(e.policyMap.MaxEntries())
 	e.PolicyMapPressureUpdater.Update(PolicyMapPressureEvent{
 		Value:      value,
 		EndpointID: e.ID,
@@ -1050,7 +1050,7 @@ func (e *Endpoint) applyPolicyMapChanges(regenContext *regenerationContext, hasN
 	// Add policy map entries before deleting to avoid transient drops
 	errors := 0
 	for keyToAdd := range changes.Adds {
-		entry, exists := e.desiredPolicy.GetPolicyMap().Get(keyToAdd)
+		entry, exists := e.desiredPolicy.Get(keyToAdd)
 		if !exists {
 			e.getLogger().WithFields(logrus.Fields{
 				logfields.AddedPolicyID: keyToAdd,
