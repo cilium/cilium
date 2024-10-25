@@ -590,7 +590,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 
 	local_ep = __lookup_ip4_endpoint(tuple->saddr);
-	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
 
 	/* Check if this packet belongs to reply traffic coming from a
 	 * local endpoint.
@@ -661,8 +660,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
-	if (remote_ep) {
 #ifdef ENABLE_IP_MASQ_AGENT_IPV4
+	{
 		/* Do not SNAT if dst belongs to any ip-masq-agent
 		 * subnet.
 		 */
@@ -672,8 +671,11 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		memcpy(pfx.lpm.data, &tuple->daddr, sizeof(pfx.addr));
 		if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
 			return NAT_PUNT_TO_STACK;
+	}
 #endif
 
+	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
+	if (remote_ep) {
 		/* In the tunnel mode, a packet from a local ep
 		 * to a remote node is not encap'd, and is sent
 		 * via a native dev. Therefore, such packet has
@@ -1452,7 +1454,6 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 
 	local_ep = __lookup_ip6_endpoint(&tuple->saddr);
-	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
 
 	if (local_ep) {
 		int err;
@@ -1492,8 +1493,8 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
-	if (remote_ep) {
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
+	{
 		/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
 		struct lpm_v6_key pfx __align_stack_8;
 
@@ -1508,8 +1509,11 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		memcpy(pfx.lpm.data + 12, &tuple->daddr.p4, 4);
 		if (map_lookup_elem(&IP_MASQ_AGENT_IPV6, &pfx))
 			return NAT_PUNT_TO_STACK;
+	}
 #endif
 
+	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
+	if (remote_ep) {
 		if (!is_defined(TUNNEL_MODE) || remote_ep->flag_skip_tunnel) {
 			if (identity_is_remote_node(remote_ep->sec_identity))
 				return NAT_PUNT_TO_STACK;
