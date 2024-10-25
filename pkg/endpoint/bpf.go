@@ -1386,8 +1386,7 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	currentMap := policy.NewMapState(nil)
 
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		policymapKey := key.(*policymap.PolicyKey)
+	cb := func(policymapKey *policymap.PolicyKey, policymapEntry *policymap.PolicyEntry) {
 		// Convert from policymap.Key to policy.Key
 		policyKey := policy.Key{
 			Identity:         policymapKey.Identity,
@@ -1396,7 +1395,6 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 			Nexthdr:          policymapKey.Nexthdr,
 			TrafficDirection: policymapKey.TrafficDirection,
 		}
-		policymapEntry := value.(*policymap.PolicyEntry)
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
 		policyEntry := policy.MapStateEntry{
 			ProxyPort: policymapEntry.GetProxyPort(),
@@ -1405,7 +1403,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 		}
 		currentMap.Insert(policyKey, policyEntry)
 	}
-	err := e.policyMap.DumpWithCallback(cb)
+	err := e.policyMap.DumpValid(cb)
 
 	return currentMap, err
 }
