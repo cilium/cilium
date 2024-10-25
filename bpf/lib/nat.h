@@ -560,7 +560,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 {
 	struct endpoint_info *local_ep __maybe_unused;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
-	struct egress_gw_policy_entry *egress_gw_policy __maybe_unused;
 	int ret;
 
 	ret = snat_v4_needs_masquerade_hook(ctx, target);
