@@ -25,7 +25,36 @@ var (
 			)
 		},
 		FromKey: RouteID.Key,
-		Unique:  true,
+		FromString: func(key string) (index.Key, error) {
+			var (
+				table, linkIndex uint32
+				dst              string
+			)
+			n, _ := fmt.Sscanf(key, "%d:%d:%s", &table, &linkIndex, &dst)
+			if n == 0 {
+				return index.Key{}, fmt.Errorf("bad key, expected \"<table>:<link>:<destination>\"")
+			}
+			out := []byte{}
+			if n > 0 {
+				out = binary.BigEndian.AppendUint32(out, table)
+				n--
+			}
+			if n > 0 {
+				out = binary.BigEndian.AppendUint32(out, linkIndex)
+				n--
+			}
+			if n > 0 {
+				prefix, err := netip.ParsePrefix(dst)
+				if err != nil {
+					return index.Key{}, err
+				}
+				addrBytes := prefix.Addr().As16()
+				out = append(out, addrBytes[:]...)
+				out = append(out, uint8(prefix.Bits()))
+			}
+			return index.Key(out), nil
+		},
+		Unique: true,
 	}
 
 	RouteLinkIndex = statedb.Index[*Route, int]{
@@ -33,7 +62,8 @@ var (
 		FromObject: func(r *Route) index.KeySet {
 			return index.NewKeySet(index.Int(r.LinkIndex))
 		},
-		FromKey: index.Int,
+		FromKey:    index.Int,
+		FromString: index.IntString,
 	}
 )
 

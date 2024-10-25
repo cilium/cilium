@@ -165,8 +165,9 @@ var (
 		FromObject: func(obj *Backend) index.KeySet {
 			return index.NewKeySet(obj.L3n4Addr.Bytes())
 		},
-		FromKey: func(l loadbalancer.L3n4Addr) index.Key { return index.Key(l.Bytes()) },
-		Unique:  true,
+		FromKey:    func(l loadbalancer.L3n4Addr) index.Key { return index.Key(l.Bytes()) },
+		FromString: loadbalancer.L3n4AddrFromString,
+		Unique:     true,
 	}
 
 	BackendByAddress = backendAddrIndex.Query
@@ -175,6 +176,7 @@ var (
 		Name:       "service-name",
 		FromObject: (*Backend).serviceNameKeys,
 		FromKey:    index.Stringer[loadbalancer.ServiceName],
+		FromString: index.FromString,
 		Unique:     false,
 	}
 

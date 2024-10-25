@@ -42,8 +42,9 @@ var EdtIDIndex = statedb.Index[Edt, uint16]{
 	FromObject: func(t Edt) index.KeySet {
 		return index.NewKeySet(index.Uint16(t.EndpointID))
 	},
-	FromKey: index.Uint16,
-	Unique:  true,
+	FromKey:    index.Uint16,
+	FromString: index.Uint16String,
+	Unique:     true,
 }
 
 func NewEdt(endpointID uint16, bytesPerSecond uint64) Edt {

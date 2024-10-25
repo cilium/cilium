@@ -33,20 +33,18 @@ var (
 		FromObject: func(s types.Status) index.KeySet {
 			return index.NewKeySet([]byte(s.ID.String()))
 		},
-		FromKey: func(k types.HealthID) index.Key {
-			return index.Key([]byte(k))
-		},
-		Unique: true,
+		FromKey:    index.Stringer[types.HealthID],
+		FromString: index.FromString,
+		Unique:     true,
 	}
 	LevelIndex = statedb.Index[types.Status, types.Level]{
 		Name: "level",
 		FromObject: func(s types.Status) index.KeySet {
-			return index.NewKeySet([]byte(s.Level))
+			return index.NewKeySet(index.Stringer(s.Level))
 		},
-		FromKey: func(key types.Level) index.Key {
-			return index.Key([]byte(key))
-		},
-		Unique: false,
+		FromKey:    index.Stringer[types.Level],
+		FromString: index.FromString,
+		Unique:     false,
 	}
 )
 

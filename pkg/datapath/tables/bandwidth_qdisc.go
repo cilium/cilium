@@ -64,8 +64,9 @@ var (
 		FromObject: func(obj *BandwidthQDisc) index.KeySet {
 			return index.NewKeySet(index.Int(obj.LinkIndex))
 		},
-		FromKey: index.Int,
-		Unique:  true,
+		FromKey:    index.Int,
+		FromString: index.IntString,
+		Unique:     true,
 	}
 
 	BandwidthQDiscTableName = "bandwidth-qdiscs"
