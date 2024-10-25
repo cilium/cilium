@@ -31,6 +31,10 @@ func (p pathIdent) String() string {
 // tables.
 type HealthID string
 
+func (id HealthID) String() string {
+	return string(id)
+}
+
 // Identifier is a fully qualified, path based identifier for health status
 // which is made up of module ID and component ID parts.
 type Identifier struct {
@@ -95,6 +99,10 @@ func (s Status) String() string {
 }
 
 type Level string
+
+func (s Level) String() string {
+	return string(s)
+}
 
 const (
 	LevelOK       = "OK"

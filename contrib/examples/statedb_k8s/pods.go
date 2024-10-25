@@ -24,8 +24,9 @@ var (
 		FromObject: func(obj *v1.Pod) index.KeySet {
 			return index.NewKeySet(index.String(obj.Namespace + "/" + obj.Name))
 		},
-		FromKey: index.String,
-		Unique:  true,
+		FromKey:    index.String,
+		FromString: index.FromString,
+		Unique:     true,
 	}
 	PodByName = podNameIndex.Query
 )
