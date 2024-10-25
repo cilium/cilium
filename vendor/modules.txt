@@ -276,6 +276,7 @@ github.com/cilium/hive/internal
 github.com/cilium/hive/job
 github.com/cilium/hive/script
 github.com/cilium/hive/script/internal/diff
+github.com/cilium/hive/script/scripttest
 # github.com/cilium/linters v0.0.0-20241008062613-dfa317e9f337
 ## explicit; go 1.22.0
 github.com/cilium/linters

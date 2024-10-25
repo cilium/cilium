@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -319,11 +320,11 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	}
 
 	// ClusterIP
-	clusterIPs := sets.New(svc.Spec.ClusterIPs...)
+	clusterIPs := container.NewImmSet(svc.Spec.ClusterIPs...)
 	if svc.Spec.ClusterIP != "" {
-		clusterIPs.Insert(svc.Spec.ClusterIP)
+		clusterIPs = clusterIPs.Insert(svc.Spec.ClusterIP)
 	}
-	for ip := range clusterIPs {
+	for _, ip := range clusterIPs.AsSlice() {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
 			continue

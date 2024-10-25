@@ -7,17 +7,64 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"os"
 	"reflect"
+	"strings"
 	"unsafe"
 
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
+	"github.com/pmezard/go-difflib/difflib"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
+
+type lbmapsParams struct {
+	cell.In
+
+	Lifecycle  cell.Lifecycle
+	TestConfig *TestConfig `optional:"true"`
+	MapsConfig LBMapsConfig
+	Writer     *Writer
+}
+
+func newLBMaps(p lbmapsParams) LBMaps {
+	if !p.Writer.IsEnabled() {
+		return nil
+	}
+
+	if p.TestConfig != nil {
+		// We're beind tested, use unpinned maps if privileged, otherwise
+		// in-memory fake.
+		var m LBMaps
+		if os.Getuid() != 0 {
+			m = NewFakeLBMaps()
+		} else {
+			r := &BPFLBMaps{Pinned: false, Cfg: p.MapsConfig}
+			p.Lifecycle.Append(r)
+			m = r
+		}
+		if p.TestConfig.TestFaultProbability > 0.0 {
+			m = &FaultyLBMaps{
+				impl:               m,
+				failureProbability: p.TestConfig.TestFaultProbability,
+			}
+		}
+		return m
+	}
+
+	r := &BPFLBMaps{Pinned: true, Cfg: p.MapsConfig}
+	p.Lifecycle.Append(r)
+	return r
+}
 
 // LBMapsConfig specifies the configuration for the load-balancing BPF
 // maps.
@@ -58,6 +105,109 @@ func newLBMapsConfig(dcfg *option.DaemonConfig) (cfg LBMapsConfig) {
 		cfg.MaglevMapMaxEntries = dcfg.LBMaglevMapEntries
 	}
 	return
+}
+
+const (
+	lbmapsCompareRetries       = 20
+	lbmapsCompareRetryInterval = 50 * time.Millisecond
+)
+
+func newLBMapsCommand(m LBMaps) hive.ScriptCmdOut {
+	if f, ok := m.(*FaultyLBMaps); ok {
+		m = f.impl
+	}
+
+	var snapshot *mapSnapshots
+	errUsage := fmt.Errorf("%w: expected 'cmp', 'dump', 'snapshot' or 'restore'", script.ErrUsage)
+	return hive.NewScriptCmd(
+		"lb-maps",
+		script.Command(
+			script.CmdUsage{
+				Summary: "interact with load-balancing BPF maps",
+				Args:    "cmd (args...)",
+				Detail: []string{
+					"Supported commands:",
+					"  cmp <file>:   Compare the maps against a file. Retries.",
+					"  dump <file>:  Dump maps to stdout or file if specified",
+					"  snapshot:     Snapshot the maps",
+					"  restore:      Restore from snapshot",
+				},
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				if len(args) < 1 {
+					return nil, errUsage
+				}
+
+				switch args[0] {
+				case "dump":
+					return func(s *script.State) (stdout string, stderr string, err error) {
+						out := DumpLBMaps(
+							m,
+							loadbalancer.L3n4Addr{},
+							false,
+							nil,
+						)
+						data := strings.Join(out, "\n") + "\n"
+						if len(args) == 2 {
+							err = os.WriteFile(s.Path(args[1]), []byte(data), 0644)
+						} else {
+							stdout = data
+						}
+						return
+					}, nil
+				case "cmp":
+					if len(args) != 2 {
+						return nil, errUsage
+					}
+					b, err := os.ReadFile(s.Path(args[1]))
+					if err != nil {
+						return nil, fmt.Errorf("read %q: %w", args[1], err)
+					}
+
+					expected := difflib.SplitLines(string(b))
+
+					var diff string
+					for range lbmapsCompareRetries {
+						actual := DumpLBMaps(
+							m,
+							loadbalancer.L3n4Addr{},
+							false,
+							nil,
+						)
+						diff, _ = difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
+							A:        difflib.SplitLines(strings.Join(actual, "\n") + "\n"),
+							B:        expected,
+							FromFile: "<actual>",
+							ToFile:   args[1],
+							Context:  2,
+						})
+						if len(diff) == 0 {
+							return nil, nil
+						}
+						select {
+						case <-s.Context().Done():
+							break
+						case <-inctimer.After(lbmapsCompareRetryInterval):
+						}
+					}
+					return nil, fmt.Errorf("mismatch:\n%s", diff)
+
+				case "snapshot":
+					s := snapshotMaps(m)
+					snapshot = &s
+					return nil, nil
+				case "restore":
+					if snapshot == nil {
+						return nil, fmt.Errorf("no snapshot to restore")
+					}
+					snapshot.restore(m)
+					return nil, nil
+				default:
+					return nil, errUsage
+				}
+			},
+		),
+	)
 }
 
 type serviceMaps interface {
@@ -242,6 +392,21 @@ func (r *BPFLBMaps) Stop(cell.HookContext) error {
 	return errors.Join(errs...)
 }
 
+// iterateMap iterates over a BPF map, yielding new keys and values. Similar to
+// ebpf.IterateWithCallback but allocates new key & value instead of reusing.
+func iterateMap(m *ebpf.Map, newPair func() (any, any), cb func(any, any)) error {
+	entries := m.Iterate()
+	for {
+		key, value := newPair()
+		ok := entries.Next(key, value)
+		if !ok {
+			break
+		}
+		cb(key, value)
+	}
+	return entries.Err()
+}
+
 // DeleteRevNat implements lbmaps.
 func (r *BPFLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
 	var err error
@@ -268,8 +433,8 @@ func (r *BPFLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) erro
 		)
 	}
 	return errors.Join(
-		r.revNat4Map.IterateWithCallback(&lbmap.RevNat4Key{}, &lbmap.RevNat4Value{}, cbWrap),
-		r.revNat6Map.IterateWithCallback(&lbmap.RevNat6Key{}, &lbmap.RevNat6Value{}, cbWrap),
+		iterateMap(r.revNat4Map, func() (any, any) { return &lbmap.RevNat4Key{}, &lbmap.RevNat4Value{} }, cbWrap),
+		iterateMap(r.revNat6Map, func() (any, any) { return &lbmap.RevNat6Key{}, &lbmap.RevNat6Value{} }, cbWrap),
 	)
 }
 
@@ -294,8 +459,8 @@ func (r *BPFLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) e
 		)
 	}
 	return errors.Join(
-		r.backend4Map.IterateWithCallback(&lbmap.Backend4KeyV3{}, &lbmap.Backend4ValueV3{}, cbWrap),
-		r.backend6Map.IterateWithCallback(&lbmap.Backend6KeyV3{}, &lbmap.Backend6ValueV3{}, cbWrap),
+		iterateMap(r.backend4Map, func() (any, any) { return &lbmap.Backend4KeyV3{}, &lbmap.Backend4ValueV3{} }, cbWrap),
+		iterateMap(r.backend6Map, func() (any, any) { return &lbmap.Backend6KeyV3{}, &lbmap.Backend6ValueV3{} }, cbWrap),
 	)
 }
 
@@ -342,8 +507,8 @@ func (r *BPFLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) e
 	}
 
 	return errors.Join(
-		r.service4Map.IterateWithCallback(&lbmap.Service4Key{}, &lbmap.Service4Value{}, cbWrap),
-		r.service6Map.IterateWithCallback(&lbmap.Service6Key{}, &lbmap.Service6Value{}, cbWrap),
+		iterateMap(r.service4Map, func() (any, any) { return &lbmap.Service4Key{}, &lbmap.Service4Value{} }, cbWrap),
+		iterateMap(r.service6Map, func() (any, any) { return &lbmap.Service6Key{}, &lbmap.Service6Value{} }, cbWrap),
 	)
 }
 
@@ -387,9 +552,10 @@ func (r *BPFLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.Af
 		affValue := value.(*lbmap.AffinityMatchValue)
 		cb(affKey, affValue)
 	}
-	return r.affinityMatchMap.IterateWithCallback(
-		&lbmap.AffinityMatchKey{},
-		&lbmap.AffinityMatchValue{},
+
+	return iterateMap(
+		r.affinityMatchMap,
+		func() (any, any) { return &lbmap.AffinityMatchKey{}, &lbmap.AffinityMatchValue{} },
 		cbWrap,
 	)
 }
@@ -426,8 +592,8 @@ func (r *BPFLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceR
 	}
 
 	return errors.Join(
-		r.sourceRange4Map.IterateWithCallback(&lbmap.SourceRangeKey4{}, &lbmap.SourceRangeValue{}, cbWrap),
-		r.sourceRange6Map.IterateWithCallback(&lbmap.SourceRangeKey6{}, &lbmap.SourceRangeValue{}, cbWrap),
+		iterateMap(r.sourceRange4Map, func() (any, any) { return &lbmap.SourceRangeKey4{}, &lbmap.SourceRangeValue{} }, cbWrap),
+		iterateMap(r.sourceRange6Map, func() (any, any) { return &lbmap.SourceRangeKey6{}, &lbmap.SourceRangeValue{} }, cbWrap),
 	)
 }
 
@@ -728,3 +894,73 @@ func (f *FakeLBMaps) IsEmpty() bool {
 }
 
 var _ LBMaps = &FakeLBMaps{}
+
+type mapKeyValue struct {
+	key   bpf.MapKey
+	value bpf.MapValue
+}
+type mapSnapshot = []mapKeyValue
+
+type mapSnapshots struct {
+	services mapSnapshot
+	backends mapSnapshot
+	revNat   mapSnapshot
+	affinity mapSnapshot
+	srcRange mapSnapshot
+}
+
+func snapshotMaps(lbmaps LBMaps) (s mapSnapshots) {
+	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
+		s.services = append(s.services, mapKeyValue{svcKey, svcValue})
+	}
+	if err := lbmaps.DumpService(svcCB); err != nil {
+		panic(err)
+	}
+
+	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
+		s.backends = append(s.backends, mapKeyValue{beKey, beValue})
+	}
+	if err := lbmaps.DumpBackend(beCB); err != nil {
+		panic(err)
+	}
+
+	revCB := func(revKey lbmap.RevNatKey, revValue lbmap.RevNatValue) {
+		s.revNat = append(s.revNat, mapKeyValue{revKey, revValue})
+	}
+	if err := lbmaps.DumpRevNat(revCB); err != nil {
+		panic(err)
+	}
+
+	affCB := func(affKey *lbmap.AffinityMatchKey, affValue *lbmap.AffinityMatchValue) {
+		s.affinity = append(s.revNat, mapKeyValue{affKey, affValue})
+	}
+	if err := lbmaps.DumpAffinityMatch(affCB); err != nil {
+		panic(err)
+	}
+
+	srcRangeCB := func(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) {
+		s.srcRange = append(s.srcRange, mapKeyValue{key, value})
+	}
+	if err := lbmaps.DumpSourceRange(srcRangeCB); err != nil {
+		panic(err)
+	}
+	return
+}
+
+func (s *mapSnapshots) restore(lbmaps LBMaps) {
+	for _, kv := range s.services {
+		lbmaps.UpdateService(kv.key.(lbmap.ServiceKey), kv.value.(lbmap.ServiceValue))
+	}
+	for _, kv := range s.backends {
+		lbmaps.UpdateBackend(kv.key.(lbmap.BackendKey), kv.value.(lbmap.BackendValue))
+	}
+	for _, kv := range s.revNat {
+		lbmaps.UpdateRevNat(kv.key.(lbmap.RevNatKey), kv.value.(lbmap.RevNatValue))
+	}
+	for _, kv := range s.affinity {
+		lbmaps.UpdateAffinityMatch(kv.key.(*lbmap.AffinityMatchKey), kv.value.(*lbmap.AffinityMatchValue))
+	}
+	for _, kv := range s.srcRange {
+		lbmaps.UpdateSourceRange(kv.key.(lbmap.SourceRangeKey), kv.value.(*lbmap.SourceRangeValue))
+	}
+}
