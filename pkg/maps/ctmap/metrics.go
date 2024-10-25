@@ -4,8 +4,6 @@
 package ctmap
 
 import (
-	"fmt"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -21,64 +19,20 @@ type gcStats struct {
 	deleted uint32
 
 	// family is the address family
-	family gcFamily
+	family ctMapFamily
 
 	// proto is the L4 protocol
-	proto gcProtocol
+	proto ctMapProtocol
 
 	// dumpError records any error that occurred during the dump.
 	dumpError error
 }
 
-type gcFamily int
-
-const (
-	gcFamilyIPv4 gcFamily = iota
-	gcFamilyIPv6
-)
-
-func (g gcFamily) String() string {
-	switch g {
-	case gcFamilyIPv4:
-		return "ipv4"
-	case gcFamilyIPv6:
-		return "ipv6"
-	default:
-		return "unknown"
-	}
-}
-
-type gcProtocol int
-
-const (
-	gcProtocolAny gcProtocol = iota
-	gcProtocolTCP
-)
-
-func (g gcProtocol) String() string {
-	switch g {
-	case gcProtocolAny:
-		return "non-TCP"
-	case gcProtocolTCP:
-		return "TCP"
-	default:
-		return fmt.Sprintf("unknown (%d)", int(g))
-	}
-}
-
 func statStartGc(m *Map) gcStats {
 	result := gcStats{
 		DumpStats: bpf.NewDumpStats(&m.Map),
-	}
-	if m.mapType.isIPv6() {
-		result.family = gcFamilyIPv6
-	} else {
-		result.family = gcFamilyIPv4
-	}
-	if m.mapType.isTCP() {
-		result.proto = gcProtocolTCP
-	} else {
-		result.proto = gcProtocolAny
+		family:    m.getCtMapFamily(),
+		proto:     m.getCtMapProtocol(),
 	}
 	return result
 }
@@ -87,9 +41,9 @@ func (s *gcStats) finish() {
 	duration := s.Duration()
 	family := s.family.String()
 	switch s.family {
-	case gcFamilyIPv6:
+	case ctMapFamilyIPv6:
 		metrics.ConntrackDumpResets.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
-	case gcFamilyIPv4:
+	case ctMapFamilyIPv4:
 		metrics.ConntrackDumpResets.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
 	}
 	proto := s.proto.String()
@@ -117,7 +71,7 @@ type NatGCStats struct {
 	*bpf.DumpStats
 
 	// family is the address family
-	Family gcFamily
+	Family ctMapFamily
 
 	IngressAlive   uint32
 	IngressDeleted uint32
@@ -125,7 +79,7 @@ type NatGCStats struct {
 	EgressAlive    uint32
 }
 
-func newNatGCStats(m *nat.Map, family gcFamily) NatGCStats {
+func newNatGCStats(m *nat.Map, family ctMapFamily) NatGCStats {
 	return NatGCStats{
 		DumpStats: m.DumpStats(),
 		Family:    family,

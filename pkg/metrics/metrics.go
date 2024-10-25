@@ -399,6 +399,9 @@ var (
 	// L3-L4 statistics
 
 	// Datapath statistics
+	// ConntrackMapCapacity is the max number of entries that a conntrack map
+	// can hold.
+	ConntrackMapCapacity = NoOpGaugeVec
 
 	// ConntrackGCRuns is the number of times that the conntrack GC
 	// process was run.
@@ -691,6 +694,7 @@ type LegacyMetrics struct {
 	ProxyPolicyL7Total               metric.Vec[metric.Counter]
 	ProxyUpstreamTime                metric.Vec[metric.Observer]
 	ProxyDatapathUpdateTimeout       metric.Counter
+	ConntrackMapCapacity             metric.Vec[metric.Gauge]
 	ConntrackGCRuns                  metric.Vec[metric.Counter]
 	ConntrackGCKeyFallbacks          metric.Vec[metric.Counter]
 	ConntrackGCSize                  metric.Vec[metric.Gauge]
@@ -937,6 +941,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:      "proxy_datapath_update_timeout_total",
 			Help:      "Number of total datapath update timeouts due to FQDN IP updates",
 		}),
+
+		ConntrackMapCapacity: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_" + SubsystemDatapath + "_conntrack_map_capacity",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemDatapath,
+			Name:       "conntrack_map_capacity",
+			Help:       "Maximum entries that a conntrack map can hold",
+		}, []string{LabelDatapathFamily, LabelProtocol, LabelMapName}),
 
 		ConntrackGCRuns: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total",
@@ -1430,6 +1442,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ProxyPolicyL7Total = lm.ProxyPolicyL7Total
 	ProxyUpstreamTime = lm.ProxyUpstreamTime
 	ProxyDatapathUpdateTimeout = lm.ProxyDatapathUpdateTimeout
+	ConntrackMapCapacity = lm.ConntrackMapCapacity
 	ConntrackGCRuns = lm.ConntrackGCRuns
 	ConntrackGCKeyFallbacks = lm.ConntrackGCKeyFallbacks
 	ConntrackGCSize = lm.ConntrackGCSize

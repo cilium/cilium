@@ -191,6 +191,66 @@ type PurgeHook interface {
 
 var ACT PurgeHook
 
+type ctMapFamily int
+
+const (
+	ctMapFamilyIPv4 ctMapFamily = iota
+	ctMapFamilyIPv6
+)
+
+func (f ctMapFamily) String() string {
+	switch f {
+	case ctMapFamilyIPv4:
+		return "ipv4"
+	case ctMapFamilyIPv6:
+		return "ipv6"
+	default:
+		return "unknown"
+	}
+}
+
+type ctMapProtocol int
+
+const (
+	ctMapProtocolAny ctMapProtocol = iota
+	ctMapProtocolTCP
+)
+
+func (p ctMapProtocol) String() string {
+	switch p {
+	case ctMapProtocolAny:
+		return "non-TCP"
+	case ctMapProtocolTCP:
+		return "TCP"
+	default:
+		return fmt.Sprintf("unknown (%d)", int(p))
+	}
+}
+
+func (m *Map) getCtMapFamily() ctMapFamily {
+	var family ctMapFamily
+	if m.mapType.isIPv6() {
+		family = ctMapFamilyIPv6
+	} else {
+		family = ctMapFamilyIPv4
+	}
+	return family
+}
+
+func (m *Map) getCtMapProtocol() ctMapProtocol {
+	var proto ctMapProtocol
+	if m.mapType.isTCP() {
+		proto = ctMapProtocolTCP
+	} else {
+		proto = ctMapProtocolAny
+	}
+	return proto
+}
+
+func (m *Map) UpdateMapCapacityMetric() {
+	metrics.ConntrackMapCapacity.WithLabelValues(m.getCtMapFamily().String(), m.getCtMapProtocol().String(), m.Name()).Set(float64(m.mapType.maxEntries()))
+}
+
 // DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
 // ct entries in m to a string. If clockSource is not nil, it uses it to
 // compute the time difference of each entry from now and prints that too.
@@ -333,6 +393,7 @@ func newMap(mapName string, m mapType) *Map {
 		mapType: m,
 		define:  m.bpfDefine(),
 	}
+	result.UpdateMapCapacityMetric()
 	return result
 }
 
@@ -390,6 +451,7 @@ func doGC6(m *Map, filter GCFilter) gcStats {
 		}
 	}
 
+	m.UpdateMapCapacityMetric()
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -511,6 +573,7 @@ func doGC4(m *Map, filter GCFilter) gcStats {
 		}
 	}
 
+	m.UpdateMapCapacityMetric()
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -660,11 +723,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		return nil
 	}
 
-	family := gcFamilyIPv4
-	if ctMapTCP.mapType.isIPv6() {
-		family = gcFamilyIPv6
-	}
-	stats := newNatGCStats(natMap, family)
+	stats := newNatGCStats(natMap, ctMapTCP.getCtMapFamily())
 	defer stats.finish()
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
