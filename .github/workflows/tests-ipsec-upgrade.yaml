@@ -183,6 +183,10 @@ jobs:
           fi
           echo "CILIUM_DOWNGRADE_VERSION: ${CILIUM_DOWNGRADE_VERSION}"
           echo "IMAGE_TAG: ${IMAGE_TAG}"
+          if [ "${{ matrix.mode }}" = "minor" ] && [ "${{ matrix.skip-minor-upgrade }}" = "true" ]; then
+             echo "::notice::Skipping minor upgrade"
+             CILIUM_DOWNGRADE_VERSION=""
+          fi
           if [ -z "${CILIUM_DOWNGRADE_VERSION}" ]; then
             echo "::notice::No CILIUM_DOWNGRADE_VERSION returned; skipping remaining steps"
           fi
