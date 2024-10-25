@@ -106,7 +106,7 @@ type ReflectorConfig[Obj any] struct {
 
 	// Optional function to transform the objects given by the ListerWatcher. This can
 	// be used to convert into an internal model on the fly to save space and add additional
-	// fields or to for example implement TableRow/TableHeader for a cilium-dbg statedb command.
+	// fields or to for example implement TableRow/TableHeader for the "db show" command.
 	Transform TransformFunc[Obj]
 
 	// Optional function to transform the object to a set of objects to insert into the table.

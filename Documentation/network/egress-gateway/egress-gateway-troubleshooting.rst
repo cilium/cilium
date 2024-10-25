@@ -39,7 +39,7 @@ Cilium agent stores stats about the top 30 such connection tuples, this can be a
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg statedb nat-stats
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg shell -- db show nat-stats
     # IPFamily   Proto    EgressIP                RemoteAddr                   Count
     ipv4         TCP      10.244.1.160            10.244.3.174:4240            1
     ipv4         ICMP     172.18.0.2              172.18.0.3                   1

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -78,20 +79,16 @@ func shellExchange(w io.Writer, format string, args ...any) error {
 		if err != nil {
 			return nil
 		}
-		switch string(line) {
-		case "<<end>>":
-			return nil
-		case "[stdout]":
-		default:
-			if _, err := w.Write(line); err != nil {
-				return err
-			}
-			if _, err := w.Write(newline); err != nil {
+		line, ended := bytes.CutSuffix(line, endMarker)
+		if string(line) != "[stdout]" {
+			if _, err := w.Write(append(line, '\n')); err != nil {
 				return err
 			}
 		}
+		if ended {
+			return nil
+		}
 	}
-
 }
 
 func shell(_ *cobra.Command, args []string) {
@@ -104,6 +101,8 @@ func shell(_ *cobra.Command, args []string) {
 		interactiveShell()
 	}
 }
+
+var endMarker = []byte("<<end>>")
 
 func interactiveShell() {
 	// Try to set the terminal to raw mode (so that cursor keys work etc.)
@@ -155,12 +154,15 @@ func interactiveShell() {
 				close(stop)
 				return
 			}
+
+			// Send the command to the agent.
 			if _, err = fmt.Fprintln(conn, line); err != nil {
 				close(stop)
 				return
 			}
 
-			// Read until the command finishes with <<end>>.
+			// Pipe the response to the console until a line ends with the end
+			// marker (<<end>>).
 			for {
 				line, _, err := bio.ReadLine()
 				if err != nil {
@@ -168,11 +170,11 @@ func interactiveShell() {
 					closed = true
 					break
 				}
-				if string(line) == "<<end>>" {
+				line, ended := bytes.CutSuffix(line, endMarker)
+				console.Write(append(line, '\n'))
+				if ended {
 					break
 				}
-				console.Write(line)
-				console.Write(newline)
 			}
 		}
 		close(stop)

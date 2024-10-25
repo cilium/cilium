@@ -2,7 +2,11 @@
 
 ## cilium-dbg statedb
 
-Inspect StateDB
+Inspect StateDB (deprecated)
+
+```
+cilium-dbg statedb [flags]
+```
 
 ### Options
 
@@ -21,17 +25,5 @@ Inspect StateDB
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
-* [cilium-dbg statedb bandwidth-edts](cilium-dbg_statedb_bandwidth-edts.md)	 - Show contents of table "bandwidth-edts"
-* [cilium-dbg statedb bandwidth-qdiscs](cilium-dbg_statedb_bandwidth-qdiscs.md)	 - Show contents of table "bandwidth-qdiscs"
-* [cilium-dbg statedb devices](cilium-dbg_statedb_devices.md)	 - Show contents of table "devices"
 * [cilium-dbg statedb dump](cilium-dbg_statedb_dump.md)	 - Dump StateDB contents as JSON
-* [cilium-dbg statedb experimental](cilium-dbg_statedb_experimental.md)	 - Experimental
-* [cilium-dbg statedb health](cilium-dbg_statedb_health.md)	 - Show contents of table "health"
-* [cilium-dbg statedb ipsets](cilium-dbg_statedb_ipsets.md)	 - Show contents of table "ipsets"
-* [cilium-dbg statedb l2-announce](cilium-dbg_statedb_l2-announce.md)	 - Show contents of table "l2-announce"
-* [cilium-dbg statedb mtu](cilium-dbg_statedb_mtu.md)	 - Show contents of table "mtu"
-* [cilium-dbg statedb nat-stats](cilium-dbg_statedb_nat-stats.md)	 - Show contents of table "nat-stats"
-* [cilium-dbg statedb node-addresses](cilium-dbg_statedb_node-addresses.md)	 - Show contents of table "node-addresses"
-* [cilium-dbg statedb routes](cilium-dbg_statedb_routes.md)	 - Show contents of table "routes"
-* [cilium-dbg statedb sysctl](cilium-dbg_statedb_sysctl.md)	 - Show contents of table "sysctl"
 

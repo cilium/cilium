@@ -57,10 +57,12 @@ BPF maps which are instead done by the experimental control-plane.
 
 Once running the state can be inspected with:
 ```
-  $ cilium-dbg statedb experimental frontends
-  $ cilium-dbg statedb experimental backends
-  $ cilium-dbg statedb experimental services
-  $ cilium-dbg statedb health | grep experimental
+  $ cilium-dbg shell 
+  > db show frontends
+  > db show backends
+  > db show services
+  > db prefix health agent.controlplane.loadbalancer-experimental
+  > lb-maps dump
 ```
 ## Integration testing
 
