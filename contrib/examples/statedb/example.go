@@ -45,8 +45,9 @@ var (
 		FromObject: func(e Example) index.KeySet {
 			return index.NewKeySet(index.Uint64(e.ID))
 		},
-		FromKey: index.Uint64,
-		Unique:  true,
+		FromKey:    index.Uint64,
+		FromString: index.Uint64String,
+		Unique:     true,
 	}
 	// ByID exports the query function for the id index. It's a convention
 	// for providing a short readable short-hand for creating queries.

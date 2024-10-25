@@ -22,8 +22,9 @@ var (
 		FromObject: func(t DynamicConfig) index.KeySet {
 			return index.NewKeySet(index.Stringer(t.Key))
 		},
-		FromKey: index.Stringer[Key],
-		Unique:  true,
+		FromKey:    index.Stringer[Key],
+		FromString: index.FromString,
+		Unique:     true,
 	}
 
 	ByKey = keyIndex.Query
@@ -33,8 +34,9 @@ var (
 		FromObject: func(t DynamicConfig) index.KeySet {
 			return index.NewKeySet(index.String(t.Key.Name))
 		},
-		FromKey: index.String,
-		Unique:  false,
+		FromKey:    index.String,
+		FromString: index.FromString,
+		Unique:     false,
 	}
 	ByName = keyNameIndex.Query
 )

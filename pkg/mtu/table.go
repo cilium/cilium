@@ -17,8 +17,9 @@ var (
 		FromObject: func(rm RouteMTU) index.KeySet {
 			return index.NewKeySet(index.NetIPPrefix(rm.Prefix))
 		},
-		FromKey: index.NetIPPrefix,
-		Unique:  true,
+		FromKey:    index.NetIPPrefix,
+		FromString: index.NetIPPrefixString,
+		Unique:     true,
 	}
 )
 

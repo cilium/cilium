@@ -122,7 +122,15 @@ var (
 			return index.NewKeySet(NodeAddressKey{a.Addr, a.DeviceName}.Key())
 		},
 		FromKey: NodeAddressKey.Key,
-		Unique:  true,
+		FromString: func(key string) (index.Key, error) {
+			addrS, device, _ := strings.Cut(key, "/")
+			addr, err := netip.ParseAddr(addrS)
+			if err != nil {
+				return index.Key{}, nil
+			}
+			return NodeAddressKey{Addr: addr, DeviceName: device}.Key(), nil
+		},
+		Unique: true,
 	}
 
 	NodeAddressDeviceNameIndex = statedb.Index[NodeAddress, string]{
@@ -130,8 +138,9 @@ var (
 		FromObject: func(a NodeAddress) index.KeySet {
 			return index.NewKeySet(index.String(a.DeviceName))
 		},
-		FromKey: index.String,
-		Unique:  false,
+		FromKey:    index.String,
+		FromString: index.FromString,
+		Unique:     false,
 	}
 
 	NodeAddressNodePortIndex = statedb.Index[NodeAddress, bool]{
@@ -139,8 +148,9 @@ var (
 		FromObject: func(a NodeAddress) index.KeySet {
 			return index.NewKeySet(index.Bool(a.NodePort))
 		},
-		FromKey: index.Bool,
-		Unique:  false,
+		FromKey:    index.Bool,
+		FromString: index.BoolString,
+		Unique:     false,
 	}
 
 	NodeAddressTableName statedb.TableName = "node-addresses"

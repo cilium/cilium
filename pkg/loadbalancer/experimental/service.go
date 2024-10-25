@@ -138,8 +138,9 @@ var (
 		FromObject: func(obj *Service) index.KeySet {
 			return index.NewKeySet(index.Stringer(obj.Name))
 		},
-		FromKey: index.Stringer[loadbalancer.ServiceName],
-		Unique:  true,
+		FromKey:    index.Stringer[loadbalancer.ServiceName],
+		FromString: index.FromString,
+		Unique:     true,
 	}
 
 	ServiceByName = serviceNameIndex.Query

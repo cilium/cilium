@@ -139,7 +139,8 @@ var (
 		FromKey: func(l loadbalancer.L3n4Addr) index.Key {
 			return index.Key(l.Bytes())
 		},
-		Unique: true,
+		FromString: loadbalancer.L3n4AddrFromString,
+		Unique:     true,
 	}
 
 	FrontendByAddress = frontendAddressIndex.Query
@@ -149,8 +150,9 @@ var (
 		FromObject: func(fe *Frontend) index.KeySet {
 			return index.NewKeySet(index.Stringer(fe.ServiceName))
 		},
-		FromKey: index.Stringer[loadbalancer.ServiceName],
-		Unique:  false,
+		FromKey:    index.Stringer[loadbalancer.ServiceName],
+		FromString: index.FromString,
+		Unique:     false,
 	}
 
 	FrontendByServiceName = frontendServiceIndex.Query

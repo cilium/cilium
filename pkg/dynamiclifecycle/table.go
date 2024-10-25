@@ -24,8 +24,9 @@ var (
 		FromObject: func(t *DynamicFeature) index.KeySet {
 			return index.NewKeySet(index.Stringer(t.Name))
 		},
-		FromKey: index.Stringer[DynamicFeatureName],
-		Unique:  true,
+		FromKey:    index.Stringer[DynamicFeatureName],
+		FromString: index.FromString,
+		Unique:     true,
 	}
 
 	ByFeature = featureIndex.Query
