@@ -487,7 +487,7 @@ Finally, take the name of the cilium agent pod and inspect the l2-announce state
     $ kubectl -n kube-system get pod -l 'app.kubernetes.io/name=cilium-agent' -o wide | grep <node-name>
     <agent-pod>   1/1     Running   0          35m   172.19.0.3   kind-worker          <none>           <none>
 
-    $ kubectl -n kube-system exec pod/<agent-pod> -- cilium-dbg statedb l2-announce
+    $ kubectl -n kube-system exec pod/<agent-pod> -- cilium-dbg shell -- db show l2-announce
     # IP        NetworkInterface
     10.0.10.0   eth0
 
@@ -498,8 +498,8 @@ If the filter seems correct or isn't specified, inspect the known devices:
 
 .. code-block:: shell-session
 
-    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg statedb devices
-    # Name            Index   Selected   Type     MTU     HWAddr              Flags                    Addresses
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg shell -- db show devices
+    Name              Index   Selected   Type     MTU     HWAddr              Flags                    Addresses
     lxc5d23398605f6   10      false      veth     1500    b6:ed:d8:d2:dd:ec   up|broadcast|multicast   fe80::b4ed:d8ff:fed2:ddec
     lxc3bf03c00d6e3   12      false      veth     1500    8a:d1:0c:91:8a:d3   up|broadcast|multicast   fe80::88d1:cff:fe91:8ad3
     eth0              50      true       veth     1500    02:42:ac:13:00:03   up|broadcast|multicast   172.19.0.3, fc00:c111::3, fe80::42:acff:fe13:3

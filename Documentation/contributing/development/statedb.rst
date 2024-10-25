@@ -44,7 +44,7 @@ the state. Many components of the agent have historically functioned through cal
 and maintained their own copies of state which has a significant impact on memory usage and GC overhead.
 
 Unifying state storage behind a database-like abstraction allows building reusable utilities for
-inspecting the state (``cilium-dbg statedb``), reconciling state (StateDB reconciler) and observing
+inspecting the state (``cilium-dbg shell -- db``), reconciling state (StateDB reconciler) and observing
 operations on state (StateDB metrics). At scale this leads to an architecture that is easier to 
 understand (smaller API surface), operate (state can be inspected) and extend (easy to access data).
 
@@ -58,7 +58,7 @@ Architecture vision
 ~~~~~~~~~~~~~~~~~~~
 
 .. image:: _static/statedb-arch.svg
-	:align: center
+   :align: center
 
 
 The agent in this architectural style can be broadly considered to consist of:
@@ -90,8 +90,8 @@ Dividing the agent this way we achieve a nice separation of concerns:
 
 What we're trying to achieve is well summarized by Fred Brooks in "The Mythical Man Month":
 
-	| Show me your flowchart and conceal your tables, and I shall continue to be mystified.
-	| Show me your tables, and I won't usually need your flowchart; it'll be obvious.
+    | Show me your flowchart and conceal your tables, and I shall continue to be mystified.
+    | Show me your tables, and I won't usually need your flowchart; it'll be obvious.
 
 Defining tables
 ~~~~~~~~~~~~~~~
@@ -148,39 +148,70 @@ Here are some common mistakes to be aware of:
 
 * Query is made with ReadTxn and results are used in a WriteTxn. The results may have changed between the ReadTxn and WriteTxn! If you want optimistic concurrency control, then use CompareAndSwap in the write transaction.
 
-cilium-dbg statedb
-^^^^^^^^^^^^^^^^^^
+Inspecting with cilium-dbg 
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-StateDB implements a simple HTTP API for querying tables from a separate process.
-The objects are marshalled and unmarshalled using the normal Go JSON facilities,
-so we can effectively get copies of the objects into a separate process using the
-HTTP API which we can then render or process.
+StateDB comes with script commands to inspect the tables. These can be invoked via
+``cilium-dbg shell``.
 
-The ``cilium-dbg statedb <command>`` provides a table-based view into the StateDB
-tables running in the agent in a style similar to "kubectl get". Watching the
-tables for changes is also supported with the ``--watch`` flag.
-
-To get your newly defined table to be part of this, there's only two things you
-need to do: implement the *TableRow* and *TableHeader* methods for the object (see above)
-and add a one-liner to ``cilium-dbg/cmd/statedb.go``:
-
-.. code-block:: go
-
-	func init() {
-		...
-		StatedbCmd.AddCommand(
-			...
-			statedbTableCommand[example.Example](example.TableName),
-		)
-	}
-
-We can now dump the contents of our example table:
+The ``tables`` command lists all registered tables:
 
 .. code-block:: shell-session
 
-	$ cilium-dbg statedb examples
-	# ID      Label
-	123       hello  
+    root@kind-worker:/home/cilium# cilium-dbg shell -- db tables
+    Name               Object count   Deleted objects   Indexes               Initializers   Go type                       Last WriteTxn
+    health             61             0                 identifier, level     []             types.Status                  health (107.3us ago, locked for 43.7us)
+    sysctl             20             0                 name, status          []             *tables.Sysctl                sysctl (9.4m ago, locked for 12.8us)
+    mtu                2              0                 cidr                  []             mtu.RouteMTU                  mtu (19.4m ago, locked for 5.4us)
+    ...
+
+The ``show`` command prints out the table using the *TableRow* and *TableHeader* methods:
+
+.. code-block:: shell-session
+
+    root@kind-worker:/home/cilium# cilium-dbg shell -- db show mtu
+    Prefix      DeviceMTU   RouteMTU   RoutePostEncryptMTU
+    ::/0        1500        1450       1450
+    0.0.0.0/0   1500        1450       1450
+
+The ``get``, ``prefix``, ``list`` and ``lowerbound`` allow querying a table, provided that the ``Index.FromString`` method has
+been defined:
+
+.. code-block:: shell-session
+
+    root@kind-worker:/home/cilium# cilium-dbg shell -- db prefix -index=name devices cilium
+    Name           Index   Selected   Type    MTU    HWAddr              Flags                    Addresses
+    cilium_host    3       false      veth    1500   c2:f6:99:50:af:71   up|broadcast|multicast   10.244.1.105, fe80::c0f6:99ff:fe50:af71
+    cilium_net     2       false      veth    1500   5e:70:20:4d:8a:bc   up|broadcast|multicast   fe80::5c70:20ff:fe4d:8abc
+    cilium_vxlan   4       false      vxlan   1500   b2:c6:10:14:48:47   up|broadcast|multicast   fe80::b0c6:10ff:fe14:4847
+
+
+The shell session can also be run interactively:
+
+.. code-block:: shell-session
+
+    # cilium-dbg shell
+        /¯¯\
+     /¯¯\__/¯¯\
+     \__/¯¯\__/  Cilium 1.17.0-dev a5b41b93507e 2024-08-08T13:18:08+02:00 go version go1.23.1 linux/amd64
+     /¯¯\__/¯¯\  Welcome to the Cilium Shell! Type 'help' for list of commands.
+     \__/¯¯\__/
+        \__/
+
+    cilium> help db
+    [stdout]
+    db cmd args...
+        Inspect and manipulate StateDB
+        ...
+    
+    cilium> db show mtu
+    [stdout]
+    Prefix      DeviceMTU   RouteMTU   RoutePostEncryptMTU
+    ::/0        1500        1450       1450
+    0.0.0.0/0   1500        1450       1450
+
+    cilium> db show -o=/tmp/devices.json -format=json devices
+    ...
 
 Kubernetes reflection
 ^^^^^^^^^^^^^^^^^^^^^
@@ -224,9 +255,9 @@ Add ``reconciler.Status`` as a field into your object (there can be multiple):
 .. code-block:: go
 
   type MyObject struct {
-	ID uint64
-	// ...
-	Status reconciler.Status
+    ID uint64
+    // ...
+    Status reconciler.Status
   }
 
 Implement the reconciliation operations (``reconciler.Operations``):
@@ -240,29 +271,29 @@ Implement the reconciliation operations (``reconciler.Operations``):
   // Update reconciles the changed [obj] with the target.
   func (ops *myObjectOps) Update(ctx context.Context, txn statedb.ReadTxn, obj *MyObject) error {
     // Synchronize the target state with [obj]. [obj] is a clone and can be updated from here.
-	// [txn] can be used to access other tables, but note that Update() is only called when [obj] is
-	// marked pending.
+    // [txn] can be used to access other tables, but note that Update() is only called when [obj] is
+    // marked pending.
     ...
-	// Return nil or an error. If not nil, the operation will be repeated with exponential backoff.
-	// If object changes the retrying will reset and Update() is called with latest object.
-	return err
+    // Return nil or an error. If not nil, the operation will be repeated with exponential backoff.
+    // If object changes the retrying will reset and Update() is called with latest object.
+    return err
   }
 
   // Delete removes the [obj] from the target.
   func (ops *myObjectOps) Delete(ctx context.Context, txn statedb.ReadTxn, obj *MyObject) error { 
     ...
-	// If error is not nil the delete is retried until it succeeds or an object is recreated
-	// with the same primary key.
+    // If error is not nil the delete is retried until it succeeds or an object is recreated
+    // with the same primary key.
     return err
   }
 
   // Prune removes any stale/unexpected state in the target. 
   func (ops *myObjectOps) Prune(ctx context.Context, txn statedb.ReadTxn, objs iter.Seq2[*MyObject, statedb.Revision]) error {
     // Compute the difference between [objs] and the target and remove anything unexpected in the target.
-	...
-	// If the returned error is not nil error is logged and metrics incremented. Failed pruning is currently not retried,
-	// but called periodically according to config.
-	return err
+    ...
+    // If the returned error is not nil error is logged and metrics incremented. Failed pruning is currently not retried,
+    // but called periodically according to config.
+    return err
   }
 
 Register the reconciler:
@@ -271,29 +302,29 @@ Register the reconciler:
 
   func registerReconciler(
     params reconciler.Params,
-	ops reconciler.Operations[*MyObject],
-	tbl statedb.RWTable[*MyObject],
+    ops reconciler.Operations[*MyObject],
+    tbl statedb.RWTable[*MyObject],
   ) error {
     // Reconciler[..] is an API the reconciler provides. Often not needed.
-	// Currently only contains the Prune() method to trigger immediate pruning.
+    // Currently only contains the Prune() method to trigger immediate pruning.
     var r reconciler.Reconciler[*MyObject]
     r, err := RegisterReconciler(
       params,
-	  tbl,
-	  (*MyObject).Clone,
-	  (*MyObject).SetStatus,
-	  (*MyObject).GetStatus,
-	  ops,
-	  nil, /* optional batch operations */
-	)
-	return err
+      tbl,
+      (*MyObject).Clone,
+      (*MyObject).SetStatus,
+      (*MyObject).GetStatus,
+      ops,
+      nil, /* optional batch operations */
+    )
+    return err
   }
 
   var Cell = cell.Module(
-	"example",
-	"Example module",
-	...,
-	cell.Invoke(registerReconciler),
+    "example",
+    "Example module",
+    ...,
+    cell.Invoke(registerReconciler),
   )
 
 Insert objects with the ``Status`` set to pending:
@@ -335,7 +366,7 @@ a struct as this is the prevalent style in Cilium.
 
   type MyObject struct {
     Key MyKey
-	Value MyValue
+    Value MyValue
     Status reconciler.Status
   }
 
