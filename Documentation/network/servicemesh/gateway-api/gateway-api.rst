@@ -45,6 +45,9 @@ tests are passed.
 .. _gs_gateway_host_network_mode:
 .. include:: host-network-mode.rst
 
+.. _gs_gateway_addresses:
+.. include:: addresses.rst
+
 Examples
 ########
 
