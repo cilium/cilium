@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
@@ -79,6 +78,9 @@ type hubbleIntegration struct {
 	monitorAgent      monitorAgent.Agent
 	recorder          *recorder.Recorder
 
+	// Hubble sub-systems
+	exporters *exporter.HubbleExporters
+
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	agentConfig *option.DaemonConfig
 	config      config
@@ -100,6 +102,7 @@ func new(
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 	recorder *recorder.Recorder,
+	exporters *exporter.HubbleExporters,
 	agentConfig *option.DaemonConfig,
 	config config,
 	log logrus.FieldLogger,
@@ -122,6 +125,7 @@ func new(
 		nodeLocalStore:    nodeLocalStore,
 		monitorAgent:      monitorAgent,
 		recorder:          recorder,
+		exporters:         exporters,
 		agentConfig:       agentConfig,
 		config:            config,
 		log:               log,
@@ -260,6 +264,12 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 		localSrvOpts []serveroption.Option
 		parserOpts   []parserOptions.Option
 	)
+
+	// register exporter handlers
+	for _, handler := range h.exporters.Handlers {
+		opt := observeroption.WithOnDecodedEvent(handler)
+		observerOpts = append(observerOpts, opt)
+	}
 
 	if len(h.config.MonitorEvents) > 0 {
 		monitorFilter, err := monitor.NewMonitorFilter(h.log, h.config.MonitorEvents)
@@ -406,31 +416,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(h.config.EventQueueSize),
 	)
-	if h.config.ExportFilePath != "" {
-		exporterOpts := []exporteroption.Option{
-			exporteroption.WithPath(h.config.ExportFilePath),
-			exporteroption.WithMaxSizeMB(h.config.ExportFileMaxSizeMB),
-			exporteroption.WithMaxBackups(h.config.ExportFileMaxBackups),
-			exporteroption.WithAllowList(h.log, h.config.ExportAllowlist),
-			exporteroption.WithDenyList(h.log, h.config.ExportDenylist),
-			exporteroption.WithFieldMask(h.config.ExportFieldmask),
-		}
-		if h.config.ExportFileCompress {
-			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
-		}
-		hubbleExporter, err := exporter.NewExporter(ctx, h.log, exporterOpts...)
-		if err != nil {
-			h.log.WithError(err).Error("Failed to configure Hubble export")
-		} else {
-			opt := observeroption.WithOnDecodedEvent(hubbleExporter)
-			observerOpts = append(observerOpts, opt)
-		}
-	}
-	if h.config.FlowlogsConfigFilePath != "" {
-		dynamicHubbleExporter := exporter.NewDynamicExporter(h.log, h.config.FlowlogsConfigFilePath, h.config.ExportFileMaxSizeMB, h.config.ExportFileMaxBackups)
-		opt := observeroption.WithOnDecodedEvent(dynamicHubbleExporter)
-		observerOpts = append(observerOpts, opt)
-	}
+
 	namespaceManager := observer.NewNamespaceManager()
 	go namespaceManager.Run(ctx)
 
