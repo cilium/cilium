@@ -155,6 +155,10 @@ type BackendOperations interface {
 	// Get returns value of key
 	Get(ctx context.Context, key string) ([]byte, error)
 
+	// GetWithLeaseInfo returns value of key, as well as a boolean indicating if the client is holding the lease associated
+	// with the key or not
+	GetWithLeaseInfo(ctx context.Context, key string) ([]byte, bool, error)
+
 	// GetIfLocked returns value of key if the client is still holding the given lock.
 	GetIfLocked(ctx context.Context, key string, lock KVLocker) ([]byte, error)
 
