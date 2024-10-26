@@ -878,7 +878,7 @@ func (e *Endpoint) updatePolicyMapPressureMetric() {
 	})
 }
 
-func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {
+func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key) bool {
 	// Convert from policy.Key to policymap.Key
 	policymapKey := policymap.NewKey(keyToDelete.TrafficDirection(), keyToDelete.Identity, keyToDelete.Nexthdr, keyToDelete.DestPort, keyToDelete.PortPrefixLen())
 
@@ -905,13 +905,12 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) boo
 		e.PolicyDebug(logrus.Fields{
 			logfields.BPFMapKey:   keyToDelete,
 			logfields.BPFMapValue: entry,
-			"incremental":         incremental,
 		}, "deletePolicyKey")
 	}
 	return true
 }
 
-func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry, incremental bool) bool {
+func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
 	// Convert from policy.Key to policymap.Key
 	policymapKey := policymap.NewKey(keyToAdd.TrafficDirection(), keyToAdd.Identity, keyToAdd.Nexthdr, keyToAdd.DestPort, keyToAdd.PortPrefixLen())
 
@@ -936,7 +935,6 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 	e.PolicyDebug(logrus.Fields{
 		logfields.BPFMapKey:   keyToAdd,
 		logfields.BPFMapValue: entry,
-		"incremental":         incremental,
 	}, "addPolicyKey")
 	return true
 }
@@ -1068,13 +1066,13 @@ func (e *Endpoint) applyPolicyMapChanges(regenContext *regenerationContext, hasN
 			continue
 		}
 
-		if !e.addPolicyKey(keyToAdd, entry, true) {
+		if !e.addPolicyKey(keyToAdd, entry) {
 			errors++
 		}
 	}
 
 	for keyToDelete := range changes.Deletes {
-		if !e.deletePolicyKey(keyToDelete, true) {
+		if !e.deletePolicyKey(keyToDelete) {
 			errors++
 		}
 	}
@@ -1113,7 +1111,7 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapState, withDiffs bool) (
 	})
 	for _, add := range adds {
 		if oldEntry, ok := realized.Get(add.Key); !ok || !oldEntry.DatapathEqual(&add.Value) {
-			if !e.addPolicyKey(add.Key, add.Value, false) {
+			if !e.addPolicyKey(add.Key, add.Value) {
 				errors++
 			}
 			diffCount++
@@ -1124,9 +1122,9 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapState, withDiffs bool) (
 	}
 	var deletes []policy.MapChange
 	// Delete policy keys present in the realized state, but not present in the desired state
-	realized.ForEach(func(keyToDelete policy.Key, _ policy.MapStateEntry) bool {
+	realized.ForEach(func(keyToDelete policy.Key, entry policy.MapStateEntry) bool {
 		// If key that is in realized state is not in desired state, just remove it.
-		if entry, ok := e.desiredPolicy.GetPolicyMap().Get(keyToDelete); !ok {
+		if _, ok := e.desiredPolicy.GetPolicyMap().Get(keyToDelete); !ok {
 			deletes = append(deletes, policy.MapChange{
 				Key:   keyToDelete,
 				Value: entry,
@@ -1136,7 +1134,7 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapState, withDiffs bool) (
 	})
 	for _, del := range deletes {
 		if _, ok := e.desiredPolicy.GetPolicyMap().Get(del.Key); !ok {
-			if !e.deletePolicyKey(del.Key, false) {
+			if !e.deletePolicyKey(del.Key) {
 				errors++
 			}
 			diffCount++
