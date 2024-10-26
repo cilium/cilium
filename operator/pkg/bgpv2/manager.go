@@ -6,10 +6,10 @@ package bgpv2
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -17,6 +17,7 @@ import (
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -39,7 +40,7 @@ var (
 type BGPParams struct {
 	cell.In
 
-	Logger       logrus.FieldLogger
+	Logger       *slog.Logger
 	LC           cell.Lifecycle
 	Clientset    k8s_client.Clientset
 	DaemonConfig *option.DaemonConfig
@@ -55,7 +56,7 @@ type BGPParams struct {
 }
 
 type BGPResourceManager struct {
-	logger    logrus.FieldLogger
+	logger    *slog.Logger
 	clientset k8s_client.Clientset
 	lc        cell.Lifecycle
 	jobs      job.Group
@@ -223,7 +224,7 @@ func (b *BGPResourceManager) Run(ctx context.Context) (err error) {
 
 			err := b.reconcileWithRetry(ctx)
 			if err != nil {
-				b.logger.WithError(err).Error("BGP reconciliation failed")
+				b.logger.Error("BGP reconciliation failed", logfields.Error, err)
 			} else {
 				b.logger.Debug("BGP reconciliation successful")
 			}
@@ -239,7 +240,7 @@ func (b *BGPResourceManager) reconcileWithRetry(ctx context.Context) error {
 		switch {
 		case err != nil:
 			// log error, continue retry
-			b.logger.WithError(TrimError(err, maxErrorLen)).Warn("BGP reconciliation error")
+			b.logger.Warn("BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
 			return false, nil
 		default:
 			// no error, stop retry

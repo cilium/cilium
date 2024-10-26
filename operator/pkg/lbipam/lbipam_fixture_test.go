@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -235,13 +235,8 @@ func (nf *newFixture) GetSvc(namespace, name string) *slim_core_v1.Service {
 	return nf.svcClient.resources[resource.Key{Namespace: namespace, Name: name}]
 }
 
-func mkTestFixture(ipv4Enabled, ipv6Enabled bool) newFixture {
-	log := logrus.New()
-	if testing.Verbose() {
-		log.SetLevel(logrus.DebugLevel)
-	} else {
-		log.SetLevel(logrus.ErrorLevel)
-	}
+func mkTestFixture(t *testing.T, ipv4Enabled, ipv6Enabled bool) newFixture {
+	log := hivetest.Logger(t)
 
 	poolClient := &fakeIPPoolClient{
 		resources: make(map[resource.Key]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool),

@@ -23,7 +23,7 @@ import (
 // internally disables one of the pools, and notifies the user via a status update.
 // Next, we update the conflicting pool to remove the offending range, this should re-enable the pool.
 func TestConflictResolution(t *testing.T) {
-	fixture := mkTestFixture(true, false)
+	fixture := mkTestFixture(t, true, false)
 
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	fixture.UpsertPool(t, poolA)
@@ -66,7 +66,7 @@ func TestConflictResolution(t *testing.T) {
 // after which the pool should be no longer be marked conflicting.
 func TestPoolInternalConflict(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24", "10.0.10.64/28"})
-	fixture := mkTestFixture(true, false)
+	fixture := mkTestFixture(t, true, false)
 	fixture.UpsertPool(t, poolA)
 	poolA = fixture.GetPool("pool-a")
 
@@ -91,7 +91,7 @@ func TestPoolInternalConflict(t *testing.T) {
 // an IPv6 instead, the IPv4 is freed and an IPv6 is allocated for them.
 func TestAllocHappyPath(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24", "FF::0/48"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	// Initially request only an IPv4
@@ -171,7 +171,7 @@ func TestAllocHappyPath(t *testing.T) {
 // And when the sharing key changes the IP is changed as well.
 func TestSharedServiceUpdatedSharingKey(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, false)
+	fixture := mkTestFixture(t, true, false)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -240,7 +240,7 @@ func TestSharedServiceUpdatedSharingKey(t *testing.T) {
 // And when the ports change to overlap the IP is changed as well.
 func TestSharedServiceUpdatedPorts(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, false)
+	fixture := mkTestFixture(t, true, false)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -309,7 +309,7 @@ func TestSharedServiceUpdatedPorts(t *testing.T) {
 // but with different protocols (TCP and UDP) get assigned the same IP.
 func TestSharedServiceSamePortWithDifferentProtocols(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, false)
+	fixture := mkTestFixture(t, true, false)
 	fixture.lbipam.lbProtoDiff = true
 
 	fixture.UpsertPool(t, poolA)
@@ -370,7 +370,7 @@ func TestSharedServiceSamePortWithDifferentProtocols(t *testing.T) {
 // sharing key. This test also verifies that the ip is not reused if there is a conflict with another service.
 func TestSharingKey(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -581,7 +581,7 @@ func TestSharingKey(t *testing.T) {
 
 func TestRegressionSharedKeyReaddBug(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -677,7 +677,7 @@ func TestRegressionSharedKeyReaddBug(t *testing.T) {
 // TestSharingCrossNamespace tests that the sharing of IPs is possible cross namespace when allowed.
 func TestSharingCrossNamespace(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -795,7 +795,7 @@ func TestSharingCrossNamespace(t *testing.T) {
 // released after the service is deleted so it can be re-assigned.
 func TestServiceDelete(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -840,7 +840,7 @@ func TestServiceDelete(t *testing.T) {
 // passes ownership from on controller to another or when a pool is deleted while the operator is down.
 func TestReallocOnInit(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	// Initially request only an IPv4
@@ -900,7 +900,7 @@ func TestReallocOnInit(t *testing.T) {
 // and marked as allocated. This is crucial when restarting the operator in a running cluster.
 func TestAllocOnInit(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	policy := slim_core_v1.IPFamilyPolicySingleStack
@@ -973,7 +973,7 @@ func TestAllocOnInit(t *testing.T) {
 // and marked as allocated, and that services sharing IPs are allocated the same IP.
 func TestAllocSharedOnInit(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	policy := slim_core_v1.IPFamilyPolicySingleStack
@@ -1055,7 +1055,7 @@ func TestPoolSelectorBasic(t *testing.T) {
 	}
 	poolA.Spec.ServiceSelector = &selector
 
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	policy := slim_core_v1.IPFamilyPolicySingleStack
@@ -1141,7 +1141,7 @@ func TestPoolSelectorNamespace(t *testing.T) {
 	}
 	poolA.Spec.ServiceSelector = &selector
 
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	policy := slim_core_v1.IPFamilyPolicySingleStack
@@ -1218,7 +1218,7 @@ func TestPoolSelectorNamespace(t *testing.T) {
 // handling the service, then switch the type again and verify that we release the allocated IP.
 func TestChangeServiceType(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	// This ClusterIP service should be ignored
@@ -1304,7 +1304,7 @@ func TestChangeServiceType(t *testing.T) {
 func TestAllowFirstLastIPs(t *testing.T) {
 	pool := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
 	pool.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, pool)
 
 	policy := slim_core_v1.IPFamilyPolicySingleStack
@@ -1349,7 +1349,7 @@ func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 	// Add pool which does not allow first and last IPs
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
 	poolA.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPNo
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	policy := slim_core_v1.IPFamilyPolicySingleStack
@@ -1418,7 +1418,7 @@ func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 // TestRequestIPs tests that we can request specific IPs
 func TestRequestIPs(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -1531,7 +1531,7 @@ func TestRequestIPs(t *testing.T) {
 
 func TestSharedServicesUpdateSharingKeyAndRequestedIP(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, false)
+	fixture := mkTestFixture(t, true, false)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -1627,7 +1627,7 @@ func TestSharedServicesUpdateSharingKeyAndRequestedIP(t *testing.T) {
 // TestAddPool tests that adding a new pool will satisfy services.
 func TestAddPool(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -1665,7 +1665,7 @@ func TestAddPool(t *testing.T) {
 // TestAddRange tests adding a range to a pool will satisfy services which have not been able to get an IP
 func TestAddRange(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -1707,7 +1707,7 @@ func TestAddRange(t *testing.T) {
 // Then re-enable the pool and see that the pool resumes allocating IPs
 func TestDisablePool(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -1769,7 +1769,7 @@ func TestPoolDelete(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	poolB := mkPool(poolBUID, "pool-b", []string{"10.0.20.0/24"})
 
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 	fixture.UpsertPool(t, poolB)
 
@@ -1826,7 +1826,7 @@ func TestPoolDelete(t *testing.T) {
 // that any effected services get a new IP from another range.
 func TestRangeDelete(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -2068,7 +2068,7 @@ func TestRemoveServiceLabel(t *testing.T) {
 			"color": "blue",
 		},
 	}
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svc1 := &slim_core_v1.Service{
@@ -2113,7 +2113,7 @@ func TestRequestIPWithMismatchedLabel(t *testing.T) {
 			"color": "blue",
 		},
 	}
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{
@@ -2142,7 +2142,7 @@ func TestRequestIPWithMismatchedLabel(t *testing.T) {
 // it from the ingress list.
 func TestRemoveRequestedIP(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svc1 := &slim_core_v1.Service{
@@ -2195,7 +2195,7 @@ func TestRemoveRequestedIP(t *testing.T) {
 // LBIPAM looks for, are ignored by LBIPAM.
 func TestNonMatchingLBClass(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	lbClass := "net.example/some-other-class"
@@ -2222,7 +2222,7 @@ func TestNonMatchingLBClass(t *testing.T) {
 // LoadBalancerClass, we leave services without a LoadBalancerClass alone.
 func TestRequiredLBClass(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 
 	// Enable the requirement for a specific LBClass and set a class to look for
 	fixture.lbipam.defaultIPAM = false
@@ -2266,7 +2266,7 @@ func TestChangePoolSelector(t *testing.T) {
 	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{"color": "red"},
 	}
-	fixture := mkTestFixture(true, true)
+	fixture := mkTestFixture(t, true, true)
 	fixture.UpsertPool(t, poolA)
 
 	svcA := &slim_core_v1.Service{

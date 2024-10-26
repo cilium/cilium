@@ -6,6 +6,7 @@ package ciliumendpointslice
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -19,6 +20,7 @@ func getCEP(name string, id int64) *capi_v2a1.CoreCiliumEndpoint {
 }
 
 func TestFCFSManager(t *testing.T) {
+	log := hivetest.Logger(t)
 	t.Run("Test adding new CEP to map", func(*testing.T) {
 		m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
 		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
@@ -68,6 +70,8 @@ func TestFCFSManager(t *testing.T) {
 }
 
 func TestIdentityManager(t *testing.T) {
+	log := hivetest.Logger(t)
+
 	t.Run("Test adding new CEP to map", func(*testing.T) {
 		m := newCESManagerIdentity(2, log).(*cesManagerIdentity)
 		m.UpdateCEPMapping(getCEP("c1", 0), "ns")

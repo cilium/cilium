@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIdentityHeartbeatStore(t *testing.T) {
-	store := newHeartbeatStore(time.Second)
+	store := newHeartbeatStore(time.Second, hivetest.Logger(t))
 
 	// mark lifesign to now, identity must be alive, run GC, identity
 	// should still exist

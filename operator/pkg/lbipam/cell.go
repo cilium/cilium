@@ -5,10 +5,10 @@ package lbipam
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -48,7 +48,7 @@ func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
 type lbipamCellParams struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	LC       cell.Lifecycle
 	JobGroup job.Group

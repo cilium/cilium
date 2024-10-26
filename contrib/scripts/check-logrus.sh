@@ -4,7 +4,6 @@
 
 set -eu
 
-GOIMPORTS=("golang.org/x/tools/cmd/goimports" "-w")
 MATCH="^\s*\"github.com/sirupsen/logrus\"$"
 
 # File paths that have switched to slog and for which reintroducing use of logrus
@@ -15,9 +14,14 @@ CONVERTED=(
   "pkg/auth"
   "pkg/hive/health"
   "pkg/datapath/linux"
+  "operator/api"
   "operator/auth"
-  "operator/pkg/ciliumenvoyconfig"
-  "operator/pkg/controller-runtime"
+  "operator/doublewrite"
+  "operator/endpointgc"
+  "operator/identitygc"
+  "operator/metrics"
+  "operator/pkg"
+  "operator/watchers"
 )
 
 EXCLUDED_FILES=(

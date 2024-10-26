@@ -5,15 +5,16 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/discovery"
 
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type kvstoreEnabledFunc func() bool
@@ -29,7 +30,7 @@ func HealthHandlerCell(
 
 		cell.Provide(func(
 			clientset k8sClient.Clientset,
-			logger logrus.FieldLogger,
+			logger *slog.Logger,
 		) operator.GetHealthzHandler {
 			if !clientset.IsEnabled() {
 				return &healthHandler{
@@ -53,7 +54,7 @@ type healthHandler struct {
 	isOperatorLeading isOperatorLeadingFunc
 	kvstoreEnabled    kvstoreEnabledFunc
 	discovery         discovery.DiscoveryInterface
-	log               logrus.FieldLogger
+	log               *slog.Logger
 }
 
 func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Responder {
@@ -62,7 +63,7 @@ func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Resp
 	}
 
 	if err := h.checkStatus(); err != nil {
-		h.log.WithError(err).Warn("Health check status")
+		h.log.Warn("Health check status", logfields.Error, err)
 		return operator.NewGetHealthzInternalServerError().WithPayload(err.Error())
 	}
 

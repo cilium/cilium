@@ -5,10 +5,10 @@ package endpointgc
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -26,7 +26,7 @@ import (
 type params struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
 	Clientset       k8sClient.Clientset
@@ -41,7 +41,7 @@ type params struct {
 
 // GC represents the Cilium endpoints periodic and one-off GC.
 type GC struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	once     bool
 	interval time.Duration
@@ -113,11 +113,10 @@ func (g *GC) checkForCiliumEndpointCRD(ctx cell.HookContext) bool {
 	if err == nil {
 		return true
 	} else if k8serrors.IsNotFound(err) {
-		g.logger.WithError(err).Info("CiliumEndpoint CRD cannot be found, skipping garbage collection")
+		g.logger.Info("CiliumEndpoint CRD cannot be found, skipping garbage collection", logfields.Error, err)
 	} else {
-		g.logger.WithError(err).Error(
-			"Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
-		)
+		g.logger.Error("Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
+			logfields.Error, err)
 	}
 	return false
 }
@@ -125,23 +124,21 @@ func (g *GC) checkForCiliumEndpointCRD(ctx cell.HookContext) bool {
 func (g *GC) doGC(ctx context.Context) error {
 	cepStore, err := g.ciliumEndpoints.Store(ctx)
 	if err != nil {
-		g.logger.WithError(err).Error("Couldn't get CEP Store")
+		g.logger.Error("Couldn't get CEP Store", logfields.Error, err)
 		return err
 	}
 	// For each CEP we fetched, check if we know about it
 	for _, cep := range cepStore.List() {
-		scopedLog := g.logger.WithFields(logrus.Fields{
-			logfields.K8sPodName: cep.Namespace + "/" + cep.Name,
-		})
+		scopedLog := g.logger.With(logfields.K8sPodName, cep.Namespace+"/"+cep.Name)
 
-		if !g.checkIfCEPShouldBeDeleted(cep, scopedLog, ctx) {
+		if !g.checkIfCEPShouldBeDeleted(ctx, cep, scopedLog) {
 			continue
 		}
 		// FIXME: this is fragile as we might have received the
 		// CEP notification first but not the pod notification
 		// so we need to have a similar mechanism that we have
 		// for the keep alive of security identities.
-		err = g.deleteCEP(cep, scopedLog, ctx)
+		err = g.deleteCEP(ctx, cep, scopedLog)
 		if err != nil {
 			return err
 		}
@@ -154,7 +151,7 @@ type deleteCheckResult struct {
 	validated       bool
 }
 
-func (g *GC) checkIfCEPShouldBeDeleted(cep *cilium_api_v2.CiliumEndpoint, scopedLog *logrus.Entry, ctx context.Context) bool {
+func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.CiliumEndpoint, scopedLog *slog.Logger) bool {
 	if g.once {
 		// If we are running this function "once" it means that we
 		// will delete all CEPs in the cluster regardless of the pod
@@ -167,12 +164,12 @@ func (g *GC) checkIfCEPShouldBeDeleted(cep *cilium_api_v2.CiliumEndpoint, scoped
 	podChecked := false
 	podStore, err = g.pods.Store(ctx)
 	if err != nil {
-		scopedLog.WithError(err).Warn("Unable to get pod store")
+		scopedLog.Warn("Unable to get pod store", logfields.Error, err)
 		return false
 	}
 	ciliumNodeStore, err = g.ciliumNodes.Store(ctx)
 	if err != nil {
-		scopedLog.WithError(err).Warn("Unable to get cilium node store")
+		scopedLog.Warn("Unable to get cilium node store", logfields.Error, err)
 		return false
 	}
 
@@ -205,10 +202,10 @@ func (g *GC) checkIfCEPShouldBeDeleted(cep *cilium_api_v2.CiliumEndpoint, scoped
 	return true
 }
 
-func (g *GC) checkPodForCEP(key resource.Key, podStore resource.Store[*slim_corev1.Pod], scopedLog *logrus.Entry) deleteCheckResult {
+func (g *GC) checkPodForCEP(key resource.Key, podStore resource.Store[*slim_corev1.Pod], scopedLog *slog.Logger) deleteCheckResult {
 	pod, exists, err := podStore.GetByKey(key)
 	if err != nil {
-		scopedLog.WithError(err).Warn("Unable to get pod from store")
+		scopedLog.Warn("Unable to get pod from store", logfields.Error, err)
 	}
 	if !exists {
 		return deleteCheckResult{validated: false}
@@ -225,10 +222,10 @@ func (g *GC) checkPodForCEP(key resource.Key, podStore resource.Store[*slim_core
 	return deleteCheckResult{validated: true, shouldBeDeleted: true}
 }
 
-func (g *GC) checkCiliumNodeForCEP(key resource.Key, ciliumNodeStore resource.Store[*cilium_api_v2.CiliumNode], scopedLog *logrus.Entry) deleteCheckResult {
+func (g *GC) checkCiliumNodeForCEP(key resource.Key, ciliumNodeStore resource.Store[*cilium_api_v2.CiliumNode], scopedLog *slog.Logger) deleteCheckResult {
 	_, exists, err := ciliumNodeStore.GetByKey(key)
 	if err != nil {
-		scopedLog.WithError(err).Warn("Unable to get CiliumNode from store")
+		scopedLog.Warn("Unable to get CiliumNode from store", logfields.Error, err)
 	}
 	if !exists {
 		return deleteCheckResult{validated: false}
@@ -236,11 +233,9 @@ func (g *GC) checkCiliumNodeForCEP(key resource.Key, ciliumNodeStore resource.St
 	return deleteCheckResult{validated: true, shouldBeDeleted: false}
 }
 
-func (g *GC) deleteCEP(cep *cilium_api_v2.CiliumEndpoint, scopedLog *logrus.Entry, ctx context.Context) error {
+func (g *GC) deleteCEP(ctx context.Context, cep *cilium_api_v2.CiliumEndpoint, scopedLog *slog.Logger) error {
 	ciliumClient := g.clientset.CiliumV2()
-	scopedLog = scopedLog.WithFields(logrus.Fields{
-		logfields.EndpointID: cep.Status.ID,
-	})
+	scopedLog = scopedLog.With(logfields.EndpointID, cep.Status.ID)
 	scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
 	propagationPolicy := metav1.DeletePropagationBackground // because these are const strings but the API wants pointers
 	err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(
@@ -258,9 +253,9 @@ func (g *GC) deleteCEP(cep *cilium_api_v2.CiliumEndpoint, scopedLog *logrus.Entr
 	case err == nil:
 		g.metrics.EndpointGCObjects.WithLabelValues(LabelValueOutcomeSuccess).Inc()
 	case k8serrors.IsNotFound(err), k8serrors.IsConflict(err):
-		scopedLog.WithError(err).Debug("Unable to delete CEP, will retry again")
+		scopedLog.Debug("Unable to delete CEP, will retry again", logfields.Error, err)
 	default:
-		scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
+		scopedLog.Warn("Unable to delete orphaned CEP", logfields.Error, err)
 		g.metrics.EndpointGCObjects.WithLabelValues(LabelValueOutcomeFail).Inc()
 		return err
 	}
