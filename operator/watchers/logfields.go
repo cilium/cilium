@@ -8,4 +8,4 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "watchers")
+var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "watchers")

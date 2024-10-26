@@ -5,9 +5,9 @@ package nodeipam
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
@@ -26,7 +26,7 @@ var Cell = cell.Module(
 type nodeipamCellParams struct {
 	cell.In
 
-	Logger             logrus.FieldLogger
+	Logger             *slog.Logger
 	Clientset          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Config             nodeIpamConfig

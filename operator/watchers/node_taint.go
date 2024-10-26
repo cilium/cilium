@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,17 +97,13 @@ func checkAndMarkNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeNam
 	if running {
 		if (options.RemoveNodeTaint && hasAgentNotReadyTaint(node)) ||
 			(options.SetCiliumIsUpCondition && !HasCiliumIsUpCondition(node)) {
-			log.WithFields(logrus.Fields{
-				logfields.NodeName: node.GetName(),
-			}).Info("Cilium pod running for node; marking accordingly")
+			log.Info("Cilium pod running for node; marking accordingly", logfields.NodeName, node.GetName())
 
 			markNode(c, nodeGetter, node.GetName(), options, true)
 		}
 	} else if scheduled { // Taint nodes where the pod is scheduled but not running
 		if options.SetNodeTaint && !hasAgentNotReadyTaint(node) {
-			log.WithFields(logrus.Fields{
-				logfields.NodeName: node.GetName(),
-			}).Info("Cilium pod scheduled but not running for node; setting taint")
+			log.Info("Cilium pod scheduled but not running for node; setting taint", logfields.NodeName, node.GetName())
 			markNode(c, nodeGetter, node.GetName(), options, false)
 		}
 	}
@@ -323,7 +318,7 @@ func setNodeNetworkUnavailableFalse(ctx context.Context, c kubernetes.Interface,
 	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
 	_, err = c.CoreV1().Nodes().PatchStatus(ctx, nodeName, patch)
 	if err != nil {
-		log.WithField(logfields.NodeName, nodeName).WithError(err).Info("Failed to patch node while setting condition")
+		log.Info("Failed to patch node while setting condition", logfields.NodeName, nodeName, logfields.Error, err)
 	}
 	return err
 }
@@ -363,16 +358,10 @@ func removeNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter sli
 
 	// No cilium taints found
 	if !taintFound {
-		log.WithFields(logrus.Fields{
-			logfields.NodeName: nodeName,
-			"taint":            pkgOption.Config.AgentNotReadyNodeTaintValue(),
-		}).Debug("Taint not found in node")
+		log.Debug("Taint not found in node", logfields.NodeName, nodeName, "taint", pkgOption.Config.AgentNotReadyNodeTaintValue())
 		return nil
 	}
-	log.WithFields(logrus.Fields{
-		logfields.NodeName: nodeName,
-		"taint":            pkgOption.Config.AgentNotReadyNodeTaintValue(),
-	}).Debug("Removing Node Taint")
+	log.Debug("Removing Node Taint", logfields.NodeName, nodeName, "taint", pkgOption.Config.AgentNotReadyNodeTaintValue())
 
 	createStatusAndNodePatch := []k8s.JSONPatch{
 		{
@@ -394,7 +383,7 @@ func removeNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter sli
 
 	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, k8sTypes.JSONPatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		log.WithField(logfields.NodeName, nodeName).WithError(err).Info("Failed to patch node while removing taint")
+		log.Info("Failed to patch node while removing taint", logfields.NodeName, nodeName, logfields.Error, err)
 	}
 	return err
 }
@@ -417,16 +406,10 @@ func setNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter slimNo
 	}
 
 	if taintFound {
-		log.WithFields(logrus.Fields{
-			logfields.NodeName: nodeName,
-			"taint":            pkgOption.Config.AgentNotReadyNodeTaintValue(),
-		}).Debug("Taint already set in node; skipping")
+		log.Debug("Taint already set in node; skipping", logfields.NodeName, nodeName, "taint", pkgOption.Config.AgentNotReadyNodeTaintValue())
 		return nil
 	}
-	log.WithFields(logrus.Fields{
-		logfields.NodeName: nodeName,
-		"taint":            pkgOption.Config.AgentNotReadyNodeTaintValue(),
-	}).Debug("Setting Node Taint")
+	log.Debug("Setting Node Taint", logfields.NodeName, nodeName, "taint", pkgOption.Config.AgentNotReadyNodeTaintValue())
 
 	taints = append(taints, slim_corev1.Taint{
 		Key:    pkgOption.Config.AgentNotReadyNodeTaintValue(), // the function says value, but it's really a key
@@ -454,7 +437,7 @@ func setNodeTaint(ctx context.Context, c kubernetes.Interface, nodeGetter slimNo
 
 	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, k8sTypes.JSONPatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		log.WithField(logfields.NodeName, nodeName).WithError(err).Info("Failed to patch node while adding taint")
+		log.Info("Failed to patch node while adding taint", logfields.NodeName, nodeName, logfields.Error, err)
 	}
 	return err
 }

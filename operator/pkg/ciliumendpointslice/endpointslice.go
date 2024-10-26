@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/workerpool"
-	"github.com/sirupsen/logrus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
@@ -55,11 +54,10 @@ const (
 )
 
 func (c *Controller) initializeQueue() {
-	c.logger.WithFields(logrus.Fields{
-		logfields.WorkQueueQPSLimit:    c.rateLimit.current.Limit,
-		logfields.WorkQueueBurstLimit:  c.rateLimit.current.Burst,
-		logfields.WorkQueueSyncBackOff: defaultSyncBackOff,
-	}).Info("CES controller workqueue configuration")
+	c.logger.Info("CES controller workqueue configuration",
+		logfields.WorkQueueQPSLimit, c.rateLimit.current.Limit,
+		logfields.WorkQueueBurstLimit, c.rateLimit.current.Burst,
+		logfields.WorkQueueSyncBackOff, defaultSyncBackOff)
 
 	// Single rateLimiter controls the number of processed events in both queues.
 	c.rateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[CESKey](defaultSyncBackOff, maxSyncBackOff)
@@ -112,9 +110,7 @@ func (c *Controller) addToQueue(ces CESKey) {
 
 func (c *Controller) enqueueCESReconciliation(cess []CESKey) {
 	for _, ces := range cess {
-		c.logger.WithFields(logrus.Fields{
-			logfields.CESName: ces.string(),
-		}).Debug("Enqueueing CES (if not empty name)")
+		c.logger.Debug("Enqueueing CES (if not empty name)", logfields.CESName, ces.string())
 		if ces.Name != "" {
 			c.enqueuedAtLock.Lock()
 			if c.enqueuedAt[ces].IsZero() {
@@ -163,13 +159,13 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	switch c.slicingMode {
 	case identityMode, deprecatedIdentityMode:
 		if c.slicingMode == deprecatedIdentityMode {
-			c.logger.Warnf("%v is deprecated and has been renamed. Please use %v instead", deprecatedIdentityMode, identityMode)
+			c.logger.Warn(fmt.Sprintf("%v is deprecated and has been renamed. Please use %v instead", deprecatedIdentityMode, identityMode))
 		}
 		c.manager = newCESManagerIdentity(c.maxCEPsInCES, c.logger)
 
 	case fcfsMode, deprecatedFcfsMode:
 		if c.slicingMode == deprecatedFcfsMode {
-			c.logger.Warnf("%v is deprecated and has been renamed. Please use %v instead", deprecatedFcfsMode, fcfsMode)
+			c.logger.Warn(fmt.Sprintf("%v is deprecated and has been renamed. Please use %v instead", deprecatedFcfsMode, fcfsMode))
 		}
 		c.manager = newCESManagerFcfs(c.maxCEPsInCES, c.logger)
 
@@ -219,12 +215,10 @@ func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpoint.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.WithFields(logrus.Fields{
-				logfields.CEPName: event.Key.String()}).Debug("Got Upsert Endpoint event")
+			c.logger.Debug("Got Upsert Endpoint event", logfields.CEPName, event.Key.String())
 			c.onEndpointUpdate(event.Object)
 		case resource.Delete:
-			c.logger.WithFields(logrus.Fields{
-				logfields.CEPName: event.Key.String()}).Debug("Got Delete Endpoint event")
+			c.logger.Debug("Got Delete Endpoint event", logfields.CEPName, event.Key.String())
 			c.onEndpointDelete(event.Object)
 		}
 		event.Done(nil)
@@ -236,12 +230,10 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpointSlice.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
-			c.logger.WithFields(logrus.Fields{
-				logfields.CESName: event.Key.String()}).Debug("Got Upsert Endpoint Slice event")
+			c.logger.Debug("Got Upsert Endpoint Slice event", logfields.CESName, event.Key.String())
 			c.onSliceUpdate(event.Object)
 		case resource.Delete:
-			c.logger.WithFields(logrus.Fields{
-				logfields.CESName: event.Key.String()}).Debug("Got Delete Endpoint Slice event")
+			c.logger.Debug("Got Delete Endpoint Slice event", logfields.CESName, event.Key.String())
 			c.onSliceDelete(event.Object)
 		}
 		event.Done(nil)
@@ -252,17 +244,16 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 	ciliumNodesStore, err := c.ciliumNodes.Store(ctx)
 	if err != nil {
-		c.logger.WithError(err).Warn("Couldn't get CiliumNodes store")
+		c.logger.Warn("Couldn't get CiliumNodes store", logfields.Error, err)
 		return err
 	}
 	for event := range c.ciliumNodes.Events(ctx) {
 		event.Done(nil)
 		totalNodes := len(ciliumNodesStore.List())
 		if c.rateLimit.updateRateLimiterWithNodes(totalNodes) {
-			c.logger.WithFields(logrus.Fields{
-				logfields.WorkQueueQPSLimit:   c.rateLimit.current.Limit,
-				logfields.WorkQueueBurstLimit: c.rateLimit.current.Burst,
-			}).Info("Updated CES controller workqueue configuration")
+			c.logger.Info("Updated CES controller workqueue configuration",
+				logfields.WorkQueueQPSLimit, c.rateLimit.current.Limit,
+				logfields.WorkQueueBurstLimit, c.rateLimit.current.Burst)
 		}
 	}
 	return nil
@@ -273,7 +264,7 @@ func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 func (c *Controller) syncCESsInLocalCache(ctx context.Context) error {
 	store, err := c.ciliumEndpointSlice.Store(ctx)
 	if err != nil {
-		c.logger.WithError(err).Warn("Error getting CES Store")
+		c.logger.Warn("Error getting CES Store", logfields.Error, err)
 		return err
 	}
 	for _, ces := range store.List() {
@@ -325,9 +316,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 	defer queue.Done(key)
 
-	c.logger.WithFields(logrus.Fields{
-		logfields.CESName: key.string(),
-	}).Debug("Processing CES")
+	c.logger.Debug("Processing CES", logfields.CESName, key.string())
 
 	queueDelay := c.getAndResetCESProcessingDelay(key)
 	err := c.reconciler.reconcileCES(CESName(key.Name))
@@ -364,8 +353,8 @@ func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey
 	}
 
 	// Drop the CES from queue, we maxed out retries.
-	c.logger.WithError(err).WithFields(logrus.Fields{
-		logfields.CESName: key.string(),
-	}).Error("Dropping the CES from queue, exceeded maxRetries")
+	c.logger.Error("Dropping the CES from queue, exceeded maxRetries",
+		logfields.CESName, key.string(),
+		logfields.Error, err)
 	queue.Forget(key)
 }

@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/allocator"
 	ciliumIdentity "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -21,7 +19,7 @@ import (
 )
 
 func (igc *GC) startKVStoreModeGC(ctx context.Context) error {
-	log.WithField(logfields.Interval, igc.gcInterval).Info("Starting kvstore identity garbage collector")
+	igc.logger.Info("Starting kvstore identity garbage collector", logfields.Interval, igc.gcInterval)
 	backend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Backend: kvstore.Client()})
 	if err != nil {
 		return fmt.Errorf("unable to initialize kvstore backend for identity allocation")
@@ -29,11 +27,10 @@ func (igc *GC) startKVStoreModeGC(ctx context.Context) error {
 
 	minID := idpool.ID(ciliumIdentity.GetMinimalAllocationIdentity(igc.clusterInfo.ID))
 	maxID := idpool.ID(ciliumIdentity.GetMaximumAllocationIdentity(igc.clusterInfo.ID))
-	log.WithFields(map[string]interface{}{
-		"min":        minID,
-		"max":        maxID,
-		"cluster-id": igc.clusterInfo.ID,
-	}).Info("Garbage Collecting kvstore identities between range")
+	igc.logger.Info("Garbage Collecting kvstore identities between range",
+		"min", minID,
+		"max", maxID,
+		"cluster-id", igc.clusterInfo.ID)
 
 	igc.allocator = allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
@@ -51,16 +48,16 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 		keysToDelete, gcStats, err := igc.allocator.RunGC(igc.rateLimiter, keysToDeletePrev)
 		gcDuration := time.Since(now)
 		if err != nil {
-			igc.logger.WithError(err).Warning("Unable to run kvstore security identity garbage collector")
+			igc.logger.Warn("Unable to run kvstore security identity garbage collector", logfields.Error, err)
 			igc.metrics.IdentityGCRuns.WithLabelValues(LabelValueOutcomeFail, LabelIdentityTypeKVStore).Inc()
 			igc.metrics.IdentityGCLatency.WithLabelValues(LabelValueOutcomeFail, LabelIdentityTypeKVStore).Set(float64(time.Since(now).Seconds()))
 		} else {
 			// Best effort to run auth identity GC
 			err = igc.runAuthGC(ctx, keysToDeletePrev)
 			if err != nil {
-				igc.logger.WithField("identities-to-delete", keysToDeletePrev).
-					WithError(err).
-					Warning("Unable to run kvstore auth identity garbage collector")
+				igc.logger.Warn("Unable to run kvstore auth identity garbage collector",
+					"identities-to-delete", keysToDeletePrev,
+					logfields.Error, err)
 			}
 
 			keysToDeletePrev = keysToDelete
@@ -73,11 +70,10 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 		}
 
 		if igc.gcInterval <= gcDuration {
-			igc.logger.WithFields(logrus.Fields{
-				logfields.Interval: igc.gcInterval,
-				logfields.Duration: gcDuration,
-				logfields.Hint:     "Is there a ratelimit configured on the kvstore client or server?",
-			}).Warning("Kvstore Identity garbage collection took longer than the GC interval")
+			igc.logger.Warn("Kvstore Identity garbage collection took longer than the GC interval",
+				logfields.Interval, igc.gcInterval,
+				logfields.Duration, gcDuration,
+				logfields.Hint, "Is there a ratelimit configured on the kvstore client or server?")
 
 			// Don't sleep because we have a lot of work to do,
 			// but check if the context was canceled before running
@@ -93,9 +89,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 			}
 		}
 
-		igc.logger.WithFields(logrus.Fields{
-			"identities-to-delete": keysToDeletePrev,
-		}).Debug("Will delete kvstore identities if they are still unused")
+		igc.logger.Debug("Will delete kvstore identities if they are still unused", "identities-to-delete", keysToDeletePrev)
 	}
 }
 
