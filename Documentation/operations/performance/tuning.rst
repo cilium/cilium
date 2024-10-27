@@ -119,7 +119,6 @@ routing enabled - the reporting status under "Host Routing" must state "BPF".
 **Requirements:**
 
 * Kernel >= 6.8
-* Direct-routing configuration or tunneling
 * eBPF host-routing
 
 To enable netkit device mode with eBPF host-routing:
@@ -160,7 +159,6 @@ in any of the Cilium pods and look for the line reporting the status for
 **Requirements:**
 
 * Kernel >= 5.10
-* Direct-routing configuration or tunneling
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
 
@@ -560,7 +558,6 @@ settings for the networking stack.
 
 **Requirements:**
 
-* Direct-routing configuration or tunneling
 * eBPF-based kube-proxy replacement
 
 To enable the Bandwidth Manager:
