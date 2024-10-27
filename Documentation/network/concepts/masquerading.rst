@@ -48,8 +48,7 @@ eBPF-based
    file a GitHub issue if you experience any problems. IPv4 BPF masquerading is
    production-ready.
 
-The eBPF-based implementation is the most efficient
-implementation. It requires Linux kernel 4.19 and can be enabled with
+The eBPF-based implementation is the most efficient implementation. It can be enabled with
 the ``bpf.masquerade=true`` helm option.
 
 The current implementation depends on :ref:`the BPF NodePort feature <kubeproxy-free>`.
