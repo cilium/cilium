@@ -412,7 +412,6 @@ settings for the networking stack.
 
 **Requirements:**
 
-* Kernel >= 5.1
 * Direct-routing configuration or tunneling
 * eBPF-based kube-proxy replacement
 
