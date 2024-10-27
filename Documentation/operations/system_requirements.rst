@@ -265,8 +265,6 @@ enabled by upgrading to more recent kernel versions as detailed below.
 ====================================================== ===============================
 Cilium Feature                                         Minimum Kernel Version
 ====================================================== ===============================
-:ref:`egress-gateway`                                  >= 5.2
-VXLAN Tunnel Endpoint (VTEP) Integration               >= 5.2
 :ref:`encryption_wg`                                   >= 5.6
 Full support for :ref:`session-affinity`               >= 5.7
 BPF-based proxy redirection                            >= 5.7
