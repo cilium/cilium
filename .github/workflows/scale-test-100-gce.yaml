@@ -62,7 +62,7 @@ env:
   test_name: scale-100
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 497.0.0
+  gcloud_version: 498.0.0
 
 jobs:
   echo-inputs:
@@ -88,7 +88,7 @@ jobs:
     timeout-minutes: 150
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -146,7 +146,7 @@ jobs:
           done
 
       - name: Install Go
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -174,7 +174,7 @@ jobs:
           version: ${{ env.gcloud_version }}
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)
