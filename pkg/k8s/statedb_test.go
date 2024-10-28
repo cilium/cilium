@@ -211,7 +211,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 
 	var transformFunc k8s.TransformFunc[*testObject]
 	if p.doTransform {
-		transformFunc = func(a any) (obj *testObject, ok bool) {
+		transformFunc = func(_ statedb.ReadTxn, a any) (obj *testObject, ok bool) {
 			transformCalled.Store(true)
 			obj = a.(*testObject).DeepCopy()
 			obj.Transform = "transform"
@@ -220,7 +220,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	}
 	var transformManyFunc k8s.TransformManyFunc[*testObject]
 	if p.doTransformMany {
-		transformManyFunc = func(a any) (objs []*testObject) {
+		transformManyFunc = func(_ statedb.ReadTxn, a any) (objs []*testObject) {
 			transformCalled.Store(true)
 			obj := a.(*testObject).DeepCopy()
 			obj.Transform = "transform-many"
