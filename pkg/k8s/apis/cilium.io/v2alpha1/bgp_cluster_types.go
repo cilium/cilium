@@ -159,4 +159,6 @@ const (
 	BGPClusterConfigConditionNoMatchingNode = "cilium.io/NoMatchingNode"
 	// Referenced peer configs are missing
 	BGPClusterConfigConditionMissingPeerConfigs = "cilium.io/MissingPeerConfigs"
+	// ClusterConfig with conflicting nodeSelector present
+	BGPClusterConfigConditionConflictingClusterConfigs = "cilium.io/ConflictingClusterConfig"
 )
