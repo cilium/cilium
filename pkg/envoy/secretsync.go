@@ -173,7 +173,21 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_extensions_tls_v3.Secre
 				},
 			},
 		}
-
+	// If we don't match any other keys, and there is only one key in the Secret,
+	// then we need to drop it into a Generic Envoy secret. This is mainly for
+	// handling Header secret values.
+	case len(secret.Data) == 1:
+		for _, data := range secret.Data {
+			envoySecret.Type = &envoy_extensions_tls_v3.Secret_GenericSecret{
+				GenericSecret: &envoy_extensions_tls_v3.GenericSecret{
+					Secret: &envoy_config_core_v3.DataSource{
+						Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
+							InlineBytes: data,
+						},
+					},
+				},
+			}
+		}
 	default:
 		return nil
 	}
