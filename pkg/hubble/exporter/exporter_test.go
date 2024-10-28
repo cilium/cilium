@@ -51,7 +51,7 @@ func TestExporter(t *testing.T) {
 	buf := &bytesWriteCloser{bytes.Buffer{}}
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	exporter, err := newExporter(context.Background(), log, buf, exporteroption.Default)
+	exporter, err := newExporter(log, buf, exporteroption.Default)
 	assert.NoError(t, err)
 
 	ctx := context.Background()
@@ -127,10 +127,11 @@ func TestExporterWithFilters(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	exporter, err := newExporter(log, buf, opts)
+	assert.NoError(t, err)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	exporter, err := newExporter(ctx, log, buf, opts)
-	assert.NoError(t, err)
 
 	for i, ev := range events {
 		// Check if processing stops (shouldn't write the last event)
@@ -159,9 +160,7 @@ func TestEventToExportEvent(t *testing.T) {
 	buf := &bytesWriteCloser{bytes.Buffer{}}
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	exporter, err := newExporter(ctx, log, buf, exporteroption.Default)
+	exporter, err := newExporter(log, buf, exporteroption.Default)
 	assert.NoError(t, err)
 
 	// flow
@@ -247,10 +246,11 @@ func TestExporterWithFieldMask(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	exporter, err := newExporter(log, buf, opts)
+	assert.NoError(t, err)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	exporter, err := newExporter(ctx, log, buf, opts)
-	assert.NoError(t, err)
 
 	for _, ev := range events {
 		stop, err := exporter.OnDecodedEvent(ctx, ev)
@@ -349,10 +349,11 @@ func BenchmarkExporter(b *testing.B) {
 		assert.NoError(b, err)
 	}
 
+	exporter, err := newExporter(log, buf, opts)
+	assert.NoError(b, err)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	exporter, err := newExporter(ctx, log, buf, opts)
-	assert.NoError(b, err)
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {

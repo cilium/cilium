@@ -33,7 +33,7 @@ type DynamicExporter struct {
 func (d *DynamicExporter) OnDecodedEvent(ctx context.Context, event *v1.Event) (bool, error) {
 	select {
 	case <-ctx.Done():
-		return false, d.Stop()
+		return false, nil
 	default:
 	}
 
@@ -81,7 +81,7 @@ func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string, maxFil
 	return dynamicExporter
 }
 
-func (d *DynamicExporter) onConfigReload(ctx context.Context, hash uint64, config DynamicExportersConfig) {
+func (d *DynamicExporter) onConfigReload(hash uint64, config DynamicExportersConfig) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -94,7 +94,7 @@ func (d *DynamicExporter) onConfigReload(ctx context.Context, hash uint64, confi
 		} else {
 			label = "add"
 		}
-		if d.applyUpdatedConfig(ctx, flowlog) {
+		if d.applyUpdatedConfig(flowlog) {
 			DynamicExporterReconfigurations.WithLabelValues(label).Inc()
 		}
 	}
@@ -110,7 +110,7 @@ func (d *DynamicExporter) onConfigReload(ctx context.Context, hash uint64, confi
 	d.updateLastAppliedConfigGauges(hash)
 }
 
-func (d *DynamicExporter) newExporter(ctx context.Context, flowlog *FlowLogConfig) (*exporter, error) {
+func (d *DynamicExporter) newExporter(flowlog *FlowLogConfig) (*exporter, error) {
 	exporterOpts := []exporteroption.Option{
 		exporteroption.WithPath(flowlog.FilePath),
 		exporteroption.WithMaxSizeMB(d.maxFileSizeMB),
@@ -120,16 +120,16 @@ func (d *DynamicExporter) newExporter(ctx context.Context, flowlog *FlowLogConfi
 		exporteroption.WithFieldMask(flowlog.FieldMask),
 	}
 
-	return NewExporter(ctx, d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
+	return NewExporter(d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
 }
 
-func (d *DynamicExporter) applyUpdatedConfig(ctx context.Context, flowlog *FlowLogConfig) bool {
+func (d *DynamicExporter) applyUpdatedConfig(flowlog *FlowLogConfig) bool {
 	m, ok := d.managedExporters[flowlog.Name]
 	if ok && m.config.equals(flowlog) {
 		return false
 	}
 
-	exporter, err := d.newExporter(ctx, flowlog)
+	exporter, err := d.newExporter(flowlog)
 	if err != nil {
 		d.logger.Errorf("Failed to apply flowlog for name %s: %v", flowlog.Name, err)
 		return false

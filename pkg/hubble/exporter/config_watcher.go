@@ -4,7 +4,6 @@
 package exporter
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/binary"
 	"errors"
@@ -23,7 +22,7 @@ var reloadInterval = 5 * time.Second
 type configWatcher struct {
 	logger         logrus.FieldLogger
 	configFilePath string
-	callback       func(ctx context.Context, hash uint64, config DynamicExportersConfig)
+	callback       func(hash uint64, config DynamicExportersConfig)
 	ticker         *time.Ticker
 	stop           chan bool
 }
@@ -33,7 +32,7 @@ type configWatcher struct {
 // reconciled.
 func NewConfigWatcher(
 	configFilePath string,
-	callback func(ctx context.Context, hash uint64, config DynamicExportersConfig),
+	callback func(hash uint64, config DynamicExportersConfig),
 ) *configWatcher {
 	watcher := &configWatcher{
 		logger:         logrus.New().WithField(logfields.LogSubsys, "hubble").WithField("configFilePath", configFilePath),
@@ -69,7 +68,7 @@ func (c *configWatcher) reload() {
 		DynamicExporterReconfigurations.WithLabelValues("failure").Inc()
 		c.logger.WithError(err).Warn("failed reading dynamic exporter config")
 	} else {
-		c.callback(context.TODO(), hash, *config)
+		c.callback(hash, *config)
 	}
 }
 

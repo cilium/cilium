@@ -24,7 +24,7 @@ import (
 // exporter is an implementation of OnDecodedEvent interface that writes Hubble events to a file.
 type exporter struct {
 	FlowLogExporter
-	ctx     context.Context
+
 	logger  logrus.FieldLogger
 	encoder *json.Encoder
 	writer  io.WriteCloser
@@ -34,10 +34,7 @@ type exporter struct {
 }
 
 // NewExporter initializes an exporter.
-func NewExporter(
-	ctx context.Context,
-	logger logrus.FieldLogger,
-	options ...exporteroption.Option) (*exporter, error) {
+func NewExporter(logger logrus.FieldLogger, options ...exporteroption.Option) (*exporter, error) {
 	opts := exporteroption.Default // start with defaults
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
@@ -57,11 +54,11 @@ func NewExporter(
 			Compress:   opts.Compress,
 		}
 	}
-	return newExporter(ctx, logger, writer, opts)
+	return newExporter(logger, writer, opts)
 }
 
 // newExporter let's you supply your own WriteCloser for tests.
-func newExporter(ctx context.Context, logger logrus.FieldLogger, writer io.WriteCloser, opts exporteroption.Options) (*exporter, error) {
+func newExporter(logger logrus.FieldLogger, writer io.WriteCloser, opts exporteroption.Options) (*exporter, error) {
 	encoder := json.NewEncoder(writer)
 	var flow *flowpb.Flow
 	if opts.FieldMask.Active() {
@@ -69,7 +66,6 @@ func newExporter(ctx context.Context, logger logrus.FieldLogger, writer io.Write
 		opts.FieldMask.Alloc(flow.ProtoReflect())
 	}
 	return &exporter{
-		ctx:     ctx,
 		logger:  logger,
 		encoder: encoder,
 		writer:  writer,
@@ -132,12 +128,15 @@ func (e *exporter) Stop() error {
 	return err
 }
 
-// OnDecodedEvent checks if the event passes the filter.
-// If context was cancelled, it calls Stop() and stops processing events.
-func (e *exporter) OnDecodedEvent(_ context.Context, ev *v1.Event) (bool, error) {
+// OnDecodedEvent implements the observeroption.OnDecodedEvent interface.
+//
+// It takes care of applying filters on the received event, and if allowed, proceeds to invoke the
+// registered OnExportEvent hooks. If none of the hooks return true (abort signal) the event is then
+// wrapped in observerpb.ExportEvent before being json-encoded and written to its underlying writer.
+func (e *exporter) OnDecodedEvent(ctx context.Context, ev *v1.Event) (bool, error) {
 	select {
-	case <-e.ctx.Done():
-		return false, e.Stop()
+	case <-ctx.Done():
+		return false, nil
 	default:
 	}
 	if !filters.Apply(e.opts.AllowFilters(), e.opts.DenyFilters(), ev) {

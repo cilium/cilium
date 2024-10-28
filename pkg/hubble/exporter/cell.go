@@ -4,7 +4,6 @@
 package exporter
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
@@ -113,8 +112,7 @@ func newHubbleExporters(params hubbleExportersParams) (*HubbleExporters, error) 
 		if params.Config.ExportFileCompress {
 			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
 		}
-		// TODO: remove "stored" ctx and instead use the one passed in from OnDecodedEvent
-		staticExporter, err := NewExporter(context.TODO(), params.Logger, exporterOpts...)
+		staticExporter, err := NewExporter(params.Logger, exporterOpts...)
 		if err != nil {
 			params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
 		} else {
