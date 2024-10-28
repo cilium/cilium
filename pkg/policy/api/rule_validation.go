@@ -26,6 +26,9 @@ var (
 // Sanitize validates and sanitizes a policy rule. Minor edits such as
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
+//
+// Note: this function is called from both the operator and the agent;
+// make sure any configuration flags are bound in **both** binaries.
 func (r *Rule) Sanitize() error {
 	// Fill in the default traffic posture of this Rule.
 	// Default posture is per-direction (ingress or egress),
