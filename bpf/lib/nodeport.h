@@ -1568,7 +1568,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 						 __be16 svc_port, int *ifindex, __be16 *ohead)
 {
 	struct remote_endpoint_info *info __maybe_unused;
-	struct geneve_dsr_opt4 gopt;
+	struct geneve_dsr_opt4 gopt __align_stack_8;
 	bool need_opt = true;
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
 		sizeof(struct genevehdr) + ETH_HLEN;
