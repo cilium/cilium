@@ -128,7 +128,7 @@ type Allocator struct {
 
 	// remoteCaches is the list of additional remote caches being watched
 	// in addition to the main cache
-	remoteCaches map[string]*RemoteCache
+	remoteCaches map[string]*remoteCache
 
 	// stopGC is the channel used to stop the garbage collector
 	stopGC chan struct{}
@@ -316,7 +316,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 		localKeys:    newLocalKeys(),
 		stopGC:       make(chan struct{}),
 		suffix:       uuid.New().String()[:10],
-		remoteCaches: map[string]*RemoteCache{},
+		remoteCaches: map[string]*remoteCache{},
 		backoffTemplate: backoff.Exponential{
 			Min:    time.Duration(20) * time.Millisecond,
 			Factor: 2.0,
@@ -1047,34 +1047,40 @@ type AllocatorEvent struct {
 	Key AllocatorKey
 }
 
-// RemoteCache represents the cache content of an additional kvstore managing
+// remoteCache represents the cache content of an additional kvstore managing
 // identities. The contents are not directly accessible but will be merged into
 // the ForeachCache() function.
-type RemoteCache struct {
+type remoteCache struct {
 	name string
 
 	allocator *Allocator
 	cache     *cache
 
-	watchFunc func(ctx context.Context, remote *RemoteCache, onSync func(context.Context))
+	watchFunc func(ctx context.Context, remote *remoteCache, onSync func(context.Context))
 }
 
-func (a *Allocator) NewRemoteCache(remoteName string, remoteAlloc *Allocator) *RemoteCache {
-	return &RemoteCache{
+type RemoteIDCache interface {
+	NumEntries() int
+	Synced() bool
+	Watch(ctx context.Context, onSync func(context.Context))
+}
+
+func (a *Allocator) NewRemoteCache(remoteName string, remoteAlloc *Allocator) RemoteIDCache {
+	return &remoteCache{
 		name:      remoteName,
 		allocator: remoteAlloc,
 		cache:     &remoteAlloc.mainCache,
 
-		watchFunc: a.WatchRemoteKVStore,
+		watchFunc: a.watchRemoteKVStore,
 	}
 }
 
-// WatchRemoteKVStore starts watching an allocator base prefix the kvstore
+// watchRemoteKVStore starts watching an allocator base prefix the kvstore
 // represents by the provided backend. A local cache of all identities of that
 // kvstore will be maintained in the RemoteCache structure returned and will
 // start being reported in the identities returned by the ForeachCache()
 // function. RemoteName should be unique per logical "remote".
-func (a *Allocator) WatchRemoteKVStore(ctx context.Context, rc *RemoteCache, onSync func(context.Context)) {
+func (a *Allocator) watchRemoteKVStore(ctx context.Context, rc *remoteCache, onSync func(context.Context)) {
 	scopedLog := log.WithField(logfields.ClusterName, rc.name)
 	scopedLog.Info("Starting remote kvstore watcher")
 
@@ -1155,12 +1161,12 @@ func (a *Allocator) RemoveRemoteKVStore(remoteName string) {
 
 // Watch starts watching the remote kvstore and synchronize the identities in
 // the local cache. It blocks until the context is closed.
-func (rc *RemoteCache) Watch(ctx context.Context, onSync func(context.Context)) {
+func (rc *remoteCache) Watch(ctx context.Context, onSync func(context.Context)) {
 	rc.watchFunc(ctx, rc, onSync)
 }
 
 // NumEntries returns the number of entries in the remote cache
-func (rc *RemoteCache) NumEntries() int {
+func (rc *remoteCache) NumEntries() int {
 	if rc == nil {
 		return 0
 	}
@@ -1170,7 +1176,7 @@ func (rc *RemoteCache) NumEntries() int {
 
 // Synced returns whether the initial list of entries has been retrieved from
 // the kvstore, and new events are currently being watched.
-func (rc *RemoteCache) Synced() bool {
+func (rc *remoteCache) Synced() bool {
 	if rc == nil {
 		return false
 	}
@@ -1190,7 +1196,7 @@ func (rc *RemoteCache) Synced() bool {
 
 // close stops watching for identities in the kvstore associated with the
 // remote cache.
-func (rc *RemoteCache) close() {
+func (rc *remoteCache) close() {
 	rc.cache.allocator.Delete()
 }
 

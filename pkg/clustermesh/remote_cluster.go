@@ -62,7 +62,7 @@ type remoteCluster struct {
 
 	// remoteIdentityCache is a locally cached copy of the identity
 	// allocations in the remote cluster
-	remoteIdentityCache *allocator.RemoteCache
+	remoteIdentityCache allocator.RemoteIDCache
 
 	// status is the function which fills the common part of the status.
 	status common.StatusFunc
@@ -156,14 +156,17 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 
 	status.NumNodes = int64(rc.remoteNodes.NumEntries())
 	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
-	status.NumIdentities = int64(rc.remoteIdentityCache.NumEntries())
 	status.NumEndpoints = int64(rc.ipCacheWatcher.NumEntries())
 
 	status.Synced = &models.RemoteClusterSynced{
-		Nodes:      rc.remoteNodes.Synced(),
-		Services:   rc.remoteServices.Synced(),
-		Identities: rc.remoteIdentityCache.Synced(),
-		Endpoints:  rc.ipCacheWatcher.Synced(),
+		Nodes:     rc.remoteNodes.Synced(),
+		Services:  rc.remoteServices.Synced(),
+		Endpoints: rc.ipCacheWatcher.Synced(),
+	}
+
+	if rc.remoteIdentityCache != nil {
+		status.NumIdentities = int64(rc.remoteIdentityCache.NumEntries())
+		status.Synced.Identities = rc.remoteIdentityCache.Synced()
 	}
 
 	status.Ready = status.Ready &&
