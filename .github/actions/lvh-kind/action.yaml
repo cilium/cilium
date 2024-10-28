@@ -30,7 +30,7 @@ runs:
   using: composite
   steps:
     - name: Provision LVH VMs
-      uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+      uses: cilium/little-vm-helper@main
       with:
         test-name: ${{ inputs.test-name }}
         image: ${{ inputs.kernel-image }}
@@ -48,7 +48,7 @@ runs:
           git config --global --add safe.directory /host
 
     - name: Create K8s cluster
-      uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+      uses: cilium/little-vm-helper@main
       with:
         provision: 'false'
         cmd: |
