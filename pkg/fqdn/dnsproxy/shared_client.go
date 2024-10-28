@@ -363,7 +363,9 @@ func (c *SharedClient) ExchangeSharedContext(ctx context.Context, m *dns.Msg) (r
 	timeout := getTimeoutForRequest(c.Client)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	respCh := make(chan sharedClientResponse)
+	// The handler loop writes our response or an error to this channel. If we fall into the timeout
+	// below, the handling loop would block indefinitely on writing if this channel is not buffered.
+	respCh := make(chan sharedClientResponse, 1)
 	select {
 	case c.requests <- request{ctx: ctx, msg: m, ch: respCh}:
 	case <-ctx.Done():
@@ -374,7 +376,8 @@ func (c *SharedClient) ExchangeSharedContext(ctx context.Context, m *dns.Msg) (r
 	select {
 	case resp := <-respCh:
 		return resp.msg, resp.rtt, resp.err
-	// This is just fail-safe mechanism in case there is another similar issue
+	// This is a fail-safe mechanism which prevents leaking this goroutine if the handling loop
+	// fails to write a response on our channel.
 	case <-time.After(time.Minute):
 		return nil, 0, fmt.Errorf("timeout waiting for response")
 	}
