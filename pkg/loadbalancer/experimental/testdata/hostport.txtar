@@ -35,8 +35,8 @@ Address NodePort Primary DeviceName
 1.1.1.1 true     true    test
 
 -- services.table --
-Name                                           Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-default/my-app-85f46c4bd9-nnk25/host-port/4444 k8s                  Cluster            Cluster                              0             0                     false
+Name                                           Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+default/my-app-85f46c4bd9-nnk25/host-port/4444 k8s                  Cluster            Cluster                              0                     false
 
 -- frontends.table --
 Address           Type        ServiceName                                     PortName   Backends                      Status
@@ -47,7 +47,7 @@ Address                        State    Instances                               
 10.244.1.113:80/TCP            active   default/my-app-85f46c4bd9-nnk25/host-port/4444                       0
 
 -- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
 
 -- frontends_empty.table --
 Address               Type        ServiceName   PortName   Status  Backends

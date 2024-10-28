@@ -49,8 +49,8 @@ Address NodePort Primary DeviceName
 2001::1 true     true    test
 
 -- services.table --
-Name                     Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-default/echo-dualstack   k8s                  Cluster            Cluster                              0             0                     false              
+Name                     Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+default/echo-dualstack   k8s                  Cluster            Cluster                              0                     false              
 
 -- frontends-ipv4.table --
 Address                     Type        ServiceName              PortName   Backends                                                                       Status
@@ -86,7 +86,7 @@ Address                        State    Instances                       NodeName
 [fd00:10:244:2::a314]:80/TCP   active   default/echo-dualstack (http)   dual-stack-worker2   0
 
 -- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
 
 -- frontends_empty.table --
 Address               Type        ServiceName   PortName   Status  Backends

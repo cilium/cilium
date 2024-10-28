@@ -49,12 +49,12 @@ Address NodePort Primary DeviceName
 1.1.1.1 true     true    test
 
 -- services.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo    k8s                  Cluster            Cluster                              0             0                     false              
-test/echo2   k8s                  Cluster            Cluster                              0             0                     false              
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+test/echo    k8s                  Cluster            Cluster                              0                     false              
+test/echo2   k8s                  Cluster            Cluster                              0                     false              
 
 -- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
 
 
 -- frontends1.table --

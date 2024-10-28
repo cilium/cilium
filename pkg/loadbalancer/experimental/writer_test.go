@@ -112,6 +112,7 @@ func TestWriter_Service_UpsertDelete(t *testing.T) {
 				ServiceName: name,
 				Address:     frontend,
 				Type:        loadbalancer.SVCTypeClusterIP,
+				ServicePort: frontend.Port,
 			},
 		)
 		require.NoError(t, err, "UpsertServiceAndFrontends")
@@ -229,8 +230,9 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 				Source: source.Kubernetes,
 			},
 			experimental.FrontendParams{
-				Address: frontend,
-				Type:    loadbalancer.SVCTypeClusterIP,
+				Address:     frontend,
+				Type:        loadbalancer.SVCTypeClusterIP,
+				ServicePort: frontend.Port,
 			})
 
 		require.NoError(t, err, "UpsertService failed")
@@ -407,6 +409,7 @@ func TestWriter_Initializers(t *testing.T) {
 			ServiceName: name,
 			Address:     addr,
 			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: 12345,
 		},
 	)
 	require.NoError(t, err, "UpsertServiceAndFrontends")
