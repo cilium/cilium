@@ -54,10 +54,12 @@ cilium-operator-alibabacloud [flags]
       --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
+      --enable-l7-proxy                                      Enable L7 proxy for L7 policy enforcement (default true)
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-metrics                                       Enable Prometheus metrics
       --enable-node-ipam                                     Enable Node IPAM
       --enable-node-port                                     Enable NodePort type services by Cilium
+      --enable-node-selector-labels                          Enable use of node label based identity
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'

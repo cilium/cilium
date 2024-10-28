@@ -968,7 +968,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DisableExternalIPMitigation, false, "Disable ExternalIP mitigation (CVE-2020-8554, default false)")
 	option.BindEnv(vp, option.DisableExternalIPMitigation)
 
-	flags.Bool(option.EnableICMPRules, true, "Enable ICMP-based rule support for Cilium Network Policies")
+	flags.Bool(option.EnableICMPRules, defaults.EnableICMPRules, "Enable ICMP-based rule support for Cilium Network Policies")
 	flags.MarkHidden(option.EnableICMPRules)
 	option.BindEnv(vp, option.EnableICMPRules)
 
