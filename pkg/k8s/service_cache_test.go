@@ -7,12 +7,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 
@@ -30,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func newDB(t *testing.T) (*statedb.DB, statedb.RWTable[datapathTables.NodeAddress]) {
+func newDB(t testing.TB) (*statedb.DB, statedb.RWTable[datapathTables.NodeAddress]) {
 	db := statedb.New()
 	nodeAddrs, err := datapathTables.NewNodeAddressTable()
 	require.NoError(t, err)
@@ -1627,4 +1629,59 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		require.Len(t, event.Endpoints.Backends, 2)
 		return true
 	}, 2*time.Second))
+}
+
+func BenchmarkCorrelateEndpoints(b *testing.B) {
+	const epslices = 10
+	const epsPerSlice = 100
+
+	db, nodeAddrs := newDB(b)
+	cache := NewServiceCache(db, nodeAddrs)
+
+	var swg lock.StoppableWaitGroup
+	id := ServiceID{Name: "foo", Namespace: "bar"}
+	cache.UpdateService(&slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "10.0.0.1",
+			Selector:  map[string]string{"foo": "bar"},
+			Type:      slim_corev1.ServiceTypeClusterIP,
+		},
+	}, &swg)
+
+	ip := netip.MustParseAddr("192.168.0.0")
+	for i := range epslices {
+		cache.UpdateEndpoints(func(i int) *Endpoints {
+			return &Endpoints{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:      fmt.Sprintf("foo-%04d", i),
+					Namespace: "bar",
+				},
+				EndpointSliceID: EndpointSliceID{
+					ServiceID:         id,
+					EndpointSliceName: fmt.Sprintf("foo-%05d", i),
+				},
+				Backends: func() map[cmtypes.AddrCluster]*Backend {
+					be := make(map[cmtypes.AddrCluster]*Backend)
+					for range epsPerSlice {
+						ip = ip.Next()
+						be[cmtypes.AddrClusterFrom(ip, 0)] = &Backend{
+							Ports: serviceStore.PortConfiguration{
+								"http":     &loadbalancer.L4Addr{Port: 80, Protocol: "TCP"},
+								"http-alt": &loadbalancer.L4Addr{Port: 8080, Protocol: "TCP"},
+							},
+						}
+					}
+					return be
+				}(),
+			}
+		}(i), &swg)
+	}
+
+	b.ResetTimer()
+	for range b.N {
+		eps, ready := cache.correlateEndpoints(id)
+		assert.True(b, ready)
+		assert.Len(b, eps.Backends, epslices*epsPerSlice)
+	}
 }
