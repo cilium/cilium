@@ -406,7 +406,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	params.ReqID = ipsec.EncryptedOverlayReqID
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR
-	params.DestSubnet = wildcardCIDR
+	params.DestSubnet = localOverlayIPExactMatch
 	params.SourceTunnelIP = &net.IP{}
 	params.DestTunnelIP = &localUnderlayIP
 	params.Optional = true
