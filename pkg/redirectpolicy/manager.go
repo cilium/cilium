@@ -123,6 +123,10 @@ func NewRedirectPolicyManager(db *statedb.DB, svc svcManager, svcCache k8s.Servi
 // AddRedirectPolicy parses the given local redirect policy config, and updates
 // internal state with the config fields.
 func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
+	if rpm == nil {
+		return true, nil
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -223,6 +227,10 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 
 // DeleteRedirectPolicy deletes the internal state associated with the given policy.
 func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
+	if rpm == nil {
+		return nil
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -262,6 +270,10 @@ func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
 // OnAddService handles Kubernetes service (clusterIP type) add events, and
 // updates the internal state for the policy config associated with the service.
 func (rpm *Manager) OnAddService(svcID k8s.ServiceID) {
+	if rpm == nil {
+		return
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	if len(rpm.policyConfigs) == 0 {
@@ -282,6 +294,10 @@ func (rpm *Manager) OnAddService(svcID k8s.ServiceID) {
 // EnsureService ensures that the LRP service is updated to the latest state.
 // It is called after synchronization is complete during agent startup.
 func (rpm *Manager) EnsureService(svcID k8s.ServiceID) (bool, error) {
+	if rpm == nil {
+		return false, nil
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -309,6 +325,10 @@ func (rpm *Manager) EnsureService(svcID k8s.ServiceID) (bool, error) {
 // OnDeleteService handles Kubernetes service deletes, and deletes the internal state
 // for the policy config that might be associated with the service.
 func (rpm *Manager) OnDeleteService(svcID k8s.ServiceID) {
+	if rpm == nil {
+		return
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	if len(rpm.policyConfigs) == 0 {
@@ -319,6 +339,10 @@ func (rpm *Manager) OnDeleteService(svcID k8s.ServiceID) {
 }
 
 func (rpm *Manager) OnAddPod(pod *slimcorev1.Pod) {
+	if rpm == nil {
+		return
+	}
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -340,7 +364,7 @@ func (rpm *Manager) OnAddPod(pod *slimcorev1.Pod) {
 }
 
 func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upsertNew bool) {
-	if len(rpm.policyConfigs) == 0 {
+	if rpm == nil || len(rpm.policyConfigs) == 0 {
 		return
 	}
 
@@ -411,6 +435,9 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 }
 
 func (rpm *Manager) OnUpdatePod(pod *slimcorev1.Pod, needsReassign bool, ready bool) {
+	if rpm == nil {
+		return
+	}
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	// TODO add unit test to validate that we get callbacks only for relevant events
@@ -418,6 +445,9 @@ func (rpm *Manager) OnUpdatePod(pod *slimcorev1.Pod, needsReassign bool, ready b
 }
 
 func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
+	if rpm == nil {
+		return
+	}
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	if len(rpm.policyConfigs) == 0 {
@@ -439,6 +469,9 @@ func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
 }
 
 func (rpm *Manager) EndpointCreated(ep *endpoint.Endpoint) {
+	if rpm == nil {
+		return
+	}
 	podID := k8s.ServiceID{
 		Name:      ep.GetK8sPodName(),
 		Namespace: ep.GetK8sNamespace(),
@@ -1095,6 +1128,9 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod) *podMetadata {
 }
 
 func (rpm *Manager) GetLRPs() []*LRPConfig {
+	if rpm == nil {
+		return nil
+	}
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
