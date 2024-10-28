@@ -66,6 +66,7 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 
 	result[features.EncryptionNode] = features.Status{
 		Enabled: cfg.EncryptNode,
+		Mode:    cfg.NodeEncryptionOptOutLabelsString,
 	}
 
 	isFeatureKNPEnabled, err := ct.isFeatureKNPEnabled(cfg.EnableK8sNetworkPolicy)
