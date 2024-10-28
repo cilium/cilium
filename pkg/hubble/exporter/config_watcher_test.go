@@ -4,7 +4,6 @@
 package exporter
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -138,7 +137,7 @@ func TestReloadNotificationReceived(t *testing.T) {
 
 	// when
 	reloadInterval = 1 * time.Millisecond
-	sut := NewConfigWatcher(fileName, func(_ context.Context, _ uint64, config DynamicExportersConfig) {
+	sut := NewConfigWatcher(fileName, func(_ uint64, config DynamicExportersConfig) {
 		configReceived = true
 	})
 	defer sut.Stop()
