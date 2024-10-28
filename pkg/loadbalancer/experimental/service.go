@@ -4,6 +4,8 @@
 package experimental
 
 import (
+	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -49,9 +51,9 @@ type Service struct {
 	SessionAffinity        bool
 	SessionAffinityTimeout time.Duration
 
-	// L7ProxyPort if set redirects the traffic going to the frontends associated
-	// with this service to a layer 7 proxy running locally on this node.
-	L7ProxyPort uint16
+	// ProxyRedirect if non-nil redirects the traffic going to the frontends
+	// towards a locally running proxy.
+	ProxyRedirect *ProxyRedirect
 
 	// HealthCheckNodePort defines on which port the node runs a HTTP health
 	// check server which may be used by external loadbalancers to determine
@@ -72,6 +74,41 @@ type Service struct {
 	Properties part.Map[string, any]
 }
 
+type ProxyRedirect struct {
+	ProxyPort uint16
+
+	// Ports if non-empty will only redirect a frontend with a matching port.
+	Ports []uint16
+}
+
+func (pr *ProxyRedirect) Redirects(port uint16) bool {
+	if pr == nil {
+		return false
+	}
+	return len(pr.Ports) == 0 || slices.Contains(pr.Ports, port)
+}
+
+func (pr *ProxyRedirect) Equal(other *ProxyRedirect) bool {
+	switch {
+	case pr == nil && other == nil:
+		return true
+	case pr != nil && other != nil:
+		return pr.ProxyPort == other.ProxyPort && slices.Equal(pr.Ports, other.Ports)
+	default:
+		return false
+	}
+}
+
+func (pr *ProxyRedirect) String() string {
+	if pr == nil {
+		return ""
+	}
+	if len(pr.Ports) > 0 {
+		return fmt.Sprintf("%d (ports: %v)", pr.ProxyPort, pr.Ports)
+	}
+	return strconv.FormatUint(uint64(pr.ProxyPort), 10)
+}
+
 // Clone returns a shallow clone of the service, e.g. for updating a service with UpsertService. Fields that are references
 // (e.g. Labels or Annotations) must be further cloned if mutated.
 func (svc *Service) Clone() *Service {
@@ -89,7 +126,7 @@ func (svc *Service) TableHeader() []string {
 		"ExtTrafficPolicy",
 		"IntTrafficPolicy",
 		"SessionAffinity",
-		"L7ProxyPort",
+		"ProxyRedirect",
 		"HealthCheckNodePort",
 		"LoopbackHostPort",
 		"SourceRanges",
@@ -125,7 +162,7 @@ func (svc *Service) TableRow() []string {
 		string(svc.ExtTrafficPolicy),
 		string(svc.IntTrafficPolicy),
 		sessionAffinity,
-		strconv.FormatUint(uint64(svc.L7ProxyPort), 10),
+		svc.ProxyRedirect.String(),
 		strconv.FormatUint(uint64(svc.HealthCheckNodePort), 10),
 		showBool(svc.LoopbackHostPort),
 		showSourceRanges(svc.SourceRanges),

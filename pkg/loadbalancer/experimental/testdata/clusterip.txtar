@@ -22,8 +22,8 @@ db cmp backends backends_empty.table
 #####
 
 -- services.table --
-Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo   k8s                  Cluster            Cluster                              0             0                     false              
+Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+test/echo   k8s                  Cluster            Cluster                              0                     false              
 
 -- frontends.table --
 Address               Type        ServiceName   PortName   Backends                     Status
@@ -34,7 +34,7 @@ Address             State    Instances          NodeName          ZoneID
 10.244.1.1:80/TCP   active   test/echo (http)   nodeport-worker   0
 
 -- services_empty.table --
-Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
 
 -- frontends_empty.table --
 Address               Type        ServiceName   PortName   Status  Backends

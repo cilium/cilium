@@ -48,9 +48,10 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 				Source: source.Kubernetes,
 			},
 			experimental.FrontendParams{
-				Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
-				Type:     loadbalancer.SVCTypeClusterIP,
-				PortName: "foo",
+				Address:     *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
+				Type:        loadbalancer.SVCTypeClusterIP,
+				PortName:    "foo",
+				ServicePort: 12345,
 			},
 		)
 	}
@@ -227,9 +228,10 @@ func BenchmarkReplaceService(b *testing.B) {
 				Source: source.Kubernetes,
 			},
 			experimental.FrontendParams{
-				Address:  l3n4Addr,
-				Type:     loadbalancer.SVCTypeClusterIP,
-				PortName: "",
+				Address:     l3n4Addr,
+				Type:        loadbalancer.SVCTypeClusterIP,
+				PortName:    "",
+				ServicePort: l3n4Addr.Port,
 			},
 		)
 	}

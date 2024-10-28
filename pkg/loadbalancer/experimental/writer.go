@@ -200,6 +200,9 @@ func (w *Writer) updateServiceReferences(txn WriteTxn, svc *Service) error {
 }
 
 func (w *Writer) newFrontend(txn statedb.ReadTxn, params FrontendParams, svc *Service) *Frontend {
+	if params.ServicePort == 0 {
+		params.ServicePort = params.Address.Port
+	}
 	fe := &Frontend{
 		FrontendParams: params,
 		service:        svc,
