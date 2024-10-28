@@ -113,6 +113,9 @@ jobs:
           conformance-profile: false
         - crd-channel: experimental
           conformance-profile: true
+        - crd-channel: standard
+          conformance-profile: false
+          encryption: ipsec
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -220,7 +223,15 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium_install_defaults="${{ steps.vars.outputs.cilium_install_defaults }}"
+          if [ ${{ matrix.encryption }} == "ipsec" ]; then
+            kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3 rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+            cilium_install_defaults+=" --helm-set=encryption.enabled=true \
+              --helm-set=encryption.type=ipsec"
+          fi
+
+          cilium install $cilium_install_defaults
 
       - name: Wait for Cilium status to be ready
         run: |
