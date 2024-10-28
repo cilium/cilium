@@ -29,7 +29,7 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if .Values.envoy.rollOutPods }}
+        {{- if and (.Values.envoy.rollOutPods) (not .Values.envoy.bootstrapConfigMap) }}
         # ensure pods roll when configmap updates
         cilium.io/cilium-envoy-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-envoy/configmap.yaml") . | sha256sum | quote }}
         {{- end }}
@@ -242,7 +242,7 @@ spec:
           type: DirectoryOrCreate
       - name: envoy-config
         configMap:
-          name: cilium-envoy-config
+          name: {{ .Values.envoy.bootstrapConfigMap | default "cilium-envoy-config" | quote }}
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
           items:

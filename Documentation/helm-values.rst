@@ -1240,6 +1240,10 @@
      - Set Envoy'--base-id' to use when allocating shared memory regions. Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0'
      - int
      - ``0``
+   * - :spelling:ignore:`envoy.bootstrapConfigMap`
+     - Go off-road and bring your own custom Envoy bootstrap ConfigMap. Provide the name of the ConfigMap with a ``bootstrap-config.json`` key here. @schema type: [null, string] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
      - Time in seconds after which a TCP connection attempt times out
      - int

@@ -1920,6 +1920,12 @@
         "baseID": {
           "type": "integer"
         },
+        "bootstrapConfigMap": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "connectTimeoutSeconds": {
           "type": "integer"
         },

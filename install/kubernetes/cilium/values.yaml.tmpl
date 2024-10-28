@@ -2389,6 +2389,11 @@ envoy:
       maxUnavailable: 2
   # -- Roll out cilium envoy pods automatically when configmap is updated.
   rollOutPods: false
+  # -- Go off-road and bring your own custom Envoy bootstrap ConfigMap. Provide the name of the ConfigMap with a `bootstrap-config.json` key here.
+  # @schema
+  # type: [null, string]
+  # @schema
+  bootstrapConfigMap: ~
   # -- Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
   annotations: {}
   # -- Security Context for cilium-envoy pods.
