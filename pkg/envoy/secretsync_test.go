@@ -234,14 +234,34 @@ func Test_k8sSecretToEnvoySecretGeneric(t *testing.T) {
 	require.Nil(t, envoySecret.GetSessionTicketKeys())
 }
 
-func Test_k8sSecretToEnvoySecretOpaque(t *testing.T) {
+func Test_k8sSecretToEnvoySecretOtherValue(t *testing.T) {
 	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
 			Namespace: "dummy-namespace",
 		},
 		Data: map[string]slim_corev1.Bytes{
-			"other": []byte{},
+			"value": []byte{1, 2, 3},
+		},
+		Type: slim_corev1.SecretTypeOpaque,
+	})
+
+	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
+	require.Equal(t, []byte{1, 2, 3}, envoySecret.GetGenericSecret().Secret.GetInlineBytes())
+	require.Nil(t, envoySecret.GetValidationContext())
+	require.Nil(t, envoySecret.GetTlsCertificate())
+	require.Nil(t, envoySecret.GetSessionTicketKeys())
+}
+
+func Test_k8sSecretToEnvoySecretOtherMultiValues(t *testing.T) {
+	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "dummy-secret",
+			Namespace: "dummy-namespace",
+		},
+		Data: map[string]slim_corev1.Bytes{
+			"value":      []byte{1, 2, 3},
+			"othervalue": []byte{1, 2, 3},
 		},
 		Type: slim_corev1.SecretTypeOpaque,
 	})
