@@ -789,7 +789,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 // identity cache. remoteName should be unique unless replacing an existing
 // remote's backend. When cachedPrefix is set, identities are assumed to be
 // stored under the "cilium/cache" prefix, and the watcher is adapted accordingly.
-func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remoteID uint32, backend kvstore.BackendOperations, cachedPrefix bool) (*allocator.RemoteCache, error) {
+func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remoteID uint32, backend kvstore.BackendOperations, cachedPrefix bool) (allocator.RemoteIDCache, error) {
 	<-m.globalIdentityAllocatorInitialized
 
 	prefix := m.identitiesPath
