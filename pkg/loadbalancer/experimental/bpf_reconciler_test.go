@@ -634,17 +634,12 @@ var externalIPTestCases = []testCase{
 }
 
 var localRedirectTestCases = []testCase{
-	// TODO: The LocalRedirect mechanism needs to be thought through.
-	// One option is to implement it the same way as L7 redirect with a boolean
-	// field to enable it. Need to figure out how to query for the backends though.
-	// Could either play with the "-local" suffix, or just have a boolean in Backend
-	// to mark it as the "local redirect backend" and then just filter for these on
-	// the fly (if Frontend.LocalRedirect set, take the redirect backends that reference the service,
-	// otherwise non-redirect backends).
+	// If a frontend has a redirect set to another service it will have the "LocalRedirect" flag.
 	newTestCase(
 		"LocalRedirect",
 		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
-			fe.Type = LocalRedirect
+			fe.Type = ClusterIP
+			fe.RedirectTo = &loadbalancer.ServiceName{Name: "foo", Namespace: "bar"}
 			fe.Address = autoAddr
 			return false, []Backend{}
 		},

@@ -511,12 +511,18 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 		if svc.ProxyRedirect != nil {
 			proxyPort = svc.ProxyRedirect.ProxyPort
 		}
+
+		svcType := fe.Type
+		if fe.RedirectTo != nil {
+			svcType = loadbalancer.SVCTypeLocalRedirect
+		}
+
 		svcModel := &loadbalancer.SVC{
 			Frontend: loadbalancer.L3n4AddrID{
 				L3n4Addr: fe.Address,
 				ID:       loadbalancer.ID(fe.ID),
 			},
-			Type:        fe.Type,
+			Type:        svcType,
 			Name:        fe.ServiceName,
 			Annotations: fe.service.Annotations,
 			Backends:    bes,
