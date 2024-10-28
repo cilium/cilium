@@ -344,7 +344,7 @@ jobs:
         if: ${{ !success() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: cilium-sysdump-out-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}
+          name: cilium-sysdump-out-${{ join(matrix.*, '-') }}
           path: cilium-sysdump-out-*.zip
           retention-days: 5
 
