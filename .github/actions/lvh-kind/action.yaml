@@ -21,6 +21,10 @@ inputs:
   test-name:
     required: true
     description: 'Test name'
+  kernel-image:
+    required: false
+    description: 'Kernel image'
+    default: 'kind'
 
 runs:
   using: composite
@@ -29,6 +33,7 @@ runs:
       uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
       with:
         test-name: ${{ inputs.test-name }}
+        image: ${{ inputs.kernel-image }}
         image-version: ${{ inputs.kernel }}
         images-folder-parent: "/tmp"
         host-mount: ./
