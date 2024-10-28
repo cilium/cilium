@@ -100,7 +100,7 @@ func configMapReflector(name string, namespace string, cs k8sClient.Clientset, t
 	return k8s.ReflectorConfig[DynamicConfig]{
 		Name:  "cm-" + name + "-" + namespace,
 		Table: t,
-		TransformMany: func(o any) []DynamicConfig {
+		TransformMany: func(_ statedb.ReadTxn, o any) []DynamicConfig {
 			cm := o.(*v1.ConfigMap).DeepCopy()
 			var entries = make([]DynamicConfig, 0, len(cm.Data))
 			for k, v := range cm.Data {
@@ -130,7 +130,7 @@ func ciliumNodeConfigReflector(name string, namespace string, cs k8sClient.Clien
 	return k8s.ReflectorConfig[DynamicConfig]{
 		Name:  "cnc-" + name + "-" + namespace,
 		Table: t,
-		TransformMany: func(o any) []DynamicConfig {
+		TransformMany: func(_ statedb.ReadTxn, o any) []DynamicConfig {
 			cnc := o.(*ciliumv2.CiliumNodeConfig).DeepCopy()
 			var entries = make([]DynamicConfig, 0, len(cnc.Spec.Defaults))
 			for k, v := range cnc.Spec.Defaults {
@@ -161,7 +161,7 @@ func ciliumNodeReflector(name string, cs k8sClient.Clientset, t statedb.RWTable[
 	return k8s.ReflectorConfig[DynamicConfig]{
 		Name:  "node-" + name,
 		Table: t,
-		TransformMany: func(o any) []DynamicConfig {
+		TransformMany: func(_ statedb.ReadTxn, o any) []DynamicConfig {
 			var entries []DynamicConfig
 			node := o.(*corev1.Node).DeepCopy()
 
