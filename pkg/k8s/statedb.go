@@ -144,13 +144,13 @@ func (cfg ReflectorConfig[Obj]) JobName() string {
 // to transform the object returned by the ListerWatcher to the desired
 // target object. If the function returns false the object is silently
 // skipped.
-type TransformFunc[Obj any] func(any) (obj Obj, ok bool)
+type TransformFunc[Obj any] func(statedb.ReadTxn, any) (obj Obj, ok bool)
 
 // TransformManyFunc is an optional function to give to the Kubernetes reflector
 // to transform the object returned by the ListerWatcher to the desired set of
 // target objects to insert into the table. If the function returns false the object is silently
 // skipped.
-type TransformManyFunc[Obj any] func(any) (objs []Obj)
+type TransformManyFunc[Obj any] func(statedb.ReadTxn, any) (objs []Obj)
 
 // QueryAllFunc is an optional function to give to the Kubernetes reflector
 // to query all objects in the table that are managed by the reflector.
@@ -244,16 +244,16 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		buf := make([]Obj, 1)
 		if r.Transform != nil {
 			// Implement TransformMany with Transform.
-			transformMany = TransformManyFunc[Obj](func(obj any) []Obj {
+			transformMany = TransformManyFunc[Obj](func(txn statedb.ReadTxn, obj any) []Obj {
 				var ok bool
-				if buf[0], ok = r.Transform(obj); ok {
+				if buf[0], ok = r.Transform(txn, obj); ok {
 					return buf
 				}
 				return nil
 			})
 		} else {
 			// No provided transform function, use the identity function instead.
-			transformMany = TransformManyFunc[Obj](func(obj any) []Obj {
+			transformMany = TransformManyFunc[Obj](func(txn statedb.ReadTxn, obj any) []Obj {
 				buf[0] = obj.(Obj)
 				return buf
 			})
@@ -329,7 +329,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			inserted := sets.New[string]()
 
 			for _, item := range buf.replaceItems {
-				for _, obj := range transformMany(item) {
+				for _, obj := range transformMany(txn, item) {
 					if _, _, err := table.Insert(txn, obj); err != nil {
 						r.log.Error("BUG: Insert failed", logfields.Error, err)
 						continue
@@ -357,7 +357,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		}
 
 		for _, entry := range buf.entries {
-			for _, obj := range transformMany(entry.obj) {
+			for _, obj := range transformMany(txn, entry.obj) {
 				if !entry.deleted {
 					if _, _, err := table.Modify(txn, obj, merge); err != nil {
 						r.log.Error("BUG: Modify failed", logfields.Error, err)
