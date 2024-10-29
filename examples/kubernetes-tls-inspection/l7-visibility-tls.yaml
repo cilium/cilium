@@ -10,7 +10,7 @@ spec:
       class: mediabot
   egress:
   - toFQDNs:
-    - matchName: "artii.herokuapp.com"
+    - matchName: "httpbin.org"
     toPorts:
     - ports:
       - port: "443"
@@ -18,7 +18,7 @@ spec:
       terminatingTLS:
         secret:
           namespace: "kube-system"
-          name: "artii-tls-data"
+          name: "httpbin-tls-data"
       originatingTLS:
         secret:
           namespace: "kube-system"
