@@ -202,9 +202,6 @@ const (
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
 
-	// LoadBalancerL7 enables loadbalancer capabilities for services via envoy proxy
-	LoadBalancerL7 = "loadbalancer-l7"
-
 	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
 	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
 
@@ -238,7 +235,6 @@ const (
 
 // OperatorConfig is the configuration used by the operator.
 type OperatorConfig struct {
-
 	// NodesGCInterval is the GC interval for CiliumNodes
 	NodesGCInterval time.Duration
 
@@ -390,9 +386,6 @@ type OperatorConfig struct {
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs bool
 
-	// LoadBalancerL7 enables loadbalancer capabilities for services.
-	LoadBalancerL7 string
-
 	// EnableGatewayAPI enables support of Gateway API
 	EnableGatewayAPI bool
 
@@ -439,7 +432,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
-	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {
