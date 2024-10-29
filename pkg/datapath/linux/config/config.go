@@ -643,7 +643,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 					// native-routing-cidr is optional with ip-masq-agent and may be nil
 					excludeCIDR = option.Config.IPv4NativeRoutingCIDR
 				} else {
-					excludeCIDR = datapath.RemoteSNATDstAddrExclusionCIDRv4()
+					excludeCIDR = cfg.NativeRoutingCIDRIPv4
 				}
 
 				if excludeCIDR != nil {
@@ -663,7 +663,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 					excludeCIDR = option.Config.IPv6NativeRoutingCIDR
 				} else {
-					excludeCIDR = datapath.RemoteSNATDstAddrExclusionCIDRv6()
+					excludeCIDR = cfg.NativeRoutingCIDRIPv6
 				}
 
 				if excludeCIDR != nil {
