@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -677,7 +678,7 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 	return &netlinkFuncs{
 		RouteSubscribe: func(ch chan<- netlink.RouteUpdate, done <-chan struct{}, errorCallback func(error)) error {
 			h := vns.NsHandle(cur.FD())
-			return netlink.RouteSubscribeWithOptions(ch, done,
+			return safenetlink.RouteSubscribeWithOptions(ch, done,
 				netlink.RouteSubscribeOptions{
 					ListExisting:  false,
 					ErrorCallback: errorCallback,
@@ -695,7 +696,7 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 		},
 		LinkSubscribe: func(ch chan<- netlink.LinkUpdate, done <-chan struct{}, errorCallback func(error)) error {
 			h := vns.NsHandle(cur.FD())
-			return netlink.LinkSubscribeWithOptions(ch, done,
+			return safenetlink.LinkSubscribeWithOptions(ch, done,
 				netlink.LinkSubscribeOptions{
 					ListExisting:  false,
 					ErrorCallback: errorCallback,
