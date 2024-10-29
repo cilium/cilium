@@ -57,7 +57,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  test_concurrency: 5
+  test_concurrency: 1
 
 jobs:
   echo-inputs:
@@ -134,7 +134,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
-    timeout-minutes: 35
+    timeout-minutes: 120
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
