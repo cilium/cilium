@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -186,7 +187,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 	linkMTU := mtuConfig.DeviceMTU - mtu.WireguardOverhead
 
 	// try to remove any old tun devices created by userspace mode
-	link, _ := netlink.LinkByName(types.IfaceName)
+	link, _ := safenetlink.LinkByName(types.IfaceName)
 	if _, isTuntap := link.(*netlink.Tuntap); isTuntap {
 		_ = netlink.LinkDel(link)
 	}
@@ -252,7 +253,7 @@ func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
 	for {
 		mtuRoute, _, watch, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
 		if found {
-			link, err := netlink.LinkByName(types.IfaceName)
+			link, err := safenetlink.LinkByName(types.IfaceName)
 			if err != nil {
 				health.Degraded("failed to get WireGuard link", err)
 				retry = true
