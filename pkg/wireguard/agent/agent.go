@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -200,7 +201,7 @@ func (a *Agent) initUserspaceDevice(linkMTU int) (netlink.Link, error) {
 		}
 	}()
 
-	link, err := netlink.LinkByName(types.IfaceName)
+	link, err := safenetlink.LinkByName(types.IfaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain link: %w", err)
 	}
@@ -225,7 +226,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
 	linkMTU := mtuConfig.GetDeviceMTU() - mtu.WireguardOverhead
 
 	// try to remove any old tun devices created by userspace mode
-	link, _ := netlink.LinkByName(types.IfaceName)
+	link, _ := safenetlink.LinkByName(types.IfaceName)
 	if _, isTuntap := link.(*netlink.Tuntap); isTuntap {
 		_ = netlink.LinkDel(link)
 	}
