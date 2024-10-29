@@ -21,6 +21,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -515,6 +516,10 @@ func (c *fakeClient) ListNamespaces(_ context.Context, _ metav1.ListOptions) (*c
 }
 
 func (c *fakeClient) ListEndpoints(_ context.Context, _ metav1.ListOptions) (*corev1.EndpointsList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListEndpointSlices(_ context.Context, _ metav1.ListOptions) (*discoveryv1.EndpointSliceList, error) {
 	panic("implement me")
 }
 
