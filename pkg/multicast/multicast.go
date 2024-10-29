@@ -7,9 +7,9 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/vishvananda/netlink"
 	"golang.org/x/net/ipv6"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -168,7 +168,7 @@ func (a Address) SolicitedNodeMaddr() netip.Addr {
 // The reason not to use net.InterfaceByName directly is to avoid potential
 // deadlocks (#15051).
 func interfaceByName(name string) (*net.Interface, error) {
-	link, err := netlink.LinkByName(name)
+	link, err := safenetlink.LinkByName(name)
 	if err != nil {
 		return nil, err
 	}
