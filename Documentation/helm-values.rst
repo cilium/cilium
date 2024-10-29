@@ -3188,6 +3188,10 @@
      - Configure what the response should be to traffic for a service without backends. "reject" only works on kernels >= 5.10, on lower kernels we fallback to "drop". Possible values:  - reject (default)  - drop
      - string
      - ``"reject"``
+   * - :spelling:ignore:`skipKernelModuleValidation`
+     - 
+     - bool
+     - ``false``
    * - :spelling:ignore:`sleepAfterInit`
      - Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node.
      - bool

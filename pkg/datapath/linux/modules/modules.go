@@ -10,7 +10,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/slices"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "modules")
 )
 
 // Manager stores information about loaded modules and provides a search operation.
@@ -30,8 +36,12 @@ func (m *Manager) FindModules(expectedNames ...string) (bool, []string) {
 }
 
 // FindOrLoadModules checks whether the given kernel modules are loaded and
-// tries to load those which are not.
-func (m *Manager) FindOrLoadModules(expectedNames ...string) error {
+// tries to load those which are not. Skip this validation if instructed to do so.
+func (m *Manager) FindOrLoadModules(skipValidation bool, expectedNames ...string) error {
+	if skipValidation {
+		log.Warningf("skipped validating and loading the following kernel modules: %s)", expectedNames)
+		return nil
+	}
 	found, diff := m.FindModules(expectedNames...)
 	if found {
 		return nil

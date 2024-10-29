@@ -34,6 +34,7 @@ var Cell = cell.Module(
 			EnableIPv4:                  cfg.EnableIPv4,
 			EnableIPv6:                  cfg.EnableIPv6,
 			EnableXTSocketFallback:      cfg.EnableXTSocketFallback,
+			SkipKernelModuleValidation:  cfg.SkipKernelModuleValidation,
 			EnableBPFTProxy:             cfg.EnableBPFTProxy,
 			InstallNoConntrackIptRules:  cfg.InstallNoConntrackIptRules,
 			EnableEndpointRoutes:        cfg.EnableEndpointRoutes,
@@ -88,6 +89,7 @@ type SharedConfig struct {
 	EnableIPv4                  bool
 	EnableIPv6                  bool
 	EnableXTSocketFallback      bool
+	SkipKernelModuleValidation  bool
 	EnableBPFTProxy             bool
 	InstallNoConntrackIptRules  bool
 	EnableEndpointRoutes        bool

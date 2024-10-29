@@ -740,6 +740,9 @@ const (
 	// EnableXTSocketFallbackName is the name of the EnableXTSocketFallback option
 	EnableXTSocketFallbackName = "enable-xt-socket-fallback"
 
+	// SkipKernelModuleValidationName is the name of the SkipKernelModuleValidation option
+	SkipKernelModuleValidationName = "skip-kernel-module-validation"
+
 	// EnableAutoDirectRoutingName is the name for the EnableAutoDirectRouting option
 	EnableAutoDirectRoutingName = "auto-direct-node-routes"
 
@@ -1732,6 +1735,10 @@ type DaemonConfig struct {
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
 	EnableXTSocketFallback bool
+
+	// SkipKernelModuleValidation instructs Cilium to skip all kernel module
+	// loads, assuming they're already loaded.
+	SkipKernelModuleValidation bool
 
 	// EnableBPFTProxy enables implementing proxy redirection via BPF
 	// mechanisms rather than iptables rules.
@@ -2821,6 +2828,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
+	c.SkipKernelModuleValidation = vp.GetBool(SkipKernelModuleValidationName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
 	c.DirectRoutingSkipUnreachable = vp.GetBool(DirectRoutingSkipUnreachableName)
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)

@@ -5245,6 +5245,9 @@
     "serviceNoBackendResponse": {
       "type": "string"
     },
+    "skipKernelModuleValidation": {
+      "type": "boolean"
+    },
     "sleepAfterInit": {
       "type": "boolean"
     },

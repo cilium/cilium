@@ -20,16 +20,29 @@ func TestFindOrLoadModules(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	testCases := []struct {
-		modulesToFind []string
-		expectedErr   bool
+		skipValidation bool
+		modulesToFind  []string
+		expectedErr    bool
 	}{
 		{
-			modulesToFind: []string{"bridge"},
-			expectedErr:   false,
+			skipValidation: false,
+			modulesToFind:  []string{"bridge"},
+			expectedErr:    false,
 		},
 		{
-			modulesToFind: []string{"foo", "bar"},
-			expectedErr:   true,
+			skipValidation: false,
+			modulesToFind:  []string{"foo", "bar"},
+			expectedErr:    true,
+		},
+		{
+			skipValidation: true,
+			modulesToFind:  []string{"bridge"},
+			expectedErr:    false,
+		},
+		{
+			skipValidation: true,
+			modulesToFind:  []string{"foo", "bar"},
+			expectedErr:    false,
 		},
 	}
 
@@ -48,7 +61,7 @@ func TestFindOrLoadModules(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		err := manager.FindOrLoadModules(tc.modulesToFind...)
+		err := manager.FindOrLoadModules(tc.skipValidation, tc.modulesToFind...)
 		if tc.expectedErr && err == nil {
 			t.Fatal("expected error from FindOrLoadModules but none found")
 		}

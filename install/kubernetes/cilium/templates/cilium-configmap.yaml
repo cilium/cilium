@@ -650,6 +650,7 @@ data:
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
+  skip-kernel-module-validation: {{ .Values.skipKernelModuleValidation | quote }}
 {{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne $cniChainingMode "none") }}
   install-no-conntrack-iptables-rules: "false"
 {{- else }}

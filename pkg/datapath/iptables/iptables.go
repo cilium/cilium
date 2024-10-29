@@ -365,14 +365,14 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		m.disableIPEarlyDemux()
 	}
 
-	if err := m.modulesMgr.FindOrLoadModules(
+	if err := m.modulesMgr.FindOrLoadModules(m.sharedCfg.SkipKernelModuleValidation,
 		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw", "iptable_filter",
 	); err != nil {
 		m.logger.WithError(err).Warning(
 			"iptables modules could not be initialized. It probably means that iptables is not available on this system")
 	}
 
-	if err := m.modulesMgr.FindOrLoadModules(
+	if err := m.modulesMgr.FindOrLoadModules(m.sharedCfg.SkipKernelModuleValidation,
 		"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter",
 	); err != nil {
 		if m.sharedCfg.EnableIPv6 {
@@ -400,7 +400,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		}
 	}
 
-	if err := m.modulesMgr.FindOrLoadModules("xt_socket"); err != nil {
+	if err := m.modulesMgr.FindOrLoadModules(m.sharedCfg.SkipKernelModuleValidation, "xt_socket"); err != nil {
 		m.logger.WithError(err).Warning("xt_socket kernel module could not be loaded")
 
 		if !m.sharedCfg.TunnelingEnabled {
@@ -419,6 +419,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 			// We would not need the xt_socket at all if the datapath universally would
 			// set the "to proxy" skb mark bits on before the packet hits policy routing
 			// stage. Currently this is not true for endpoint routing modes.
+
 			if m.sharedCfg.EnableXTSocketFallback {
 				m.disableIPEarlyDemux()
 			}

@@ -9,7 +9,7 @@
 **Prerequisites / Limitations**
 
   - Cilium's Talos Linux support is only tested with Talos versions ``>=1.5.0``.
-  - As Talos `does not allow loading Kernel modules`_ by Kubernetes workloads, ``SYS_MODULE`` needs to be dropped from the Cilium default capability list.
+  - As Talos `does not allow loading Kernel modules`_ by Kubernetes workloads, ``skipKernelModuleValidation`` should be set to ``true`` and ``SYS_MODULE`` can be dropped from the Cilium default Linux capability list.
 
 .. _`does not allow loading Kernel modules`: https://www.talos.dev/latest/learn-more/process-capabilities/
 
@@ -25,7 +25,7 @@
     - `Kubernetes Host Scope<k8s_hostscope>` IPAM mode as Talos, by default, assigns ``PodCIDRs`` to ``v1.Node`` resources
 
 .. _`Cilium Helm chart`: https://github.com/cilium/charts
-.. _`Deploying Cilium CNI guide`: https://www.talos.dev/v1.6/kubernetes-guides/network/deploying-cilium/
+.. _`Deploying Cilium CNI guide`: https://www.talos.dev/latest/kubernetes-guides/network/deploying-cilium/
 
 **Configure Talos Linux**
 
@@ -77,6 +77,7 @@ Talos Linux node on ``localhost:7445``.
       --set=cgroup.autoMount.enabled=false \\
       --set=cgroup.hostRoot=/sys/fs/cgroup \\
       --set=k8sServiceHost=localhost \\
-      --set=k8sServicePort=7445
+      --set=k8sServicePort=7445 \\
+      --set=skipKernelModuleValidation=true
 
-.. _KubePrism: https://www.talos.dev/v1.6/kubernetes-guides/configuration/kubeprism/
+.. _KubePrism: https://www.talos.dev/latest/kubernetes-guides/configuration/kubeprism/
