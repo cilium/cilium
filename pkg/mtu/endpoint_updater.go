@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
@@ -285,7 +286,7 @@ func defaultRouteHook(routeMTUs []RouteMTU) error {
 		return err
 	}
 
-	links, err := netlink.LinkList()
+	links, err := safenetlink.LinkList()
 	if err != nil {
 		return err
 	}
@@ -299,7 +300,7 @@ func defaultRouteHook(routeMTUs []RouteMTU) error {
 
 		netlink.LinkSetMTU(link, defaultRouteMTU.DeviceMTU)
 
-		routes, err := netlink.RouteList(link, netlink.FAMILY_ALL)
+		routes, err := safenetlink.RouteList(link, netlink.FAMILY_ALL)
 		if err != nil {
 			return fmt.Errorf("netlink.RouteList failed: %w", err)
 		}
