@@ -548,6 +548,30 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
+		{
+			Description: "Collecting crashed test pod logs",
+			Quick:       false,
+			Task: func(ctx context.Context) error {
+				namespaces, err := c.Client.ListNamespaces(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to get namespaces")
+				}
+				for _, namespace := range namespaces.Items {
+					if !strings.HasPrefix(namespace.Name, defaults.ConnectivityCheckNamespace) {
+						continue
+					}
+
+					p, err := c.Client.ListPods(ctx, namespace.Name, metav1.ListOptions{})
+					if err != nil {
+						return fmt.Errorf("failed to get logs from Hubble certgen pods")
+					}
+					if err := c.SubmitLogsTasks(filterCrashedPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+						return fmt.Errorf("failed to collect logs from Hubble certgen pods")
+					}
+				}
+				return nil
+			},
+		},
 	}
 
 	// task that needs to be executed "serially" (i.e: not concurrently with other tasks).
@@ -2986,6 +3010,17 @@ func AllPods(l *corev1.PodList) []*corev1.Pod {
 // FilterPods filters a list of pods by node names.
 func FilterPods(l *corev1.PodList, n []string) []*corev1.Pod {
 	return filterPods(l, func(po *corev1.Pod) bool { return slices.Contains(n, po.Spec.NodeName) })
+}
+
+func filterCrashedPods(l *corev1.PodList) []*corev1.Pod {
+	return filterPods(l, func(po *corev1.Pod) bool {
+		for _, containerStatus := range po.Status.ContainerStatuses {
+			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+				return true
+			}
+		}
+		return false
+	})
 }
 
 func filterPods(l *corev1.PodList, filter func(po *corev1.Pod) bool) []*corev1.Pod {
