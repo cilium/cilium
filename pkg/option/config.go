@@ -2409,9 +2409,9 @@ func (c *DaemonConfig) NodeEncryptionEnabled() bool {
 	return c.EncryptNode
 }
 
-// EncryptionEnabled returns true if encryption is enabled
+// EncryptionEnabled returns true if IPsec or WireGuard is enabled
 func (c *DaemonConfig) EncryptionEnabled() bool {
-	return c.EnableIPSec
+	return c.EnableIPSec || c.EnableWireguard
 }
 
 // IPv4Enabled returns true if IPv4 is enabled

@@ -224,7 +224,7 @@ func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig) error {
 		if daemonCfg.TunnelingEnabled() {
 			return errors.New("BIG TCP is not supported in tunneling mode")
 		}
-		if daemonCfg.EncryptionEnabled() {
+		if daemonCfg.EnableIPSec {
 			return errors.New("BIG TCP is not supported with encryption enabled")
 		}
 		if daemonCfg.EnableHostLegacyRouting {

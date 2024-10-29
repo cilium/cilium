@@ -280,7 +280,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
 	// it only supports VXLAN right now.
-	if option.Config.EncryptionEnabled() && option.Config.EnableIPSecEncryptedOverlay {
+	if option.Config.EnableIPSec && option.Config.EnableIPSecEncryptedOverlay {
 		if !option.Config.TunnelingEnabled() {
 			return nil, nil, fmt.Errorf("EncryptedOverlay support requires VXLAN tunneling mode")
 		}
