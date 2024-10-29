@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -109,7 +110,7 @@ func configureHealthRouting(routes []route.Route, dev string) error {
 
 // configureHealthInterface is meant to be run inside the health service netns
 func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error {
-	link, err := netlink.LinkByName(ifName)
+	link, err := safenetlink.LinkByName(ifName)
 	if err != nil {
 		return err
 	}
@@ -137,7 +138,7 @@ func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error 
 		return err
 	}
 
-	lo, err := netlink.LinkByName("lo")
+	lo, err := safenetlink.LinkByName("lo")
 	if err != nil {
 		return err
 	}
@@ -195,7 +196,7 @@ func CleanupEndpoint() {
 	case datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		for _, iface := range []string{legacyHealthName, healthName} {
 			scopedLog := log.WithField(logfields.Interface, iface)
-			if link, err := netlink.LinkByName(iface); err == nil {
+			if link, err := safenetlink.LinkByName(iface); err == nil {
 				err = netlink.LinkDel(link)
 				if err != nil {
 					scopedLog.WithError(err).Infof("Couldn't delete cilium-health %s device",
