@@ -5,10 +5,10 @@ inputs:
     required: true
     type: string
     description: "gcm(aes) or cbc(aes)"
-  encryption-overlay:
+  tunnel:
     required: true
     type: string
-    description: "'true' if encryption-overlay is enabled"
+    description: "the tunnel mode used for the test"
   nb-nodes:
     required: true
     type: string
@@ -46,7 +46,7 @@ runs:
         if [[ "${{ inputs.ipv6 }}" == "true" ]]; then
           ((exp_nb_keys*=2))
         fi
-        if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
+        if [[ "${{ inputs.tunnel }}" != "disabled" ]]; then
           ((exp_nb_keys+=4))
         fi
         ((exp_nb_keys*=2))
