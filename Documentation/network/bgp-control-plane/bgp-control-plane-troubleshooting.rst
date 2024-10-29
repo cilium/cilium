@@ -45,6 +45,21 @@ any errors.
 Like ``CiliumBGPPeeringPolicy``, check ``nodeSelector`` configuration and
 peering configuration if the BGP state is not ``established``.
 
+Another possibility is that the ``nodeSelector`` in the
+``CiliumBGPClusterConfig`` doesn't match any nodes due to the missing labels or
+misconfigured selector. In this case, the following status condition will be
+set:
+
+.. code:: yaml
+
+  status:
+    conditions:
+    - lastTransitionTime: "2024-10-26T06:15:44Z"
+      message: No node matches spec.nodeSelector
+      observedGeneration: 2
+      reason: NoMatchingNode
+      status: "True"
+      type: cilium.io/NoMatchingNode
 
 Node is selected by CiliumBGPPeeringPolicy or CiliumBGPClusterConfig, but BGP peer is not established
 -----------------------------------------------------------------------------------------------------
