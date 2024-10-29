@@ -323,6 +323,7 @@ eth
 ethernet
 ethtool
 existingSecret
+expirations
 extTrafficPolicy
 extern
 externalIPs
