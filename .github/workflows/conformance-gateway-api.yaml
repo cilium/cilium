@@ -324,6 +324,17 @@ jobs:
             | tparse -progress
           fi
 
+      - name: Run basic CLI tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test 'allow-all-except-world,encryption,packet-drops'
+
       - name: Upload report artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
