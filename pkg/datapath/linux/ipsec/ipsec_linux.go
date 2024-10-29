@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/lock"
@@ -697,7 +698,7 @@ func IPsecDefaultDropPolicy(log *slog.Logger, ipv6 bool) error {
 // priority to identify it. We can rely on the priority because it was lowered
 // to a specific number in a previous upgrade.
 func removeOldOutPolicy(log *slog.Logger, family int) {
-	policies, err := netlink.XfrmPolicyList(family)
+	policies, err := safenetlink.XfrmPolicyList(family)
 	if err != nil {
 		log.Error("Cannot get XFRM policies", logfields.Error, err)
 	}
@@ -869,7 +870,7 @@ func ipsecDeleteXfrmPolicy(log *slog.Logger, nodeID uint16) error {
 		logfields.NodeID, nodeID,
 	)
 
-	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		scopedLog.Warn("Failed to list XFRM policies for deletion", logfields.Error, err)
 		return fmt.Errorf("failed to list xfrm policies: %w", err)
@@ -1025,7 +1026,7 @@ func isXfrmStateCilium(state netlink.XfrmState) bool {
 func DeleteXFRM(log *slog.Logger, reqID int) error {
 	log = log.With(logfields.LogSubsys, subsystem)
 
-	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		return err
 	}
@@ -1248,7 +1249,7 @@ func DeleteIPsecEncryptRoute(log *slog.Logger) {
 	}
 
 	for _, family := range []int{netlink.FAMILY_V4, netlink.FAMILY_V6} {
-		routes, err := netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_PROTOCOL)
+		routes, err := safenetlink.RouteListFiltered(family, filter, netlink.RT_FILTER_PROTOCOL)
 		if err != nil {
 			log.Error("Unable to list ipsec encrypt routes", logfields.Error, err)
 			return
@@ -1389,7 +1390,7 @@ func deleteStaleXfrmStates(reclaimTimestamp time.Time) error {
 func deleteStaleXfrmPolicies(log *slog.Logger, reclaimTimestamp time.Time) error {
 	scopedLog := log.With(logfields.SPI, ipSecCurrentKeySPI)
 
-	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		return err
 	}

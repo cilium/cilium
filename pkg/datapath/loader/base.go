@@ -16,12 +16,12 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
-	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -42,10 +41,6 @@ const (
 	netdevHeaderFileName = "netdev_config.h"
 	// preFilterHeaderFileName is the name of the header file used for bpf_xdp.c.
 	preFilterHeaderFileName = "filter_config.h"
-	// retry configuration for linkList()
-	linkListMaxTries         = 15
-	linkListMinRetryInterval = 100 * time.Millisecond
-	linkListMaxRetryInterval = 10 * time.Second
 )
 
 func (l *loader) writeNetdevHeader(dir string) error {
@@ -146,11 +141,11 @@ func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
 
 func cleanIngressQdisc(devices []string) error {
 	for _, iface := range devices {
-		link, err := netlink.LinkByName(iface)
+		link, err := safenetlink.LinkByName(iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve link %s by name: %w", iface, err)
 		}
-		qdiscs, err := netlink.QdiscList(link)
+		qdiscs, err := safenetlink.QdiscList(link)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve qdisc list of link %s: %w", iface, err)
 		}
@@ -167,28 +162,6 @@ func cleanIngressQdisc(devices []string) error {
 		}
 	}
 	return nil
-}
-
-// netlink.LinkList() can return a transient kernel interrupt error.
-// This function will retry the call with a backoff if an error is returned.
-func linkList() ([]netlink.Link, error) {
-	var last_error error
-	for try := 0; try < linkListMaxTries; try++ {
-		links, err := netlink.LinkList()
-		if err == nil {
-			return links, nil
-		}
-		last_error = err
-		sleep := backoff.CalculateDuration(
-			linkListMinRetryInterval,
-			linkListMaxRetryInterval,
-			2.0,
-			false,
-			try)
-		time.Sleep(sleep)
-	}
-
-	return nil, fmt.Errorf("Could not load links: %w", last_error)
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
@@ -212,7 +185,7 @@ func (l *loader) reinitializeIPSec() error {
 		// received encrypted packets. This logic will attach to all
 		// !veth devices.
 		interfaces = nil
-		links, err := linkList()
+		links, err := safenetlink.LinkList()
 		if err != nil {
 			return err
 		}
@@ -249,7 +222,7 @@ func (l *loader) reinitializeIPSec() error {
 
 	var errs error
 	for _, iface := range interfaces {
-		device, err := netlink.LinkByName(iface)
+		device, err := safenetlink.LinkByName(iface)
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("retrieving device %s: %w", iface, err))
 			continue
@@ -285,7 +258,7 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 	}
 
 	iface := tunnelConfig.DeviceName()
-	link, err := netlink.LinkByName(iface)
+	link, err := safenetlink.LinkByName(iface)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", iface, err)
 	}
@@ -325,7 +298,7 @@ func reinitializeWireguard(ctx context.Context) (err error) {
 		return
 	}
 
-	link, err := netlink.LinkByName(wgTypes.IfaceName)
+	link, err := safenetlink.LinkByName(wgTypes.IfaceName)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}

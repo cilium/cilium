@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -60,7 +61,7 @@ func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 // bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
 func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode xdp.Mode, bpffsBase string) {
-	links, err := netlink.LinkList()
+	links, err := safenetlink.LinkList()
 	if err != nil {
 		log.WithError(err).Warn("Failed to list links for XDP unload")
 	}
@@ -96,7 +97,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode xdp.Mode, bpffsBas
 
 // xdpCompileArgs derives compile arguments for bpf_xdp.c.
 func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
-	link, err := netlink.LinkByName(xdpDev)
+	link, err := safenetlink.LinkByName(xdpDev)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +154,7 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev string, xdpMode xdp.Mode,
 		return err
 	}
 
-	iface, err := netlink.LinkByName(xdpDev)
+	iface, err := safenetlink.LinkByName(xdpDev)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", xdpDev, err)
 	}
@@ -285,7 +286,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 // bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
 // during tests.
 func DetachXDP(ifaceName string, bpffsBase, progName string) error {
-	iface, err := netlink.LinkByName(ifaceName)
+	iface, err := safenetlink.LinkByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("getting link '%s' by name: %w", ifaceName, err)
 	}
