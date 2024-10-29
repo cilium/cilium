@@ -8,11 +8,13 @@ import (
 	"net"
 
 	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 // HasMacAddr returns true if the given network interface has L2 addr.
 func HasMacAddr(iface string) bool {
-	link, err := netlink.LinkByName(iface)
+	link, err := safenetlink.LinkByName(iface)
 	if err != nil {
 		return false
 	}
@@ -26,7 +28,7 @@ func LinkHasMacAddr(link netlink.Link) bool {
 
 // ReplaceMacAddressWithLinkName replaces the MAC address of the given link
 func ReplaceMacAddressWithLinkName(ifName, macAddress string) error {
-	l, err := netlink.LinkByName(ifName)
+	l, err := safenetlink.LinkByName(ifName)
 	if err != nil {
 		if errors.As(err, &netlink.LinkNotFoundError{}) {
 			return nil
