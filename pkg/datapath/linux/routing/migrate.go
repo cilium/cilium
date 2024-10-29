@@ -9,6 +9,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -579,16 +580,16 @@ type migrator struct {
 // forwards all RPDB operations to netlink.
 type defaultRPDB struct{}
 
-func (defaultRPDB) RuleList(family int) ([]netlink.Rule, error) { return netlink.RuleList(family) }
+func (defaultRPDB) RuleList(family int) ([]netlink.Rule, error) { return safenetlink.RuleList(family) }
 func (defaultRPDB) RuleAdd(rule *netlink.Rule) error            { return netlink.RuleAdd(rule) }
 func (defaultRPDB) RuleDel(rule *netlink.Rule) error            { return netlink.RuleDel(rule) }
 func (defaultRPDB) RouteListFiltered(family int, filter *netlink.Route, mask uint64) ([]netlink.Route, error) {
-	return netlink.RouteListFiltered(family, filter, mask)
+	return safenetlink.RouteListFiltered(family, filter, mask)
 }
 func (defaultRPDB) RouteAdd(route *netlink.Route) error     { return netlink.RouteAdd(route) }
 func (defaultRPDB) RouteDel(route *netlink.Route) error     { return netlink.RouteDel(route) }
 func (defaultRPDB) RouteReplace(route *netlink.Route) error { return netlink.RouteReplace(route) }
-func (defaultRPDB) LinkList() ([]netlink.Link, error)       { return netlink.LinkList() }
+func (defaultRPDB) LinkList() ([]netlink.Link, error)       { return safenetlink.LinkList() }
 func (defaultRPDB) LinkByIndex(ifindex int) (netlink.Link, error) {
 	return netlink.LinkByIndex(ifindex)
 }

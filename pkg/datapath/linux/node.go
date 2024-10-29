@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -304,7 +305,7 @@ func createDirectRouteSpec(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP, ski
 			Dst:   dst,
 		}
 
-		routes, err = netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE)
+		routes, err = safenetlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE)
 		if err != nil {
 			err = fmt.Errorf("unable to find local route for destination %s: %w", nodeIP, err)
 			return
@@ -414,7 +415,7 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) err
 		Protocol: linux_defaults.RTProto,
 	}
 
-	routes, err := netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW)
+	routes, err := safenetlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW)
 	if err != nil {
 		n.log.Error("Unable to list direct routes", logfields.Error, err)
 		return fmt.Errorf("failed to list direct routes %s: %w", familyStr, err)
@@ -1234,7 +1235,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if n.enableNeighDiscovery {
 			neighDiscoveryLinks := make([]netlink.Link, 0, len(ifaceNames))
 			for _, ifaceName := range ifaceNames {
-				l, err := netlink.LinkByName(ifaceName)
+				l, err := safenetlink.LinkByName(ifaceName)
 				if err != nil {
 					return fmt.Errorf("cannot find link by name %s for neighbor discovery: %w",
 						ifaceName, err)
@@ -1392,7 +1393,7 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 func (n *linuxNodeHandler) NodeCleanNeighborsLink(l netlink.Link, migrateOnly bool) bool {
 	successClean := true
 
-	neighList, err := netlink.NeighListExecute(netlink.Ndmsg{
+	neighList, err := safenetlink.NeighListExecute(netlink.Ndmsg{
 		Index: uint32(l.Attrs().Index),
 	})
 	if err != nil {
@@ -1534,7 +1535,7 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	}()
 
 	for _, linkName := range linkNames {
-		l, err := netlink.LinkByName(linkName)
+		l, err := safenetlink.LinkByName(linkName)
 		if err != nil {
 			// If the link is not found we don't need to keep retrying cleaning
 			// up the neihbor entries so we can keep successClean=true

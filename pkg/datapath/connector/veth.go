@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -98,7 +99,7 @@ func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIP
 		return nil, nil, err
 	}
 
-	peer, err := netlink.LinkByName(peerIfName)
+	peer, err := safenetlink.LinkByName(peerIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %w", err)
 	}
@@ -107,7 +108,7 @@ func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIP
 		return nil, nil, fmt.Errorf("unable to set MTU to %q: %w", peerIfName, err)
 	}
 
-	hostVeth, err := netlink.LinkByName(lxcIfName)
+	hostVeth, err := safenetlink.LinkByName(lxcIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup veth just created: %w", err)
 	}

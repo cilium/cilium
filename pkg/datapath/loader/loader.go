@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -182,7 +183,7 @@ func (l *loader) patchHostNetdevDatapath(ep datapath.Endpoint, ifName string) (m
 	opts := ELFVariableSubstitutions(ep)
 	strings := ELFMapSubstitutions(ep)
 
-	iface, err := netlink.LinkByName(ifName)
+	iface, err := safenetlink.LinkByName(ifName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -255,7 +256,7 @@ func isObsoleteDev(dev string, devices []string) bool {
 // cilium-<device> in 1.13, then to cil_to_host-<device> in 1.14. As a result, this
 // function only cleans up filters following the current naming scheme.
 func removeObsoleteNetdevPrograms(devices []string) error {
-	links, err := netlink.LinkList()
+	links, err := safenetlink.LinkList()
 	if err != nil {
 		return fmt.Errorf("retrieving all netlink devices: %w", err)
 	}
@@ -275,7 +276,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 			log.WithError(err).WithField(logfields.Device, l.Attrs().Name)
 		}
 
-		ingressFilters, err := netlink.FilterList(l, directionToParent(dirIngress))
+		ingressFilters, err := safenetlink.FilterList(l, directionToParent(dirIngress))
 		if err != nil {
 			return fmt.Errorf("listing ingress filters: %w", err)
 		}
@@ -287,7 +288,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 			}
 		}
 
-		egressFilters, err := netlink.FilterList(l, directionToParent(dirEgress))
+		egressFilters, err := safenetlink.FilterList(l, directionToParent(dirEgress))
 		if err != nil {
 			return fmt.Errorf("listing egress filters: %w", err)
 		}
@@ -323,7 +324,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 // - native devices: cil_from_netdev to ingress and (optionally) cil_to_netdev to egress if certain features require it
 func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
 	// Replace programs on cilium_host.
-	host, err := netlink.LinkByName(ep.InterfaceName())
+	host, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
 	}
@@ -350,7 +351,7 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 	}
 
 	// Replace program on cilium_net.
-	net, err := netlink.LinkByName(defaults.SecondHostDevice)
+	net, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
 	}
@@ -378,7 +379,7 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 
 	// Replace programs on physical devices, ignoring devices that don't exist.
 	for _, device := range devices {
-		iface, err := netlink.LinkByName(device)
+		iface, err := safenetlink.LinkByName(device)
 		if err != nil {
 			log.WithError(err).WithField("device", device).Warn("Link does not exist")
 			continue
@@ -483,7 +484,7 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 		}
 		defer coll.Close()
 
-		iface, err := netlink.LinkByName(device)
+		iface, err := safenetlink.LinkByName(device)
 		if err != nil {
 			return fmt.Errorf("retrieving device %s: %w", device, err)
 		}
@@ -534,7 +535,7 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
 
-	device, err := netlink.LinkByName(iface)
+	device, err := safenetlink.LinkByName(iface)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", iface, err)
 	}
@@ -571,7 +572,7 @@ func (l *loader) replaceWireguardDatapath(ctx context.Context, cArgs []string, i
 	if err := compileWireguard(ctx, cArgs); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
-	device, err := netlink.LinkByName(iface)
+	device, err := safenetlink.LinkByName(iface)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", iface, err)
 	}
@@ -647,7 +648,7 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 	log := log.WithField(logfields.EndpointID, ep.StringID())
 
 	// Remove legacy tc attachments.
-	link, err := netlink.LinkByName(ep.InterfaceName())
+	link, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err == nil {
 		if err := removeTCFilters(link, netlink.HANDLE_MIN_INGRESS); err != nil {
 			log.WithError(err).Errorf("Removing ingress filter from interface %s", ep.InterfaceName())
