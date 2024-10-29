@@ -37,7 +37,7 @@ func Test_LocalNodeWatcher(t *testing.T) {
 		"topology.kubernetes.io/region=us-west-2",
 		"topology.kubernetes.io/zone=us-west-2d",
 	}
-	updatedNode := node.LocalNode{
+	updatedNode := &node.LocalNode{
 		Node: types.Node{
 			Name: "kind-kind",
 			Labels: map[string]string{
@@ -73,7 +73,7 @@ func Test_LocalNodeWatcher(t *testing.T) {
 
 	t.Run("update", func(t *testing.T) {
 		store.Update(func(ln *node.LocalNode) {
-			*ln = updatedNode
+			*ln = *updatedNode
 		})
 		var flow flowpb.Flow
 		stop, err := watcher.OnDecodedFlow(ctx, &flow)

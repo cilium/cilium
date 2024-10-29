@@ -22,7 +22,7 @@ func registerNodeReconciler(
 	agent *Agent,
 	daemonConfig *option.DaemonConfig,
 	recParams reconciler.Params,
-	table statedb.RWTable[node.Node],
+	table statedb.RWTable[*node.TableNode],
 ) error {
 	if !daemonConfig.EnableWireguard {
 		return nil
@@ -31,12 +31,13 @@ func registerNodeReconciler(
 	_, err := reconciler.Register(
 		recParams,
 		table,
-		node.Node.Clone,
-		func(n node.Node, s reconciler.Status) node.Node {
-			return n.SetReconciliationStatus("wireguard", s)
+		(*node.TableNode).Clone,
+		func(n *node.TableNode, s reconciler.Status) *node.TableNode {
+			n.Statuses = n.Statuses.Set("wireguard", s)
+			return n
 		},
-		func(n node.Node) reconciler.Status {
-			return n.GetReconciliationStatus("wireguard")
+		func(n *node.TableNode) reconciler.Status {
+			return n.Statuses.Get("wireguard")
 		},
 		ops,
 		nil,

@@ -14,11 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
-// +deepequal-gen=true
-type LocalNode struct {
-	types.Node
-	LocalNodeAttrs
-}
+type LocalNode = TableNode
 
 // LocalNodeSynchronizer specifies how to build, and keep synchronized the local
 // node object.
@@ -44,14 +40,14 @@ type LocalNodeStoreParams struct {
 	Lifecycle cell.Lifecycle
 	Sync      LocalNodeSynchronizer `optional:"true"`
 	DB        *statedb.DB
-	Table     statedb.Table[Node]
+	Table     statedb.Table[*TableNode]
 }
 
 // LocalNodeStore is the canonical owner for the local node object and provides
 // a reactive API for observing and updating the state.
 type LocalNodeStore struct {
 	db    *statedb.DB
-	table statedb.RWTable[Node]
+	table statedb.RWTable[*TableNode]
 }
 
 func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
@@ -67,7 +63,7 @@ func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 	s := &LocalNodeStore{
 		db:    params.DB,
-		table: params.Table.(statedb.RWTable[Node]),
+		table: params.Table.(statedb.RWTable[*TableNode]),
 	}
 
 	var wg sync.WaitGroup
@@ -114,12 +110,12 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 	return s, nil
 }
 
-func (s *LocalNodeStore) Observe(ctx context.Context, next func(LocalNode), complete func(error)) {
+func (s *LocalNodeStore) Observe(ctx context.Context, next func(*LocalNode), complete func(error)) {
 	go func() {
 		for {
 			n, watch, ok := GetLocalNode(s.db.ReadTxn(), s.table)
 			if ok {
-				next(toLocalNode(n))
+				next(n)
 			}
 
 			select {
@@ -135,20 +131,12 @@ func (s *LocalNodeStore) Observe(ctx context.Context, next func(LocalNode), comp
 // Get retrieves the current local node. Use Get() only for inspecting the state,
 // e.g. in API handlers. Do not assume the value does not change over time.
 // Blocks until the store has been initialized.
-func (s *LocalNodeStore) Get(ctx context.Context) (LocalNode, error) {
+func (s *LocalNodeStore) Get(ctx context.Context) (*LocalNode, error) {
 	n, _, ok := GetLocalNode(s.db.ReadTxn(), s.table)
 	if !ok {
-		return LocalNode{}, errors.New("not found")
+		return nil, errors.New("not found")
 	}
-	return toLocalNode(n), nil
-}
-
-func toLocalNode(n Node) LocalNode {
-	local := n.GetLocal()
-	return LocalNode{
-		Node:           n.GetNode(),
-		LocalNodeAttrs: *local,
-	}
+	return n, nil
 }
 
 // Update modifies the local node with a mutator. The updated value
@@ -157,17 +145,13 @@ func toLocalNode(n Node) LocalNode {
 func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 	txn := s.db.WriteTxn(s.table)
 	defer txn.Commit()
-
-	var local LocalNode
 	n, _, ok := GetLocalNode(txn, s.table)
 	if ok {
-		local.Node = n.GetNode()
-		local.LocalNodeAttrs = *n.GetLocal()
+		n = n.Clone()
 	} else {
-		n = NewTableNode(types.Node{}, nil)
+		n = NewTableNode(types.Node{}, &LocalNodeAttrs{})
 	}
-
-	update(&local)
-
-	s.table.Insert(txn, NewTableNode(local.Node, &local.LocalNodeAttrs))
+	update(n)
+	n.SetPending()
+	s.table.Insert(txn, n)
 }

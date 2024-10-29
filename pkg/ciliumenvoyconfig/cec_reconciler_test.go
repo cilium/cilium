@@ -687,7 +687,7 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 			}
 			reconciler.localNodeLabels = tc.currentNodeLabels
 
-			node := node.LocalNode{Node: types.Node{Name: "test", Labels: tc.newNodeLabels}}
+			node := &node.LocalNode{Node: types.Node{Name: "test", Labels: tc.newNodeLabels}}
 
 			err := reconciler.handleLocalNodeEvent(context.Background(), node)
 			assert.NoError(t, err)

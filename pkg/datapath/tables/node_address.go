@@ -290,7 +290,7 @@ func (n *nodeAddressController) register() {
 
 }
 
-func (n *nodeAddressController) updateK8sNodeIPs(node node.LocalNode) (updated bool) {
+func (n *nodeAddressController) updateK8sNodeIPs(node *node.LocalNode) (updated bool) {
 	if ip := node.GetNodeIP(true); ip != nil {
 		if newIP, ok := netip.AddrFromSlice(ip); ok {
 			if newIP != n.k8sIPv6 {

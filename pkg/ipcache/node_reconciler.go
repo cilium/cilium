@@ -41,7 +41,7 @@ type nodeOpsParams struct {
 
 	DaemonConfig     *option.DaemonConfig
 	DB               *statedb.DB
-	Nodes            statedb.RWTable[node.Node]
+	Nodes            statedb.RWTable[*node.TableNode]
 	ReconcilerParams reconciler.Params
 	IPCache          *IPCache
 }
@@ -56,35 +56,36 @@ type nodeOps struct {
 }
 
 // Delete implements reconciler.Operations.
-func (nh *nodeOps) Delete(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
-	nh.deleted(n.Name())
+func (nh *nodeOps) Delete(ctx context.Context, txn statedb.ReadTxn, n *node.TableNode) error {
+	nh.deleted(n.Name)
 	return nil
 }
 
 // Prune implements reconciler.Operations.
-func (nh *nodeOps) Prune(context.Context, statedb.ReadTxn, iter.Seq2[node.Node, statedb.Revision]) error {
+func (nh *nodeOps) Prune(context.Context, statedb.ReadTxn, iter.Seq2[*node.TableNode, statedb.Revision]) error {
 	return nil
 }
 
 // Update implements reconciler.Operations.
-func (nh *nodeOps) Update(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
-	nh.updated(n.GetNode())
+func (nh *nodeOps) Update(ctx context.Context, txn statedb.ReadTxn, n *node.TableNode) error {
+	nh.updated(n.Node)
 	return nil
 }
 
-var _ reconciler.Operations[node.Node] = &nodeOps{}
+var _ reconciler.Operations[*node.TableNode] = &nodeOps{}
 
 func registerNodeReconciler(g job.Group, p nodeOpsParams) error {
 	ops := &nodeOps{p, make(map[string]*nodeTypes.Node)}
 	_, err := reconciler.Register(
 		p.ReconcilerParams,
 		p.Nodes,
-		node.Node.Clone,
-		func(n node.Node, s reconciler.Status) node.Node {
-			return n.SetReconciliationStatus("ipcache", s)
+		(*node.TableNode).Clone,
+		func(n *node.TableNode, s reconciler.Status) *node.TableNode {
+			n.Statuses = n.Statuses.Set("ipcache", s)
+			return n
 		},
-		func(n node.Node) reconciler.Status {
-			return n.GetReconciliationStatus("ipcache")
+		func(n *node.TableNode) reconciler.Status {
+			return n.Statuses.Get("ipcache")
 		},
 		ops,
 		nil,

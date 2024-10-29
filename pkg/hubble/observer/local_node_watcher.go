@@ -51,7 +51,7 @@ func (w *LocalNodeWatcher) OnDecodedFlow(_ context.Context, flow *flowpb.Flow) (
 }
 
 // update synchronize the LocalNodeWatcher cache with the given LocalNode info.
-func (w *LocalNodeWatcher) update(n node.LocalNode) {
+func (w *LocalNodeWatcher) update(n *node.LocalNode) {
 	labels := sortedLabelSlice(n.Labels)
 	w.mu.Lock()
 	defer w.mu.Unlock()

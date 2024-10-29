@@ -138,7 +138,7 @@ func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event
 	return err
 }
 
-func (r *ciliumEnvoyConfigReconciler) handleLocalNodeEvent(ctx context.Context, localNode node.LocalNode) error {
+func (r *ciliumEnvoyConfigReconciler) handleLocalNodeEvent(ctx context.Context, localNode *node.LocalNode) error {
 	r.logger.Debug("Received LocalNode changed event")
 
 	if err := r.handleLocalNodeLabels(ctx, localNode); err != nil {
@@ -149,7 +149,7 @@ func (r *ciliumEnvoyConfigReconciler) handleLocalNodeEvent(ctx context.Context, 
 	return nil
 }
 
-func (r *ciliumEnvoyConfigReconciler) handleLocalNodeLabels(ctx context.Context, localNode node.LocalNode) error {
+func (r *ciliumEnvoyConfigReconciler) handleLocalNodeLabels(ctx context.Context, localNode *node.LocalNode) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 

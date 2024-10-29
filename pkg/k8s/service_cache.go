@@ -184,7 +184,7 @@ func newServiceCache(lc cell.Lifecycle, cfg ServiceCacheConfig, lns *node.LocalN
 			sc.updateSelfNodeLabels(ln.Labels)
 
 			wg.Add(1)
-			lns.Observe(ctx, func(ln node.LocalNode) {
+			lns.Observe(ctx, func(ln *node.LocalNode) {
 				sc.updateSelfNodeLabels(ln.Labels)
 			}, func(error) { wg.Done() })
 

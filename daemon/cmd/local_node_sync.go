@@ -91,7 +91,10 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 }
 
 func newLocalNodeSynchronizer(p localNodeSynchronizerParams) node.LocalNodeSynchronizer {
-	return &localNodeSynchronizer{localNodeSynchronizerParams: p}
+	return &localNodeSynchronizer{
+		localNodeSynchronizerParams: p,
+		old:                         node.TableNode{Local: &node.LocalNodeAttrs{}},
+	}
 }
 
 func (ini *localNodeSynchronizer) initFromConfig(ctx context.Context, n *node.LocalNode) error {
@@ -99,8 +102,8 @@ func (ini *localNodeSynchronizer) initFromConfig(ctx context.Context, n *node.Lo
 	n.ClusterID = ini.Config.ClusterID
 	n.Name = nodeTypes.GetName()
 
-	n.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
-	n.IPv6NativeRoutingCIDR = ini.Config.IPv6NativeRoutingCIDR
+	n.Local.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
+	n.Local.IPv6NativeRoutingCIDR = ini.Config.IPv6NativeRoutingCIDR
 
 	// Initialize node IP addresses from configuration.
 	if ini.Config.IPv6NodeAddr != "auto" {
@@ -217,7 +220,7 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 func (ini *localNodeSynchronizer) mutableFieldsEqual(new *node.LocalNode) bool {
 	return maps.Equal(ini.old.Labels, new.Labels) &&
 		maps.Equal(ini.old.Annotations, new.Annotations) &&
-		ini.old.UID == new.UID && ini.old.ProviderID == new.ProviderID
+		ini.old.Local.UID == new.Local.UID && ini.old.Local.ProviderID == new.Local.ProviderID
 }
 
 // syncFromK8s synchronizes the fields that can be mutated at runtime
@@ -256,21 +259,21 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 
 	log.WithField(logfields.Annotations, logfields.Repr(ln.Annotations)).Debug("Local node annotations updated")
 
-	ini.old.UID = new.UID
-	ini.old.ProviderID = new.ProviderID
-	ln.UID = new.UID
-	ln.ProviderID = new.ProviderID
+	ini.old.Local.UID = new.Local.UID
+	ini.old.Local.ProviderID = new.Local.ProviderID
+	ln.Local.UID = new.Local.UID
+	ln.Local.ProviderID = new.Local.ProviderID
 
 	log.WithFields(logrus.Fields{
-		"UID":        ln.UID,
-		"ProviderID": ln.ProviderID,
+		"UID":        ln.Local.UID,
+		"ProviderID": ln.Local.ProviderID,
 	}).Debug("Local node UID and ProviderID updated")
 }
 
 func parseNode(k8sNode *slim_corev1.Node) *node.LocalNode {
 	return &node.LocalNode{
 		Node: *k8s.ParseNode(k8sNode, source.Kubernetes),
-		LocalNodeAttrs: node.LocalNodeAttrs{
+		Local: &node.LocalNodeAttrs{
 			UID:        k8sNode.GetUID(),
 			ProviderID: k8sNode.Spec.ProviderID,
 		},

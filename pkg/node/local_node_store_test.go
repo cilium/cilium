@@ -43,7 +43,7 @@ func TestLocalNodeStore(t *testing.T) {
 	// waitObserve after the last change has been observed.
 	observe := func(store *LocalNodeStore) {
 		store.Observe(context.TODO(),
-			func(n LocalNode) {
+			func(n *LocalNode) {
 				observed = append(observed, n.NodeIdentity)
 
 				if n.NodeIdentity == expected[len(expected)-1] {
@@ -80,7 +80,7 @@ func TestLocalNodeStore(t *testing.T) {
 		cell.Provide(
 			NewLocalNodeStore,
 			NewNodesTable,
-			statedb.RWTable[Node].ToTable,
+			statedb.RWTable[*TableNode].ToTable,
 		),
 
 		cell.Provide(func() LocalNodeSynchronizer { return ts }),

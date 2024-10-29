@@ -107,8 +107,8 @@ func TestLocalNodeSync(t *testing.T) {
 	require.Equal(t, "fc00::11", local.GetNodeInternalIPv6().String())
 	require.Equal(t, map[string]string{"ex": "label", "foo": "bar"}, local.Labels)
 	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/baz": "qux"}, local.Annotations)
-	require.Equal(t, k8stypes.UID("uid1"), local.UID)
-	require.Equal(t, "provider://foobar", local.ProviderID)
+	require.Equal(t, k8stypes.UID("uid1"), local.Local.UID)
+	require.Equal(t, "provider://foobar", local.Local.ProviderID)
 
 	store := node.NewTestLocalNodeStore(local)
 	updates := stream.ToChannel(context.Background(), store, stream.WithBufferSize(4))
@@ -126,8 +126,8 @@ func TestLocalNodeSync(t *testing.T) {
 	require.Equal(t, map[string]string{"ex": "label", "qux": "baz"}, update.Labels)
 	require.Equal(t, map[string]string{"ex": "annot", "cilium.io/bar": "foo"}, update.Annotations)
 	update = <-updates
-	require.Equal(t, k8stypes.UID("uid2"), update.UID)
-	require.Equal(t, "provider://foobaz", update.ProviderID)
+	require.Equal(t, k8stypes.UID("uid2"), update.Local.UID)
+	require.Equal(t, "provider://foobaz", update.Local.ProviderID)
 }
 func TestInitLocalNode_initFromK8s(t *testing.T) {
 	lni := &localNodeSynchronizer{

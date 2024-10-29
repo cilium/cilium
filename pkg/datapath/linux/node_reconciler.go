@@ -26,7 +26,7 @@ type nodeReconcilerParams struct {
 	cell.In
 
 	Log              *slog.Logger
-	Table            statedb.RWTable[node.Node]
+	Table            statedb.RWTable[*node.TableNode]
 	Handler          datapath.NodeHandler
 	ReconcilerParams reconciler.Params
 }
@@ -35,16 +35,17 @@ func registerNodeReconciler(p nodeReconcilerParams) error {
 	// Name of the reconciler
 	const name = "linux"
 
-	ops := &proxyOps{p.Log, p.Handler, make(map[string]node.Node)}
+	ops := &proxyOps{p.Log, p.Handler, make(map[string]*node.TableNode)}
 	_, err := reconciler.Register(
 		p.ReconcilerParams,
 		p.Table,
-		node.Node.Clone,
-		func(n node.Node, s reconciler.Status) node.Node {
-			return n.SetReconciliationStatus(name, s)
+		(*node.TableNode).Clone,
+		func(n *node.TableNode, s reconciler.Status) *node.TableNode {
+			n.Statuses = n.Statuses.Set(name, s)
+			return n
 		},
-		func(n node.Node) reconciler.Status {
-			return n.GetReconciliationStatus(name)
+		func(n *node.TableNode) reconciler.Status {
+			return n.Statuses.Get(name)
 		},
 		ops,
 		nil,
@@ -55,28 +56,28 @@ func registerNodeReconciler(p nodeReconcilerParams) error {
 type proxyOps struct {
 	log      *slog.Logger
 	handler  datapath.NodeHandler
-	previous map[string]node.Node
+	previous map[string]*node.TableNode
 }
 
 // Delete implements reconciler.Operations.
-func (m *proxyOps) Delete(ctx context.Context, txn statedb.ReadTxn, node node.Node) error {
-	return m.handler.NodeDelete(node.GetNode())
+func (m *proxyOps) Delete(ctx context.Context, txn statedb.ReadTxn, node *node.TableNode) error {
+	return m.handler.NodeDelete(node.Node)
 }
 
 // Prune implements reconciler.Operations.
-func (m *proxyOps) Prune(context.Context, statedb.ReadTxn, iter.Seq2[node.Node, statedb.Revision]) error {
+func (m *proxyOps) Prune(context.Context, statedb.ReadTxn, iter.Seq2[*node.TableNode, statedb.Revision]) error {
 	return nil
 }
 
 // Update implements reconciler.Operations.
-func (m *proxyOps) Update(ctx context.Context, txn statedb.ReadTxn, node node.Node) error {
-	old, hadOld := m.previous[node.Name()]
-	m.previous[node.Name()] = node
+func (m *proxyOps) Update(ctx context.Context, txn statedb.ReadTxn, node *node.TableNode) error {
+	old, hadOld := m.previous[node.Name]
+	m.previous[node.Name] = node
 
 	if hadOld {
-		return m.handler.NodeUpdate(node.GetNode(), old.GetNode())
+		return m.handler.NodeUpdate(node.Node, old.Node)
 	}
-	return m.handler.NodeAdd(node.GetNode())
+	return m.handler.NodeAdd(node.Node)
 }
 
-var _ reconciler.Operations[node.Node] = &proxyOps{}
+var _ reconciler.Operations[*node.TableNode] = &proxyOps{}

@@ -73,7 +73,7 @@ type Agent struct {
 	jobGroup job.Group
 	mtuTable statedb.Table[mtu.RouteMTU]
 	db       *statedb.DB
-	nodes    statedb.Table[node.Node]
+	nodes    statedb.Table[*node.TableNode]
 
 	wgClient    wireguardClient
 	ipCache     *ipcache.IPCache
@@ -97,7 +97,7 @@ type params struct {
 	JobGroup  job.Group
 	Sysctl    sysctl.Sysctl
 	DB        *statedb.DB
-	Nodes     statedb.Table[node.Node]
+	Nodes     statedb.Table[*node.TableNode]
 	MTUs      statedb.Table[mtu.RouteMTU]
 }
 
@@ -161,22 +161,20 @@ type nodeOps struct {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *nodeOps) Delete(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
-	node := n.GetNode()
-	return ops.a.DeletePeer(node.Fullname())
+func (ops *nodeOps) Delete(ctx context.Context, txn statedb.ReadTxn, n *node.TableNode) error {
+	return ops.a.DeletePeer(n.Fullname())
 }
 
 // Prune implements reconciler.Operations.
-func (ops *nodeOps) Prune(context.Context, statedb.ReadTxn, iter.Seq2[node.Node, statedb.Revision]) error {
+func (ops *nodeOps) Prune(context.Context, statedb.ReadTxn, iter.Seq2[*node.TableNode, statedb.Revision]) error {
 	return nil
 }
 
 // Update implements reconciler.Operations.
-func (ops *nodeOps) Update(ctx context.Context, txn statedb.ReadTxn, n node.Node) error {
-	if n.IsLocal() {
+func (ops *nodeOps) Update(ctx context.Context, txn statedb.ReadTxn, node *node.TableNode) error {
+	if node.IsLocal() {
 		return nil
 	}
-	node := n.GetNode()
 
 	if node.WireguardPubKey == "" {
 		return nil
@@ -194,7 +192,7 @@ func (ops *nodeOps) Update(ctx context.Context, txn statedb.ReadTxn, n node.Node
 	return nil
 }
 
-var _ reconciler.Operations[node.Node] = &nodeOps{}
+var _ reconciler.Operations[*node.TableNode] = &nodeOps{}
 
 // Stop implements cell.HookInterface.
 func (a *Agent) Stop(cell.HookContext) error {
@@ -235,11 +233,11 @@ func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
 		log.WithField(logfields.Selector, option.Config.NodeEncryptionOptOutLabels).
 			Infof("Opting out from node-to-node encryption on this node as per '%s' label selector",
 				option.NodeEncryptionOptOutLabels)
-		localNode.OptOutNodeEncryption = true
+		localNode.Local.OptOutNodeEncryption = true
 		localNode.EncryptionKey = 0
 	}
 
-	a.optOut = localNode.OptOutNodeEncryption
+	a.optOut = localNode.Local.OptOutNodeEncryption
 }
 
 // Init creates and configures the local WireGuard tunnel device.

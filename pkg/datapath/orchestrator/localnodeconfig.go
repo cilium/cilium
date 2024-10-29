@@ -36,7 +36,7 @@ const (
 func newLocalNodeConfig(
 	ctx context.Context,
 	config *option.DaemonConfig,
-	localNode node.LocalNode,
+	localNode *node.LocalNode,
 	txn statedb.ReadTxn,
 	directRoutingDevTbl tables.DirectRoutingDevice,
 	devices statedb.Table[*tables.Device],

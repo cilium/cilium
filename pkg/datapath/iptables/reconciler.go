@@ -61,7 +61,7 @@ func (lni localNodeInfo) equal(other localNodeInfo) bool {
 	return false
 }
 
-func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
+func toLocalNodeInfo(n *node.LocalNode) localNodeInfo {
 	var (
 		v4AllocCIDR, v6AllocCIDR                 string
 		v4NativeRoutingCIDR, v6NativeRoutingCIDR string
@@ -73,11 +73,11 @@ func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
 	if n.IPv6AllocCIDR != nil {
 		v6AllocCIDR = n.IPv6AllocCIDR.String()
 	}
-	if n.IPv4NativeRoutingCIDR != nil {
-		v4NativeRoutingCIDR = n.IPv4NativeRoutingCIDR.String()
+	if n.Local.IPv4NativeRoutingCIDR != nil {
+		v4NativeRoutingCIDR = n.Local.IPv4NativeRoutingCIDR.String()
 	}
-	if n.IPv6NativeRoutingCIDR != nil {
-		v6NativeRoutingCIDR = n.IPv6NativeRoutingCIDR.String()
+	if n.Local.IPv6NativeRoutingCIDR != nil {
+		v6NativeRoutingCIDR = n.Local.IPv6NativeRoutingCIDR.String()
 	}
 
 	return localNodeInfo{

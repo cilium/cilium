@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
@@ -69,7 +70,7 @@ type manager struct {
 	restoredNodes lock.Map[nodeTypes.Identity, *nodeTypes.Node]
 
 	db              *statedb.DB
-	nodesTable      statedb.RWTable[node.Node]
+	nodesTable      statedb.RWTable[*node.TableNode]
 	markInitialized func(statedb.WriteTxn)
 
 	synthesizeDelete chan *nodeTypes.Node
@@ -209,6 +210,8 @@ func New(p NodeManagerParams) (*manager, error) {
 		job.OneShot("neighbor-refresh", m.neighRefreshLoop),
 	)
 
+	p.Lifecycle.Append(m)
+
 	return m, nil
 }
 
@@ -281,7 +284,7 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 		return err
 	}
 
-	currentNodes := map[nodeTypes.Identity]node.Node{}
+	currentNodes := map[nodeTypes.Identity]*node.TableNode{}
 	handlers := sets.New[datapath.NodeHandler]()
 
 	syncInterval := m.backgroundSyncInterval()
@@ -315,22 +318,22 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 			case change.Deleted:
 				delete(currentNodes, identity)
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeDelete(node.GetNode())
+					return h.NodeDelete(node.Node)
 				}
 				m.metrics.NumNodes.Dec()
-				m.metrics.ProcessNodeDeletion(node.Cluster(), node.Name())
+				m.metrics.ProcessNodeDeletion(node.Cluster, node.Name)
 
 			case oldNodeExists:
 				currentNodes[identity] = node
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeUpdate(oldNode.GetNode(), node.GetNode())
+					return h.NodeUpdate(oldNode.Node, node.Node)
 				}
 
 			default:
 				m.metrics.NumNodes.Inc()
 				currentNodes[identity] = node
 				emit = func(h datapath.NodeHandler) error {
-					return h.NodeAdd(node.GetNode())
+					return h.NodeAdd(node.Node)
 				}
 			}
 			var lastError error
@@ -364,13 +367,13 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 		case <-changesWatch:
 
 		case <-initWatch:
-			m.pruneNodes(false)
+			go m.pruneNodes(false)
 			initWatch = nil
 
 		case h := <-m.addHandler:
 			handlers.Insert(h)
 			for _, node := range currentNodes {
-				if err := h.NodeAdd(node.GetNode()); err != nil {
+				if err := h.NodeAdd(node.Node); err != nil {
 					log.WithFields(logrus.Fields{
 						"handler": h.Name(),
 						"node":    node.Name,
@@ -397,13 +400,13 @@ func (m *manager) nodeHandlerLoop(ctx context.Context, health cell.Health) error
 			var errs []error
 			for _, node := range currentNodes {
 				for h := range handlers {
-					if err := h.NodeValidateImplementation(node.GetNode()); err != nil {
+					if err := h.NodeValidateImplementation(node.Node); err != nil {
 						log.WithFields(logrus.Fields{
 							"handler": h.Name(),
 							"node":    node.Name,
 						}).WithError(err).
 							Error("Failed to apply node handler during background sync. Cilium may have degraded functionality.")
-						errs = append(errs, fmt.Errorf("%s: node %s: %w", h.Name(), node.Name(), err))
+						errs = append(errs, fmt.Errorf("%s: node %s: %w", h.Name(), node.Name, err))
 					}
 				}
 				m.metrics.DatapathValidations.Inc()
@@ -507,7 +510,7 @@ func (m *manager) checkpoint() error {
 	ns := statedb.Collect(
 		statedb.Map(
 			m.nodesTable.All(m.db.ReadTxn()),
-			node.Node.GetNode, // ode to node
+			func(n *node.TableNode) types.Node { return n.Node },
 		))
 	if err := w.Encode(ns); err != nil {
 		return fmt.Errorf("failed to encode node checkpoint: %w", err)
@@ -582,8 +585,8 @@ func (m *manager) neighRefreshLoop(ctx context.Context, health cell.Health) erro
 					continue
 				}
 
-				log.Debugf("Refreshing node neighbor link for %s", node.Name())
-				err := m.nodeNeighbors.NodeNeighborRefresh(ctx, node.GetNode(), false)
+				log.Debugf("Refreshing node neighbor link for %s", node.Name)
+				err := m.nodeNeighbors.NodeNeighborRefresh(ctx, node.Node, false)
 				if err != nil {
 					refreshErrors[id] = err
 				} else {
@@ -648,7 +651,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	if oldNodeExists {
 		m.metrics.EventsReceived.WithLabelValues("update", string(n.Source)).Inc()
 
-		if !source.AllowOverwrite(oldNode.Source(), n.Source) {
+		if !source.AllowOverwrite(oldNode.Source, n.Source) {
 			// Done; skip node-handler updates and label injection
 			// triggers below. Includes case where the local host
 			// was discovered locally and then is subsequently
@@ -656,14 +659,12 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			return
 		}
 
-		newNode, err := oldNode.Builder().ModifyNode(func(node *nodeTypes.Node) { *node = n }).Build()
-		if err == nil {
-			m.nodesTable.Insert(txn, newNode)
-		} else {
-			log.WithError(err).WithField(logfields.Node, n.Name).Warn("Ignoring update for node")
-		}
+		newNode := oldNode.Clone()
+		newNode.Node = n
+		newNode.SetPending()
+		m.nodesTable.Insert(txn, newNode)
 
-		m.cleanupIPSets(oldNode.GetNode(), ipsetEntries)
+		m.cleanupIPSets(oldNode.Node, ipsetEntries)
 	} else {
 		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
 		m.nodesTable.Insert(txn, node.NewTableNode(n, nil))
@@ -723,18 +724,18 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	// If the source is Kubernetes and the node is the node we are running on
 	// Kubernetes is giving us a hint it is about to delete our node. Close down
 	// the agent gracefully in this case.
-	if n.Source != oldNode.Source() {
+	if n.Source != oldNode.Source {
 		if n.IsLocal() && n.Source == source.Kubernetes {
 			log.Debugf("Kubernetes is deleting local node, close manager")
 			m.Stop(context.Background())
 		} else {
 			log.Debugf("Ignoring delete event of node %s from source %s. The node is owned by %s",
-				n.Name, n.Source, oldNode.Source())
+				n.Name, n.Source, oldNode.Source)
 		}
 		return
 	}
 
-	m.cleanupIPSets(oldNode.GetNode(), nil)
+	m.cleanupIPSets(oldNode.Node, nil)
 
 	m.nodesTable.Delete(txn, oldNode)
 }
@@ -804,7 +805,7 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	numNodes := m.nodesTable.NumObjects(txn)
 	nodes := make(map[nodeTypes.Identity]nodeTypes.Node, numNodes)
 	for node := range m.nodesTable.All(txn) {
-		nodes[node.Identity()] = node.GetNode()
+		nodes[node.Identity()] = node.Node
 	}
 	return nodes
 }

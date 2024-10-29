@@ -28,7 +28,7 @@ var Cell = cell.Module(
 
 	cell.Provide(
 		node.NewNodesTable,
-		statedb.RWTable[node.Node].ToTable,
+		statedb.RWTable[*node.TableNode].ToTable,
 	),
 )
 
@@ -85,7 +85,7 @@ type NodeManagerParams struct {
 	DaemonConfig  *option.DaemonConfig
 	Health        cell.Health
 	DB            *statedb.DB
-	NodesTable    statedb.RWTable[node.Node]
+	NodesTable    statedb.RWTable[*node.TableNode]
 	Jobs          job.Registry
 	NodeNeighbors datapath.NodeNeighbors
 }

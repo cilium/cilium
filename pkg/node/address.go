@@ -41,7 +41,7 @@ var (
 	localNode *LocalNodeStore
 )
 
-func getLocalNode() LocalNode {
+func getLocalNode() *LocalNode {
 	n, err := localNode.Get(context.TODO())
 	if err != nil {
 		// Only expecting errors if we're called after LocalNodeStore has stopped, e.g.
@@ -163,13 +163,13 @@ func clone(ip net.IP) net.IP {
 
 // GetIPv4Loopback returns the loopback IPv4 address of this node.
 func GetIPv4Loopback() net.IP {
-	return getLocalNode().IPv4Loopback
+	return getLocalNode().Local.IPv4Loopback
 }
 
 // SetIPv4Loopback sets the loopback IPv4 address of this node.
 func SetIPv4Loopback(ip net.IP) {
 	localNode.Update(func(n *LocalNode) {
-		n.IPv4Loopback = ip
+		n.Local.IPv4Loopback = ip
 	})
 }
 
@@ -468,7 +468,7 @@ func GetWireguardPubKey() string {
 }
 
 func GetOptOutNodeEncryption() bool {
-	return getLocalNode().OptOutNodeEncryption
+	return getLocalNode().Local.OptOutNodeEncryption
 }
 
 // SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.

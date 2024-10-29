@@ -31,7 +31,7 @@ func (mgr *endpointManager) HostEndpointExists() bool {
 }
 
 func (mgr *endpointManager) startNodeLabelsObserver(old map[string]string) {
-	mgr.localNodeStore.Observe(context.Background(), func(ln node.LocalNode) {
+	mgr.localNodeStore.Observe(context.Background(), func(ln *node.LocalNode) {
 		oldIdtyLabels, _ := labelsfilter.Filter(labels.Map2Labels(old, labels.LabelSourceK8s))
 		newIdtyLabels, _ := labelsfilter.Filter(labels.Map2Labels(ln.Labels, labels.LabelSourceK8s))
 		if maps.Equal(oldIdtyLabels.K8sStringMap(), newIdtyLabels.K8sStringMap()) {
