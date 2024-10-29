@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -239,7 +240,7 @@ func (d *Daemon) init() error {
 // `cilium_host` interface is the given restored IP. If the given IP is nil,
 // then it attempts to clear all IPs from the interface.
 func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
-	l, err := netlink.LinkByName(defaults.HostDevice)
+	l, err := safenetlink.LinkByName(defaults.HostDevice)
 	if errors.As(err, &netlink.LinkNotFoundError{}) {
 		// There's no old state remove as the host device doesn't exist.
 		// This is always the case when the agent is started for the first time.
@@ -253,7 +254,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	if ipv6 {
 		family = netlink.FAMILY_V6
 	}
-	addrs, err := netlink.AddrList(l, family)
+	addrs, err := safenetlink.AddrList(l, family)
 	if err != nil {
 		return resiliency.Retryable(err)
 	}
