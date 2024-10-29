@@ -136,10 +136,10 @@ the mark, the SPI, and the protocol. In case of any decode error (ex., wrong key
 dropped and an error counter is increased.
 
 As illustrated on the diagram, an XFRM policy matching the packet isn't required for the decoding
-to happen (it goes directly to "XFRM decode"), but it may be required for the packet to proceed to
-a local process or through the FORWARD chain. An XFRM policy with an optional template (i.e.,
-``level use``) is also required if no state or socket matches it (ex., userspace proxy redirects in
-Cilium).
+to happen (it goes directly to "XFRM decode"), but is required for the packet to proceed to a
+local process or through the FORWARD chain. An XFRM policy with an optional template (i.e.,
+``level use``) will allow all decoded packets through. Traffic that was never encrypted, and
+therefore does not come from "XFRM decode", is allowed by default.
 
 After a packet is decoded, it is recirculated in the stack, as if coming from the interface it was
 initially received on. More specifically, packets are recirculated before the tc layer, such that
