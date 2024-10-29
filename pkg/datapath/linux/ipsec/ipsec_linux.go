@@ -596,11 +596,6 @@ func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.
 	}
 	key.ReqID = params.ReqID
 
-	wildcardIP := wildcardIPv4
-	if params.SourceTunnelIP.To4() == nil {
-		wildcardIP = wildcardIPv6
-	}
-
 	tmplSrc := params.SourceTunnelIP
 	tmplDst := params.DestTunnelIP
 	policy := ipSecNewPolicy()
@@ -612,17 +607,7 @@ func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.
 			Mask: linux_defaults.IPsecMarkBitMask,
 		}
 		if proxyMark {
-			// We require a policy to match on packets going to the proxy which are
-			// therefore carrying the proxy mark. We however don't need a policy
-			// for the encrypted packets because there is already a state matching
-			// them.
-			policy.Mark.Value = linux_defaults.RouteMarkToProxy
-			// We must mark the IN policy for the proxy optional simply because it
-			// is lacking a corresponding state.
-			optional = 1
-			// We set the source tmpl address to 0/0 to explicit that it
-			// doesn't matter.
-			tmplSrc = &wildcardIP
+			return nil
 		} else {
 			policy.Mark.Value = linux_defaults.RouteMarkDecrypt
 		}
