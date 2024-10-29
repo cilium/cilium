@@ -91,6 +91,7 @@ cilium-operator [flags]
       --leader-election-retry-period duration                Duration that LeaderElector clients should wait between retries of the actions (default 2s)
       --limit-ipam-api-burst int                             Upper burst limit when accessing external APIs (default 20)
       --limit-ipam-api-qps float                             Queries per second limit when accessing external IPAM APIs (default 4)
+      --loadbalancer-l7 string                               Enable L7 loadbalancer capabilities for services via L7 proxy. Applicable values: envoy
       --loadbalancer-l7-algorithm string                     Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                        List of service ports that will be automatically redirected to backend.
       --log-driver strings                                   Logging endpoints to use for example syslog
