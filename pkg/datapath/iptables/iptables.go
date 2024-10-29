@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -1207,7 +1208,7 @@ func (m *Manager) installMasqueradeRules(
 			family = netlink.FAMILY_V6
 		}
 		initialPass := true
-		if routes, err := netlink.RouteList(nil, family); err == nil {
+		if routes, err := safenetlink.RouteList(nil, family); err == nil {
 		nextPass:
 			for _, r := range routes {
 				var link netlink.Link

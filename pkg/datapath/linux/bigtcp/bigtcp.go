@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -115,7 +116,7 @@ func (c *Configuration) GetGSOIPv4MaxSize() int {
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
 func setGROGSOIPv6MaxSize(log *slog.Logger, userConfig UserConfig, device string, GROMaxSize, GSOMaxSize int) error {
-	link, err := netlink.LinkByName(device)
+	link, err := safenetlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Link does not exist", logfields.Device, device, logfields.Error, err)
 		return nil
@@ -143,7 +144,7 @@ func setGROGSOIPv6MaxSize(log *slog.Logger, userConfig UserConfig, device string
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
 func setGROGSOIPv4MaxSize(log *slog.Logger, userConfig UserConfig, device string, GROMaxSize, GSOMaxSize int) error {
-	link, err := netlink.LinkByName(device)
+	link, err := safenetlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Link does not exist", logfields.Device, device, logfields.Error, err)
 		return nil
@@ -169,7 +170,7 @@ func setGROGSOIPv4MaxSize(log *slog.Logger, userConfig UserConfig, device string
 }
 
 func haveIPv4MaxSize() bool {
-	link, err := netlink.LinkByName(probeDevice)
+	link, err := safenetlink.LinkByName(probeDevice)
 	if err != nil {
 		return false
 	}
@@ -180,7 +181,7 @@ func haveIPv4MaxSize() bool {
 }
 
 func haveIPv6MaxSize() bool {
-	link, err := netlink.LinkByName(probeDevice)
+	link, err := safenetlink.LinkByName(probeDevice)
 	if err != nil {
 		return false
 	}
@@ -193,7 +194,7 @@ func haveIPv6MaxSize() bool {
 func probeTSOMaxSize(log *slog.Logger, devices []string) int {
 	maxSize := math.IntMin(bigTCPGSOMaxSize, bigTCPGROMaxSize)
 	for _, device := range devices {
-		link, err := netlink.LinkByName(device)
+		link, err := safenetlink.LinkByName(device)
 		if err == nil {
 			tso := link.Attrs().TSOMaxSize
 			tsoMax := int(tso)

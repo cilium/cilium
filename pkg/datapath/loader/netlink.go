@@ -12,6 +12,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -63,7 +64,7 @@ func enableForwarding(sysctl sysctl.Sysctl, link netlink.Link) error {
 
 func setupVethPair(sysctl sysctl.Sysctl, name, peerName string) error {
 	// Create the veth pair if it doesn't exist.
-	if _, err := netlink.LinkByName(name); err != nil {
+	if _, err := safenetlink.LinkByName(name); err != nil {
 		hostMac, err := mac.GenerateRandMAC()
 		if err != nil {
 			return err
@@ -87,14 +88,14 @@ func setupVethPair(sysctl sysctl.Sysctl, name, peerName string) error {
 		}
 	}
 
-	veth, err := netlink.LinkByName(name)
+	veth, err := safenetlink.LinkByName(name)
 	if err != nil {
 		return err
 	}
 	if err := enableForwarding(sysctl, veth); err != nil {
 		return err
 	}
-	peer, err := netlink.LinkByName(peerName)
+	peer, err := safenetlink.LinkByName(peerName)
 	if err != nil {
 		return err
 	}
@@ -114,11 +115,11 @@ func setupBaseDevice(sysctl sysctl.Sysctl, mtu int) (netlink.Link, netlink.Link,
 		return nil, nil, err
 	}
 
-	linkHost, err := netlink.LinkByName(defaults.HostDevice)
+	linkHost, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, nil, err
 	}
-	linkNet, err := netlink.LinkByName(defaults.SecondHostDevice)
+	linkNet, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -365,7 +366,7 @@ func ensureDevice(sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error
 	name := attrs.Attrs().Name
 
 	// Reuse existing tunnel interface created by previous runs.
-	l, err := netlink.LinkByName(name)
+	l, err := safenetlink.LinkByName(name)
 	if err != nil {
 		if err := netlink.LinkAdd(attrs); err != nil {
 			if errors.Is(err, unix.ENOTSUP) {
@@ -375,7 +376,7 @@ func ensureDevice(sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error
 		}
 
 		// Fetch the link we've just created.
-		l, err = netlink.LinkByName(name)
+		l, err = safenetlink.LinkByName(name)
 		if err != nil {
 			return nil, fmt.Errorf("retrieving created device %s: %w", name, err)
 		}
@@ -399,7 +400,7 @@ func ensureDevice(sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error
 // removeDevice removes the device with the given name. Returns error if the
 // device exists but was unable to be removed.
 func removeDevice(name string) error {
-	link, err := netlink.LinkByName(name)
+	link, err := safenetlink.LinkByName(name)
 	if err != nil {
 		return nil
 	}
@@ -414,7 +415,7 @@ func removeDevice(name string) error {
 // renameDevice renames a network device from and to a given value. Returns nil
 // if the device does not exist.
 func renameDevice(from, to string) error {
-	link, err := netlink.LinkByName(from)
+	link, err := safenetlink.LinkByName(from)
 	if err != nil {
 		return nil
 	}
@@ -432,7 +433,7 @@ func renameDevice(from, to string) error {
 // If checkEgress is true, returns true if there's both an ingress and
 // egress program attached.
 func DeviceHasSKBProgramLoaded(device string, checkEgress bool) (bool, error) {
-	link, err := netlink.LinkByName(device)
+	link, err := safenetlink.LinkByName(device)
 	if err != nil {
 		return false, fmt.Errorf("retrieving device %s: %w", device, err)
 	}

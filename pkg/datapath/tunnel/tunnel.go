@@ -9,9 +9,9 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
-	"github.com/vishvananda/netlink"
 
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 )
 
@@ -162,7 +162,7 @@ func (cfg Config) datapathConfigProvider() (dpcfgdef.NodeOut, dpcfgdef.NodeFnOut
 		defines["TUNNEL_PORT"] = fmt.Sprintf("%d", cfg.Port())
 
 		definesFn = func() (dpcfgdef.Map, error) {
-			tunnelDev, err := netlink.LinkByName(cfg.DeviceName())
+			tunnelDev, err := safenetlink.LinkByName(cfg.DeviceName())
 			if err != nil {
 				return nil, fmt.Errorf("failed to retrieve device info for %q: %w", cfg.DeviceName(), err)
 			}
