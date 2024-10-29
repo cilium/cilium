@@ -581,13 +581,6 @@ jobs:
             EXTRA+=("\"--secondary-network-iface=eth1\"")
           fi
 
-          # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
-          # sending traffic while the egressgw policy map is still being populated.
-          #
-          # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
-          # always go through the correct gateway
-          EXTRA+=("\"--expected-drop-reasons=+No egress gateway found\"")
-
           if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
             # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
             EXTRA+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
