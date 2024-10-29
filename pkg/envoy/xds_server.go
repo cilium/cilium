@@ -1121,12 +1121,12 @@ func getKafkaL7Rules(l7Rules []kafka.PortRule) *cilium.KafkaNetworkPolicyRules {
 func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.HeaderMatch, ns string) (string, bool, error) {
 	value := ""
 	var err error
-	var fromFile bool
+	var inlineSecrets bool
 	if hdr.Secret != nil {
 		if secretManager == nil {
 			err = fmt.Errorf("HeaderMatches: Nil secretManager")
 		} else {
-			value, fromFile, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+			value, inlineSecrets, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
 		}
 	}
 	// Only use Value if secret was not obtained
@@ -1138,7 +1138,7 @@ func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.He
 		}
 	}
 
-	return value, fromFile, err
+	return value, inlineSecrets, err
 }
 
 func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRuleHTTP, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRule, bool) {
@@ -1238,7 +1238,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
 		}
 		// Fetch the secret
-		value, fromFile, err := getSecretString(secretManager, hdr, ns)
+		value, inlineSecrets, err := getSecretString(secretManager, hdr, ns)
 		if err != nil {
 			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
 			// Envoy treats an empty exact match value as matching ANY value; adding
@@ -1270,7 +1270,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 					})
 				} else {
 					// Value is empty, but could be we need to set an SDS value for it instead
-					if !fromFile {
+					if !inlineSecrets {
 						// Need to add a HeaderMatch so we can specify the SDS value here.
 						log.Debugf("HeaderMatches: Adding %s because SDS value is required", hdr.Name)
 						headerMatches = append(headerMatches, &cilium.HeaderMatch{
@@ -1290,7 +1290,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 				}
 			} else {
 				log.Debugf("HeaderMatches: Adding %s", hdr.Name)
-				if !fromFile && hdr.Secret != nil {
+				if !inlineSecrets && hdr.Secret != nil {
 					headerMatches = append(headerMatches, &cilium.HeaderMatch{
 						MismatchAction: mismatch_action,
 						Name:           hdr.Name,

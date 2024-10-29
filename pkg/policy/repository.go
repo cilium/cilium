@@ -42,7 +42,7 @@ type PolicyContext interface {
 	// GetTLSContext resolves the given 'api.TLSContext' into CA
 	// certs and the public and private keys, using secrets from
 	// k8s or from the local file system.
-	GetTLSContext(tls *api.TLSContext) (ca, public, private string, fromFile bool, err error)
+	GetTLSContext(tls *api.TLSContext) (ca, public, private string, inlineSecrets bool, err error)
 
 	// GetEnvoyHTTPRules translates the given 'api.L7Rules' into
 	// the protobuf representation the Envoy can consume. The bool
@@ -81,7 +81,7 @@ func (p *policyContext) GetSelectorCache() *SelectorCache {
 }
 
 // GetTLSContext() returns data for TLS Context via a CertificateManager
-func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, fromFile bool, err error) {
+func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, inlineSecrets bool, err error) {
 	if p.repo.certManager == nil {
 		return "", "", "", false, fmt.Errorf("No Certificate Manager set on Policy Repository")
 	}
