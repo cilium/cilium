@@ -520,6 +520,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Kubernetes endpointslices",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListEndpointSlices(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes endpointslices: %w", err)
+				}
+				if err := c.WriteYAML(kubernetesEndpointSlicesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes endpointslices: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting Kubernetes leases",
 			Quick:       true,
 			Task: func(ctx context.Context) error {

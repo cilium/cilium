@@ -12,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -71,6 +72,7 @@ type KubernetesClient interface {
 	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)
 	ListEvents(ctx context.Context, o metav1.ListOptions) (*corev1.EventList, error)
 	ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error)
+	ListEndpointSlices(ctx context.Context, o metav1.ListOptions) (*discoveryv1.EndpointSliceList, error)
 	ListIngressClasses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressClassList, error)
 	ListIngresses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressList, error)
 	ListNamespaces(ctx context.Context, o metav1.ListOptions) (*corev1.NamespaceList, error)

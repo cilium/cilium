@@ -97,6 +97,7 @@ const (
 	hubbleGenerateCertsCronJobFileName       = "hubble-generate-certs-cronjob-<ts>.yaml"
 	hubbleCertificatesFileName               = "hubble-certificates-<ts>.yaml"
 	kubernetesEndpointsFileName              = "k8s-endpoints-<ts>.yaml"
+	kubernetesEndpointSlicesFileName         = "k8s-endpointslices-<ts>.yaml"
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
 	kubernetesEventsTableFileName            = "k8s-events-<ts>.html"
 	kubernetesLeasesFileName                 = "k8s-leases-<ts>.yaml"

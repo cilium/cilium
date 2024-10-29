@@ -23,6 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -901,6 +902,10 @@ func (c *Client) ListUnstructured(ctx context.Context, gvr schema.GroupVersionRe
 
 func (c *Client) ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error) {
 	return c.Clientset.CoreV1().Endpoints(corev1.NamespaceAll).List(ctx, o)
+}
+
+func (c *Client) ListEndpointSlices(ctx context.Context, o metav1.ListOptions) (*discoveryv1.EndpointSliceList, error) {
+	return c.Clientset.DiscoveryV1().EndpointSlices(corev1.NamespaceAll).List(ctx, o)
 }
 
 func (c *Client) ListIngressClasses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressClassList, error) {
