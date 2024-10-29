@@ -30,7 +30,7 @@ spec:
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
-            - "--ca-generate"
+            - "--ca-generate={{ .Values.certgen.generateCA }}"
             - "--ca-reuse-secret"
             - "--ca-secret-namespace={{ include "cilium.namespace" . }}"
             - "--ca-secret-name=cilium-ca"
