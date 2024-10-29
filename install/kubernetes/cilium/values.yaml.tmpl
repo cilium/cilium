@@ -1095,6 +1095,8 @@ socketLB:
 # for the Kubernetes CronJob which will be scheduled regularly to
 # (re)generate any certificates not provided manually.
 certgen:
+  # -- When set to true the certificate authority secret is created.
+  generateCA: true
   image:
     # @schema
     # type: [null, string]
