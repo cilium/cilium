@@ -56,7 +56,10 @@ func (b LocalClientBuilder) Client(target string) (Client, error) {
 	// this context.
 	conn, err := grpc.DialContext(ctx, target,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock())
+		grpc.WithBlock(),
+		grpc.WithReturnConnectionError(),
+		grpc.FailOnNonTempDialError(true),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +76,11 @@ type RemoteClientBuilder struct {
 
 // Client implements ClientBuilder.Client.
 func (b RemoteClientBuilder) Client(target string) (Client, error) {
-	opts := []grpc.DialOption{grpc.WithBlock()}
+	opts := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithReturnConnectionError(),
+		grpc.FailOnNonTempDialError(true),
+	}
 	if b.TLSConfig == nil {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
