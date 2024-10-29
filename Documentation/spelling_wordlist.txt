@@ -384,6 +384,7 @@ hostonlyifs
 hostscope
 hq
 http
+httpbin
 httpd
 https
 hubble
