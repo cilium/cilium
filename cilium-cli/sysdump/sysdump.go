@@ -1146,8 +1146,8 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get cilium-operator pods: %w", err)
 				}
-				if err := c.SubmitGopsSubtasks(FilterPods(p, c.NodeList), ciliumOperatorContainerName); err != nil {
-					return fmt.Errorf("failed to collect Cilium gops: %w", err)
+				if err := c.SubmitGopsSubtasks(AllPods(p), ciliumOperatorContainerName); err != nil {
+					return fmt.Errorf("failed to collect cilium-operator gops stats: %w", err)
 				}
 				return nil
 			},
