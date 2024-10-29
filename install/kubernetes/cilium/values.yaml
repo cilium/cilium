@@ -1357,7 +1357,10 @@ hubble:
       # - certmanager:  This method use cert-manager to generate & rotate certificates.
       method: helm
       # -- Generated certificates validity duration in days.
-      certValidityDuration: 1095
+      #
+      # Defaults to 365 days (1 year) because MacOS does not accept
+      # self-signed certificates with expirations > 825 days.
+      certValidityDuration: 365
       # -- Schedule for certificates regeneration (regardless of their expiration date).
       # Only used if method is "cronJob". If nil, then no recurring job will be created.
       # Instead, only the one-shot job is deployed to generate the certificates at
@@ -2092,7 +2095,7 @@ loadBalancer:
   # endpoints filtering
   # serviceTopology: false
 
-  # -- experimental enables support for the experimental load-balancing 
+  # -- experimental enables support for the experimental load-balancing
   # control-plane.
   experimental: false
   # -- L7 LoadBalancer

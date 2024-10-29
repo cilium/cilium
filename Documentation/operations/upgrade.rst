@@ -341,6 +341,9 @@ Helm Options
   ``hubble.ui.tls.client.cert``, and ``hubble.ui.tls.client.key`` have been
   deprecated in favor of the associated ``existingSecret`` options and will be
   removed in a future release.
+* The default value of ``hubble.tls.auto.certValidityDuration`` has been
+  lowered from 1095 days to 365 days because recent versions of MacOS will fail
+  to validate certificates with expirations longer than 825 days.
 
 Agent Options
 ~~~~~~~~~~~~~
