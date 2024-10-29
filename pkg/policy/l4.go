@@ -801,19 +801,19 @@ const (
 
 // getCerts reads certificates out of the PolicyContext, reading from k8s or local files depending on config
 // and puts the values into the relevant keys in the TLSContext. Note that if the returned TLSContext.FromFile is
-// `false`, then this has been read from Kubernetes.
+// `false`, then this will be read from Kubernetes.
 func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direction TLSDirection) (*TLSContext, error) {
 	if tls == nil {
 		return nil, nil
 	}
-	ca, public, private, fromFile, err := policyCtx.GetTLSContext(tls)
+	ca, public, private, inlineSecrets, err := policyCtx.GetTLSContext(tls)
 	if err != nil {
 		log.WithError(err).Warningf("policy: Error getting %s TLS Context.", direction)
 		return nil, err
 	}
 
-	// If the secret is being read from Kubernetes, we're going to pass an SDS reference instead.
-	if fromFile {
+	// If the secret is not being included into NPDS inline, we're going to pass an SDS reference instead.
+	if inlineSecrets {
 		switch direction {
 		case TerminatingTLS:
 			if public == "" || private == "" {
@@ -834,7 +834,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 		TrustedCA:        ca,
 		CertificateChain: public,
 		PrivateKey:       private,
-		FromFile:         fromFile,
+		FromFile:         inlineSecrets,
 		Secret:           types.NamespacedName(*tls.Secret),
 	}, nil
 }

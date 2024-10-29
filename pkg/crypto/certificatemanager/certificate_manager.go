@@ -27,7 +27,7 @@ var Cell = cell.Module(
 )
 
 type CertificateManager interface {
-	GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, fromFile bool, err error)
+	GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, inlineSecrets bool, err error)
 }
 
 type SecretManager interface {
@@ -134,6 +134,14 @@ func (m *manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string)
 		return nsName, secrets, true, nil
 	}
 
+	// If there's no secret synchronization namespace configured, then we need to read values
+	// directly from Kubernetes. Not a good idea, for security or performance reasons, but included
+	// for backwards compatibility.
+	if m.secretSyncNamespace == "" {
+		secrets, err := m.k8sClient.GetSecrets(ctx, ns, secret.Name)
+		return nsName, secrets, true, err
+	}
+
 	// If the secret is _not_ being read from the filesystem, then we don't want to inspect it at all, because
 	// that will require the agent to have more access than it needs. So we return an empty `secrets` map.
 	// The plan here is to deprecate reading from file entirely, at which all this code will be removed.
@@ -150,17 +158,17 @@ const (
 
 // GetTLSContext returns a new ca, public and private certificates found based
 // in the given api.TLSContext.
-func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, fromFile bool, err error) {
-	name, secrets, fromFile, err := m.GetSecrets(ctx, tlsCtx.Secret, ns)
+func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, inlineSecrets bool, err error) {
+	name, secrets, inlineSecrets, err := m.GetSecrets(ctx, tlsCtx.Secret, ns)
 	if err != nil {
 		return "", "", "", false, err
 	}
 
 	// If the certificate hasn't been read from a file, we're going to be inserting a reference to an SDS secret instead,
 	// so we don't need to validate the values. Envoy will handle validation.
-	if !fromFile {
-		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes")
-		return "", "", "", fromFile, nil
+	if !inlineSecrets {
+		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes via SDS")
+		return "", "", "", inlineSecrets, nil
 	}
 
 	caName := caDefaultName
@@ -201,29 +209,29 @@ func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 	}
 
 	// TODO(youngnick): Follow up PR that will change this to a deprecation warning once we actually
-	// mark read-from-file as deprecated.
-	m.Logger.WithField("secret", name).Debug("Secret read from file")
-	return ca, public, private, fromFile, nil
+	// mark read-from-file and direct read as deprecated.
+	m.Logger.WithField("secret", name).Debug("Secret being used inline, not via SDS")
+	return ca, public, private, inlineSecrets, nil
 }
 
 // GetSecretString returns a secret string stored in a k8s secret
 func (m *manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, bool, error) {
-	name, secrets, fromFile, err := m.GetSecrets(ctx, secret, ns)
+	name, secrets, inlineSecrets, err := m.GetSecrets(ctx, secret, ns)
 	if err != nil {
-		return "", fromFile, err
+		return "", inlineSecrets, err
 	}
 
 	// If the value hasn't been read from a file, we're going to be inserting a reference to an SDS secret instead,
 	// so we don't need to validate the values. Envoy will handle validation.
-	if !fromFile {
-		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes")
-		return "", fromFile, nil
+	if !inlineSecrets {
+		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes via SDS")
+		return "", inlineSecrets, nil
 	}
 
 	if len(secrets) == 1 {
 		// get the lone item by looping into the map
 		for _, value := range secrets {
-			return string(value), fromFile, nil
+			return string(value), inlineSecrets, nil
 		}
 	}
 
