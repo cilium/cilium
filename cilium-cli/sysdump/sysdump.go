@@ -163,6 +163,8 @@ type Collector struct {
 	NodeList []string
 	// CiliumPods is a list of Cilium agent pods running on nodes in NodeList.
 	CiliumPods []*corev1.Pod
+	// CiliumOperatorPods is the list of Cilium operator pods.
+	CiliumOperatorPods []*corev1.Pod
 	// CiliumConfigMap is a pointer to cilium-config ConfigMap.
 	CiliumConfigMap *corev1.ConfigMap
 	// additionalTasks keeps track of additional tasks added via AddTasks.
@@ -296,6 +298,16 @@ func NewCollector(
 			c.FeatureSet.ExtractFromConfigMap(c.CiliumConfigMap)
 			c.log("🔮 Detected Cilium features: %v", c.FeatureSet)
 		}
+	}
+
+	if c.Options.CiliumOperatorNamespace != "" {
+		pods, err := c.Client.ListPods(context.Background(), c.Options.CiliumOperatorNamespace, metav1.ListOptions{
+			LabelSelector: c.Options.CiliumOperatorLabelSelector,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Cilium operator pods: %w", err)
+		}
+		c.CiliumOperatorPods = AllPods(pods)
 	}
 
 	if err := hooks.AddSysdumpTasks(c); err != nil {
@@ -1016,12 +1028,8 @@ func (c *Collector) Run() error {
 			CreatesSubtasks: true,
 			Description:     "Collecting the Cilium operator metrics",
 			Quick:           false,
-			Task: func(ctx context.Context) error {
-				pods, err := c.Client.ListPods(ctx, c.Options.CiliumOperatorNamespace, metav1.ListOptions{LabelSelector: defaults.OperatorPodSelector})
-				if err != nil {
-					return fmt.Errorf("failed to get the Cilium operator pods: %w", err)
-				}
-				err = c.SubmitMetricsSubtask(pods, defaults.OperatorContainerName, defaults.OperatorMetricsPortName)
+			Task: func(_ context.Context) error {
+				err := c.SubmitMetricsSubtask(c.CiliumOperatorPods, defaults.OperatorContainerName, defaults.OperatorMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator metrics: %w", err)
 				}
@@ -1034,10 +1042,12 @@ func (c *Collector) Run() error {
 			Quick:           false,
 			Task: func(ctx context.Context) error {
 				// clustermesh-apiserver runs in the same namespace as operator
-				pods, err := c.Client.ListPods(ctx, c.Options.CiliumOperatorNamespace, metav1.ListOptions{LabelSelector: defaults.ClusterMeshPodSelector})
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumOperatorNamespace, metav1.ListOptions{LabelSelector: defaults.ClusterMeshPodSelector})
 				if err != nil {
 					return fmt.Errorf("failed to get the Cilium clustermesh pods: %w", err)
 				}
+
+				pods := AllPods(p)
 
 				err = c.submitClusterMeshAPIServerDbgTasks(pods)
 				if err != nil {
@@ -1061,13 +1071,13 @@ func (c *Collector) Run() error {
 					defaults.ClusterMeshContainerName:            ciliumdef.GopsPortApiserver,
 					defaults.ClusterMeshKVStoreMeshContainerName: ciliumdef.GopsPortKVStoreMesh,
 				} {
-					err = c.SubmitGopsSubtasks(AllPods(pods), container)
+					err = c.SubmitGopsSubtasks(pods, container)
 					if err != nil {
 						return fmt.Errorf("failed to collect the Cilium clustermesh gops stats: %w", err)
 					}
 
 					if c.Options.Profiling {
-						err = c.SubmitStreamProfilingGopsSubtasks(AllPods(pods), container, port)
+						err = c.SubmitStreamProfilingGopsSubtasks(pods, container, port)
 						if err != nil {
 							return fmt.Errorf("failed to collect the Cilium clustermesh profiles: %w", err)
 						}
@@ -1140,13 +1150,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting gops stats from Cilium-operator pods",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumOperatorLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get cilium-operator pods: %w", err)
-				}
-				if err := c.SubmitGopsSubtasks(AllPods(p), ciliumOperatorContainerName); err != nil {
+				if err := c.SubmitGopsSubtasks(c.CiliumOperatorPods, ciliumOperatorContainerName); err != nil {
 					return fmt.Errorf("failed to collect cilium-operator gops stats: %w", err)
 				}
 				return nil
@@ -1261,13 +1265,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting logs from Cilium operator pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumOperatorLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get logs from Cilium operator pods")
-				}
-				if err := c.SubmitLogsTasks(AllPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(c.CiliumOperatorPods, c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium operator pods")
 				}
 				return nil
@@ -2842,10 +2840,10 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 }
 
 // SubmitMetricsSubtask submits tasks to collect metrics from pods.
-func (c *Collector) SubmitMetricsSubtask(pods *corev1.PodList, containerName, portName string) error {
-	for _, p := range pods.Items {
+func (c *Collector) SubmitMetricsSubtask(pods []*corev1.Pod, containerName, portName string) error {
+	for _, p := range pods {
 		p := p
-		if !podIsRunningAndHasContainer(&p, containerName) {
+		if !podIsRunningAndHasContainer(p, containerName) {
 			continue
 		}
 		err := c.Pool.Submit(fmt.Sprintf("metrics-%s-%s-%s", p.Name, containerName, portName), func(ctx context.Context) error {
@@ -2869,7 +2867,7 @@ func (c *Collector) SubmitMetricsSubtask(pods *corev1.PodList, containerName, po
 	return nil
 }
 
-func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods *corev1.PodList) error {
+func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods []*corev1.Pod) error {
 	tasks := []struct {
 		name      string
 		ext       string
@@ -2913,9 +2911,9 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods *corev1.PodList) err
 		},
 	}
 
-	for _, pod := range pods.Items {
+	for _, pod := range pods {
 		for _, task := range tasks {
-			if !podIsRunningAndHasContainer(&pod, task.container) {
+			if !podIsRunningAndHasContainer(pod, task.container) {
 				continue
 			}
 
@@ -2950,7 +2948,7 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods *corev1.PodList) err
 	return nil
 }
 
-func getPodMetricsPort(pod corev1.Pod, containerName, portName string) (int32, error) {
+func getPodMetricsPort(pod *corev1.Pod, containerName, portName string) (int32, error) {
 	for _, container := range pod.Spec.Containers {
 		if container.Name != containerName {
 			continue
