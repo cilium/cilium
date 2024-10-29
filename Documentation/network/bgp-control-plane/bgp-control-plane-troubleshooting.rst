@@ -123,3 +123,22 @@ the ``CiliumBGPNodeConfig`` resource. Following status condition will be set on 
       reason: ConflictingClusterConfigs
       status: "True"
       type: cilium.io/ConflictingClusterConfig
+
+CiliumBGPPeerConfig doesn't take effect
+---------------------------------------
+
+If the ``CiliumBGPPeerConfig`` is not taking effect, it may be because there is a
+misconfiguration (such as typo) in the ``peerConfigRef`` and the reference is not
+effective. Following status condition will be set if the referenced ``CiliumBGPPeerConfig``
+is not found:
+
+.. code:: yaml
+
+  status:
+    conditions:
+    - lastTransitionTime: "2024-10-26T06:15:44Z"
+      message: 'Referenced CiliumBGPPeerConfig(s) are missing: [peer-cofnig0]'
+      observedGeneration: 1
+      reason: MissingPeerConfigs
+      status: "True"
+      type: cilium.io/MissingPeerConfigs
