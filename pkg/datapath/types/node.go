@@ -56,6 +56,12 @@ type LocalNodeConfiguration struct {
 	// Immutable at runtime.
 	AllocCIDRIPv6 *cidr.CIDR
 
+	// NativeRoutingCIDRIPv4 is the v4 CIDR in which pod IPs are routable.
+	NativeRoutingCIDRIPv4 *cidr.CIDR
+
+	// NativeRoutingCIDRIPv6 is the v4 CIDR in which pod IPs are routable.
+	NativeRoutingCIDRIPv6 *cidr.CIDR
+
 	// LoopbackIPv4 is the IPv4 loopback address.
 	// Immutable at runtime.
 	LoopbackIPv4 net.IP
