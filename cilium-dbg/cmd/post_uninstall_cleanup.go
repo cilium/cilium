@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -150,7 +151,7 @@ func newCiliumCleanup(bpfOnly bool) ciliumCleanup {
 	}
 
 	tcFilters := map[string][]*netlink.BpfFilter{}
-	links, err := netlink.LinkList()
+	links, err := safenetlink.LinkList()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 	} else {
@@ -451,7 +452,7 @@ func findRoutesAndLinks() (map[int]netlink.Route, map[int]netlink.Link, error) {
 	routesToRemove := map[int]netlink.Route{}
 	linksToRemove := map[int]netlink.Link{}
 
-	if routes, err := netlink.RouteList(nil, netlink.FAMILY_V4); err == nil {
+	if routes, err := safenetlink.RouteList(nil, netlink.FAMILY_V4); err == nil {
 		for _, r := range routes {
 			link, err := netlink.LinkByIndex(r.LinkIndex)
 			if err != nil {
@@ -471,7 +472,7 @@ func findRoutesAndLinks() (map[int]netlink.Route, map[int]netlink.Link, error) {
 		}
 	}
 
-	if links, err := netlink.LinkList(); err == nil {
+	if links, err := safenetlink.LinkList(); err == nil {
 		for _, link := range links {
 			linkName := link.Attrs().Name
 			if !linkMatch(linkName) {
@@ -508,7 +509,7 @@ func getTCFilters(link netlink.Link) ([]*netlink.BpfFilter, error) {
 	allFilters := []*netlink.BpfFilter{}
 
 	for _, parent := range []uint32{tcFilterParentIngress, tcFilterParentEgress} {
-		filters, err := netlink.FilterList(link, parent)
+		filters, err := safenetlink.FilterList(link, parent)
 		if err != nil {
 			return nil, err
 		}
