@@ -1217,6 +1217,22 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting profiling data from Cilium Operator pods",
+			Quick:           false,
+			Task: func(_ context.Context) error {
+				if !c.Options.Profiling {
+					return nil
+				}
+
+				err := c.SubmitStreamProfilingGopsSubtasks(c.CiliumOperatorPods, ciliumOperatorContainerName, ciliumdef.GopsPortOperator)
+				if err != nil {
+					return fmt.Errorf("failed to collect cilium-operator profiles: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting logs from Cilium pods",
 			Quick:           false,
 			Task: func(_ context.Context) error {
