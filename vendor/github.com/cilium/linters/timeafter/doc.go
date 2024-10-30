@@ -2,7 +2,7 @@
 // Copyright Authors of Cilium
 
 // Package timeafter defines an Analyzer that checks for the use of time.After
-// in loops.
+// in loops on Go versions before 1.23
 //
 // # Analyzer timeafter
 //
