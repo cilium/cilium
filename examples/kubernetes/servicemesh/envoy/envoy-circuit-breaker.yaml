@@ -41,6 +41,8 @@ spec:
       connect_timeout: 5s
       lb_policy: ROUND_ROBIN
       type: EDS
+      edsClusterConfig:
+        serviceName: default/echo-service:8080
       circuit_breakers:
         thresholds:
         - priority: "DEFAULT"
