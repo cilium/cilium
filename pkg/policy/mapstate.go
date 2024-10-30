@@ -79,6 +79,7 @@ type MapState interface {
 	GetIdentities(*logrus.Logger) ([]int64, []int64)
 	GetDenyIdentities(*logrus.Logger) ([]int64, []int64)
 	Len() int
+	Empty() bool
 
 	// private accessors
 	deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool
@@ -599,6 +600,11 @@ func (ms *mapState) delete(k Key) {
 // argument returns false. It returns false iff the iteration was cut short.
 func (ms *mapState) ForEach(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
 	return ms.allows.ForEach(f) && ms.denies.ForEach(f)
+}
+
+// Empty returns 'true' if there are no entries in the map
+func (ms *mapState) Empty() bool {
+	return ms.allows.Len() == 0 && ms.denies.Len() == 0
 }
 
 // Len returns the length of the map
