@@ -139,12 +139,14 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 	if r.endpointGetter != nil {
 		if ep, ok := r.endpointGetter.GetEndpointInfo(ip); ok {
 			epIdentity := resolveIdentityConflict(ep.GetIdentity(), true)
+			labels := ep.GetLabels()
 			e := &pb.Endpoint{
-				ID:        uint32(ep.GetID()),
-				Identity:  epIdentity,
-				Namespace: ep.GetK8sNamespace(),
-				Labels:    SortAndFilterLabels(r.log, ep.GetLabels(), identity.NumericIdentity(epIdentity)),
-				PodName:   ep.GetK8sPodName(),
+				ID:          uint32(ep.GetID()),
+				Identity:    epIdentity,
+				ClusterName: (labels[k8sConst.PolicyLabelCluster]).Value,
+				Namespace:   ep.GetK8sNamespace(),
+				Labels:      SortAndFilterLabels(r.log, labels.GetModel(), identity.NumericIdentity(epIdentity)),
+				PodName:     ep.GetK8sPodName(),
 			}
 			if pod := ep.GetPod(); pod != nil {
 				workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)

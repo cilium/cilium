@@ -179,8 +179,16 @@ In the following example, you can see BGP instance state from node ``bgpv2-cplan
 Logs
 ====
 
-BGP Control Plane logs can be found in the Cilium agent logs. The logs
-are tagged with ``subsys=bgp-control-plane``. You can use this tag to filter
+BGP Control Plane logs can be found in the Cilium operator (only for BGPv2) and the Cilium agent logs.
+
+The operator logs are tagged with ``subsys=bgp-cp-operator``. You can use this tag to filter
+the logs as in the following example:
+
+.. code-block:: shell-session
+
+   kubectl -n kube-system logs <cilium operator pod name> | grep "subsys=bgp-cp-operator"
+
+The agent logs are tagged with ``subsys=bgp-control-plane``. You can use this tag to filter
 the logs as in the following example:
 
 .. code-block:: shell-session

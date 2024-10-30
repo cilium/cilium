@@ -10,8 +10,10 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -70,12 +72,14 @@ func (p *Parser) decodeEndpoint(id uint16) *flowpb.Endpoint {
 	epId := uint32(id)
 	if p.endpointGetter != nil {
 		if ep, ok := p.endpointGetter.GetEndpointInfoByID(id); ok {
+			labels := ep.GetLabels()
 			return &flowpb.Endpoint{
-				ID:        epId,
-				Identity:  uint32(ep.GetIdentity()),
-				Namespace: ep.GetK8sNamespace(),
-				Labels:    ep.GetLabels(),
-				PodName:   ep.GetK8sPodName(),
+				ID:          epId,
+				Identity:    uint32(ep.GetIdentity()),
+				ClusterName: (labels[k8sConst.PolicyLabelCluster]).Value,
+				Namespace:   ep.GetK8sNamespace(),
+				Labels:      common.SortAndFilterLabels(p.log, labels.GetModel(), ep.GetIdentity()),
+				PodName:     ep.GetK8sPodName(),
 			}
 		}
 	}
