@@ -146,7 +146,7 @@ func listBuiltinModules() ([]string, error) {
 
 	log.Error("Failed to detect built-in kernel modules from well-known locations.")
 
-	return result, nil
+	return nil, fmt.Errorf("Failed to detect built-in kernel modules from well-known locations")
 }
 
 // listModules returns the list of loaded kernel modules names parsed from
