@@ -1086,26 +1086,36 @@ func (e *Endpoint) applyPolicyMapChanges(regenContext *regenerationContext, hasN
 // dumping the bpf policy map.
 // Only called when desired and realized policies are not the same.
 func (e *Endpoint) syncPolicyMap() error {
-	errors := 0
+	addErrors, deleteErrors := 0, 0
 
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
 		if !e.addPolicyKey(k, v) {
-			errors++
-			break
+			addErrors++
 		}
 	}
 
 	// Delete policy keys present in the realized state, but not present in the desired state
 	for k := range e.desiredPolicy.Missing(e.realizedPolicy) {
 		if !e.deletePolicyKey(k) {
-			errors++
-			break
+			deleteErrors++
 		}
 	}
 
-	if errors > 0 {
-		return fmt.Errorf("syncPolicyMap failed")
+	// Retry adds after deletes. If policy map became full, there might be some space if any
+	// keys were deleted
+	if addErrors > 0 {
+		addErrors = 0
+		// Add policy map entries before deleting to avoid transient drops
+		for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
+			if !e.addPolicyKey(k, v) {
+				addErrors++
+			}
+		}
+	}
+
+	if addErrors > 0 || deleteErrors > 0 {
+		return fmt.Errorf("syncRealizedPolicyMap failed")
 	}
 	return nil
 }
@@ -1114,13 +1124,13 @@ func (e *Endpoint) syncPolicyMap() error {
 // difference between a realized MapStateMap from a recent policy map dump
 // and desired policy state.
 func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
-	errors := 0
+	addErrors, deleteErrors := 0, 0
 
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.UpdatedMap(realized) {
 		if !e.addPolicyKey(k, v) {
-			errors++
-			break
+			addErrors++
+			continue
 		}
 		diffCount++
 		if withDiffs {
@@ -1131,12 +1141,19 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 			})
 		}
 	}
+	if addErrors > 0 {
+		// Retrying adds below, so clear collected state
+		diffCount = 0
+		if withDiffs {
+			diffs = diffs[:0]
+		}
+	}
 
 	// Delete policy keys present in the realized state, but not present in the desired state
 	for k, v := range e.desiredPolicy.MissingMap(realized) {
 		if !e.deletePolicyKey(k) {
-			errors++
-			break
+			deleteErrors++
+			continue
 		}
 		diffCount++
 		if withDiffs {
@@ -1147,8 +1164,28 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 		}
 	}
 
-	if errors > 0 {
-		err = fmt.Errorf("syncPolicyMap failed")
+	// Retry adds after deletes. If policy map became full, there might be some space if any
+	// keys were deleted
+	if addErrors > 0 {
+		addErrors = 0
+		for k, v := range e.desiredPolicy.UpdatedMap(realized) {
+			if !e.addPolicyKey(k, v) {
+				addErrors++
+				continue
+			}
+			diffCount++
+			if withDiffs {
+				diffs = append(diffs, policy.MapChange{
+					Add:   true,
+					Key:   k,
+					Value: v,
+				})
+			}
+		}
+	}
+
+	if addErrors > 0 || deleteErrors > 0 {
+		err = fmt.Errorf("syncPolicyMapWith failed")
 	}
 	return diffCount, diffs, err
 }
