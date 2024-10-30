@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
@@ -182,13 +181,10 @@ func (dc *devicesController) run(ctx context.Context) {
 	for ctx.Err() == nil {
 		dc.subscribeAndProcess(ctx)
 
-		t, stop := inctimer.New()
-
 		select {
 		case <-ctx.Done():
-			stop()
 			return
-		case <-t.After(restartWaitDuration):
+		case <-time.After(restartWaitDuration):
 		}
 	}
 }

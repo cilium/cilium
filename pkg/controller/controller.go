@@ -8,11 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	stdtime "time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
@@ -242,9 +242,6 @@ func (c *controller) GetLastErrorTimestamp() time.Time {
 func (c *controller) runController(params ControllerParams) {
 	errorRetries := 1
 
-	runTimer, timerDone := inctimer.New()
-	defer timerDone()
-
 	for {
 		var err error
 
@@ -325,7 +322,7 @@ func (c *controller) runController(params ControllerParams) {
 
 		case params = <-c.update:
 			// update channel is never closed
-		case <-runTimer.After(interval):
+		case <-stdtime.After(interval):
 			// timer channel is not yet closed
 		case <-c.trigger:
 			// trigger channel is never closed

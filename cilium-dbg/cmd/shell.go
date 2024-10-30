@@ -19,7 +19,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -56,7 +55,7 @@ func dialShell(w io.Writer) (net.Conn, error) {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("dialing timed out: %w", err)
-		case <-inctimer.After(time.Second):
+		case <-time.After(time.Second):
 			fmt.Fprintf(w, "Dialing failed: %s. Retrying...\n", err)
 		}
 	}

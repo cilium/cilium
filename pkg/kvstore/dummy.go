@@ -9,7 +9,6 @@ import (
 
 	client "go.etcd.io/etcd/client/v3"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -66,9 +65,6 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		tb.Fatalf("Failed waiting for kvstore connection to be established: %v", err)
 	}
 
-	timer, done := inctimer.New()
-	defer done()
-
 	// Multiple tests might be running in parallel by go test if they are part of
 	// different packages. Let's implement a locking mechanism to ensure that only
 	// one at a time can access the kvstore, to prevent that they interact with
@@ -86,7 +82,7 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		}
 
 		select {
-		case <-timer.After(100 * time.Millisecond):
+		case <-time.After(100 * time.Millisecond):
 		case <-ctx.Done():
 			tb.Fatal("Timed out waiting to acquire the kvstore lock")
 		}

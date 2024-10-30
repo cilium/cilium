@@ -28,7 +28,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -1018,9 +1017,6 @@ func (e *etcdClient) statusChecker() {
 
 	var consecutiveQuorumErrors uint
 
-	statusTimer, statusTimerDone := inctimer.New()
-	defer statusTimerDone()
-
 	e.RWMutex.Lock()
 	// Ensure that lastHearbeat is always set to a non-zero value when starting
 	// the status checker, to guarantee that we can correctly compute the time
@@ -1106,7 +1102,7 @@ func (e *etcdClient) statusChecker() {
 		case <-e.stopStatusChecker:
 			close(e.statusCheckErrors)
 			return
-		case <-statusTimer.After(e.extraOptions.StatusCheckInterval(allConnected)):
+		case <-time.After(e.extraOptions.StatusCheckInterval(allConnected)):
 		}
 	}
 }
