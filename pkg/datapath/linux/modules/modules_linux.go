@@ -12,7 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	linux "golang.org/x/sys/unix"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "modules-linux")
 )
 
 const (
@@ -133,8 +139,12 @@ func listBuiltinModules() ([]string, error) {
 			return nil, err
 		}
 
-		break
+		log.Debug("Found information on built-in kernel modules at %s.", location)
+
+		return result, nil
 	}
+
+	log.Error("Failed to detect built-in kernel modules from well-known locations.")
 
 	return result, nil
 }
