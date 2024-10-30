@@ -343,7 +343,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 							ackLog.Debugf("completing ACK: %v", pending)
 							comp.Complete(nil)
 						} else {
-							ackLog.Debugf("completing NACK: %v", pending)
+							ackLog.Warningf("completing NACK: %v", pending)
 							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
 						}
 						continue
