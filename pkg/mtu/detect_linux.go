@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -77,13 +78,13 @@ func autoDetect() (int, error) {
 
 // getMTUFromIf finds the interface that holds the ip and returns its mtu
 func getMTUFromIf(ip net.IP) (int, error) {
-	ifaces, err := netlink.LinkList()
+	ifaces, err := safenetlink.LinkList()
 	if err != nil {
 		return 0, fmt.Errorf("unable to list interfaces: %w", err)
 	}
 
 	for _, iface := range ifaces {
-		addrs, err := netlink.AddrList(iface, netlink.FAMILY_ALL)
+		addrs, err := safenetlink.AddrList(iface, netlink.FAMILY_ALL)
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.Device: iface.Attrs().Name,
