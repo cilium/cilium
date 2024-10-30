@@ -35,14 +35,6 @@ const (
 	// needs to decrypt a packet.
 	RouteMarkDecrypt = MagicMarkDecrypt
 
-	// RouteMarkDecryptedOverlay is the output mark used for EncryptedOverlay
-	// XFRM policies.
-	//
-	// When this mark is present on a packet it indicates that overlay traffic
-	// was decrypted by XFRM and should be forwarded to a tunnel device for
-	// decapsulation.
-	RouteMarkDecryptedOverlay = MagicMarkDecryptedOverlay
-
 	// RouteMarkEncrypt is the default route mark to use to indicate datapath
 	// needs to encrypt a packet.
 	RouteMarkEncrypt = MagicMarkEncrypt

@@ -520,11 +520,6 @@ func ipSecReplaceStateIn(log *slog.Logger, params *IPSecParameters) (uint8, erro
 			Value: 0,
 			Mask:  linux_defaults.OutputMarkMask,
 		}
-	} else if params.ReqID == EncryptedOverlayReqID {
-		state.OutputMark = &netlink.XfrmMark{
-			Value: linux_defaults.RouteMarkDecryptedOverlay,
-			Mask:  linux_defaults.OutputMarkMask,
-		}
 	} else {
 		state.OutputMark = &netlink.XfrmMark{
 			Value: linux_defaults.RouteMarkDecrypt,
