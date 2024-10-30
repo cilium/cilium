@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -188,8 +187,6 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		request   reinitializeRequest
 		retryChan <-chan time.Time
 	)
-	retryTimer, stopRetryTimer := inctimer.New()
-	defer stopRetryTimer()
 	for {
 		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
@@ -213,10 +210,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
 				o.params.Log.Warn("Failed to initialize datapath, retrying later", logfields.Error, err, "retry-delay", reinitRetryDuration)
 				health.Degraded("Failed to reinitialize datapath", err)
-				retryChan = retryTimer.After(reinitRetryDuration)
+				retryChan = time.After(reinitRetryDuration)
 			} else {
 				retryChan = nil
-				stopRetryTimer()
 				health.OK("OK")
 			}
 		} else {
