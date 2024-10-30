@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -17,7 +18,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium/cilium-cli/install"
-	"github.com/cilium/cilium/pkg/inctimer"
 )
 
 // addCommonInstallFlags adds install command flags that are shared between install and upgrade commands.
@@ -137,7 +137,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 						break
 					}
 					select {
-					case <-inctimer.After(defaults.WaitRetryInterval):
+					case <-time.After(defaults.WaitRetryInterval):
 					case <-ctx.Done():
 						fatalf("Timed out waiting for Hubble Pods to terminate")
 					}
