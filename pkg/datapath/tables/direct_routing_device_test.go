@@ -17,7 +17,6 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -98,7 +97,7 @@ func TestDirectRoutingDevice(t *testing.T) {
 	select {
 	case <-watch:
 		t.Error("watch channel closed even though it should not")
-	case <-inctimer.After(time.Millisecond):
+	case <-time.After(time.Millisecond):
 	}
 
 	// Insert another device.
@@ -119,7 +118,7 @@ func TestDirectRoutingDevice(t *testing.T) {
 	select {
 	case <-watch:
 		t.Error("watch channel closed even though it should not")
-	case <-inctimer.After(time.Millisecond):
+	case <-time.After(time.Millisecond):
 	}
 
 	// If one of the devices matches the K8s Node IP, it is returned.
@@ -136,7 +135,7 @@ func TestDirectRoutingDevice(t *testing.T) {
 	select {
 	case <-watch:
 		t.Error("watch channel closed even though it should not")
-	case <-inctimer.After(time.Millisecond):
+	case <-time.After(time.Millisecond):
 	}
 	want.Addrs = nil
 }
@@ -241,7 +240,7 @@ func TestDirectRoutingDevice_withConfig(t *testing.T) {
 			select {
 			case <-watch:
 				t.Error("watch channel closed even though it should not")
-			case <-inctimer.After(time.Millisecond):
+			case <-time.After(time.Millisecond):
 			}
 		})
 	}

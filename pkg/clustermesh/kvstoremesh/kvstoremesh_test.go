@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -102,14 +101,11 @@ func clockAdvance(t assert.TestingT, fc *baseclocktest.FakeClock, d time.Duratio
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	timer, stop := inctimer.New()
-	defer stop()
-
 	for !fc.HasWaiters() {
 		select {
 		case <-ctx.Done():
 			assert.FailNow(t, "Could not advance clock within expected timeout")
-		case <-timer.After(1 * time.Millisecond):
+		case <-time.After(1 * time.Millisecond):
 		}
 	}
 

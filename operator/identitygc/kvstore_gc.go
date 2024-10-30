@@ -12,7 +12,6 @@ import (
 	ciliumIdentity "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -40,8 +39,6 @@ func (igc *GC) startKVStoreModeGC(ctx context.Context) error {
 func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 	keysToDeletePrev := map[string]uint64{}
 
-	gcTimer, gcTimerDone := inctimer.New()
-	defer gcTimerDone()
 	for {
 		now := time.Now()
 
@@ -85,7 +82,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				return nil
-			case <-gcTimer.After(igc.gcInterval - gcDuration):
+			case <-time.After(igc.gcInterval - gcDuration):
 			}
 		}
 

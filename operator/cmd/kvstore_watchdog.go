@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -78,8 +77,6 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 
 	keysToDelete := map[string]kvstore.Value{}
 	go func() {
-		lockTimer, lockTimerDone := inctimer.New()
-		defer lockTimerDone()
 		for {
 			keysToDelete = getOldestLeases(keysToDelete)
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
@@ -91,13 +88,11 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 			}
 			cancel()
 
-			<-lockTimer.After(defaults.LockLeaseTTL)
+			<-time.After(defaults.LockLeaseTTL)
 		}
 	}()
 
 	go func() {
-		hbTimer, hbTimerDone := inctimer.New()
-		defer hbTimerDone()
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
 
@@ -121,7 +116,7 @@ func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 			}
 
 			cancel()
-			<-hbTimer.After(kvstore.HeartbeatWriteInterval)
+			<-time.After(kvstore.HeartbeatWriteInterval)
 		}
 	}()
 }

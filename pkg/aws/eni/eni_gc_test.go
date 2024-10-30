@@ -12,7 +12,6 @@ import (
 
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging"
 )
 
@@ -29,7 +28,7 @@ func waitForControllerRun(t *testing.T, controller *controller.Manager, name str
 		}
 
 		select {
-		case <-inctimer.After(10 * time.Millisecond):
+		case <-time.After(10 * time.Millisecond):
 			continue
 		case <-ctx.Done():
 			t.Errorf("timed out waiting for controller %q to reach %d successful runs", name, expectedCount)

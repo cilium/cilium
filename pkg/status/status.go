@@ -14,7 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -146,8 +145,6 @@ func (c *Collector) GetStaleProbes() map[string]time.Time {
 // spawnProbe starts a goroutine which invokes the probe at the particular interval.
 func (c *Collector) spawnProbe(p *Probe) {
 	go func() {
-		timer, stopTimer := inctimer.New()
-		defer stopTimer()
 		for {
 			c.runProbe(p)
 
@@ -159,7 +156,7 @@ func (c *Collector) spawnProbe(p *Probe) {
 			case <-c.stop:
 				// collector is closed, stop looping
 				return
-			case <-timer.After(interval):
+			case <-time.After(interval):
 				// keep looping
 			}
 		}

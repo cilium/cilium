@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/inctimer"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
@@ -166,8 +165,6 @@ func (d *dummyOwner) GetNodeSuffix() string {
 // nothing is received from that channel in 60 seconds.
 func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 	rounds := 0
-	timer, timerDone := inctimer.New()
-	defer timerDone()
 	for {
 		select {
 		case nid, ok := <-d.updated:
@@ -179,7 +176,7 @@ func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 			if nid == target {
 				return rounds
 			}
-		case <-timer.After(60 * time.Second):
+		case <-time.After(60 * time.Second):
 			// Timed out waiting for KV-store events
 			return 0
 		}

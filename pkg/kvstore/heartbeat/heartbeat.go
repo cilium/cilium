@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -20,8 +19,6 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kvstore-heartbea
 // blocking until the context is canceled.
 func Heartbeat(ctx context.Context, backend kvstore.BackendOperations) {
 	log.WithField(logfields.Interval, kvstore.HeartbeatWriteInterval).Info("Starting to update heartbeat key")
-	timer, timerDone := inctimer.New()
-	defer timerDone()
 	for {
 		log.Debug("Updating heartbeat key")
 		tctx, cancel := context.WithTimeout(ctx, defaults.LockLeaseTTL)
@@ -32,7 +29,7 @@ func Heartbeat(ctx context.Context, backend kvstore.BackendOperations) {
 		cancel()
 
 		select {
-		case <-timer.After(kvstore.HeartbeatWriteInterval):
+		case <-time.After(kvstore.HeartbeatWriteInterval):
 		case <-ctx.Done():
 			log.Info("Stopping to update heartbeat key")
 			return

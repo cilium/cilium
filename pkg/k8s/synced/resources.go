@@ -9,7 +9,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -185,7 +184,7 @@ func (r *Resources) WaitForCacheSyncWithTimeout(timeout time.Duration, resourceN
 					// If timeout is reached, check if an event occurred that would
 					// have pushed back the timeout and wait for that amount of time.
 					select {
-					case now := <-inctimer.After(currTimeout):
+					case now := <-time.After(currTimeout):
 						lastEvent, never := r.getTimeOfLastEvent(resource)
 						if never {
 							return fmt.Errorf("timed out after %s, never received event for resource %q", timeout, resource)

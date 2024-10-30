@@ -19,8 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // numUnavailableNodesReportMax represents the maximum number of unavailable
@@ -84,11 +84,9 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 
 	if req.GetFollow() {
 		go func() {
-			updateTimer, updateTimerDone := inctimer.New()
-			defer updateTimerDone()
 			for {
 				select {
-				case <-updateTimer.After(s.opts.peerUpdateInterval):
+				case <-time.After(s.opts.peerUpdateInterval):
 					peers := s.peers.List()
 					_, _ = fc.collect(gctx, g, peers, flows)
 				case <-gctx.Done():

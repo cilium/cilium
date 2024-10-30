@@ -16,7 +16,6 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -300,8 +299,6 @@ func (m *multiPoolManager) waitForAllPools() {
 // before any IPs are handed out, so hasAvailableIPs returns true so as long as
 // the local node has IPs assigned to it in the given pool.
 func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolName Pool) (ready bool) {
-	timer, stop := inctimer.New()
-	defer stop()
 	for {
 		m.mutex.Lock()
 		switch family {
@@ -323,7 +320,7 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 			return false
 		case <-m.poolsUpdated:
 			continue
-		case <-timer.After(5 * time.Second):
+		case <-time.After(5 * time.Second):
 			log.WithFields(logrus.Fields{
 				logfields.HelpMessage: "Check if cilium-operator pod is running and does not have any warnings or error messages.",
 				logfields.Family:      family,

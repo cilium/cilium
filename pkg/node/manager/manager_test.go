@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -460,8 +459,6 @@ func TestBackgroundSync(t *testing.T) {
 
 	go func() {
 		nodeValidationsReceived := 0
-		timer, timerDone := inctimer.New()
-		defer timerDone()
 		for {
 			select {
 			case <-signalNodeHandler.NodeValidateImplementationEvent:
@@ -470,7 +467,7 @@ func TestBackgroundSync(t *testing.T) {
 					allNodeValidateCallsReceived.Done()
 					return
 				}
-			case <-timer.After(time.Second * 1):
+			case <-time.After(1 * time.Second):
 				t.Errorf("Timeout while waiting for NodeValidateImplementation() to be called")
 				allNodeValidateCallsReceived.Done()
 				return

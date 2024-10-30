@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -54,7 +53,7 @@ func TestFakeListerWatcher(t *testing.T) {
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)
-	case <-inctimer.After(time.Second):
+	case <-time.After(time.Second):
 		t.Fatalf("timed out waiting for object")
 	}
 
@@ -67,7 +66,7 @@ func TestFakeListerWatcher(t *testing.T) {
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)
-	case <-inctimer.After(time.Second):
+	case <-time.After(time.Second):
 		t.Fatalf("timed out waiting for object")
 	}
 
@@ -80,7 +79,7 @@ func TestFakeListerWatcher(t *testing.T) {
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)
-	case <-inctimer.After(time.Second):
+	case <-time.After(time.Second):
 		t.Fatalf("timed out waiting for object")
 	}
 
