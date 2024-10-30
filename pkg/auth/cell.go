@@ -38,7 +38,7 @@ var Cell = cell.Module(
 	// In addition, it handles re-authentication and auth map garbage collection.
 	cell.Provide(registerAuthManager),
 	cell.ProvidePrivate(
-		// Null auth handler provides support for auth type "null" - which always succeeds.
+		// Auth handler that performs a mutual auth handshake
 		newMutualAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
 		newAlwaysFailAuthHandler,
@@ -135,7 +135,7 @@ func registerReAuthenticationJob(jobGroup job.Group, mgr *AuthManager, authHandl
 }
 
 func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm signal.SignalManager, config config) error {
-	var signalChannel = make(chan signalAuthKey, config.MeshAuthQueueSize)
+	signalChannel := make(chan signalAuthKey, config.MeshAuthQueueSize)
 
 	// RegisterHandler registers signalChannel with SignalManager, but flow of events
 	// starts later during the OnStart hook of the SignalManager
