@@ -488,6 +488,70 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 	require.Empty(t, m.rpm.policyConfigs)
 }
 
+// Tests add redirect policy for an addressMatcher config with a frontend having single port
+// and multiple pods upon AddRedirectPolicy.
+func TestManager_AddrMatcherConfigSinglePortMulPods(t *testing.T) {
+	m := setupManagerSuite(t)
+
+	// Update localPods to pod1 and pod2
+	newPod2 := pod2.DeepCopy()
+	newPod2.Labels["test"] = "foo"
+
+	psg := &fakePodResource{
+		fakePodStore{
+			OnList: func() []*slimcorev1.Pod {
+				return []*slimcorev1.Pod{pod1, newPod2}
+			},
+		},
+	}
+	m.rpm.localPods = psg
+
+	// Add an addressMatcher type LRP with single port. The policy config
+	// frontend should have 4 pod backends with each of the podIPs.
+	pod1IPs := utils.ValidIPs(pod1.Status)
+	pod2IPs := utils.ValidIPs(newPod2.Status)
+	expectedbes := make([]backend, 0, len(pod1IPs)+len(pod2IPs))
+	for _, ip := range pod1IPs {
+		expectedbes = append(expectedbes, backend{
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(ip), L4Addr: beP1.l4Addr},
+			podID:    pod1ID,
+		})
+	}
+	for _, ip := range pod2IPs {
+		expectedbes = append(expectedbes, backend{
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(ip), L4Addr: beP1.l4Addr},
+			podID:    pod2ID,
+		})
+	}
+
+	added, err := m.rpm.AddRedirectPolicy(configAddrType)
+
+	require.True(t, added)
+	require.NoError(t, err)
+	require.Len(t, m.rpm.policyConfigs, 1)
+	require.Equal(t, configAddrType.id.Name, m.rpm.policyConfigs[configAddrType.id].id.Name)
+	require.Equal(t, configAddrType.id.Namespace, m.rpm.policyConfigs[configAddrType.id].id.Namespace)
+	require.Len(t, m.rpm.policyFrontendsByHash, 1)
+	require.Equal(t, configAddrType.id, m.rpm.policyFrontendsByHash[configAddrType.frontendMappings[0].feAddr.Hash()])
+	require.Len(t, configAddrType.frontendMappings[0].podBackends, 4)
+	for i := range configAddrType.frontendMappings[0].podBackends {
+		require.Equal(t, expectedbes[i], configAddrType.frontendMappings[0].podBackends[i])
+	}
+	require.Len(t, m.rpm.policyPods, 2)
+	require.Len(t, m.rpm.policyPods[pod1ID], 1)
+	require.Len(t, m.rpm.policyPods[pod2ID], 1)
+	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod1ID][0])
+	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod2ID][0])
+
+	// Delete the LRP.
+	err = m.rpm.DeleteRedirectPolicy(configAddrType)
+
+	require.NoError(t, err)
+	require.Empty(t, m.rpm.policyFrontendsByHash)
+	require.Empty(t, m.rpm.policyPods)
+	require.Empty(t, m.rpm.policyConfigs)
+}
+
 // Tests add redirect policy, add pod, delete pod and delete redirect policy events
 // for an addressMatcher config with a frontend having multiple named ports.
 func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
@@ -558,6 +622,110 @@ func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
 	require.Len(t, m.rpm.policyPods, 1)
 	require.Len(t, m.rpm.policyPods[pod1ID], 1)
 	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod1ID][0])
+
+	// Delete the LRP.
+	err = m.rpm.DeleteRedirectPolicy(configAddrType)
+
+	require.NoError(t, err)
+	require.Empty(t, m.rpm.policyFrontendsByHash)
+	require.Empty(t, m.rpm.policyPods)
+	require.Empty(t, m.rpm.policyConfigs)
+}
+
+// Tests add redirect policy for an addressMatcher config with a frontend having
+// multiple named ports and multiple pods upon AddRedirectPolicy.
+func TestManager_AddrMatcherConfigMultiplePortsMulPods(t *testing.T) {
+	m := setupManagerSuite(t)
+
+	// Update localPods to pod1 and pod2
+	newPod2 := pod2.DeepCopy()
+	newPod2.Labels["test"] = "foo"
+
+	psg := &fakePodResource{
+		fakePodStore{
+			OnList: func() []*slimcorev1.Pod {
+				return []*slimcorev1.Pod{pod1, newPod2}
+			},
+		},
+	}
+	m.rpm.localPods = psg
+
+	// Add an addressMatcher type LRP with multiple named ports.
+	configAddrType.frontendType = addrFrontendNamedPorts
+	configAddrType.frontendMappings = append(configAddrType.frontendMappings, &feMapping{
+		feAddr:      fe2,
+		podBackends: nil,
+		fePort:      portName2,
+	})
+	beP1.name = portName1
+	beP2.name = portName2
+	configAddrType.backendPorts = []bePortInfo{beP1, beP2}
+	configAddrType.backendPortsByPortName = map[string]*bePortInfo{
+		beP1.name: &configAddrType.backendPorts[0],
+		beP2.name: &configAddrType.backendPorts[1]}
+
+	pod1IPs := utils.ValidIPs(pod1.Status)
+	pod2IPs := utils.ValidIPs(newPod2.Status)
+
+	added, err := m.rpm.AddRedirectPolicy(configAddrType)
+
+	require.True(t, added)
+	require.NoError(t, err)
+	require.Len(t, m.rpm.policyConfigs, 1)
+	require.Equal(t, configAddrType.id.Name, m.rpm.policyConfigs[configAddrType.id].id.Name)
+	require.Equal(t, configAddrType.id.Namespace, m.rpm.policyConfigs[configAddrType.id].id.Namespace)
+	require.Len(t, m.rpm.policyFrontendsByHash, 2)
+	for _, id := range m.rpm.policyFrontendsByHash {
+		require.Equal(t, configAddrType.id, id)
+	}
+	// Frontend ports should be mapped to the corresponding backend ports.
+	for _, feM := range configAddrType.frontendMappings {
+		switch feM.fePort {
+		case "test1":
+			require.Len(t, feM.podBackends, 4)
+			expectedbes := make([]backend, 0, len(pod1IPs)+len(pod2IPs))
+			for _, ip := range pod1IPs {
+				expectedbes = append(expectedbes, backend{
+					L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(ip), L4Addr: beP1.l4Addr},
+					podID:    pod1ID,
+				})
+			}
+			for _, ip := range pod2IPs {
+				expectedbes = append(expectedbes, backend{
+					L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(ip), L4Addr: beP1.l4Addr},
+					podID:    pod2ID,
+				})
+			}
+			for i := range feM.podBackends {
+				require.Equal(t, expectedbes[i], feM.podBackends[i])
+			}
+		case "test2":
+			require.Len(t, feM.podBackends, 4)
+			expectedbes := make([]backend, 0, len(pod1IPs)+len(pod2IPs))
+			for _, ip := range pod1IPs {
+				expectedbes = append(expectedbes, backend{
+					L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(ip), L4Addr: beP2.l4Addr},
+					podID:    pod1ID,
+				})
+			}
+			for _, ip := range pod2IPs {
+				expectedbes = append(expectedbes, backend{
+					L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(ip), L4Addr: beP2.l4Addr},
+					podID:    pod2ID,
+				})
+			}
+			for i := range feM.podBackends {
+				require.Equal(t, expectedbes[i], feM.podBackends[i])
+			}
+		default:
+			log.Errorf("Unknown port %s", feM.fePort)
+		}
+	}
+	require.Len(t, m.rpm.policyPods, 2)
+	require.Len(t, m.rpm.policyPods[pod1ID], 1)
+	require.Len(t, m.rpm.policyPods[pod2ID], 1)
+	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod1ID][0])
+	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod2ID][0])
 
 	// Delete the LRP.
 	err = m.rpm.DeleteRedirectPolicy(configAddrType)
