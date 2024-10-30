@@ -75,18 +75,6 @@ const (
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
 )
 
-type Listener struct {
-	// must hold the XDSServer.mutex when accessing 'count'
-	count uint
-
-	// mutex is needed when accessing the fields below.
-	// XDSServer.mutex is not needed, but if taken it must be taken before 'mutex'
-	mutex   lock.RWMutex
-	acked   bool
-	nacked  bool
-	waiters []*completion.Completion
-}
-
 // XDSServer provides a high-lever interface to manage resources published
 // using the xDS gRPC API.
 type XDSServer struct {
@@ -119,11 +107,11 @@ type XDSServer struct {
 	// Manages it's own locking
 	secretMutator xds.AckingResourceMutator
 
-	// listeners is the set of names of listeners that have been added by
+	// listenerCount is the set of names of listeners that have been added by
 	// calling AddListener.
 	// mutex must be held when accessing this.
 	// Value holds the number of redirects using the listener named by the key.
-	listeners map[string]*Listener
+	listenerCount map[string]uint
 
 	// proxyListeners is the count of redirection proxy listeners in 'listeners'.
 	// When this is zero, cilium should not wait for NACKs/ACKs from envoy.
@@ -238,7 +226,7 @@ func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServ
 		socketPath:             xdsSocketPath,
 		accessLogPath:          getAccessLogSocketPath(envoySocketDir),
 		listenerMutator:        ldsMutator,
-		listeners:              make(map[string]*Listener),
+		listenerCount:          make(map[string]uint),
 		routeMutator:           rdsMutator,
 		clusterMutator:         cdsMutator,
 		endpointMutator:        edsMutator,
@@ -615,34 +603,6 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	listener := s.listeners[name]
-	if listener == nil {
-		listener = &Listener{}
-		s.listeners[name] = listener
-		if isProxyListener {
-			s.proxyListeners++
-		}
-		log.WithField(logfields.Listener, name).Infof("Envoy: Upserting new listener")
-	}
-	listener.count++
-	listener.mutex.Lock() // needed for other than 'count'
-	if listener.count > 1 && !listener.nacked {
-		log.Debugf("Envoy: Reusing listener: %s", name)
-		if !listener.acked {
-			// Listener not acked yet, add a completion to the waiter's list
-			log.Debugf("Envoy: Waiting for a non-acknowledged reused listener: %s", name)
-			listener.waiters = append(listener.waiters, wg.AddCompletion())
-		}
-		listener.mutex.Unlock()
-		return
-	}
-	// Try again after a NACK, potentially with a different port number, etc.
-	if listener.nacked {
-		listener.acked = false
-		listener.nacked = false
-	}
-	listener.mutex.Unlock() // Listener locked again in callbacks below
-
 	listenerConfig := listenerConf()
 	if option.Config.EnableBPFTProxy {
 		// Envoy since 1.20.0 uses SO_REUSEPORT on listeners by default.
@@ -655,26 +615,18 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 		return
 	}
 
+	count := s.listenerCount[name]
+	if count == 0 {
+		if isProxyListener {
+			s.proxyListeners++
+		}
+		log.WithField(logfields.Listener, name).Infof("Envoy: Upserting new listener")
+	}
+	count++
+	s.listenerCount[name] = count
+
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
 		func(err error) {
-			// listener might have already been removed, so we can't look again
-			// but we still need to complete all the completions in case
-			// someone is still waiting!
-			listener.mutex.Lock()
-			if err == nil {
-				// Allow future users to not need to wait
-				listener.acked = true
-			} else {
-				// Prevent further reuse of a failed listener
-				listener.nacked = true
-			}
-			// Pass the completion result to all the additional waiters.
-			for _, waiter := range listener.waiters {
-				waiter.Complete(err)
-			}
-			listener.waiters = nil
-			listener.mutex.Unlock()
-
 			if cb != nil {
 				cb(err)
 			}
@@ -884,16 +836,18 @@ func (s *XDSServer) removeListener(name string, wg *completion.WaitGroup, isProx
 	var listenerRevertFunc xds.AckingResourceMutatorRevertFunc
 
 	s.mutex.Lock()
-	listener, ok := s.listeners[name]
-	if ok && listener != nil {
-		listener.count--
-		if listener.count == 0 {
+	count := s.listenerCount[name]
+	if count > 0 {
+		count--
+		if count == 0 {
 			if isProxyListener {
 				s.proxyListeners--
 			}
-			delete(s.listeners, name)
+			delete(s.listenerCount, name)
 			log.WithField(logfields.Listener, name).Infof("Envoy: Deleting listener")
 			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+		} else {
+			s.listenerCount[name] = count
 		}
 	} else {
 		// Bail out if this listener does not exist
@@ -909,8 +863,7 @@ func (s *XDSServer) removeListener(name string, wg *completion.WaitGroup, isProx
 				s.proxyListeners++
 			}
 		}
-		listener.count++
-		s.listeners[name] = listener
+		s.listenerCount[name] = s.listenerCount[name] + 1
 		s.mutex.Unlock()
 	}
 }
