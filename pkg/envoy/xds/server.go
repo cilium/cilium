@@ -399,7 +399,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
 				go watcher.WatchResources(ctx, typeURL, versionInfo, nodeIP, req.GetResourceNames(), respCh)
 			} else {
-				requestLog.Warning("received invalid nonce in xDS request; ignoring request")
+				requestLog.Warning("received invalid nonce in xDS request")
+				return ErrInvalidResponseNonce
 			}
 			firstRequest = false
 
