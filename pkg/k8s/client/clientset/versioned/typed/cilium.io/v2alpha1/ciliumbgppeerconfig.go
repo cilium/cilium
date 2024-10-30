@@ -26,6 +26,8 @@ type CiliumBGPPeerConfigsGetter interface {
 type CiliumBGPPeerConfigInterface interface {
 	Create(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.CreateOptions) (*v2alpha1.CiliumBGPPeerConfig, error)
 	Update(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.UpdateOptions) (*v2alpha1.CiliumBGPPeerConfig, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.UpdateOptions) (*v2alpha1.CiliumBGPPeerConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.CiliumBGPPeerConfig, error)
