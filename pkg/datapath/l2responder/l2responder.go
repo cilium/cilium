@@ -16,6 +16,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/garp"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
@@ -288,7 +289,9 @@ func (clr *cachingLinkResolver) LinkIndex(name string) (int, error) {
 		return idx, nil
 	}
 
-	link, err := clr.nl.LinkByName(name)
+	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
+		return clr.nl.LinkByName(name)
+	})
 	if err != nil {
 		return 0, err
 	}
