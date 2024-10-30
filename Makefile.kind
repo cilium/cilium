@@ -374,6 +374,32 @@ kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium ve
 		--version= \
 		>/dev/null 2>&1 &
 
+KVSTORE_POD_NAME ?= "kvstore"
+KVSTORE_POD_PORT ?= "2378"
+
+.PHONY: kind-kvstore-install-cilium
+kind-kvstore-install-cilium: check_deps kind-ready kind-kvstore-start ## Install a local Cilium version into the cluster, configured in kvstore mode.
+	$(MAKE) kind-install-cilium KIND_VALUES_FILES="\
+		$(KIND_VALUES_FILES) \
+		--set etcd.enabled=true \
+		--set etcd.endpoints[0]=http://$(shell kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) -o jsonpath='{.status.hostIP}'):$(KVSTORE_POD_PORT) \
+		--set identityAllocationMode=kvstore \
+	"
+
+.PHONY: kind-kvstore-start
+kind-kvstore-start: ## Start an etcd pod serving as Cilium's kvstore
+	kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) >/dev/null 2>/dev/null || \
+		kubectl --namespace kube-system run $(KVSTORE_POD_NAME) --image $(ETCD_IMAGE) \
+			--overrides='{ "apiVersion": "v1", "spec": { "hostNetwork": true, "nodeSelector": {"node-role.kubernetes.io/control-plane": ""},  "tolerations": [{ "operator": "Exists" }] }}' \
+			-- etcd --listen-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT) --advertise-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT)
+
+	kubectl --namespace kube-system wait --for=condition=Ready pod/$(KVSTORE_POD_NAME)
+
+.PHONY: kind-kvstore-stop
+kind-kvstore-stop: ## Stop the etcd pod serving as Cilium's kvstore
+	kubectl --namespace kube-system delete pod $(KVSTORE_POD_NAME) --ignore-not-found
+	kubectl --namespace kube-system wait --for=delete pod/$(KVSTORE_POD_NAME)
+
 .PHONY: kind-uninstall-cilium
 kind-uninstall-cilium: check_deps ## Uninstall Cilium from the cluster.
 	@echo "  UNINSTALL cilium"
