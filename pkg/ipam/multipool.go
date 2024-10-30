@@ -7,11 +7,11 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"slices"
 	"sort"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -92,11 +92,10 @@ func (p pendingAllocationsPerPool) upsertPendingAllocation(poolName Pool, owner 
 		pool = pendingAllocationsPerOwner{}
 	}
 
-	log.WithFields(logrus.Fields{
-		"owner":  owner,
-		"family": family,
-		"pool":   poolName,
-	}).Debug("IP allocation failed, upserting pending allocation")
+	log.Debug("IP allocation failed, upserting pending allocation",
+		"owner", owner,
+		"family", family,
+		"pool", poolName)
 
 	now := p.clock()
 	pool.startExpirationAt(now, owner, family)
@@ -171,11 +170,10 @@ func (p pendingAllocationsPerOwner) removeExpiredEntries(now time.Time, pool Poo
 		for owner, expires := range owners {
 			if now.After(expires) {
 				p.removeExpiration(owner, family)
-				log.WithFields(logrus.Fields{
-					"owner":  owner,
-					"family": family,
-					"pool":   pool,
-				}).Debug("Pending IP allocation has expired without being fulfilled")
+				log.Debug("Pending IP allocation has expired without being fulfilled",
+					"owner", owner,
+					"family", family,
+					"pool", pool)
 			}
 		}
 	}
@@ -216,7 +214,8 @@ var _ Allocator = (*multiPoolAllocator)(nil)
 func newMultiPoolManager(conf *option.DaemonConfig, node agentK8s.LocalCiliumNodeResource, owner Owner, clientset nodeUpdater) *multiPoolManager {
 	preallocMap, err := parseMultiPoolPreAllocMap(conf.IPAMMultiPoolPreAllocation)
 	if err != nil {
-		log.WithError(err).Fatalf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation)
+		log.Error("Invalid %s flag value", option.IPAMMultiPoolPreAllocation, logfields.Error, err)
+		os.Exit(1)
 	}
 
 	k8sController := controller.NewManager()
@@ -228,7 +227,8 @@ func newMultiPoolManager(conf *option.DaemonConfig, node agentK8s.LocalCiliumNod
 		Name: multiPoolTriggerName,
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize CiliumNode synchronization trigger")
+		log.Error("Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
+		os.Exit(1)
 	}
 
 	c := &multiPoolManager{
@@ -268,7 +268,7 @@ func (m *multiPoolManager) ciliumNodeEventLoop(evs <-chan resource.Event[*cilium
 		case resource.Upsert:
 			m.ciliumNodeUpdated(ev.Object)
 		case resource.Delete:
-			log.WithField(logfields.Node, ev.Object).Warning("Local CiliumNode deleted. IPAM will continue on last seen version")
+			log.Warn("Local CiliumNode deleted. IPAM will continue on last seen version", logfields.Node, ev.Object)
 		}
 		ev.Done(nil)
 	}
@@ -324,10 +324,9 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 		case <-m.poolsUpdated:
 			continue
 		case <-timer.After(5 * time.Second):
-			log.WithFields(logrus.Fields{
-				logfields.HelpMessage: "Check if cilium-operator pod is running and does not have any warnings or error messages.",
-				logfields.Family:      family,
-			}).Infof("Waiting for %s pod CIDR pool %q to become available", family, poolName)
+			log.Info(fmt.Sprintf("Waiting for %s pod CIDR pool %q to become available", family, poolName),
+				logfields.HelpMessage, "Check if cilium-operator pod is running and does not have any warnings or error messages.",
+				logfields.Family, family)
 		}
 	}
 }

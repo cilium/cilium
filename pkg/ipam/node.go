@@ -9,8 +9,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
@@ -207,7 +207,7 @@ func (n *Node) SetRunning(running bool) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	n.loggerLocked().Infof("Set running %t", running)
+	n.loggerLocked().Info(fmt.Sprintf("Set running %t", running))
 	n.instanceRunning = running
 	if !n.instanceRunning {
 		n.instanceStoppedRunning = time.Now()
@@ -231,7 +231,7 @@ func (n *Node) IsPrefixDelegationEnabled() bool {
 	return n.manager.prefixDelegation
 }
 
-func (n *Node) logger() *logrus.Entry {
+func (n *Node) logger() *slog.Logger {
 	if n == nil {
 		return log
 	}
@@ -242,13 +242,13 @@ func (n *Node) logger() *logrus.Entry {
 	return n.loggerLocked()
 }
 
-func (n *Node) loggerLocked() (logger *logrus.Entry) {
+func (n *Node) loggerLocked() (logger *slog.Logger) {
 	logger = log
 
 	if n != nil {
-		logger = logger.WithField(fieldName, n.name)
+		logger = logger.With(fieldName, n.name)
 		if n.resource != nil {
-			logger = logger.WithField("instanceID", n.resource.InstanceID())
+			logger = logger.With("instanceID", n.resource.InstanceID())
 		}
 	}
 	return
@@ -283,7 +283,7 @@ func (n *Node) getMaxAllocate() int {
 	instanceMax := n.ops.GetMaximumAllocatableIPv4()
 	if n.resource.Spec.IPAM.MaxAllocate > 0 {
 		if n.resource.Spec.IPAM.MaxAllocate > instanceMax {
-			n.loggerLocked().Warningf("max-allocate (%d) is higher than the instance type limits (%d)", n.resource.Spec.IPAM.MaxAllocate, instanceMax)
+			n.loggerLocked().Warn(fmt.Sprintf("max-allocate (%d) is higher than the instance type limits (%d)", n.resource.Spec.IPAM.MaxAllocate, instanceMax))
 		}
 		return n.resource.Spec.IPAM.MaxAllocate
 	}
@@ -473,9 +473,9 @@ func (n *Node) recalculate() {
 		var limitsNotFound LimitsNotFound
 		ok := errors.As(err, &limitsNotFound)
 		if ok {
-			scopedLog.WithError(err).Warning("Instance limits not found.")
+			scopedLog.Warn("Instance limits not found", logfields.Error, err)
 		} else {
-			scopedLog.WithError(err).Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
+			scopedLog.Warn("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted", logfields.Error, err)
 		}
 		// Avoid any further action
 		n.stats.IPv4.NeededIPs = 0
@@ -501,16 +501,15 @@ func (n *Node) recalculate() {
 	n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
 	n.stats.IPv4.Capacity = stats.NodeCapacity
 
-	scopedLog.WithFields(logrus.Fields{
-		"available":                 n.stats.IPv4.AvailableIPs,
-		"capacity":                  n.stats.IPv4.Capacity,
-		"used":                      n.stats.IPv4.UsedIPs,
-		"toAlloc":                   n.stats.IPv4.NeededIPs,
-		"toRelease":                 n.stats.IPv4.ExcessIPs,
-		"waitingForPoolMaintenance": n.ipv4Alloc.waitingForPoolMaintenance,
-		"resyncNeeded":              n.resyncNeeded,
-		"remainingInterfaces":       stats.RemainingAvailableInterfaceCount,
-	}).Debug("Recalculated needed addresses")
+	scopedLog.Debug("Recalculated needed addresses",
+		"available", n.stats.IPv4.AvailableIPs,
+		"capacity", n.stats.IPv4.Capacity,
+		"used", n.stats.IPv4.UsedIPs,
+		"toAlloc", n.stats.IPv4.NeededIPs,
+		"toRelease", n.stats.IPv4.ExcessIPs,
+		"waitingForPoolMaintenance", n.ipv4Alloc.waitingForPoolMaintenance,
+		"resyncNeeded", n.resyncNeeded,
+		"remainingInterfaces", stats.RemainingAvailableInterfaceCount)
 }
 
 // allocationNeeded returns true if this node requires IPs to be allocated
@@ -563,7 +562,7 @@ func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (create
 		// separate metric to track nodes running at capacity.
 		n.mutex.Lock()
 		if time.Since(n.lastMaxAdapterWarning) > warningInterval {
-			n.loggerLocked().Warning("Instance is out of interfaces")
+			n.loggerLocked().Warn("Instance is out of interfaces")
 			n.lastMaxAdapterWarning = time.Now()
 		}
 		n.mutex.Unlock()
@@ -575,7 +574,7 @@ func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (create
 	toAllocate, errCondition, err := n.ops.CreateInterface(ctx, a, scopedLog)
 	if err != nil {
 		n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, errCondition, string(a.PoolID), metrics.SinceInSeconds(start))
-		scopedLog.Warningf("Unable to create interface on instance: %s", err)
+		scopedLog.Warn("Unable to create interface on instance", logfields.Error, err)
 		return false, err
 	}
 
@@ -692,7 +691,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	numPendingPods, err := getPendingPodCount(n.name)
 	if err != nil {
 		if n.logLimiter.Allow() {
-			scopedLog.WithError(err).Warningf("Unable to compute pending pods, will not surge-allocate")
+			scopedLog.Warn("Unable to compute pending pods, will not surge-allocate", logfields.Error, err)
 		}
 	} else if numPendingPods > stats.IPv4.NeededIPs {
 		surgeAllocate = numPendingPods - stats.IPv4.NeededIPs
@@ -709,21 +708,20 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 		n.stats.IPv4.RemainingInterfaces = a.allocation.IPv4.InterfaceCandidates + a.allocation.EmptyInterfaceSlots
 		stats = n.stats
 		n.mutex.Unlock()
-		scopedLog = scopedLog.WithFields(logrus.Fields{
-			"selectedInterface":      a.allocation.InterfaceID,
-			"selectedPoolID":         a.allocation.PoolID,
-			"maxIPsToAllocate":       a.allocation.IPv4.MaxIPsToAllocate,
-			"availableForAllocation": a.allocation.IPv4.AvailableForAllocation,
-			"emptyInterfaceSlots":    a.allocation.EmptyInterfaceSlots,
-		})
+		scopedLog = scopedLog.With(
+			"selectedInterface", a.allocation.InterfaceID,
+			"selectedPoolID", a.allocation.PoolID,
+			"maxIPsToAllocate", a.allocation.IPv4.MaxIPsToAllocate,
+			"availableForAllocation", a.allocation.IPv4.AvailableForAllocation,
+			"emptyInterfaceSlots", a.allocation.EmptyInterfaceSlots,
+		)
 	}
 
-	scopedLog.WithFields(logrus.Fields{
-		"available":           stats.IPv4.AvailableIPs,
-		"used":                stats.IPv4.UsedIPs,
-		"neededIPs":           stats.IPv4.NeededIPs,
-		"remainingInterfaces": stats.IPv4.RemainingInterfaces,
-	}).Info("Resolving IP deficit of node")
+	scopedLog.Info("Resolving IP deficit of node",
+		"available", stats.IPv4.AvailableIPs,
+		"used", stats.IPv4.UsedIPs,
+		"neededIPs", stats.IPv4.NeededIPs,
+		"remainingInterfaces", stats.IPv4.RemainingInterfaces)
 
 	return a, nil
 }
@@ -859,7 +857,7 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 
 	n.mutex.Lock()
 	for _, ip := range ipsToMark {
-		scopedLog.WithFields(logrus.Fields{logfields.IPAddr: ip}).Debug("Marking IP for release")
+		scopedLog.Debug("Marking IP for release", logfields.IPAddr, ip)
 		n.ipv4Alloc.ipReleaseStatus[ip] = ipamOption.IPAMMarkForRelease
 	}
 	n.mutex.Unlock()
@@ -876,15 +874,15 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 
 	if len(ipsToRelease) > 0 {
 		a.release.IPsToRelease = ipsToRelease
-		scopedLog = scopedLog.WithFields(logrus.Fields{
-			"available":         n.stats.IPv4.AvailableIPs,
-			"used":              n.stats.IPv4.UsedIPs,
-			"excess":            n.stats.IPv4.ExcessIPs,
-			"excessIps":         a.release.IPsToRelease,
-			"releasing":         ipsToRelease,
-			"selectedInterface": a.release.InterfaceID,
-			"selectedPoolID":    a.release.PoolID,
-		})
+		scopedLog = scopedLog.With(
+			"available", n.stats.IPv4.AvailableIPs,
+			"used", n.stats.IPv4.UsedIPs,
+			"excess", n.stats.IPv4.ExcessIPs,
+			"excessIps", a.release.IPsToRelease,
+			"releasing", ipsToRelease,
+			"selectedInterface", a.release.InterfaceID,
+			"selectedPoolID", a.release.PoolID,
+		)
 		scopedLog.Info("Releasing excess IPs from node")
 		start := time.Now()
 		err := n.ops.ReleaseIPs(ctx, a.release)
@@ -902,10 +900,10 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			return true, nil
 		}
 		n.manager.metricsAPI.ReleaseAttempt(releaseIP, failed, string(a.release.PoolID), metrics.SinceInSeconds(start))
-		scopedLog.WithFields(logrus.Fields{
-			"selectedInterface":  a.release.InterfaceID,
-			"releasingAddresses": len(a.release.IPsToRelease),
-		}).WithError(err).Warning("Unable to unassign IPs from interface")
+		scopedLog.Warn("Unable to unassign IPs from interface",
+			"selectedInterface", a.release.InterfaceID,
+			"releasingAddresses", len(a.release.IPsToRelease),
+			logfields.Error, err)
 		return false, err
 	}
 	return false, nil
@@ -933,10 +931,10 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 		}
 
 		n.manager.metricsAPI.AllocationAttempt(allocateIP, failed, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
-		scopedLog.WithFields(logrus.Fields{
-			"selectedInterface": a.allocation.InterfaceID,
-			"ipsToAllocate":     a.allocation.IPv4.AvailableForAllocation,
-		}).WithError(err).Warning("Unable to assign additional IPs to interface, will create new interface")
+		scopedLog.Warn("Unable to assign additional IPs to interface, will create new interface",
+			"selectedInterface", a.allocation.InterfaceID,
+			"ipsToAllocate", a.allocation.IPv4.AvailableForAllocation,
+			logfields.Error, err)
 	}
 
 	return n.createInterface(ctx, a.allocation)
@@ -1117,16 +1115,16 @@ func (n *Node) syncToAPIServer() error {
 		if err == nil {
 			break
 		} else if retry+1 < maxRetries {
-			scopedLog.WithError(err).Info("Failed to update CiliumNode status, will retry")
+			scopedLog.Info("Failed to update CiliumNode status, will retry", logfields.Error, err)
 		} else {
-			scopedLog.WithError(err).Warning("Unable to update CiliumNode status")
+			scopedLog.Warn("Unable to update CiliumNode status", logfields.Error, err)
 			return err
 		}
 	}
 
 	for retry := 0; retry < maxRetries; retry++ {
 		node.Spec.IPAM.Pool = pool
-		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
+		scopedLog.Debug("Updating node in apiserver", "poolSize", len(node.Spec.IPAM.Pool))
 
 		// The PreAllocate value is added here rather than where the CiliumNode
 		// resource is created ((*NodeDiscovery).mutateNodeResource() inside
@@ -1141,9 +1139,9 @@ func (n *Node) syncToAPIServer() error {
 		if err == nil {
 			break
 		} else if retry+1 < maxRetries {
-			scopedLog.WithError(err).Info("Failed to update CiliumNode spec, will retry")
+			scopedLog.Info("Failed to update CiliumNode spec, will retry", logfields.Error, err)
 		} else {
-			scopedLog.WithError(err).Warning("Unable to update CiliumNode spec")
+			scopedLog.Warn("Unable to update CiliumNode spec", logfields.Error, err)
 			return err
 		}
 	}

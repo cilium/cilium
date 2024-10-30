@@ -6,6 +6,8 @@ package utils
 import (
 	"reflect"
 	"testing"
+
+	"github.com/cilium/hive/hivetest"
 )
 
 func TestGetENIIndexFromTags(t *testing.T) {
@@ -30,7 +32,7 @@ func TestGetENIIndexFromTags(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetENIIndexFromTags(tt.args.tags); got != tt.want {
+			if got := GetENIIndexFromTags(tt.args.tags, hivetest.Logger(t)); got != tt.want {
 				t.Errorf("GetENIIndexFromTags() = %v, want %v", got, tt.want)
 			}
 		})

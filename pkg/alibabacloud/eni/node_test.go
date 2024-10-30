@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -63,6 +64,7 @@ func TestGetMaximumAllocatableIPv4(t *testing.T) {
 func TestCreateInterface(t *testing.T) {
 	setup(t)
 
+	logger := hivetest.Logger(t)
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(context.TODO())
 
@@ -87,9 +89,9 @@ func TestCreateInterface(t *testing.T) {
 		}
 		switch e.Type {
 		case eniTypes.ENITypeSecondary:
-			require.Equal(t, 1, utils.GetENIIndexFromTags(e.Tags))
+			require.Equal(t, 1, utils.GetENIIndexFromTags(e.Tags, logger))
 		case eniTypes.ENITypePrimary:
-			require.Equal(t, 0, utils.GetENIIndexFromTags(e.Tags))
+			require.Equal(t, 0, utils.GetENIIndexFromTags(e.Tags, logger))
 		}
 		return nil
 	})

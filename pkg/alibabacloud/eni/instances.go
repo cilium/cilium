@@ -6,14 +6,13 @@ package eni
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
-
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -104,19 +103,19 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 
 	vpcs, err := m.api.GetVPCs(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to synchronize VPC list")
+		log.Warn("Unable to synchronize VPC list", logfields.Error, err)
 		return time.Time{}
 	}
 
 	vSwitches, err := m.api.GetVSwitches(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to retrieve VPC vSwitches list")
+		log.Warn("Unable to retrieve VPC vSwitches list", logfields.Error, err)
 		return time.Time{}
 	}
 
 	securityGroups, err := m.api.GetSecurityGroups(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to retrieve ECS security group list")
+		log.Warn("Unable to retrieve ECS security group list", logfields.Error, err)
 		return time.Time{}
 	}
 
@@ -126,33 +125,31 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	if instanceID == "" {
 		instances, err := m.api.GetInstances(ctx, vpcs, vSwitches)
 		if err != nil {
-			log.WithError(err).Warning("Unable to synchronize ECS interface list")
+			log.Warn("Unable to synchronize ECS interface list", logfields.Error, err)
 			return time.Time{}
 		}
 
-		log.WithFields(logrus.Fields{
-			"numInstances":      instances.NumInstances(),
-			"numVPCs":           len(vpcs),
-			"numVSwitches":      len(vSwitches),
-			"numSecurityGroups": len(securityGroups),
-		}).Info("Synchronized ENI information")
-
+		log.Info("Synchronized ENI information",
+			"numInstances", instances.NumInstances(),
+			"numVPCs", len(vpcs),
+			"numVSwitches", len(vSwitches),
+			"numSecurityGroups", len(securityGroups),
+		)
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
 		m.instances = instances
 	} else {
 		instance, err := m.api.GetInstance(ctx, vpcs, vSwitches, instanceID)
 		if err != nil {
-			log.WithError(err).Warning("Unable to synchronize ECS interface list")
+			log.Warn("Unable to synchronize ECS interface list", logfields.Error, err)
 			return time.Time{}
 		}
 
-		log.WithFields(logrus.Fields{
-			"instance":          instanceID,
-			"numVPCs":           len(vpcs),
-			"numVSwitches":      len(vSwitches),
-			"numSecurityGroups": len(securityGroups),
-		}).Info("Synchronized ENI information for the corresponding instance")
+		log.Info("Synchronized ENI information for the corresponding instance",
+			"instance", instanceID,
+			"numVPCs", len(vpcs),
+			"numVSwitches", len(vSwitches),
+			"numSecurityGroups", len(securityGroups))
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()

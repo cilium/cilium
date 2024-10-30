@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
-
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -65,10 +63,9 @@ func (a *AllocatorOperator) Init(ctx context.Context) error {
 
 // Start kicks of Operator allocation.
 func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-	log.WithFields(logrus.Fields{
-		logfields.IPv4CIDRs: operatorOption.Config.ClusterPoolIPv4CIDR,
-		logfields.IPv6CIDRs: operatorOption.Config.ClusterPoolIPv6CIDR,
-	}).Info("Starting ClusterPool IP allocator")
+	log.Info("Starting ClusterPool IP allocator",
+		logfields.IPv4CIDRs, operatorOption.Config.ClusterPoolIPv4CIDR,
+		logfields.IPv6CIDRs, operatorOption.Config.ClusterPoolIPv6CIDR)
 
 	var (
 		iMetrics trigger.MetricsObserver

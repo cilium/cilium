@@ -7,8 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
@@ -19,6 +18,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
 )
 
@@ -94,7 +94,7 @@ func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
 // attaches it to the instance as specified by the CiliumNode. neededAddresses
 // of secondary IPs are assigned to the interface up to the maximum number of
 // addresses as allowed by the instance.
-func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
+func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *slog.Logger) (int, string, error) {
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return 0, unableToDetermineLimits, errors.New(errUnableToDetermineLimits)
@@ -132,11 +132,11 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 			fmt.Errorf("%s: %w", errUnableToGetSecurityGroups, err)
 	}
 
-	scopedLog = scopedLog.WithFields(logrus.Fields{
-		"securityGroupIDs": securityGroupIDs,
-		"vSwitchID":        bestSubnet.ID,
-		"toAllocate":       toAllocate,
-	})
+	scopedLog = scopedLog.With(
+		"securityGroupIDs", securityGroupIDs,
+		"vSwitchID", bestSubnet.ID,
+		"toAllocate", toAllocate,
+	)
 	scopedLog.Info("No more IPs available, creating new ENI")
 
 	instanceID := n.node.InstanceID()
@@ -144,7 +144,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	defer n.mutex.Unlock()
 	index, err := n.allocENIIndex()
 	if err != nil {
-		scopedLog.WithField("instanceID", instanceID).Error(err)
+		scopedLog.Error("failed to allocate eni index", logfields.Error, err, "instanceID", instanceID)
 		return 0, "", err
 	}
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, toAllocate-1, bestSubnet.ID, securityGroupIDs,
@@ -153,7 +153,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 	}
 
-	scopedLog = scopedLog.WithField(fieldENIID, eniID)
+	scopedLog = scopedLog.With(fieldENIID, eniID)
 	scopedLog.Info("Created new ENI")
 
 	if bestSubnet.CIDR != nil {
@@ -164,7 +164,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if err != nil {
 		err2 := n.manager.api.DeleteNetworkInterface(ctx, eniID)
 		if err2 != nil {
-			scopedLog.Errorf("Failed to release ENI after failure to attach, %s", err2.Error())
+			scopedLog.Error("Failed to release ENI after failure to attach", logfields.Error, err2)
 		}
 		return 0, unableToAttachENI, fmt.Errorf("%s: %w", errUnableToAttachENI, err)
 	}
@@ -172,7 +172,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	if err != nil {
 		err2 := n.manager.api.DeleteNetworkInterface(ctx, eniID)
 		if err2 != nil {
-			scopedLog.Errorf("Failed to release ENI after failure to attach, %s", err2.Error())
+			scopedLog.Error("Failed to release ENI after failure to attach", logfields.Error, err2)
 		}
 		return 0, unableToAttachENI, fmt.Errorf("%s: %w", errUnableToAttachENI, err)
 	}
@@ -187,7 +187,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 // ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
 // the AlibabaCloud API and return them
-func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
+func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logger) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return nil, stats, ipam.LimitsNotFound{}
@@ -239,7 +239,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 
 	// An ECS instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
-		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
+		scopedLog.Warn("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
 		return nil, stats, errors.New("unable to retrieve ENIs")
 	}
 
@@ -249,7 +249,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
 // allocated/created.
-func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAction, error) {
+func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (*ipam.AllocationAction, error) {
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return nil, errors.New(errUnableToDetermineLimits)
@@ -263,11 +263,9 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 		if e.Type != eniTypes.ENITypeSecondary {
 			continue
 		}
-		scopedLog.WithFields(logrus.Fields{
-			fieldENIID:  e.NetworkInterfaceID,
-			"ipv4Limit": l.IPv4,
-			"allocated": len(e.PrivateIPSets),
-		}).Debug("Considering ENI for allocation")
+		scopedLog.Debug("Considering ENI for allocation", fieldENIID, e.NetworkInterfaceID,
+			"ipv4Limit", l.IPv4,
+			"allocated", len(e.PrivateIPSets))
 
 		// limit
 		availableOnENI := math.IntMax(l.IPv4-len(e.PrivateIPSets), 0)
@@ -277,17 +275,13 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 			a.IPv4.InterfaceCandidates++
 		}
 
-		scopedLog.WithFields(logrus.Fields{
-			fieldENIID:       e.NetworkInterfaceID,
-			"availableOnENI": availableOnENI,
-		}).Debug("ENI has IPs available")
+		scopedLog.Debug("ENI has IPs available", fieldENIID, e.NetworkInterfaceID, "availableOnENI", availableOnENI)
 
 		if subnet := n.manager.GetVSwitch(e.VSwitch.VSwitchID); subnet != nil {
 			if subnet.AvailableAddresses > 0 && a.InterfaceID == "" {
-				scopedLog.WithFields(logrus.Fields{
-					"vSwitchID":          e.VSwitch.VSwitchID,
-					"availableAddresses": subnet.AvailableAddresses,
-				}).Debug("Subnet has IPs available")
+				scopedLog.Debug("Subnet has IPs available",
+					"vSwitchID", e.VSwitch.VSwitchID,
+					"availableAddresses", subnet.AvailableAddresses)
 
 				a.InterfaceID = key
 				a.PoolID = ipamTypes.PoolID(subnet.ID)
@@ -311,7 +305,7 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
+func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
 	r := &ipam.ReleaseAction{}
 
 	n.mutex.Lock()
@@ -323,10 +317,9 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 		if e.Type != eniTypes.ENITypeSecondary {
 			continue
 		}
-		scopedLog.WithFields(logrus.Fields{
-			fieldENIID:     e.NetworkInterfaceID,
-			"numAddresses": len(e.PrivateIPSets),
-		}).Debug("Considering ENI for IP release")
+		scopedLog.Debug("Considering ENI for IP release",
+			fieldENIID, e.NetworkInterfaceID,
+			"numAddresses", len(e.PrivateIPSets))
 
 		// Count free IP addresses on this ENI
 		ipsOnENI := n.k8sObj.Status.AlibabaCloud.ENIs[e.NetworkInterfaceID].PrivateIPSets
@@ -347,11 +340,10 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 			continue
 		}
 
-		scopedLog.WithFields(logrus.Fields{
-			fieldENIID:       e.NetworkInterfaceID,
-			"excessIPs":      excessIPs,
-			"freeOnENICount": freeOnENICount,
-		}).Debug("ENI has unused IPs that can be released")
+		scopedLog.Debug("ENI has unused IPs that can be released",
+			fieldENIID, e.NetworkInterfaceID,
+			"excessIPs", excessIPs,
+			"freeOnENICount", freeOnENICount)
 		maxReleaseOnENI := math.IntMin(freeOnENICount, excessIPs)
 
 		r.InterfaceID = key
@@ -390,12 +382,12 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 	return defaults.IPAMPreAllocation
 }
 
-func (n *Node) loggerLocked() *logrus.Entry {
+func (n *Node) loggerLocked() *slog.Logger {
 	if n == nil || n.instanceID == "" {
 		return log
 	}
 
-	return log.WithField("instanceID", n.instanceID)
+	return log.With("instanceID", n.instanceID)
 }
 
 func (n *Node) IsPrefixDelegated() bool {
@@ -435,10 +427,10 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.Spec) (
 	if len(eniSpec.SecurityGroupTags) > 0 {
 		securityGroups := n.manager.FindSecurityGroupByTags(eniSpec.VPCID, eniSpec.SecurityGroupTags)
 		if len(securityGroups) == 0 {
-			n.loggerLocked().WithFields(logrus.Fields{
-				"vpcID": eniSpec.VPCID,
-				"tags":  eniSpec.SecurityGroupTags,
-			}).Warn("No security groups match required VPC ID and tags, using primary ENI's security groups")
+			n.loggerLocked().
+				Warn("No security groups match required VPC ID and tags, using primary ENI's security groups",
+					"vpcID", eniSpec.VPCID,
+					"tags", eniSpec.SecurityGroupTags)
 		} else {
 			groups := make([]string, 0, len(securityGroups))
 			for _, secGroup := range securityGroups {
@@ -472,7 +464,7 @@ func (n *Node) allocENIIndex() (int, error) {
 	// alloc index for each created ENI
 	used := make([]bool, maxENIPerNode)
 	for _, v := range n.enis {
-		index := utils.GetENIIndexFromTags(v.Tags)
+		index := utils.GetENIIndexFromTags(v.Tags, n.loggerLocked())
 		if index > maxENIPerNode || index < 0 {
 			return 0, fmt.Errorf("ENI index(%d) is out of range", index)
 		}

@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "eni")
+	log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "eni")
 )
 
 const (

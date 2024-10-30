@@ -11,7 +11,6 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -24,8 +23,12 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "aws-mock")
 
 // ENIMap is a map of ENI interfaced indexed by ENI ID
 type ENIMap map[string]*eniTypes.ENI
@@ -243,7 +246,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 	subnet.AvailableAddresses -= numAddresses
 
 	e.unattached[eniID] = eni
-	log.Debugf(" ENI after initial creation %v", eni)
+	log.Debug(fmt.Sprintf(" ENI after initial creation %v", eni))
 	return eniID, eni.DeepCopy(), nil
 }
 

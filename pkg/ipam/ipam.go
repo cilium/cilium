@@ -4,9 +4,9 @@
 package ipam
 
 import (
+	"fmt"
 	"net"
-
-	"github.com/sirupsen/logrus"
+	"os"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam")
+var log = logging.DefaultSlogLogger.With(logfields.LogSubsys, "ipam")
 
 // Family is the type describing all address families support by the IP
 // allocation manager
@@ -91,10 +91,9 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDi
 func (ipam *IPAM) ConfigureAllocator() {
 	switch ipam.config.IPAMMode() {
 	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool:
-		log.WithFields(logrus.Fields{
-			logfields.V4Prefix: ipam.nodeAddressing.IPv4().AllocationCIDR(),
-			logfields.V6Prefix: ipam.nodeAddressing.IPv6().AllocationCIDR(),
-		}).Infof("Initializing %s IPAM", ipam.config.IPAMMode())
+		log.Info(fmt.Sprintf("Initializing %s IPAM", ipam.config.IPAMMode()),
+			logfields.V4Prefix, ipam.nodeAddressing.IPv4().AllocationCIDR(),
+			logfields.V6Prefix, ipam.nodeAddressing.IPv6().AllocationCIDR())
 
 		if ipam.config.IPv6Enabled() {
 			ipam.IPv6Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet)
@@ -131,7 +130,8 @@ func (ipam *IPAM) ConfigureAllocator() {
 			ipam.IPv4Allocator = &noOpAllocator{}
 		}
 	default:
-		log.Fatalf("Unknown IPAM backend %s", ipam.config.IPAMMode())
+		log.Error(fmt.Sprintf("Unknown IPAM backend %s", ipam.config.IPAMMode()))
+		os.Exit(1)
 	}
 }
 

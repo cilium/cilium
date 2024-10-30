@@ -6,6 +6,7 @@ package ipam
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -126,7 +127,8 @@ func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 		}
 	}
 
-	log.Fatalf("Not enough adddresses available to simulate usage")
+	log.Error("Not enough adddresses available to simulate usage")
+	os.Exit(1)
 
 	return cn
 }

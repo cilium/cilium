@@ -57,9 +57,7 @@ func (n *NodeHandler) Delete(resource *v2.CiliumNode) {
 
 	err := n.poolManager.ReleaseNode(resource.Name)
 	if err != nil {
-		log.WithField(logfields.NodeName, resource.Name).
-			WithError(err).
-			Warning("Errors while release node and its CIDRs")
+		log.Warn("Errors while release node and its CIDRs", logfields.NodeName, resource.Name, logfields.Error, err)
 	}
 
 	delete(n.nodesPendingAllocation, resource.Name)
@@ -116,8 +114,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 
 			err := n.poolManager.AllocateToNode(resource)
 			if err != nil {
-				log.WithField(logfields.NodeName, resource.Name).WithError(err).
-					Warning("Failed to allocate PodCIDRs to node")
+				log.Warn("Failed to allocate PodCIDRs to node", logfields.NodeName, resource.Name, logfields.Error, err)
 				errorMessage = err.Error()
 				controllerErr = err
 			}

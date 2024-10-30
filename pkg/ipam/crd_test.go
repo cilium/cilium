@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -73,7 +75,8 @@ func newFakeNodeStore(conf *option.DaemonConfig, t *testing.T) *nodeStore {
 		TriggerFunc: func(reasons []string) {},
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize CiliumNode synchronization trigger")
+		log.Error("Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
+		os.Exit(1)
 	}
 	store := &nodeStore{
 		allocators:         []*crdAllocator{},

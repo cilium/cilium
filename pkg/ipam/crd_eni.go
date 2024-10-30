@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -54,9 +53,7 @@ func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuCon
 		if _, ok := existingENIByName[name]; !ok {
 			cfg, err := parseENIConfig(name, &eni, mtuConfig, usePrimary)
 			if err != nil {
-				log.WithError(err).
-					WithField(logfields.Resource, name).
-					Error("Skipping invalid ENI device config")
+				log.Error("Skipping invalid ENI device config", logfields.Resource, name, logfields.Error, err)
 				continue
 			}
 			addedENIByMac[eni.MAC] = cfg
@@ -81,27 +78,25 @@ func setupENIDevices(eniConfigByMac configMap) {
 			requiredENIByMac[mac] = eni.name
 		}
 
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.AttachedENIs: attachedENIByMac,
-			logfields.ExpectedENIs: requiredENIByMac,
-		}).Error("Timed out waiting for ENIs to be attached")
+		log.Error("Timed out waiting for ENIs to be attached",
+			logfields.AttachedENIs, attachedENIByMac,
+			logfields.ExpectedENIs, requiredENIByMac,
+			logfields.Error, err)
 	}
 
 	// Configure new interfaces.
 	for mac, link := range eniLinkByMac {
 		cfg, ok := eniConfigByMac[mac]
 		if !ok {
-			log.WithField(logfields.MACAddr, mac).Warning("No configuration found for ENI device")
+			log.Warn("No configuration found for ENI device", logfields.MACAddr, mac)
 			continue
 		}
 		err = configureENINetlinkDevice(link, cfg)
 		if err != nil {
-			log.WithError(err).
-				WithFields(logrus.Fields{
-					logfields.MACAddr:  mac,
-					logfields.Resource: cfg.name,
-				}).
-				Error("Failed to configure ENI device")
+			log.Error("Failed to configure ENI device",
+				logfields.MACAddr, mac,
+				logfields.Resource, cfg.name,
+				logfields.Error, err)
 		}
 	}
 }
@@ -136,7 +131,7 @@ func waitForNetlinkDevices(configByMac configMap) (linkByMac linkMap, err error)
 	for try := 0; try < waitForNetlinkDevicesMaxTries; try++ {
 		links, err := netlink.LinkList()
 		if err != nil {
-			log.WithError(err).Warn("failed to obtain eni link list - retrying")
+			log.Warn("failed to obtain eni link list - retrying", logfields.Error, err)
 		} else {
 			linkByMac = linkMap{}
 			for _, link := range links {
