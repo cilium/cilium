@@ -731,7 +731,6 @@ enum metric_dir {
 /* used to identify encrypted overlay traffic post decryption.
  * therefore, SPI bit can be reused to not steal an additional magic mark value.
  */
-#define MARK_MAGIC_DECRYPTED_OVERLAY	0x1D00
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
