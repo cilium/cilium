@@ -784,6 +784,7 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 		if isProxyListener {
 			s.proxyListeners++
 		}
+		log.WithField(logfields.Listener, name).Infof("Envoy: Upserting new listener")
 	}
 	listener.count++
 	listener.mutex.Lock() // needed for other than 'count'
@@ -1032,6 +1033,7 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 				s.proxyListeners--
 			}
 			delete(s.listeners, name)
+			log.WithField(logfields.Listener, name).Infof("Envoy: Deleting listener")
 			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 		}
 	} else {
