@@ -710,7 +710,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 
 		if err == nil {
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-				Debug("Created new ", l4.GetL7Parser(), " proxy instance")
+				Info("Created new ", l4.GetL7Parser(), " proxy instance")
 			p.redirects[id] = redir
 			// must mark the proxyPort configured while we still hold the lock to prevent racing between
 			// two parallel runs
