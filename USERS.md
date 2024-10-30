@@ -243,7 +243,7 @@ Users (Alphabetically)
     * N: ECCO Data and AI
       D: ECCO Data and AI is using Cilium as CNI in all their clusters and environments (EKS in AWS).
       U: CNI, IPv6 networking, Service Load Balancing and Cluster Mesh
-      L: https://github.com/SneaksAndData/
+      L: https://github.com/SneaksAndData
 
     * N: Edgeless Systems
       D: Edgeless Systems is using Cilium as the CNI for Edgeless System's Confidential Kubernetes Distribution (Constellation)
