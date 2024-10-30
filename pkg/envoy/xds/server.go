@@ -254,6 +254,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 	streamLog.Info("starting xDS stream processing")
 
 	nodeIP := ""
+	firstRequest := true
 
 	for {
 		// Process either a new request from the xDS stream or a response
@@ -274,7 +275,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			req := recv.Interface().(*envoy_service_discovery.DiscoveryRequest)
 
 			// only require Node to exist in the first request
-			if nodeIP == "" {
+			if firstRequest {
 				id := req.GetNode().GetId()
 				streamLog = streamLog.WithField(logfields.XDSClientNode, id)
 				var err error
@@ -283,6 +284,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					streamLog.WithError(err).Error("invalid Node in xDS request")
 					return ErrInvalidNodeFormat
 				}
+				streamLog.WithFields(getXDSRequestFields(req)).Info("Received first request in a new xDS stream")
 			}
 
 			requestLog := streamLog.WithFields(getXDSRequestFields(req))
@@ -330,7 +332,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			watcher := s.watchers[typeURL]
 
 			if nonce == 0 && versionInfo > 0 {
-				requestLog.Debugf("xDS was restarted, setting nonce to %d", versionInfo)
+				requestLog.Infof("xDS was restarted, setting nonce to %d", versionInfo)
 				nonce = versionInfo
 			}
 
@@ -344,8 +346,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
 					ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
-				} else {
-					requestLog.Debug("ACK received but no observers are waiting for ACKs")
+				} else if firstRequest {
+					requestLog.Info("ACK received but no observers are waiting for ACKs")
 				}
 				if versionInfo < nonce {
 					// versions after VersionInfo, upto and including ResponseNonce are NACKed
@@ -372,8 +374,10 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
 				go watcher.WatchResources(ctx, typeURL, versionInfo, nodeIP, req.GetResourceNames(), respCh)
 			} else {
-				requestLog.Debug("received invalid nonce in xDS request; ignoring request")
+				requestLog.Warning("received invalid nonce in xDS request; ignoring request")
 			}
+			firstRequest = false
+
 		default: // Pending watch response.
 			state := &typeStates[chosen]
 			state.pendingWatchCancel()
