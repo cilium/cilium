@@ -192,18 +192,6 @@ func (p *EndpointPolicy) GetPolicyMap() MapState {
 	return p.policyMapState
 }
 
-// SetPolicyMap sets the policy map state as the interface
-// MapState. If the main argument is nil, then this method
-// will initialize a new MapState object for the caller.
-func (p *EndpointPolicy) SetPolicyMap(ms MapState) {
-	m, ok := ms.(*mapState)
-	if !ok || m == nil {
-		p.policyMapState = newMapState()
-		return
-	}
-	p.policyMapState = m
-}
-
 // Detach removes EndpointPolicy references from selectorPolicy
 // to allow the EndpointPolicy to be GC'd.
 // PolicyOwner (aka Endpoint) is also locked during this call.
@@ -220,25 +208,71 @@ func (p *EndpointPolicy) Detach() {
 	p.policyMapChanges.detach()
 }
 
-// NewMapStateWithInsert returns a new MapState and an insert function that can be used to populate
-// it. We keep general insert functions private so that the caller can only insert to this specific
-// map.
-func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
-	currentMap := newMapState()
-
-	return currentMap, func(k Key, e MapStateEntry) {
-		currentMap.insert(k, e)
+// Updated returns an iterator for all key/entry pairs in 'p' that are either new or updated
+// compared to the entries in 'realized'.
+// Here 'realized' is another EndpointPolicy.
+// This can be used to figure out which entries need to be added to or updated in 'realised'.
+func (p *EndpointPolicy) Updated(realized *EndpointPolicy) iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		p.policyMapState.ForEach(func(key Key, entry MapStateEntry) bool {
+			if oldEntry, ok := realized.policyMapState.Get(key); !ok || !oldEntry.DatapathEqual(&entry) {
+				if !yield(key, entry) {
+					return false
+				}
+			}
+			return true
+		})
 	}
 }
 
-func (p *EndpointPolicy) InsertMapState(key Key, entry MapStateEntry) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.insert(key, entry)
+// Missing returns an iterator for all key/entry pairs in 'realized' that missing from 'p'.
+// Here 'realized' is another EndpointPolicy.
+// This can be used to figure out which entries in 'realised' need to be deleted.
+func (p *EndpointPolicy) Missing(realized *EndpointPolicy) iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		realized.policyMapState.ForEach(func(key Key, entry MapStateEntry) bool {
+			// If key that is in realized state is not in desired state, just remove it.
+			if _, ok := p.policyMapState.Get(key); !ok {
+				if !yield(key, entry) {
+					return false
+				}
+			}
+			return true
+		})
+	}
 }
 
-func (p *EndpointPolicy) DeleteMapState(key Key) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.delete(key)
+// UpdatedMap returns an iterator for all key/entry pairs in 'p' that are either new or updated
+// compared to the entries in 'realized'.
+// Here 'realized' is MapStateMap.
+// This can be used to figure out which entries need to be added to or updated in 'realised'.
+func (p *EndpointPolicy) UpdatedMap(realized MapStateMap) iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		p.policyMapState.ForEach(func(key Key, entry MapStateEntry) bool {
+			if oldEntry, ok := realized[key]; !ok || !oldEntry.DatapathEqual(&entry) {
+				if !yield(key, entry) {
+					return false
+				}
+			}
+			return true
+		})
+	}
+}
+
+// Missing returns an iterator for all key/entry pairs in 'realized' that missing from 'p'.
+// Here 'realized' is MapStateMap.
+// This can be used to figure out which entries in 'realised' need to be deleted.
+func (p *EndpointPolicy) MissingMap(realized MapStateMap) iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		for k, v := range realized {
+			// If key that is in realized state is not in desired state, just remove it.
+			if _, ok := p.policyMapState.Get(k); !ok {
+				if !yield(k, v) {
+					break
+				}
+			}
+		}
+	}
 }
 
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
