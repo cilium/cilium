@@ -87,7 +87,7 @@ rules:
   resources:
   # to check apiserver connectivity
   - namespaces
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled  }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled .Values.bgpControlPlane.enabled }}
   - secrets
 {{- end }}
   verbs:
@@ -200,6 +200,7 @@ rules:
   - cilium.io
   resources:
   - ciliumbgpclusterconfigs/status
+  - ciliumbgppeerconfigs/status
   verbs:
   - update
 - apiGroups:
