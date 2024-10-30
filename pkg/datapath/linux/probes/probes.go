@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -495,7 +496,7 @@ var HaveNetkit = sync.OnceValue(func() error {
 		l, err := link.AttachNetkit(link.NetkitOptions{
 			Program:   prog,
 			Attach:    ebpf.AttachNetkitPrimary,
-			Interface: int(^uint32(0)),
+			Interface: math.MaxInt,
 		})
 		// We rely on this being checked during the syscall. With
 		// an otherwise correct payload we expect ENODEV here as
