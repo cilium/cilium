@@ -86,6 +86,18 @@ func (c *FakeCiliumBGPPeerConfigs) Update(ctx context.Context, ciliumBGPPeerConf
 	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeCiliumBGPPeerConfigs) UpdateStatus(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(ciliumbgppeerconfigsResource, "status", ciliumBGPPeerConfig, opts), emptyResult)
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
+}
+
 // Delete takes name of the ciliumBGPPeerConfig and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumBGPPeerConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
