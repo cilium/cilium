@@ -23,6 +23,7 @@
   endpoint-routes: 'true'
   key-one: 'gcm(aes)'
   key-two: 'gcm(aes)'
+  kvstore: 'true'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: 'bpf-next-20240711.013133'
@@ -32,6 +33,7 @@
   endpoint-routes: 'true'
   key-one: 'cbc(aes)'
   key-two: 'gcm(aes)'
+  kvstore: 'true'
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.4-20240710.064909'
