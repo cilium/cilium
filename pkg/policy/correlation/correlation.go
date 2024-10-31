@@ -132,9 +132,26 @@ func extractFlowKey(f *flowpb.Flow) (
 
 func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
 	switch matchType {
-	case monitorAPI.PolicyMatchL3L4, monitorAPI.PolicyMatchL4Only:
+	case monitorAPI.PolicyMatchL3L4:
 		// Check for L4 policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(key)
+	case monitorAPI.PolicyMatchL4Only:
+		// Check for L4-only policy rules
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
+			Identity:         0,
+			DestPort:         key.DestPort,
+			Nexthdr:          key.Nexthdr,
+			TrafficDirection: key.TrafficDirection,
+		})
+	case monitorAPI.PolicyMatchL3Proto:
+		// Check for L3/L4 policy rules with only proto
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
+			Identity:         key.Identity,
+			DestPort:         0,
+			InvertedPortMask: 0xffff, // this is a wildcard
+			Nexthdr:          key.Nexthdr,
+			TrafficDirection: key.TrafficDirection,
+		})
 	case monitorAPI.PolicyMatchL3Only:
 		// Check for L3 policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
