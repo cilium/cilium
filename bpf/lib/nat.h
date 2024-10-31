@@ -850,16 +850,8 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		case ICMP_ECHOREPLY:
 			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
-			switch (icmphdr.code) {
-			case ICMP_NET_UNREACH:
-			case ICMP_HOST_UNREACH:
-			case ICMP_PROT_UNREACH:
-			case ICMP_PORT_UNREACH:
-			case ICMP_FRAG_NEEDED:
-				break;
-			default:
+			if (icmphdr.code > NR_ICMP_UNREACH)
 				return DROP_UNKNOWN_ICMP_CODE;
-			}
 
 			return snat_v4_nat_handle_icmp_dest_unreach(ctx, off,
 								    has_l4_header);
@@ -1000,16 +992,8 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			break;
 		case ICMP_DEST_UNREACH:
-			switch (icmphdr.code) {
-			case ICMP_NET_UNREACH:
-			case ICMP_HOST_UNREACH:
-			case ICMP_PROT_UNREACH:
-			case ICMP_PORT_UNREACH:
-			case ICMP_FRAG_NEEDED:
-				break;
-			default:
+			if (icmphdr.code > NR_ICMP_UNREACH)
 				return NAT_PUNT_TO_STACK;
-			}
 
 			inner_l3_off = off + sizeof(struct icmphdr);
 
