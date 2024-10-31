@@ -9,6 +9,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_IPV6
+#define ENABLE_MASQUERADE_IPV4
 #define ENABLE_NODEPORT
 #define SERVICE_NO_BACKEND_RESPONSE
 
@@ -25,6 +26,8 @@
 #define BACKEND_IP		v4_pod_two
 #define BACKEND_IPV6		v6_node_two
 #define BACKEND_PORT		__bpf_htons(8080)
+
+#define IPV4_MASQUERADE		FRONTEND_IP
 
 static volatile const __u8 *client_mac = mac_one;
 /* this matches the default node_config.h: */
