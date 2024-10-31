@@ -159,6 +159,108 @@ int nodeport_no_backend_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+/* Test that the ICMP packet exits the node */
+PKTGEN("tc", "tc_nodeport_no_backend_ipv4_egress")
+int nodeport_no_backend_ipv4_egress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmphdr *icmp;
+	struct tcphdr *tcp;
+	struct iphdr *ip;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv4_icmp_packet(&builder,
+					     (__u8 *)lb_mac, (__u8 *)client_mac,
+					     FRONTEND_IP, CLIENT_IP,
+					     ICMP_DEST_UNREACH);
+	if (!icmp)
+		return TEST_ERROR;
+
+	icmp->code = ICMP_PORT_UNREACH;
+
+	/* Inner packet has no L2 header */
+	ip = pktgen__push_default_iphdr(&builder);
+	if (!ip)
+		return TEST_ERROR;
+
+	ip->saddr = CLIENT_IP;
+	ip->daddr = FRONTEND_IP;
+
+	tcp = pktgen__push_default_tcphdr(&builder);
+	if (!tcp)
+		return TEST_ERROR;
+
+	tcp->source = CLIENT_PORT;
+	tcp->dest = FRONTEND_PORT;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_no_backend_ipv4_egress")
+int nodeport_no_backend_ipv4_egress_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_no_backend_ipv4_egress")
+int nodeport_no_backend_ipv4_egress_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	struct icmphdr *l4;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	test_log("Status code: %d", *status_code);
+	assert(*status_code == CTX_ACT_OK);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 header out of bounds");
+
+	assert(memcmp(l2->h_dest, (__u8 *)client_mac, sizeof(lb_mac)) == 0);
+	assert(memcmp(l2->h_source, (__u8 *)lb_mac, sizeof(lb_mac)) == 0);
+	assert(l2->h_proto == __bpf_htons(ETH_P_IP));
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 header out of bounds");
+
+	if (l3->saddr != FRONTEND_IP)
+		test_fatal("unexpected IPv4 saddr");
+
+	if (l3->daddr != CLIENT_IP)
+		test_fatal("unexpected IPv4 daddr");
+
+	l4 = data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct iphdr);
+	if ((void *) l4 + sizeof(struct icmphdr) > data_end)
+		test_fatal("l4 header out of bounds");
+
+	assert(l4->type == ICMP_DEST_UNREACH);
+	assert(l4->code == ICMP_PORT_UNREACH);
+
+	test_finish();
+}
+
 /* Test that a SVC without backends returns a TCP RST or ICMP error */
 PKTGEN("tc", "tc_nodeport_no_backend_ipv6")
 int nodeport_no_backend_ipv6_pktgen(struct __ctx_buff *ctx)
@@ -284,6 +386,111 @@ int nodeport_no_backend_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("ratelimit map lookup failed");
 
 	assert(value->tokens > 0);
+
+	test_finish();
+}
+
+/* Test that the ICMPv6 packet exits the node */
+PKTGEN("tc", "tc_nodeport_no_backend_ipv6_egress")
+int nodeport_no_backend_ipv6_egress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmp6hdr *icmp;
+	struct ipv6hdr *ipv6;
+	struct tcphdr *tcp;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv6_icmp6_packet(&builder,
+					     (__u8 *)lb_mac, (__u8 *)client_mac,
+					     (__u8 *)FRONTEND_IPV6, (__u8 *)CLIENT_IPV6,
+					     ICMPV6_DEST_UNREACH);
+	if (!icmp)
+		return TEST_ERROR;
+
+	icmp->icmp6_code = ICMPV6_PORT_UNREACH;
+
+	/* Inner packet has no L2 header */
+	ipv6 = pktgen__push_default_ipv6hdr(&builder);
+	if (!ipv6)
+		return TEST_ERROR;
+
+	ipv6hdr__set_addrs(ipv6, (__u8 *)CLIENT_IPV6, (__u8 *)FRONTEND_IPV6);
+
+	tcp = pktgen__push_default_tcphdr(&builder);
+	if (!tcp)
+		return TEST_ERROR;
+
+	tcp->source = CLIENT_PORT;
+	tcp->dest = FRONTEND_PORT;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_no_backend_ipv6_egress")
+int nodeport_no_backend_ipv6_egress_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, TO_NETDEV);
+
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_no_backend_ipv6_egress")
+int nodeport_no_backend_ipv6_check_egress(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	struct icmp6hdr *l4;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	test_log("Status code: %d", *status_code);
+	assert(*status_code == CTX_ACT_OK);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 header out of bounds");
+
+	assert(memcmp(l2->h_dest, (__u8 *)client_mac, sizeof(lb_mac)) == 0);
+	assert(memcmp(l2->h_source, (__u8 *)lb_mac, sizeof(lb_mac)) == 0);
+	assert(l2->h_proto == __bpf_htons(ETH_P_IPV6));
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("l3 header out of bounds");
+
+	if (memcmp((__u8 *)&l3->saddr, (__u8 *)FRONTEND_IPV6, 16) != 0)
+		test_fatal("unexpected IPv6 saddr");
+
+	if (memcmp((__u8 *)&l3->daddr, (__u8 *)CLIENT_IPV6, 16) != 0)
+		test_fatal("unexpected IPv6 daddr");
+
+	assert(l3->hop_limit == 64);
+	assert(l3->version == 6);
+	assert(l3->nexthdr == IPPROTO_ICMPV6);
+
+	l4 = data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct ipv6hdr);
+	if ((void *) l4 + sizeof(struct icmp6hdr) > data_end)
+		test_fatal("l4 header out of bounds");
+
+	assert(l4->icmp6_type == ICMPV6_DEST_UNREACH);
+	assert(l4->icmp6_code == ICMPV6_PORT_UNREACH);
 
 	test_finish();
 }
