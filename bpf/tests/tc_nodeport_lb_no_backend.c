@@ -128,6 +128,12 @@ int nodeport_no_backend_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 header out of bounds");
 
+	if (l3->saddr != FRONTEND_IP)
+		test_fatal("unexpected IPv4 saddr");
+
+	if (l3->daddr != CLIENT_IP)
+		test_fatal("unexpected IPv4 daddr");
+
 	assert(l3->ihl == 5);
 	assert(l3->version == 4);
 	assert(l3->tos == 0);
@@ -240,6 +246,12 @@ int nodeport_no_backend_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
 		test_fatal("l3 header out of bounds");
+
+	if (memcmp((__u8 *)&l3->saddr, (__u8 *)FRONTEND_IPV6, 16) != 0)
+		test_fatal("unexpected IPv6 saddr");
+
+	if (memcmp((__u8 *)&l3->daddr, (__u8 *)CLIENT_IPV6, 16) != 0)
+		test_fatal("unexpected IPv6 daddr");
 
 	assert(l3->hop_limit == 64);
 	assert(l3->version == 6);
