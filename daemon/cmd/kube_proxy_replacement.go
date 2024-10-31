@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
@@ -146,31 +145,6 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 
 		if !option.Config.NodePortBindProtection {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
-		}
-
-		if option.Config.NodePortAlg == option.NodePortAlgMaglev ||
-			option.Config.LoadBalancerAlgorithmAnnotation {
-			// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
-			// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
-			// backends." (from Maglev paper, page 6)
-			supportedPrimes := []int{251, 509, 1021, 2039, 4093, 8191, 16381, 32749, 65521, 131071}
-			found := false
-			for _, prime := range supportedPrimes {
-				if option.Config.MaglevTableSize == prime {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("Invalid value for --%s: %d, supported values are: %v",
-					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
-			}
-			if err := maglev.Init(
-				option.Config.MaglevHashSeed,
-				uint64(option.Config.MaglevTableSize),
-			); err != nil {
-				return fmt.Errorf("Failed to initialize maglev hash seeds: %w", err)
-			}
 		}
 
 		if option.Config.TunnelingEnabled() && tunnelConfig.Protocol() == tunnel.VXLAN &&

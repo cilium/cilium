@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -184,9 +185,9 @@ type Daemon struct {
 	iptablesManager datapath.IptablesManager
 	hubble          hubblecell.HubbleIntegration
 
-	lrpManager *redirectpolicy.Manager
-
-	ctMapGC ctmap.GCRunner
+	lrpManager   *redirectpolicy.Manager
+	ctMapGC      ctmap.GCRunner
+	maglevConfig maglev.Config
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -401,6 +402,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		hubble:            params.Hubble,
 		lrpManager:        params.LRPManager,
 		ctMapGC:           params.CTNATMapGC,
+		maglevConfig:      params.MaglevConfig,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems

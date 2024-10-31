@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -26,6 +27,7 @@ func TestCell(t *testing.T) {
 	h := hive.New(
 		client.FakeClientCell,
 		daemonk8s.ResourcesCell,
+		maglev.Cell,
 		Cell,
 		cell.Provide(source.NewSources),
 		cell.Provide(

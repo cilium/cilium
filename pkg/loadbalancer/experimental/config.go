@@ -54,7 +54,6 @@ type ExternalConfig struct {
 	EnableSessionAffinity    bool
 	NodePortMin, NodePortMax uint16
 	NodePortAlg              string
-	MaglevTableSize          int
 }
 
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
@@ -64,6 +63,5 @@ func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		NodePortMin:           uint16(cfg.NodePortMin),
 		NodePortMax:           uint16(cfg.NodePortMax),
 		NodePortAlg:           cfg.NodePortAlg,
-		MaglevTableSize:       cfg.MaglevTableSize,
 	}
 }

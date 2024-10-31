@@ -41,26 +41,11 @@ var (
 
 // LBBPFMap is an implementation of the LBMap interface.
 type LBBPFMap struct {
-	// Buffer used to avoid excessive allocations to temporarily store backend
-	// IDs. Concurrent access is protected by the
-	// pkg/service.go:(Service).UpsertService() lock.
-	maglevBackendIDsBuffer []loadbalancer.BackendID
-	maglevTableSize        uint64
+	maglev *maglev.Maglev
 }
 
-func New() *LBBPFMap {
-	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev ||
-		option.Config.LoadBalancerAlgorithmAnnotation
-	maglevTableSize := option.Config.MaglevTableSize
-
-	m := &LBBPFMap{}
-
-	if maglev {
-		m.maglevBackendIDsBuffer = make([]loadbalancer.BackendID, maglevTableSize)
-		m.maglevTableSize = uint64(maglevTableSize)
-	}
-
-	return m
+func New(maglev *maglev.Maglev) *LBBPFMap {
+	return &LBBPFMap{maglev}
 }
 
 func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, ipv6 bool) error {
@@ -191,14 +176,17 @@ func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
 func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
-	table := maglev.GetLookupTable(backends, lbmap.maglevTableSize)
-	for i, id := range table {
-		lbmap.maglevBackendIDsBuffer[i] = loadbalancer.BackendID(id)
-	}
-	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
+	table := lbmap.maglev.GetLookupTable(
+		func(yield func(maglev.BackendInfo) bool) {
+			for _, be := range backends {
+				if !yield(maglev.BackendInfo{ID: be.ID, Weight: be.Weight, Addr: be.L3n4Addr}) {
+					break
+				}
+			}
+		})
+	if err := updateMaglevTable(ipv6, svcID, table); err != nil {
 		return err
 	}
-
 	return nil
 }
 
