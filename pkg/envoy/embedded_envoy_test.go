@@ -62,7 +62,8 @@ func TestEnvoy(t *testing.T) {
 			envoySocketDir:    testRunDir,
 			proxyGID:          1337,
 			httpNormalizePath: true,
-		})
+		},
+		nil)
 	require.NotNil(t, xdsServer)
 	require.NoError(t, err)
 
@@ -167,7 +168,7 @@ func TestEnvoyNACK(t *testing.T) {
 			envoySocketDir:    testRunDir,
 			proxyGID:          1337,
 			httpNormalizePath: true,
-		})
+		}, nil)
 	require.NotNil(t, xdsServer)
 	require.NoError(t, err)
 	err = xdsServer.start()

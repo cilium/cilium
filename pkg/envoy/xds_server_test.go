@@ -536,8 +536,8 @@ func (m mockSecretManagerInlineSecrets) GetSecretString(_ context.Context, secre
 	return "somevalue", nil
 }
 
-func (m mockSecretManagerInlineSecrets) SetSecretSyncNamespace(ns string) {
-	// unimplemented
+func (m mockSecretManagerInlineSecrets) PolicySecretSyncEnabled() bool {
+	return false
 }
 
 func (m mockSecretManagerInlineSecrets) GetSecretSyncNamespace() string {
@@ -551,8 +551,8 @@ func (m mockSecretManagerSDSSecrets) GetSecretString(_ context.Context, secret *
 	return "", nil
 }
 
-func (m mockSecretManagerSDSSecrets) SetSecretSyncNamespace(ns string) {
-	// unimplemented
+func (m mockSecretManagerSDSSecrets) PolicySecretSyncEnabled() bool {
+	return true
 }
 
 func (m mockSecretManagerSDSSecrets) GetSecretSyncNamespace() string {

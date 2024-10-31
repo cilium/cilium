@@ -105,9 +105,6 @@ type secretSyncConfig struct {
 
 	EnableGatewayAPI           bool
 	GatewayAPISecretsNamespace string
-
-	EnablePolicySecretsSync bool
-	PolicySecretsNamespace  string
 }
 
 func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
@@ -116,8 +113,6 @@ func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("ingress-secrets-namespace", r.IngressSecretsNamespace, "IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller")
 	flags.Bool("enable-gateway-api", false, "Enables Envoy secret sync for Gateway API related TLS secrets")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API")
-	flags.Bool("enable-policy-secrets-sync", r.EnablePolicySecretsSync, "Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy")
-	flags.String("policy-secrets-namespace", r.PolicySecretsNamespace, "PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP")
 }
 
 type xdsServerParams struct {
@@ -138,6 +133,8 @@ type xdsServerParams struct {
 	// Depend on ArtifactCopier to enforce init order and ensure that the additional artifacts are copied
 	// before starting the xDS server (and starting to configure Envoy).
 	ArtifactCopier *ArtifactCopier
+
+	SecretManager certificatemanager.SecretManager
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
@@ -161,7 +158,8 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			useFullTLSContext:             params.EnvoyProxyConfig.UseFullTLSContext,
 			proxyXffNumTrustedHopsIngress: params.EnvoyProxyConfig.ProxyXffNumTrustedHopsIngress,
 			proxyXffNumTrustedHopsEgress:  params.EnvoyProxyConfig.ProxyXffNumTrustedHopsEgress,
-		})
+		},
+		params.SecretManager)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Envoy xDS server: %w", err)
 	}
@@ -337,21 +335,14 @@ func registerSecretSyncer(params syncerParams) error {
 	namespaces := map[string]struct{}{}
 
 	for namespace, cond := range map[string]func() bool{
-		params.Config.EnvoySecretsNamespace:      func() bool { return option.Config.EnableEnvoyConfig },
-		params.Config.IngressSecretsNamespace:    func() bool { return params.Config.EnableIngressController },
-		params.Config.GatewayAPISecretsNamespace: func() bool { return params.Config.EnableGatewayAPI },
-		params.Config.PolicySecretsNamespace:     func() bool { return params.Config.EnablePolicySecretsSync },
+		params.Config.EnvoySecretsNamespace:           func() bool { return option.Config.EnableEnvoyConfig },
+		params.Config.IngressSecretsNamespace:         func() bool { return params.Config.EnableIngressController },
+		params.Config.GatewayAPISecretsNamespace:      func() bool { return params.Config.EnableGatewayAPI },
+		params.SecretManager.GetSecretSyncNamespace(): func() bool { return params.SecretManager.PolicySecretSyncEnabled() },
 	} {
 		if len(namespace) > 0 && cond() {
 			namespaces[namespace] = struct{}{}
 		}
-	}
-
-	// Policy secret syncing requires notifying the included xDSServer of the configured value,
-	// so it can be correctly used by the code.
-	if params.Config.EnablePolicySecretsSync {
-		params.XdsServer.SetPolicySecretSyncNamespace(params.Config.PolicySecretsNamespace)
-		params.SecretManager.SetSecretSyncNamespace(params.Config.PolicySecretsNamespace)
 	}
 
 	if len(namespaces) == 0 {
