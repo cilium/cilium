@@ -35,7 +35,7 @@ in your Helm chart settings:
         enabled: true
 
 
-This will set up Cilium so that the Cilium Operator will synchronize any secrets referenced in CiliumNetworkPolicy (or
+This configures Cilium so that the Cilium Operator will synchronize any secrets referenced in CiliumNetworkPolicy (or
 CiliumClusterwideNetworkPolicy) to a ``cilium-secrets`` namespace, and grant the Cilium agent read access to Secrets for
 that namespace only.
 

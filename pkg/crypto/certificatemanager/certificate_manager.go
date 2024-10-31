@@ -32,7 +32,7 @@ type CertificateManager interface {
 
 type SecretManager interface {
 	GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error)
-	SetSecretSyncNamespace(ns string)
+	PolicySecretSyncEnabled() bool
 	GetSecretSyncNamespace() string
 }
 
@@ -44,10 +44,15 @@ type managerConfig struct {
 	// CertificatesDirectory is the root directory to be used by cilium to find
 	// certificates locally.
 	CertificatesDirectory string
+
+	EnablePolicySecretsSync bool
+	PolicySecretsNamespace  string
 }
 
 func (mc managerConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("certificates-directory", mc.CertificatesDirectory, "Root directory to find certificates specified in L7 TLS policy enforcement")
+	flags.Bool("enable-policy-secrets-sync", mc.EnablePolicySecretsSync, "Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy")
+	flags.String("policy-secrets-namespace", mc.PolicySecretsNamespace, "PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP")
 }
 
 // Manager will manage the way certificates are retrieved based in the given
@@ -56,27 +61,24 @@ type manager struct {
 	rootPath            string
 	k8sClient           k8sClient.Clientset
 	secretSyncNamespace string
+	secretSyncEnabled   bool
 	Logger              logrus.FieldLogger
 }
 
 // NewManager returns a new manager.
 func NewManager(cfg managerConfig, clientset k8sClient.Clientset, logger logrus.FieldLogger) (CertificateManager, SecretManager) {
 	m := &manager{
-		rootPath:  cfg.CertificatesDirectory,
-		k8sClient: clientset,
-		Logger:    logger,
+		rootPath:          cfg.CertificatesDirectory,
+		k8sClient:         clientset,
+		Logger:            logger,
+		secretSyncEnabled: cfg.EnablePolicySecretsSync,
+	}
+
+	if cfg.EnablePolicySecretsSync {
+		m.secretSyncNamespace = cfg.PolicySecretsNamespace
 	}
 
 	return m, m
-}
-
-// SetSecretSyncNamespace sets the configured secret synchronization namespace.
-// Not calling this will disable using secret synchronization, and means that the agent must have
-// read access to the secrets used in policy directly.
-// Secret Synchronization config includes granting access to the policy-secrets-namespace, configured
-// in the envoy Cell.
-func (m *manager) SetSecretSyncNamespace(ns string) {
-	m.secretSyncNamespace = ns
 }
 
 // GetSecretSyncNamespace returns the configured secret synchronization namespace.
@@ -87,6 +89,10 @@ func (m *manager) SetSecretSyncNamespace(ns string) {
 // in the envoy Cell.
 func (m *manager) GetSecretSyncNamespace() string {
 	return m.secretSyncNamespace
+}
+
+func (m *manager) PolicySecretSyncEnabled() bool {
+	return m.secretSyncEnabled
 }
 
 // getSecrets returns either local or k8s secrets, giving precedence for local secrets if configured.
