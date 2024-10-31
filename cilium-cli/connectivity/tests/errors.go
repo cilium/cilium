@@ -48,7 +48,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision}
+		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
@@ -273,7 +273,7 @@ const (
 	failedToReleaseLock    stringMatcher = "Failed to release lock:"
 	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
-
+	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
 )
 
 var (
