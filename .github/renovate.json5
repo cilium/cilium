@@ -86,7 +86,7 @@
     "^make -C Documentation update-helm-values$",
     "^make generate-k8s-api$",
     "^make manifests$",
-    "^make generate-apis$"
+    "^make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis$"
   ],
   "assignAutomerge": true,
   "packageRules": [
@@ -572,7 +572,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "make generate-apis"
+          "make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis"
         ],
         "executionMode": "update"
       }
