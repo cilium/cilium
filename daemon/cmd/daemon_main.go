@@ -1852,7 +1852,9 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// the collection of stale AllowedIPs entries too early, leading to
 			// the disruption of otherwise valid long running connections.
 			if option.Config.KVStore != "" {
-				ipcache.WaitForKVStoreSync()
+				if err := ipcache.WaitForKVStoreSync(d.ctx); err != nil {
+					return
+				}
 			}
 
 			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {
