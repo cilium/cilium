@@ -29,6 +29,7 @@
   key-two: 'gcm(aes)'
   key-type-one: ''
   key-type-two: '+'
+  kvstore: 'true'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '6.6-20240710.064909'
@@ -40,6 +41,7 @@
   key-two: 'gcm(aes)'
   key-type-one: ''
   key-type-two: ''
+  kvstore: 'true'
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.4-20240710.064909'
