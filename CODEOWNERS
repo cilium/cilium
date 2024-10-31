@@ -532,7 +532,6 @@ Makefile* @cilium/build
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
 /pkg/idpool/ @cilium/kvstore
-/pkg/inctimer/ @cilium/sig-agent
 /pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
 /pkg/ipam/ @cilium/sig-ipam
