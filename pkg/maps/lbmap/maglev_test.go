@@ -8,17 +8,18 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type MaglevSuite struct {
-	prevMaglevTableSize int
-	prevNodePortAlg     string
+	prevNodePortAlg string
 }
 
 func setupMaglevSuite(tb testing.TB) *MaglevSuite {
@@ -26,7 +27,6 @@ func setupMaglevSuite(tb testing.TB) *MaglevSuite {
 
 	s := &MaglevSuite{}
 
-	s.prevMaglevTableSize = option.Config.MaglevTableSize
 	s.prevNodePortAlg = option.Config.NodePortAlg
 
 	// Otherwise opening the map might fail with EPERM
@@ -46,7 +46,6 @@ func setupMaglevSuite(tb testing.TB) *MaglevSuite {
 	})
 
 	tb.Cleanup(func() {
-		option.Config.MaglevTableSize = s.prevMaglevTableSize
 		option.Config.NodePortAlg = s.prevNodePortAlg
 	})
 
@@ -56,27 +55,32 @@ func setupMaglevSuite(tb testing.TB) *MaglevSuite {
 func TestInitMaps(t *testing.T) {
 	setupMaglevSuite(t)
 
-	option.Config.MaglevTableSize = 251
-	err := InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
+	maglevTableSize := uint(251)
+	err := InitMaglevMaps(true, false, uint32(maglevTableSize))
 	require.NoError(t, err)
 
-	option.Config.MaglevTableSize = 509
+	maglevTableSize = 509
 	// M mismatch, so the map should be removed
-	deleted, err := deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
+	deleted, err := deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(maglevTableSize))
 	require.NoError(t, err)
 	require.True(t, deleted)
 
 	// M is the same, but no entries, so the map should be removed too
-	err = InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
+	err = InitMaglevMaps(true, false, uint32(maglevTableSize))
 	require.NoError(t, err)
-	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
+	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(maglevTableSize))
 	require.NoError(t, err)
 	require.True(t, deleted)
 
 	// Now insert the entry, so that the map should not be removed
-	err = InitMaglevMaps(true, false, uint32(option.Config.MaglevTableSize))
+	err = InitMaglevMaps(true, false, uint32(maglevTableSize))
 	require.NoError(t, err)
-	lbm := New()
+	ml, err := maglev.New(maglev.Config{
+		MaglevTableSize: maglevTableSize,
+		MaglevHashSeed:  maglev.DefaultHashSeed,
+	}, hivetest.Lifecycle(t))
+	require.NoError(t, err, "maglev.New")
+	lbm := New(ml)
 	params := &datapathTypes.UpsertServiceParams{
 		ID:   1,
 		IP:   net.ParseIP("1.1.1.1"),
@@ -90,7 +94,7 @@ func TestInitMaps(t *testing.T) {
 	}
 	err = lbm.UpsertService(params)
 	require.NoError(t, err)
-	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
+	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(maglevTableSize))
 	require.NoError(t, err)
 	require.False(t, deleted)
 }
