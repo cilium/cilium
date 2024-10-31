@@ -25,8 +25,13 @@ var (
 	)
 )
 
+// KVStoreNodesWaitFn is the type of the function used to wait for synchronization
+// of all nodes from the kvstore.
+type KVStoreNodesWaitFn wait.Fn
+
 // Regenerator wraps additional functionalities for endpoint regeneration.
 type Regenerator struct {
+	nodesWaitFn   KVStoreNodesWaitFn
 	cmWaitFn      wait.Fn
 	cmWaitTimeout time.Duration
 
@@ -40,6 +45,7 @@ func newRegenerator(in struct {
 	Logger logrus.FieldLogger
 
 	Config      wait.TimeoutConfig
+	NodesWaitFn KVStoreNodesWaitFn
 	ClusterMesh *clustermesh.ClusterMesh
 }) *Regenerator {
 	waitFn := func(context.Context) error { return nil }
@@ -49,6 +55,7 @@ func newRegenerator(in struct {
 
 	return &Regenerator{
 		logger:        in.Logger,
+		nodesWaitFn:   in.NodesWaitFn,
 		cmWaitFn:      waitFn,
 		cmWaitTimeout: in.Config.Timeout(),
 	}
@@ -67,6 +74,10 @@ func (r *Regenerator) CapTimeoutForSynchronousRegeneration() {
 		r.logger.WithField(logfields.Value, maxTimeout).
 			Info("Capped clustermesh-sync-timeout because endpoint regeneration needs to be performed synchronously")
 	}
+}
+
+func (r *Regenerator) WaitForKVStoreNodesSync(ctx context.Context) error {
+	return r.nodesWaitFn(ctx)
 }
 
 func (r *Regenerator) WaitForClusterMeshIPIdentitiesSync(ctx context.Context) error {
