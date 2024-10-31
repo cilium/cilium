@@ -1118,15 +1118,14 @@ func getKafkaL7Rules(l7Rules []kafka.PortRule) *cilium.KafkaNetworkPolicyRules {
 	return rules
 }
 
-func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.HeaderMatch, ns string) (string, bool, error) {
+func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.HeaderMatch, ns string) (string, error) {
 	value := ""
 	var err error
-	var inlineSecrets bool
 	if hdr.Secret != nil {
 		if secretManager == nil {
 			err = fmt.Errorf("HeaderMatches: Nil secretManager")
 		} else {
-			value, inlineSecrets, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+			value, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
 		}
 	}
 	// Only use Value if secret was not obtained
@@ -1138,7 +1137,7 @@ func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.He
 		}
 	}
 
-	return value, inlineSecrets, err
+	return value, err
 }
 
 func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRuleHTTP, ns string, policySecretsNamespace string) (*cilium.HttpNetworkPolicyRule, bool) {
@@ -1238,7 +1237,7 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
 		}
 		// Fetch the secret
-		value, inlineSecrets, err := getSecretString(secretManager, hdr, ns)
+		value, err := getSecretString(secretManager, hdr, ns)
 		if err != nil {
 			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
 			// Envoy treats an empty exact match value as matching ANY value; adding
@@ -1254,59 +1253,58 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 				},
 				InvertMatch: true,
 			})
-		} else {
+		} else if value != "" {
+			// Inline value provided.
 			// Header presence and matching (literal) value needed.
 			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
-				if value != "" {
-					headers = append(headers, &envoy_config_route.HeaderMatcher{
-						Name: hdr.Name,
-						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
-							StringMatch: &envoy_type_matcher.StringMatcher{
-								MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
-									Exact: value,
-								},
+				// fail on mismatch gets converted for regular HeaderMatcher
+				headers = append(headers, &envoy_config_route.HeaderMatcher{
+					Name: hdr.Name,
+					HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+						StringMatch: &envoy_type_matcher.StringMatcher{
+							MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+								Exact: value,
 							},
 						},
-					})
-				} else {
-					// Value is empty, but could be we need to set an SDS value for it instead
-					if !inlineSecrets {
-						// Need to add a HeaderMatch so we can specify the SDS value here.
-						log.Debugf("HeaderMatches: Adding %s because SDS value is required", hdr.Name)
-						headerMatches = append(headerMatches, &cilium.HeaderMatch{
-							MismatchAction: mismatch_action,
-							Name:           hdr.Name,
-							ValueSdsSecret: namespacedNametoSyncedSDSSecretName(types.NamespacedName{
-								Namespace: hdr.Secret.Namespace,
-								Name:      hdr.Secret.Name,
-							}, policySecretsNamespace),
-						})
-					}
-					// Check for header presence in headers
-					headers = append(headers, &envoy_config_route.HeaderMatcher{
-						Name:                 hdr.Name,
-						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
-					})
-				}
+					},
+				})
 			} else {
 				log.Debugf("HeaderMatches: Adding %s", hdr.Name)
-				if !inlineSecrets && hdr.Secret != nil {
-					headerMatches = append(headerMatches, &cilium.HeaderMatch{
-						MismatchAction: mismatch_action,
-						Name:           hdr.Name,
-						ValueSdsSecret: namespacedNametoSyncedSDSSecretName(types.NamespacedName{
-							Namespace: hdr.Secret.Namespace,
-							Name:      hdr.Secret.Name,
-						}, policySecretsNamespace),
-					})
-				} else {
-					headerMatches = append(headerMatches, &cilium.HeaderMatch{
-						MismatchAction: mismatch_action,
-						Name:           hdr.Name,
-						Value:          value,
-					})
-				}
+				headerMatches = append(headerMatches, &cilium.HeaderMatch{
+					MismatchAction: mismatch_action,
+					Name:           hdr.Name,
+					Value:          value,
+				})
 			}
+		} else if hdr.Secret == nil {
+			// No inline value and no secret.
+			// Header presence for FAIL_ON_MISMSTCH or matching empty value otherwise needed.
+			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
+				// Only header presence needed
+				headers = append(headers, &envoy_config_route.HeaderMatcher{
+					Name:                 hdr.Name,
+					HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
+				})
+			} else {
+				log.Debugf("HeaderMatches: Adding %s for an empty value", hdr.Name)
+				headerMatches = append(headerMatches, &cilium.HeaderMatch{
+					MismatchAction: mismatch_action,
+					Name:           hdr.Name,
+				})
+			}
+		} else {
+			// A secret is set, so we transform to an SDS value.
+			// cilium-envoy takes care of treating this as a presence match if the
+			// secret exists with an empty value.
+			log.Debugf("HeaderMatches: Adding %s because SDS value is required", hdr.Name)
+			headerMatches = append(headerMatches, &cilium.HeaderMatch{
+				MismatchAction: mismatch_action,
+				Name:           hdr.Name,
+				ValueSdsSecret: namespacedNametoSyncedSDSSecretName(types.NamespacedName{
+					Namespace: hdr.Secret.Namespace,
+					Name:      hdr.Secret.Name,
+				}, policySecretsNamespace),
+			})
 		}
 	}
 	if len(headers) == 0 {
