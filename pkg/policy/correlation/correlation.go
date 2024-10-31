@@ -144,6 +144,21 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//    - port: 80
 		//      protocol: TCP
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(key)
+	case monitorAPI.PolicyMatchL3Proto:
+		// Check for L3 policy rules with protocol (but no port).
+		//
+		// Consider the network policy:
+		//
+		// spec:
+		//  podSelector: {}
+		//  ingress:
+		//  - podSelector:
+		//      matchLabels:
+		//        app: client
+		//    ports:
+		//    - protocol: TCP
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
+			policy.KeyForDirection(key.TrafficDirection()).WithIdentity(key.Identity).WithProto(key.Nexthdr))
 	case monitorAPI.PolicyMatchL4Only:
 		// Check for port-specific rules.
 		// This covers the case where one or more identities are allowed by network policy.
