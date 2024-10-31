@@ -703,8 +703,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx, __u64 off,
-				     bool has_l4_header)
+snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_header)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmphdr));
 	struct ipv4_ct_tuple tuple = {};
@@ -853,8 +852,18 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			if (icmphdr.code > NR_ICMP_UNREACH)
 				return DROP_UNKNOWN_ICMP_CODE;
 
-			return snat_v4_nat_handle_icmp_dest_unreach(ctx, off,
-								    has_l4_header);
+			goto nat_icmp_v4;
+		case ICMP_TIME_EXCEEDED:
+			switch (icmphdr.code) {
+			case ICMP_EXC_TTL:
+			case ICMP_EXC_FRAGTIME:
+				break;
+			default:
+				return DROP_UNKNOWN_ICMP_CODE;
+			}
+
+nat_icmp_v4:
+			return snat_v4_nat_handle_icmp_error(ctx, off, has_l4_header);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
@@ -871,9 +880,9 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
-					 __u64 inner_l3_off,
-					 struct ipv4_nat_entry **state)
+snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
+				  __u64 inner_l3_off,
+				  struct ipv4_nat_entry **state)
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct iphdr iphdr;
@@ -995,11 +1004,20 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			if (icmphdr.code > NR_ICMP_UNREACH)
 				return NAT_PUNT_TO_STACK;
 
+			goto rev_nat_icmp_v4;
+		case ICMP_TIME_EXCEEDED:
+			switch (icmphdr.code) {
+			case ICMP_EXC_TTL:
+			case ICMP_EXC_FRAGTIME:
+				break;
+			default:
+				return NAT_PUNT_TO_STACK;
+			}
+
+rev_nat_icmp_v4:
 			inner_l3_off = off + sizeof(struct icmphdr);
 
-			ret = snat_v4_rev_nat_handle_icmp_dest_unreach(ctx,
-								       inner_l3_off,
-								       &state);
+			ret = snat_v4_rev_nat_handle_icmp_error(ctx, inner_l3_off, &state);
 			if (IS_ERR(ret))
 				return ret;
 
