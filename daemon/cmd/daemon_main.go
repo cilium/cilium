@@ -1837,13 +1837,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	if params.WGAgent != nil {
 		go func() {
-			select {
-			case <-d.nodeDiscovery.Registered:
-				// Wait until the kvstore synchronization completed, to avoid
-				// causing connectivity blips due incorrectly removing
-				// WireGuard peers that have not yet been discovered. The
-				// Registered channel is immediately closed in CRD mode.
-			case <-d.ctx.Done():
+			// Wait until the kvstore synchronization completed, to avoid
+			// causing connectivity blips due incorrectly removing
+			// WireGuard peers that have not yet been discovered.
+			// WaitForKVStoreSync returns immediately in CRD mode.
+			if err := d.nodeDiscovery.WaitForKVStoreSync(d.ctx); err != nil {
 				return
 			}
 
