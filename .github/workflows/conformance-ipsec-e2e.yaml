@@ -179,6 +179,8 @@ jobs:
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
+          # Mutual auth doesn't currently work in kvstore mode.
+          mutual-auth: ${{ matrix.kvstore != 'true' }}
           misc: ${{ matrix.misc }}
 
       - name: Set Kind params
@@ -198,6 +200,19 @@ jobs:
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
+
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: matrix.kvstore == 'true'
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo "config= \
+            --set=etcd.enabled=true \
+            --set=identityAllocationMode=kvstore \
+            --set=etcd.endpoints[0]=http://${IP}:2378 \
+          " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
@@ -232,9 +247,12 @@ jobs:
           kubectl create -n kube-system secret generic cilium-ipsec-keys \
             --from-literal=keys="3+ ${key}"
 
-          cilium install ${{ steps.cilium-config.outputs.config }}
-          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
-          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
+          cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
+
+          if [[ "${{ matrix.kvstore }}" != "true" ]]; then
+            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
+          fi
 
           cilium status --wait
           kubectl get pods --all-namespaces -o wide
@@ -367,6 +385,12 @@ jobs:
           cilium status
           mkdir -p cilium-sysdumps
           cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
 
       - name: Upload artifacts
         if: ${{ !success() }}
