@@ -125,6 +125,7 @@ jobs:
             kpr: 'false'
             tunnel: 'disabled'
             endpoint-routes: 'true'
+            kvstore: 'true'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -280,6 +281,7 @@ jobs:
             encryption: 'wireguard'
             encryption-node: 'false'
             host-fw: 'true'
+            kvstore: 'true'
 
     timeout-minutes: 60
     steps:
@@ -324,6 +326,8 @@ jobs:
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
+          # Mutual auth doesn't currently work in kvstore mode.
+          mutual-auth: ${{ matrix.kvstore != 'true' }}
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
@@ -351,6 +355,19 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: matrix.kvstore == 'true'
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo "config= \
+            --set=etcd.enabled=true \
+            --set=identityAllocationMode=kvstore \
+            --set=etcd.endpoints[0]=http://${IP}:2378 \
+          " >> $GITHUB_OUTPUT
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -368,9 +385,12 @@ jobs:
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
           export CILIUM_CLI_MODE=helm
-          ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
-          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
-          kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
+          ./cilium-cli install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
+
+          if [[ "${{ matrix.kvstore }}" != "true" ]]; then
+            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
+            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
+          fi
 
           ./cilium-cli status --wait
           kubectl get pods --all-namespaces -o wide
@@ -415,6 +435,12 @@ jobs:
           ./cilium-cli status
           mkdir -p cilium-sysdumps
           ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
 
       - name: Upload artifacts
         if: ${{ !success() }}
