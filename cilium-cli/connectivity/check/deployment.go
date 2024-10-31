@@ -25,6 +25,9 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 )
 
 const (
@@ -65,6 +68,7 @@ const (
 	testConnDisruptClientDeploymentName = "test-conn-disrupt-client"
 	testConnDisruptServerDeploymentName = "test-conn-disrupt-server"
 	testConnDisruptServiceName          = "test-conn-disrupt"
+	testConnDisruptCNPName              = "test-conn-disrupt"
 	KindTestConnDisrupt                 = "test-conn-disrupt"
 )
 
@@ -387,6 +391,56 @@ func newIngress(name, backend string) *networkingv1.Ingress {
 	}
 }
 
+func newConnDisruptCNP(ns string) *ciliumv2.CiliumNetworkPolicy {
+	selector := policyapi.EndpointSelector{
+		LabelSelector: &slimmetav1.LabelSelector{
+			MatchLabels: map[string]string{"kind": KindTestConnDisrupt},
+		},
+	}
+
+	ports := []policyapi.PortRule{{
+		Ports: []policyapi.PortProtocol{{
+			Protocol: policyapi.ProtoTCP,
+			Port:     "8000",
+		}},
+	}}
+
+	return &ciliumv2.CiliumNetworkPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       ciliumv2.CNPKindDefinition,
+			APIVersion: ciliumv2.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: testConnDisruptCNPName, Namespace: ns},
+		Spec: &policyapi.Rule{
+			EndpointSelector: selector,
+			Egress: []policyapi.EgressRule{
+				{
+					EgressCommonRule: policyapi.EgressCommonRule{
+						ToEndpoints: []policyapi.EndpointSelector{selector},
+					},
+					ToPorts: ports,
+				},
+				{
+					// Allow access to DNS for service resolution (we don't care
+					// of being restrictive here, so we just allow all endpoints).
+					ToPorts: []policyapi.PortRule{{
+						Ports: []policyapi.PortProtocol{
+							{Protocol: policyapi.ProtoUDP, Port: "53"},
+							{Protocol: policyapi.ProtoUDP, Port: "5353"},
+						},
+					}},
+				},
+			},
+			Ingress: []policyapi.IngressRule{{
+				IngressCommonRule: policyapi.IngressCommonRule{
+					FromEndpoints: []policyapi.EndpointSelector{selector},
+				},
+				ToPorts: ports,
+			}},
+		},
+	}
+}
+
 func (ct *ConnectivityTest) ingresses() map[string]string {
 	ingresses := map[string]string{"same-node": echoSameNodeDeploymentName}
 	if !ct.Params().SingleNode || ct.Params().MultiCluster != "" {
@@ -510,6 +564,16 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				_, err = client.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
 				if err != nil {
 					return fmt.Errorf("unable to create service %s: %w", testConnDisruptServiceName, err)
+				}
+			}
+
+			if enabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.CNP)); enabled {
+				for _, client := range ct.Clients() {
+					ct.Logf("✨ [%s] Deploying %s CiliumNetworkPolicy...", client.ClusterName(), testConnDisruptCNPName)
+					_, err = client.ApplyGeneric(ctx, newConnDisruptCNP(ct.params.TestNamespace))
+					if err != nil {
+						return fmt.Errorf("unable to create CiliumNetworkPolicy %s: %w", testConnDisruptCNPName, err)
+					}
 				}
 			}
 		}
@@ -1308,6 +1372,7 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.DeleteOptions{})
+	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptCNPName, metav1.DeleteOptions{})
 
 	return nil
 }
