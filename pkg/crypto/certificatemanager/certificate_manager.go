@@ -31,8 +31,7 @@ type CertificateManager interface {
 }
 
 type SecretManager interface {
-	GetSecrets(ctx context.Context, secret *api.Secret, ns string) (string, map[string][]byte, bool, error)
-	GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, bool, error)
+	GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error)
 	SetSecretSyncNamespace(ns string)
 	GetSecretSyncNamespace() string
 }
@@ -68,8 +67,6 @@ func NewManager(cfg managerConfig, clientset k8sClient.Clientset, logger logrus.
 		Logger:    logger,
 	}
 
-	m.Logger.Debug("certificate-manager starting")
-
 	return m, m
 }
 
@@ -92,11 +89,11 @@ func (m *manager) GetSecretSyncNamespace() string {
 	return m.secretSyncNamespace
 }
 
-// GetSecrets returns either local or k8s secrets, giving precedence for local secrets if configured.
+// getSecrets returns either local or k8s secrets, giving precedence for local secrets if configured.
 // It also returns a boolean indicating if the values were read from disk or not.
 // The 'ns' parameter is used as the secret namespace if 'secret.Namespace' is an empty string, and is
 // expected to be set as the same namespace as the source object (most likely a CNP or CCNP).
-func (m *manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string) (string, map[string][]byte, bool, error) {
+func (m *manager) getSecrets(ctx context.Context, secret *api.Secret, ns string) (string, map[string][]byte, bool, error) {
 	if secret == nil {
 		return "", nil, false, fmt.Errorf("Secret must not be nil")
 	}
@@ -137,6 +134,9 @@ func (m *manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string)
 	// If there's no secret synchronization namespace configured, then we need to read values
 	// directly from Kubernetes. Not a good idea, for security or performance reasons, but included
 	// for backwards compatibility.
+	// TODO(youngnick): Once we are comfortable with SDS stability, remove this and pass the
+	// reference to the original secret instead. (This will require changes to the secretsync
+	// package so that it can register specific secrets from anywhere.)
 	if m.secretSyncNamespace == "" {
 		secrets, err := m.k8sClient.GetSecrets(ctx, ns, secret.Name)
 		return nsName, secrets, true, err
@@ -159,7 +159,7 @@ const (
 // GetTLSContext returns a new ca, public and private certificates found based
 // in the given api.TLSContext.
 func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, inlineSecrets bool, err error) {
-	name, secrets, inlineSecrets, err := m.GetSecrets(ctx, tlsCtx.Secret, ns)
+	name, secrets, inlineSecrets, err := m.getSecrets(ctx, tlsCtx.Secret, ns)
 	if err != nil {
 		return "", "", "", false, err
 	}
@@ -168,7 +168,7 @@ func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 	// so we don't need to validate the values. Envoy will handle validation.
 	if !inlineSecrets {
 		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes via SDS")
-		return "", "", "", inlineSecrets, nil
+		return "", "", "", false, nil
 	}
 
 	caName := caDefaultName
@@ -211,29 +211,29 @@ func (m *manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 	// TODO(youngnick): Follow up PR that will change this to a deprecation warning once we actually
 	// mark read-from-file and direct read as deprecated.
 	m.Logger.WithField("secret", name).Debug("Secret being used inline, not via SDS")
-	return ca, public, private, inlineSecrets, nil
+	return ca, public, private, true, nil
 }
 
 // GetSecretString returns a secret string stored in a k8s secret
-func (m *manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, bool, error) {
-	name, secrets, inlineSecrets, err := m.GetSecrets(ctx, secret, ns)
+func (m *manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error) {
+	name, secrets, _, err := m.getSecrets(ctx, secret, ns)
 	if err != nil {
-		return "", inlineSecrets, err
+		return "", err
 	}
 
 	// If the value hasn't been read from a file, we're going to be inserting a reference to an SDS secret instead,
 	// so we don't need to validate the values. Envoy will handle validation.
-	if !inlineSecrets {
+	if len(secrets) == 0 {
 		m.Logger.WithField("secret", name).Debug("Secret being read from Kubernetes via SDS")
-		return "", inlineSecrets, nil
+		return "", nil
 	}
 
 	if len(secrets) == 1 {
 		// get the lone item by looping into the map
 		for _, value := range secrets {
-			return string(value), inlineSecrets, nil
+			return string(value), nil
 		}
 	}
 
-	return "", false, fmt.Errorf("Secret %s must have exactly one item", name)
+	return "", fmt.Errorf("Secret %s must have exactly one item", name)
 }

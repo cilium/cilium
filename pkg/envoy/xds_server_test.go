@@ -4,6 +4,7 @@
 package envoy
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -452,10 +454,138 @@ var L4Policy2 = &policy.L4Policy{
 	Egress:  policy.L4DirectionPolicy{PortRules: L4PolicyMap2},
 }
 
+var PortRuleHeaderMatchSecret = &api.PortRuleHTTP{
+	HeaderMatches: []*api.HeaderMatch{
+		{
+			Mismatch: "",
+			Name:     "VeryImportantHeader",
+			Secret: &api.Secret{
+				Name:      "secretName",
+				Namespace: "cilium-secrets",
+			},
+		},
+	},
+}
+
+var expectedHeadersPortRuleHeaderMatchSecretNilSecretManager = []*envoy_config_route.HeaderMatcher{
+	{
+		Name: "VeryImportantHeader",
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+					Exact: "",
+				},
+			},
+		},
+		InvertMatch: true,
+	},
+}
+
+var expectedHeadersPortRuleHeaderMatchInline = []*envoy_config_route.HeaderMatcher{
+	{
+		Name: "VeryImportantHeader",
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher.StringMatcher{
+				MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+					Exact: "somevalue",
+				},
+			},
+		},
+	},
+}
+
+// var expectedHeadersPortRuleHeaderMatchSDS = []*envoy_config_route.HeaderMatcher{
+// 	{
+// 		Name:                 "VeryImportantHeader",
+// 		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
+// 	},
+// }
+
+var expectedHeaderMatchesPortRuleHeaderMatchSDS = []*cilium.HeaderMatch{
+	{
+		Name:           "VeryImportantHeader",
+		ValueSdsSecret: "cilium-secrets/secretName",
+	},
+}
+var expectedHeadersPortRuleHeaderMatchSDS []*envoy_config_route.HeaderMatcher
+
+var PortRuleHeaderMatchSecretLogOnMismatch = &api.PortRuleHTTP{
+	HeaderMatches: []*api.HeaderMatch{
+		{
+			Mismatch: api.MismatchActionLog,
+			Name:     "VeryImportantHeader",
+			Secret: &api.Secret{
+				Name:      "secretName",
+				Namespace: "cilium-secrets",
+			},
+		},
+	},
+}
+
+var expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS = []*cilium.HeaderMatch{
+	{
+		Name:           "VeryImportantHeader",
+		ValueSdsSecret: "cilium-secrets/secretName",
+		MismatchAction: cilium.HeaderMatch_CONTINUE_ON_MISMATCH,
+	},
+}
+
+type mockSecretManagerInlineSecrets struct{}
+
+func (m mockSecretManagerInlineSecrets) GetSecretString(_ context.Context, secret *api.Secret, ns string) (string, error) {
+	return "somevalue", nil
+}
+
+func (m mockSecretManagerInlineSecrets) SetSecretSyncNamespace(ns string) {
+	// unimplemented
+}
+
+func (m mockSecretManagerInlineSecrets) GetSecretSyncNamespace() string {
+	// unimplemented
+	return ""
+}
+
+type mockSecretManagerSDSSecrets struct{}
+
+func (m mockSecretManagerSDSSecrets) GetSecretString(_ context.Context, secret *api.Secret, ns string) (string, error) {
+	return "", nil
+}
+
+func (m mockSecretManagerSDSSecrets) SetSecretSyncNamespace(ns string) {
+	// unimplemented
+}
+
+func (m mockSecretManagerSDSSecrets) GetSecretSyncNamespace() string {
+	// unimplemented
+	return ""
+}
+
 func TestGetHTTPRule(t *testing.T) {
+	log.Logger.SetLevel(logrus.DebugLevel)
+
 	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "", "")
 	require.Equal(t, ExpectedHeaders1, obtained.Headers)
 	require.True(t, canShortCircuit)
+
+	result, canShortCircuit := getHTTPRule(nil, PortRuleHeaderMatchSecret, "", "")
+	require.Equal(t, expectedHeadersPortRuleHeaderMatchSecretNilSecretManager, result.Headers)
+	require.True(t, canShortCircuit)
+
+	var smInline mockSecretManagerInlineSecrets
+	result, canShortCircuit = getHTTPRule(smInline, PortRuleHeaderMatchSecret, "", "")
+	require.Equal(t, expectedHeadersPortRuleHeaderMatchInline, result.Headers)
+	require.True(t, canShortCircuit)
+
+	var smSDS mockSecretManagerSDSSecrets
+	result, canShortCircuit = getHTTPRule(smSDS, PortRuleHeaderMatchSecret, "", "")
+	require.Equal(t, expectedHeadersPortRuleHeaderMatchSDS, result.Headers)
+	require.False(t, canShortCircuit)
+	require.Equal(t, expectedHeaderMatchesPortRuleHeaderMatchSDS, result.HeaderMatches)
+
+	result, canShortCircuit = getHTTPRule(smSDS, PortRuleHeaderMatchSecretLogOnMismatch, "", "")
+	require.Nil(t, result.Headers)
+	require.False(t, canShortCircuit)
+	require.Equal(t, expectedHeaderMatchesLogOnMismatchPortRuleHeaderMatchSDS, result.HeaderMatches)
 }
 
 func Test_getWildcardNetworkPolicyRule(t *testing.T) {
