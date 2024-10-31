@@ -280,6 +280,19 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.kvstore == 'true' }}
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo "config= \
+            --set=etcd.enabled=true \
+            --set=identityAllocationMode=kvstore \
+            --set=etcd.endpoints[0]=http://${IP}:2378 \
+          " >> $GITHUB_OUTPUT
+
       - name: Install Cilium CLI
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
@@ -321,7 +334,8 @@ jobs:
           mkdir -p cilium-junits
 
           cilium install \
-            ${{ steps.cilium-stable-config.outputs.config }}
+            ${{ steps.cilium-stable-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           cilium status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -337,7 +351,8 @@ jobs:
         shell: bash
         run: |
           cilium upgrade \
-            ${{ steps.cilium-newest-config.outputs.config }}
+            ${{ steps.cilium-newest-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           cilium status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -373,7 +388,8 @@ jobs:
         shell: bash
         run: |
           cilium upgrade \
-            ${{ steps.cilium-stable-config.outputs.config }}
+            ${{ steps.cilium-stable-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           cilium status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -408,6 +424,12 @@ jobs:
           cilium status
           mkdir -p cilium-sysdumps
           cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
 
       - name: Upload artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
