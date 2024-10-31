@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -49,6 +50,7 @@ func TestScript(t *testing.T) {
 			daemonk8s.ResourcesCell,
 			cell.Config(cecConfig{}),
 			experimental.Cell,
+			maglev.Cell,
 			cell.Provide(
 				tables.NewNodeAddressTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
@@ -59,7 +61,6 @@ func TestScript(t *testing.T) {
 						EnableIPv6:        true,
 						SockRevNatEntries: 1000,
 						LBMapEntries:      1000,
-						MaglevTableSize:   1021,
 					}
 				},
 				func() *experimental.TestConfig {

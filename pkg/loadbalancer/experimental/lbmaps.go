@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"reflect"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
@@ -18,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -25,10 +27,11 @@ import (
 type lbmapsParams struct {
 	cell.In
 
-	Lifecycle  cell.Lifecycle
-	TestConfig *TestConfig `optional:"true"`
-	MapsConfig LBMapsConfig
-	Writer     *Writer
+	Lifecycle    cell.Lifecycle
+	TestConfig   *TestConfig `optional:"true"`
+	MapsConfig   LBMapsConfig
+	MaglevConfig maglev.Config
+	Writer       *Writer
 }
 
 func newLBMaps(p lbmapsParams) LBMaps {
@@ -36,27 +39,27 @@ func newLBMaps(p lbmapsParams) LBMaps {
 		return nil
 	}
 
+	pinned := true
+
 	if p.TestConfig != nil {
 		// We're beind tested, use unpinned maps if privileged, otherwise
 		// in-memory fake.
 		var m LBMaps
-		if os.Getuid() != 0 {
-			m = NewFakeLBMaps()
+		if os.Getuid() == 0 {
+			pinned = false
 		} else {
-			r := &BPFLBMaps{Pinned: false, Cfg: p.MapsConfig}
-			p.Lifecycle.Append(r)
-			m = r
-		}
-		if p.TestConfig.TestFaultProbability > 0.0 {
-			m = &FaultyLBMaps{
-				impl:               m,
-				failureProbability: p.TestConfig.TestFaultProbability,
+			m = NewFakeLBMaps()
+			if p.TestConfig.TestFaultProbability > 0.0 {
+				m = &FaultyLBMaps{
+					impl:               m,
+					failureProbability: p.TestConfig.TestFaultProbability,
+				}
 			}
+			return m
 		}
-		return m
 	}
 
-	r := &BPFLBMaps{Pinned: true, Cfg: p.MapsConfig}
+	r := &BPFLBMaps{Pinned: pinned, Cfg: p.MapsConfig, MaglevCfg: p.MaglevConfig}
 	p.Lifecycle.Append(r)
 	return r
 }
@@ -69,7 +72,6 @@ type LBMapsConfig struct {
 	AffinityMapMaxEntries                                           int
 	SourceRangeMapMaxEntries                                        int
 	MaglevMapMaxEntries                                             int
-	MaglevTableSize                                                 int
 }
 
 // newLBMapsConfig creates the config from the DaemonConfig. When we
@@ -82,7 +84,6 @@ func newLBMapsConfig(dcfg *option.DaemonConfig) (cfg LBMapsConfig) {
 	cfg.AffinityMapMaxEntries = dcfg.LBMapEntries
 	cfg.SourceRangeMapMaxEntries = dcfg.LBMapEntries
 	cfg.MaglevMapMaxEntries = dcfg.LBMapEntries
-	cfg.MaglevTableSize = dcfg.MaglevTableSize
 	if dcfg.LBServiceMapEntries > 0 {
 		cfg.ServiceMapMaxEntries = dcfg.LBServiceMapEntries
 	}
@@ -160,7 +161,8 @@ type BPFLBMaps struct {
 	// Pinned if true will pin the maps to a file. Tests may turn this off.
 	Pinned bool
 
-	Cfg LBMapsConfig
+	Cfg       LBMapsConfig
+	MaglevCfg maglev.Config
 
 	service4Map, service6Map         *ebpf.Map
 	backend4Map, backend6Map         *ebpf.Map
@@ -297,13 +299,14 @@ func (r *BPFLBMaps) Start(cell.HookContext) error {
 			desc.spec.Pinning = ebpf.PinNone
 		}
 		desc.spec.MaxEntries = uint32(desc.maxEntries)
-		if desc.spec.InnerMap != nil {
-			desc.spec.InnerMap.ValueSize = lbmap.MaglevBackendLen * uint32(r.Cfg.MaglevTableSize)
+		if strings.HasSuffix(desc.spec.Name, "maglev") {
+			desc.spec.InnerMap.ValueSize = lbmap.MaglevBackendLen * uint32(r.MaglevCfg.MaglevTableSize)
 		}
 		m := ebpf.NewMap(desc.spec)
 		*desc.target = m
 
 		if err := m.OpenOrCreate(); err != nil {
+			fmt.Printf("open failed: spec: %+v, innermap: %+v\n", desc.spec, desc.spec.InnerMap)
 			return fmt.Errorf("opening map %s: %w", desc.spec.Name, err)
 		}
 	}

@@ -31,6 +31,7 @@ import (
 	k8sTestUtils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -43,6 +44,11 @@ var (
 
 	//go:embed testdata/endpointslice.yaml
 	endpointSliceYaml []byte
+
+	maglevConfig = maglev.Config{
+		MaglevTableSize: 1021,
+		MaglevHashSeed:  maglev.DefaultHashSeed,
+	}
 )
 
 func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bool) {
@@ -67,8 +73,8 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 				AffinityMapMaxEntries:    3 * testSize,
 				SourceRangeMapMaxEntries: 3 * testSize,
 				MaglevMapMaxEntries:      3 * testSize,
-				MaglevTableSize:          1021,
 			},
+			MaglevCfg: maglevConfig,
 		}
 	} else {
 		maps = experimental.NewFakeLBMaps()
@@ -525,22 +531,24 @@ func testHive(maps experimental.LBMaps,
 					}
 				},
 				func() experimental.ExternalConfig { return extConfig },
-			),
 
-			cell.Provide(func() experimental.StreamsOut {
-				return experimental.StreamsOut{
-					ServicesStream:  stream.FromChannel(services),
-					EndpointsStream: stream.FromChannel(endpoints),
-					PodsStream:      stream.FromChannel(pods),
-				}
-			}),
+				func() experimental.StreamsOut {
+					return experimental.StreamsOut{
+						ServicesStream:  stream.FromChannel(services),
+						EndpointsStream: stream.FromChannel(endpoints),
+						PodsStream:      stream.FromChannel(pods),
+					}
+				},
 
-			cell.Provide(
 				func(lc cell.Lifecycle) experimental.LBMaps {
 					if rm, ok := maps.(*experimental.BPFLBMaps); ok {
 						lc.Append(rm)
 					}
 					return maps
+				},
+
+				func(lc cell.Lifecycle) (*maglev.Maglev, error) {
+					return maglev.New(maglevConfig, lc)
 				},
 			),
 

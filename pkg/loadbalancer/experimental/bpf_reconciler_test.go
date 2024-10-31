@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -815,7 +816,12 @@ func TestBPFOps(t *testing.T) {
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
 
-	maglevTableSize := 1021
+	maglevCfg := maglev.Config{
+		MaglevTableSize: 1021,
+		MaglevHashSeed:  maglev.DefaultHashSeed,
+	}
+	maglev, err := maglev.New(maglevCfg, lc)
+	require.NoError(t, err, "maglev.New")
 
 	var lbmaps LBMaps
 	if testutils.IsPrivileged() {
@@ -829,8 +835,8 @@ func TestBPFOps(t *testing.T) {
 				AffinityMapMaxEntries:    1000,
 				SourceRangeMapMaxEntries: 1000,
 				MaglevMapMaxEntries:      1000,
-				MaglevTableSize:          maglevTableSize,
 			},
+			MaglevCfg: maglevCfg,
 		}
 		lc.Append(r)
 		lbmaps = r
@@ -841,7 +847,6 @@ func TestBPFOps(t *testing.T) {
 	// Enable features.
 	extCfg := ExternalConfig{
 		EnableSessionAffinity: true,
-		MaglevTableSize:       maglevTableSize,
 	}
 
 	cfg := DefaultConfig
@@ -856,7 +861,7 @@ func TestBPFOps(t *testing.T) {
 				// fresh IDs.
 				external := extCfg
 				external.NodePortAlg = algo
-				ops := newBPFOps(lc, log, cfg, external, lbmaps)
+				ops := newBPFOps(lc, log, cfg, external, lbmaps, maglev)
 				for _, testCase := range testCaseSet {
 					t.Run(fmt.Sprintf("%s/%s/ipv6:%v", testCase.name, algo, addr.IsIPv6()), func(t *testing.T) {
 						frontend := testCase.frontend
