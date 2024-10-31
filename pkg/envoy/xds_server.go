@@ -121,14 +121,6 @@ type XDSServer interface {
 	// RemoveAllNetworkPolicies removes all network policies from the set published
 	// to L7 proxies.
 	RemoveAllNetworkPolicies()
-
-	// GetPolicySecretSyncNamespace gets the configured secret sync namespace,
-	// where secrets referenced in Network Policy will be synchronized to.
-	GetPolicySecretSyncNamespace() string
-
-	// SetPolicySecretSyncNamespace sets the secret sync namespace,
-	// where secrets referenced in Network Policy will be synchronized to.
-	SetPolicySecretSyncNamespace(string)
 }
 
 type xdsServer struct {
@@ -194,6 +186,8 @@ type xdsServer struct {
 	restorerPromise promise.Promise[endpointstate.Restorer]
 
 	localEndpointStore *LocalEndpointStore
+
+	secretManager certificatemanager.SecretManager
 }
 
 func toAny(pb proto.Message) *anypb.Any {
@@ -214,13 +208,12 @@ type xdsServerConfig struct {
 	httpRetryTimeout              int
 	httpNormalizePath             bool
 	useFullTLSContext             bool
-	policySecretSyncNamespace     string
 	proxyXffNumTrustedHopsIngress uint32
 	proxyXffNumTrustedHopsEgress  uint32
 }
 
 // newXDSServer creates a new xDS GRPC server.
-func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig) (*xdsServer, error) {
+func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager) (*xdsServer, error) {
 	return &xdsServer{
 		restorerPromise:    restorerPromise,
 		listenerCount:      make(map[string]uint),
@@ -230,6 +223,7 @@ func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCac
 		socketPath:    getXDSSocketPath(config.envoySocketDir),
 		accessLogPath: getAccessLogSocketPath(config.envoySocketDir),
 		config:        config,
+		secretManager: secretManager,
 	}, nil
 }
 
@@ -1834,7 +1828,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 		return nil, func() error { return nil }
 	}
 
-	networkPolicy := getNetworkPolicy(ep, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.policySecretSyncNamespace)
+	networkPolicy := getNetworkPolicy(ep, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.secretManager.GetSecretSyncNamespace())
 
 	// First, validate the policy
 	err := networkPolicy.Validate()
@@ -1930,14 +1924,6 @@ func (s *xdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 		}
 	}
 	return networkPolicies, nil
-}
-
-func (s *xdsServer) SetPolicySecretSyncNamespace(ns string) {
-	s.config.policySecretSyncNamespace = ns
-}
-
-func (s *xdsServer) GetPolicySecretSyncNamespace() string {
-	return s.config.policySecretSyncNamespace
 }
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD
