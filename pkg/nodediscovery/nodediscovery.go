@@ -210,6 +210,17 @@ func (n *NodeDiscovery) WaitForLocalNodeInit() {
 	<-n.localStateInitialized
 }
 
+// WaitForKVStoreSync blocks until kvstore synchronization of node information
+// completed. It returns immediately in CRD mode.
+func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
+	select {
+	case <-n.Registered:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		n.ctrlmgr.UpdateController(
