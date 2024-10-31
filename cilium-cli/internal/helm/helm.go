@@ -8,6 +8,7 @@ package helm
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -77,7 +78,8 @@ func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string
 		return nil, err
 	}
 
-	file := path.Join(cacheDir, fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
+	hashID := sha256.Sum256([]byte(repository))
+	file := path.Join(cacheDir, fmt.Sprintf("cilium-%s-%x.tgz", ciliumVersion, hashID[:defaults.HelmRepoIDLen]))
 	if _, err = os.Stat(file); err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, err
@@ -105,6 +107,11 @@ func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string
 		}
 		if _, err = pull.Run(chartRef); err != nil {
 			return nil, err
+		}
+
+		downloadedFile := path.Join(cacheDir, fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
+		if err := os.Rename(downloadedFile, file); err != nil {
+			return nil, fmt.Errorf("failed to rename downloaded chart: %w", err)
 		}
 	}
 

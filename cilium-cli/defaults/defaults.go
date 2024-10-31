@@ -4,6 +4,7 @@
 package defaults
 
 import (
+	"crypto/sha256"
 	"time"
 )
 
@@ -119,7 +120,9 @@ var (
 	Version string
 
 	// HelmRepository specifies Helm repository to download Cilium charts from.
-	HelmRepository = "https://helm.cilium.io"
+	HelmRepoIDLen    = 4
+	HelmRepository   = "https://helm.cilium.io"
+	HelmRepositoryID = sha256.Sum256([]byte(HelmRepository))
 
 	// CiliumScheduleAffinity is the node affinity to prevent Cilium from being schedule on
 	// nodes labeled with CiliumNoScheduleLabel.
