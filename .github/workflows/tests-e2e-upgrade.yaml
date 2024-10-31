@@ -124,6 +124,7 @@ jobs:
             kpr: 'false'
             tunnel: 'disabled'
             endpoint-routes: 'true'
+            kvstore: 'true'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -337,6 +338,7 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             ingress-controller: 'true'
+            kvstore: 'true'
             skip-upgrade: 'true'
 
           - name: '20'
@@ -562,6 +564,19 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: matrix.kvstore == 'true'
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo "config= \
+            --set=etcd.enabled=true \
+            --set=identityAllocationMode=kvstore \
+            --set=etcd.endpoints[0]=http://${IP}:2378 \
+          " >> $GITHUB_OUTPUT
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -591,10 +606,12 @@ jobs:
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
             ./cilium-cli install \
-             ${{ steps.cilium-stable-config.outputs.config }}
+             ${{ steps.cilium-stable-config.outputs.config }} \
+             ${{ steps.kvstore.outputs.config }}
           else
             ./cilium-cli install \
-             ${{ steps.cilium-newest-config.outputs.config }}
+             ${{ steps.cilium-newest-config.outputs.config }} \
+             ${{ steps.kvstore.outputs.config }}
           fi
 
           ./cilium-cli status --wait
@@ -626,7 +643,8 @@ jobs:
         shell: bash
         run: |
           ./cilium-cli upgrade \
-            ${{ steps.cilium-newest-config.outputs.config }}
+            ${{ steps.cilium-newest-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           ./cilium-cli status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -675,7 +693,8 @@ jobs:
         shell: bash
         run: |
           ./cilium-cli upgrade \
-            ${{ steps.cilium-stable-config.outputs.config }}
+            ${{ steps.cilium-stable-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           ./cilium-cli status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -714,6 +733,12 @@ jobs:
           ./cilium-cli status
           mkdir -p cilium-sysdumps
           ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
 
       - name: Upload artifacts
         if: ${{ !success() }}
