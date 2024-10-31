@@ -164,7 +164,9 @@ Install Cilium
 
          Some Linux distributions use a different interface naming convention.
          If you use masquerading with the option ``egressMasqueradeInterfaces=eth0``,
-         remember to replace ``eth0`` with the proper interface name.
+         remember to replace ``eth0`` with the proper interface name. For
+         reference, Amazon Linux 2 uses ``eth0``, whereas Amazon Linux 2023 uses
+         ``ens5``.
 
     .. group-tab:: OpenShift
 
