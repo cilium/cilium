@@ -530,3 +530,13 @@ run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder cont
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
 	DOCKER_ARGS=-it contrib/scripts/builder.sh bash
+
+.PHONY: renovate-local
+renovate-local: ## Run a local linter for the renovate configuration
+	$(CONTAINER_ENGINE) run --rm -ti \
+		-e LOG_LEVEL=debug \
+		-e GITHUB_COM_TOKEN="$(gh auth token)" \
+		-v /tmp:/tmp \
+		-v $(ROOT_DIR):/usr/src/app \
+		docker.io/renovate/renovate:slim \
+			renovate --platform=local
