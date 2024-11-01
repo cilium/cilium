@@ -354,6 +354,12 @@ Agent Options
 * The ``CONNTRACK_LOCAL`` option has been deprecated and will be removed in a
   future release.
 
+Bugtool Options
+~~~~~~~~~~~~~~~
+
+* The flag ``k8s-mode`` (and related flags ``cilium-agent-container-name``, ``k8s-namespace`` & ``k8s-label``)
+  have been deprecated and will be removed in a Cilium 1.18. Cilium CLI should be used to gather a sysdump from a K8s cluster.
+
 Added Metrics
 ~~~~~~~~~~~~~
 * ``cilium_node_health_connectivity_status``
