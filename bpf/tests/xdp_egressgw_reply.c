@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/xdp.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -217,17 +218,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IP))
 		test_fatal("inner L2 doesn't have correct ethertype")
 
-	if (inner_l3->protocol != IPPROTO_TCP)
-		test_fatal("inner IP doesn't have correct L4 protocol")
-
-	if (inner_l3->saddr != EXTERNAL_SVC_IP)
-		test_fatal("innerSrcIP is not the external SVC IP");
-
-	if (inner_l3->daddr != CLIENT_IP)
-		test_fatal("innerDstIP hasn't been revNATed to the client IP");
-
-	if (inner_l3->check != bpf_htons(0x4212))
-		test_fatal("inner L3 checksum is invalid: %x", bpf_htons(inner_l3->check));
+	assert(!pktcheck__validate_ipv4(inner_l3, IPPROTO_TCP, EXTERNAL_SVC_IP, CLIENT_IP));
 
 	if (inner_l4->source != EXTERNAL_SVC_PORT)
 		test_fatal("innerSrcPort is not the external SVC port");

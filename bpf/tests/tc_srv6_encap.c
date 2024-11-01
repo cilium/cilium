@@ -4,6 +4,7 @@
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include <linux/in.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -181,11 +182,7 @@ int srv6_encap_from_pod_ipv4_check(const struct __ctx_buff *ctx __maybe_unused)
 		test_fatal("unexpected sid");
 
 	/* Check IPv4 header (just to make sure the encapsulation doesn't corrupt inner packet) */
-	if (ipv4->saddr != POD_IPV4)
-		test_fatal("unexpected ipv4->saddr");
-
-	if (ipv4->daddr != EXT_IPV4)
-		test_fatal("unexpected ipv4->daddr");
+	assert(!pktcheck__validate_ipv4(ipv4, IPPROTO_TCP, POD_IPV4, EXT_IPV4));
 
 	test_finish();
 

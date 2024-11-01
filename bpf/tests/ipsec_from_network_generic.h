@@ -13,6 +13,7 @@
 
 #include "common.h"
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 #define ROUTER_IP
 #define SECLABEL
@@ -153,14 +154,7 @@ int ipv4_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ct
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	if (l3->saddr != v4_pod_one)
-		test_fatal("src IP was changed");
-
-	if (l3->daddr != v4_pod_two)
-		test_fatal("dest IP was changed");
-
-	if (l3->check != bpf_htons(0xf948))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_ESP, v4_pod_one, v4_pod_two));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -393,14 +387,7 @@ int ipv4_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_bu
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	if (l3->saddr != v4_pod_one)
-		test_fatal("src IP was changed");
-
-	if (l3->daddr != v4_pod_two)
-		test_fatal("dest IP was changed");
-
-	if (l3->check != bpf_htons(0xf968))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, v4_pod_one, v4_pod_two));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 

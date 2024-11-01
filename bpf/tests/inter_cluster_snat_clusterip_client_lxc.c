@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /*
@@ -208,14 +209,7 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP hasn't been NATed to remote backend IP");
-
-	if (l3->check != bpf_htons(0xf968))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, CLIENT_IP, BACKEND_IP));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
@@ -318,14 +312,7 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed")
 
-	if (l3->saddr != FRONTEND_IP)
-		test_fatal("src IP is not service frontend IP");
-
-	if (l3->daddr != CLIENT_IP)
-		test_fatal("dst IP is not client IP");
-
-	if (l3->check != bpf_htons(0x402))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, FRONTEND_IP, CLIENT_IP));
 
 	if (l4->source != FRONTEND_PORT)
 		test_fatal("src port is not service frontend port");
@@ -409,14 +396,7 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP hasn't been NATed to remote backend IP");
-
-	if (l3->check != bpf_htons(0xf968))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, CLIENT_IP, BACKEND_IP));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");

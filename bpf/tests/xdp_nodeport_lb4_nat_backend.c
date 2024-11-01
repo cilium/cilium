@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/xdp.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -143,14 +144,7 @@ int nodeport_nat_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the LB MAC")
 
-	if (l3->saddr != LB_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0xa612))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, LB_IP, BACKEND_IP));
 
 	if (l4->source != LB_PORT)
 		test_fatal("src port has changed");

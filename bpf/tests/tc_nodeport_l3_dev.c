@@ -5,6 +5,7 @@
 
 #include <bpf/ctx/skb.h>
 #include <bpf/helpers_skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 #define ETH_HLEN		0
@@ -168,14 +169,7 @@ int ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	if (l3->saddr != TEST_IP_REMOTE)
-		test_fatal("src IP was changed");
-
-	if (l3->daddr != TEST_IP_LOCAL)
-		test_fatal("dest IP was changed");
-
-	if (l3->check != bpf_htons(0xfa68))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, TEST_IP_REMOTE, TEST_IP_LOCAL));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 

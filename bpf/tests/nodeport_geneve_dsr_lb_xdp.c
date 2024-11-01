@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/xdp.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -197,14 +198,7 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_check(const struct __ctx_buff *ctx
 	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the LB MAC");
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP_LOCAL)
-		test_fatal("dst IP hasn't been NATed to local backend IP");
-
-	if (l3->check != bpf_htons(0x4112))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, CLIENT_IP, BACKEND_IP_LOCAL));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
@@ -334,14 +328,8 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 	if (l2->h_proto != bpf_htons(ETH_P_IP))
 		test_fatal("l2 doesn't have correct proto type");
 
-	if (l3->protocol != IPPROTO_UDP)
-		test_fatal("outer IP doesn't have correct L4 protocol");
-
-	if (l3->saddr != IPV4_DIRECT_ROUTING)
-		test_fatal("outerSrcIP is not correct");
-
-	if (l3->daddr != BACKEND_NODE_IP)
-		test_fatal("outerDstIP is not correct");
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_UDP,
+					IPV4_DIRECT_ROUTING, BACKEND_NODE_IP));
 
 	if (l3->check != bpf_htons(0x5371))
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
@@ -372,17 +360,8 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IP))
 		test_fatal("inner l2 doesn't have correct proto type");
 
-	if (inner_l3->protocol != IPPROTO_TCP)
-		test_fatal("inner IP doesn't have correct L4 protocol");
-
-	if (inner_l3->saddr != CLIENT_IP)
-		test_fatal("innerSrcIP has changed");
-
-	if (inner_l3->daddr != BACKEND_IP_REMOTE)
-		test_fatal("innerDstIP hasn't been NATed to remote backend IP");
-
-	if (inner_l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(inner_l3->check));
+	assert(!pktcheck__validate_ipv4(inner_l3, IPPROTO_TCP,
+					CLIENT_IP, BACKEND_IP_REMOTE));
 
 	if (tcp_inner->source != CLIENT_PORT)
 		test_fatal("innerSrcPort has changed");

@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 #include "common.h"
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /*
@@ -342,11 +343,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 		/*
 		 * We don't have revDNAT, so the reply source should stay the same.
 		 */
-		if (l3->saddr != DST_IPV4)
-			test_fatal("src IP was changed");
-
-		if (l3->daddr != SRC_IPV4)
-			test_fatal("dest IP was not rev snatted");
+		assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, DST_IPV4, SRC_IPV4));
 
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {

@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -162,11 +163,7 @@ int ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd_check(__maybe_unused struct __ctx_buf
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP hasn't been NATed to remote backend IP");
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, CLIENT_IP, BACKEND_IP));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");

@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/xdp.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -194,14 +195,7 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the LB MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != BACKEND_IP_LOCAL)
-		test_fatal("dst IP hasn't been NATed to local backend IP");
-
-	if (l3->check != bpf_htons(0x4112))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, CLIENT_IP, BACKEND_IP_LOCAL));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
@@ -302,14 +296,7 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the backend MAC")
 
-	if (l3->saddr != LB_IP)
-		test_fatal("src IP hasn't been NATed to LB IP");
-
-	if (l3->daddr != BACKEND_IP_REMOTE)
-		test_fatal("dst IP hasn't been NATed to remote backend IP");
-
-	if (l3->check != bpf_htons(0xa711))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, LB_IP, BACKEND_IP_REMOTE));
 
 	if (l4->source == CLIENT_PORT)
 		test_fatal("src port hasn't been NATed");
@@ -395,14 +382,8 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the client MAC")
 
-	if (l3->saddr != FRONTEND_IP_REMOTE)
-		test_fatal("src IP hasn't been RevNATed to frontend IP");
-
-	if (l3->daddr != CLIENT_IP)
-		test_fatal("dst IP hasn't been RevNATed to client IP");
-
-	if (l3->check != bpf_htons(0x4ca9))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP,
+					FRONTEND_IP_REMOTE, CLIENT_IP));
 
 	if (l4->source != FRONTEND_PORT)
 		test_fatal("src port hasn't been RevNATed to frontend port");

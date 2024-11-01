@@ -4,6 +4,7 @@
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include <linux/in.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -174,14 +175,7 @@ int srv6_decap_to_pod_ipv4_check(const struct __ctx_buff *ctx __maybe_unused)
 	if (eth->h_proto != __bpf_htons(ETH_P_IP))
 		test_fatal("unexpected eth->h_proto");
 
-	if (ipv4->saddr != EXT_IPV4)
-		test_fatal("unexpected ipv4->saddr");
-
-	if (ipv4->daddr != POD_IPV4)
-		test_fatal("unexpected ipv4->daddr");
-
-	if (ipv4->protocol != IPPROTO_TCP)
-		test_fatal("unexpected ipv4->protocol");
+	assert(!pktcheck__validate_ipv4(ipv4, IPPROTO_TCP, EXT_IPV4, POD_IPV4));
 
 	test_finish();
 
@@ -455,14 +449,7 @@ int srv6_decap_to_service_ipv4_check(const struct __ctx_buff *ctx __maybe_unused
 	if (eth->h_proto != __bpf_htons(ETH_P_IP))
 		test_fatal("unexpected eth->h_proto");
 
-	if (ipv4->saddr != EXT_IPV4)
-		test_fatal("unexpected ipv4->saddr");
-
-	if (ipv4->daddr != POD_IPV4)
-		test_fatal("unexpected ipv4->daddr");
-
-	if (ipv4->protocol != IPPROTO_TCP)
-		test_fatal("unexpected ipv4->protocol");
+	assert(!pktcheck__validate_ipv4(ipv4, IPPROTO_TCP, EXT_IPV4, POD_IPV4));
 
 	test_finish();
 

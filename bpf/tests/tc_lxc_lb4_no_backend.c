@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -124,10 +125,8 @@ int lxc_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(l3->version == 4);
 	assert(l3->tos == 0);
 	assert(l3->ttl == 64);
-	assert(l3->protocol == IPPROTO_ICMP);
 
-	if (l3->check != bpf_htons(0x4b8e))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_ICMP, FRONTEND_IP, CLIENT_IP));
 
 	l4 = data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct iphdr);
 	if ((void *) l4 + sizeof(struct icmphdr) > data_end)

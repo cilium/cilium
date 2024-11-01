@@ -4,6 +4,7 @@
 #include "common.h"
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
@@ -123,12 +124,9 @@ int v4_local_backend_to_service_check(__maybe_unused const struct __ctx_buff *ct
 		test_fatal("l4 out of bounds");
 	test_log("l3->saddr: %d l3->daddr: %d", l3->saddr, l3->daddr);
 	test_log("V4_BACKEND_IP: %d V4_SERVICE_IP: %d", V4_BACKEND_IP, V4_SERVICE_IP);
-	if (l3->saddr != V4_BACKEND_IP)
-		test_fatal("src IP has been changed");
-	if (l3->daddr != V4_SERVICE_IP)
-		test_fatal("dest IP has been changed");
-	if (l3->daddr == V4_BACKEND_IP)
-		test_fatal("dest IP has been NAT'ed creating a loopback");
+
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, V4_BACKEND_IP, V4_SERVICE_IP));
+
 	if (l4->source != tcp_src_one)
 		test_fatal("src TCP port has been changed");
 	if (l4->dest != SERVICE_PORT)

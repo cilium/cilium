@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 #include "common.h"
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /*
@@ -204,14 +205,7 @@ check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 		if ((void *)l3 + sizeof(struct iphdr) > data_end)
 			test_fatal("l3 out of bounds");
 
-		if (l3->saddr != SRC_IPV4)
-			test_fatal("src IP was changed");
-
-		if (l3->daddr != DST_IPV4)
-			test_fatal("dest IP was changed");
-
-		if (l3->check != bpf_htons(0xa611))
-			test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+		assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, SRC_IPV4, DST_IPV4));
 
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {

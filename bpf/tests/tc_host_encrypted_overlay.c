@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -163,14 +164,7 @@ int tc_host_encrypted_overlay_01_check(const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)node1_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC has not been updated")
 
-	if (l3->saddr != NODE1_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != NODE2_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x7da4))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_UDP, NODE1_IP, NODE2_IP));
 
 	if (l4->source != NODE1_TUNNEL_SPORT)
 		test_fatal("src port has changed");

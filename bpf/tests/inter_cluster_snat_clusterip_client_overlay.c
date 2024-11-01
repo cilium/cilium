@@ -6,6 +6,7 @@
 #include "bpf/compiler.h"
 #include <bpf/ctx/skb.h>
 #include "mock_skb_metadata.h"
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /*
@@ -240,14 +241,8 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed")
 
-	if (l3->saddr != IPV4_INTER_CLUSTER_SNAT)
-		test_fatal("src IP hasn't been SNATed for inter-cluster communication");
-
-	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP,
+					IPV4_INTER_CLUSTER_SNAT, BACKEND_IP));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port hasn't been SNATed for inter-cluster communication");
@@ -343,14 +338,7 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not client MAC");
 
-	if (l3->saddr != BACKEND_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != CLIENT_IP)
-		test_fatal("dst IP hasn't been RevSNATed to client IP");
-
-	if (l3->check != bpf_htons(0xfa68))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, BACKEND_IP, CLIENT_IP));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");
@@ -441,14 +429,8 @@ int to_overlay_ack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed");
 
-	if (l3->saddr != IPV4_INTER_CLUSTER_SNAT)
-		test_fatal("src IP hasn't been SNATed for inter-cluster communication");
-
-	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP,
+					IPV4_INTER_CLUSTER_SNAT, BACKEND_IP));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port hasn't been SNATed for inter-cluster communication");
