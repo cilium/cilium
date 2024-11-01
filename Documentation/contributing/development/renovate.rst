@@ -23,15 +23,25 @@ errors in the configuration.
 #. Make some changes to the Renovate configuration in ``.github/renovate.json5``.
 #. Run the renovate image against the new configuration.
 
-   .. code-block:: shell-session
+.. tabs::
 
-      docker run -ti -e LOG_LEVEL=debug \
-                 -e GITHUB_COM_TOKEN="$(gh auth token)" \
-                 -v /tmp:/tmp \
-                 -v $(pwd):/usr/src/app \
-                 docker.io/renovate/renovate:full \
-                 renovate --platform=local \
-      | tee renovate.log
+   .. group-tab:: Simple
+
+      .. code-block:: shell-session
+
+         make renovate-local
+
+   .. group-tab:: Advanced
+
+      .. code-block:: shell-session
+
+         docker run -ti -e LOG_LEVEL=debug \
+                    -e GITHUB_COM_TOKEN="$(gh auth token)" \
+                    -v /tmp:/tmp \
+                    -v $(pwd):/usr/src/app \
+                    docker.io/renovate/renovate:slim \
+                    renovate --platform=local \
+         | tee renovate.log
 
 This approach is based on the `Local platform guide <https://docs.renovatebot.com/modules/platform/local/>`__
 provided by Renovate. See that guide for more details about usage and
