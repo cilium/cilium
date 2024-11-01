@@ -686,8 +686,14 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 		for _, eni := range a.store.ownNode.Status.ENI.ENIs {
 			if eni.ID == ipInfo.Resource {
 				result.PrimaryMAC = eni.MAC
-				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
-				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
+				if len(eni.VPC.PrimaryCIDR) > 0 {
+					result.CIDRs = append(result.CIDRs, eni.VPC.PrimaryCIDR)
+				}
+				for _, otherCidr := range eni.VPC.CIDRs {
+					if len(otherCidr) > 0 {
+						result.CIDRs = append(result.CIDRs, otherCidr)
+					}
+				}
 				// Add manually configured Native Routing CIDR
 				if a.conf.GetIPv4NativeRoutingCIDR() != nil {
 					result.CIDRs = append(result.CIDRs, a.conf.GetIPv4NativeRoutingCIDR().String())
