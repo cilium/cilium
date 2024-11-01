@@ -4,6 +4,7 @@
 package exporter
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/binary"
 	"errors"
@@ -17,19 +18,15 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var reloadInterval = 5 * time.Second
-
+// configWatcher provides dynamic configuration reload for DynamicExporter.
 type configWatcher struct {
 	logger         logrus.FieldLogger
 	configFilePath string
 	callback       func(hash uint64, config DynamicExportersConfig)
-	ticker         *time.Ticker
-	stop           chan bool
 }
 
-// NewConfigWatcher creates a config watcher instance. Config watcher notifies
-// dynamic exporter when config file changes and dynamic exporter should be
-// reconciled.
+// NewConfigWatcher returns a new configWatcher that invokes callback when the provided config file
+// changes.
 func NewConfigWatcher(
 	configFilePath string,
 	callback func(hash uint64, config DynamicExportersConfig),
@@ -42,23 +39,21 @@ func NewConfigWatcher(
 
 	// initial configuration load
 	watcher.reload()
-
-	// TODO replace ticker reloads with inotify watchers
-	watcher.ticker = time.NewTicker(reloadInterval)
-	watcher.stop = make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case <-watcher.stop:
-				return
-			case <-watcher.ticker.C:
-				watcher.reload()
-			}
-		}
-	}()
-
 	return watcher
+}
+
+// watch starts the watcher and blocks until the context is cancelled.
+func (c *configWatcher) watch(ctx context.Context, interval time.Duration) error {
+	// TODO replace ticker reloads with inotify watchers
+	ticker := time.NewTicker(interval)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			c.reload()
+		}
+	}
 }
 
 func (c *configWatcher) reload() {
@@ -70,14 +65,6 @@ func (c *configWatcher) reload() {
 	} else {
 		c.callback(hash, *config)
 	}
-}
-
-// Stop stops watcher.
-func (c *configWatcher) Stop() {
-	if c.ticker != nil {
-		c.ticker.Stop()
-	}
-	c.stop <- true
 }
 
 func (c *configWatcher) readConfig() (*DynamicExportersConfig, uint64, error) {
