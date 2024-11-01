@@ -4,6 +4,7 @@ GO_TEST_FLAGS =
 GO_BUILD = CGO_ENABLED=0 $(GO) build $(GO_BUILD_FLAGS)
 SUBDIRS_HUBBLE_CLI := .
 TARGET=hubble
+TARGET_DIR=.
 VERSION=$(shell cat ../VERSION)
 # homebrew uses the github release's tarball of the source that does not contain the '.git' directory.
 GIT_BRANCH = $(shell command -v git >/dev/null 2>&1 && git rev-parse --abbrev-ref HEAD 2> /dev/null)
@@ -18,10 +19,7 @@ GOARCH ?=
 all: hubble
 
 hubble:
-	$(MAKE) -C $(SUBDIRS_HUBBLE_CLI) hubble-bin
-
-hubble-bin:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) -ldflags "-w -s -X 'github.com/cilium/cilium/hubble/pkg.GitBranch=${GIT_BRANCH}' -X 'github.com/cilium/cilium/hubble/pkg.GitHash=$(GIT_HASH)' -X 'github.com/cilium/cilium/hubble/pkg.Version=${VERSION}'" -o $(TARGET) $(SUBDIRS_HUBBLE_CLI)
+	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) -ldflags "-w -s -X 'github.com/cilium/cilium/hubble/pkg.GitBranch=${GIT_BRANCH}' -X 'github.com/cilium/cilium/hubble/pkg.GitHash=$(GIT_HASH)' -X 'github.com/cilium/cilium/hubble/pkg.Version=${VERSION}'" -o $(TARGET_DIR)/$(TARGET)$(EXT) $(SUBDIRS_HUBBLE_CLI)
 
 local-release: clean
 	set -o errexit; \
@@ -43,7 +41,7 @@ local-release: clean
 		for ARCH in $$ARCHS; do \
 			echo Building release binary for $$OS/$$ARCH...; \
 			test -d release/$$OS/$$ARCH|| mkdir -p release/$$OS/$$ARCH; \
-			env GOOS=$$OS GOARCH=$$ARCH $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) -ldflags "-w -s -X 'github.com/cilium/cilium/hubble/pkg.Version=${VERSION}'" -o release/$$OS/$$ARCH/$(TARGET)$$EXT; \
+			make hubble GOOS=$$OS GOARCH=$$ARCH EXT=$$EXT TARGET_DIR=release/$$OS/$$ARCH; \
 			tar -czf release/$(TARGET)-$$OS-$$ARCH.tar.gz -C release/$$OS/$$ARCH $(TARGET)$$EXT; \
 			(cd release && sha256sum $(TARGET)-$$OS-$$ARCH.tar.gz > $(TARGET)-$$OS-$$ARCH.tar.gz.sha256sum); \
 		done; \

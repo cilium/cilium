@@ -11,6 +11,7 @@
 #include "lib/common.h"
 #include "lib/drop.h"
 #include "lib/eps.h"
+#include "lib/ipv4.h"
 #include "lib/vxlan.h"
 
 /* We cap key index at 4 bits because mark value is used to map ctx to key */
@@ -233,12 +234,15 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 	struct endpoint_info *ep_info = NULL;
 	void *data, *data_end;
 	__u8 dst_mac = 0;
+	__u32 l4_off;
 	int ret = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	ret = vxlan_get_inner_ipv4(data, data_end, ip4, &inner_ipv4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+	ret = vxlan_get_inner_ipv4(data, data_end, l4_off, &inner_ipv4);
 	if (!ret)
 		return DROP_INVALID;
 
@@ -263,15 +267,13 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 	if (eth_store_daddr(ctx, &dst_mac, 0) != 0)
 		return DROP_WRITE_ERROR;
 
-	/* need to revalidate data since we just re-wrote mac addresses */
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
 
 	/* right now, the VNI of this packet is ENCRYPTED_OVERLAY_ID, we need
 	 * to rewrite this VNI to the source's sec id before we transmit it
 	 */
-	if (!vxlan_rewrite_vni(ctx, data, data_end, ip4,
-			       ep_info->sec_id))
+	if (!vxlan_rewrite_vni(ctx, data, data_end, l4_off, ep_info->sec_id))
 		return DROP_INVALID;
 
 	/* redirect to ingress side of ifindex so the packet has xfrm applied */

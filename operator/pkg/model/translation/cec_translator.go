@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -154,7 +155,7 @@ func (i *cecTranslator) getServicesWithPorts(namespace string, name string, m *m
 	return []*ciliumv2.ServiceListener{
 		{
 			Namespace: namespace,
-			Name:      model.Shorten(name),
+			Name:      shortener.ShortenK8sResourceName(name),
 			Ports:     ports,
 		},
 	}

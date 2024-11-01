@@ -871,6 +871,88 @@ func TestInstanceBeenDeleted(t *testing.T) {
 	require.Equal(t, 0, node.Stats().IPv4.ExcessIPs)
 }
 
+// TestNodeManagerStaticIP tests allocation with a static IP
+//
+// - m5.large (3x ENIs, 2x10-2 IPs)
+// - MinAllocate 0
+// - MaxAllocate 0
+// - PreAllocate 8
+// - FirstInterfaceIndex 0
+func TestNodeManagerStaticIP(t *testing.T) {
+	setup(t)
+
+	const instanceID = "i-testNodeManagerStaticIP-0"
+
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	instances := NewInstancesManager(ec2api)
+	require.NotNil(t, instances)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	require.NoError(t, err)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
+	require.NoError(t, err)
+	instances.Resync(context.TODO())
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	require.NoError(t, err)
+	require.NotNil(t, mngr)
+
+	staticIPTags := map[string]string{"some-eip-tag": "some-value"}
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"), withIPAMPreAllocate(8), withIPAMStaticIPTags(staticIPTags))
+	mngr.Upsert(cn)
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	node := mngr.Get("node1")
+	require.NotNil(t, node)
+	require.Equal(t, 8, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
+
+	// Use 1 IP
+	mngr.Upsert(updateCiliumNode(cn, 8, 1))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	node = mngr.Get("node1")
+	require.NotNil(t, node)
+	// Verify that the static IP has been successfully assigned
+	require.Equal(t, "192.0.2.254", node.Stats().IPv4.AssignedStaticIP)
+}
+
+// TestNodeManagerStaticIPAlreadyAssociated verifies that when an ENI already has a public IP assigned to it, it is properly detected
+//
+// - m5.large (3x ENIs, 2x10-2 IPs)
+// - MinAllocate 0
+// - MaxAllocate 0
+// - PreAllocate 8
+// - FirstInterfaceIndex 0
+func TestNodeManagerStaticIPAlreadyAssociated(t *testing.T) {
+	setup(t)
+
+	const instanceID = "i-testNodeManagerStaticIPAlreadyAssociated-0"
+
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	instances := NewInstancesManager(ec2api)
+	require.NotNil(t, instances)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	require.NoError(t, err)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
+	require.NoError(t, err)
+	staticIP, err := ec2api.AssociateEIP(context.TODO(), instanceID, make(ipamTypes.Tags))
+	require.NoError(t, err)
+	instances.Resync(context.TODO())
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	require.NoError(t, err)
+	require.NotNil(t, mngr)
+
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"), withIPAMPreAllocate(8))
+	mngr.Upsert(cn)
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	node := mngr.Get("node1")
+	require.NotNil(t, node)
+	require.Equal(t, 8, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
+	// Verify that the static IP which has already been assigned to the ENI has been successfully detected
+	require.Equal(t, staticIP, node.Stats().IPv4.AssignedStaticIP)
+}
+
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	testSubnet1 := &ipamTypes.Subnet{ID: "s-1", AvailabilityZone: "us-west-1", VirtualNetworkID: "vpc-1", AvailableAddresses: 1000000}
 	testSubnet2 := &ipamTypes.Subnet{ID: "s-2", AvailabilityZone: "us-west-1", VirtualNetworkID: "vpc-1", AvailableAddresses: 1000000}
@@ -1028,6 +1110,12 @@ func withIPAMMinAllocate(minAlloc int) func(*v2.CiliumNode) {
 func withIPAMMaxAboveWatermark(aboveWM int) func(*v2.CiliumNode) {
 	return func(cn *v2.CiliumNode) {
 		cn.Spec.IPAM.MaxAboveWatermark = aboveWM
+	}
+}
+
+func withIPAMStaticIPTags(tags map[string]string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.IPAM.StaticIPTags = tags
 	}
 }
 

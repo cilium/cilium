@@ -86,6 +86,7 @@ The ``CiliumBGPPeerConfig`` resource contains configuration options for:
 
 - :ref:`MD5 Password <bgp_peer_configuration_password>`
 - :ref:`Timers <bgp_peer_configuration_timers>`
+- :ref:`EBGP Multihop <bgp_ebgp_multihop>`
 - :ref:`Graceful Restart <bgp_peer_configuration_graceful_restart>`
 - :ref:`Transport <bgp_peer_configuration_transport>`
 - :ref:`Address Families <bgp_peer_configuration_afi>`
@@ -104,6 +105,7 @@ section, we will go over each configuration option.
         holdTimeSeconds: 9
         keepAliveTimeSeconds: 3
       authSecretRef: bgp-auth-secret
+      ebgpMultihop: 4
       gracefulRestart:
         enabled: true
         restartTimeSeconds: 15
@@ -203,6 +205,24 @@ possible values ``holdTimeSeconds=9`` and ``keepAliveTimeSeconds=3``.
         holdTimeSeconds: 9
         keepAliveTimeSeconds: 3
 
+.. _bgp_ebgp_multihop:
+
+EBGP Multihop
+-------------
+
+By default, IP TTL of the BGP packets is set to 1 in eBGP. Generally, it is
+encouraged to not change the TTL, but in some cases, you may need to change the
+TTL value. For example, when the BGP peer is a Route Server and located in a
+different subnet, you may need to set the TTL value to more than 1.
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumBGPPeerConfig
+    metadata:
+      name: cilium-peer
+    spec:
+      ebgpMultihop: 4 # <-- specify the TTL value
 
 .. _bgp_peer_configuration_graceful_restart:
 

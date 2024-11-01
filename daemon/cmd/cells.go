@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
+	"github.com/cilium/cilium/pkg/driftchecker"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -35,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
+	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
@@ -287,6 +289,12 @@ var (
 
 		// Provides a wrapper of the cilium config that can be watched dynamically
 		dynamicconfig.Cell,
+
+		// Allows agent to monitor the configuration drift and publish drift metric
+		driftchecker.Cell,
+
+		// Runs the Hubble servers and Hubble metrics.
+		hubble.Cell,
 	)
 )
 

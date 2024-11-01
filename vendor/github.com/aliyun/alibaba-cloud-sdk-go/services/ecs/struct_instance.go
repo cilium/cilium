@@ -94,10 +94,11 @@ type Instance struct {
 	CpuOptions                      CpuOptions                           `json:"CpuOptions" xml:"CpuOptions"`
 	HibernationOptions              HibernationOptions                   `json:"HibernationOptions" xml:"HibernationOptions"`
 	DedicatedInstanceAttribute      DedicatedInstanceAttribute           `json:"DedicatedInstanceAttribute" xml:"DedicatedInstanceAttribute"`
+	PrivateDnsNameOptions           PrivateDnsNameOptions                `json:"PrivateDnsNameOptions" xml:"PrivateDnsNameOptions"`
 	EipAddress                      EipAddressInDescribeInstances        `json:"EipAddress" xml:"EipAddress"`
 	MetadataOptions                 MetadataOptions                      `json:"MetadataOptions" xml:"MetadataOptions"`
 	VpcAttributes                   VpcAttributes                        `json:"VpcAttributes" xml:"VpcAttributes"`
-	NetworkInterfaces               NetworkInterfacesInDescribeInstances `json:"NetworkInterfaces" xml:"NetworkInterfaces"`
 	Tags                            TagsInDescribeInstances              `json:"Tags" xml:"Tags"`
+	NetworkInterfaces               NetworkInterfacesInDescribeInstances `json:"NetworkInterfaces" xml:"NetworkInterfaces"`
 	OperationLocks                  OperationLocksInDescribeInstances    `json:"OperationLocks" xml:"OperationLocks"`
 }

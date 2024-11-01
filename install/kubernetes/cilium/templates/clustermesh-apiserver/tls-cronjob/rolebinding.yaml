@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: clustermesh-apiserver-generate-certs
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.clustermesh.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -17,5 +17,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 {{- end }}

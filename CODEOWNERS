@@ -272,6 +272,7 @@ Makefile* @cilium/build
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/encrypt.h @cilium/ipsec
+/bpf/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
 /bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
 /bpf/lib/ids.h @cilium/loader
@@ -341,7 +342,6 @@ Makefile* @cilium/build
 /daemon/cmd/endpoint* @cilium/endpoint
 /daemon/cmd/fqdn* @cilium/fqdn
 /daemon/cmd/health* @cilium/sig-agent
-/daemon/cmd/hubble.go @cilium/sig-hubble
 /daemon/cmd/ipcache* @cilium/ipcache
 /daemon/cmd/kube_proxy* @cilium/sig-datapath
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
@@ -507,6 +507,7 @@ Makefile* @cilium/build
 /pkg/defaults @cilium/sig-agent
 /pkg/debug @cilium/sig-agent
 /pkg/dial @cilium/sig-agent
+/pkg/driftchecker @cilium/sig-foundations
 /pkg/dynamicconfig @cilium/sig-foundations
 /pkg/ebpf @cilium/sig-datapath
 /pkg/egressgateway/ @cilium/egress-gateway
@@ -592,6 +593,7 @@ Makefile* @cilium/build
 /pkg/safeio @cilium/sig-agent
 /pkg/safetime/ @cilium/sig-agent
 /pkg/service @cilium/sig-lb
+/pkg/shortener @cilium/sig-foundations @cilium/sig-k8s
 /pkg/signal @cilium/sig-datapath
 /pkg/slices @cilium/sig-foundations
 /pkg/socketlb @cilium/loader

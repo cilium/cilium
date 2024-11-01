@@ -8,6 +8,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
+
+	pb "github.com/cilium/cilium/api/v1/flow"
 )
 
 func TestDefaultRegistry(t *testing.T) {
@@ -16,11 +18,126 @@ func TestDefaultRegistry(t *testing.T) {
 
 	assert.NotNil(t, registry)
 
-	registry.ConfigureHandlers(prometheusRegistry, Map{"drop": Options{}})
+	registry.ConfigureHandlers(prometheusRegistry, &Config{
+		[]*MetricConfig{
+			{
+				Name:           "drop",
+				IncludeFilters: []*pb.FlowFilter{},
+				ExcludeFilters: []*pb.FlowFilter{},
+			},
+		},
+	},
+	)
 }
 
 func TestParseMetricOptions(t *testing.T) {
-	assert.EqualValues(t, ParseMetricList([]string{"a", "b"}), Map{"a": Options{}, "b": Options{}})
-	assert.EqualValues(t, ParseMetricList([]string{"a:1;2", "b"}), Map{"a": Options{"1": "", "2": ""}, "b": Options{}})
-	assert.EqualValues(t, ParseMetricList([]string{"a:1;2", "b:3;4"}), Map{"a": Options{"1": "", "2": ""}, "b": Options{"3": "", "4": ""}})
+	assert.EqualValues(t, ParseStaticMetricsConfig([]string{"a", "b"}),
+		&Config{
+			[]*MetricConfig{
+				{
+					Name:                 "a",
+					IncludeFilters:       []*pb.FlowFilter{},
+					ExcludeFilters:       []*pb.FlowFilter{},
+					ContextOptionConfigs: []*ContextOptionConfig{},
+				},
+				{
+					Name:                 "b",
+					IncludeFilters:       []*pb.FlowFilter{},
+					ExcludeFilters:       []*pb.FlowFilter{},
+					ContextOptionConfigs: []*ContextOptionConfig{},
+				},
+			},
+		},
+	)
+	assert.EqualValues(t, ParseStaticMetricsConfig([]string{"a:1;2", "b"}),
+		&Config{
+			[]*MetricConfig{
+				{
+					Name:           "a",
+					IncludeFilters: []*pb.FlowFilter{},
+					ExcludeFilters: []*pb.FlowFilter{},
+					ContextOptionConfigs: []*ContextOptionConfig{
+						{
+							Name:   "1",
+							Values: []string{""},
+						},
+						{
+							Name:   "2",
+							Values: []string{""},
+						},
+					},
+				},
+				{
+					Name:                 "b",
+					IncludeFilters:       []*pb.FlowFilter{},
+					ExcludeFilters:       []*pb.FlowFilter{},
+					ContextOptionConfigs: []*ContextOptionConfig{},
+				},
+			},
+		},
+	)
+	assert.EqualValues(t, ParseStaticMetricsConfig([]string{"a:1;2", "b:3;4"}),
+		&Config{
+			[]*MetricConfig{
+				{
+					Name: "a",
+					ContextOptionConfigs: []*ContextOptionConfig{
+						{
+							Name:   "1",
+							Values: []string{""},
+						},
+						{
+							Name:   "2",
+							Values: []string{""},
+						},
+					},
+					IncludeFilters: []*pb.FlowFilter{},
+					ExcludeFilters: []*pb.FlowFilter{},
+				},
+				{
+					Name: "b",
+					ContextOptionConfigs: []*ContextOptionConfig{
+						{
+							Name:   "3",
+							Values: []string{""},
+						},
+						{
+							Name:   "4",
+							Values: []string{""},
+						},
+					},
+					IncludeFilters: []*pb.FlowFilter{},
+					ExcludeFilters: []*pb.FlowFilter{},
+				},
+			},
+		},
+	)
+	assert.EqualValues(t, ParseStaticMetricsConfig([]string{"http:labelsContext=source_namespace,source_pod", "flow:destinationContext=dns|ip"}),
+		&Config{
+			[]*MetricConfig{
+				{
+					Name: "http",
+					ContextOptionConfigs: []*ContextOptionConfig{
+						{
+							Name:   "labelsContext",
+							Values: []string{"source_namespace", "source_pod"},
+						},
+					},
+					IncludeFilters: []*pb.FlowFilter{},
+					ExcludeFilters: []*pb.FlowFilter{},
+				},
+				{
+					Name: "flow",
+					ContextOptionConfigs: []*ContextOptionConfig{
+						{
+							Name:   "destinationContext",
+							Values: []string{"dns", "ip"},
+						},
+					},
+					IncludeFilters: []*pb.FlowFilter{},
+					ExcludeFilters: []*pb.FlowFilter{},
+				},
+			},
+		},
+	)
 }

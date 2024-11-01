@@ -233,9 +233,9 @@ func (p *proxyPolicy) GetListener() string {
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Only called after a new desired policy has been computed.
 // Must be called with endpoint.mutex Lock()ed.
-func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	if e.isProperty(PropertyFakeEndpoint) || e.IsProxyDisabled() {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	var (
@@ -322,81 +322,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		return nil
 	})
 
-	return nil, finalizeList.Finalize, revertStack.Revert
-}
-
-func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	var (
-		visPolicy    policy.DirectionalVisibilityPolicy
-		finalizeList revert.FinalizeList
-		revertStack  revert.RevertStack
-		changes      = policy.ChangeState{
-			Adds: make(policy.Keys),
-			Old:  make(policy.MapStateMap),
-		}
-	)
-
-	if e.visibilityPolicy == nil || e.IsProxyDisabled() {
-		return nil, finalizeList.Finalize, revertStack.Revert
-	}
-
-	if ingress {
-		visPolicy = e.visibilityPolicy.Ingress
-	} else {
-		visPolicy = e.visibilityPolicy.Egress
-	}
-
-	updatedStats := make([]*models.ProxyStatistics, 0, len(visPolicy))
-	for _, visMeta := range visPolicy {
-		var (
-			redirectPort uint16
-			err          error
-			finalizeFunc revert.FinalizeFunc
-			revertFunc   revert.RevertFunc
-		)
-
-		proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
-
-		// Skip adding a visibility redirect if a redirect for the given proto and port already
-		// exists. The existing redirect will do policy enforcement and also provides visibility
-		if desiredRedirects[proxyID] != 0 {
-			continue
-		}
-
-		redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, visMeta, proxyID, e, proxyWaitGroup)
-		if err != nil {
-			revertStack.Revert() // Ignore errors while reverting. This is best-effort.
-			return err, nil, nil
-		}
-		finalizeList.Append(finalizeFunc)
-		revertStack.Push(revertFunc)
-
-		desiredRedirects[proxyID] = redirectPort
-
-		// Update the endpoint API model to report that Cilium manages a
-		// redirect for that port.
-		statsKey := policy.ProxyStatsKey(visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, redirectPort)
-		proxyStats := e.getProxyStatistics(statsKey, string(visMeta.Parser), visMeta.Port, visMeta.Ingress, redirectPort)
-
-		updatedStats = append(updatedStats, proxyStats)
-
-		e.desiredPolicy.AddVisibilityKeys(e, redirectPort, visMeta, changes)
-	}
-
-	revertStack.Push(func() error {
-		// Restore the proxy stats.
-		e.proxyStatisticsMutex.Lock()
-		for _, stats := range updatedStats {
-			stats.AllocatedProxyPort = 0
-		}
-		e.proxyStatisticsMutex.Unlock()
-
-		// Restore the desired policy map state.
-		e.desiredPolicy.RevertChanges(changes)
-		return nil
-	})
-
-	return nil, finalizeList.Finalize, revertStack.Revert
+	return finalizeList.Finalize, revertStack.Revert
 }
 
 // addNewRedirects must be called while holding the endpoint lock for writing.
@@ -423,18 +349,8 @@ func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desire
 
 	desiredRedirects = make(map[string]uint16)
 
-	for dirLogStr, ingress := range map[string]bool{"ingress": true, "egress": false} {
-		err, ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
-		if err != nil {
-			return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %w", dirLogStr, err), nil, nil
-		}
-		finalizeList.Append(ff)
-		revertStack.Push(rf)
-
-		err, ff, rf = e.addVisibilityRedirects(ingress, desiredRedirects, proxyWaitGroup)
-		if err != nil {
-			return desiredRedirects, fmt.Errorf("unable to allocate %s visibility redirects: %w", dirLogStr, err), nil, nil
-		}
+	for _, ingress := range map[string]bool{"ingress": true, "egress": false} {
+		ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
 		finalizeList.Append(ff)
 		revertStack.Push(rf)
 	}
@@ -760,6 +676,15 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	if err := e.setDesiredPolicy(policyResult); err != nil {
 		return err
 	}
+	// Mark the desired policy as ready when done before the lock is released
+	defer e.desiredPolicy.Ready()
+
+	// Apply pending policy map changes so that desired map is up-to-date before
+	// we update network policies and sync the maps below.
+	err = e.applyPolicyMapChanges()
+	if err != nil {
+		return err
+	}
 
 	// We cannot obtain the rules while e.mutex is held, because obtaining
 	// fresh DNSRules requires the IPCache lock (which must not be taken while
@@ -1056,7 +981,7 @@ func (e *Endpoint) deleteMaps() []error {
 // local conntrack table or the global conntrack table.
 //
 // The endpoint lock must be held
-func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
+func (e *Endpoint) garbageCollectConntrack(filter ctmap.GCFilter) {
 	var maps []*ctmap.Map
 
 	if e.ConntrackLocalLocked() {
@@ -1082,7 +1007,7 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 }
 
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
-	e.garbageCollectConntrack(&ctmap.GCFilter{
+	e.garbageCollectConntrack(ctmap.GCFilter{
 		MatchIPs: map[netip.Addr]struct{}{
 			e.IPv4: {},
 			e.IPv6: {},
@@ -1247,32 +1172,25 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	//  ConsumeMapChanges() applies the incremental updates to the
 	//  desired policy and only returns changes that need to be
 	//  applied to the Endpoint's bpf policy map.
-	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
-	changes := policy.ChangeState{Adds: adds}
+	closer, changes := e.desiredPolicy.ConsumeMapChanges()
+	defer closer()
 
-	// Add possible visibility redirects due to incrementally added keys
-	if e.visibilityPolicy != nil {
-		realizedRedirects := e.GetRealizedRedirects()
+	if changes.Empty() {
+		// no changes, nothing to do
+		return nil
+	}
 
-		for _, visMeta := range e.visibilityPolicy.Ingress {
-			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
-			if redirectPort, exists := realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.AddVisibilityKeys(e, redirectPort, visMeta, changes)
-			}
-		}
-		for _, visMeta := range e.visibilityPolicy.Egress {
-			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
-			if redirectPort, exists := realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.AddVisibilityKeys(e, redirectPort, visMeta, changes)
-			}
-		}
+	// Ingress endpoint does not need to wait.
+	// This also lets daemon/cmd integration tests to proceed
+	if e.isProperty(PropertySkipBPFPolicy) {
+		return nil
 	}
 
 	// Add policy map entries before deleting to avoid transient drops
-	for keyToAdd := range adds {
+	for keyToAdd := range changes.Adds {
 		// AddVisibilityKeys() records changed keys in both 'deletes' (old value) and 'adds' (new value).
 		// Remove the key from 'deletes' to keep the new entry.
-		delete(deletes, keyToAdd)
+		delete(changes.Deletes, keyToAdd)
 
 		entry, exists := e.desiredPolicy.GetPolicyMap().Get(keyToAdd)
 		if !exists {
@@ -1287,7 +1205,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 		}
 	}
 
-	for keyToDelete := range deletes {
+	for keyToDelete := range changes.Deletes {
 		if !e.deletePolicyKey(keyToDelete, true) {
 			errors++
 		}
@@ -1296,11 +1214,11 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	if errors > 0 {
 		return fmt.Errorf("updating desired PolicyMap state failed")
 	}
-	if len(adds)+len(deletes) > 0 {
+	if len(changes.Adds)+len(changes.Deletes) > 0 {
 		e.getLogger().WithFields(logrus.Fields{
-			logfields.AddedPolicyID:   adds,
-			logfields.DeletedPolicyID: deletes,
-		}).Debug("Applied policy map updates due identity changes")
+			logfields.AddedPolicyID:   changes.Adds,
+			logfields.DeletedPolicyID: changes.Deletes,
+		}).Debug("Applied policy map updates due to identity changes")
 	}
 
 	return nil
@@ -1310,13 +1228,6 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 // difference between the realized and desired policy state without
 // dumping the bpf policy map.
 func (e *Endpoint) syncPolicyMap() error {
-	// Apply pending policy map changes first so that desired map is up-to-date before
-	// we diff the maps below.
-	err := e.applyPolicyMapChanges()
-	if err != nil {
-		return err
-	}
-
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy == e.desiredPolicy {
 		e.PolicyDebug(nil, "syncPolicyMap(): not syncing as desired == realized")
@@ -1324,7 +1235,7 @@ func (e *Endpoint) syncPolicyMap() error {
 	}
 
 	// Diffs between the maps are expected here, so do not bother collecting them
-	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.GetPolicyMap(), false)
+	_, _, err := e.syncPolicyMapsWith(e.realizedPolicy.GetPolicyMap(), false)
 	return err
 }
 

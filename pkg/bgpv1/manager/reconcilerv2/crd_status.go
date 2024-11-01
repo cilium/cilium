@@ -134,11 +134,11 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 }
 
 func (r *StatusReconciler) Name() string {
-	return "CiliumBGPNodeConfigStatusReconciler"
+	return CRDStatusReconcilerName
 }
 
 func (r *StatusReconciler) Priority() int {
-	return 50
+	return CRDStatusReconcilerPriority
 }
 
 func (r *StatusReconciler) Reconcile(ctx context.Context, params StateReconcileParams) error {

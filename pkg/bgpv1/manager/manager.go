@@ -892,7 +892,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		StateNotification: make(types.StateNotificationCh, 1),
 	}
 
-	i, err := instance.NewBGPInstance(ctx, m.Logger.WithField(types.InstanceLogField, c.Name), globalConfig)
+	i, err := instance.NewBGPInstance(ctx, m.Logger.WithField(types.InstanceLogField, c.Name), c.Name, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to start BGP instance: %w", err)
 	}

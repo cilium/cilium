@@ -40,13 +40,14 @@ type ResourceID string
 type ResourceKind string
 
 var (
-	ResourceKindCNP      = ResourceKind("cnp")
-	ResourceKindCCNP     = ResourceKind("ccnp")
-	ResourceKindDaemon   = ResourceKind("daemon")
-	ResourceKindEndpoint = ResourceKind("ep")
-	ResourceKindFile     = ResourceKind("file")
-	ResourceKindNetpol   = ResourceKind("netpol")
-	ResourceKindNode     = ResourceKind("node")
+	ResourceKindCCNP      = ResourceKind("ccnp")
+	ResourceKindCIDRGroup = ResourceKind("cidrgroup")
+	ResourceKindCNP       = ResourceKind("cnp")
+	ResourceKindDaemon    = ResourceKind("daemon")
+	ResourceKindEndpoint  = ResourceKind("ep")
+	ResourceKindFile      = ResourceKind("file")
+	ResourceKindNetpol    = ResourceKind("netpol")
+	ResourceKindNode      = ResourceKind("node")
 )
 
 // NewResourceID returns a ResourceID populated with the standard fields for

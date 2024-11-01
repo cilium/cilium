@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
@@ -381,8 +382,6 @@ type Endpoint struct {
 	// realizedPolicy is the policy that has most recently been applied.
 	// ep.mutex must be held.
 	realizedPolicy *policy.EndpointPolicy
-
-	visibilityPolicy *policy.VisibilityPolicy
 
 	eventQueue *eventqueue.EventQueue
 
@@ -1593,6 +1592,13 @@ func (e *Endpoint) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {
 	}
 }
 
+func (e *Endpoint) GetPolicyVersionHandle() *versioned.VersionHandle {
+	if e.desiredPolicy != nil {
+		return e.desiredPolicy.VersionHandle
+	}
+	return nil
+}
+
 // getProxyStatistics gets the ProxyStatistics for the flows with the
 // given characteristics, or adds a new one and returns it.
 func (e *Endpoint) getProxyStatistics(key string, l7Protocol string, port uint16, ingress bool, redirectPort uint16) *models.ProxyStatistics {
@@ -1771,14 +1777,6 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 			return "", err
 		}
 		value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
-		return value, nil
-	})
-	e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		po, _, err := resolveMetadata(ns, podName)
-		if err != nil {
-			return "", err
-		}
-		value, _ := annotation.Get(po, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
 		return value, nil
 	})
 	e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, err error) {

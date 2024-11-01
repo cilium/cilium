@@ -2,6 +2,13 @@
 # @schema
 # type: [null, string]
 # @schema
+# -- namespaceOverride allows to override the destination namespace for Cilium resources.
+# This property allows to use Cilium as part of an Umbrella Chart with different targets.
+namespaceOverride: ""
+
+# @schema
+# type: [null, string]
+# @schema
 # -- upgradeCompatibility helps users upgrading to ensure that the configMap for
 # Cilium will not change critical values to ensure continued operation
 # This flag is not required for new installations.
@@ -182,6 +189,19 @@ image:
   # cilium-digest
   digest: ${CILIUM_DIGEST}
   useDigest: ${USE_DIGESTS}
+# -- Scheduling configurations for cilium pods
+scheduling:
+  # @schema
+  # enum: ["anti-affinity", "kube-scheduler"]
+  # @schema
+  # -- Mode specifies how Cilium daemonset pods should be scheduled to Nodes.
+  # `anti-affinity` mode applies a pod anti-affinity rule to the cilium daemonset.
+  # Pod anti-affinity may significantly impact scheduling throughput for large clusters.
+  # See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+  # `kube-scheduler` mode forgoes the anti-affinity rule for full scheduling throughput.
+  # Kube-scheduler avoids host port conflict when scheduling pods.
+  # @default -- Defaults to apply a pod anti-affinity rule to the agent pod - `anti-affinity`
+  mode: anti-affinity
 # -- Affinity for cilium-agent.
 affinity:
   podAntiAffinity:
@@ -460,6 +480,8 @@ bpf:
   # -- (int) Configure the maximum number of entries in auth map.
   # @default -- `524288`
   authMapMax: ~
+  # -- Enable CT accounting for packets and bytes
+  ctAccounting: false
   # @schema
   # type: [null, integer]
   # @schema
@@ -973,8 +995,6 @@ encryption:
     # -- Enable IPsec encrypted overlay
     encryptedOverlay: false
   wireguard:
-    # -- Enables the fallback to the user-space implementation (deprecated).
-    userspaceFallback: false
     # -- Controls WireGuard PersistentKeepalive option. Set 0s to disable.
     persistentKeepalive: 0s
 endpointHealthChecking:
@@ -1451,7 +1471,7 @@ hubble:
           - ALL
     # -- hubble-relay service configuration.
     service:
-      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort.
+      # --- The type of service used for Hubble Relay access, either ClusterIP, NodePort or LoadBalancer.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31234
@@ -1875,14 +1895,16 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+# -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
+# no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
+# @schema
+# type: [string]
+# @schema
+defaultLBServiceIPAM: lbipam
 nodeIPAM:
   # -- Configure Node IPAM
   # ref: https://docs.cilium.io/en/stable/network/node-ipam/
   enabled: false
-LBIPAM:
-  # -- requireLBClass tells LB-IPAM to only allocate IPs to services with a specific LoadBalancer class.
-  # ref: https://docs.cilium.io/en/stable/network/lb-ipam/#loadbalancerclass
-  requireLBClass: false
 # @schema
 # type: [null, string]
 # @schema
@@ -2044,7 +2066,7 @@ loadBalancer:
   # algorithm: random
 
   # -- mode is the operation mode of load balancing for remote backends
-  # e.g. snat, dsr, hybrid
+  # e.g. snat, dsr, hybrid, annotation
   # mode: snat
 
   # -- acceleration is the option to accelerate service handling via XDP
@@ -3463,6 +3485,8 @@ dnsProxy:
 sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
+# -- Enable Non-Default-Deny policies
+enableNonDefaultDenyPolicies: true
 # Configuration for types of authentication for Cilium (beta)
 authentication:
   # -- Enable authentication processing and garbage collection.
@@ -3530,6 +3554,8 @@ authentication:
           annotations: {}
           # -- SPIRE agent labels
           labels: {}
+          # -- container resource limits & requests
+          resources: {}
           # -- SPIRE Workload Attestor kubelet verification.
           skipKubeletVerification: true
           # -- SPIRE agent tolerations configuration
@@ -3584,6 +3610,8 @@ authentication:
           # -- SPIRE server labels
           labels: {}
           # SPIRE server service configuration
+          # -- container resource limits & requests
+          resources: {}
           service:
             # -- Service type for the SPIRE server service
             type: ClusterIP
@@ -3649,3 +3677,7 @@ authentication:
       agentSocketPath: /run/spire/sockets/agent/agent.sock
       # -- SPIRE connection timeout
       connectionTimeout: 30s
+# -- Enable Internal Traffic Policy
+enableInternalTrafficPolicy: true
+# -- Enable LoadBalancer IP Address Management
+enableLBIPAM: true

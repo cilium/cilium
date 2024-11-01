@@ -31,7 +31,7 @@ const (
 	metadataName = "metadata.name="
 )
 
-func NewConfigMapReflector(cs k8sClient.Clientset, t statedb.RWTable[DynamicConfig], c config, l *slog.Logger) []k8s.ReflectorConfig[DynamicConfig] {
+func NewConfigMapReflector(cs k8sClient.Clientset, t statedb.RWTable[DynamicConfig], c Config, l *slog.Logger) []k8s.ReflectorConfig[DynamicConfig] {
 	if !cs.IsEnabled() || !c.EnableDynamicConfig {
 		return []k8s.ReflectorConfig[DynamicConfig]{}
 	}
@@ -61,7 +61,7 @@ func NewConfigMapReflector(cs k8sClient.Clientset, t statedb.RWTable[DynamicConf
 	return reflectors
 }
 
-func parseConfigs(c config) ([]resolver.ConfigSource, resolver.ConfigOverride, error) {
+func parseConfigs(c Config) ([]resolver.ConfigSource, resolver.ConfigOverride, error) {
 	var sources []resolver.ConfigSource
 	if err := json.Unmarshal([]byte(c.ConfigSources), &sources); err != nil {
 		return nil, resolver.ConfigOverride{}, fmt.Errorf("error during unmarshall config-sources: %w", err)

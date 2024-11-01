@@ -21,7 +21,7 @@ spec:
             {{- end }}
             - "--ca-generate"
             - "--ca-reuse-secret"
-            - "--ca-secret-namespace={{ .Release.Namespace }}"
+            - "--ca-secret-namespace={{ include "cilium.namespace" . }}"
             - "--ca-secret-name=cilium-ca"
             - "--ca-common-name=Cilium CA"
           env:
@@ -29,12 +29,12 @@ spec:
               value: |
                 certs:
                 - name: clustermesh-apiserver-server-cert
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: "clustermesh-apiserver.cilium.io"
                   hosts:
                   - "clustermesh-apiserver.cilium.io"
                   - "*.mesh.cilium.io"
-                  - "clustermesh-apiserver.{{ .Release.Namespace }}.svc"
+                  - "clustermesh-apiserver.{{ include "cilium.namespace" . }}.svc"
                   {{- range $dns := .Values.clustermesh.apiserver.tls.server.extraDnsNames }}
                   - {{ $dns | quote }}
                   {{- end }}
@@ -49,7 +49,7 @@ spec:
                   - server auth
                   validity: {{ $certValidityStr }}
                 - name: clustermesh-apiserver-admin-cert
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: {{ include "clustermesh-apiserver-generate-certs.admin-common-name" . | quote }}
                   usage:
                   - signing
@@ -58,7 +58,7 @@ spec:
                   validity: {{ $certValidityStr }}
                 {{- if .Values.clustermesh.useAPIServer }}
                 - name: clustermesh-apiserver-remote-cert
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: {{ include "clustermesh-apiserver-generate-certs.remote-common-name" . | quote }}
                   usage:
                   - signing
@@ -68,7 +68,7 @@ spec:
                 {{- end }}
                 {{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled }}
                 - name: clustermesh-apiserver-local-cert
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: {{ include "clustermesh-apiserver-generate-certs.local-common-name" . | quote }}
                   usage:
                   - signing
@@ -78,7 +78,7 @@ spec:
                 {{- end }}
                 {{- if .Values.externalWorkloads.enabled }}
                 - name: clustermesh-apiserver-client-cert
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: "externalworkload"
                   usage:
                   - signing

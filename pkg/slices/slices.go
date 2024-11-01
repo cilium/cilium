@@ -84,24 +84,6 @@ func SortedUnique[S ~[]T, T cmp.Ordered](s S) S {
 	return slices.Compact(s)
 }
 
-// SortedUniqueFunc is like SortedUnique but allows the user to specify custom functions
-// for ordering (less function) and comparing (eq function) the elements in the slice.
-// This is useful in all the cases where SortedUnique cannot be used:
-// - for types that do not satisfy constraints.Ordered (e.g: composite types)
-// - when the user wants to customize how elements are compared (e.g: user wants to enforce reverse ordering)
-func SortedUniqueFunc[S ~[]T, T any](
-	s S,
-	less func(a, b T) int,
-	eq func(a, b T) bool,
-) S {
-	if len(s) < 2 {
-		return s
-	}
-
-	slices.SortFunc(s, less)
-	return slices.CompactFunc(s, eq)
-}
-
 // Diff returns a slice of elements which is the difference of a and b.
 // The returned slice keeps the elements in the same order found in the "a" slice.
 // Both input slices are considered as sets, that is, all elements are considered as
@@ -148,4 +130,16 @@ func SubsetOf[S ~[]T, T comparable](a, b S) (bool, []T) {
 func XorNil[T any](s1, s2 []T) bool {
 	return s1 == nil && s2 != nil ||
 		s1 != nil && s2 == nil
+}
+
+// AllMatch returns true if pred is true for each element in s, false otherwise.
+// May not evaluate on all elements if not necessary for determining the result.
+// If the slice is empty then true is returned and predicate is not evaluated.
+func AllMatch[T any](s []T, pred func(v T) bool) bool {
+	for _, v := range s {
+		if !pred(v) {
+			return false
+		}
+	}
+	return true
 }

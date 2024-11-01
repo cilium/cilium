@@ -151,6 +151,13 @@ func (in *IPAMSpec) DeepCopyInto(out *IPAMSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.StaticIPTags != nil {
+		in, out := &in.StaticIPTags, &out.StaticIPTags
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

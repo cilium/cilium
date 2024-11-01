@@ -30,7 +30,7 @@ func TestConfigure(t *testing.T) {
 
 	ns1 := netns.NewNetNS(t)
 	ns1.Do(func() error {
-		ip, ri := getFakes(t, true)
+		ip, ri := getFakes(t, true, false)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -41,7 +41,22 @@ func TestConfigure(t *testing.T) {
 
 	ns2 := netns.NewNetNS(t)
 	ns2.Do(func() error {
-		ip, ri := getFakes(t, false)
+		ip, ri := getFakes(t, false, false)
+		masterMAC := ri.MasterIfMAC
+		ifaceCleanup := createDummyDevice(t, masterMAC)
+		defer ifaceCleanup()
+
+		runConfigureThenDelete(t, ri, ip, 1500)
+		return nil
+	})
+}
+
+func TestConfigureZeros(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns1 := netns.NewNetNS(t)
+	ns1.Do(func() error {
+		ip, ri := getFakes(t, true, true)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -54,7 +69,7 @@ func TestConfigure(t *testing.T) {
 func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	_, ri := getFakes(t, true)
+	_, ri := getFakes(t, true, false)
 	ipv6 := netip.MustParseAddr("fd00::2").AsSlice()
 	err := ri.Configure(ipv6, 1500, false, false)
 	require.Error(t, err)
@@ -73,7 +88,7 @@ func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
 func TestDelete(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	fakeIP, fakeRoutingInfo := getFakes(t, true)
+	fakeIP, fakeRoutingInfo := getFakes(t, true, false)
 	masterMAC := fakeRoutingInfo.MasterIfMAC
 
 	tests := []struct {
@@ -235,7 +250,8 @@ func createDummyDevice(t *testing.T, macAddr mac.MAC) func() {
 
 // getFakes returns a fake IP simulating an Endpoint IP and RoutingInfo as test harnesses.
 // To create routing info with a list of CIDRs which the interface has access to, set withCIDR parameter to true
-func getFakes(t *testing.T, withCIDR bool) (netip.Addr, RoutingInfo) {
+// If withZeroCIDR is also set to true, the function will use the "0.0.0.0/0" CIDR block instead of other CIDR blocks.
+func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, RoutingInfo) {
 	fakeGateway := netip.MustParseAddr("192.168.2.1")
 	fakeSubnet1CIDR := netip.MustParsePrefix("192.168.0.0/16")
 	fakeSubnet2CIDR := netip.MustParsePrefix("192.170.0.0/16")
@@ -245,9 +261,13 @@ func getFakes(t *testing.T, withCIDR bool) (netip.Addr, RoutingInfo) {
 
 	var fakeRoutingInfo *RoutingInfo
 	if withCIDR {
+		cidrs := []string{fakeSubnet1CIDR.String(), fakeSubnet2CIDR.String()}
+		if withZeroCIDR {
+			cidrs = []string{"0.0.0.0/0"}
+		}
 		fakeRoutingInfo, err = parse(
 			fakeGateway.String(),
-			[]string{fakeSubnet1CIDR.String(), fakeSubnet2CIDR.String()},
+			cidrs,
 			fakeMAC.String(),
 			"1",
 			ipamOption.IPAMENI,

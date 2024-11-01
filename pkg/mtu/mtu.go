@@ -3,10 +3,6 @@
 
 package mtu
 
-import (
-	"net"
-)
-
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
 	// handled by Cilium. It will typically be used to configure inbound
@@ -70,145 +66,100 @@ const (
 
 // Configuration is an MTU configuration as returned by NewConfiguration
 type Configuration struct {
-	// standardMTU is the regular MTU used for configuring devices and
-	// routes where packets are expected to be delivered outside the node.
-	//
-	// Note that this is a singleton for the process including this
-	// package. This means, for instance, that when using this from the
-	// ``pkg/plugins/*`` sources, it will not respect the settings
-	// configured inside the ``daemon/``.
-	standardMTU int
-
-	// tunnelMTU is the MTU used for configuring a tunnel mesh for
-	// inter-node connectivity.
-	//
-	// Similar to StandardMTU, this is a singleton for the process.
-	tunnelMTU int
-
-	// preEncrypMTU is the MTU used for configurations of a encryption route.
-	// If tunneling is enabled the tunnelMTU is used which will include
-	// additional encryption overhead if needed.
-	preEncryptMTU int
-
-	// postEncryptMTU is the MTU used for configurations of a encryption
-	// route _after_ encryption tags have been addded. These will be used
-	// in the encryption routing table. The MTU accounts for the tunnel
-	// overhead, if any, but assumes packets are already encrypted.
-	postEncryptMTU int
-
-	encapEnabled     bool
-	encryptEnabled   bool
-	wireguardEnabled bool
-
-	// Enable route MTU for pod netns when CNI chaining is used
-	enableRouteMTUForCNIChaining bool
+	authKeySize         int
+	hsIpcacheDSRenabled bool
+	encapEnabled        bool
+	encryptEnabled      bool
+	wireguardEnabled    bool
 }
 
-// NewConfiguration returns a new MTU configuration. The MTU can be manually
-// specified, otherwise it will be automatically detected. if encapEnabled is
-// true, the MTU is adjusted to account for encapsulation overhead for all
-// routes involved in node to node communication.
-func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool, hsIpcacheDSRenabled bool, mtu int, mtuDetectIP net.IP, enableRouteMTUForCNIChaining bool) Configuration {
-	encryptOverhead := 0
-
-	if mtu == 0 {
-		var err error
-
-		if mtuDetectIP != nil {
-			mtu, err = getMTUFromIf(mtuDetectIP)
-		} else {
-			mtu, err = autoDetect()
-		}
-		if err != nil {
-			log.WithError(err).Warning("Unable to automatically detect MTU")
-			mtu = EthernetMTU
-		}
+// NewConfiguration returns a new MTU configuration which is used to calculate
+// MTU values from a base MTU based on the config.
+func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool, hsIpcacheDSRenabled bool) Configuration {
+	return Configuration{
+		authKeySize:         authKeySize,
+		hsIpcacheDSRenabled: hsIpcacheDSRenabled,
+		encapEnabled:        encapEnabled,
+		encryptEnabled:      encryptEnabled,
+		wireguardEnabled:    wireguardEnabled,
 	}
+}
 
-	if encryptEnabled {
-		// Add the difference between the default and the actual key sizes here
-		// to account for users specifying non-default auth key lengths.
-		encryptOverhead = EncryptionIPsecOverhead + (authKeySize - EncryptionDefaultAuthKeyLength)
+func (c Configuration) Calculate(baseMTU int) RouteMTU {
+	return RouteMTU{
+		DeviceMTU:           c.getDeviceMTU(baseMTU),
+		RouteMTU:            c.getRouteMTU(baseMTU),
+		RoutePostEncryptMTU: c.getRoutePostEncryptMTU(baseMTU),
 	}
-
-	fullTunnelOverhead := TunnelOverhead
-	if hsIpcacheDSRenabled {
-		fullTunnelOverhead += DsrTunnelOverhead
-	}
-
-	conf := Configuration{
-		standardMTU:                  mtu,
-		tunnelMTU:                    mtu - (fullTunnelOverhead + encryptOverhead),
-		postEncryptMTU:               mtu - TunnelOverhead,
-		preEncryptMTU:                mtu - encryptOverhead,
-		encapEnabled:                 encapEnabled,
-		encryptEnabled:               encryptEnabled,
-		wireguardEnabled:             wireguardEnabled,
-		enableRouteMTUForCNIChaining: enableRouteMTUForCNIChaining,
-	}
-
-	if conf.tunnelMTU < 0 {
-		conf.tunnelMTU = 0
-	}
-
-	return conf
 }
 
 // GetRoutePostEncryptMTU return the MTU to be used on the encryption routing
 // table. This is the MTU without encryption overhead and in the tunnel
 // case accounts for the tunnel overhead.
-func (c *Configuration) GetRoutePostEncryptMTU() int {
+func (c *Configuration) getRoutePostEncryptMTU(baseMTU int) int {
 	if c.encapEnabled {
-		if c.postEncryptMTU == 0 {
+		postEncryptMTU := baseMTU - TunnelOverhead
+		if postEncryptMTU == 0 {
 			return EthernetMTU - TunnelOverhead
 		}
-		return c.postEncryptMTU
+		return postEncryptMTU
 
 	}
-	return c.GetDeviceMTU()
+	return c.getDeviceMTU(baseMTU)
 }
 
 // GetRouteMTU returns the MTU to be used on the network. When running in
 // tunneling mode and/or with encryption enabled, this will have tunnel and
 // encryption overhead accounted for.
-func (c *Configuration) GetRouteMTU() int {
+func (c *Configuration) getRouteMTU(baseMTU int) int {
 	if c.wireguardEnabled {
 		if c.encapEnabled {
-			return c.GetDeviceMTU() - (WireguardOverhead + TunnelOverhead)
+			return c.getDeviceMTU(baseMTU) - (WireguardOverhead + TunnelOverhead)
 		}
-		return c.GetDeviceMTU() - WireguardOverhead
+		return c.getDeviceMTU(baseMTU) - WireguardOverhead
 	}
 
 	if !c.encapEnabled && !c.encryptEnabled {
-		return c.GetDeviceMTU()
+		return c.getDeviceMTU(baseMTU)
+	}
+
+	encryptOverhead := 0
+
+	if c.encryptEnabled {
+		// Add the difference between the default and the actual key sizes here
+		// to account for users specifying non-default auth key lengths.
+		encryptOverhead = EncryptionIPsecOverhead + (c.authKeySize - EncryptionDefaultAuthKeyLength)
 	}
 
 	if c.encryptEnabled && !c.encapEnabled {
-		if c.preEncryptMTU == 0 {
+		preEncryptMTU := baseMTU - encryptOverhead
+		if preEncryptMTU == 0 {
 			return EthernetMTU - EncryptionIPsecOverhead
 		}
-		return c.preEncryptMTU
+		return preEncryptMTU
 	}
 
-	if c.tunnelMTU == 0 {
+	fullTunnelOverhead := TunnelOverhead
+	if c.hsIpcacheDSRenabled {
+		fullTunnelOverhead += DsrTunnelOverhead
+	}
+
+	tunnelMTU := baseMTU - (fullTunnelOverhead + encryptOverhead)
+	if tunnelMTU <= 0 {
 		if c.encryptEnabled {
 			return EthernetMTU - (TunnelOverhead + EncryptionIPsecOverhead)
 		}
 		return EthernetMTU - TunnelOverhead
 	}
 
-	return c.tunnelMTU
+	return tunnelMTU
 }
 
-func (c *Configuration) IsEnableRouteMTUForCNIChaining() bool {
-	return c.enableRouteMTUForCNIChaining
-}
-
-// GetDeviceMTU returns the MTU to be used on workload facing devices.
-func (c *Configuration) GetDeviceMTU() int {
-	if c.standardMTU == 0 {
+// getDeviceMTU returns the MTU to be used on workload facing devices.
+func (c *Configuration) getDeviceMTU(baseMTU int) int {
+	if baseMTU == 0 {
 		return EthernetMTU
 	}
 
-	return c.standardMTU
+	return baseMTU
 }

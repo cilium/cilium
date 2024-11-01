@@ -89,7 +89,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cilium-config
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 data:
 {{- if .Values.etcd.enabled }}
   # The kvstore configuration is used to enable use of a kvstore for state
@@ -410,6 +410,9 @@ data:
   bpf-ct-global-any-max: {{ $bpfCtAnyMax | quote }}
 {{- end }}
 {{- end }}
+{{- if .Values.bpf.ctAccounting }}
+  bpf-conntrack-accounting: "{{ .Values.bpf.ctAccounting }}"
+{{- end }}
 {{- if .Values.bpf.natMax }}
   # bpf-nat-global-max specified the maximum number of entries in the
   # BPF NAT table.
@@ -626,9 +629,6 @@ data:
   enable-ipsec-encrypted-overlay: {{ .Values.encryption.ipsec.encryptedOverlay | quote }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
-    {{- if .Values.encryption.wireguard.userspaceFallback }}
-  enable-wireguard-userspace-fallback: {{ .Values.encryption.wireguard.userspaceFallback | quote }}
-    {{- end }}
     {{- if .Values.encryption.wireguard.persistentKeepalive }}
   wireguard-persistent-keepalive: {{ .Values.encryption.wireguard.persistentKeepalive | quote }}
     {{- end }}
@@ -1068,9 +1068,7 @@ data:
   enable-node-ipam: "true"
 {{- end }}
 
-{{- if .Values.LBIPAM.requireLBClass }}
-  lbipam-require-lb-class: "true"
-{{- end }}
+  default-lb-service-ipam: "{{ .Values.defaultLBServiceIPAM }}"
 
 {{- if .Values.apiRateLimit }}
   api-rate-limit: {{ .Values.apiRateLimit | quote }}
@@ -1083,7 +1081,7 @@ data:
   egress-gateway-reconciliation-trigger-interval: {{ .Values.egressGateway.reconciliationTriggerInterval | quote }}
 {{- end }}
 {{- if .Values.egressGateway.maxPolicyEntries }}
-  egress-gateway-policy-map-max: {{ .Values.egressGateway.maxPolicyEntries }}
+  egress-gateway-policy-map-max: {{ .Values.egressGateway.maxPolicyEntries | quote }}
 {{- end }}
 
 {{- if hasKey .Values "vtep" }}
@@ -1335,6 +1333,9 @@ data:
 
   nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}
   nat-map-stats-interval: {{ .Values.nat.mapStatsInterval | quote }}
+  enable-internal-traffic-policy: {{ .Values.enableInternalTrafficPolicy | quote }}
+  enable-lb-ipam: {{ .Values.enableLBIPAM | quote }}
+  enable-non-default-deny-policies: {{ .Values.enableNonDefaultDenyPolicies | quote }}
 
 # Extra config allows adding arbitrary properties to the cilium config.
 # By putting it at the end of the ConfigMap, it's also possible to override existing properties.
@@ -1349,7 +1350,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ip-masq-agent
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 data:
   config: |-
 {{ toJson .Values.ipMasqAgent.config | indent 4 }}

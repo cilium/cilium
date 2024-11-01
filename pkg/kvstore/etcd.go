@@ -1549,16 +1549,6 @@ func (e *etcdClient) Close() {
 	e.lockLeaseManager.Wait()
 }
 
-// Encode encodes a binary slice into a character set that the backend supports
-func (e *etcdClient) Encode(in []byte) (out string) {
-	return string(in)
-}
-
-// Decode decodes a key previously encoded back into the original binary slice
-func (e *etcdClient) Decode(in string) (out []byte, err error) {
-	return []byte(in), nil
-}
-
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd
 func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string, chanSize int) *Watcher {
 	w := newWatcher(prefix, chanSize)

@@ -13,6 +13,8 @@ CONVERTED=(
   "hubble"
   "pkg/hive/health"
   "pkg/datapath/linux"
+  "operator/pkg/ciliumenvoyconfig"
+  "operator/pkg/controller-runtime"
 )
 
 EXCLUDED_FILES=(

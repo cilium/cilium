@@ -62,24 +62,27 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 	if option.Config.EnableNodePort {
 		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.NodePortMode != option.NodePortModeDSR &&
-			option.Config.NodePortMode != option.NodePortModeHybrid {
+			option.Config.NodePortMode != option.NodePortModeHybrid &&
+			option.Config.NodePortMode != option.NodePortModeAnnotation {
 			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve ||
-			option.Config.NodePortMode == option.NodePortModeHybrid &&
-				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
-				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
 			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
 
-		if option.Config.NodePortMode == option.NodePortModeDSR &&
-			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateFrontend &&
-			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateBackend {
-			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRL4Xlate, option.Config.LoadBalancerDSRL4Xlate)
+		if option.Config.NodePortMode == option.NodePortModeHybrid &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
+		}
+
+		if option.Config.NodePortMode == option.NodePortModeAnnotation &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP {
+			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
 
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
@@ -203,7 +206,8 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 
 		option.Config.EnableHealthDatapath =
 			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
-				option.Config.NodePortMode == option.NodePortModeDSR &&
+				(option.Config.NodePortMode == option.NodePortModeDSR ||
+					option.Config.NodePortMode == option.NodePortModeAnnotation) &&
 				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
 	}
 

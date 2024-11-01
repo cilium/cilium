@@ -361,6 +361,13 @@ Users (Alphabetically)
        L: https://isovalent.com/product/
        Q: @BillMulligan
 
+    * N: Jar
+       D: Cilium is used as Jar's CNI on all prod and pre production environments.
+       U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, egress gateway, service load balancing, CNI
+       L: https://myjar.app/blog/engineering/
+       Q: @rohan-changejar @rohangrge
+       
+
     * N: JUMO
       D: JUMO is using Cilium as their CNI plugin for all of their AWS-hosted EKS clusters
       U: Networking, network policy, network visibility, cluster mesh
@@ -637,6 +644,12 @@ Users (Alphabetically)
       L: https://www.dbschenker.com/global
       Q: @amirkkn
 
+    * N: Scigility AG
+      D: We use Cilium as the default CNI across client implementations and also for our internal platform.
+      U: CNI, Monitoring, kube-proxy replacement, Hubble
+      L: https://scigility.com/
+      Q: @ciil
+
     * N: Sealos
       D: Sealos is using Cilium as a consistent CNI for our Sealos Cloud.
       U: Networking, Service, kube-proxy replacement, Network Policy, Hubble
@@ -671,6 +684,12 @@ Users (Alphabetically)
       L: https://schubergphilis.com/en
       Q: @stimmerman @shoekstra @mbaumann
 
+    * N: SDV Services
+      D: SDV Services uses Cilium to host Wordpress multi-tenant the cloud-native way and also as the CNI for customer Kubernetes clusters.
+      U: CNI, Networking, NetworkPolicy, Hubble, IPAM, Kubernetes services
+      L: https://sdvservices.nl
+      Q: @Sjouke de Vries
+      
     * N: SI Analytics
       D: SI Analytics uses Cilium as CNI in self-managed Kubernetes clusters in on-prem DCs. And also use Cilium as CNI in its GKE dataplane v2 based clusters.
       U: CNI, Network Policies, Hubble

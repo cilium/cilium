@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: ciliumendpoints.cilium.io
 spec:
   group: cilium.io
@@ -32,11 +32,6 @@ spec:
     - description: Egress enforcement in the endpoint
       jsonPath: .status.policy.egress.state
       name: Egress Enforcement
-      priority: 1
-      type: string
-    - description: Status of visibility policy in the endpoint
-      jsonPath: .status.visibility-policy-status
-      name: Visibility Policy
       priority: 1
       type: string
     - description: Endpoint current state
@@ -484,8 +479,6 @@ spec:
                 - disconnecting
                 - disconnected
                 - invalid
-                type: string
-              visibility-policy-status:
                 type: string
             type: object
         required:

@@ -15,6 +15,23 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
+const (
+	NeighborReconcilerName  = "Neighbor"
+	PodIPPoolReconcilerName = "PodIPPool"
+	ServiceReconcilerName   = "Service"
+	PodCIDRReconcilerName   = "PodCIDR"
+)
+
+// Reconciler Priorities, lower number means higher priority. It is used to determine the
+// order in which reconcilers are called. Reconcilers are called from lowest to highest on
+// each Reconcile event.
+const (
+	NeighborReconcilerPriority  = 60
+	PodIPPoolReconcilerPriority = 50
+	ServiceReconcilerPriority   = 40
+	PodCIDRReconcilerPriority   = 30
+)
+
 type ReconcileParams struct {
 	BGPInstance   *instance.BGPInstance
 	DesiredConfig *v2alpha1.CiliumBGPNodeInstance

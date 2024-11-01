@@ -85,6 +85,7 @@ type RunCommandRequest struct {
 	Name                 string                   `position:"Query" name:"Name"`
 	ContainerId          string                   `position:"Query" name:"ContainerId"`
 	Parameters           map[string]interface{}   `position:"Query" name:"Parameters"`
+	Launcher             string                   `position:"Query" name:"Launcher"`
 	ContainerName        string                   `position:"Query" name:"ContainerName"`
 	ClientToken          string                   `position:"Query" name:"ClientToken"`
 	Description          string                   `position:"Query" name:"Description"`

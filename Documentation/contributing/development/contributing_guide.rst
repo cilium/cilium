@@ -38,11 +38,11 @@ so the design and discussion can be stored for future reference.
 Clone and Provision Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. Make sure you have a `GitHub account <https://github.com/join>`_
-#. Fork the Cilium repository to your GitHub user or organization.
+#. Make sure you have a `GitHub account <https://github.com/join>`_.
+#. Fork the `Cilium repository <https://github.com/cilium/cilium>`_ to your GitHub user or organization.
 #. Turn off GitHub actions for your fork as described in the `GitHub Docs <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#managing-github-actions-permissions-for-your-repository>`_.
    This is recommended to avoid unnecessary CI notification failures on the fork.
-#. Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork and setup the base repository as ``upstream`` remote:
+#. Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork and set up the base repository as ``upstream`` remote:
 
    .. code-block:: shell-session
 

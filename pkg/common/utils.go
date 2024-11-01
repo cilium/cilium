@@ -6,6 +6,7 @@ package common
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -73,4 +74,24 @@ func RequireRootPrivilege(cmd string) {
 		fmt.Fprintf(os.Stderr, "Please run %q command(s) with root privileges.\n", cmd)
 		os.Exit(1)
 	}
+}
+
+func MergeChannels[T any](chans ...<-chan T) <-chan T {
+	out := make(chan T)
+	cases := make([]reflect.SelectCase, len(chans))
+	for i, ch := range chans {
+		cases[i] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ch),
+		}
+	}
+	go func() {
+		defer close(out)
+		_, value, ok := reflect.Select(cases)
+		if !ok {
+			return
+		}
+		out <- value.Interface().(T)
+	}()
+	return out
 }

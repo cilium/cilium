@@ -399,7 +399,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 
-	p, err := New(logrus.New(), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter)
+	p, err := New(logrus.New(), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, false)
 	assert.Nil(t, err)
 
 	for _, tc := range tt {

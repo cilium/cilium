@@ -18,6 +18,7 @@ var (
 	contextName     string
 	namespace       string
 	helmReleaseName string
+	kubeConfig      string
 
 	k8sClient *k8s.Client
 )
@@ -38,9 +39,13 @@ func NewCiliumCommand(hooks api.Hooks) *cobra.Command {
 			switch cmd.Name() {
 			case "completion", "help":
 				return nil
+			case "version":
+				if clientFlag, err := cmd.Flags().GetBool("client"); err == nil && clientFlag {
+					return nil
+				}
 			}
 
-			c, err := k8s.NewClient(contextName, "", namespace)
+			c, err := k8s.NewClient(contextName, kubeConfig, namespace)
 			if err != nil {
 				return fmt.Errorf("unable to create Kubernetes client: %w", err)
 			}
@@ -80,6 +85,7 @@ cilium connectivity test`,
 	cmd.PersistentFlags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.PersistentFlags().StringVar(&helmReleaseName, "helm-release-name", "cilium", "Helm release name")
+	cmd.PersistentFlags().StringVar(&kubeConfig, "kubeconfig", "", "Path to the kubeconfig file")
 
 	cmd.AddCommand(
 		newCmdBgp(),

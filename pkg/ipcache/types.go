@@ -179,15 +179,6 @@ func (s prefixInfo) ToLabels() labels.Labels {
 	return l
 }
 
-func (s prefixInfo) hasLabelSource(source string) bool {
-	for _, v := range s {
-		if v.labels.HasSource(source) {
-			return true
-		}
-	}
-	return false
-}
-
 func (s prefixInfo) Source() source.Source {
 	src := source.Unspec
 	for _, v := range s {

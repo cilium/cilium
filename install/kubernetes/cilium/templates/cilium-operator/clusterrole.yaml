@@ -27,6 +27,15 @@ rules:
 {{- end }}
 {{- end }}
 {{- end }}
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  resourceNames:
+  - cilium-config
+  verbs:
+   # allow patching of the configmap to set annotations
+  - patch
 {{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus (include "hasDuration" .Values.operator.endpointGCInterval) }}
 - apiGroups:
   - ""

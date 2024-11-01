@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rebel-base
+  annotations:
+    service.cilium.io/global: "true"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+  selector:
+    name: rebel-base
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rebel-base-headless
+  annotations:
+    service.cilium.io/global: "true"
+    service.cilium.io/global-sync-endpoint-slices: "true"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 80
+  selector:
+    name: rebel-base

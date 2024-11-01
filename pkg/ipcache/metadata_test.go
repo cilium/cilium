@@ -5,11 +5,8 @@ package ipcache
 
 import (
 	"context"
-	"encoding/binary"
-	"fmt"
-	"math"
-	"math/rand/v2"
 	"net/netip"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -17,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -316,11 +312,11 @@ func TestUpdateLocalNode(t *testing.T) {
 	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", labels.LabelHost)
 	injectLabels(inClusterPrefix)
 
-	// Verify that .4 now has just kube-apiserver and CIDRs
+	// Verify that .4 now has just kube-apiserver and world
 	idIs(inClusterPrefix, identity.IdentityScopeLocal) // the first CIDR identity
 	id := PolicyHandler.identities[identity.IdentityScopeLocal]
 	assert.True(t, id.Has("reserved.kube-apiserver"))
-	assert.True(t, id.Has("cidr."+inClusterPrefix.String()))
+	assert.True(t, id.Has("reserved.world-ipv4"), id)
 
 	// verify that id 1 is now just reserved:host
 	idIs(inClusterPrefix2, identity.ReservedIdentityHost)
@@ -891,6 +887,191 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	assert.Nil(t, ident)
 }
 
+func TestResolveIdentity(t *testing.T) {
+	type sm map[string]string
+
+	for i, tc := range []struct {
+		prefixes    sm
+		expected    sm
+		expectedIDs map[string]identity.NumericIdentity
+
+		cidrMatchNode bool
+	}{
+		// case 0: a /24 cidr, a /32 fqdn within that cidr, and a /32 fqdn outside that cidr
+		{
+			prefixes: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "fqdn:example.com=",
+				"10.0.1.1/32": "fqdn:example.com=",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "cidr:10.0.0.0/24=;fqdn:example.com=;reserved:world-ipv4",
+				"10.0.1.1/32": "fqdn:example.com=;reserved:world-ipv4",
+			},
+		},
+
+		// case 1: nodes, node cidr selection disabled
+		// a /24 cidr, a remote node, and some FQDNs that happen to point to that node.
+		// because FQDNs are equivalent to CIDRs, and nodes cannot be selected by CIDRs,
+		// they should not have that label
+		{
+			prefixes: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "reserved:remote-node=",
+				"10.0.1.1/32": "reserved:remote-node=;fqdn:example.com=",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "reserved:remote-node=",
+				"10.0.1.1/32": "reserved:remote-node=",
+			},
+			expectedIDs: map[string]identity.NumericIdentity{
+				"10.0.0.1/32": identity.ReservedIdentityRemoteNode,
+				"10.0.1.1/32": identity.ReservedIdentityRemoteNode,
+			},
+		},
+
+		// case 2: nodes, node cidr selection enabled
+		{
+			prefixes: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24;reserved:world-ipv4",
+				// the CIDR label is injected directly by the NodeManager
+				"10.0.0.1/32": "cidr:10.0.0.1/32;reserved:remote-node",
+				"10.0.1.1/32": "cidr:10.0.1.1/32;reserved:remote-node;fqdn:example.com",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "cidr:10.0.0.1/32;reserved:remote-node=",
+				"10.0.1.1/32": "cidr:10.0.1.1/32;reserved:remote-node=;fqdn:example.com=",
+			},
+
+			cidrMatchNode: true,
+		},
+
+		// case 3: reserved identities must never get CIDR, CIDRGroup, or FQDN labels
+		{
+			prefixes: sm{
+				"10.0.0.0/8":  "cidrgroup:foo;reserved:world-ipv4",
+				"10.0.0.0/24": "cidr:10.0.0.0/24;reserved:world-ipv4",
+				"10.0.0.1/32": "cidr:10.0.0.1/32;reserved:ingress=",
+				"10.0.0.2/32": "cidr:10.0.0.2/32;fqdn:example.com;reserved:health=",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidrgroup:foo;cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "reserved:ingress=",
+				"10.0.0.2/32": "reserved:health=",
+			},
+			expectedIDs: map[string]identity.NumericIdentity{
+				"10.0.0.1/32": identity.ReservedIdentityIngress,
+				"10.0.0.2/32": identity.ReservedIdentityHealth,
+			},
+		},
+
+		// case 4: CIDR groups
+		{
+			prefixes: sm{
+				"10.0.0.0/8":  "cidrgroup:foo;reserved:world-ipv4",
+				"10.0.0.0/24": "cidrgroup:bar;reserved:world-ipv4",
+				"10.0.0.1/32": "fqdn:example.com=",
+				"10.0.1.1/32": "fqdn:example.com=",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidrgroup:bar;cidrgroup:foo;reserved:world-ipv4",
+				"10.0.0.1/32": "cidrgroup:bar;cidrgroup:foo;fqdn:example.com;reserved:world-ipv4",
+				"10.0.1.1/32": "cidrgroup:foo;fqdn:example.com;reserved:world-ipv4",
+			},
+		},
+	} {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			oldPolicyConfig := option.Config.PolicyCIDRMatchMode
+			t.Cleanup(func() {
+				option.Config.PolicyCIDRMatchMode = oldPolicyConfig
+			})
+			if tc.cidrMatchNode {
+				option.Config.PolicyCIDRMatchMode = []string{"nodes"}
+			} else {
+				option.Config.PolicyCIDRMatchMode = []string{}
+			}
+
+			cancel := setupTest(t)
+			t.Cleanup(cancel)
+
+			for pfx, lstr := range tc.prefixes {
+				lbls := labels.NewLabelsFromSortedList(lstr)
+				prefix := netip.MustParsePrefix(pfx)
+				IPIdentityCache.metadata.upsertLocked(prefix, source.Generated, "tc", lbls)
+			}
+
+			for pfx, lstr := range tc.expected {
+				lbls := labels.NewLabelsFromSortedList(lstr)
+				prefix := netip.MustParsePrefix(pfx)
+				info := IPIdentityCache.metadata.getLocked(prefix)
+				require.NotNil(t, info)
+				id, _, err := IPIdentityCache.resolveIdentity(context.Background(), prefix, info, 0)
+				require.Nil(t, err)
+
+				if expectedNID, ok := tc.expectedIDs[pfx]; ok {
+					require.Equal(t, expectedNID, id.ID)
+				}
+
+				require.Equal(t, lbls, id.Labels, lstr)
+			}
+		})
+	}
+}
+
+// TestUpsertMetadataCIDRGroup tests that cidr group labels
+// propagate down to all CIDRs
+func TestUpsertMetadataCIDRGroup(t *testing.T) {
+	p1 := netip.MustParsePrefix("10.0.0.0/8")
+	p2 := netip.MustParsePrefix("10.0.0.0/16")
+	p3 := netip.MustParsePrefix("10.0.0.0/24")
+	p4 := netip.MustParsePrefix("10.0.0.0/25")
+	p5 := netip.MustParsePrefix("10.0.0.0/26")
+	p6 := netip.MustParsePrefix("10.0.0.0/27")
+
+	cancel := setupTest(t)
+	defer cancel()
+
+	ctx := context.Background()
+
+	IPIdentityCache.metadata.upsertLocked(p1, source.Generated, "r1", labels.NewLabelsFromSortedList("cidrgroup:a="))
+	IPIdentityCache.metadata.upsertLocked(p2, source.Generated, "r1", labels.NewLabelsFromSortedList("cidrgroup:b="))
+	IPIdentityCache.metadata.upsertLocked(p3, source.Generated, "r1", labels.NewLabelsFromSortedList("cidrgroup:c="))
+
+	_, err := IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{p1, p2, p3})
+	require.Nil(t, err)
+
+	hasLabels := func(prefix netip.Prefix, wantl string) {
+		t.Helper()
+		nid, ok := IPIdentityCache.LookupByPrefixRLocked(prefix.String())
+		require.True(t, ok)
+		id := IPIdentityCache.LookupIdentityByID(ctx, nid.ID)
+		require.NotNil(t, id)
+
+		wantlbls := labels.NewLabelsFromSortedList(wantl)
+		require.Equal(t, wantlbls, id.Labels)
+	}
+
+	hasLabels(p1, "cidrgroup:a=;reserved:world-ipv4=")
+	hasLabels(p2, "cidrgroup:a=;cidrgroup:b=;reserved:world-ipv4=")
+	hasLabels(p3, "cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=")
+
+	// Now, test overlapping CIDR, CIDRGroup, and FQDN labels
+	IPIdentityCache.metadata.upsertLocked(p4, source.Generated, "r1", labels.GetCIDRLabels(p4))
+	IPIdentityCache.metadata.upsertLocked(p5, source.Generated, "r1", labels.GetCIDRLabels(p5))
+	IPIdentityCache.metadata.upsertLocked(p6, source.Generated, "r1", labels.NewLabelsFromSortedList("fqdn:*.cilium.io="))
+
+	_, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{p4, p5, p6})
+	require.Nil(t, err)
+
+	hasLabels(p4, "cidr:10.0.0.0/25=;cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=")
+	hasLabels(p5, "cidr:10.0.0.0/26=;cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=")
+	hasLabels(p6, "cidr:10.0.0.0/26=;cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=;fqdn:*.cilium.io=")
+
+}
+
 func setupTest(t *testing.T) (cleanup func()) {
 	t.Helper()
 
@@ -978,349 +1159,102 @@ func Test_canonicalPrefix(t *testing.T) {
 	}
 }
 
-func Test_isParentPrefix(t *testing.T) {
-	type args struct {
-		child  netip.Prefix
-		parent netip.Prefix
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{
-			name: "is child",
-			args: args{
-				parent: netip.MustParsePrefix("1.1.0.0/16"),
-				child:  netip.MustParsePrefix("1.1.1.1/32"),
-			},
-			want: true,
-		},
-		{
-			name: "is not child",
-			args: args{
-				parent: netip.MustParsePrefix("1.1.0.0/16"),
-				child:  netip.MustParsePrefix("1.0.0.0/8"),
-			},
-			want: false,
-		},
-		{
-			name: "siblings",
-			args: args{
-				parent: netip.MustParsePrefix("1.1.0.0/16"),
-				child:  netip.MustParsePrefix("1.2.0.0/16"),
-			},
-			want: false,
-		},
-		{
-			name: "non-canonical parent",
-			args: args{
-				parent: netip.MustParsePrefix("1.1.1.1/16"),
-				child:  netip.MustParsePrefix("1.1.1.1/32"),
-			},
-			want: true,
-		},
-		{
-			name: "non-canonical child",
-			args: args{
-				parent: netip.MustParsePrefix("1.0.0.0/8"),
-				child:  netip.MustParsePrefix("1.1.1.1/16"),
-			},
-			want: true,
-		},
-		{
-			name: "child is parent of itself",
-			args: args{
-				parent: netip.MustParsePrefix("1.1.0.0/16"),
-				child:  netip.MustParsePrefix("1.1.0.0/16"),
-			},
-			want: true,
-		},
-		{
-			name: "ipv6",
-			args: args{
-				parent: netip.MustParsePrefix("::/0"),
-				child:  netip.MustParsePrefix("c0ff::ee/128"),
-			},
-			want: true,
-		},
-		{
-			name: "mixed family has no relation",
-			args: args{
-				parent: netip.MustParsePrefix("::/0"),
-				child:  netip.MustParsePrefix("127.0.0.1/32"),
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, isChildPrefix(tt.args.parent, tt.args.child), "isChildPrefix(%v, %v)", tt.args.parent, tt.args.child)
-		})
-	}
-}
-
-func Test_metadata_findCIDRParentPrefix(t *testing.T) {
+func Test_metadata_mergeParentLabels(t *testing.T) {
 	tests := []struct {
 		name       string
-		m          map[netip.Prefix]prefixInfo
-		prefix     netip.Prefix
-		wantParent netip.Prefix
-		wantOk     bool
+		existing   map[string]labels.Labels
+		prefix     string
+		wantLabels labels.Labels
 	}{
 		{
-			name:   "empty",
-			m:      nil,
-			prefix: netip.MustParsePrefix("1.1.1.1/32"),
-			wantOk: false,
-		},
-		{
-			name:   "no underflow",
-			m:      nil,
-			prefix: netip.MustParsePrefix("0.0.0.0/0"),
-			wantOk: false,
-		},
-		{
 			name: "no self-match",
-			m: map[netip.Prefix]prefixInfo{
-				netip.MustParsePrefix("1.1.1.1/32"): {
-					types.NewResourceID(types.ResourceKindCNP, "test-ns", "test-pol"): {
-						labels: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32")),
-					},
-				},
+			existing: map[string]labels.Labels{
+				"1.1.1.1/32": labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32")),
 			},
-			prefix: netip.MustParsePrefix("1.1.1.1/32"),
-			wantOk: false,
+			prefix:     "1.1.1.1/32",
+			wantLabels: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32")),
 		},
+
 		{
-			name: "match first parent",
-			m: map[netip.Prefix]prefixInfo{
-				netip.MustParsePrefix("1.1.0.0/16"): {
-					types.NewResourceID(types.ResourceKindCNP, "test-ns", "test-pol"): {
-						labels: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.0.0/16")),
-					},
-				},
-				netip.MustParsePrefix("1.0.0.0/8"): {
-					types.NewResourceID(types.ResourceKindCNP, "test-ns", "other-test-pol"): {
-						labels: labels.GetCIDRLabels(netip.MustParsePrefix("1.0.0.0/8")),
-					},
-				},
+			name: "match first cidr parent",
+			existing: map[string]labels.Labels{
+				"1.1.1.1/32": labels.ParseLabelArray("fqdn:example.com").Labels(),
+				"1.1.0.0/16": labels.GetCIDRLabels(netip.MustParsePrefix("1.1.0.0/16")),
+				"1.0.0.0/8":  labels.GetCIDRLabels(netip.MustParsePrefix("1.0.0.0/8")),
 			},
-			prefix:     netip.MustParsePrefix("1.1.1.1/32"),
-			wantParent: netip.MustParsePrefix("1.1.0.0/16"),
-			wantOk:     true,
+			prefix:     "1.1.1.1/32",
+			wantLabels: labels.ParseLabelArray("reserved:world-ipv4", "cidr:1.1.0.0/16", "fqdn:example.com").Labels(),
 		},
+
 		{
-			name: "only match CIDR parents",
-			m: map[netip.Prefix]prefixInfo{
-				netip.MustParsePrefix("1.1.0.0/16"): {
-					types.NewResourceID(types.ResourceKindCNP, "test-ns", "test-pol"): {
-						labels: labels.LabelWorld,
-					},
-				},
-				netip.MustParsePrefix("1.0.0.0/8"): {
-					types.NewResourceID(types.ResourceKindCNP, "test-ns", "other-test-pol"): {
-						labels: labels.GetCIDRLabels(netip.MustParsePrefix("1.0.0.0/8")),
-					},
-				},
+			name: "merge all parent labelsl",
+			existing: map[string]labels.Labels{
+				"1.1.1.1/32": labels.ParseLabelArray("fqdn:example.com").Labels(),
+				"1.1.0.0/16": labels.ParseLabelArray("cidr:1.1.0.0/16", "reserved:world-ipv4", "cidrgroup:foo").Labels(),
+				"1.2.0.0/16": labels.ParseLabelArray("cidr:1.1.0.0/16", "reserved:world-ipv4", "cidrgroup:do-not-want").Labels(),
+				"1.0.0.0/8":  labels.ParseLabelArray("cidr:1.0.0.0/8", "reserved:world-ipv4", "cidrgroup:bar").Labels(),
 			},
-			prefix:     netip.MustParsePrefix("1.1.1.1/32"),
-			wantParent: netip.MustParsePrefix("1.0.0.0/8"),
-			wantOk:     true,
+			prefix:     "1.1.1.1/32",
+			wantLabels: labels.ParseLabelArray("reserved:world-ipv4", "cidr:1.1.0.0/16", "fqdn:example.com", "cidrgroup:foo", "cidrgroup:bar").Labels(),
+		},
+
+		{
+			name: "longest-match wins",
+			existing: map[string]labels.Labels{
+				"1.1.1.1/32": labels.ParseLabelArray("fqdn:example.com").Labels(),
+				"1.1.0.0/16": labels.ParseLabelArray("cidr:1.1.0.0/16", "reserved:world-ipv4", "cidrgroup:foo=yes").Labels(),
+				"1.0.0.0/8":  labels.ParseLabelArray("cidr:1.0.0.0/8", "reserved:world-ipv4", "cidrgroup:foo=no", "cidrgroup:bar").Labels(),
+			},
+			prefix:     "1.1.1.1/32",
+			wantLabels: labels.ParseLabelArray("reserved:world-ipv4", "cidr:1.1.0.0/16", "fqdn:example.com", "cidrgroup:foo=yes", "cidrgroup:bar").Labels(),
 		},
 		{
 			name: "match for non-canonical prefix",
-			m: map[netip.Prefix]prefixInfo{
-				netip.MustParsePrefix("1.1.0.0/16"): {
-					types.NewResourceID(types.ResourceKindCNP, "test-ns", "test-pol"): {
-						labels: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.0.0/16")),
-					},
-				},
+			existing: map[string]labels.Labels{
+				"1.1.0.0/16": labels.ParseLabelArray("cidr:1.1.0.0/16", "reserved:world-ipv4", "cidrgroup:foo=yes").Labels(),
 			},
-			prefix:     netip.MustParsePrefix("::ffff:1.1.1.1/24"),
-			wantParent: netip.MustParsePrefix("1.1.0.0/16"),
-			wantOk:     true,
+			prefix:     "::ffff:1.1.1.1/24",
+			wantLabels: labels.ParseLabelArray("reserved:world-ipv4", "cidr:1.1.0.0/16", "cidrgroup:foo=yes").Labels(),
 		},
 		{
-			name: "skip world",
-			m: map[netip.Prefix]prefixInfo{
-				netip.MustParsePrefix("0.0.0.0/0"): {
-					types.NewResourceID(types.ResourceKindDaemon, "", ""): {
-						labels: labels.GetCIDRLabels(netip.MustParsePrefix("0.0.0.0/0")),
-					},
-				},
+			name: "world",
+			existing: map[string]labels.Labels{
+				"1.1.0.0/16": labels.ParseLabelArray("cidr:1.1.0.0/16", "reserved:world-ipv4", "cidrgroup:foo=yes").Labels(),
+				"0.0.0.0/0":  labels.ParseLabelArray("cidrgroup:my-world-group").Labels(),
 			},
-			prefix: netip.MustParsePrefix("1.1.1.1/32"),
-			wantOk: false,
+			prefix:     "1.1.1.1/32",
+			wantLabels: labels.ParseLabelArray("reserved:world-ipv4", "cidr:1.1.0.0/16", "cidrgroup:foo=yes", "cidrgroup:my-world-group").Labels(),
 		},
+
 		{
 			name: "ipv6",
-			m: map[netip.Prefix]prefixInfo{
-				netip.MustParsePrefix("fd00:ef::/48"): {
-					types.NewResourceID(types.ResourceKindCNP, "test-ns", "test-pol"): {
-						labels: labels.GetCIDRLabels(netip.MustParsePrefix("fd00:ef::/56")),
-					},
-				},
-				netip.MustParsePrefix("fd00:ef::/56"): {
-					types.NewResourceID(types.ResourceKindCNP, "test-ns", "other-test-pol"): {
-						labels: labels.GetCIDRLabels(netip.MustParsePrefix("fd00:ef::/56")),
-					},
-				},
+			existing: map[string]labels.Labels{
+				"fd00:ef::/48": labels.GetCIDRLabels(netip.MustParsePrefix("fd00:ef::/48")),
+				"fd00:ef::/56": labels.GetCIDRLabels(netip.MustParsePrefix("fd00:ef::/56")),
+				"fd00:ef::/40": labels.ParseLabelArray("cidrgroup:foo").Labels(),
 			},
-			prefix:     netip.MustParsePrefix("fd00:ef::1/128"),
-			wantParent: netip.MustParsePrefix("fd00:ef::/56"),
-			wantOk:     true,
+			prefix:     ("fd00:ef::1/128"),
+			wantLabels: labels.ParseLabelArray("reserved:world-ipv6", "cidrgroup:foo", "cidr:fd00-ef--0/56").Labels(),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &metadata{
-				m: tt.m,
-			}
-			gotParent, gotOk := m.findCIDRParentPrefix(tt.prefix)
-			assert.Equalf(t, tt.wantParent, gotParent, "findCIDRParentPrefix(%v)", tt.prefix)
-			assert.Equalf(t, tt.wantOk, gotOk, "findCIDRParentPrefix(%v)", tt.prefix)
-		})
-	}
-}
-
-func findAffectedChildPrefixesInMap(parent netip.Prefix, m map[netip.Prefix]prefixInfo) (children []netip.Prefix) {
-	for child := range m {
-		if isChildPrefix(parent, child) {
-			children = append(children, child)
-		}
-	}
-
-	return children
-}
-
-func findAffectedChildPrefixesInTrie(parent netip.Prefix, m *bitlpm.CIDRTrie[prefixInfo]) (children []netip.Prefix) {
-	m.Descendants(parent, func(child netip.Prefix, _ prefixInfo) bool {
-		children = append(children, child)
-		return true
-	})
-
-	return children
-}
-
-func generatePrefixes(t testing.TB, numChildren, numParents int, sparseness float64, yield func(prefix netip.Prefix, info prefixInfo)) {
-	t.Helper()
-	if !(sparseness > 0 && sparseness <= 1) {
-		t.Fatalf("sparseness needs to be between >0 and 1, got %f", sparseness)
-	}
-
-	numTotal := numChildren + numParents
-
-	randSrc := rand.NewPCG(0, 0)
-	randGen := rand.New(randSrc)
-	randRange := uint32(math.Ceil(float64(numTotal) * (1.0 / sparseness)))
-
-	// Adjust parent prefix size to be able to generate at least parentsToGenerate unique CIDRs
-	parentBits := 32 - int(math.Ceil(math.Log2(float64(numTotal/numParents))))
-
-	base := binary.BigEndian.Uint32(netip.MustParseAddr("10.0.0.0").AsSlice())
-	generatedAddr := map[uint32]struct{}{}
-	randomAddr := func() netip.Addr {
-		for {
-			addr := base + randGen.Uint32N(randRange)
-			if _, found := generatedAddr[addr]; found {
-				continue
-			}
-
-			generatedAddr[addr] = struct{}{}
-			a := [4]byte{}
-			binary.BigEndian.PutUint32(a[:], addr)
-			return netip.AddrFrom4(a)
-		}
-	}
-
-	generatedPrefix := map[uint32]struct{}{}
-	randomPrefix := func(bits int) netip.Prefix {
-		mask := ^uint32(0) << (32 - bits)
-		for {
-			prefix := (base + randGen.Uint32N(randRange)) & mask
-			if _, found := generatedPrefix[prefix]; found {
-				continue
-			}
-
-			generatedPrefix[prefix] = struct{}{}
-			a := [4]byte{}
-			binary.BigEndian.PutUint32(a[:], prefix)
-			return netip.PrefixFrom(netip.AddrFrom4(a), bits)
-		}
-	}
-
-	// generate parent prefixes
-	for i := 0; i < numParents; i++ {
-		prefix := randomPrefix(parentBits)
-		yield(prefix, prefixInfo{})
-	}
-
-	// generate child prefixes
-	for i := 0; i < numChildren; i++ {
-		addr := randomAddr()
-		yield(netip.PrefixFrom(addr, addr.BitLen()), prefixInfo{})
-	}
-}
-
-func BenchmarkFindAffectedChildPrefixes(b *testing.B) {
-	benchmarks := []struct {
-		numChildren int
-		numParents  int
-
-		sparseness float64
-
-		useTrie bool
-	}{
-		{numChildren: 1_000_000, numParents: 10000, sparseness: 0.33, useTrie: false},
-		{numChildren: 1_000_000, numParents: 10000, sparseness: 0.33, useTrie: true},
-
-		{numChildren: 100_000, numParents: 1000, sparseness: 0.33, useTrie: false},
-		{numChildren: 100_000, numParents: 1000, sparseness: 0.33, useTrie: true},
-
-		{numChildren: 10_000, numParents: 100, sparseness: 0.33, useTrie: false},
-		{numChildren: 10_000, numParents: 100, sparseness: 0.33, useTrie: true},
-
-		{numChildren: 1_000, numParents: 10, sparseness: 0.33, useTrie: false},
-		{numChildren: 1_000, numParents: 10, sparseness: 0.33, useTrie: true},
-	}
-	for _, bm := range benchmarks {
-		name := fmt.Sprintf("%d/%d/Sparseness_%f/Trie_%t", bm.numChildren, bm.numParents, bm.sparseness, bm.useTrie)
-		b.Run(name, func(b *testing.B) {
-			b.ReportAllocs()
-
-			var parents []netip.Prefix
-			hashMap := make(map[netip.Prefix]prefixInfo)
-			trieMap := bitlpm.NewCIDRTrie[prefixInfo]()
-
-			generatePrefixes(b, bm.numChildren, bm.numParents, bm.sparseness,
-				func(prefix netip.Prefix, info prefixInfo) {
-					if !prefix.IsSingleIP() {
-						parents = append(parents, prefix)
-					}
-
-					if bm.useTrie {
-						trieMap.Upsert(prefix, info)
-					} else {
-						hashMap[prefix] = info
-					}
-				})
-
-			randSrc := rand.NewPCG(0, 0)
-			randGen := rand.New(randSrc)
-
-			b.ResetTimer()
-			if bm.useTrie {
-				for i := 0; i < b.N; i++ {
-					p := randGen.IntN(len(parents))
-					_ = findAffectedChildPrefixesInTrie(parents[p], trieMap)
-				}
-			} else {
-				for i := 0; i < b.N; i++ {
-					p := randGen.IntN(len(parents))
-					_ = findAffectedChildPrefixesInMap(parents[p], hashMap)
+			m := newMetadata()
+			for prefix, lbls := range tt.existing {
+				pfx := netip.MustParsePrefix(prefix)
+				m.m[pfx] = prefixInfo{
+					"resource": {
+						labels: lbls,
+					},
 				}
 			}
+
+			pfx := netip.MustParsePrefix(tt.prefix)
+
+			lbls := m.getLocked(pfx).ToLabels()
+			m.mergeParentLabels(lbls, pfx)
+
+			assert.Equal(t, tt.wantLabels, lbls)
 		})
 	}
 }

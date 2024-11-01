@@ -47,9 +47,10 @@ annotation is a
 Enable and use Node IPAM
 ------------------------
 
-To use this feature your service must be of type ``LoadBalancer`` and have the
+To use this feature your Service must be of type ``LoadBalancer`` and have the
 `loadBalancerClass <https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__
-set to ``io.cilium/node``.
+set to ``io.cilium/node``. You can also allow set ``defaultLBServiceIPAM``
+to ``nodeipam`` to use this feature on a Service that doesn't specify a loadBalancerClass.
 
 Cilium's node IPAM is disabled by default.
 To install Cilium with the node IPAM, run:

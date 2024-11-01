@@ -22,12 +22,11 @@ concurrency:
 
 env:
   cluster_name: cilium-testing
-  cilium_cli_ci_version:
 
 jobs:
   kubernetes-e2e:
     name: Installation and Conformance Test
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER || 'ubuntu-latest' }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -44,7 +43,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout target branch to access local actions
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
         with:
           ref: ${{ github.base_ref || github.ref }}
           persist-credentials: false
@@ -136,20 +135,19 @@ jobs:
           # to ensure coverage of that feature in cilium connectivity test
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cni.chainingMode=portmap \
-            --helm-set-string=kubeProxyReplacement=true \
-            --helm-set=sessionAffinity=true"
+            --helm-set-string=kubeProxyReplacement=true"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@fff38e882846c03f1720dad476e459323275ab9c # v0.16.17
+        uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
 
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -187,7 +185,6 @@ jobs:
           # KubeProxy|kube-proxy : kube-proxy specifics
           # LoadBalancer|GCE|ExternalIP : require a cloud provider, some of them are GCE specifics
           # Netpol|NetworkPolicy : network policies, demand significant resources and use to be slow, better to run in a different job
-          # Aggregator : Flaky, https://github.com/cilium/cilium/issues/24622.
           # rejected : Kubernetes expect Services without endpoints associated to REJECT the connection to notify the client, Cilium silently drops the packet
           # externalTrafficPolicy : needs investigation
 
@@ -196,7 +193,7 @@ jobs:
           export E2E_REPORT_DIR=${PWD}/_artifacts
           /usr/local/bin/ginkgo --nodes=25                \
             --focus="\[Conformance\]|\[sig-network\]"     \
-            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|Aggregator|rejected|externalTrafficPolicy"   \
+            --skip="Feature|Federation|PerformanceDNS|DualStack|Disruptive|Serial|KubeProxy|kube-proxy|ExternalIP|LoadBalancer|GCE|Netpol|NetworkPolicy|rejected|externalTrafficPolicy"   \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \

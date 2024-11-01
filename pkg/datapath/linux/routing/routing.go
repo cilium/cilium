@@ -88,11 +88,13 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 	if info.Masquerade && info.IpamMode == ipamOption.IPAMENI {
 		// Lookup a VPC specific table for all traffic from an endpoint to the
 		// CIDR configured for the VPC on which the endpoint has the IP on.
+		// ReplaceRule function doesn't handle all zeros cidr and return `file exists` error,
+		// so we need to normalize the rule to cidr here and in Delete
 		for _, cidr := range info.IPv4CIDRs {
 			if err := route.ReplaceRule(route.Rule{
 				Priority: egressPriority,
 				From:     &ipWithMask,
-				To:       &cidr,
+				To:       normalizeRuleToCIDR(&cidr),
 				Table:    tableID,
 				Protocol: linux_defaults.RTProto,
 			}); err != nil {
@@ -206,7 +208,7 @@ func Delete(ip netip.Addr, compat bool) error {
 			egress := route.Rule{
 				Priority: priority,
 				From:     ipWithMask,
-				To:       cidr,
+				To:       normalizeRuleToCIDR(cidr),
 			}
 			if err := deleteRule(egress); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
@@ -313,4 +315,12 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 // ENI interface number.
 func computeTableIDFromIfaceNumber(num int) int {
 	return linux_defaults.RouteTableInterfacesOffset + num
+}
+
+// normalizeRuleToCIDR returns nil when passed cidr is zeroes only cidr
+func normalizeRuleToCIDR(cidr *net.IPNet) *net.IPNet {
+	if cidr.IP.IsUnspecified() {
+		return nil
+	}
+	return cidr
 }

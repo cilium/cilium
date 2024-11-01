@@ -42,10 +42,6 @@ func newDummyBackend() *dummyBackend {
 	}
 }
 
-func (d *dummyBackend) Encode(v string) string {
-	return v
-}
-
 func (d *dummyBackend) DeleteAllKeys(ctx context.Context) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -294,7 +290,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 		require.True(t, firstUse)
 
 		// refcnt must be 1
-		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+		require.Equal(t, uint64(1), allocator.localKeys.keys[key.GetKey()].refcnt)
 	}
 
 	saved := allocator.backoffTemplate.Factor
@@ -318,7 +314,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 		require.False(t, firstUse)
 
 		// refcnt must now be 2
-		require.Equal(t, uint64(2), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+		require.Equal(t, uint64(2), allocator.localKeys.keys[key.GetKey()].refcnt)
 	}
 
 	// Create a 2nd allocator, refill it
@@ -335,7 +331,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 		require.False(t, new)
 		require.True(t, firstUse)
 
-		localKey := allocator2.localKeys.keys[allocator.encodeKey(key)]
+		localKey := allocator2.localKeys.keys[key.GetKey()]
 		require.NotNil(t, localKey)
 
 		// refcnt in the 2nd allocator is 1
@@ -352,7 +348,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 	// refcnt should be back to 1
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+		require.Equal(t, uint64(1), allocator.localKeys.keys[key.GetKey()].refcnt)
 	}
 
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
@@ -367,7 +363,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		require.NotContains(t, allocator.localKeys.keys, allocator.encodeKey(key))
+		require.NotContains(t, allocator.localKeys.keys, key.GetKey())
 	}
 
 	// running the GC should evict all entries
@@ -400,7 +396,7 @@ func TestObserveAllocatorChanges(t *testing.T) {
 		require.True(t, firstUse)
 
 		// refcnt must be 1
-		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+		require.Equal(t, uint64(1), allocator.localKeys.keys[key.GetKey()].refcnt)
 	}
 
 	// Subscribe to the changes. This should replay the current state.

@@ -31,6 +31,7 @@ func (p *policyWatcher) onUpsert(
 	}()
 
 	oldCNP, ok := p.cnpCache[key]
+	var oldCidrGroupRefs []string
 	if ok {
 		// no generation change; this was a status update.
 		if oldCNP.Generation == cnp.Generation {
@@ -39,6 +40,8 @@ func (p *policyWatcher) onUpsert(
 		if oldCNP.DeepEqual(cnp) {
 			return nil
 		}
+
+		oldCidrGroupRefs = getCIDRGroupRefs(oldCNP)
 
 		p.log.WithFields(logrus.Fields{
 			logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -53,16 +56,22 @@ func (p *policyWatcher) onUpsert(
 		return nil
 	}
 
-	// check if this cnp was referencing or is now referencing at least one non-empty
-	// CiliumCIDRGroup and update the relevant metric accordingly.
+	// Check if this policy is referencing any CIDR groups, and bump their
+	// reference count as applicable.
+	//
+	// This may cause CIDRs to be inserted in to the ipcache.
 	cidrGroupRefs := getCIDRGroupRefs(cnp)
-	cidrsSets, _ := p.cidrGroupRefsToCIDRsSets(cidrGroupRefs)
-	if len(cidrsSets) > 0 {
-		p.cidrGroupPolicies[key] = struct{}{}
-	} else {
-		delete(p.cidrGroupPolicies, key)
+	for _, ref := range cidrGroupRefs {
+		if p.cidrGroupRefs.Add(ref) {
+			p.applyCIDRGroup(ref)
+		}
 	}
-	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
+
+	for _, ref := range oldCidrGroupRefs {
+		if p.cidrGroupRefs.Delete(ref) {
+			p.applyCIDRGroup(ref)
+		}
+	}
 
 	// check if this cnp was referencing or is now referencing at least one ToServices rule
 	if hasToServices(cnp) {
@@ -81,11 +90,21 @@ func (p *policyWatcher) onDelete(
 	resourceID ipcacheTypes.ResourceID,
 ) error {
 	err := p.deleteCiliumNetworkPolicyV2(cnp, resourceID)
+
+	oldCNP, ok := p.cnpCache[key]
+	var oldCidrGroupRefs []string
+	if ok {
+		oldCidrGroupRefs = getCIDRGroupRefs(oldCNP)
+	}
+
 	delete(p.cnpCache, key)
 
-	// Clear CIDRGroupRef index
-	delete(p.cidrGroupPolicies, key)
-	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
+	// Clear any cidrgroup reference counts
+	for _, ref := range oldCidrGroupRefs {
+		if p.cidrGroupRefs.Delete(ref) {
+			p.applyCIDRGroup(ref)
+		}
+	}
 
 	// Clear ToServices index
 	for svcID := range p.cnpByServiceID {
@@ -113,11 +132,6 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 	// fields in cnp.Parse() in upsertCiliumNetworkPolicyV2.
 	// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 	translatedCNP := cnp.DeepCopy()
-
-	// Resolve CiliumCIDRGroup references
-	translationStart := time.Now()
-	p.resolveCIDRGroupRef(translatedCNP)
-	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 	// Resolve ToService references
 	p.resolveToServices(key, translatedCNP)

@@ -78,6 +78,7 @@ type CreateNetworkInterfaceRequest struct {
 	SecondaryPrivateIpAddressCount  requests.Integer                                      `position:"Query" name:"SecondaryPrivateIpAddressCount"`
 	BusinessType                    string                                                `position:"Query" name:"BusinessType"`
 	ResourceGroupId                 string                                                `position:"Query" name:"ResourceGroupId"`
+	EnhancedNetwork                 CreateNetworkInterfaceEnhancedNetwork                 `position:"Query" name:"EnhancedNetwork"  type:"Struct"`
 	Tag                             *[]CreateNetworkInterfaceTag                          `position:"Query" name:"Tag"  type:"Repeated"`
 	NetworkInterfaceName            string                                                `position:"Query" name:"NetworkInterfaceName"`
 	Visible                         requests.Boolean                                      `position:"Query" name:"Visible"`
@@ -112,6 +113,11 @@ type CreateNetworkInterfaceNetworkInterfaceTrafficConfig struct {
 	QueuePairNumber             string `name:"QueuePairNumber"`
 	TxQueueSize                 string `name:"TxQueueSize"`
 	RxQueueSize                 string `name:"RxQueueSize"`
+}
+
+// CreateNetworkInterfaceEnhancedNetwork is a repeated param struct in CreateNetworkInterfaceRequest
+type CreateNetworkInterfaceEnhancedNetwork struct {
+	EnableSriov string `name:"EnableSriov"`
 }
 
 // CreateNetworkInterfaceTag is a repeated param struct in CreateNetworkInterfaceRequest

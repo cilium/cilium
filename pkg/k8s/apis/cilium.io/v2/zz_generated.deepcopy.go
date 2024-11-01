@@ -1203,11 +1203,6 @@ func (in *EndpointStatus) DeepCopyInto(out *EndpointStatus) {
 		*out = new(EndpointPolicy)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.VisibilityPolicyStatus != nil {
-		in, out := &in.VisibilityPolicyStatus, &out.VisibilityPolicyStatus
-		*out = new(string)
-		**out = **in
-	}
 	if in.NamedPorts != nil {
 		in, out := &in.NamedPorts, &out.NamedPorts
 		*out = make(models.NamedPorts, len(*in))

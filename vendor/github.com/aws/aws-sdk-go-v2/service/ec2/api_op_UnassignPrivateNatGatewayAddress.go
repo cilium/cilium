@@ -25,7 +25,7 @@ import (
 // connections are distributed across the remaining assigned private IP address).
 // After the existing connections drain out, the private IP addresses are released.
 //
-// [Edit secondary IP address associations]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html#nat-gateway-edit-secondary
+// [Edit secondary IP address associations]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-working-with.html#nat-gateway-edit-secondary
 func (c *Client) UnassignPrivateNatGatewayAddress(ctx context.Context, params *UnassignPrivateNatGatewayAddressInput, optFns ...func(*Options)) (*UnassignPrivateNatGatewayAddressOutput, error) {
 	if params == nil {
 		params = &UnassignPrivateNatGatewayAddressInput{}
@@ -123,6 +123,9 @@ func (c *Client) addOperationUnassignPrivateNatGatewayAddressMiddlewares(stack *
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -160,6 +163,18 @@ func (c *Client) addOperationUnassignPrivateNatGatewayAddressMiddlewares(stack *
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

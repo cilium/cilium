@@ -65,11 +65,11 @@ var TablesCell = cell.Module(
 	),
 )
 
-func newLBMaps(lc cell.Lifecycle, cfg LBMapsConfig, w *Writer) lbmaps {
+func newLBMaps(lc cell.Lifecycle, cfg LBMapsConfig, w *Writer) LBMaps {
 	if !w.IsEnabled() {
 		return nil
 	}
-	r := &realLBMaps{pinned: true, cfg: cfg}
+	r := &BPFLBMaps{Pinned: true, Cfg: cfg}
 	lc.Append(r)
 	return r
 }

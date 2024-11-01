@@ -8,9 +8,6 @@
 
 #define LXC_IPV4 (__be32)v4_pod_one
 
-/* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
-#define ETH_HLEN 14
-
 /* Enable code paths under test */
 #define ENABLE_IPV4
 

@@ -129,6 +129,10 @@ func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *Alloca
 	return nil
 }
 
+func (n *nodeOperationsMock) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+	return "", nil
+}
+
 func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ReleaseAction {
 	n.mutex.RLock()
 	excessIPs = math.IntMin(excessIPs, len(n.allocatedIPs))

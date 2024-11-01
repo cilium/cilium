@@ -381,6 +381,7 @@ func TestParseService(t *testing.T) {
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 	}, svc)
 
 	k8sSvc = &slim_corev1.Service{
@@ -402,6 +403,7 @@ func TestParseService(t *testing.T) {
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 	}, svc)
 
 	serviceInternalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
@@ -426,6 +428,7 @@ func TestParseService(t *testing.T) {
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeNodePort,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 	}, svc)
 
 	oldNodePort := option.Config.EnableNodePort
@@ -436,6 +439,7 @@ func TestParseService(t *testing.T) {
 	objMeta.Annotations = map[string]string{
 		corev1.DeprecatedAnnotationTopologyAwareHints: "auto",
 	}
+	loadbalancerIngressIP := "127.0.0.1"
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,
 		Spec: slim_corev1.ServiceSpec{
@@ -454,6 +458,15 @@ func TestParseService(t *testing.T) {
 					Port:     69,
 					NodePort: 0,
 					Protocol: slim_corev1.ProtocolUDP,
+				},
+			},
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{
+				Ingress: []slim_corev1.LoadBalancerIngress{
+					{
+						IP: loadbalancerIngressIP,
+					},
 				},
 			},
 		},
@@ -497,8 +510,69 @@ func TestParseService(t *testing.T) {
 		},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		K8sExternalIPs:           map[string]net.IP{},
+		LoadBalancerIPs:          map[string]net.IP{loadbalancerIngressIP: net.ParseIP(loadbalancerIngressIP)},
+		Type:                     loadbalancer.SVCTypeLoadBalancer,
+		TopologyAware:            true,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
+		Annotations:              map[string]string{"service.kubernetes.io/topology-aware-hints": "auto"},
+	}, svc)
+
+	ipMode := slim_corev1.LoadBalancerIPModeProxy
+	k8sSvc = &slim_corev1.Service{
+		ObjectMeta: objMeta,
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Type:      slim_corev1.ServiceTypeLoadBalancer,
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					NodePort: 31111,
+					Protocol: slim_corev1.ProtocolTCP,
+				},
+				{
+					// NodePort should not be allocated for this entry.
+					Name:     "tftp",
+					Port:     69,
+					NodePort: 0,
+					Protocol: slim_corev1.ProtocolUDP,
+				},
+			},
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{
+				Ingress: []slim_corev1.LoadBalancerIngress{
+					{
+						IP:     loadbalancerIngressIP,
+						IPMode: &ipMode,
+					},
+				},
+			},
+		},
+	}
+	id, svc = ParseService(k8sSvc, addrs)
+	require.EqualValues(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
+	require.EqualValues(t, &Service{
+		FrontendIPs: []net.IP{net.ParseIP("127.0.0.1")},
+		Labels:      map[string]string{"foo": "bar"},
+		Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+			"http": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolTCP), uint16(80)),
+			"tftp": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolUDP), uint16(69)),
+		},
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
+			"http": {
+				zeroFE.String():     zeroFE,
+				internalFE.String(): internalFE,
+				nodePortFE.String(): nodePortFE,
+			},
+		},
+		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		K8sExternalIPs:           map[string]net.IP{},
 		LoadBalancerIPs:          map[string]net.IP{},
 		Type:                     loadbalancer.SVCTypeLoadBalancer,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 		TopologyAware:            true,
 		Annotations:              map[string]string{"service.kubernetes.io/topology-aware-hints": "auto"},
 	}, svc)

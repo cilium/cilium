@@ -10,10 +10,10 @@ ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:63ebe035fbdd056e
 #    chain attacks where an attacker has write access to our 3rd party dependnecy image registries.
 # 2. These digests must be to the *overall* digest, not the digest for a specific image. This is because the images will
 #    be architecture specific, but the overall digest will contiain all of the architectures.
-ARG GOLANG_IMAGE=docker.io/library/golang:1.23.1@sha256:2fe82a3f3e006b4f2a316c6a21f62b66e1330ae211d039bb8d1128e12ed57bf1
+ARG GOLANG_IMAGE=docker.io/library/golang:1.23.2@sha256:adee809c2d0009a4199a11a1b2618990b244c6515149fe609e2788ddf164bd10
 # We don't use ETCD_IMAGE because that's used in Makefile.defs to select a ETCD image approrpate for the *host platform*
 # to run tests with.
-ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.5.15@sha256:9a01b7da0a3cde485c03fcf58fef9b2a09c81b4926b2b7d7ae6d1e9b20a2a192
+ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.5.16@sha256:0d0a9fe2d8344722acfb6f456beb0c64328b58f51dc6dee6291976e62a7b5a3f
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -28,16 +28,20 @@ ARG TARGETARCH
 ARG MODIFIERS
 
 WORKDIR /go/src/github.com/cilium/cilium/clustermesh-apiserver
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     mkdir -p /out/${TARGETOS}/${TARGETARCH} && cp etcd-config.yaml /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
     make GOARCH=${TARGETARCH} ${MODIFIERS} \
     && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv clustermesh-apiserver /out/${TARGETOS}/${TARGETARCH}/usr/bin
 
 WORKDIR /go/src/github.com/cilium/cilium
 # licenses-all is a "script" that executes "go run" so its ARCH should be set
 # to the same ARCH specified in the base image of this Docker stage (BUILDARCH)
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
     make GOARCH=${BUILDARCH} licenses-all && mv LICENSE.all /out/${TARGETOS}/${TARGETARCH}
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
@@ -48,7 +52,9 @@ FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops
 # build-gops.sh will build both archs at the same time
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
     ./build-gops.sh
 
 FROM --platform=${TARGETARCH} ${ETCD_SERVER_IMAGE} AS etcd

@@ -35,9 +35,9 @@ func (c *Client) CreateSpotDatafeedSubscription(ctx context.Context, params *Cre
 type CreateSpotDatafeedSubscriptionInput struct {
 
 	// The name of the Amazon S3 bucket in which to store the Spot Instance data feed.
-	// For more information about bucket names, see [Rules for bucket naming]in the Amazon S3 Developer Guide.
+	// For more information about bucket names, see [Bucket naming rules]in the Amazon S3 User Guide.
 	//
-	// [Rules for bucket naming]: https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html#bucketnamingrules
+	// [Bucket naming rules]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
 	//
 	// This member is required.
 	Bucket *string
@@ -109,6 +109,9 @@ func (c *Client) addOperationCreateSpotDatafeedSubscriptionMiddlewares(stack *mi
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -146,6 +149,18 @@ func (c *Client) addOperationCreateSpotDatafeedSubscriptionMiddlewares(stack *mi
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

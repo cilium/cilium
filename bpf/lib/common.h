@@ -394,15 +394,21 @@ struct policy_key {
 struct policy_entry {
 	__be16		proxy_port;
 	__u8		deny:1,
-			wildcard_protocol:1, /* protocol is fully wildcarded */
-			wildcard_dport:1, /* dport is fully wildcarded */
-			pad:5;
+			pad:7;
 	__u8		auth_type;
-	__u16		pad1;
+	__u8		lpm_prefix_length; /* map key protocol and dport prefix length */
+	__u8		pad1;
 	__u16		pad2;
 	__u64		packets;
 	__u64		bytes;
 };
+
+/*
+ * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_bits' when none of the protocol or
+ * dport bits in the key are wildcarded.
+ */
+#define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
+#define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
 
 struct auth_key {
 	__u32       local_sec_label;
@@ -433,7 +439,7 @@ struct metrics_key {
 	__u8      dir:2,	/* 1: ingress 2: egress */
 		  pad:6;
 	__u16	  line;		/* __MAGIC_LINE__ */
-	__u8	  file;		/* __MAGIC_FILE__, needs to fit __source_file_name_to_id */
+	__u8	  file;		/* __MAGIC_FILE__, needs to fit __id_for_file */
 	__u8	  reserved[3];	/* reserved for future extension */
 };
 
@@ -830,13 +836,13 @@ enum {
 #define CB_CLUSTER_ID_EGRESS	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_HSIPC_ADDR_V4	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_TRACED		CB_IFINDEX	/* Alias, non-overlapping */
-	CB_POLICY,
-#define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
-#define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
-#define	CB_CLUSTER_ID_INGRESS	CB_POLICY	/* Alias, non-overlapping */
-#define CB_HSIPC_PORT		CB_POLICY	/* Alias, non-overlapping */
-#define CB_DSR_SRC_LABEL	CB_POLICY	/* Alias, non-overlapping */
-#define CB_NAT_FLAGS		CB_POLICY	/* Alias, non-overlapping */
+	CB_2,
+#define	CB_ADDR_V6_2		CB_2		/* Alias, non-overlapping */
+#define CB_SRV6_SID_3		CB_2		/* Alias, non-overlapping */
+#define	CB_CLUSTER_ID_INGRESS	CB_2		/* Alias, non-overlapping */
+#define CB_HSIPC_PORT		CB_2		/* Alias, non-overlapping */
+#define CB_DSR_SRC_LABEL	CB_2		/* Alias, non-overlapping */
+#define CB_NAT_FLAGS		CB_2		/* Alias, non-overlapping */
 	CB_3,
 #define	CB_ADDR_V6_3		CB_3		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_3		/* Alias, non-overlapping */
@@ -896,13 +902,14 @@ enum {
 
 /* Service flags (lb{4,6}_service->flags2) */
 enum {
-	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* local redirect */
+	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* Local redirect service */
 	SVC_FLAG_NAT_46X64      = (1 << 1),  /* NAT-46/64 entry */
 	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
-	SVC_FLAG_LOOPBACK       = (1 << 3),  /* hostport with a loopback hostIP */
+	SVC_FLAG_LOOPBACK       = (1 << 3),  /* HostPort with a loopback hostIP */
 	SVC_FLAG_INT_LOCAL_SCOPE = (1 << 4), /* internalTrafficPolicy=Local */
-	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* two sets of backends are used for external/internal connections */
+	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* Two sets of backends are used for external/internal connections */
 	SVC_FLAG_QUARANTINED    = (1 << 6),  /* Backend slot (key: backend_slot > 0) is quarantined */
+	SVC_FLAG_FWD_MODE_DSR   = (1 << 7),  /* If bit is set, use DSR instead of SNAT in annotation mode */
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */

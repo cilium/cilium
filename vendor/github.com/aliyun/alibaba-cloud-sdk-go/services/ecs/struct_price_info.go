@@ -17,6 +17,8 @@ package ecs
 
 // PriceInfo is a nested struct in ecs response
 type PriceInfo struct {
-	Price Price                                    `json:"Price" xml:"Price"`
-	Rules RulesInDescribeInstanceModificationPrice `json:"Rules" xml:"Rules"`
+	Price        PriceInDescribeRenewalPrice              `json:"Price" xml:"Price"`
+	RelatedPrice RelatedPrice                             `json:"RelatedPrice" xml:"RelatedPrice"`
+	PriceWarning PriceWarning                             `json:"PriceWarning" xml:"PriceWarning"`
+	Rules        RulesInDescribeInstanceModificationPrice `json:"Rules" xml:"Rules"`
 }

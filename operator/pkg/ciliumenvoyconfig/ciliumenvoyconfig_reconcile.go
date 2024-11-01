@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -24,16 +23,13 @@ const (
 )
 
 func (r *ciliumEnvoyConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.logger.WithFields(logrus.Fields{
-		logfields.Controller: "ciliumenvoyconfig",
-		logfields.Resource:   req.NamespacedName,
-	})
+	scopedLog := r.logger.With(logfields.Controller, "ciliumenvoyconfig", logfields.Resource, req.NamespacedName)
 	scopedLog.Info("Starting reconciliation")
 
 	svc := &corev1.Service{}
 	if err := r.client.Get(ctx, req.NamespacedName, svc); err != nil {
 		if k8serrors.IsNotFound(err) {
-			scopedLog.WithError(err).Debug("Unable to get service - either deleted or not yet available")
+			scopedLog.Debug("Unable to get service - either deleted or not yet available", logfields.Error, err)
 			return ctrl.Result{}, nil
 		}
 
@@ -94,10 +90,11 @@ func (r *ciliumEnvoyConfigReconciler) createOrUpdateEnvoyConfig(ctx context.Cont
 		exists = false
 	}
 
-	scopedLog := r.logger.WithField(logfields.ServiceKey, getName(svc))
+	scopedLog := r.logger.With(logfields.ServiceKey, getName(svc))
 	if exists {
 		if desired.DeepEqual(&existing) {
-			r.logger.WithField(logfields.CiliumEnvoyConfigName, fmt.Sprintf("%s/%s", desired.Namespace, desired.Name)).Debug("No change for existing CiliumEnvoyConfig")
+			r.logger.Debug("No change for existing CiliumEnvoyConfig",
+				logfields.CiliumEnvoyConfigName, fmt.Sprintf("%s/%s", desired.Namespace, desired.Name))
 			return nil
 		}
 

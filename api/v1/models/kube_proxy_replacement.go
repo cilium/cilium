@@ -1205,7 +1205,7 @@ type KubeProxyReplacementFeaturesNodePort struct {
 	LutSize int64 `json:"lutSize,omitempty"`
 
 	// mode
-	// Enum: [SNAT DSR Hybrid]
+	// Enum: [SNAT DSR Hybrid Annotation]
 	Mode string `json:"mode,omitempty"`
 
 	// port max
@@ -1380,7 +1380,7 @@ var kubeProxyReplacementFeaturesNodePortTypeModePropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["SNAT","DSR","Hybrid"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["SNAT","DSR","Hybrid","Annotation"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -1398,6 +1398,9 @@ const (
 
 	// KubeProxyReplacementFeaturesNodePortModeHybrid captures enum value "Hybrid"
 	KubeProxyReplacementFeaturesNodePortModeHybrid string = "Hybrid"
+
+	// KubeProxyReplacementFeaturesNodePortModeAnnotation captures enum value "Annotation"
+	KubeProxyReplacementFeaturesNodePortModeAnnotation string = "Annotation"
 )
 
 // prop value enum

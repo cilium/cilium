@@ -144,7 +144,7 @@ func (k LPMKey) PortPrefixLen() uint8 {
 func (k Key) String() string {
 	dPort := strconv.FormatUint(uint64(k.DestPort), 10)
 	if k.DestPort != 0 && k.PortPrefixLen() < 16 {
-		dPort += "-" + strconv.FormatUint(uint64(k.DestPort+k.EndPort()), 10)
+		dPort += "-" + strconv.FormatUint(uint64(k.EndPort()), 10)
 	}
 	return "Identity=" + strconv.FormatUint(uint64(k.Identity), 10) +
 		",DestPort=" + dPort +

@@ -101,6 +101,11 @@ in any of the Cilium Pods and look for the line reporting the status for
 "Device Mode" which should state "netkit". Also, ensure to have eBPF host
 routing enabled - the reporting status under "Host Routing" must state "BPF".
 
+.. warning::
+    This is a beta feature. Please provide feedback and file a GitHub issue if
+    you experience any problems. Known issues with this feature are tracked
+    `here <https://github.com/cilium/cilium/issues?q=is%3Aissue%20label%3Afeature%2Fnetkit%20>`_.
+
 .. note::
     In-place upgrade by just enabling netkit on an existing cluster is not
     possible since the CNI plugin cannot simply replace veth with netkit after
@@ -698,6 +703,34 @@ Run a kernel version with ``CONFIG_PREEMPT_NONE=y`` set. Some Linux
 distributions offer kernel images with this option set or you can re-compile
 the Linux kernel. ``CONFIG_PREEMPT_NONE=y`` is the recommended setting for
 server workloads.
+
+Kubernetes
+==========
+
+Set scheduling mode
+-------------------
+
+By default, the cilium daemonset is configured with an `inter-pod anti-affinity`_
+rule. Inter-pod anti-affinity is not recommended for `clusters larger than several hundred nodes`_
+as it reduces scheduling throughput of `kube-scheduler`_.
+
+If your cilium daemonset uses a host port (e.g. if prometheus metrics are enabled),
+``kube-scheduler`` guarantees that only a single pod with that port/protocol is
+scheduled to a node -- effectively offering the same guarantee provided by the
+inter-pod anti-affinity rule. 
+
+To leverage this, consider using ``--set scheduling.mode=kube-scheduler`` when
+installing or upgrading cilium.
+
+.. note::
+    Use caution when changing changing host port numbers. Changing the host port
+    number removes the ``kube-scheduler`` guarantee. When a host port number
+    must change, ensure at least one host port number is shared across the upgrade,
+    or consider using ``--set scheduling.mode=anti-affinity``.
+
+.. _inter-pod anti-affinity: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+.. _clusters larger than several hundred nodes:  https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#:~:text=We%20do%20not%20recommend%20using%20them%20in%20clusters%20larger%20than%20several%20hundred%20nodes.
+.. _kube-scheduler: https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/
 
 Further Considerations
 ======================

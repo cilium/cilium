@@ -69,7 +69,10 @@ type AllocateAddressInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The ID of an IPAM pool.
+	// The ID of an IPAM pool which has an Amazon-provided or BYOIP public IPv4 CIDR
+	// provisioned to it. For more information, see [Allocate sequential Elastic IP addresses from an IPAM pool]in the Amazon VPC IPAM User Guide.
+	//
+	// [Allocate sequential Elastic IP addresses from an IPAM pool]: https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-eip-pool.html
 	IpamPoolId *string
 
 	//  A unique set of Availability Zones, Local Zones, or Wavelength Zones from
@@ -166,6 +169,9 @@ func (c *Client) addOperationAllocateAddressMiddlewares(stack *middleware.Stack,
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -200,6 +206,18 @@ func (c *Client) addOperationAllocateAddressMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

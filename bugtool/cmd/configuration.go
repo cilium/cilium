@@ -436,8 +436,8 @@ func ciliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium-dbg recorder list",
 		"cilium-dbg status --verbose",
 		"cilium-dbg identity list",
-		"cilium-dbg-health status --verbose",
-		"cilium-dbg-health status -o json",
+		"cilium-health status --verbose",
+		"cilium-health status -o json",
 		"cilium-dbg policy get",
 		"cilium-dbg policy selectors -o json",
 		"cilium-dbg node list",
@@ -454,6 +454,7 @@ func ciliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium-dbg bgp route-policies",
 		"cilium-dbg troubleshoot kvstore",
 		"cilium-dbg troubleshoot clustermesh",
+		"cilium-dbg bpf frag list",
 	}
 
 	return append(k8sPerPodCopyCommands(commands, k8sPods), k8sPerPodCopyStateDir(cmdDir, k8sPods)...)

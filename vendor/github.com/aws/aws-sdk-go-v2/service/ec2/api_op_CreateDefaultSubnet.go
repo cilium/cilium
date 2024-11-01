@@ -15,7 +15,7 @@ import (
 // Availability Zone in your default VPC. You can have only one default subnet per
 // Availability Zone. For more information, see [Create a default subnet]in the Amazon VPC User Guide.
 //
-// [Create a default subnet]: https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html#create-default-subnet
+// [Create a default subnet]: https://docs.aws.amazon.com/vpc/latest/userguide/work-with-default-vpc.html#create-default-subnet
 func (c *Client) CreateDefaultSubnet(ctx context.Context, params *CreateDefaultSubnetInput, optFns ...func(*Options)) (*CreateDefaultSubnetOutput, error) {
 	if params == nil {
 		params = &CreateDefaultSubnetInput{}
@@ -106,6 +106,9 @@ func (c *Client) addOperationCreateDefaultSubnetMiddlewares(stack *middleware.St
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -143,6 +146,18 @@ func (c *Client) addOperationCreateDefaultSubnetMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

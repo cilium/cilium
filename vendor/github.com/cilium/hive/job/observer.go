@@ -16,10 +16,11 @@ import (
 	"github.com/cilium/stream"
 )
 
-// AddObserver adds an observer job to the group. Observer jobs invoke the given `fn` for each item observed on
-// `observable`. If the `observable` completes, the job stops. The context given to the observable is also canceled
-// once the group stops.
+// Observer jobs invoke the given `fn` for each item observed on `observable`.
+// The Observer name must match regex "^[a-zA-Z][a-zA-Z0-9_\-]{0,100}$". If the `observable` completes, the job stops.
+// The context given to the observable is also canceled once the group stops.
 func Observer[T any](name string, fn ObserverFunc[T], observable stream.Observable[T], opts ...observerOpt[T]) Job {
+	name = sanitizeName(name)
 	if fn == nil {
 		panic("`fn` must not be nil")
 	}

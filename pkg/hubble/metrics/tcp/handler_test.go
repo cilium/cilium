@@ -18,7 +18,16 @@ import (
 
 func TestTcpHandler_Init(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	opts := api.Options{"sourceContext": "namespace", "destinationContext": "namespace"}
+	opts := []*api.ContextOptionConfig{
+		{
+			Name:   "sourceContext",
+			Values: []string{"namespace"},
+		},
+		{
+			Name:   "destinationContext",
+			Values: []string{"namespace"},
+		},
+	}
 
 	tcpHandler := &tcpHandler{}
 
@@ -47,7 +56,16 @@ func TestTcpHandler(t *testing.T) {
 
 	for _, tc := range supportedFlags {
 		registry := prometheus.NewRegistry()
-		opts := api.Options{"sourceContext": "namespace", "destinationContext": "namespace"}
+		opts := []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"namespace"},
+			},
+		}
 
 		tcpHandler := &tcpHandler{}
 		require.NoError(t, tcpHandler.Init(registry, opts))
@@ -100,7 +118,16 @@ func TestTcpHandler(t *testing.T) {
 
 	for _, tc := range unsupportedFlags {
 		registry := prometheus.NewRegistry()
-		opts := api.Options{"sourceContext": "namespace", "destinationContext": "namespace"}
+		opts := []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"namespace"},
+			},
+		}
 
 		tcpHandler := &tcpHandler{}
 		require.NoError(t, tcpHandler.Init(registry, opts))

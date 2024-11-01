@@ -131,12 +131,14 @@ const (
 	// the latter two, one can set the annotation with the value "LoadBalancer".
 	ServiceTypeExposure = ServicePrefix + "/type"
 
-	// ProxyVisibility / ProxyVisibilityAlias is the annotation name used to
-	// indicate whether proxy visibility should be enabled for a given pod (i.e.,
-	// all traffic for the pod is redirected to the proxy for the given port /
-	// protocol in the annotation
-	ProxyVisibility      = PolicyPrefix + "/proxy-visibility"
-	ProxyVisibilityAlias = Prefix + ".proxy-visibility"
+	// ServiceForwardingMode annotations determines the way packets are pushed to the
+	// remote backends.
+	// Allowed values are of type loadbalancer.SVCForwardingMode:
+	//  - dsr
+	//		use the configured DSR method
+	//  - snat
+	//		use SNAT so that reply traffic comes back
+	ServiceForwardingMode = ServicePrefix + "/forwarding-mode"
 
 	// NoTrack / NoTrackAlias is the annotation name used to store the port and
 	// protocol that we should bypass kernel conntrack for a given pod. This

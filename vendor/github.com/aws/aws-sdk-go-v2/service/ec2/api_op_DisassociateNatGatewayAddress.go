@@ -25,7 +25,7 @@ import (
 // EIPs). As the existing connections drain out, the EIPs (and the corresponding
 // private IP addresses mapped to them) are released.
 //
-// [Edit secondary IP address associations]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html#nat-gateway-edit-secondary
+// [Edit secondary IP address associations]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-working-with.html#nat-gateway-edit-secondary
 func (c *Client) DisassociateNatGatewayAddress(ctx context.Context, params *DisassociateNatGatewayAddressInput, optFns ...func(*Options)) (*DisassociateNatGatewayAddressOutput, error) {
 	if params == nil {
 		params = &DisassociateNatGatewayAddressInput{}
@@ -123,6 +123,9 @@ func (c *Client) addOperationDisassociateNatGatewayAddressMiddlewares(stack *mid
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -160,6 +163,18 @@ func (c *Client) addOperationDisassociateNatGatewayAddressMiddlewares(stack *mid
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

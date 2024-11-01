@@ -178,6 +178,13 @@ type IPAMSpec struct {
 	//
 	// +kubebuilder:validation:Minimum=0
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
+
+	// StaticIPTags are used to determine the pool of IPs from which to
+	// attribute a static IP to the node. For example in AWS this is used to
+	// filter Elastic IP Addresses.
+	//
+	// +optional
+	StaticIPTags map[string]string `json:"static-ip-tags,omitempty"`
 }
 
 // IPReleaseStatus defines the valid states in IP release handshake
@@ -230,6 +237,11 @@ type IPAMStatus struct {
 	//
 	// +optional
 	ReleaseIPv6s map[string]IPReleaseStatus `json:"release-ipv6s,omitempty"`
+
+	// AssignedStaticIP is the static IP assigned to the node (ex: public Elastic IP address in AWS)
+	//
+	// +optional
+	AssignedStaticIP string `json:"assigned-static-ip,omitempty"`
 }
 
 // IPAMPoolRequest is a request from the agent to the operator, indicating how

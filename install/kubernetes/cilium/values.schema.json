@@ -1,13 +1,5 @@
 {
   "properties": {
-    "LBIPAM": {
-      "properties": {
-        "requireLBClass": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "MTU": {
       "type": "integer"
     },
@@ -158,6 +150,9 @@
                           "type": "object"
                         },
                         "podSecurityContext": {
+                          "type": "object"
+                        },
+                        "resources": {
                           "type": "object"
                         },
                         "securityContext": {
@@ -364,6 +359,9 @@
                         "podSecurityContext": {
                           "type": "object"
                         },
+                        "resources": {
+                          "type": "object"
+                        },
                         "securityContext": {
                           "type": "object"
                         },
@@ -504,6 +502,9 @@
             }
           },
           "type": "object"
+        },
+        "ctAccounting": {
+          "type": "boolean"
         },
         "ctAnyMax": {
           "type": [
@@ -1544,6 +1545,9 @@
       },
       "type": "object"
     },
+    "defaultLBServiceIPAM": {
+      "type": "string"
+    },
     "directRoutingSkipUnreachable": {
       "type": "boolean"
     },
@@ -1617,10 +1621,19 @@
     "enableIPv6Masquerade": {
       "type": "boolean"
     },
+    "enableInternalTrafficPolicy": {
+      "type": "boolean"
+    },
     "enableK8sTerminatingEndpoint": {
       "type": "boolean"
     },
+    "enableLBIPAM": {
+      "type": "boolean"
+    },
     "enableMasqueradeRouteSource": {
+      "type": "boolean"
+    },
+    "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
     "enableRuntimeDeviceDetection": {
@@ -1684,9 +1697,6 @@
           "properties": {
             "persistentKeepalive": {
               "type": "string"
-            },
-            "userspaceFallback": {
-              "type": "boolean"
             }
           },
           "type": "object"
@@ -3914,6 +3924,12 @@
     "name": {
       "type": "string"
     },
+    "namespaceOverride": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
     "nat": {
       "properties": {
         "mapStatsEntries": {
@@ -4877,6 +4893,17 @@
     },
     "routingMode": {
       "type": "string"
+    },
+    "scheduling": {
+      "properties": {
+        "mode": {
+          "enum": [
+            "anti-affinity",
+            "kube-scheduler"
+          ]
+        }
+      },
+      "type": "object"
     },
     "sctp": {
       "properties": {

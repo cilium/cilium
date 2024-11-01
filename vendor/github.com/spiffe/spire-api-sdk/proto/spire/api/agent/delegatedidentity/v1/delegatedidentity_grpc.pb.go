@@ -20,6 +20,9 @@ type DelegatedIdentityClient interface {
 	// Subscribe to get X.509-SVIDs for workloads that match the given selectors.
 	// The lifetime of the subscription aligns to the lifetime of the stream.
 	SubscribeToX509SVIDs(ctx context.Context, in *SubscribeToX509SVIDsRequest, opts ...grpc.CallOption) (DelegatedIdentity_SubscribeToX509SVIDsClient, error)
+	// Subscribe to get X.509-SVIDs for workloads that match the given selectors.
+	// The lifetime of the subscription aligns to the lifetime of the stream.
+	//
 	// Subscribe to get local and all federated bundles.
 	// The lifetime of the subscription aligns to the lifetime of the stream.
 	SubscribeToX509Bundles(ctx context.Context, in *SubscribeToX509BundlesRequest, opts ...grpc.CallOption) (DelegatedIdentity_SubscribeToX509BundlesClient, error)
@@ -151,6 +154,9 @@ type DelegatedIdentityServer interface {
 	// Subscribe to get X.509-SVIDs for workloads that match the given selectors.
 	// The lifetime of the subscription aligns to the lifetime of the stream.
 	SubscribeToX509SVIDs(*SubscribeToX509SVIDsRequest, DelegatedIdentity_SubscribeToX509SVIDsServer) error
+	// Subscribe to get X.509-SVIDs for workloads that match the given selectors.
+	// The lifetime of the subscription aligns to the lifetime of the stream.
+	//
 	// Subscribe to get local and all federated bundles.
 	// The lifetime of the subscription aligns to the lifetime of the stream.
 	SubscribeToX509Bundles(*SubscribeToX509BundlesRequest, DelegatedIdentity_SubscribeToX509BundlesServer) error

@@ -6,7 +6,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: clustermesh-apiserver
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.clustermesh.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

@@ -202,9 +202,9 @@ to allow L7 policies and visibility to be used with those
 kernels. Currently this fallback disables ``ip_early_demux`` kernel
 feature in non-tunneled datapath modes, which may decrease system
 networking performance. This guarantees HTTP and Kafka redirection
-works as intended.  However, if HTTP or Kafka enforcement policies or
-visibility annotations are never used, this behavior can be turned off
-by adding the following to the helm configuration command line:
+works as intended.  However, if HTTP or Kafka enforcement policies are
+never used, this behavior can be turned off by adding the following to
+the helm configuration command line:
 
 .. parsed-literal::
 

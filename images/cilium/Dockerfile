@@ -1,12 +1,12 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:7dc269209784e765983d448c2d4f355b4a5aa723@sha256:2e523f1489e093efc8ad4def4fc5db66b07bb544f407058c2f9cc76985cb6bb3
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:7663c4c7dfb8db93fc5b71eb8fbe91d3ef005306@sha256:46692f9369ab891831396eedd3481bc93e96267060e9c1ac4633e22017a4c8e7
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:f5be233da8726ac46f5df9d6774be4c28063b058@sha256:4c310d92f42cbfd7f742c5c74396ddab18073aba238257212bbaf55fee1019e8
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:bc3b807912f1ad5f683d2c1bc580fa1284f76fbf@sha256:7e8141dc98c8ab933f440461e2850f0294a5df04292052c8e8c1f40d378538f7
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.30.4-1725856146-ae435a5bef3856f4de98fa360ecfa6a0f5b0f7a1@sha256:f9c2a725a702d9fe4a4e038588a79e72955cf46c789914f940d906d65e92527e
+ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.30.6-1728346971-e2dfcc576d5152c967479115e0e0a3905be766bb@sha256:8ce0d0514a70a4d9141d946491c9bfe5fd479c1992ab6ef06f9af99ab938d1d9
 
 FROM ${CILIUM_ENVOY_IMAGE} AS cilium-envoy
 
@@ -34,11 +34,15 @@ ARG MODIFIERS
 # as that will mess with caching for incremental builds!
 #
 WORKDIR /go/src/github.com/cilium/cilium
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
     make GOARCH=${TARGETARCH} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} PKG_BUILD=1 ${MODIFIERS} \
     build-container install-container-binary
 
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
     # install-bash-completion will execute the bash_completion script. It is
     # fine to run this with same architecture as BUILDARCH since the output of
     # bash_completion is the same for both architectures.

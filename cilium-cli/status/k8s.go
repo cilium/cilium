@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -69,6 +71,7 @@ type k8sImplementation interface {
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	KVStoreMeshStatus(ctx context.Context, namespace, pod string) ([]*models.RemoteCluster, error)
 	CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error)
+	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
@@ -305,6 +308,20 @@ func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name
 	status.PhaseCount[name] = phaseCount
 	status.ImageCount[name] = imageCount
 
+	return nil
+}
+
+func (k *K8sStatusCollector) ciliumConfigAnnotations(ctx context.Context, status *Status) error {
+	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+	for k, v := range cm.Annotations {
+		if strings.HasPrefix(k, annotation.ConfigPrefix) {
+			status.ConfigErrors = append(status.ConfigErrors, v)
+		}
+	}
+	sort.Strings(status.ConfigErrors)
 	return nil
 }
 
@@ -562,6 +579,18 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 					status.CollectionError(err)
 				}
 
+				return nil
+			},
+		},
+		{
+			name: defaults.ConfigMapName,
+			task: func(_ context.Context) error {
+				err := k.ciliumConfigAnnotations(ctx, status)
+				if err != nil {
+					status.mutex.Lock()
+					defer status.mutex.Unlock()
+					status.CollectionError(err)
+				}
 				return nil
 			},
 		},

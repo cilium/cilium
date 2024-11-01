@@ -416,7 +416,9 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	// because this test suite doesn't have a notion of traffic direction, so
 	// the extra egress allow-all is technically correct, but omitted from the
 	// expected output that's asserted against for the sake of brevity.
-	epp.policyMapState.delete(mapKeyAllowAllE_, nil)
+	epp.policyMapState.delete(mapKeyAllowAllE_)
+	epp.Ready()
+	epp.Detach()
 
 	return epp.policyMapState, nil
 }
@@ -469,7 +471,7 @@ func Test_MergeL3(t *testing.T) {
 	selectorCache := testNewSelectorCache(identityCache)
 
 	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap, selectorCache)
+		return newMapState().WithState(initMap)
 	}
 
 	type authResult map[identity.NumericIdentity]AuthTypes
@@ -739,16 +741,16 @@ func parseTable(test string) generatedBPFKey {
 // function and non unit-test code should be seen as coincidental.
 // The algorithm represented in this function should be the source of truth
 // of our expectations when enforcing multiple types of policies.
-func testCaseToMapState(t generatedBPFKey, identities Identities) MapState {
+func testCaseToMapState(t generatedBPFKey) MapState {
 	m := newMapState()
 
 	if t.L3Key.L3 != nil {
 		if t.L3Key.Deny != nil && *t.L3Key.Deny {
-			m.denies.upsert(mapKeyDeny_Foo__, mapEntryL7Deny_(), identities)
+			m.denies.upsert(mapKeyDeny_Foo__, mapEntryL7Deny_())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3Key.L7 == nil || !*t.L3Key.L7 {
-				m.allows.upsert(mapKeyAllowFoo__, mapEntryL7None_(), identities)
+				m.allows.upsert(mapKeyAllowFoo__, mapEntryL7None_())
 			}
 			// there's no "else" because we don't support L3L7 policies, i.e.,
 			// a L4 port needs to be specified.
@@ -756,31 +758,31 @@ func testCaseToMapState(t generatedBPFKey, identities Identities) MapState {
 	}
 	if t.L4Key.L3 != nil {
 		if t.L4Key.Deny != nil && *t.L4Key.Deny {
-			m.denies.upsert(mapKeyDeny____L4, mapEntryL7Deny_(), identities)
+			m.denies.upsert(mapKeyDeny____L4, mapEntryL7Deny_())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-				m.allows.upsert(mapKeyAllow___L4, mapEntryL7None_(), identities)
+				m.allows.upsert(mapKeyAllow___L4, mapEntryL7None_())
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection.
-				m.allows.upsert(mapKeyAllow___L4, mapEntryL7Proxy(), identities)
+				m.allows.upsert(mapKeyAllow___L4, mapEntryL7Proxy())
 			}
 		}
 	}
 	if t.L3L4Key.L3 != nil {
 		if t.L3L4Key.Deny != nil && *t.L3L4Key.Deny {
-			m.denies.upsert(mapKeyDeny_FooL4, mapEntryL7Deny_(), identities)
+			m.denies.upsert(mapKeyDeny_FooL4, mapEntryL7Deny_())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3L4Key.L7 == nil || !*t.L3L4Key.L7 {
-				m.allows.upsert(mapKeyAllowFooL4, mapEntryL7None_(), identities)
+				m.allows.upsert(mapKeyAllowFooL4, mapEntryL7None_())
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection only if we haven't set it already
 				// for an existing L4-only.
 				if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-					m.allows.upsert(mapKeyAllowFooL4, mapEntryL7Proxy(), identities)
+					m.allows.upsert(mapKeyAllowFooL4, mapEntryL7Proxy())
 				}
 			}
 		}
@@ -791,12 +793,12 @@ func testCaseToMapState(t generatedBPFKey, identities Identities) MapState {
 	denyL3L4, denyL3L4exists := m.denies.Lookup(mapKeyDeny_FooL4)
 	allowL4, allowL4exists := m.allows.Lookup(mapKeyAllow___L4)
 	if allowL4exists && !allowL4.IsDeny && denyL3exists && denyL3.IsDeny && denyL3L4exists && denyL3L4.IsDeny {
-		m.AddDependent(mapKeyDeny_Foo__, mapKeyDeny_FooL4, identities, ChangeState{})
+		m.AddDependent(mapKeyDeny_Foo__, mapKeyDeny_FooL4, ChangeState{})
 	}
 	return m
 }
 
-func generateMapStates(identities Identities) []MapState {
+func generateMapStates() []MapState {
 	rawTestTable := []string{
 		"X	X	X	X	X	X	X	X	X	X	X	X", // 0
 		"X	X	X	X	X	X	X	X	1	0	0	0",
@@ -1065,7 +1067,7 @@ func generateMapStates(identities Identities) []MapState {
 	mapStates := make([]MapState, 0, len(rawTestTable))
 	for _, rawTest := range rawTestTable {
 		testCase := parseTable(rawTest)
-		mapState := testCaseToMapState(testCase, identities)
+		mapState := testCaseToMapState(testCase)
 		mapStates = append(mapStates, mapState)
 	}
 
@@ -1114,7 +1116,7 @@ func Test_MergeRules(t *testing.T) {
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap, selectorCache)
+		return newMapState().WithState(initMap)
 	}
 
 	tests := []struct {
@@ -1160,7 +1162,7 @@ func Test_MergeRules(t *testing.T) {
 		{31, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, testMapState(MapStateMap{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // identical L3L4 entry suppressed
 	}
 
-	expectedMapState := generateMapStates(selectorCache)
+	expectedMapState := generateMapStates()
 	// Add the auto generated test cases for the deny policies
 	generatedIdx := 32
 	for i := generatedIdx; i < 256; i++ {
@@ -1211,7 +1213,7 @@ func Test_MergeRules(t *testing.T) {
 					return true
 				}
 				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
-				mapstate.insert(k, v, selectorCache)
+				mapstate.insert(k, v)
 				return true
 			})
 			if equal := assert.EqualExportedValues(t, expectedMapState[tt.test], mapstate); !equal {
@@ -1243,7 +1245,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap, selectorCache)
+		return newMapState().WithState(initMap)
 	}
 
 	tests := []struct {
@@ -1325,7 +1327,7 @@ func Test_AllowAll(t *testing.T) {
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap, selectorCache)
+		return newMapState().WithState(initMap)
 	}
 
 	tests := []struct {
@@ -1381,25 +1383,28 @@ var (
 	cpyRule                   = *ruleL3DenyWorld
 	ruleL3DenyWorldWithLabels = (&cpyRule).WithLabels(labels.LabelWorld.LabelArray())
 	worldReservedID           = identity.ReservedIdentityWorld
+	worldReservedIDIPv4       = identity.ReservedIdentityWorldIPv4
+	worldReservedIDIPv6       = identity.ReservedIdentityWorldIPv6
 	mapKeyL3WorldIngress      = IngressKey().WithIdentity(worldReservedID)
+	mapKeyL3WorldIngressIPv4  = IngressKey().WithIdentity(worldReservedIDIPv4)
+	mapKeyL3WorldIngressIPv6  = IngressKey().WithIdentity(worldReservedIDIPv6)
 	mapKeyL3WorldEgress       = EgressKey().WithIdentity(worldReservedID)
+	mapKeyL3WorldEgressIPv4   = EgressKey().WithIdentity(worldReservedIDIPv4)
+	mapKeyL3WorldEgressIPv6   = EgressKey().WithIdentity(worldReservedIDIPv6)
 	mapEntryDeny              = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: labels.LabelArrayList{nil},
 		IsDeny:           true,
-		owners:           map[MapStateOwner]struct{}{},
 	}
 	mapEntryAllow = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: labels.LabelArrayList{nil},
-		owners:           map[MapStateOwner]struct{}{},
 	}
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
 	mapEntryWorldDenyWithLabels = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: worldLabelArrayList,
 		IsDeny:           true,
-		owners:           map[MapStateOwner]struct{}{},
 	}
 
 	worldIPIdentity = localIdentity(16324)
@@ -1515,6 +1520,20 @@ var (
 	mapKeyL3L4Port8080ProtoSCTPWorldIngress = IngressKey().WithIdentity(worldReservedID).WithSCTPPort(8080)
 	mapKeyL3L4Port8080ProtoSCTPWorldEgress  = EgressKey().WithIdentity(worldReservedID).WithSCTPPort(8080)
 
+	mapKeyL3L4Port8080ProtoTCPWorldIPv4Ingress  = IngressKey().WithIdentity(worldReservedIDIPv4).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoTCPWorldIPv4Egress   = EgressKey().WithIdentity(worldReservedIDIPv4).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPv4Ingress  = IngressKey().WithIdentity(worldReservedIDIPv4).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPv4Egress   = EgressKey().WithIdentity(worldReservedIDIPv4).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv4Ingress = IngressKey().WithIdentity(worldReservedIDIPv4).WithSCTPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv4Egress  = EgressKey().WithIdentity(worldReservedIDIPv4).WithSCTPPort(8080)
+
+	mapKeyL3L4Port8080ProtoTCPWorldIPv6Ingress  = IngressKey().WithIdentity(worldReservedIDIPv6).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoTCPWorldIPv6Egress   = EgressKey().WithIdentity(worldReservedIDIPv6).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPv6Ingress  = IngressKey().WithIdentity(worldReservedIDIPv6).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPv6Egress   = EgressKey().WithIdentity(worldReservedIDIPv6).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv6Ingress = IngressKey().WithIdentity(worldReservedIDIPv6).WithSCTPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPv6Egress  = EgressKey().WithIdentity(worldReservedIDIPv6).WithSCTPPort(8080)
+
 	mapKeyL3L4Port8080ProtoTCPWorldSNIngress  = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(8080)
 	mapKeyL3L4Port8080ProtoTCPWorldSNEgress   = EgressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(8080)
 	mapKeyL3L4Port8080ProtoUDPWorldSNIngress  = IngressKey().WithIdentity(worldSubnetIdentity).WithUDPPort(8080)
@@ -1568,37 +1587,9 @@ var (
 			ToCIDR: api.CIDRSlice{worldIPCIDR},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyAnyIngress                        = IngressKey()
-	mapKeyL4AnyPortProtoWorldIPIngress      = IngressKey().WithIdentity(worldIPIdentity)
-	mapKeyL4AnyPortProtoWorldIPEgress       = EgressKey().WithIdentity(worldIPIdentity)
-	mapKeyL4Port8080ProtoTCPWorldIPIngress  = IngressKey().WithIdentity(worldIPIdentity).WithTCPPort(8080)
-	mapKeyL4Port8080ProtoTCPWorldIPEgress   = EgressKey().WithIdentity(worldIPIdentity).WithTCPPort(8080)
-	mapKeyL4Port8080ProtoUDPWorldIPIngress  = IngressKey().WithIdentity(worldIPIdentity).WithUDPPort(8080)
-	mapKeyL4Port8080ProtoUDPWorldIPEgress   = EgressKey().WithIdentity(worldIPIdentity).WithUDPPort(8080)
-	mapKeyL4Port8080ProtoSCTPWorldIPIngress = IngressKey().WithIdentity(worldIPIdentity).WithSCTPPort(8080)
-	mapKeyL4Port8080ProtoSCTPWorldIPEgress  = EgressKey().WithIdentity(worldIPIdentity).WithSCTPPort(8080)
-	mapEntryL4WorldIPDependentsIngressDeny  = MapStateEntry{
-		ProxyPort:        0,
-		IsDeny:           true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-		owners:           map[MapStateOwner]struct{}{},
-		dependents: Keys{
-			mapKeyL4Port8080ProtoTCPWorldIPIngress:  struct{}{},
-			mapKeyL4Port8080ProtoUDPWorldIPIngress:  struct{}{},
-			mapKeyL4Port8080ProtoSCTPWorldIPIngress: struct{}{},
-		},
-	}
-	mapEntryL4WorldIPDependentsEgressDeny = MapStateEntry{
-		ProxyPort:        0,
-		IsDeny:           true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-		owners:           map[MapStateOwner]struct{}{},
-		dependents: Keys{
-			mapKeyL4Port8080ProtoTCPWorldIPEgress:  struct{}{},
-			mapKeyL4Port8080ProtoUDPWorldIPEgress:  struct{}{},
-			mapKeyL4Port8080ProtoSCTPWorldIPEgress: struct{}{},
-		},
-	}
+	mapKeyAnyIngress                   = IngressKey()
+	mapKeyL4AnyPortProtoWorldIPIngress = IngressKey().WithIdentity(worldIPIdentity)
+	mapKeyL4AnyPortProtoWorldIPEgress  = EgressKey().WithIdentity(worldIPIdentity)
 
 	ruleL3AllowWorldSubnetNamedPort = api.NewRule().WithIngressRules([]api.IngressRule{{
 		ToPorts: api.PortRules{
@@ -1662,6 +1653,8 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
+		identity.ReservedIdentityWorldIPv4:    labels.LabelWorldIPv4.LabelArray(),
+		identity.ReservedIdentityWorldIPv6:    labels.LabelWorldIPv6.LabelArray(),
 		worldIPIdentity:                       lblWorldIP.LabelArray(),     // "192.0.2.3/32"
 		worldSubnetIdentity:                   lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
 	}
@@ -1669,7 +1662,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap, selectorCache)
+		return newMapState().WithState(initMap)
 	}
 
 	tests := []struct {
@@ -1680,7 +1673,11 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		{"deny_world_no_labels", api.Rules{ruleAllowAllIngress, ruleL3DenyWorld, ruleL3AllowWorldIP}, testMapState(MapStateMap{
 			mapKeyAnyIngress:             mapEntryAllow,
 			mapKeyL3WorldIngress:         mapEntryDeny,
+			mapKeyL3WorldIngressIPv4:     mapEntryDeny,
+			mapKeyL3WorldIngressIPv6:     mapEntryDeny,
 			mapKeyL3WorldEgress:          mapEntryDeny,
+			mapKeyL3WorldEgressIPv4:      mapEntryDeny,
+			mapKeyL3WorldEgressIPv6:      mapEntryDeny,
 			mapKeyL3SubnetIngress:        mapEntryDeny,
 			mapKeyL3SubnetEgress:         mapEntryDeny,
 			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
@@ -1688,7 +1685,11 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		})}, {"deny_world_with_labels", api.Rules{ruleAllowAllIngress, ruleL3DenyWorldWithLabels, ruleL3AllowWorldIP}, testMapState(MapStateMap{
 			mapKeyAnyIngress:             mapEntryAllow,
 			mapKeyL3WorldIngress:         mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldIngressIPv4:     mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldIngressIPv6:     mapEntryWorldDenyWithLabels,
 			mapKeyL3WorldEgress:          mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldEgressIPv4:      mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldEgressIPv6:      mapEntryWorldDenyWithLabels,
 			mapKeyL3SubnetIngress:        mapEntryWorldDenyWithLabels,
 			mapKeyL3SubnetEgress:         mapEntryWorldDenyWithLabels,
 			mapKeyL3SmallerSubnetIngress: mapEntryWorldDenyWithLabels,
@@ -1706,27 +1707,39 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3SubnetIngress:        mapEntryAllow,
 			mapKeyL3SubnetEgress:         mapEntryAllow,
 		})}, {"broad_cidr_deny_is_a_portproto_subset_of_a_specific_cidr_allow", api.Rules{ruleAllowAllIngress, ruleL3L4Port8080ProtoAnyDenyWorld, ruleL3AllowWorldIP}, testMapState(MapStateMap{
-			mapKeyAnyIngress:                          mapEntryAllow,
-			mapKeyL3L4Port8080ProtoTCPWorldIngress:    mapEntryDeny,
-			mapKeyL3L4Port8080ProtoTCPWorldEgress:     mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldIngress:    mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldEgress:     mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldIngress:   mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldEgress:    mapEntryDeny,
-			mapKeyL3L4Port8080ProtoTCPWorldSNIngress:  mapEntryDeny,
-			mapKeyL3L4Port8080ProtoTCPWorldSNEgress:   mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldSNIngress:  mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldSNEgress:   mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldSNIngress: mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldSNEgress:  mapEntryDeny,
-			mapKeyL3L4Port8080ProtoTCPWorldIPIngress:  mapEntryDeny,
-			mapKeyL3L4Port8080ProtoTCPWorldIPEgress:   mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldIPIngress:  mapEntryDeny,
-			mapKeyL3L4Port8080ProtoUDPWorldIPEgress:   mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldIPIngress: mapEntryDeny,
-			mapKeyL3L4Port8080ProtoSCTPWorldIPEgress:  mapEntryDeny,
-			mapKeyL3SmallerSubnetIngress:              mapEntryAllow,
-			mapKeyL3SmallerSubnetEgress:               mapEntryAllow,
+			mapKeyAnyIngress:                            mapEntryAllow,
+			mapKeyL3L4Port8080ProtoTCPWorldIngress:      mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldEgress:       mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIngress:      mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldEgress:       mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIngress:     mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldEgress:      mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv4Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv4Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv4Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv4Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv4Ingress: mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv4Egress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv6Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPv6Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv6Ingress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPv6Egress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv6Ingress: mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPv6Egress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldSNIngress:    mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldSNEgress:     mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldSNIngress:    mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldSNEgress:     mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldSNIngress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldSNEgress:    mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPIngress:    mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPEgress:     mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPIngress:    mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPEgress:     mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPIngress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPEgress:    mapEntryDeny,
+			mapKeyL3SmallerSubnetIngress:                mapEntryAllow,
+			mapKeyL3SmallerSubnetEgress:                 mapEntryAllow,
 		})}, {"broad_cidr_allow_is_a_portproto_subset_of_a_specific_cidr_deny", api.Rules{ruleAllowAllIngress, ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, testMapState(MapStateMap{
 			mapKeyAnyIngress:                          mapEntryAllow,
 			mapKeyL3L4Port8080ProtoTCPWorldSNIngress:  mapEntryAllow,
@@ -1735,14 +1748,8 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port8080ProtoUDPWorldSNEgress:   mapEntryAllow,
 			mapKeyL3L4Port8080ProtoSCTPWorldSNIngress: mapEntryAllow,
 			mapKeyL3L4Port8080ProtoSCTPWorldSNEgress:  mapEntryAllow,
-			mapKeyL4AnyPortProtoWorldIPIngress:        mapEntryL4WorldIPDependentsIngressDeny,
-			mapKeyL4AnyPortProtoWorldIPEgress:         mapEntryL4WorldIPDependentsEgressDeny,
-			mapKeyL4Port8080ProtoTCPWorldIPIngress:    mapEntryDeny,
-			mapKeyL4Port8080ProtoTCPWorldIPEgress:     mapEntryDeny,
-			mapKeyL4Port8080ProtoUDPWorldIPIngress:    mapEntryDeny,
-			mapKeyL4Port8080ProtoUDPWorldIPEgress:     mapEntryDeny,
-			mapKeyL4Port8080ProtoSCTPWorldIPIngress:   mapEntryDeny,
-			mapKeyL4Port8080ProtoSCTPWorldIPEgress:    mapEntryDeny,
+			mapKeyL4AnyPortProtoWorldIPIngress:        mapEntryDeny,
+			mapKeyL4AnyPortProtoWorldIPEgress:         mapEntryDeny,
 		})}, {"named_port_world_subnet", api.Rules{ruleAllowAllIngress, ruleL3AllowWorldSubnetNamedPort}, testMapState(MapStateMap{
 			mapKeyAnyIngress: mapEntryAllow,
 			mapKeyL3L4NamedPortHTTPProtoTCPWorldSubNetIngress: mapEntryAllow,
@@ -1790,6 +1797,123 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	}
 }
 
+var (
+	allIPv4         = api.CIDR("0.0.0.0/0")
+	lblAllIPv4      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
+	one3Z8          = api.CIDR("1.0.0.0/8")
+	one3Z8Identity  = localIdentity(16331)
+	lblOne3Z8       = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one3Z8))
+	one0Z32         = api.CIDR("1.1.1.1/32")
+	one0Z32Identity = localIdentity(16332)
+	lblOne0Z32      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one0Z32))
+
+	ruleAllowEgressDenyCIDRSet = api.NewRule().WithEgressRules([]api.EgressRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDR: api.CIDRSlice{allIPv4},
+		},
+	}}).WithEgressDenyRules([]api.EgressDenyRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDRSet: api.CIDRRuleSlice{
+				api.CIDRRule{
+					Cidr:        one3Z8,
+					ExceptCIDRs: []api.CIDR{one0Z32},
+				},
+			},
+		},
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
+	// these are the cidrs that will be computed from
+	// the above cidrset
+	computedCIDRS = []string{
+		"1.128.0.0/9",
+		"1.64.0.0/10",
+		"1.32.0.0/11",
+		"1.16.0.0/12",
+		"1.8.0.0/13",
+		"1.4.0.0/14",
+		"1.2.0.0/15",
+		"1.0.0.0/16",
+		"1.1.128.0/17",
+		"1.1.64.0/18",
+		"1.1.32.0/19",
+		"1.1.16.0/20",
+		"1.1.8.0/21",
+		"1.1.4.0/22",
+		"1.1.2.0/23",
+		"1.1.0.0/24",
+		"1.1.1.128/25",
+		"1.1.1.64/26",
+		"1.1.1.32/27",
+		"1.1.1.16/28",
+		"1.1.1.8/29",
+		"1.1.1.4/30",
+		"1.1.1.2/31",
+		"1.1.1.0/32",
+	}
+	startingIdentity = 16340
+)
+
+// Allow-ception tests that an allow within a deny within an allow
+// is properly calculated.
+func Test_Allowception(t *testing.T) {
+	// Cache policy enforcement value from when test was ran to avoid pollution
+	// across tests.
+	oldPolicyEnable := GetPolicyEnabled()
+	defer SetPolicyEnabled(oldPolicyEnable)
+
+	SetPolicyEnabled(option.DefaultEnforcement)
+	identityCache := identity.IdentityMap{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+		identity.ReservedIdentityWorld:        append(labels.LabelWorld.LabelArray(), lblAllIPv4...),
+		one3Z8Identity:                        lblOne3Z8,  // 16331 (0x3fcb): ["1.0.0.0/8"]
+		one0Z32Identity:                       lblOne0Z32, // 16332 (0x3fcc): ["1.1.1.1/32"]
+	}
+	computedMapStateForAllowCeption := NewMapState()
+	// populate the identityCache with the computed CIDRs for the allow-ception test
+	for i, cidr := range computedCIDRS {
+		id := localIdentity(uint32(startingIdentity + i))
+		identityCache[id] = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, cidr))
+	}
+	selectorCache := testNewSelectorCache(identityCache)
+
+	computedMapStateForAllowCeption.insert(ingressKey(0, 0, 0, 0), mapEntryL7None_(lblsAllowAllIngress))
+	computedMapStateForAllowCeption.insert(egressKey(identity.ReservedIdentityWorld, 0, 0, 0), mapEntryAllow)
+	computedMapStateForAllowCeption.insert(egressKey(one3Z8Identity, 0, 0, 0), mapEntryAllow)
+	computedMapStateForAllowCeption.insert(egressKey(one0Z32Identity, 0, 0, 0), mapEntryAllow)
+	for i := range computedCIDRS {
+		id := localIdentity(uint32(startingIdentity + i))
+		computedMapStateForAllowCeption.insert(egressKey(id, 0, 0, 0), mapEntryDeny)
+	}
+
+	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+
+	// Do not test in dualstack mode
+	defer func(ipv4, ipv6 bool) {
+		option.Config.EnableIPv4 = ipv4
+		option.Config.EnableIPv6 = ipv6
+	}(option.Config.EnableIPv4, option.Config.EnableIPv6)
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = false
+
+	repo := newPolicyDistillery(selectorCache)
+	rules := api.Rules{ruleAllowEgressDenyCIDRSet}
+	for _, rule := range rules {
+		if rule != nil {
+			_, _ = repo.MustAddList(api.Rules{rule})
+		}
+	}
+	logBuffer := new(bytes.Buffer)
+	repo = repo.WithLogBuffer(logBuffer)
+	mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+	if err != nil {
+		t.Errorf("Policy resolution failure: %s", err)
+	}
+	if equal := assert.True(t, mapstate.Equals(computedMapStateForAllowCeption), mapstate.Diff(computedMapStateForAllowCeption)); !equal {
+		t.Logf("Policy Trace: \n%s\n", logBuffer.String())
+		t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
+	}
+
+}
+
 func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
@@ -1808,7 +1932,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap, selectorCache)
+		return newMapState().WithState(initMap)
 	}
 
 	tests := []struct {
@@ -1848,7 +1972,7 @@ func mapStateAllowsKey(ms *mapState, key Key) bool {
 	var ok bool
 	ms.denies.trie.Ancestors(key.PrefixLength(), key,
 		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
-			if _, exists := is.ids[key.Identity]; exists {
+			if _, exists := is[key.Identity]; exists {
 				ok = true
 			}
 			return true
@@ -1858,8 +1982,7 @@ func mapStateAllowsKey(ms *mapState, key Key) bool {
 	}
 	ms.allows.trie.Ancestors(key.PrefixLength(), key,
 		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
-
-			if _, exists := is.ids[key.Identity]; exists {
+			if _, exists := is[key.Identity]; exists {
 				ok = true
 			}
 			return true

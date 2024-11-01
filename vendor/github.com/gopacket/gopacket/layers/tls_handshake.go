@@ -9,8 +9,6 @@ package layers
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
-
 	"github.com/gopacket/gopacket"
 )
 
@@ -130,7 +128,6 @@ func (t *TLSHandshakeRecord) decodeFromBytes(h TLSRecordHeader, data []byte, df 
 	t.Length = h.Length
 
 	if t.isEncryptedHandshakeMessage(h, data) {
-		fmt.Printf("encrypted message\n")
 		return nil
 	}
 	handshakeType := data[0]

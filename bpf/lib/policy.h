@@ -89,7 +89,10 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	}
 #endif /* ALLOW_ICMP_FRAG_NEEDED || ENABLE_ICMP_RULE */
 
-	/* Policy match precedence:
+	/* Policy match precedence: Entries with longer prefix lengths get precedence. If both
+	 * entries have the same prefix length, then the one with non-wildcard L3 is chosen.
+	 * This is an extension of the following to fully support arbitrarily masked ports:
+	 *
 	 * 1. id/proto/port  (L3/L4)
 	 * 2. ANY/proto/port (L4-only)
 	 * 3. id/proto/ANY   (L3-proto)
@@ -99,10 +102,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	 */
 
 	/* Start with L3/L4 lookup.
-	 * LPM precedence order with L3:
-	 * 1. id/proto/port
-	 * 3. id/proto/ANY (check L4-only match first)
-	 * 5. id/ANY/ANY   (check proto match first)
 	 *
 	 * Note: Untracked fragments always have zero ports in the tuple so they can
 	 * only match entries that have fully wildcarded ports.
@@ -112,7 +111,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	/* This is a full L3/L4 match if port is not wildcarded,
 	 * need to check for L4-only policy first if it is.
 	 */
-	if (likely(policy && !policy->wildcard_dport)) {
+	if (likely(policy && policy->lpm_prefix_length == LPM_FULL_PREFIX_BITS)) {
 		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
 			    dport << 16 | proto);
 		*match_type = POLICY_MATCH_L3_L4;		/* 1. id/proto/port */
@@ -121,46 +120,27 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 
 	/* L4-only lookup. */
 	key.sec_label = 0;
-	/* LPM precedence order without L3:
-	 * 2. ANY/proto/port
-	 * 4. ANY/proto/ANY
-	 * 6. ANY/ANY/ANY   == allow-all as L3 is zeroed in this lookup,
-	 *                     defer this until L3 match has been ruled out below.
-	 *
+	/*
 	 * Untracked fragments always have zero ports in the tuple so they can
 	 * only match entries that have fully wildcarded ports.
 	 */
 	l4policy = map_lookup_elem(map, &key);
 
-	if (likely(l4policy && !l4policy->wildcard_dport)) {
-		*match_type = POLICY_MATCH_L4_ONLY;		/* 2. ANY/proto/port */
-		goto check_l4_policy;
-	}
-
-	if (likely(policy && !policy->wildcard_protocol)) {
-		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
-		goto check_policy;
-	}
-
-	if (likely(l4policy && !l4policy->wildcard_protocol)) {
-		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
+	if (likely(l4policy &&
+		   (!policy || l4policy->lpm_prefix_length > policy->lpm_prefix_length))) {
+		__u8 p_len = l4policy->lpm_prefix_length;
+		*match_type =
+			p_len == 0 ? POLICY_MATCH_ALL :					/* 6. ANY/ANY/ANY */
+		  p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
+			POLICY_MATCH_L4_ONLY;						/* 2. ANY/proto/port */
 		goto check_l4_policy;
 	}
 
 	if (likely(policy)) {
-		*match_type = POLICY_MATCH_L3_ONLY;		/* 5. id/ANY/ANY */
+		__u8 p_len = policy->lpm_prefix_length;
+		*match_type = p_len > 0 ? POLICY_MATCH_L3_PROTO :	/* 3. id/proto/ANY */
+			POLICY_MATCH_L3_ONLY;				/* 5. id/ANY/ANY */
 		goto check_policy;
-	}
-
-	if (likely(l4policy)) {
-		*match_type = POLICY_MATCH_ALL;			/* 6. ANY/ANY/ANY */
-		goto check_l4_policy;
-	}
-
-	/* TODO: Consider skipping policy lookup in this case? */
-	if (ctx_load_meta(ctx, CB_POLICY)) {
-		*proxy_port = 0;
-		return CTX_ACT_OK;
 	}
 
 	if (is_untracked_fragment)
@@ -300,21 +280,4 @@ static __always_inline int policy_can_egress4(struct __ctx_buff *ctx, const void
 	return policy_can_egress(ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
 				 tuple->nexthdr, l4_off, match_type, audited,
 				 ext_err, proxy_port);
-}
-
-/**
- * Mark ctx to skip policy enforcement
- * @arg ctx	packet
- *
- * Will cause the packet to ignore the policy enforcement verdict for allow rules and
- * be considered accepted despite of the policy outcome. Has no effect on deny rules.
- */
-static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
-{
-	ctx_store_meta(ctx, CB_POLICY, 1);
-}
-
-static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
-{
-	ctx_store_meta(ctx, CB_POLICY, 0);
 }

@@ -679,7 +679,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			xdp = np.Acceleration
 			mode = np.Mode
 			if mode == models.KubeProxyReplacementFeaturesNodePortModeDSR ||
-				mode == models.KubeProxyReplacementFeaturesNodePortModeHybrid {
+				mode == models.KubeProxyReplacementFeaturesNodePortModeHybrid ||
+				mode == models.KubeProxyReplacementFeaturesNodePortModeAnnotation {
 				dsrMode = np.DsrMode
 			}
 			nPort = fmt.Sprintf("Enabled (Range: %d-%d)", np.PortMin, np.PortMax)

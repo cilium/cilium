@@ -125,7 +125,7 @@ func New(cells ...cell.Cell) *Hive {
 func NewWithOptions(opts Options, cells ...cell.Cell) *Hive {
 	h := &Hive{
 		opts:      opts,
-		container: dig.New(),
+		container: dig.New(dig.DeferAcyclicVerification()),
 		cells:     cells,
 		viper:     viper.New(),
 		flags:     pflag.NewFlagSet("", pflag.ContinueOnError),

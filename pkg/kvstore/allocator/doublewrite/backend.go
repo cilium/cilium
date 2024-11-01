@@ -259,8 +259,3 @@ func (d *doubleWriteBackend) Status() (string, error) {
 	}
 	return d.crdBackend.Status()
 }
-
-func (d *doubleWriteBackend) Encode(v string) string {
-	// Works for both CRD and etcd as the KVStore.
-	return v
-}

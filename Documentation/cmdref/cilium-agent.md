@@ -27,6 +27,7 @@ cilium-agent [flags]
       --bgp-announce-pod-cidr                                     Announces the node's pod CIDR via BGP
       --bgp-config-path string                                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --bpf-auth-map-max int                                      Maximum number of entries in auth map (default 524288)
+      --bpf-conntrack-accounting                                  Enable CT accounting for packets and bytes (default false)
       --bpf-ct-global-any-max int                                 Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                                 Maximum number of entries in TCP CT table (default 524288)
       --bpf-ct-timeout-regular-any duration                       Timeout for entries in non-TCP CT table (default 1m0s)
@@ -43,7 +44,6 @@ cilium-agent [flags]
       --bpf-lb-acceleration string                                BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                   BPF load balancing algorithm ("random", "maglev") (default "random")
       --bpf-lb-dsr-dispatch string                                BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")
-      --bpf-lb-dsr-l4-xlate string                                BPF load balancing DSR L4 DNAT method for IPIP ("frontend", "backend") (default "frontend")
       --bpf-lb-external-clusterip                                 Enable external access to ClusterIP services (default false)
       --bpf-lb-maglev-hash-seed string                            Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")
       --bpf-lb-maglev-table-size uint                             Maglev per service backend table size (parameter M) (default 16381)
@@ -113,6 +113,7 @@ cilium-agent [flags]
       --enable-cilium-endpoint-slice                              Enable the CiliumEndpointSlice watcher in place of the CiliumEndpoint watcher (beta)
       --enable-cilium-health-api-server-access strings            List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-custom-calls                                       Enable tail call hooks for custom eBPF programs
+      --enable-drift-checker                                      Enables support for config drift checker
       --enable-dynamic-config                                     Enables support for dynamic agent config
       --enable-encryption-strict-mode                             Enable encryption strict mode
       --enable-endpoint-health-checking                           Enable connectivity health checking between virtual endpoints (default true)
@@ -127,10 +128,12 @@ cilium-agent [flags]
       --enable-host-firewall                                      Enable host network policies
       --enable-host-legacy-routing                                Enable the legacy host forwarding model which does not bypass upper stack in host namespace
       --enable-host-port                                          Enable k8s hostPort mapping feature (requires enabling enable-node-port)
-      --enable-hubble                                             Enable hubble server
+      --enable-hubble                                             Enable hubble server (default true)
+      --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format
       --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
       --enable-identity-mark                                      Enable setting identity mark for local traffic (default true)
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
+      --enable-internal-traffic-policy                            Enable internal traffic policy (default true)
       --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
       --enable-ipip-termination                                   Enable plain IPIP/IP6IP6 termination
       --enable-ipsec                                              Enable IPsec support
@@ -206,7 +209,7 @@ cilium-agent [flags]
       --hubble-disable-tls                                        Allow Hubble server to run on the given listen address without TLS.
       --hubble-drop-events                                        Emit packet drop Events related to pods (alpha)
       --hubble-drop-events-interval duration                      Minimum time between emitting same events (default 2m0s)
-      --hubble-drop-events-reasons string                         Drop reasons to emit events for (default "auth_required,policy_denied")
+      --hubble-drop-events-reasons strings                        Drop reasons to emit events for (default [auth_required,policy_denied])
       --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                               Buffer size of the channel to receive monitor events.
       --hubble-export-allowlist strings                           Specify allowlist as JSON encoded FlowFilters to Hubble exporter.
@@ -220,6 +223,10 @@ cilium-agent [flags]
       --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                                    List of Hubble metrics to enable.
       --hubble-metrics-server string                              Address to serve Hubble metrics on.
+      --hubble-metrics-server-enable-tls                          Run the Hubble metrics server on the given listen address with TLS.
+      --hubble-metrics-server-tls-cert-file string                Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.
+      --hubble-metrics-server-tls-client-ca-files strings         Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
+      --hubble-metrics-server-tls-key-file string                 Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.
       --hubble-monitor-events strings                             Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. By default, Hubble observes all monitor events.
       --hubble-prefer-ipv6                                        Prefer IPv6 addresses for announcing nodes when both address types are available.
       --hubble-recorder-sink-queue-size int                       Queue size of each Hubble recorder sink (default 1024)
@@ -238,6 +245,7 @@ cilium-agent [flags]
       --identity-allocation-mode string                           Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration                     Time to wait before using new identity on endpoint identity change (default 5s)
       --identity-restore-grace-period duration                    Time to wait before releasing unused restored CIDR identities during agent restart (default 30s)
+      --ignore-flags-drift-checker strings                        Ignores specified flags during drift checking
       --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
       --install-no-conntrack-iptables-rules                       Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.
       --ip-masq-agent-config-path string                          ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")

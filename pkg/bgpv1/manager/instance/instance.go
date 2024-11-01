@@ -66,6 +66,7 @@ func NewServerWithConfig(ctx context.Context, log *logrus.Entry, params types.Se
 //
 // This is used in BGPv2 implementation.
 type BGPInstance struct {
+	Name      string
 	Global    types.BGPGlobal
 	ASN       uint32 // deprecated: use Global.ASN instead
 	CancelCtx context.CancelFunc
@@ -82,7 +83,7 @@ type BGPInstance struct {
 //
 // Canceling the provided context will kill the BGP instance along with calling the
 // underlying Router's Stop() method.
-func NewBGPInstance(ctx context.Context, log *logrus.Entry, params types.ServerParameters) (*BGPInstance, error) {
+func NewBGPInstance(ctx context.Context, log *logrus.Entry, name string, params types.ServerParameters) (*BGPInstance, error) {
 	gobgpCtx, cancel := context.WithCancel(ctx)
 	s, err := gobgp.NewGoBGPServer(gobgpCtx, log, params)
 	if err != nil {
@@ -91,6 +92,7 @@ func NewBGPInstance(ctx context.Context, log *logrus.Entry, params types.ServerP
 	}
 
 	return &BGPInstance{
+		Name:      name,
 		Global:    params.Global,
 		ASN:       params.Global.ASN,
 		CancelCtx: cancel,

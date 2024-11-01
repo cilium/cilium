@@ -130,6 +130,11 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 	}
 }
 
+func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+	// TODO, see https://github.com/cilium/cilium/issues/34094
+	return "", fmt.Errorf("not implemented")
+}
+
 // CreateInterface is called to create a new interface. This operation is
 // currently not supported on Azure.
 func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {

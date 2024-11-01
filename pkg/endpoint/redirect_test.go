@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type RedirectSuite struct {
@@ -104,7 +103,7 @@ func (r *RedirectSuiteProxy) RemoveRedirect(id string, wg *completion.WaitGroup)
 }
 
 // UpdateNetworkPolicy does nothing.
-func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 	return nil, nil
 }
 
@@ -226,100 +225,6 @@ func (s *RedirectSuite) TearDownTest(t *testing.T) {
 	policy.SetPolicyEnabled(s.oldPolicyEnable)
 }
 
-func TestAddVisibilityRedirects(t *testing.T) {
-	s := setupRedirectSuite(t)
-	ep := s.NewTestEndpoint(t)
-
-	firstAnno := "<Ingress/80/TCP/HTTP>"
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return firstAnno, nil
-	})
-	res, err := ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmp := completion.NewWaitGroup(ctx)
-
-	_, err, _, _ = ep.addNewRedirects(cmp)
-	require.Nil(t, err)
-	v, ok := ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey().WithTCPPort(80))
-	require.Equal(t, true, ok)
-	require.Equal(t, httpPort, v.ProxyPort)
-
-	secondAnno := "<Ingress/80/TCP/Kafka>"
-
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return secondAnno, nil
-	})
-	res, err = ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
-
-	d, err, _, _ := ep.addNewRedirects(cmp)
-	require.Nil(t, err)
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey().WithTCPPort(80))
-	require.Equal(t, true, ok)
-	// Check that proxyport was updated accordingly.
-	require.Equal(t, kafkaPort, v.ProxyPort)
-
-	thirdAnno := "<Ingress/80/TCP/Kafka>,<Egress/80/TCP/HTTP>"
-
-	// Check that multiple values in annotation are handled correctly.
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return thirdAnno, nil
-	})
-	res, err = ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
-
-	realizedRedirects := ep.GetRealizedRedirects()
-	d2, err, _, _ := ep.addNewRedirects(cmp)
-	require.Nil(t, err)
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey().WithTCPPort(80))
-	require.Equal(t, true, ok)
-	require.Equal(t, kafkaPort, v.ProxyPort)
-
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey().WithTCPPort(80))
-	require.Equal(t, true, ok)
-	require.Equal(t, kafkaPort, v.ProxyPort)
-
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.EgressKey().WithTCPPort(80))
-	require.Equal(t, true, ok)
-	require.Equal(t, httpPort, v.ProxyPort)
-	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80), "")
-	p, ok := d2[pID]
-	require.Equal(t, true, ok)
-	require.Equal(t, httpPort, p)
-
-	// Check that the egress redirect is removed when the redirects have been
-	// updated.
-	ep.removeOldRedirects(d, realizedRedirects, cmp)
-	// Egress redirect should not exist in desired redirects
-	_, ok = d[pID]
-	require.Equal(t, false, ok)
-
-	// Check that all redirects are removed when no visibility policy applies.
-	noAnno := ""
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return noAnno, nil
-	})
-	res, err = ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
-
-	realizedRedirects = ep.GetRealizedRedirects()
-	d, err, _, _ = ep.addNewRedirects(cmp)
-	require.Nil(t, err)
-	ep.removeOldRedirects(d, realizedRedirects, cmp)
-	require.Equal(t, 0, len(d))
-}
-
 var (
 	// Identity, labels, selectors for an endpoint named "foo"
 	identityFoo = identity.NumericIdentity(100)
@@ -387,7 +292,7 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 }
 
 func (s *RedirectSuite) testMapState(initMap policy.MapStateMap) policy.MapState {
-	return policy.NewMapState().WithState(initMap, s.do.repo.GetSelectorCache())
+	return policy.NewMapState().WithState(initMap)
 }
 
 func TestRedirectWithDeny(t *testing.T) {

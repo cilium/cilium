@@ -2381,3 +2381,95 @@ func TestGRPCGatewayAPI(t *testing.T) {
 		})
 	}
 }
+
+func TestGPRCPathMatch(t *testing.T) {
+	tests := map[string]struct {
+		input gatewayv1.GRPCRouteMatch
+		want  model.StringMatch
+	}{
+		"exact with service and method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1.GRPCMethodMatchExact),
+					Service: ptr.To("service"),
+					Method:  ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Exact: "/service/method",
+			},
+		},
+		"exact with only service specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1.GRPCMethodMatchExact),
+					Service: ptr.To("service"),
+				},
+			},
+			want: model.StringMatch{
+				Prefix: "/service/",
+			},
+		},
+		"exact with only method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:   ptr.To(gatewayv1.GRPCMethodMatchExact),
+					Method: ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/.+/method",
+			},
+		},
+		"regex with service and method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+					Service: ptr.To("service"),
+					Method:  ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/service/method",
+			},
+		},
+		"regex with only service specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+					Service: ptr.To("service"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/service/.+",
+			},
+		},
+		"regex with only method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:   ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+					Method: ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/.+/method",
+			},
+		},
+		"regex with neither service nor method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type: ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+				},
+			},
+			want: model.StringMatch{
+				Prefix: "/",
+			},
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			match := toGRPCPathMatch(tc.input)
+			assert.Equal(t, tc.want, match, "GPRC path match was not equal")
+		})
+	}
+}

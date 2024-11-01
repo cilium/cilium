@@ -12,10 +12,6 @@
      - Description
      - Type
      - Default
-   * - :spelling:ignore:`LBIPAM.requireLBClass`
-     - requireLBClass tells LB-IPAM to only allocate IPs to services with a specific LoadBalancer class. ref: https://docs.cilium.io/en/stable/network/lb-ipam/#loadbalancerclass
-     - bool
-     - ``false``
    * - :spelling:ignore:`MTU`
      - Configure the underlying network MTU to overwrite auto-detected MTU. This value doesn't change the host network interface MTU i.e. eth0 or ens0. It changes the MTU for cilium_net@cilium_host, cilium_host@cilium_net, cilium_vxlan and lxc_health interfaces.
      - int
@@ -112,6 +108,10 @@
      - Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
      - object
      - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.agent.resources`
+     - container resource limits & requests
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.securityContext`
      - Security context to be added to spire agent containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
      - object
@@ -139,7 +139,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:34b191d63fbc93e25e275bfccf1b5365664e5ac28f06d974e8d50090fbb49f41","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.36.1","useDigest":true}``
+     - ``{"digest":"sha256:768e5c6f5cb6db0794eec98dc7a967f40631746c32232b78a3105fb946f3ab83","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -194,6 +194,10 @@
      - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.podSecurityContext`
      - Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.resources`
+     - container resource limits & requests
      - object
      - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.securityContext`
@@ -300,6 +304,10 @@
      - Enable automatic mount of BPF filesystem When ``autoMount`` is enabled, the BPF filesystem is mounted at ``bpf.root`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted bpffs filesystem at the specified ``bpf.root`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
      - bool
      - ``true``
+   * - :spelling:ignore:`bpf.ctAccounting`
+     - Enable CT accounting for packets and bytes
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.ctAnyMax`
      - Configure the maximum number of entries for the non-TCP connection tracking table.
      - int
@@ -952,6 +960,10 @@
      - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy
      - string
      - ``nil``
+   * - :spelling:ignore:`defaultLBServiceIPAM`
+     - defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none @schema type: [string] @schema
+     - string
+     - ``"lbipam"``
    * - :spelling:ignore:`directRoutingSkipUnreachable`
      - Enable skipping of PodCIDR routes between worker nodes if the worker nodes are in a different L2 network segment.
      - bool
@@ -1036,14 +1048,26 @@
      - Enables masquerading of IPv6 traffic leaving the node from endpoints.
      - bool
      - ``true``
+   * - :spelling:ignore:`enableInternalTrafficPolicy`
+     - Enable Internal Traffic Policy
+     - bool
+     - ``true``
    * - :spelling:ignore:`enableK8sTerminatingEndpoint`
      - Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`enableLBIPAM`
+     - Enable LoadBalancer IP Address Management
      - bool
      - ``true``
    * - :spelling:ignore:`enableMasqueradeRouteSource`
      - Enables masquerading to the source of the route for traffic leaving the node from endpoints.
      - bool
      - ``false``
+   * - :spelling:ignore:`enableNonDefaultDenyPolicies`
+     - Enable Non-Default-Deny policies
+     - bool
+     - ``true``
    * - :spelling:ignore:`enableRuntimeDeviceDetection`
      - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op.
      - bool
@@ -1112,10 +1136,6 @@
      - Controls WireGuard PersistentKeepalive option. Set 0s to disable.
      - string
      - ``"0s"``
-   * - :spelling:ignore:`encryption.wireguard.userspaceFallback`
-     - Enables the fallback to the user-space implementation (deprecated).
-     - bool
-     - ``false``
    * - :spelling:ignore:`endpointHealthChecking.enabled`
      - Enable connectivity health checking between virtual endpoints.
      - bool
@@ -1239,7 +1259,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:f9c2a725a702d9fe4a4e038588a79e72955cf46c789914f940d906d65e92527e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.4-1725856146-ae435a5bef3856f4de98fa360ecfa6a0f5b0f7a1","useDigest":true}``
+     - ``{"digest":"sha256:8ce0d0514a70a4d9141d946491c9bfe5fd479c1992ab6ef06f9af99ab938d1d9","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.6-1728346971-e2dfcc576d5152c967479115e0e0a3905be766bb","useDigest":true}``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
@@ -1877,7 +1897,7 @@
      - int
      - ``31234``
    * - :spelling:ignore:`hubble.relay.service.type`
-     - - The type of service used for Hubble Relay access, either ClusterIP or NodePort.
+     - - The type of service used for Hubble Relay access, either ClusterIP, NodePort or LoadBalancer.
      - string
      - ``"ClusterIP"``
    * - :spelling:ignore:`hubble.relay.sortBufferDrainTimeout`
@@ -2532,6 +2552,10 @@
      - Agent container name.
      - string
      - ``"cilium"``
+   * - :spelling:ignore:`namespaceOverride`
+     - namespaceOverride allows to override the destination namespace for Cilium resources. This property allows to use Cilium as part of an Umbrella Chart with different targets.
+     - string
+     - ``""``
    * - :spelling:ignore:`nat.mapStatsEntries`
      - Number of the top-k SNAT map connections to track in Cilium statedb.
      - int
@@ -3072,6 +3096,14 @@
      - Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel
      - string
      - ``"tunnel"``
+   * - :spelling:ignore:`scheduling`
+     - Scheduling configurations for cilium pods
+     - object
+     - ``{"mode":"anti-affinity"}``
+   * - :spelling:ignore:`scheduling.mode`
+     - Mode specifies how Cilium daemonset pods should be scheduled to Nodes. ``anti-affinity`` mode applies a pod anti-affinity rule to the cilium daemonset. Pod anti-affinity may significantly impact scheduling throughput for large clusters. See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity ``kube-scheduler`` mode forgoes the anti-affinity rule for full scheduling throughput. Kube-scheduler avoids host port conflict when scheduling pods.
+     - string
+     - Defaults to apply a pod anti-affinity rule to the agent pod - ``anti-affinity``
    * - :spelling:ignore:`sctp`
      - SCTP Configuration Values
      - object

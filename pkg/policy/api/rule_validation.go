@@ -21,23 +21,32 @@ const (
 
 var (
 	ErrFromToNodesRequiresNodeSelectorOption = fmt.Errorf("FromNodes/ToNodes rules can only be applied when the %q flag is set", option.EnableNodeSelectorLabels)
+
+	enableDefaultDenyDefault = true
 )
 
 // Sanitize validates and sanitizes a policy rule. Minor edits such as
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
 func (r *Rule) Sanitize() error {
-	// Fill in the default traffic posture of this Rule.
-	// Default posture is per-direction (ingress or egress),
-	// if there is a peer selector for that direction, the
-	// default is deny, else allow.
-	if r.EnableDefaultDeny.Egress == nil {
-		x := len(r.Egress) > 0 || len(r.EgressDeny) > 0
-		r.EnableDefaultDeny.Egress = &x
-	}
-	if r.EnableDefaultDeny.Ingress == nil {
-		x := len(r.Ingress) > 0 || len(r.IngressDeny) > 0
-		r.EnableDefaultDeny.Ingress = &x
+	if option.Config.EnableNonDefaultDenyPolicies {
+		// Fill in the default traffic posture of this Rule.
+		// Default posture is per-direction (ingress or egress),
+		// if there is a peer selector for that direction, the
+		// default is deny, else allow.
+		if r.EnableDefaultDeny.Egress == nil {
+			x := len(r.Egress) > 0 || len(r.EgressDeny) > 0
+			r.EnableDefaultDeny.Egress = &x
+		}
+		if r.EnableDefaultDeny.Ingress == nil {
+			x := len(r.Ingress) > 0 || len(r.IngressDeny) > 0
+			r.EnableDefaultDeny.Ingress = &x
+		}
+	} else {
+		// Since Non Default Deny Policies is disabled by flag, set EnableDefaultDeny to true
+		r.EnableDefaultDeny.Egress = &enableDefaultDenyDefault
+		r.EnableDefaultDeny.Ingress = &enableDefaultDenyDefault
+
 	}
 
 	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
@@ -528,10 +537,20 @@ func (c CIDR) sanitize() error {
 // valid, and ensuring that all of the exception CIDR prefixes are contained
 // within the allowed CIDR prefix.
 func (c *CIDRRule) sanitize() error {
-	if c.CIDRGroupRef != "" {
-		// When a CIDRGroupRef is set, we don't need to validate the CIDR
-		return nil
+
+	// Either CIDRGroupRef or Cidr is allowed
+	if len(c.CIDRGroupRef) == 0 && len(c.Cidr) == 0 {
+		return fmt.Errorf("either cidrGroupRef or cidr are required")
 	}
+
+	if len(c.CIDRGroupRef) > 0 && len(c.Cidr) > 0 {
+		return fmt.Errorf("both cidrGroupRef and cidr may not be set")
+	}
+
+	if len(c.CIDRGroupRef) > 0 {
+		return nil // this is just a name
+	}
+
 	// Only allow notation <IP address>/<prefix>. Note that this differs from
 	// the logic in api.CIDR.Sanitize().
 	prefix, err := netip.ParsePrefix(string(c.Cidr))

@@ -171,10 +171,6 @@ type GCFilter struct {
 	// removed
 	Time uint32
 
-	// ValidIPs is the list of valid IPs to scrub all entries for which the
-	// source or destination IP is *not* matching one of the valid IPs.
-	ValidIPs map[netip.Addr]struct{}
-
 	// MatchIPs is the list of IPs to remove from the conntrack table
 	MatchIPs map[netip.Addr]struct{}
 
@@ -373,7 +369,7 @@ func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGC6(m *Map, filter *GCFilter) gcStats {
+func doGC6(m *Map, filter GCFilter) gcStats {
 	var natMap *nat.Map
 
 	if m.clusterID == 0 {
@@ -494,7 +490,7 @@ func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
-func doGC4(m *Map, filter *GCFilter) gcStats {
+func doGC4(m *Map, filter GCFilter) gcStats {
 	var natMap *nat.Map
 
 	if m.clusterID == 0 {
@@ -583,16 +579,9 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func (f *GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
+func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
 	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
-	}
-	if f.ValidIPs != nil {
-		_, srcIPExists := f.ValidIPs[srcIP]
-		_, dstIPExists := f.ValidIPs[dstIP]
-		if !srcIPExists && !dstIPExists {
-			return deleteEntry
-		}
 	}
 
 	if f.MatchIPs != nil {
@@ -610,7 +599,7 @@ func (f *GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16,
 	return noAction
 }
 
-func doGC(m *Map, filter *GCFilter) (int, error) {
+func doGC(m *Map, filter GCFilter) (int, error) {
 	if m.mapType.isIPv6() {
 		stats := doGC6(m, filter)
 		return int(stats.deleted), stats.dumpError
@@ -624,7 +613,7 @@ func doGC(m *Map, filter *GCFilter) (int, error) {
 
 // GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
-func GC(m *Map, filter *GCFilter) (int, error) {
+func GC(m *Map, filter GCFilter) (int, error) {
 	if filter.RemoveExpired {
 		t, _ := timestamp.GetCTCurTime(timestamp.GetClockSourceFromOptions())
 		filter.Time = uint32(t)
@@ -730,7 +719,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 // Flush runs garbage collection for map m with the name mapType, deleting all
 // entries. The specified map must be already opened using bpf.OpenMap().
 func (m *Map) Flush() int {
-	d, _ := doGC(m, &GCFilter{
+	d, _ := doGC(m, GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
 	})

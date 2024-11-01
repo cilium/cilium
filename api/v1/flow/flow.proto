@@ -81,6 +81,9 @@ message Flow {
     TraceObservationPoint trace_observation_point = 24;
     // Cilium datapath trace reason info.
     TraceReason trace_reason = 36;
+    // Cilium datapath filename and line number. Currently only applicable when
+    // Verdict = DROPPED.
+    FileInfo file = 38;
 
     // only applicable to Verdict = DROPPED.
     DropReason drop_reason_desc = 25;
@@ -202,6 +205,11 @@ enum TraceReason {
     SRV6_ENCAP = 6;
     SRV6_DECAP = 7;
     ENCRYPT_OVERLAY = 8;
+}
+
+message FileInfo {
+    string name = 1;
+    uint32 line = 2;
 }
 
 message Layer4 {

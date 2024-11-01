@@ -44,6 +44,7 @@ type UpsertServiceParams struct {
 	PrevBackendsCount         int
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
+	ForwardingMode            loadbalancer.SVCForwardingMode
 	NatPolicy                 loadbalancer.SVCNatPolicy
 	ExtLocal                  bool
 	IntLocal                  bool

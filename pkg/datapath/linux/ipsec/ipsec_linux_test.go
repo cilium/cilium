@@ -28,7 +28,7 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 	log := hivetest.Logger(tb)
 
 	tb.Cleanup(func() {
-		ipSecKeysGlobal = make(map[string]*ipSecKey)
+		UnsetTestIPSecKey()
 		node.UnsetTestLocalNodeStore()
 		err := DeleteXFRM(log, AllReqID)
 		if err != nil {
@@ -40,10 +40,11 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 
 var (
 	path           = "ipsec_keys_test"
-	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 digest_null \"\" cipher_null \"\"\n")
-	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
-	keysAeadDat256 = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
-	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
+	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n2 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n3 digest_null \"\" cipher_null \"\"\n")
+	keysAeadDat    = []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
+	keysAeadDat256 = []byte("5 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
+	invalidKeysDat = []byte("6 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
+	keysSameSpiDat = []byte("7 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n7 digest_null \"\" cipher_null \"\"\n")
 )
 
 func TestLoadKeysNoFile(t *testing.T) {
@@ -80,6 +81,14 @@ func TestLoadKeys(t *testing.T) {
 		err = SetIPSecSPI(log, spi)
 		require.NoError(t, err)
 	}
+}
+
+func TestLoadKeysSameSPI(t *testing.T) {
+	log := setupIPSecSuitePrivileged(t)
+
+	keys := bytes.NewReader(keysSameSpiDat)
+	_, _, err := LoadIPSecKeys(log, keys)
+	require.ErrorContains(t, err, "invalid SPI: changing IPSec keys requires incrementing the key id")
 }
 
 func TestParseSPI(t *testing.T) {

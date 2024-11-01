@@ -49,6 +49,10 @@ const (
 	RadioTapPresentMCS
 	RadioTapPresentAMPDUStatus
 	RadioTapPresentVHT
+	RadiotapPresentTimestamp
+	RadiotapPresentHE
+	RadioTapPresentHEMU
+	RadioTapPresentHEUOtherUser
 	RadioTapPresentEXT RadioTapPresent = 1 << 31
 )
 
@@ -114,6 +118,18 @@ func (r RadioTapPresent) AMPDUStatus() bool {
 }
 func (r RadioTapPresent) VHT() bool {
 	return r&RadioTapPresentVHT != 0
+}
+func (r RadioTapPresent) Timestamp() bool {
+	return r&RadiotapPresentTimestamp != 0
+}
+func (r RadioTapPresent) HE() bool {
+	return r&RadiotapPresentHE != 0
+}
+func (r RadioTapPresent) HEMU() bool {
+	return r&RadioTapPresentHEMU != 0
+}
+func (r RadioTapPresent) HEUOtherUser() bool {
+	return r&RadioTapPresentHEUOtherUser != 0
 }
 func (r RadioTapPresent) EXT() bool {
 	return r&RadioTapPresentEXT != 0
@@ -674,6 +690,569 @@ func (self RadioTapVHTMCSNSS) String() string {
 	return fmt.Sprintf("NSS#%dMCS#%d", uint32(self&0xf), uint32(self>>4))
 }
 
+type RadiotapHE struct {
+	Data1 RadiotapHEData1
+	Data2 RadiotapHEData2
+	Data3 RadiotapHEData3
+	Data4 RadiotapHEData4
+	Data5 RadiotapHEData5
+	Data6 RadiotapHEData6
+}
+
+func (self RadiotapHE) String() string {
+	var tokens []string
+	tokens = append(tokens, fmt.Sprintf("HE PPDU Format: %v", self.Data1.HE_PPDUFormat()))
+	if self.Data1.BSSColorKnown() {
+		tokens = append(tokens, fmt.Sprintf("BSS Color: %d", self.Data3.BSSColor()))
+	}
+	if self.Data1.BeamChangeKnown() {
+		if self.Data3.BeamChange() {
+			tokens = append(tokens, "Beam Change")
+		} else {
+			tokens = append(tokens, "No Beam Change")
+		}
+	}
+	if self.Data1.ULDLKnown() {
+		if self.Data3.ULDL() {
+			tokens = append(tokens, "UL")
+		} else {
+			tokens = append(tokens, "DL")
+		}
+	}
+	if self.Data1.DataMCSKnown() {
+		tokens = append(tokens, fmt.Sprintf("Data MCS: %d", self.Data3.DataMCS()))
+	}
+	if self.Data1.DataDCMKnown() {
+		if self.Data3.DataDCM() {
+			tokens = append(tokens, "Data DCM applied")
+		} else {
+			tokens = append(tokens, "Data DCM not applied")
+		}
+	}
+	if self.Data1.CodingKnown() {
+		tokens = append(tokens, fmt.Sprintf("Coding: %v", self.Data3.Coding()))
+	}
+	if self.Data1.LDPCExtraSymbolSegmentKnown() {
+		if self.Data3.LDPCExtraSymbolSegment() {
+			tokens = append(tokens, "LDPC Extra Symbol Segment")
+		} else {
+			tokens = append(tokens, "No LDPC Extra Symbol Segment")
+		}
+	}
+	if self.Data1.STBCKnown() {
+		if self.Data3.STBC() {
+			tokens = append(tokens, "STBC")
+		} else {
+			tokens = append(tokens, "No STBC")
+		}
+	}
+	switch self.Data1.HE_PPDUFormat() {
+	case RadiotapHePpduFormatHE_SU:
+	case RadiotapHePpduFormatHE_EXT_SU:
+		if self.Data1.SpatialReuseKnown() {
+			tokens = append(tokens, fmt.Sprintf("Spatial Reuse: %d", self.Data4&0x000f))
+		}
+	case RadiotapHePpduFormatHE_TRIG:
+		if self.Data1.SpatialReuse1Known() {
+			tokens = append(tokens, fmt.Sprintf("Spatial Reuse 1: %d", self.Data4&0x000f))
+		}
+		if self.Data1.SpatialReuse2Known() {
+			tokens = append(tokens, fmt.Sprintf("Spatial Reuse 2: %d", self.Data4&0x00f0>>4))
+		}
+		if self.Data1.SpatialReuse3Known() {
+			tokens = append(tokens, fmt.Sprintf("Spatial Reuse 3: %d", self.Data4&0x0f00>>8))
+		}
+		if self.Data1.SpatialReuse4Known() {
+			tokens = append(tokens, fmt.Sprintf("Spatial Reuse 4: %d", self.Data4&0xf000>>12))
+		}
+	case RadiotapHePpduFormatHE_MU:
+		if self.Data1.SpatialReuseKnown() {
+			tokens = append(tokens, fmt.Sprintf("Spatial Reuse: %d", self.Data4&0x000f))
+		}
+		if self.Data1.StaIDKnown() {
+			tokens = append(tokens, fmt.Sprintf("STA ID: %d", self.Data4&0x7ff0>>4))
+		}
+	}
+	if self.Data1.DataBWRUAllocationKnown() {
+		tokens = append(tokens, fmt.Sprintf("Data BW/RU Allocation: %s", self.Data5.DataBandwidth()))
+	}
+	if self.Data2.GIKnown() {
+		tokens = append(tokens, fmt.Sprintf("GI: %v", self.Data5.Gi()))
+	}
+	if self.Data2.NumLTFKnown() {
+		tokens = append(tokens, fmt.Sprintf("LTF Symbol size: %s", self.Data5.LTFSize()))
+		tokens = append(tokens, fmt.Sprintf("Number of LTF symbols: %s", self.Data5.NumLTFSymbols()))
+	}
+	if self.Data2.PreFECPaddingFactorKnown() {
+		tokens = append(tokens, fmt.Sprintf("Pre-FEC Padding Factor: %d", self.Data5.PreFECPaddingFactor()))
+	}
+	if self.Data2.TxBFKnown() {
+		if self.Data5.TxBF() {
+			tokens = append(tokens, "TxBF")
+		} else {
+			tokens = append(tokens, "No TxBF")
+		}
+	}
+	if self.Data2.PEDisambiguityKnown() {
+		if self.Data5.PEDisambiguity() {
+			tokens = append(tokens, "PE Disambiguity")
+		} else {
+			tokens = append(tokens, "No PE Disambiguity")
+		}
+	}
+	nSts := self.Data6.NSTS()
+	if nSts > 0 {
+		tokens = append(tokens, fmt.Sprintf("NSTS: %d", self.Data6.NSTS()))
+	} else {
+		tokens = append(tokens, "NSTS: unknown")
+	}
+	if self.Data1.DopplerKnown() {
+		if self.Data6.Doppler() {
+			tokens = append(tokens, "Doppler")
+		} else {
+			tokens = append(tokens, "No Doppler")
+		}
+	}
+	if self.Data2.TXOPKnown() {
+		tokens = append(tokens, fmt.Sprintf("TXOP: %d", self.Data6.TXOP()))
+	}
+	if self.Data2.MidamblePeriodicityKnown() {
+		tokens = append(tokens, fmt.Sprintf("Midamble Periodicity: %v", self.Data6.MidamblePeriodicity()))
+	}
+	return strings.Join(tokens, ",")
+}
+
+type RadiotapHEData1 uint16
+
+const (
+	RadiotapHEData1_HE_PPDUFormatMask          RadiotapHEData1 = 0x0003
+	RadiotapHEData1BSSColorKnown               RadiotapHEData1 = 0x0004
+	RadiotapHEData1BeamChangeKnown             RadiotapHEData1 = 0x0008
+	RadiotapHEData1ULDLKnown                   RadiotapHEData1 = 0x0010
+	RadiotapHEData1DataMCSKnown                RadiotapHEData1 = 0x0020
+	RadiotapHEData1DataDCMKnown                RadiotapHEData1 = 0x0040
+	RadiotapHEData1CodingKnown                 RadiotapHEData1 = 0x0080
+	RadiotapHEData1LDPCExtraSymbolSegmentKnown RadiotapHEData1 = 0x0100
+	RadiotapHEData1STBCKnown                   RadiotapHEData1 = 0x0200
+	RadiotapHEData1SpatialReuseKnown           RadiotapHEData1 = 0x0400
+	RadiotapHEData1SpatialReuse1Known          RadiotapHEData1 = 0x0400
+	RadiotapHEData1SpatialReuse2Known          RadiotapHEData1 = 0x0800
+	RadiotapHEData1StaIDKnown                  RadiotapHEData1 = 0x8000
+	RadiotapHEData1SpatialReuse3Known          RadiotapHEData1 = 0x1000
+	RadiotapHEData1SpatialReuse4Known          RadiotapHEData1 = 0x2000
+	RadiotapHEData1DataBWRUAllocationKnown     RadiotapHEData1 = 0x4000
+	RadiotapHEData1DopplerKnown                RadiotapHEData1 = 0x8000
+)
+
+func (self RadiotapHEData1) HE_PPDUFormat() RadiotapHePpduFormat {
+	return RadiotapHePpduFormat(self & 0x0003)
+}
+
+func (self RadiotapHEData1) BSSColorKnown() bool {
+	return self&RadiotapHEData1BSSColorKnown != 0
+}
+
+func (self RadiotapHEData1) BeamChangeKnown() bool {
+	return self&RadiotapHEData1BeamChangeKnown != 0
+}
+
+func (self RadiotapHEData1) ULDLKnown() bool {
+	return self&RadiotapHEData1ULDLKnown != 0
+}
+
+func (self RadiotapHEData1) DataMCSKnown() bool {
+	return self&RadiotapHEData1DataMCSKnown != 0
+}
+
+func (self RadiotapHEData1) DataDCMKnown() bool {
+	return self&RadiotapHEData1DataDCMKnown != 0
+}
+
+func (self RadiotapHEData1) CodingKnown() bool {
+	return self&RadiotapHEData1CodingKnown != 0
+}
+
+func (self RadiotapHEData1) LDPCExtraSymbolSegmentKnown() bool {
+	return self&RadiotapHEData1LDPCExtraSymbolSegmentKnown != 0
+}
+
+func (self RadiotapHEData1) STBCKnown() bool {
+	return self&RadiotapHEData1STBCKnown != 0
+}
+
+func (self RadiotapHEData1) SpatialReuseKnown() bool {
+	return self&RadiotapHEData1SpatialReuseKnown != 0
+}
+
+func (self RadiotapHEData1) SpatialReuse1Known() bool {
+	return self&RadiotapHEData1SpatialReuse1Known != 0
+}
+
+func (self RadiotapHEData1) SpatialReuse2Known() bool {
+	return self&RadiotapHEData1SpatialReuse2Known != 0
+}
+
+func (self RadiotapHEData1) StaIDKnown() bool {
+	return self&RadiotapHEData1StaIDKnown != 0
+}
+
+func (self RadiotapHEData1) SpatialReuse3Known() bool {
+	return self&RadiotapHEData1SpatialReuse3Known != 0
+}
+
+func (self RadiotapHEData1) SpatialReuse4Known() bool {
+	return self&RadiotapHEData1SpatialReuse4Known != 0
+}
+
+func (self RadiotapHEData1) DataBWRUAllocationKnown() bool {
+	return self&RadiotapHEData1DataBWRUAllocationKnown != 0
+}
+
+func (self RadiotapHEData1) DopplerKnown() bool {
+	return self&RadiotapHEData1DopplerKnown != 0
+}
+
+type RadiotapHePpduFormat uint8
+
+const (
+	RadiotapHePpduFormatHE_SU RadiotapHePpduFormat = iota
+	RadiotapHePpduFormatHE_EXT_SU
+	RadiotapHePpduFormatHE_MU
+	RadiotapHePpduFormatHE_TRIG
+)
+
+func (self RadiotapHePpduFormat) String() string {
+	switch self {
+	case RadiotapHePpduFormatHE_SU:
+		return "HE SU"
+	case RadiotapHePpduFormatHE_EXT_SU:
+		return "HE EXT SU"
+	case RadiotapHePpduFormatHE_MU:
+		return "HE MU"
+	case RadiotapHePpduFormatHE_TRIG:
+		return "HE TRIG"
+	}
+	return fmt.Sprintf("HE Unknown(%d)", self)
+}
+
+type RadiotapHEData2 uint16
+
+const (
+	RadiotapHEData2PriSec80MHzKnown         RadiotapHEData2 = 0x0001
+	RadiotapHEData2GIKnown                  RadiotapHEData2 = 0x0002
+	RadiotapHEData2NumLTFKnown              RadiotapHEData2 = 0x0004
+	RadiotapHEData2PreFECPaddingFactorKnown RadiotapHEData2 = 0x0008
+	RadiotapHEData2TxBFKnown                RadiotapHEData2 = 0x0010
+	RadiotapHEData2PEDisambiguityKnown      RadiotapHEData2 = 0x0020
+	RadiotapHEData2TXOPKnown                RadiotapHEData2 = 0x0040
+	RadiotapHEData2MidamblePeriodicityKnown RadiotapHEData2 = 0x0080
+	RadiotapHEData2RUAllocationOffset       RadiotapHEData2 = 0x3f00
+	RadiotapHEData2RUAllocationOffsetKnown  RadiotapHEData2 = 0x4000
+	RadiotapHEData2PriSec80MHz              RadiotapHEData2 = 0x8000
+)
+
+func (self RadiotapHEData2) PriSec80MHzKnown() bool {
+	return self&RadiotapHEData2PriSec80MHzKnown != 0
+}
+
+func (self RadiotapHEData2) GIKnown() bool {
+	return self&RadiotapHEData2GIKnown != 0
+}
+
+func (self RadiotapHEData2) NumLTFKnown() bool {
+	return self&RadiotapHEData2NumLTFKnown != 0
+}
+
+func (self RadiotapHEData2) PreFECPaddingFactorKnown() bool {
+	return self&RadiotapHEData2PreFECPaddingFactorKnown != 0
+}
+
+func (self RadiotapHEData2) TxBFKnown() bool {
+	return self&RadiotapHEData2TxBFKnown != 0
+}
+
+func (self RadiotapHEData2) PEDisambiguityKnown() bool {
+	return self&RadiotapHEData2PEDisambiguityKnown != 0
+}
+
+func (self RadiotapHEData2) TXOPKnown() bool {
+	return self&RadiotapHEData2TXOPKnown != 0
+}
+
+func (self RadiotapHEData2) MidamblePeriodicityKnown() bool {
+	return self&RadiotapHEData2MidamblePeriodicityKnown != 0
+}
+
+func (self RadiotapHEData2) RUAllocationOffset() int {
+	return int(self&RadiotapHEData2RUAllocationOffset) >> 8
+}
+
+func (self RadiotapHEData2) RUAllocationOffsetKnown() bool {
+	return self&RadiotapHEData2RUAllocationOffsetKnown != 0
+}
+
+func (self RadiotapHEData2) PriSec80MHz() bool {
+	return self&RadiotapHEData2PriSec80MHz != 0
+}
+
+type RadiotapHEPriSec80MHz bool
+
+type RadiotapHEData3 uint16
+
+const (
+	RadiotapHEData3BSSColorMask           RadiotapHEData3 = 0x003F
+	RadiotapHEData3BeamChange             RadiotapHEData3 = 0x0040
+	RadiotapHEData3ULDL                   RadiotapHEData3 = 0x0080
+	RadiotapHEData3DataMCSMask            RadiotapHEData3 = 0x0F00
+	RadiotapHEData3DataDCM                RadiotapHEData3 = 0x1000
+	RadiotapHEData3Coding                 RadiotapHEData3 = 0x2000
+	RadiotapHEData3LDPCEXtraSymbolSegment RadiotapHEData3 = 0x4000
+	RadiotapHEData3STBC                   RadiotapHEData3 = 0x8000
+)
+
+func (self RadiotapHEData3) BSSColor() int {
+	return int(self & RadiotapHEData3BSSColorMask)
+}
+
+func (self RadiotapHEData3) BeamChange() bool {
+	return self&RadiotapHEData3BeamChange != 0
+}
+
+func (self RadiotapHEData3) ULDL() bool {
+	return self&RadiotapHEData3ULDL != 0
+}
+
+func (self RadiotapHEData3) DataMCS() uint8 {
+	return uint8((self & RadiotapHEData3DataMCSMask) >> 8)
+}
+
+func (self RadiotapHEData3) DataDCM() bool {
+	return self&RadiotapHEData3DataDCM != 0
+}
+
+func (self RadiotapHEData3) Coding() RadiotapHECoding {
+	return self&RadiotapHEData3Coding != 0
+}
+
+func (self RadiotapHEData3) LDPCExtraSymbolSegment() bool {
+	return self&RadiotapHEData3LDPCEXtraSymbolSegment != 0
+}
+
+func (self RadiotapHEData3) STBC() bool {
+	return self&RadiotapHEData3STBC != 0
+}
+
+type RadiotapHECoding bool
+
+const (
+	RadiotapHECodingBCC  RadiotapHECoding = false
+	RadiotapHECodingLDPC RadiotapHECoding = true
+)
+
+type RadiotapHEData4 uint16
+
+type RadiotapHEData5 uint16
+
+const (
+	RadiotapHEData5DataBandwidthMask   RadiotapHEData5 = 0x000F
+	RadiotapHEData5GI                  RadiotapHEData5 = 0x0030
+	RadiotapHEData5LTFSize             RadiotapHEData5 = 0x00C0
+	RadiotapHEData5NumLTFSymbols       RadiotapHEData5 = 0x0700
+	RadiotapHEData5PreFECPaddingFactor RadiotapHEData5 = 0x3000
+	RadiotapHEData5TxBF                RadiotapHEData5 = 0x4000
+	RadiotapHEData5PEDisambiguity      RadiotapHEData5 = 0x8000
+)
+
+type DataBandwidth uint8
+
+const (
+	DataBandwidth20 DataBandwidth = iota
+	DataBandwidth40
+	DataBandwidth80
+	DataBandwidth160
+	DataBandwidth26ToneRU
+	DataBandwidth52ToneRU
+	DataBandwidth106ToneRU
+	DataBandwidth242ToneRU
+	DataBandwidth484ToneRU
+	DataBandwidth996ToneRU
+	DataBandwidth2x996ToneRU
+)
+
+func (db DataBandwidth) String() string {
+	switch db {
+	case DataBandwidth20:
+		return "20"
+	case DataBandwidth40:
+		return "40"
+	case DataBandwidth80:
+		return "80"
+	case DataBandwidth160:
+		return "160/80+80"
+	case DataBandwidth26ToneRU:
+		return "26-tone RU"
+	case DataBandwidth52ToneRU:
+		return "52-tone RU"
+	case DataBandwidth106ToneRU:
+		return "106-tone RU"
+	case DataBandwidth242ToneRU:
+		return "242-tone RU"
+	case DataBandwidth484ToneRU:
+		return "484-tone RU"
+	case DataBandwidth996ToneRU:
+		return "996-tone RU"
+	case DataBandwidth2x996ToneRU:
+		return "2x996-tone RU"
+	default:
+		return "Unknown"
+	}
+}
+
+func (self RadiotapHEData5) DataBandwidth() DataBandwidth {
+	return DataBandwidth(self & RadiotapHEData5DataBandwidthMask)
+}
+
+func (self RadiotapHEData5) Gi() Gi {
+	return Gi((self & RadiotapHEData5GI) >> 4)
+}
+
+func (self RadiotapHEData5) LTFSize() LTF {
+	return LTF((self & RadiotapHEData5LTFSize) >> 6)
+}
+
+func (self RadiotapHEData5) NumLTFSymbols() NLTF {
+	return NLTF((self & RadiotapHEData5NumLTFSymbols) >> 8)
+}
+
+func (self RadiotapHEData5) PreFECPaddingFactor() uint8 {
+	return uint8((self & RadiotapHEData5PreFECPaddingFactor) >> 12)
+}
+
+func (self RadiotapHEData5) TxBF() bool {
+	return self&RadiotapHEData5TxBF != 0
+}
+
+func (self RadiotapHEData5) PEDisambiguity() bool {
+	return self&RadiotapHEData5PEDisambiguity != 0
+}
+
+type Gi uint8
+
+const (
+	Gi_0_8us Gi = iota
+	Gi_1_6us
+	Gi_3_2us
+	Gi_reserved
+)
+
+func (gi Gi) String() string {
+	switch gi {
+	case Gi_0_8us:
+		return "0.8us"
+	case Gi_1_6us:
+		return "1.6us"
+	case Gi_3_2us:
+		return "3.2us"
+	default:
+		return "Reserved"
+	}
+}
+
+type LTF uint8
+
+const (
+	LTF_unknown LTF = iota
+	LTF_1x
+	LTF_2x
+	LTF_4x
+)
+
+func (ltf LTF) String() string {
+	switch ltf {
+	case LTF_unknown:
+		return "Unknown"
+	case LTF_1x:
+		return "1x"
+	case LTF_2x:
+		return "2x"
+	case LTF_4x:
+		return "4x"
+	default:
+		return "Unknown"
+	}
+}
+
+type NLTF uint8
+
+const (
+	NLTF_1x NLTF = iota
+	NLTF_2x
+	NLTF_4x
+	NLTF_6x
+	NLTF_8x
+	NLTF_reserved
+)
+
+func (nltf NLTF) String() string {
+	switch nltf {
+	case NLTF_1x:
+		return "1x"
+	case NLTF_2x:
+		return "2x"
+	case NLTF_4x:
+		return "4x"
+	case NLTF_6x:
+		return "6x"
+	case NLTF_8x:
+		return "8x"
+	default:
+		return "Reserved"
+	}
+}
+
+type MidamblePeriodicity uint8
+
+const (
+	MidamblePeriodicity_10 MidamblePeriodicity = iota
+	MidamblePeriodicity_20
+)
+
+func (mp MidamblePeriodicity) String() string {
+	switch mp {
+	case MidamblePeriodicity_10:
+		return "10"
+	case MidamblePeriodicity_20:
+		return "20"
+	default:
+		return "Unknown"
+	}
+}
+
+type RadiotapHEData6 uint16
+
+const (
+	RadiotapHEData6NSTS             RadiotapHEData6 = 0x000F
+	RadiotapHEData6Doppler          RadiotapHEData6 = 0x0010
+	RadiotapHEData6TXOP             RadiotapHEData6 = 0x7F00
+	RadiotapHEData6MidamblePeriodic RadiotapHEData6 = 0x8000
+)
+
+func (self RadiotapHEData6) NSTS() int {
+	return int(self & RadiotapHEData6NSTS)
+}
+
+func (self RadiotapHEData6) Doppler() bool {
+	return self&RadiotapHEData6Doppler != 0
+}
+
+func (self RadiotapHEData6) TXOP() int {
+	return int((self & RadiotapHEData6TXOP) >> 8)
+}
+
+func (self RadiotapHEData6) MidamblePeriodicity() MidamblePeriodicity {
+	return MidamblePeriodicity((self & RadiotapHEData6MidamblePeriodic) >> 15)
+}
+
 func decodeRadioTap(data []byte, p gopacket.PacketBuilder) error {
 	d := &RadioTap{}
 	// TODO: Should we set LinkLayer here? And implement LinkFlow
@@ -725,18 +1304,25 @@ type RadioTap struct {
 	MCS         RadioTapMCS
 	AMPDUStatus RadioTapAMPDUStatus
 	VHT         RadioTapVHT
+	HE          RadiotapHE
 }
 
 func (m *RadioTap) LayerType() gopacket.LayerType { return LayerTypeRadioTap }
 
 func (m *RadioTap) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-	if len(data) < 8 {
+	dataLen := uint16(len(data))
+	if dataLen < 8 {
 		df.SetTruncated()
 		return errors.New("RadioTap too small")
 	}
 	m.Version = uint8(data[0])
 	m.Length = binary.LittleEndian.Uint16(data[2:4])
 	m.Present = RadioTapPresent(binary.LittleEndian.Uint32(data[4:8]))
+
+	// Truncate the length to avoid panics, might be smaller due to corruption or loss
+	if m.Length > dataLen {
+		m.Length = dataLen
+	}
 
 	offset := uint16(4)
 
@@ -861,6 +1447,22 @@ func (m *RadioTap) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) erro
 			Coding:     uint8(data[offset+8]),
 			GroupId:    uint8(data[offset+9]),
 			PartialAID: binary.LittleEndian.Uint16(data[offset+10:]),
+		}
+		offset += 12
+	}
+	if m.Present.Timestamp() {
+		offset += align(offset, 8)
+		offset += 12
+	}
+	if m.Present.HE() {
+		offset += align(offset, 2)
+		m.HE = RadiotapHE{
+			Data1: RadiotapHEData1(binary.LittleEndian.Uint16(data[offset:])),
+			Data2: RadiotapHEData2(binary.LittleEndian.Uint16(data[offset+2:])),
+			Data3: RadiotapHEData3(binary.LittleEndian.Uint16(data[offset+4:])),
+			Data4: RadiotapHEData4(binary.LittleEndian.Uint16(data[offset+6:])),
+			Data5: RadiotapHEData5(binary.LittleEndian.Uint16(data[offset+8:])),
+			Data6: RadiotapHEData6(binary.LittleEndian.Uint16(data[offset+10:])),
 		}
 		offset += 12
 	}

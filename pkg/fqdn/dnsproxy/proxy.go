@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -264,7 +265,7 @@ func (p *DNSProxy) skipIPInRestorationRLocked(ip string) bool {
 
 // GetRules creates a fresh copy of EP's DNS rules to be stored
 // for later restoration.
-func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
+func (p *DNSProxy) GetRules(version *versioned.VersionHandle, endpointID uint16) (restore.DNSRules, error) {
 	// Lock ordering note: Acquiring the IPCache read lock (as LookupIPsBySecID does) while holding
 	// the proxy lock can lead to a deadlock. Avoid this by reading the state from DNSProxy while
 	// holding the read lock, then perform the IPCache lookups.
@@ -301,7 +302,7 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 			}
 			ips := make(map[restore.RuleIPOrCIDR]struct{})
 			count := 0
-			nids := selRegex.cs.GetSelections()
+			nids := selRegex.cs.GetSelections(version)
 		Loop:
 			for _, nid := range nids {
 				// Note: p.RLock must not be held during this call to IPCache
@@ -834,7 +835,7 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPortProto restore.PortPro
 
 	for selector, regex := range epAllow {
 		// The port was matched in getPortRulesForID, above.
-		if regex != nil && selector.Selects(destID) && (regex.String() == matchpattern.MatchAllAnchoredPattern || regex.MatchString(name)) {
+		if regex != nil && selector.Selects(versioned.Latest(), destID) && (regex.String() == matchpattern.MatchAllAnchoredPattern || regex.MatchString(name)) {
 			return true, nil
 		}
 	}
@@ -958,7 +959,7 @@ func setSoMarks(fd int, ipFamily ipfamily.IPFamily, secId identity.NumericIdenti
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat := ProxyRequestContext{DataSource: accesslog.DNSSourceProxy}
 	stat.TotalTime.Start()
-	requestID := request.Id // keep the original request ID
+	requestID := request.Id // save the original request ID
 	qname := string(request.Question[0].Name)
 	protocol := w.LocalAddr().Network()
 	epIPPort := w.RemoteAddr().String()
@@ -1125,7 +1126,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		SingleInflight: false,
 	}
 
-	request.Id = dns.Id() // force a random new ID for this request
 	response, _, closer, err := p.DNSClients.Exchange(key, conf, request, targetServerAddrStr)
 	defer closer()
 
@@ -1151,7 +1151,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, response, protocol, true, &stat)
 
 	scopedLog.Debug("Responding to original DNS query")
-	// restore the ID to the one in the initial request so it matches what the requester expects.
+	// Ensure the ID matches the initial request - the upstream query may have changed the ID to avoid duplicates.
 	response.Id = requestID
 	response.Compress = p.EnableDNSCompression && shouldCompressResponse(request, response)
 	err = w.WriteMsg(response)

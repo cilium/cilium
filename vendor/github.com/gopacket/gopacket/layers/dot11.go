@@ -412,6 +412,15 @@ const (
 	Dot11InformationElementIDWhiteSpaceMap             Dot11InformationElementID = 205
 	Dot11InformationElementIDFineTuningMeasureParams   Dot11InformationElementID = 206
 	Dot11InformationElementIDVendor                    Dot11InformationElementID = 221
+	Dot11InformationElementIDQosParameter              Dot11InformationElementID = 222
+	Dot11InformationElementIDS1GOperation              Dot11InformationElementID = 232
+	Dot11InformationElementIDCAGNumber                 Dot11InformationElementID = 237
+	Dot11InformationElementIDAPCSN                     Dot11InformationElementID = 239
+	Dot11InformationElementIDFILSIndication            Dot11InformationElementID = 240
+	Dot11InformationElementIDDILS                      Dot11InformationElementID = 241
+	Dot11InformationElementIDFragment                  Dot11InformationElementID = 242
+	Dot11InformationElementIDRSNX                      Dot11InformationElementID = 244
+	Dot11InformationElementIDExtension                 Dot11InformationElementID = 255
 )
 
 // String provides a human readable string for Dot11InformationElementID.
@@ -762,8 +771,136 @@ func (a Dot11InformationElementID) String() string {
 		return "Fine Tuning Measure Parameters"
 	case Dot11InformationElementIDVendor:
 		return "Vendor"
+	case Dot11InformationElementIDS1GOperation:
+		return "IDS1G Operation"
+	case Dot11InformationElementIDCAGNumber:
+		return "CAG Number"
+	case Dot11InformationElementIDAPCSN:
+		return "APCSN"
+	case Dot11InformationElementIDFILSIndication:
+		return "FILS Indication"
+	case Dot11InformationElementIDDILS:
+		return "DILS"
+	case Dot11InformationElementIDFragment:
+		return "Fragment"
+	case Dot11InformationElementIDRSNX:
+		return "RSNX"
+	case Dot11InformationElementIDExtension:
+		return "Extension"
 	default:
 		return "Unknown information element id"
+	}
+}
+
+type Dot11InformationElementExtId uint8
+
+const (
+	Dot11InformationElementExtIDAssocDelayInfo             Dot11InformationElementExtId = 1
+	Dot11InformationElementExtIDFilsReqParams              Dot11InformationElementExtId = 2
+	Dot11InformationElementExtIDFilsKeyConfirm             Dot11InformationElementExtId = 3
+	Dot11InformationElementExtIDFilsSession                Dot11InformationElementExtId = 4
+	Dot11InformationElementExtIDFilsHLPContainer           Dot11InformationElementExtId = 5
+	Dot11InformationElementExtIDFilsIPAddrAssign           Dot11InformationElementExtId = 6
+	Dot11InformationElementExtIDKeyDelivery                Dot11InformationElementExtId = 7
+	Dot11InformationElementExtIDFilsWrappedData            Dot11InformationElementExtId = 8
+	Dot11InformationElementExtIDFilsPublicKey              Dot11InformationElementExtId = 12
+	Dot11InformationElementExtIDFilsNonce                  Dot11InformationElementExtId = 13
+	Dot11InformationElementExtIDFutureChanGuidance         Dot11InformationElementExtId = 14
+	Dot11InformationElementExtIDHeCapability               Dot11InformationElementExtId = 35
+	Dot11InformationElementExtIDHEOperation                Dot11InformationElementExtId = 36
+	Dot11InformationElementExtIDUora                       Dot11InformationElementExtId = 37
+	Dot11InformationElementExtIDHeMuEdca                   Dot11InformationElementExtId = 38
+	Dot11InformationElementExtIDHeSpr                      Dot11InformationElementExtId = 39
+	Dot11InformationElementExtIDNdpFeedbackReportParamset  Dot11InformationElementExtId = 41
+	Dot11InformationElementExtIDBssColorChgAnn             Dot11InformationElementExtId = 42
+	Dot11InformationElementExtIDQuietTimePeriodSetup       Dot11InformationElementExtId = 43
+	Dot11InformationElementExtIDEssReport                  Dot11InformationElementExtId = 45
+	Dot11InformationElementExtIDOps                        Dot11InformationElementExtId = 46
+	Dot11InformationElementExtIDHeBssLoad                  Dot11InformationElementExtId = 47
+	Dot11InformationElementExtIDMaxChannelSwitchTime       Dot11InformationElementExtId = 52
+	Dot11InformationElementExtIDMultipleBssidConfiguration Dot11InformationElementExtId = 55
+	Dot11InformationElementExtIDNonInheritance             Dot11InformationElementExtId = 56
+	Dot11InformationElementExtIDKnownBssid                 Dot11InformationElementExtId = 57
+	Dot11InformationElementExtIDShortSsidList              Dot11InformationElementExtId = 58
+	Dot11InformationElementExtIDHe6ghzCApA                 Dot11InformationElementExtId = 59
+	Dot11InformationElementExtIDuLMuPowerCapA              Dot11InformationElementExtId = 60
+	Dot11InformationElementExtIDEhTOperation               Dot11InformationElementExtId = 106
+	Dot11InformationElementExtIDEhtMultiLink               Dot11InformationElementExtId = 107
+	Dot11InformationElementExtIDEHhCapability              Dot11InformationElementExtId = 108
+)
+
+// String provides a human readable string for Dot11InformationElementExtId.
+// This string is possibly subject to change over time; if you're storing this
+// persistently, you should probably store the Dot11InformationElementExtId value,
+// not its string.
+func (a Dot11InformationElementExtId) String() string {
+	switch a {
+	case Dot11InformationElementExtIDAssocDelayInfo:
+		return "Association Delay Information"
+	case Dot11InformationElementExtIDFilsReqParams:
+		return "FILS Request Parameters"
+	case Dot11InformationElementExtIDFilsKeyConfirm:
+		return "FILS Key Confirmation"
+	case Dot11InformationElementExtIDFilsSession:
+		return "FILS Session"
+	case Dot11InformationElementExtIDFilsHLPContainer:
+		return "FILS HLP Container"
+	case Dot11InformationElementExtIDFilsIPAddrAssign:
+		return "FILS IP Address Assignment"
+	case Dot11InformationElementExtIDKeyDelivery:
+		return "Key Delivery"
+	case Dot11InformationElementExtIDFilsWrappedData:
+		return "FILS Wrapped Data"
+	case Dot11InformationElementExtIDFilsPublicKey:
+		return "FILS Public Key"
+	case Dot11InformationElementExtIDFilsNonce:
+		return "FILS Nonce"
+	case Dot11InformationElementExtIDFutureChanGuidance:
+		return "Future Channel Guidance"
+	case Dot11InformationElementExtIDHeCapability:
+		return "HE Capability"
+	case Dot11InformationElementExtIDHEOperation:
+		return "HE Operation"
+	case Dot11InformationElementExtIDUora:
+		return "UORA"
+	case Dot11InformationElementExtIDHeMuEdca:
+		return "HE MU EDCA"
+	case Dot11InformationElementExtIDHeSpr:
+		return "HE Spatial Reuse Parameter"
+	case Dot11InformationElementExtIDNdpFeedbackReportParamset:
+		return "NDP Feedback Report Parameter Set"
+	case Dot11InformationElementExtIDBssColorChgAnn:
+		return "BSS Color Change Announcement"
+	case Dot11InformationElementExtIDQuietTimePeriodSetup:
+		return "Quiet Time Period Setup"
+	case Dot11InformationElementExtIDEssReport:
+		return "ESS Report"
+	case Dot11InformationElementExtIDOps:
+		return "Operating Mode Notification"
+	case Dot11InformationElementExtIDHeBssLoad:
+		return "HE BSS Load"
+	case Dot11InformationElementExtIDMaxChannelSwitchTime:
+		return "Maximum Channel Switching Time"
+	case Dot11InformationElementExtIDMultipleBssidConfiguration:
+		return "Multiple BSSID Configuration"
+	case Dot11InformationElementExtIDNonInheritance:
+		return "Non-Inheritance"
+	case Dot11InformationElementExtIDKnownBssid:
+		return "Known BSSID"
+	case Dot11InformationElementExtIDShortSsidList:
+		return "Short SSID List"
+	case Dot11InformationElementExtIDHe6ghzCApA:
+		return "HE 6 GHz Capabilities"
+	case Dot11InformationElementExtIDuLMuPowerCapA:
+		return "uL MU Power Capability"
+	case Dot11InformationElementExtIDEhTOperation:
+		return "EH-Transition Operation"
+	case Dot11InformationElementExtIDEhtMultiLink:
+		return "EHT Multi-link"
+	case Dot11InformationElementExtIDEHhCapability:
+		return "EH-Transition HE Capabilities"
+	default:
+		return "Unknown information element extended id"
 	}
 }
 
@@ -935,7 +1072,7 @@ func (m *Dot11) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	switch mainType {
 	case Dot11TypeCtrl:
 		switch m.Type {
-		case Dot11TypeCtrlRTS, Dot11TypeCtrlPowersavePoll, Dot11TypeCtrlCFEnd, Dot11TypeCtrlCFEndAck:
+		case Dot11TypeCtrlRTS, Dot11TypeCtrlPowersavePoll, Dot11TypeCtrlCFEnd, Dot11TypeCtrlCFEndAck, Dot11TypeCtrlBlockAck, Dot11TypeCtrlBlockAckReq:
 			if len(data) < offset+6 {
 				df.SetTruncated()
 				return fmt.Errorf("Dot11 length %v too short, %v required", len(data), offset+6)
@@ -1440,10 +1577,11 @@ func (m *Dot11DataQOSCFAckPollNoData) NextLayerType() gopacket.LayerType {
 
 type Dot11InformationElement struct {
 	BaseLayer
-	ID     Dot11InformationElementID
-	Length uint8
-	OUI    []byte
-	Info   []byte
+	ID          Dot11InformationElementID
+	Length      uint8
+	OUI         []byte
+	Info        []byte
+	ExtensionID Dot11InformationElementExtId
 }
 
 func (m *Dot11InformationElement) LayerType() gopacket.LayerType {
@@ -1478,6 +1616,9 @@ func (m *Dot11InformationElement) DecodeFromBytes(data []byte, df gopacket.Decod
 		// Vendor extension
 		m.OUI = data[offset : offset+4]
 		m.Info = data[offset+4 : offset+int(m.Length)]
+	} else if m.ID == 255 {
+		m.ExtensionID = Dot11InformationElementExtId(data[offset])
+		m.Info = data[offset+1 : offset+int(m.Length)]
 	} else {
 		m.Info = data[offset : offset+int(m.Length)]
 	}
@@ -1503,6 +1644,8 @@ func (d *Dot11InformationElement) String() string {
 		return fmt.Sprintf("802.11 Information Element (ID: %v, Length: %v, Rates: %s Mbit)", d.ID, d.Length, rates)
 	} else if d.ID == 221 {
 		return fmt.Sprintf("802.11 Information Element (ID: %v, Length: %v, OUI: %X, Info: %X)", d.ID, d.Length, d.OUI, d.Info)
+	} else if d.ID == 255 {
+		return fmt.Sprintf("802.11 Information Element Extension (ID: %v, Length %v, Info %X)", d.ExtensionID, d.Length, d.Info)
 	} else {
 		return fmt.Sprintf("802.11 Information Element (ID: %v, Length: %v, Info: %X)", d.ID, d.Length, d.Info)
 	}

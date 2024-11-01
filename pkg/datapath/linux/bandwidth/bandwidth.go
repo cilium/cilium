@@ -41,7 +41,7 @@ const (
 )
 
 type manager struct {
-	resetQueues, enabled bool
+	enabled bool
 
 	params bandwidthManagerParams
 }
@@ -56,9 +56,6 @@ func (m *manager) BBREnabled() bool {
 
 func (m *manager) defines() (defines.Map, error) {
 	cDefinesMap := make(defines.Map)
-	if m.resetQueues {
-		cDefinesMap["RESET_QUEUES"] = "1"
-	}
 
 	if m.Enabled() {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
@@ -102,20 +99,11 @@ func GetBytesPerSec(bandwidth string) (uint64, error) {
 // probe checks the various system requirements of the bandwidth manager and disables it if they are
 // not met.
 func (m *manager) probe() error {
-	// We at least need 5.1 kernel for native TCP EDT integration
-	// and writable queue_mapping that we use. Below helper is
-	// available for 5.1 kernels and onwards.
-	kernelGood := probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbEcnSetCe) == nil
-	m.resetQueues = kernelGood
 	if !m.params.Config.EnableBandwidthManager {
 		return nil
 	}
 	if _, err := m.params.Sysctl.Read([]string{"net", "core", "default_qdisc"}); err != nil {
 		m.params.Log.Warn("BPF bandwidth manager could not read procfs. Disabling the feature.", logfields.Error, err)
-		return nil
-	}
-	if !kernelGood {
-		m.params.Log.Warn("BPF bandwidth manager needs kernel 5.1 or newer. Disabling the feature.")
 		return nil
 	}
 	if m.params.Config.EnableBBR {

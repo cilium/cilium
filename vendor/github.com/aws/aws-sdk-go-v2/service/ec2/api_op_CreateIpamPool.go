@@ -117,7 +117,7 @@ type CreateIpamPoolInput struct {
 	// region cannot use CIDRs from this pool.
 	//
 	// Possible values: Any Amazon Web Services Region or supported Amazon Web
-	// Services Local Zone.
+	// Services Local Zone. Default is none and means any locale.
 	//
 	// [supported Local Zones]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html#byoip-zone-avail
 	Locale *string
@@ -208,6 +208,9 @@ func (c *Client) addOperationCreateIpamPoolMiddlewares(stack *middleware.Stack, 
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -248,6 +251,18 @@ func (c *Client) addOperationCreateIpamPoolMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

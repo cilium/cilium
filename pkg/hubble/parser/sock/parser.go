@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // Parser is a parser for SockTraceNotify payloads
@@ -43,6 +42,7 @@ func New(log logrus.FieldLogger,
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,
 	cgroupGetter getters.PodMetadataGetter,
+	skipUnknownCGroupIDs bool,
 ) (*Parser, error) {
 	return &Parser{
 		log:                  log,
@@ -53,7 +53,7 @@ func New(log logrus.FieldLogger,
 		serviceGetter:        serviceGetter,
 		cgroupGetter:         cgroupGetter,
 		epResolver:           common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
-		skipUnknownCGroupIDs: option.Config.HubbleSkipUnknownCGroupIDs,
+		skipUnknownCGroupIDs: skipUnknownCGroupIDs,
 	}, nil
 }
 

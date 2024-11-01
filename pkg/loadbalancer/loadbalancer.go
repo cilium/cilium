@@ -51,6 +51,13 @@ const (
 	SVCNatPolicyNat64 = SVCNatPolicy("Nat64")
 )
 
+type SVCForwardingMode string
+
+const (
+	SVCForwardingModeDSR  = SVCForwardingMode("dsr")
+	SVCForwardingModeSNAT = SVCForwardingMode("snat")
+)
+
 // ServiceFlags is the datapath representation of the service flags that can be
 // used (lb{4,6}_service.flags)
 type ServiceFlags uint16
@@ -72,11 +79,13 @@ const (
 	serviceFlagIntLocalScope   = 1 << 12
 	serviceFlagTwoScopes       = 1 << 13
 	serviceFlagQuarantined     = 1 << 14
+	serviceFlagFwdModeDSR      = 1 << 15
 )
 
 type SvcFlagParam struct {
 	SvcType          SVCType
 	SvcNatPolicy     SVCNatPolicy
+	SvcFwdModeDSR    bool
 	SvcExtLocal      bool
 	SvcIntLocal      bool
 	SessionAffinity  bool
@@ -137,6 +146,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.Quarantined {
 		flags |= serviceFlagQuarantined
+	}
+	if p.SvcFwdModeDSR {
+		flags |= serviceFlagFwdModeDSR
 	}
 
 	return flags
@@ -240,6 +252,9 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagQuarantined != 0 {
 		str = append(str, "quarantined")
+	}
+	if s&serviceFlagFwdModeDSR != 0 {
+		str = append(str, "dsr")
 	}
 	return strings.Join(str, ", ")
 }
@@ -404,7 +419,6 @@ func (n ServiceName) Compare(other ServiceName) int {
 	default:
 		return 0
 	}
-
 }
 
 func (n ServiceName) String() string {
@@ -454,12 +468,13 @@ func (b *Backend) String() string {
 
 // SVC is a structure for storing service details.
 type SVC struct {
-	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
-	Backends                  []*Backend       // List of service backends
-	Type                      SVCType          // Service type
-	ExtTrafficPolicy          SVCTrafficPolicy // Service external traffic policy
-	IntTrafficPolicy          SVCTrafficPolicy // Service internal traffic policy
-	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
+	Frontend                  L3n4AddrID        // SVC frontend addr and an allocated ID
+	Backends                  []*Backend        // List of service backends
+	Type                      SVCType           // Service type
+	ForwardingMode            SVCForwardingMode // Service mode (DSR vs SNAT)
+	ExtTrafficPolicy          SVCTrafficPolicy  // Service external traffic policy
+	IntTrafficPolicy          SVCTrafficPolicy  // Service internal traffic policy
+	NatPolicy                 SVCNatPolicy      // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
 	HealthCheckNodePort       uint16      // Service health check node port

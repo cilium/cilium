@@ -92,6 +92,7 @@ type InvokeCommandRequest struct {
 	ContainerId          string                      `position:"Query" name:"ContainerId"`
 	Parameters           map[string]interface{}      `position:"Query" name:"Parameters"`
 	Username             string                      `position:"Query" name:"Username"`
+	Launcher             string                      `position:"Query" name:"Launcher"`
 }
 
 // InvokeCommandSystemTag is a repeated param struct in InvokeCommandRequest

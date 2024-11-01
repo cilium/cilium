@@ -435,6 +435,6 @@ func (*fakeXdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy, ingressPolicyEnforced bool, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced bool, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 	panic("unimplemented")
 }

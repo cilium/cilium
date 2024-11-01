@@ -59,6 +59,8 @@ them all at once:
 | v1.14            | /test-backport-1.14      |
 +------------------+--------------------------+
 
+More triggers can be found in `ariane-config.yaml <https://github.com/cilium/cilium/blob/main/.github/ariane-config.yaml>`_
+
 For a full list of GHA, see `GitHub Actions Page <https://github.com/cilium/cilium/actions>`_
 
 Using GitHub Actions for testing

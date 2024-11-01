@@ -83,7 +83,8 @@ type lbIPAMParams struct {
 
 	metrics *ipamMetrics
 
-	config lbipamConfig
+	config      lbipamConfig
+	defaultIPAM bool
 }
 
 func newLBIPAM(params lbIPAMParams) *LBIPAM {
@@ -637,6 +638,11 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 				IP:     ip,
 				Origin: lbRange,
 			})
+
+			// If the `ServiceView` has a sharing key, add the IP to the `rangeStore` index
+			if sv.SharingKey != "" {
+				ipam.rangesStore.AddServiceViewIPForSharingKey(sv.SharingKey, &sv.AllocatedIPs[len(sv.AllocatedIPs)-1])
+			}
 		}
 
 		newIngresses = append(newIngresses, ingress)
@@ -1125,10 +1131,8 @@ func (ipam *LBIPAM) isResponsibleForSVC(svc *slim_core_v1.Service) bool {
 		return false
 	}
 
-	// If no load balancer class is specified, we will assume that we are responsible for the service
-	// unless we have been configured to require a load balancer class.
 	if svc.Spec.LoadBalancerClass == nil {
-		return !ipam.lbIPAMParams.config.LBIPAMRequireLBClass
+		return ipam.lbIPAMParams.defaultIPAM
 	}
 
 	if !slices.Contains(ipam.lbClasses, *svc.Spec.LoadBalancerClass) {

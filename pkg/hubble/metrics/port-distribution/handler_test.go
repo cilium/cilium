@@ -19,7 +19,16 @@ import (
 
 func TestPortDistributionHandler(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	opts := api.Options{"sourceContext": "namespace", "destinationContext": "namespace"}
+	opts := []*api.ContextOptionConfig{
+		{
+			Name:   "sourceContext",
+			Values: []string{"namespace"},
+		},
+		{
+			Name:   "destinationContext",
+			Values: []string{"namespace"},
+		},
+	}
 
 	portHandler := &portDistributionHandler{}
 
@@ -85,7 +94,16 @@ func TestPortDistributionHandler(t *testing.T) {
 
 	t.Run("ProcessFlow_MultiplePorts", func(t *testing.T) {
 		registry := prometheus.NewRegistry()
-		opts := api.Options{"sourceContext": "namespace", "destinationContext": "namespace"}
+		opts := []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"namespace"},
+			},
+		}
 
 		portHandler := &portDistributionHandler{}
 		require.NoError(t, portHandler.Init(registry, opts))

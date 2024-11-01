@@ -41,6 +41,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for dead code elimination (Linux 5.1 or newer)")
 		}
 
+		if probes.HaveWriteableQueueMapping() != nil {
+			return errors.New("Require support for TCP EDT and writeable skb->queue_mapping (Linux 5.1 or newer)")
+		}
+
 		if probes.HaveLargeInstructionLimit() != nil {
 			return errors.New("Require support for large programs (Linux 5.2.0 or newer)")
 		}

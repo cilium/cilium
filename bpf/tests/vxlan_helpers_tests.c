@@ -16,6 +16,8 @@
 #include "lib/common.h"
 #include "lib/vxlan.h"
 
+#include <lib/ipv4.h>
+
 /* this had to be used instead of the pktgen__push methods since these methods
  * use layer accounting and will fail when pushing an ipv4 header past its
  * assumed layer
@@ -89,7 +91,7 @@ int check3(struct __ctx_buff *ctx)
 	struct iphdr *ipv4 = NULL;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
-	assert(vxlan_get_vni(data, data_end, ipv4) == VXLAN_VNI);
+	assert(vxlan_get_vni(data, data_end, ETH_HLEN + ipv4_hdrlen(ipv4)) == VXLAN_VNI);
 
 	test_finish();
 }
@@ -110,7 +112,7 @@ int check4(struct __ctx_buff *ctx)
 	struct iphdr *inner_ipv4 = NULL;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
-	assert(vxlan_get_inner_ipv4(data, data_end, ipv4, &inner_ipv4));
+	assert(vxlan_get_inner_ipv4(data, data_end, ETH_HLEN + ipv4_hdrlen(ipv4), &inner_ipv4));
 
 	assert(inner_ipv4->saddr == v4_pod_one);
 	assert(inner_ipv4->daddr == v4_pod_two);
@@ -133,20 +135,25 @@ int check5(struct __ctx_buff *ctx)
 	struct iphdr *ipv4 = NULL;
 	struct udphdr *udp = NULL;
 	__u32 vni = 0;
+	__u32 l4_off;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
 
-	assert(vxlan_rewrite_vni(ctx, data, data_end, ipv4,
-				 VXLAN_VNI_NEW));
+	l4_off = ETH_HLEN + ipv4_hdrlen(ipv4);
+
+	assert(vxlan_rewrite_vni(ctx, data, data_end, l4_off, VXLAN_VNI_NEW));
 
 	/* packet data was touched so revalidate */
 	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
 
-	vni = vxlan_get_vni(data, data_end, ipv4);
+	vni = vxlan_get_vni(data, data_end, l4_off);
 	assert(vni == VXLAN_VNI_NEW);
 
+	if (data + l4_off + sizeof(struct udphdr) > data_end)
+		test_fatal("udp out of bounds");
+
 	/* assert udp checksum was updated */
-	udp = (struct udphdr *)(data + sizeof(struct ethhdr) + (ipv4->ihl * 4));
+	udp = (struct udphdr *)(data + l4_off);
 	assert(udp->check != UDP_CHECK);
 
 	test_finish();

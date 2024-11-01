@@ -48,4 +48,5 @@ var (
 	AllowCRDsMismatch          = flag.Bool("allow-crds-mismatch", false, "Flag to allow the suite not to fail in case there is a mismatch between CRDs versions and channels.")
 	ConformanceProfiles        = flag.String("conformance-profiles", "", "Comma-separated list of the conformance profiles to run")
 	ReportOutput               = flag.String("report-output", "", "The file where to write the conformance report")
+	SkipProvisionalTests       = flag.Bool("skip-provisional-tests", false, "Whether to skip provisional tests")
 )

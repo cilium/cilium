@@ -23,6 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// initialGCInterval sets the time after which the agent will begin to warn
+// regarding a long ctmap gc duration.
+const initialGCInterval = 30 * time.Second
+
 type Enabler interface {
 	// Enable enables the connection tracking garbage collection.
 	Enable()
@@ -61,7 +65,6 @@ type GC struct {
 	nodeAddrs statedb.Table[tables.NodeAddress]
 
 	endpointsManager EndpointManager
-	nodeAddressing   types.NodeAddressing
 	signalHandler    SignalHandler
 
 	perClusterCTMapsRetriever PerClusterCTMapsRetriever
@@ -79,7 +82,6 @@ func New(params parameters) *GC {
 		nodeAddrs: params.NodeAddrs,
 
 		endpointsManager: params.EndpointManager,
-		nodeAddressing:   params.NodeAddressing,
 		signalHandler:    params.SignalManager,
 
 		controllerManager: controller.NewManager(),
@@ -143,6 +145,10 @@ func (gc *GC) Enable() {
 					}
 				}
 
+				gcFilter = ctmap.GCFilter{
+					RemoveExpired: true,
+					EmitCTEntryCB: emitEntryCB}
+
 				success = false
 			)
 
@@ -160,14 +166,14 @@ func (gc *GC) Enable() {
 
 			if len(eps) > 0 || initialScan {
 				gc.logger.Info("Starting initial GC of connection tracking")
-				maxDeleteRatio, success = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+				maxDeleteRatio, success = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				_, epSuccess := gc.runGC(e, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+				_, epSuccess := gc.runGC(e, ipv4, ipv6, triggeredBySignal, gcFilter)
 				success = success && epSuccess
 			}
 
@@ -182,6 +188,8 @@ func (gc *GC) Enable() {
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
+				gc.logger.WithField("duration", time.Since(gcStart)).
+					Info("initial gc of ct and nat maps completed")
 			}
 
 			triggeredBySignal = false
@@ -220,15 +228,26 @@ func (gc *GC) Enable() {
 		}
 	}()
 
-	select {
-	case <-initialScanComplete:
-		gc.logger.Info("Initial scan of connection tracking completed")
-	case <-time.After(30 * time.Second):
-		gc.logger.Fatal("Timeout while waiting for initial conntrack scan")
-	}
+	// Start a background go routine that waits to see if either the initial scan completes before
+	// our expected time of 30 seconds.
+	// This is to notify users of potential issues affecting initial scan performance.
+	go func() {
+		select {
+		case <-initialScanComplete:
+		case <-inctimer.After(initialGCInterval):
+			gc.logger.Warn("Failed to perform initial ctmap gc scan within expected duration." +
+				"This may be caused by large ctmap sizes or by constraint CPU resources upon start." +
+				"Delayed initial ctmap scan may result in delayed map pressure metrics for ctmap.")
+		}
+	}()
 
-	// Not supporting BPF map pressure for local CT maps as of yet.
-	ctmap.CalculateCTMapPressure(gc.controllerManager, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+	// Wait until after initial scan is complete prior to starting ctmap metrics controller.
+	go func() {
+		<-initialScanComplete
+		gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
+		// Not supporting BPF map pressure for local CT maps as of yet.
+		ctmap.CalculateCTMapPressure(gc.controllerManager, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+	}()
 }
 
 // runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
@@ -239,7 +258,7 @@ func (gc *GC) Enable() {
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 	var maps []*ctmap.Map
 	success = true
 
@@ -300,6 +319,7 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 		}
 
 		for _, vsn := range vsns {
+			startTime := time.Now()
 			ctMapTCP, ctMapAny := ctmap.FilterMapsByProto(maps, vsn)
 			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
@@ -309,6 +329,7 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 					"ingressAlive":   stats.IngressAlive,
 					"egressAlive":    stats.EgressAlive,
 					"ctMapIPVersion": vsn,
+					"duration":       time.Since(startTime),
 				}).Info("Deleted orphan SNAT entries from map")
 			}
 		}
