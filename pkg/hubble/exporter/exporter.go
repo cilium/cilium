@@ -34,6 +34,7 @@ type exporter struct {
 }
 
 // NewExporter initializes an exporter.
+// NOTE: Stopped instances cannot be restarted and should be re-created.
 func NewExporter(logger logrus.FieldLogger, options ...exporteroption.Option) (*exporter, error) {
 	opts := exporteroption.Default // start with defaults
 	for _, opt := range options {

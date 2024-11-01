@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
-	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
@@ -64,7 +63,8 @@ import (
 // (TCP, UNIX domain socket), the Hubble metrics server, etc.
 type hubbleIntegration struct {
 	// Observer will be set once the Hubble Observer has been started.
-	observer atomic.Pointer[observer.LocalObserverServer]
+	observer        atomic.Pointer[observer.LocalObserverServer]
+	observerOptions []observeroption.Option
 
 	identityAllocator identitycell.CachingIdentityAllocator
 	endpointManager   endpointmanager.EndpointManager
@@ -77,9 +77,6 @@ type hubbleIntegration struct {
 	nodeLocalStore    *node.LocalNodeStore
 	monitorAgent      monitorAgent.Agent
 	recorder          *recorder.Recorder
-
-	// Hubble sub-systems
-	exporters *exporter.HubbleExporters
 
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	agentConfig *option.DaemonConfig
@@ -102,7 +99,7 @@ func new(
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 	recorder *recorder.Recorder,
-	exporters *exporter.HubbleExporters,
+	observerOptions []observeroption.Option,
 	agentConfig *option.DaemonConfig,
 	config config,
 	log logrus.FieldLogger,
@@ -125,7 +122,7 @@ func new(
 		nodeLocalStore:    nodeLocalStore,
 		monitorAgent:      monitorAgent,
 		recorder:          recorder,
-		exporters:         exporters,
+		observerOptions:   observerOptions,
 		agentConfig:       agentConfig,
 		config:            config,
 		log:               log,
@@ -264,12 +261,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 		localSrvOpts []serveroption.Option
 		parserOpts   []parserOptions.Option
 	)
-
-	// register exporter handlers
-	for _, handler := range h.exporters.Handlers {
-		opt := observeroption.WithOnDecodedEvent(handler)
-		observerOpts = append(observerOpts, opt)
-	}
 
 	if len(h.config.MonitorEvents) > 0 {
 		monitorFilter, err := monitor.NewMonitorFilter(h.log, h.config.MonitorEvents)
@@ -416,6 +407,10 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(h.config.EventQueueSize),
 	)
+
+	// register injected observer options last to allow
+	// for explicit ordering of known dependencies
+	observerOpts = append(observerOpts, h.observerOptions...)
 
 	namespaceManager := observer.NewNamespaceManager()
 	go namespaceManager.Run(ctx)
