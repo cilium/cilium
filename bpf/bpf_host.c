@@ -515,6 +515,14 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			return ret;
 	}
 
+	/* The code below only cares about host-originating yes/no,
+	 * and currently breaks when being passed a fine-grained pod src_sec_identity.
+	 *
+	 * Restore old behavior for now, and clean it up once we have tests.
+	 */
+	if (src_sec_identity != HOST_ID)
+		src_sec_identity = 0;
+
 	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity,
 				   &ipcache_srcid, true);
 
@@ -961,6 +969,14 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	/* The code below only cares about host-originating yes/no,
+	 * and currently breaks when being passed a fine-grained pod src_sec_identity.
+	 *
+	 * Restore old behavior for now, and clean it up once we have tests.
+	 */
+	if (src_sec_identity != HOST_ID)
+		src_sec_identity = 0;
 
 	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity,
 				    &ipcache_srcid, true);
