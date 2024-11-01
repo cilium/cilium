@@ -140,6 +140,14 @@ func (b *BGPResourceManager) initializeJobs() {
 			return nil
 		}),
 
+		job.OneShot("bgpv2-operator-node-config-tracker", func(ctx context.Context, health cell.Health) error {
+			for e := range b.nodeConfig.Events(ctx) {
+				b.triggerReconcile()
+				e.Done(nil)
+			}
+			return nil
+		}),
+
 		job.OneShot("bgpv2-operator-node-config-override-tracker", func(ctx context.Context, health cell.Health) error {
 			for e := range b.nodeConfigOverride.Events(ctx) {
 				b.triggerReconcile()
