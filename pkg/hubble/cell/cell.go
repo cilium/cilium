@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -59,8 +60,9 @@ type hubbleParams struct {
 	MonitorAgent      monitorAgent.Agent
 	Recorder          *recorder.Recorder
 
-	// Hubble sub-systems
-	Exporters *exporter.HubbleExporters
+	// Observer Server options
+	// NOTE: ordering is not guaranteed, do not rely on it.
+	ObserverOptions []observeroption.Option `group:"hubble-observer-options"`
 
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	AgentConfig *option.DaemonConfig
@@ -87,7 +89,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.NodeLocalStore,
 		params.MonitorAgent,
 		params.Recorder,
-		params.Exporters,
+		params.ObserverOptions,
 		params.AgentConfig,
 		params.Config,
 		params.Logger,

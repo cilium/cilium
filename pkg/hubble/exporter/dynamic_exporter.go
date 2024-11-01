@@ -15,21 +15,52 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// DynamicExporter represents instance of hubble exporter with dynamic
-// configuration reload.
+var reloadInterval = 5 * time.Second
+
+// DynamicExporter is a wrapper of the hubble exporter that supports dynamic configuration reload
+// for a set of exporters.
 type DynamicExporter struct {
 	FlowLogExporter
-	logger           logrus.FieldLogger
-	watcher          *configWatcher
-	managedExporters map[string]*managedExporter
-	maxFileSizeMB    int
-	maxBackups       int
+
+	logger        logrus.FieldLogger
+	watcher       *configWatcher
+	maxFileSizeMB int
+	maxBackups    int
+
 	// mutex protects from concurrent modification of managedExporters by config
 	// reloader when hubble events are processed
-	mutex lock.RWMutex
+	mutex            lock.RWMutex
+	managedExporters map[string]*managedExporter
 }
 
-// OnDecodedEvent distributes events across all managed exporters.
+// NewDynamicExporter initializes a dynamic exporter.
+//
+// The actual config watching must be started by invoking watch().
+//
+// NOTE: Stopped instances cannot be restarted and should be re-created.
+func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string, maxFileSizeMB, maxBackups int) *DynamicExporter {
+	dynamicExporter := &DynamicExporter{
+		logger:           logger,
+		managedExporters: make(map[string]*managedExporter),
+		maxFileSizeMB:    maxFileSizeMB,
+		maxBackups:       maxBackups,
+	}
+
+	registerMetrics(dynamicExporter)
+
+	watcher := NewConfigWatcher(configFilePath, dynamicExporter.onConfigReload)
+	dynamicExporter.watcher = watcher
+	return dynamicExporter
+}
+
+// Watch starts watching the exporter configuration file at regular intervals and initiate a reload
+// whenever the config changes. It blocks until the context is cancelled.
+func (d *DynamicExporter) Watch(ctx context.Context) error {
+	return d.watcher.watch(ctx, reloadInterval)
+}
+
+// OnDecodedEvent implemebnts FlowLogExporter.
+// It distributes events across all managed exporters.
 func (d *DynamicExporter) OnDecodedEvent(ctx context.Context, event *v1.Event) (bool, error) {
 	select {
 	case <-ctx.Done():
@@ -50,10 +81,9 @@ func (d *DynamicExporter) OnDecodedEvent(ctx context.Context, event *v1.Event) (
 	return false, errs
 }
 
-// Stop stops configuration watcher  and all managed flow log exporters.
+// Stop implements FlowLogExporter.
+// It stops all managed flow log exporters.
 func (d *DynamicExporter) Stop() error {
-	d.watcher.Stop()
-
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -63,22 +93,6 @@ func (d *DynamicExporter) Stop() error {
 	}
 
 	return errs
-}
-
-// NewDynamicExporter creates instance of dynamic hubble flow exporter.
-func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string, maxFileSizeMB, maxBackups int) *DynamicExporter {
-	dynamicExporter := &DynamicExporter{
-		logger:           logger,
-		managedExporters: make(map[string]*managedExporter),
-		maxFileSizeMB:    maxFileSizeMB,
-		maxBackups:       maxBackups,
-	}
-
-	registerMetrics(dynamicExporter)
-
-	watcher := NewConfigWatcher(configFilePath, dynamicExporter.onConfigReload)
-	dynamicExporter.watcher = watcher
-	return dynamicExporter
 }
 
 func (d *DynamicExporter) onConfigReload(hash uint64, config DynamicExportersConfig) {
