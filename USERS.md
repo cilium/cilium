@@ -348,6 +348,12 @@ Users (Alphabetically)
       L: https://immerok.io
       Q: @austince, @dmvk
 
+    * N: Incentive.me
+      D: Incentive.me use Cilium, Tetragon and Hubble for enterprise networking, observability, and security of all environments.
+      U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, egress gateway, service load balancing, CNI
+      L: https://incentive.me
+      Q: @lucasfcnunes
+
     * N: Infomaniak
       D: Infomaniak is using Cilium in their production clusters (self-hosted, bare-metal and openstack)
       U: Networking, CiliumNetworkPolicy, BPF NodePort, Direct routing, kube-proxy replacement
