@@ -83,6 +83,8 @@ type parameters struct {
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 	StoreFactory   store.Factory
 	SyncState      syncstate.SyncState
+
+	Logger *slog.Logger
 }
 
 func registerHooks(lc cell.Lifecycle, params parameters) error {
@@ -97,7 +99,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI)
+			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
 			return nil
 		},
 	})
@@ -352,6 +354,7 @@ func startServer(
 	factory store.Factory,
 	syncState syncstate.SyncState,
 	clusterMeshEnableMCSAPI bool,
+	logger *slog.Logger,
 ) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cinfo.Name,
@@ -385,7 +388,7 @@ func startServer(
 		SharedOnly:   !allServices,
 		StoreFactory: factory,
 		SyncCallback: syncState.WaitForResource(),
-	})
+	}, logger)
 	go mcsapi.StartSynchronizingServiceExports(ctx, mcsapi.ServiceExportSyncParameters{
 		ClusterName:             cinfo.Name,
 		ClusterMeshEnableMCSAPI: clusterMeshEnableMCSAPI,

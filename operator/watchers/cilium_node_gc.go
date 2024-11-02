@@ -6,6 +6,7 @@ package watchers
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -56,7 +57,7 @@ func (c *ciliumNodeGCCandidate) Delete(nodeName string) {
 }
 
 // RunCiliumNodeGC performs garbage collector for cilium node resource
-func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodeStore cache.Store, interval time.Duration) {
+func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodeStore cache.Store, interval time.Duration, logger *slog.Logger) {
 	nodesInit(wg, clientset.Slim(), ctx.Done())
 
 	// wait for k8s nodes synced is done
@@ -66,7 +67,7 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 		return
 	}
 
-	log.Info("Starting to garbage collect stale CiliumNode custom resources")
+	logger.Info("Starting to garbage collect stale CiliumNode custom resources")
 
 	candidateStore := newCiliumNodeGCCandidate()
 	// create the controller to perform mark and sweep operation for cilium nodes
@@ -76,7 +77,7 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 			Context: ctx,
 			DoFunc: func(ctx context.Context) error {
 				return performCiliumNodeGC(ctx, clientset.CiliumV2().CiliumNodes(), ciliumNodeStore,
-					nodeGetter{}, interval, candidateStore)
+					nodeGetter{}, interval, candidateStore, logger)
 			},
 			RunInterval: interval,
 		},
@@ -91,9 +92,9 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 }
 
 func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterface, ciliumNodeStore cache.Store,
-	nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate) error {
+	nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, logger *slog.Logger) error {
 	for _, nodeName := range ciliumNodeStore.ListKeys() {
-		scopedLog := log.With(logfields.NodeName, nodeName)
+		scopedLog := logger.With(logfields.NodeName, nodeName)
 		_, err := nodeGetter.GetK8sSlimNode(nodeName)
 		if err == nil {
 			scopedLog.Debug("CiliumNode is valid, no garbage collection required")

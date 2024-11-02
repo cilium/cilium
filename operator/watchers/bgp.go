@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"context"
+	"log/slog"
 	"os"
 
 	"github.com/cilium/cilium/pkg/bgp/manager"
@@ -17,17 +18,17 @@ import (
 // StartBGPBetaLBIPAllocator starts the service watcher if it hasn't already and looks
 // for service of type LoadBalancer. Once it finds a service of that type, it
 // will try to allocate an external IP (LoadBalancerIP) for it.
-func StartBGPBetaLBIPAllocator(ctx context.Context, clientset client.Clientset, services resource.Resource[*slim_corev1.Service]) {
+func StartBGPBetaLBIPAllocator(ctx context.Context, clientset client.Clientset, services resource.Resource[*slim_corev1.Service], logger *slog.Logger) {
 	go func() {
 		store, err := services.Store(ctx)
 		if err != nil {
-			log.Error("Failed to retrieve service store", logfields.Error, err)
+			logger.Error("Failed to retrieve service store", logfields.Error, err)
 			os.Exit(1)
 		}
 
 		m, err := manager.New(ctx, clientset, store.CacheStore())
 		if err != nil {
-			log.Error("Error creating BGP manager", logfields.Error, err)
+			logger.Error("Error creating BGP manager", logfields.Error, err)
 			os.Exit(1)
 		}
 

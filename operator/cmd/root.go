@@ -501,7 +501,7 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:          ctx,
@@ -512,6 +512,7 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 		svcResolver:  svcResolver,
 		cfgMCSAPI:    cfgMCSAPI,
 		metrics:      metrics,
+		logger:       logger,
 	}
 	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -529,6 +530,8 @@ type legacyOnLeader struct {
 	svcResolver  *dial.ServiceResolver
 	cfgMCSAPI    cmoperator.MCSAPIConfig
 	metrics      *UnmanagedPodsMetric
+
+	logger *slog.Logger
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -569,6 +572,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	)
 
 	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
+	watcherLogger := legacy.logger.With(logfields.LogSubsys, "watchers")
 
 	switch ipamMode := option.Config.IPAM; ipamMode {
 	case ipamOption.IPAMAzure,
@@ -588,7 +592,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		if pooledAlloc, ok := alloc.(operatorWatchers.PooledAllocatorProvider); ok {
 			// The following operation will block until all pools are restored, thus it
 			// is safe to continue starting node allocation right after return.
-			operatorWatchers.StartIPPoolAllocator(legacy.ctx, legacy.clientset, pooledAlloc, legacy.resources.CiliumPodIPPools)
+			operatorWatchers.StartIPPoolAllocator(legacy.ctx, legacy.clientset, pooledAlloc, legacy.resources.CiliumPodIPPools,
+				watcherLogger)
 		}
 
 		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset})
@@ -601,7 +606,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 
 	if operatorOption.Config.BGPAnnounceLBIP {
 		log.Info("Starting LB IP allocator")
-		operatorWatchers.StartBGPBetaLBIPAllocator(legacy.ctx, legacy.clientset, legacy.resources.Services)
+		operatorWatchers.StartBGPBetaLBIPAllocator(legacy.ctx, legacy.clientset, legacy.resources.Services,
+			watcherLogger)
 	}
 
 	if kvstoreEnabled() {
@@ -624,7 +630,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				SharedOnly:   true,
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
-			})
+			}, legacy.logger)
 			legacy.wg.Add(1)
 			go func() {
 				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
@@ -674,7 +680,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
 		}).Info("Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
 
-		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done())
+		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done(),
+			watcherLogger)
 	}
 
 	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.clientset, nodeManager, withKVStore)
@@ -694,7 +701,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 
 		if operatorOption.Config.NodesGCInterval != 0 {
-			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore, operatorOption.Config.NodesGCInterval)
+			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore,
+				operatorOption.Config.NodesGCInterval, watcherLogger)
 		}
 	}
 
