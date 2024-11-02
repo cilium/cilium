@@ -5,7 +5,10 @@ package watchers
 
 import (
 	"context"
+	"log/slog"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -25,7 +28,7 @@ var (
 	kvs store.SyncStore
 )
 
-func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool) {
+func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool, logger *slog.Logger) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
@@ -33,7 +36,7 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
-		log.Debug("Kubernetes service definition changed",
+		logger.Debug("Kubernetes service definition changed",
 			logfields.K8sSvcName, event.ID.Name,
 			logfields.K8sNamespace, event.ID.Namespace,
 			"action", event.Action,
@@ -53,7 +56,7 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			if err := kvs.UpsertKey(ctx, &svc); err != nil {
 				// An error is triggered only in case it concerns service marshaling,
 				// as kvstore operations are automatically re-tried in case of error.
-				log.Warn("Failed synchronizing service",
+				logger.Warn("Failed synchronizing service",
 					logfields.Error, err,
 					logfields.K8sSvcName, event.ID.Name,
 					logfields.K8sNamespace, event.ID.Namespace,
@@ -94,7 +97,7 @@ type ServiceSyncParameters struct {
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters) {
+func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters, logger *slog.Logger) {
 	kvstoreReady := make(chan struct{})
 
 	wg.Add(1)
@@ -122,7 +125,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		<-kvstoreReady
 
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.ClusterInfo, cfg.SharedOnly)
+		k8sServiceHandler(ctx, cfg.ClusterInfo, cfg.SharedOnly, logger)
 	}()
 
 	// Start populating the service cache with Kubernetes services and endpoints

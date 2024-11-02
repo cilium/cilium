@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +60,7 @@ func Test_performCiliumNodeGC(t *testing.T) {
 	candidateStore := newCiliumNodeGCCandidate()
 
 	// check if the invalid node is added to GC candidate
-	err := performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore)
+	err := performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore, hivetest.Logger(t))
 	assert.NoError(t, err)
 	assert.Len(t, candidateStore.nodesToRemove, 1)
 	_, exists := candidateStore.nodesToRemove["invalid-node"]
@@ -67,7 +68,7 @@ func Test_performCiliumNodeGC(t *testing.T) {
 
 	// check if the invalid node is actually GC-ed
 	time.Sleep(interval)
-	err = performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore)
+	err = performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore, hivetest.Logger(t))
 	assert.NoError(t, err)
 	assert.Empty(t, candidateStore.nodesToRemove)
 	_, exists = candidateStore.nodesToRemove["invalid-node"]
