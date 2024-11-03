@@ -278,6 +278,103 @@ func (ms *mapState) SubsetKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] 
 	}
 }
 
+// LPMAncestors iterates over broader or equal port/proto entries in the trie in LPM order,
+// with most specific match with the same ID as in 'key' being returned first.
+func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
+	return func(yield func(Key, mapStateEntry) bool) {
+		iter := ms.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key)
+		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
+			k := Key{LPMKey: lpmKey.Value()}
+
+			// Visit key with the same identity, if port/proto is different.
+			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+				return
+			}
+			// Then visit key with zero identity if not already done above and one
+			// exists
+			if key.Identity != 0 && !ms.forID(k.WithIdentity(0), idSet, yield) {
+				return
+			}
+		}
+	}
+}
+
+// Lookup finds the policy verdict applicable to the given 'key' using the same precedence logic
+// between L3 and L4-only policies when both match the given 'key'.
+// To be used in testing in place of the bpf datapath when full integration testing is not desired.
+// Returns the closest matching covering policy entry and 'true' if found.
+// 'key' must not have a wildcard identity or port.
+func (ms *mapState) Lookup(key Key) (MapStateEntry, bool) {
+	// Validate that the search key has no wildcards
+	if key.Identity == 0 || key.Nexthdr == 0 || key.DestPort == 0 || key.EndPort() != key.DestPort {
+		panic("invalid key for Lookup")
+	}
+	var l3key, l4key Key
+	var l3entry, l4entry MapStateEntry
+	var haveL3, haveL4 bool
+	for k, v := range ms.LPMAncestors(key) {
+		if !haveL3 && k.Identity != 0 {
+			l3key, l3entry = k, v.MapStateEntry
+			haveL3 = true
+		}
+		if !haveL4 && k.Identity == 0 {
+			l4key, l4entry = k, v.MapStateEntry
+			haveL4 = true
+		}
+		if haveL3 && haveL4 {
+			break
+		}
+	}
+
+	authOverride := func(entry, other MapStateEntry) MapStateEntry {
+		if !entry.AuthRequirement.IsExplicit() &&
+			other.AuthRequirement.AuthType() > entry.AuthRequirement.AuthType() {
+			entry.AuthRequirement = other.AuthRequirement.AsDerived()
+		}
+		return entry
+	}
+
+	// only one entry found
+	if haveL3 != haveL4 {
+		if haveL3 {
+			return l3entry, true
+		}
+		return l4entry, true
+	}
+
+	// both L3 and L4 matches found
+	if haveL3 && haveL4 {
+		// Precedence rules of the bpf datapath between two policy entries:
+		// 1. deny wins
+		// 2. if both entries are allows, the one with more specific L4 is selected
+		// 3. If the two allows have equal port/proto, the policy for a specific L3 is
+		//    selected (rather than the L4-only entry)
+		//
+		// If the selected entry has non-explicit auth type, it gets the auth type from the
+		// other entry, if the other entry's auth type is numerically higher.
+
+		// 1. Deny wins, check for the broader deny first
+		if l4entry.IsDeny {
+			return l4entry, true
+		}
+		if l3entry.IsDeny {
+			return l3entry, true
+		}
+
+		// 2. Two allow entries, select the one with more specific L4
+		// L3-entry must be selected if prefix lengths are the same!
+		if l4key.PrefixLength() > l3key.PrefixLength() {
+			return authOverride(l4entry, l3entry), true
+		}
+
+		// 3. Two allow entries with equally specific L4 or L3-entry is more specific
+		return authOverride(l3entry, l4entry), true
+	}
+
+	// Deny by default if no matches are found
+	return MapStateEntry{IsDeny: true}, false
+}
+
 func (ms *mapState) Len() int {
 	return len(ms.entries)
 }

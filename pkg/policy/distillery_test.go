@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"iter"
 	stdlog "log"
 	"maps"
 	"net/netip"
@@ -1894,32 +1893,10 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	}
 }
 
-// LPMAncestors iterates over broader or equal port/proto entries in the trie in LPM order,
-// with most specific match with the same ID as in 'key' being returned first.
-func (msm *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
-	return func(yield func(Key, mapStateEntry) bool) {
-		iter := msm.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key)
-		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
-			k := Key{LPMKey: lpmKey.Value()}
-
-			// Visit key with the same identity, if port/proto is different.
-			if !msm.forID(k.WithIdentity(key.Identity), idSet, yield) {
-				return
-			}
-			// Then visit key with zero identity if not already done above and one
-			// exists
-			if key.Identity != 0 && !msm.forID(k.WithIdentity(0), idSet, yield) {
-				return
-			}
-		}
-	}
-}
-
+// allowsKey returns returns true if 'ms' allows "traffic" with 'key'
 func (ms *mapState) allowsKey(key Key) bool {
-	for _, v := range ms.LPMAncestors(key) {
-		return !v.IsDeny
-	}
-	return false
+	entry, _ := ms.Lookup(key)
+	return !entry.IsDeny
 }
 
 func TestEgressPortRangePrecedence(t *testing.T) {
