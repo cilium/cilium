@@ -25,7 +25,7 @@ import (
 // EIPs). As the existing connections drain out, the EIPs (and the corresponding
 // private IP addresses mapped to them) are released.
 //
-// [Edit secondary IP address associations]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html#nat-gateway-edit-secondary
+// [Edit secondary IP address associations]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-working-with.html#nat-gateway-edit-secondary
 func (c *Client) DisassociateNatGatewayAddress(ctx context.Context, params *DisassociateNatGatewayAddressInput, optFns ...func(*Options)) (*DisassociateNatGatewayAddressOutput, error) {
 	if params == nil {
 		params = &DisassociateNatGatewayAddressInput{}
