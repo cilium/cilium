@@ -397,16 +397,12 @@ func TestRedirectWithDeny(t *testing.T) {
 		mapKeyFoo: {
 			IsDeny: true,
 		},
-		mapKeyFooL7: {
-			IsDeny: true,
-		},
 	}
 
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
 		mapKeyAllL7:     labels.LabelArrayList{lblsL4L7Allow},
 		mapKeyFoo:       labels.LabelArrayList{lblsL3DenyFoo},
-		mapKeyFooL7:     labels.LabelArrayList{lblsL3DenyFoo},
 	})
 
 	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
@@ -418,7 +414,7 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	// Check that the redirect is realized
 	require.Len(t, ep.desiredPolicy.Redirects, 1)
-	require.Equal(t, 4, ep.desiredPolicy.Len())
+	require.Equal(t, 3, ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	s.datapathRegenCtxt.revertStack.Revert()

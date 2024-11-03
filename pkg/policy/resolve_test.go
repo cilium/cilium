@@ -512,7 +512,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	policy.Ready()
 
 	rule1MapStateEntry := newMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := newMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, 0, false, ExplicitAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := newMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		Redirects: testRedirects,
@@ -671,7 +671,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	require.NotNil(t, cachedSelectorTest)
 
 	rule1MapStateEntry := newMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := newMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, 0, false, ExplicitAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := newMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		Redirects: testRedirects,
