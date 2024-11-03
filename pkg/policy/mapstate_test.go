@@ -12,9 +12,44 @@ import (
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+// helpers for creating mapstate entries for tests
+
+func newAllowEntry() mapStateEntry {
+	return newMapStateEntry(nil, nil, 0, 0, false, NoAuthRequirement)
+}
+
+func newDenyEntry() mapStateEntry {
+	return newMapStateEntry(nil, nil, 0, 0, true, NoAuthRequirement)
+}
+
+// withOwners replaces owners of 'e' with 'owners'.
+// No owners is represented with a 'nil' map.
+func (e mapStateEntry) withOwners(owners ...MapStateOwner) mapStateEntry {
+	e.owners = set.NewSet[MapStateOwner](owners...)
+	return e
+}
+
+func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
+	e.derivedFromRules = lbls
+	return e
+}
+
+// withExplicitAuth sets an explicit auth requirement
+func (e mapStateEntry) withExplicitAuth(authType AuthType) mapStateEntry {
+	e.AuthRequirement = authType.AsExplicitRequirement()
+	return e
+}
+
+// withDerivedAuth sets a derived auth requirement
+func (e mapStateEntry) withDerivedAuth(authType AuthType) mapStateEntry {
+	e.AuthRequirement = authType.AsDerivedRequirement()
+	return e
+}
 
 func (ms mapState) withState(initMap map[Key]mapStateEntry) mapState {
 	for k, v := range initMap {
@@ -37,39 +72,6 @@ func egressKey(identity identity.NumericIdentity, proto u8proto.U8proto, port ui
 
 func egressL3OnlyKey(identity identity.NumericIdentity) Key {
 	return EgressKey().WithIdentity(identity)
-}
-
-// WithOwners replaces owners of 'e' with 'owners'.
-// No owners is represented with a 'nil' map.
-func (e mapStateEntry) WithOwners(owners ...MapStateOwner) mapStateEntry {
-	e.owners = set.NewSet[MapStateOwner](owners...)
-	return e
-}
-
-func (e MapStateEntry) WithOwners(owners ...MapStateOwner) mapStateEntry {
-	return mapStateEntry{
-		MapStateEntry: e,
-		owners:        set.NewSet(owners...),
-	}
-}
-
-// withExplicitAuth sets an explicit auth requirement
-func (e mapStateEntry) withExplicitAuth(authType AuthType) mapStateEntry {
-	e.AuthRequirement = authType.AsExplicitRequirement()
-	return e
-}
-
-// withDerivedAuth sets a derived auth requirement
-func (e mapStateEntry) withDerivedAuth(authType AuthType) mapStateEntry {
-	e.AuthRequirement = authType.AsDerivedRequirement()
-	return e
-}
-
-// WithoutOwners empties the 'owners' of 'e'.
-// Note: This is used only in unit tests and helps test readability.
-func (e mapStateEntry) WithoutOwners() mapStateEntry {
-	e.owners.Clear()
-	return e
 }
 
 func TestPolicyKeyTrafficDirection(t *testing.T) {

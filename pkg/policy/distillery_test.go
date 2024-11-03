@@ -347,21 +347,19 @@ var (
 	mapKeyAllowAllE_ = EgressKey()
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, false, NoAuthRequirement)
+		return newAllowEntry().withLabels(lbls)
 	}
 	mapEntryL7ExplicitAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, false, at.AsExplicitRequirement())
+		return newAllowEntry().withLabels(lbls).withExplicitAuth(at)
 	}
 	mapEntryL7DerivedAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, false, at.AsDerivedRequirement())
+		return newAllowEntry().withLabels(lbls).withDerivedAuth(at)
 	}
 	mapEntryL7Deny = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, true, NoAuthRequirement)
+		return newDenyEntry().withLabels(lbls)
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) mapStateEntry {
-		entry := newMapStateEntry(nil, lbls, 1, 0, false, NoAuthRequirement)
-		entry.ProxyPort = 1
-		return entry
+		return newAllowEntry().withLabels(lbls).withProxyPort(1)
 	}
 )
 
@@ -1449,7 +1447,7 @@ var (
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
 	mapKeyL3UnknownIngress            = IngressKey()
-	mapEntryL3UnknownIngress          = newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, NoAuthRequirement)
+	mapEntryL3UnknownIngress          = newAllowEntryWithLabels(LabelsAllowAnyIngress)
 	mapKeyL3HostEgress                = EgressKey().WithIdentity(identity.ReservedIdentityHost)
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
