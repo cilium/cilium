@@ -171,14 +171,15 @@ const (
 
 func TestPolicyMapWildcarding(t *testing.T) {
 	type args struct {
-		op               opType
-		id               identity.NumericIdentity
-		dport            uint16
-		dportPrefixLen   uint8
-		proto            u8proto.U8proto
-		trafficDirection trafficdirection.TrafficDirection
-		authType         int
-		proxyPort        uint16
+		op                  opType
+		id                  identity.NumericIdentity
+		dport               uint16
+		dportPrefixLen      uint8
+		proto               u8proto.U8proto
+		trafficDirection    trafficdirection.TrafficDirection
+		hasExplicitAuthType bool
+		authType            int
+		proxyPort           uint16
 	}
 	tests := []struct {
 		name string
@@ -186,75 +187,83 @@ func TestPolicyMapWildcarding(t *testing.T) {
 	}{
 		{
 			name: "Allow, no wildcarding, no redirection",
-			args: args{allow, 42, 80, 16, 6, ingress, 0, 0},
+			args: args{allow, 42, 80, 16, 6, ingress, false, 0, 0},
 		},
 		{
-			name: "Allow, no wildcarding, with redirection and auth",
-			args: args{allow, 42, 80, 16, 6, ingress, 1, 23767},
+			name: "Allow, no wildcarding, with redirection and defaulted auth",
+			args: args{allow, 42, 80, 16, 6, ingress, false, 1, 23767},
+		},
+		{
+			name: "Allow, no wildcarding, with redirection and explicit auth",
+			args: args{allow, 42, 80, 16, 6, ingress, true, 1, 23767},
 		},
 		{
 			name: "Allow, wildcarded port, no redirection",
-			args: args{allow, 42, 0, 0, 6, ingress, 0, 0},
+			args: args{allow, 42, 0, 0, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Allow, wildcarded protocol, no redirection",
-			args: args{allow, 42, 0, 0, 0, ingress, 0, 0},
+			args: args{allow, 42, 0, 0, 0, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, no wildcarding, no redirection",
-			args: args{deny, 42, 80, 16, 6, ingress, 0, 0},
+			args: args{deny, 42, 80, 16, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, partially wildcarded port, no redirection",
-			args: args{deny, 42, 80, 15, 6, ingress, 0, 0},
+			args: args{deny, 42, 80, 15, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, no wildcarding, no redirection",
-			args: args{deny, 42, 80, 16, 6, ingress, 0, 0},
+			args: args{deny, 42, 80, 16, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded port, no redirection",
-			args: args{deny, 42, 0, 0, 6, ingress, 0, 0},
+			args: args{deny, 42, 0, 0, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded protocol, no redirection",
-			args: args{deny, 42, 0, 0, 0, ingress, 0, 0},
+			args: args{deny, 42, 0, 0, 0, ingress, false, 0, 0},
 		},
 		{
 			name: "Allow, wildcarded id, no port wildcarding, no redirection",
-			args: args{allow, 0, 80, 16, 6, ingress, 0, 0},
+			args: args{allow, 0, 80, 16, 6, ingress, false, 0, 0},
 		},
 		{
-			name: "Allow, wildcarded id, no port wildcarding, with redirection and auth",
-			args: args{allow, 0, 80, 16, 6, ingress, 1, 23767},
+			name: "Allow, wildcarded id, no port wildcarding, with redirection and defaulted auth",
+			args: args{allow, 0, 80, 16, 6, ingress, false, 1, 23767},
+		},
+		{
+			name: "Allow, wildcarded id, no port wildcarding, with redirection and explicit auth",
+			args: args{allow, 0, 80, 16, 6, ingress, true, 1, 23767},
 		},
 		{
 			name: "Allow, wildcarded id, wildcarded port, no redirection",
-			args: args{allow, 0, 0, 0, 6, ingress, 0, 0},
+			args: args{allow, 0, 0, 0, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Allow, wildcarded id, partially wildcarded port, no redirection",
-			args: args{allow, 0, 80, 10, 6, ingress, 0, 0},
+			args: args{allow, 0, 80, 10, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Allow, wildcarded id, wildcarded protocol, no redirection",
-			args: args{allow, 0, 0, 0, 0, ingress, 0, 0},
+			args: args{allow, 0, 0, 0, 0, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded id, no port wildcarding, no redirection",
-			args: args{deny, 0, 80, 16, 6, ingress, 0, 0},
+			args: args{deny, 0, 80, 16, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded id, no port wildcarding, no redirection",
-			args: args{deny, 0, 80, 16, 6, ingress, 0, 0},
+			args: args{deny, 0, 80, 16, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded id, wildcarded port, no redirection",
-			args: args{deny, 0, 0, 0, 6, ingress, 0, 0},
+			args: args{deny, 0, 0, 0, 6, ingress, false, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded id, wildcarded protocol, no redirection",
-			args: args{deny, 0, 0, 0, 0, ingress, 0, 0},
+			args: args{deny, 0, 0, 0, 0, ingress, false, 0, 0},
 		},
 	}
 	for _, tt := range tests {
@@ -279,16 +288,18 @@ func TestPolicyMapWildcarding(t *testing.T) {
 		var entry PolicyEntry
 		switch tt.args.op {
 		case allow:
-			entry = newAllowEntry(key, uint8(tt.args.authType), uint16(tt.args.proxyPort))
+			entry = newAllowEntry(key, tt.args.hasExplicitAuthType, uint8(tt.args.authType), uint16(tt.args.proxyPort))
 
+			hasExplicitAuthType, authType := entry.GetAuthType()
 			require.Equal(t, policyEntryFlags(0), entry.Flags&policyFlagDeny)
-			require.Equal(t, uint8(tt.args.authType), entry.AuthType)
+			require.Equal(t, tt.args.hasExplicitAuthType, hasExplicitAuthType)
+			require.Equal(t, uint8(tt.args.authType), authType)
 			require.Equal(t, uint16(tt.args.proxyPort), byteorder.NetworkToHost16(entry.ProxyPortNetwork))
 		case deny:
 			entry = newDenyEntry(key)
 
 			require.Equal(t, policyFlagDeny, entry.Flags&policyFlagDeny)
-			require.Equal(t, uint8(0), entry.AuthType)
+			require.Equal(t, policyEntryAuthType(0), entry.AuthType)
 			require.Equal(t, uint16(0), entry.ProxyPortNetwork)
 		}
 
@@ -296,7 +307,8 @@ func TestPolicyMapWildcarding(t *testing.T) {
 		require.Equal(t, uint8(tt.args.proto), key.Nexthdr)
 
 		// key and entry need to agree on the prefix length
-		require.Equal(t, StaticPrefixBits+uint32(entry.GetPrefixLen()), key.Prefixlen)
+		prefixLen := uint8(entry.Flags >> policyFlagLPMShift)
+		require.Equal(t, StaticPrefixBits+uint32(prefixLen), key.Prefixlen)
 
 		if key.Nexthdr == 0 {
 			require.Equal(t, uint16(0), key.DestPortNetwork)

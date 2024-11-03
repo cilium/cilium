@@ -344,8 +344,11 @@ var (
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) mapStateEntry {
 		return newMapStateEntry(nil, lbls, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
 	}
-	mapEntryL7Auth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
+	mapEntryL7ExplicitAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
 		return newMapStateEntry(nil, lbls, 0, 0, false, ExplicitAuthType, at)
+	}
+	mapEntryL7DerivedAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
+		return newMapStateEntry(nil, lbls, 0, 0, false, DefaultAuthType, at)
 	}
 	mapEntryL7Deny = func(lbls ...labels.LabelArray) mapStateEntry {
 		return newMapStateEntry(nil, lbls, 0, 0, true, DefaultAuthType, AuthTypeDisabled)
@@ -502,7 +505,7 @@ func Test_MergeL3(t *testing.T) {
 			api.Rules{ruleL3__AllowFoo, ruleL3__AllowBarAuth},
 			testMapState(map[Key]mapStateEntry{
 				mapKeyAllowFoo__: mapEntryL7None_(lblsL3__AllowFoo),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -513,9 +516,9 @@ func Test_MergeL3(t *testing.T) {
 			3,
 			api.Rules{ruleL3__AllowFoo, ruleL3__AllowBarAuth, rule__L4__AllowAuth},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
+				mapKeyAllow___L4: mapEntryL7ExplicitAuth_(AuthTypeSpire, lbls__L4__Allow),
 				mapKeyAllowFoo__: mapEntryL7None_(lblsL3__AllowFoo),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}, AuthTypeSpire: struct{}{}},
@@ -527,7 +530,7 @@ func Test_MergeL3(t *testing.T) {
 			api.Rules{rule____AllowAll, ruleL3__AllowBarAuth},
 			testMapState(map[Key]mapStateEntry{
 				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -538,8 +541,8 @@ func Test_MergeL3(t *testing.T) {
 			5,
 			api.Rules{rule____AllowAllAuth, ruleL3__AllowBar},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
+				mapKeyAllowAll__: mapEntryL7ExplicitAuth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllowBar__: mapEntryL7None_(lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
@@ -550,8 +553,8 @@ func Test_MergeL3(t *testing.T) {
 			6,
 			api.Rules{rule____AllowAllAuth, rule__L4__Allow},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
+				mapKeyAllowAll__: mapEntryL7ExplicitAuth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7DerivedAuth_(AuthTypeSpire, lbls__L4__Allow),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
@@ -562,9 +565,9 @@ func Test_MergeL3(t *testing.T) {
 			7,
 			api.Rules{rule____AllowAllAuth, ruleL3__AllowBar, rule__L4__Allow},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
+				mapKeyAllowAll__: mapEntryL7ExplicitAuth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7DerivedAuth_(AuthTypeSpire, lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7DerivedAuth_(AuthTypeDisabled, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
@@ -575,9 +578,9 @@ func Test_MergeL3(t *testing.T) {
 			8,
 			api.Rules{rule____AllowAll, ruleL3__AllowBar, rule__L4__Allow},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeDisabled, lblsL3__AllowBar),
+				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7None_(lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{},
@@ -588,10 +591,9 @@ func Test_MergeL3(t *testing.T) {
 			9,
 			api.Rules{rule____AllowAll, rule__L4__Allow, ruleL3__AllowBarAuth},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
-				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar, lbls__L4__Allow),
+				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -602,10 +604,10 @@ func Test_MergeL3(t *testing.T) {
 			10, // Same as 9, but the L3L4 entry is created by an explicit rule.
 			api.Rules{rule____AllowAll, rule__L4__Allow, ruleL3__AllowBarAuth, ruleL3L4AllowBarAuth},
 			testMapState(map[Key]mapStateEntry{
-				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
-				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
-				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar, lblsL3L4AllowBar, lbls__L4__Allow),
+				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBarL4: mapEntryL7ExplicitAuth_(AuthTypeAlwaysFail, lblsL3L4AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -780,13 +782,6 @@ func testCaseToMapState(t generatedBPFKey) *mapState {
 		}
 	}
 
-	// Add dependency deny-L3->deny-L3L4 if allow-L4 exists
-	denyL3, denyL3exists := m.denies.Lookup(mapKeyDeny_Foo__)
-	denyL3L4, denyL3L4exists := m.denies.Lookup(mapKeyDeny_FooL4)
-	allowL4, allowL4exists := m.allows.Lookup(mapKeyAllow___L4)
-	if allowL4exists && !allowL4.IsDeny && denyL3exists && denyL3.IsDeny && denyL3L4exists && denyL3L4.IsDeny {
-		m.AddDependent(mapKeyDeny_Foo__, mapKeyDeny_FooL4, ChangeState{})
-	}
 	return m
 }
 
@@ -1449,7 +1444,7 @@ var (
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
 	mapKeyL3UnknownIngress            = IngressKey()
-	mapEntryL3UnknownIngress          = newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, ExplicitAuthType, AuthTypeDisabled)
+	mapEntryL3UnknownIngress          = newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
 	mapKeyL3HostEgress                = EgressKey().WithIdentity(identity.ReservedIdentityHost)
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
