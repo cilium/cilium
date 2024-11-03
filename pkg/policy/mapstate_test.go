@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func (ms *mapState) withState(initMap map[Key]mapStateEntry) *mapState {
+func (ms mapState) withState(initMap map[Key]mapStateEntry) mapState {
 	for k, v := range initMap {
 		ms.insert(k, v)
 	}
@@ -115,10 +115,6 @@ func (e mapStateEntry) withProxyPortPriority(proxyPort, priority uint16) mapStat
 }
 
 func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
-	testMapState := func(initMap map[Key]mapStateEntry) *mapState {
-		return newMapState().withState(initMap)
-	}
-
 	allowEntry := MapStateEntry{}.toMapStateEntry(0, nil, nil)
 	denyEntry := MapStateEntry{IsDeny: true}.toMapStateEntry(0, nil, nil)
 
@@ -129,7 +125,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 	}
 	tests := []struct {
 		name                  string
-		ms, want              *mapState
+		ms, want              mapState
 		wantAdds, wantDeletes Keys
 		wantOld               map[Key]mapStateEntry
 		args                  args
@@ -810,14 +806,14 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		entry := tt.args.entry.toMapStateEntry(tt.args.priority, nil, nil)
 		ms.insertWithChanges(tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
-		require.Truef(t, ms.deepEquals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(tt.want))
+		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
 		require.EqualValuesf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
 		require.EqualValuesf(t, tt.wantDeletes, changes.Deletes, "%s: Deletes mismatch", tt.name)
 		require.EqualValuesf(t, tt.wantOld, changes.old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
 		ms.revertChanges(changes)
-		require.Truef(t, ms.deepEquals(tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.diff(tt.ms))
+		require.Truef(t, ms.Equal(&tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.ms))
 	}
 }
 
@@ -877,9 +873,6 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
-	testMapState := func(initMap map[Key]mapStateEntry) *mapState {
-		return newMapState().withState(initMap)
-	}
 
 	type args struct {
 		cs       *testCachedSelector
@@ -894,9 +887,9 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	tests := []struct {
 		continued bool // Start from the end state of the previous test
 		name      string
-		setup     *mapState
+		setup     mapState
 		args      []args // changes applied, in order
-		state     *mapState
+		state     mapState
 		adds      Keys
 		deletes   Keys
 	}{{
@@ -1198,10 +1191,10 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	for _, tt := range tests {
 		policyMaps := MapChanges{}
 		if !tt.continued {
-			if tt.setup != nil {
+			if tt.setup.Valid() {
 				policyMapState = tt.setup
 			} else {
-				policyMapState = newMapState()
+				policyMapState = testMapState(nil)
 			}
 		}
 		epPolicy.policyMapState = policyMapState
@@ -1231,7 +1224,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			handle.Close()
 		}
 		policyMapState.validatePortProto(t)
-		require.True(t, policyMapState.deepEquals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(tt.state))
+		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
 		require.EqualValues(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
@@ -1332,9 +1325,6 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
-	testMapState := func(initMap map[Key]mapStateEntry) *mapState {
-		return newMapState().withState(initMap)
-	}
 
 	type args struct {
 		cs       *testCachedSelector
@@ -1351,7 +1341,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued bool // Start from the end state of the previous test
 		name      string
 		args      []args // changes applied, in order
-		state     *mapState
+		state     mapState
 		adds      Keys
 		deletes   Keys
 	}{{
@@ -1661,7 +1651,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			handle.Close()
 		}
 		policyMapState.validatePortProto(t)
-		require.True(t, policyMapState.deepEquals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(tt.state))
+		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
 		require.EqualValues(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
@@ -1921,7 +1911,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		}
 		outcomeKeys.validatePortProto(t)
 
-		require.True(t, expectedKeys.deepEquals(outcomeKeys), "%s (MapState):\n%s", tt.name, outcomeKeys.diff(expectedKeys))
+		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
 
 		// Test also with reverse insertion order
 		outcomeKeys = newMapState()
@@ -1938,7 +1928,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
-		require.True(t, expectedKeys.deepEquals(outcomeKeys), "%s (in reverse) (MapState):\n%s", tt.name, outcomeKeys.diff(expectedKeys))
+		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s (in reverse) (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
 	}
 	// Now test all cases with different traffic directions.
 	// This should result in both entries being inserted with
@@ -1983,7 +1973,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
-		require.True(t, expectedKeys.deepEquals(outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.diff(expectedKeys))
+		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
 
 		// Test also with reverse insertion order
 		outcomeKeys = newMapState()
@@ -1999,7 +1989,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
-		require.True(t, expectedKeys.deepEquals(outcomeKeys), "%s different traffic directions (in reverse) (MapState):\n%s", tt.name, outcomeKeys.diff(expectedKeys))
+		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (in reverse) (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
 	}
 }
 
