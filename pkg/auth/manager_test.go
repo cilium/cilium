@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 func Test_newAuthManager_clashingAuthHandlers(t *testing.T) {
@@ -269,8 +269,8 @@ func (r *fakeAuthHandler) authenticate(authReq *authRequest) (*authResponse, err
 	return &authResponse{}, nil
 }
 
-func (r *fakeAuthHandler) authType() policy.AuthType {
-	return policy.AuthType(255)
+func (r *fakeAuthHandler) authType() policyTypes.AuthType {
+	return policyTypes.AuthType(127)
 }
 
 func (r *fakeAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -33,9 +33,9 @@ func (r *alwaysPassAuthHandler) authenticate(authReq *authRequest) (*authRespons
 	}, nil
 }
 
-func (r *alwaysPassAuthHandler) authType() policy.AuthType {
+func (r *alwaysPassAuthHandler) authType() policyTypes.AuthType {
 	// return a dummy auth type as this auth type is used only for testing
-	return policy.AuthType(100)
+	return policyTypes.AuthType(100)
 }
 
 func (r *alwaysPassAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {

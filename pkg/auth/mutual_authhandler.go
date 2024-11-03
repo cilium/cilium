@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -159,8 +159,8 @@ func (m *mutualAuthHandler) authenticate(ar *authRequest) (*authResponse, error)
 	}, nil
 }
 
-func (m *mutualAuthHandler) authType() policy.AuthType {
-	return policy.AuthTypeSpire
+func (m *mutualAuthHandler) authType() policyTypes.AuthType {
+	return policyTypes.AuthTypeSpire
 }
 
 func (m *mutualAuthHandler) listenForConnections(upstreamCtx context.Context, ready chan<- struct{}) {

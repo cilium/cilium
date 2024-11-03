@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 // Key and Keys are types used both internally and externally.
@@ -30,24 +30,26 @@ import (
 //
 // Do not use these types outside of pkg/policy or pkg/endpoint,
 // lest ye find yourself with hundreds of unnecessary imports.
-type Key = policyTypes.Key
-type Keys = policyTypes.Keys
-type MapStateOwner = CachedSelector
+type Key = types.Key
+type Keys = types.Keys
+type MapStateOwner = types.CachedSelector
+
+const NoAuthRequirement = types.NoAuthRequirement
 
 // Map type for external use. Internally we have more detail in private 'mapSteteEntry' type,
 // as well as more extensive indexing via tries.
 type MapStateMap map[Key]MapStateEntry
 
-func EgressKey() policyTypes.Key {
-	return policyTypes.EgressKey()
+func EgressKey() types.Key {
+	return types.EgressKey()
 }
 
-func IngressKey() policyTypes.Key {
-	return policyTypes.IngressKey()
+func IngressKey() types.Key {
+	return types.IngressKey()
 }
 
 func KeyForDirection(direction trafficdirection.TrafficDirection) Key {
-	return policyTypes.KeyForDirection(direction)
+	return types.KeyForDirection(direction)
 }
 
 var (
@@ -103,7 +105,7 @@ type mapStateMap struct {
 	entries map[Key]mapStateEntry
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
-	trie bitlpm.Trie[bitlpm.Key[policyTypes.LPMKey], IDSet]
+	trie bitlpm.Trie[bitlpm.Key[types.LPMKey], IDSet]
 }
 
 type IDSet map[identity.NumericIdentity]struct{}
@@ -335,12 +337,9 @@ type MapStateEntry struct {
 	// Invalid is only set to mark the current entry for update when syncing entries to datapath
 	Invalid bool
 
-	// HasAuthType is 'DefaultAuthType' when policy has no explicit AuthType set. In this case
-	// the value of AuthType is derived from more generic entries covering this entry.
-	HasAuthType HasAuthType
-
-	// AuthType is non-zero when authentication is required for the traffic to be allowed.
-	AuthType AuthType
+	// AuthRequirement is non-zero when authentication is required for the traffic to be
+	// allowed, except for when it explicitly defines authentication is not required.
+	AuthRequirement AuthRequirement
 }
 
 // mapSteteEntry is the entry type with additional internal bookkeping of the relation between
@@ -368,7 +367,7 @@ type mapStateEntry struct {
 // 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
 // will become sticky and cannot be completely removed via incremental updates. Even in this case
 // the entry may be overridden or removed by a deny entry.
-func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxyPort uint16, priority uint16, deny bool, hasAuth HasAuthType, authType AuthType) mapStateEntry {
+func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxyPort uint16, priority uint16, deny bool, authReq AuthRequirement) mapStateEntry {
 	if proxyPort == 0 {
 		priority = 0
 	} else if priority == 0 {
@@ -376,10 +375,9 @@ func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxy
 	}
 	return mapStateEntry{
 		MapStateEntry: MapStateEntry{
-			ProxyPort:   proxyPort,
-			IsDeny:      deny,
-			HasAuthType: hasAuth,
-			AuthType:    authType,
+			ProxyPort:       proxyPort,
+			IsDeny:          deny,
+			AuthRequirement: authReq,
 		},
 		priority:         priority,
 		derivedFromRules: derivedFrom,
@@ -408,7 +406,7 @@ func (e *mapStateEntry) GetRuleLabels() labels.LabelArrayList {
 func newMapStateMap() mapStateMap {
 	return mapStateMap{
 		entries: make(map[Key]mapStateEntry),
-		trie:    bitlpm.NewTrie[policyTypes.LPMKey, IDSet](policyTypes.MapStatePrefixLen),
+		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
 }
 
@@ -624,14 +622,13 @@ func (e *mapStateEntry) merge(entry *mapStateEntry) {
 
 		// Numerically higher AuthType takes precedence when both are
 		// either explicitly defined or derived
-		if entry.HasAuthType == e.HasAuthType {
-			if entry.AuthType > e.AuthType {
-				e.AuthType = entry.AuthType
+		if entry.AuthRequirement.IsExplicit() == e.AuthRequirement.IsExplicit() {
+			if entry.AuthRequirement > e.AuthRequirement {
+				e.AuthRequirement = entry.AuthRequirement
 			}
-		} else if entry.HasAuthType {
-			// Explicit auth takes precedence over derived one.
-			e.HasAuthType = ExplicitAuthType
-			e.AuthType = entry.AuthType
+		} else if entry.AuthRequirement.IsExplicit() {
+			// Explicit auth takes precedence over defaulted one.
+			e.AuthRequirement = entry.AuthRequirement
 		}
 	}
 
@@ -679,20 +676,15 @@ func (e *mapStateEntry) deepEqual(o *mapStateEntry) bool {
 	return true
 }
 
-func (e MapStateEntry) WithAuthType(authType AuthType) MapStateEntry {
-	e.AuthType = authType
-	return e
-}
-
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
 	var authText string
-	if e.HasAuthType == ExplicitAuthType || e.AuthType != 0 {
+	if e.AuthRequirement != 0 {
 		var authNote string
-		if e.HasAuthType != ExplicitAuthType {
-			authNote = "(derived)"
+		if !e.AuthRequirement.IsExplicit() {
+			authNote = " (derived)"
 		}
-		authText = ",AuthType=" + e.AuthType.String() + authNote
+		authText = ",AuthType=" + e.AuthRequirement.AuthType().String() + authNote
 	}
 
 	return "ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10) +
@@ -889,33 +881,37 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 	ms.addKeyWithChanges(newKey, newEntry, changes)
 }
 
-// overrideAuthType sets the AuthType of 'v' to that of 'newKey', saving the old entry in 'changes'.
-func (ms *mapState) overrideAuthType(newEntry mapStateEntry, k Key, v mapStateEntry, changes ChangeState) {
-	// Save the old value first
-	changes.insertOldIfNotExists(k, v)
+// overrideAuthRequirement sets the AuthRequirement of 'v' to that of 'newKey', saving the old entry
+// in 'changes'.
+func (ms *mapState) overrideAuthRequirement(newEntry mapStateEntry, k Key, v mapStateEntry, changes ChangeState) {
+	if v.AuthRequirement.AuthType() != newEntry.AuthRequirement.AuthType() {
+		// Save the old value first
+		changes.insertOldIfNotExists(k, v)
 
-	// Auth type can be changed in-place, trie is not affected
-	v.AuthType = newEntry.AuthType
-	ms.allows.entries[k] = v
+		// Auth type can be changed in-place, trie is not affected
+		// Only derived auth type is ever overridden, so the explicit flag is not copied
+		v.AuthRequirement = newEntry.AuthRequirement.AsDerived()
+		ms.allows.entries[k] = v
+	}
 }
 
-// authPreferredInsert applies AuthType of a more generic entry to more specific entries, if not
-// explicitly specified.
+// authPreferredInsert applies AuthRequirement of a more generic entry to more specific entries, if
+// not explicitly specified.
 //
 // This function is expected to be called for a map insertion after deny
 // entry evaluation. If there is a covering map key for 'newKey'
 // which denies traffic matching 'newKey', then this function should not be called.
 func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, changes ChangeState) {
-	if newEntry.HasAuthType == DefaultAuthType {
+	if !newEntry.AuthRequirement.IsExplicit() {
 		// New entry has a default auth type.
 
-		// Fill in the AuthType from the most specific covering key with the same ID and an
-		// explicit auth type
+		// Fill in the AuthRequirement from the most specific covering key with the same ID
+		// and an explicit auth type
 		for _, v := range ms.allows.CoveringKeysWithSameID(newKey) {
-			if v.HasAuthType == ExplicitAuthType {
-				// AuthType from the most specific covering key is applied to
+			if v.AuthRequirement.IsExplicit() {
+				// AuthRequirement from the most specific covering key is applied to
 				// 'newEntry'
-				newEntry.AuthType = v.AuthType
+				newEntry.AuthRequirement = v.AuthRequirement.AsDerived()
 				break
 			}
 		}
@@ -924,12 +920,12 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, chan
 		// with the same ID and default auth type, and propagate the auth type from the new
 		// entry to such entries.
 		for k, v := range ms.allows.SubsetKeysWithSameID(newKey) {
-			if v.HasAuthType == ExplicitAuthType {
+			if v.AuthRequirement.IsExplicit() {
 				// Stop if a subset entry has an explicit auth type, as that is the
 				// more specific covering key for all remaining subset keys
 				break
 			}
-			ms.overrideAuthType(newEntry, k, v, changes)
+			ms.overrideAuthRequirement(newEntry, k, v, changes)
 		}
 	}
 
@@ -971,7 +967,7 @@ func (ms *mapState) determineAllowLocalhostIngress() {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
 			},
 		}
-		entry := newMapStateEntry(nil, derivedFrom, 0, 0, false, DefaultAuthType, AuthTypeDisabled) // Authentication never required for local host ingress
+		entry := newMapStateEntry(nil, derivedFrom, 0, 0, false, NoAuthRequirement) // Authentication never required for local host ingress
 		ms.insertWithChanges(localHostKey, entry, allFeatures, ChangeState{})
 	}
 }
@@ -982,10 +978,10 @@ func (ms *mapState) determineAllowLocalhostIngress() {
 // Note that this is used when policy is not enforced, so authentication is explicitly not required.
 func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 	if ingress {
-		ms.allows.upsert(allKey[trafficdirection.Ingress], newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, DefaultAuthType, AuthTypeDisabled))
+		ms.allows.upsert(allKey[trafficdirection.Ingress], newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, NoAuthRequirement))
 	}
 	if egress {
-		ms.allows.upsert(allKey[trafficdirection.Egress], newMapStateEntry(nil, LabelsAllowAnyEgress, 0, 0, false, DefaultAuthType, AuthTypeDisabled))
+		ms.allows.upsert(allKey[trafficdirection.Egress], newMapStateEntry(nil, LabelsAllowAnyEgress, 0, 0, false, NoAuthRequirement))
 	}
 }
 

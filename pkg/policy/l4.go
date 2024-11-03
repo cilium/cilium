@@ -15,7 +15,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/types"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
@@ -28,9 +28,16 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+type AuthType = types.AuthType
+type AuthTypes = types.AuthTypes
+type AuthRequirement = types.AuthRequirement
+
+// authmap maps remote selectors to their needed AuthTypes, if any
+type authMap map[CachedSelector]types.AuthTypes
 
 // covers returns true if 'l4rule' has the effect needed for the 'l3l4rule', when 'l4rule' is added
 // to the datapath, due to the l4-only rule matching if l3l4-rule is not present. This determination
@@ -45,14 +52,11 @@ func (l4rule *PerSelectorPolicy) covers(l3l4rule *PerSelectorPolicy) bool {
 		return false
 	}
 
-	// Can not skip if currentRule has an explicit auth type and wildcardRule does not or if
-	// both have different auth types.  In all other cases the auth type from the wildcardRule
-	// can be used also for the current rule.
+	// Can not skip if rules have different auth types.  In all other cases the auth type from
+	// the wildcardRule can be used also for the current rule.
 	// Note that the caller must deal with inheriting redirect from wildcardRule to currentRule,
 	// if any.
-	cHasAuth, cAuthType := l3l4rule.GetAuthType()
-	wHasAuth, wAuthType := l4rule.GetAuthType()
-	if cHasAuth && !wHasAuth || cHasAuth && wHasAuth && cAuthType != wAuthType {
+	if l3l4rule.getAuthRequirement() != l4rule.getAuthRequirement() {
 		return false
 	}
 
@@ -77,7 +81,7 @@ type TLSContext struct {
 	CertificateChain string `json:"certificateChain,omitempty"`
 	PrivateKey       string `json:"privateKey,omitempty"`
 	// Secret holds the name of the Secret that was referenced in the Policy
-	Secret types.NamespacedName
+	Secret k8sTypes.NamespacedName
 	// FromFile is true if the values in the keys above were read from the filesystem
 	// and not a Kubernetes Secret
 	FromFile bool
@@ -233,75 +237,42 @@ func (a *PerSelectorPolicy) GetPriority() uint16 {
 	return a.Priority
 }
 
-// AuthType enumerates the supported authentication types in api.
-// Numerically higher type takes precedence in case of conflicting auth types.
-type AuthType uint8
-
-// AuthTypes is a set of AuthTypes, usually nil if empty
-type AuthTypes map[AuthType]struct{}
-
-// Authmap maps remote selectors to their needed AuthTypes, if any
-type AuthMap map[CachedSelector]AuthTypes
-
-const (
-	// AuthTypeDisabled means no authentication required
-	AuthTypeDisabled AuthType = iota
-	// AuthTypeSpire is a mutual auth type that uses SPIFFE identities with a SPIRE server
-	AuthTypeSpire
-	// AuthTypeAlwaysFail is a simple auth type that always denies the request
-	AuthTypeAlwaysFail
-)
-
-type HasAuthType bool
-
-const (
-	DefaultAuthType  HasAuthType = false
-	ExplicitAuthType HasAuthType = true
-)
-
-// GetAuthType returns the AuthType of the L4Filter.
-func (a *PerSelectorPolicy) GetAuthType() (HasAuthType, AuthType) {
-	if a == nil {
-		return DefaultAuthType, AuthTypeDisabled
-	}
-	return GetAuthType(a.Authentication)
-}
-
-// GetAuthType returns boolean HasAuthType and AuthType for the api.Authentication
-// If there is no explicit auth type, (DefaultAuthType, AuthTypeDisabled) is returned
-func GetAuthType(auth *api.Authentication) (HasAuthType, AuthType) {
+// getAuthType returns AuthType for the api.Authentication
+func getAuthType(auth *api.Authentication) (bool, AuthType) {
 	if auth == nil {
-		return DefaultAuthType, AuthTypeDisabled
+		return false, types.AuthTypeDisabled
 	}
 	switch auth.Mode {
 	case api.AuthenticationModeDisabled:
-		return ExplicitAuthType, AuthTypeDisabled
+		return true, types.AuthTypeDisabled
 	case api.AuthenticationModeRequired:
-		return ExplicitAuthType, AuthTypeSpire
+		return true, types.AuthTypeSpire
 	case api.AuthenticationModeAlwaysFail:
-		return ExplicitAuthType, AuthTypeAlwaysFail
+		return true, types.AuthTypeAlwaysFail
 	default:
-		return DefaultAuthType, AuthTypeDisabled
+		return false, types.AuthTypeDisabled
 	}
 }
 
-// Uint8 returns AuthType as a uint8
-func (a AuthType) Uint8() uint8 {
-	return uint8(a)
+// getAuthType returns the AuthType of the L4Filter.
+func (a *PerSelectorPolicy) getAuthType() (bool, AuthType) {
+	if a == nil {
+		return false, types.AuthTypeDisabled
+	}
+	return getAuthType(a.Authentication)
 }
 
-// String returns AuthType as a string
-// This must return the strings accepted for api.AuthType
-func (a AuthType) String() string {
-	switch a {
-	case AuthTypeDisabled:
-		return "disabled"
-	case AuthTypeSpire:
-		return "spire"
-	case AuthTypeAlwaysFail:
-		return "test-always-fail"
+// GetAuthRequirement returns the AuthRequirement of the L4Filter.
+func (a *PerSelectorPolicy) getAuthRequirement() AuthRequirement {
+	if a == nil {
+		return AuthRequirement(types.AuthTypeDisabled)
 	}
-	return "Unknown-auth-type-" + strconv.FormatUint(uint64(a.Uint8()), 10)
+	explicit, authType := getAuthType(a.Authentication)
+	req := AuthRequirement(authType)
+	if explicit {
+		req |= types.AuthTypeIsExplicit
+	}
+	return req
 }
 
 // IsRedirect returns true if the L7Rules are a redirect.
@@ -324,7 +295,7 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 
 	/* First, create a sorted slice of the selectors so we can get
 	 * consistent JSON output */
-	selectors := make(policytypes.CachedSelectorSlice, 0, len(l7))
+	selectors := make(types.CachedSelectorSlice, 0, len(l7))
 	for cs := range l7 {
 		selectors = append(selectors, cs)
 	}
@@ -629,7 +600,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 			listener = wildcardRule.GetListener()
 			priority = wildcardRule.GetPriority()
 		}
-		hasAuth, authType := currentRule.GetAuthType()
+		authReq := currentRule.getAuthRequirement()
 		var proxyPort uint16
 		if isRedirect {
 			var err error
@@ -642,7 +613,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 				continue
 			}
 		}
-		entry := newMapStateEntry(cs, l4.RuleOrigin[cs], proxyPort, priority, isDenyRule, hasAuth, authType)
+		entry := newMapStateEntry(cs, l4.RuleOrigin[cs], proxyPort, priority, isDenyRule, authReq)
 
 		if cs.IsWildcard() {
 			for _, keyToAdd := range keysToAdd {
@@ -707,7 +678,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (l4 *L4Filter) IdentitySelectionUpdated(cs policytypes.CachedSelector, added, deleted []identity.NumericIdentity) {
+func (l4 *L4Filter) IdentitySelectionUpdated(cs types.CachedSelector, added, deleted []identity.NumericIdentity) {
 	log.WithFields(logrus.Fields{
 		logfields.EndpointSelector: cs,
 		logfields.AddedPolicyID:    added,
@@ -768,7 +739,7 @@ func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, lbls lab
 	}
 }
 
-func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls labels.LabelArray, selectorCache *SelectorCache) policytypes.CachedSelector {
+func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls labels.LabelArray, selectorCache *SelectorCache) types.CachedSelector {
 	cs, added := selectorCache.AddFQDNSelector(l4, lbls, sel)
 	if added {
 		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
@@ -832,7 +803,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 			return nil, fmt.Errorf("invalid TLS direction: %s", direction)
 		}
 	} else {
-		log.Debug("Secret being read from Kubernetes", "secret", types.NamespacedName(*tls.Secret))
+		log.Debug("Secret being read from Kubernetes", "secret", k8sTypes.NamespacedName(*tls.Secret))
 	}
 
 	return &TLSContext{
@@ -840,7 +811,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 		CertificateChain: public,
 		PrivateKey:       private,
 		FromFile:         inlineSecrets,
-		Secret:           types.NamespacedName(*tls.Secret),
+		Secret:           k8sTypes.NamespacedName(*tls.Secret),
 	}, nil
 }
 
@@ -970,7 +941,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 }
 
 func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
-	selectors := make(policytypes.CachedSelectorSlice, 0, len(l4.PerSelectorPolicies))
+	selectors := make(types.CachedSelectorSlice, 0, len(l4.PerSelectorPolicies))
 	for cs := range l4.PerSelectorPolicies {
 		selectors = append(selectors, cs)
 	}
@@ -1002,20 +973,20 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 				features.setFeature(denyRules)
 			}
 
-			hasAuth, authType := GetAuthType(cp.Authentication)
-			if hasAuth {
+			explicit, authType := getAuthType(cp.Authentication)
+			if explicit {
 				features.setFeature(authRules)
 
-				if authType != AuthTypeDisabled {
-					if l4Policy.AuthMap == nil {
-						l4Policy.AuthMap = make(AuthMap, 1)
+				if authType != types.AuthTypeDisabled {
+					if l4Policy.authMap == nil {
+						l4Policy.authMap = make(authMap, 1)
 					}
-					authTypes := l4Policy.AuthMap[cs]
+					authTypes := l4Policy.authMap[cs]
 					if authTypes == nil {
 						authTypes = make(AuthTypes, 1)
 					}
 					authTypes[authType] = struct{}{}
-					l4Policy.AuthMap[cs] = authTypes
+					l4Policy.authMap[cs] = authTypes
 				}
 			}
 
@@ -1547,7 +1518,7 @@ type L4Policy struct {
 	Ingress L4DirectionPolicy
 	Egress  L4DirectionPolicy
 
-	AuthMap AuthMap
+	authMap authMap
 
 	// Revision is the repository revision used to generate this policy.
 	Revision uint64
@@ -1629,7 +1600,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 	redirect := perSelectorPolicy.IsRedirect()
 	listener := perSelectorPolicy.GetListener()
 	priority := perSelectorPolicy.GetPriority()
-	hasAuth, authType := perSelectorPolicy.GetAuthType()
+	authReq := perSelectorPolicy.getAuthRequirement()
 	isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
 
 	// Can hold rlock here as neither GetNamedPort() nor LookupRedirectPort() no longer
@@ -1668,12 +1639,12 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := newMapStateEntry(cs, derivedFrom, proxyPort, priority, isDeny, hasAuth, authType)
+		value := newMapStateEntry(cs, derivedFrom, proxyPort, priority, isDeny, authReq)
 
 		if option.Config.Debug {
 			authString := "default"
-			if hasAuth {
-				authString = authType.String()
+			if authReq.IsExplicit() {
+				authString = authReq.AuthType().String()
 			}
 			log.WithFields(logrus.Fields{
 				logfields.EndpointSelector: cs,

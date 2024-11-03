@@ -8,7 +8,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 func newAlwaysFailAuthHandler() authHandlerResult {
@@ -25,8 +25,8 @@ func (r *alwaysFailAuthHandler) authenticate(authReq *authRequest) (*authRespons
 	return nil, errors.New("authenticating failed by the always-fail auth handler")
 }
 
-func (r *alwaysFailAuthHandler) authType() policy.AuthType {
-	return policy.AuthTypeAlwaysFail
+func (r *alwaysFailAuthHandler) authType() policyTypes.AuthType {
+	return policyTypes.AuthTypeAlwaysFail
 }
 
 func (r *alwaysFailAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {

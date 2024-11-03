@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -48,7 +48,7 @@ func (r *authMapGarbageCollector) Name() string {
 }
 
 type policyRepository interface {
-	GetAuthTypes(localID, remoteID identity.NumericIdentity) policy.AuthTypes
+	GetAuthTypes(localID, remoteID identity.NumericIdentity) policyTypes.AuthTypes
 }
 
 func newAuthMapGC(logger *slog.Logger, authmap authMap, nodeIDHandler datapathTypes.NodeIDHandler, policyRepo policyRepository) *authMapGarbageCollector {

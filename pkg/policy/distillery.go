@@ -126,7 +126,7 @@ func (cache *policyCache) getAuthTypes(localID, remoteID identityPkg.NumericIden
 	selPolicy := cip.getPolicy()
 
 	var resTypes AuthTypes
-	for cs, authTypes := range selPolicy.L4Policy.AuthMap {
+	for cs, authTypes := range selPolicy.L4Policy.authMap {
 		missing := false
 		for authType := range authTypes {
 			if _, exists := resTypes[authType]; !exists {
