@@ -912,7 +912,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 	if entry.IsDeny {
 		err = e.policyMap.DenyKey(policymapKey)
 	} else {
-		err = e.policyMap.AllowKey(policymapKey, entry.AuthRequirement.IsExplicit(), entry.AuthRequirement.AuthType().Uint8(), entry.ProxyPort)
+		err = e.policyMap.AllowKey(policymapKey, entry.AuthRequirement, entry.ProxyPort)
 	}
 	if err != nil {
 		e.getLogger().WithError(err).WithFields(logrus.Fields{
@@ -1203,14 +1203,10 @@ func (e *Endpoint) dumpPolicyMapToMapStateMap() (policy.MapStateMap, error) {
 			WithPortProtoPrefix(u8proto.U8proto(policymapKey.Nexthdr), policymapKey.GetDestPort(), policymapKey.GetPortPrefixLen())
 		policymapEntry := value.(*policymap.PolicyEntry)
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
-		hasExplicitAuthType, authType := policymapEntry.GetAuthType()
 		policyEntry := policy.MapStateEntry{
 			ProxyPort:       policymapEntry.GetProxyPort(),
 			IsDeny:          policymapEntry.IsDeny(),
-			AuthRequirement: policy.AuthType(authType).AsDerivedRequirement(),
-		}
-		if hasExplicitAuthType {
-			policyEntry.AuthRequirement = policy.AuthType(authType).AsExplicitRequirement()
+			AuthRequirement: policymapEntry.AuthRequirement,
 		}
 		// if policymapEntry has invalid prefix length, force update by storing as an
 		// invalid MapStateEntry
