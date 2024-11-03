@@ -1,6 +1,6 @@
 - name: '1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'rhel8-20240404.144247'
+  kernel: 'rhel8.6-20241031.113911'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
