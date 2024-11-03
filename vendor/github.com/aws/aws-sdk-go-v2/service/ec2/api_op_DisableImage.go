@@ -27,7 +27,7 @@ import (
 //
 // [DescribeImages]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImages.html
 // [Disable an AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/disable-an-ami.html
-// [EnableImage]: http://amazonaws.com/AWSEC2/latest/APIReference/API_EnableImage.html
+// [EnableImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_EnableImage.html
 func (c *Client) DisableImage(ctx context.Context, params *DisableImageInput, optFns ...func(*Options)) (*DisableImageOutput, error) {
 	if params == nil {
 		params = &DisableImageInput{}

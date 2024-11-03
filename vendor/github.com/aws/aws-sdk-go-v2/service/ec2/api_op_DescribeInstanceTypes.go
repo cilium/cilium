@@ -161,7 +161,8 @@ type DescribeInstanceTypesInput struct {
 	//
 	//   - supported-root-device-type - The root device type ( ebs | instance-store ).
 	//
-	//   - supported-usage-class - The usage class ( on-demand | spot ).
+	//   - supported-usage-class - The usage class ( on-demand | spot | capacity-block
+	//   ).
 	//
 	//   - supported-virtualization-type - The virtualization type ( hvm | paravirtual
 	//   ).

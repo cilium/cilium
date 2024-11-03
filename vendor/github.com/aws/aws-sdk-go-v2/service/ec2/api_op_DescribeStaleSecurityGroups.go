@@ -11,10 +11,15 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the stale security group rules for security groups in a specified
-// VPC. Rules are stale when they reference a deleted security group in a peered
-// VPC. Rules can also be stale if they reference a security group in a peer VPC
-// for which the VPC peering connection has been deleted.
+// Describes the stale security group rules for security groups referenced across
+// a VPC peering connection, transit gateway connection, or with a security group
+// VPC association. Rules are stale when they reference a deleted security group.
+// Rules can also be stale if they reference a security group in a peer VPC for
+// which the VPC peering connection has been deleted, across a transit gateway
+// where the transit gateway has been deleted (or [the transit gateway security group referencing feature]has been disabled), or if a
+// security group VPC association has been disassociated.
+//
+// [the transit gateway security group referencing feature]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-vpc-attachments.html#vpc-attachment-security
 func (c *Client) DescribeStaleSecurityGroups(ctx context.Context, params *DescribeStaleSecurityGroupsInput, optFns ...func(*Options)) (*DescribeStaleSecurityGroupsOutput, error) {
 	if params == nil {
 		params = &DescribeStaleSecurityGroupsInput{}
@@ -59,8 +64,8 @@ type DescribeStaleSecurityGroupsInput struct {
 
 type DescribeStaleSecurityGroupsOutput struct {
 
-	// The token to include in another request to get the next page of items. If there
-	// are no additional items to return, the string is empty.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Information about the stale security groups.
