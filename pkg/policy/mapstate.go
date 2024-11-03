@@ -71,10 +71,12 @@ const (
 )
 
 var (
-	LabelsAllowAnyIngress = labels.LabelArrayList{labels.LabelArray{
-		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved)}}
-	LabelsAllowAnyEgress = labels.LabelArrayList{labels.LabelArray{
-		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved)}}
+	LabelsAllowAnyIngress = labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved)}
+	LabelsAllowAnyEgress = labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved)}
+	LabelsLocalHostIngress = labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved)}
 )
 
 // mapState is an indexed container for policymap keys and entries.
@@ -439,6 +441,12 @@ func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxy
 		derivedFromRules: derivedFrom,
 		owners:           set.NewSet(cs),
 	}
+}
+
+// newAllowEntryWithLabels creates an allow entry with the specified labels and a 'nil' owner.
+// Used for adding allow-all entries when policy ewnforcement is not wanted.
+func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
+	return newMapStateEntry(nil, labels.LabelArrayList{lbls}, 0, 0, false, NoAuthRequirement)
 }
 
 func (e MapStateEntry) toMapStateEntry(priority uint16, cs MapStateOwner, derivedFrom labels.LabelArrayList) mapStateEntry {
@@ -966,12 +974,7 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry mapStateEntry) b
 // endpoint. Authentication for localhost traffic is not required.
 func (ms *mapState) determineAllowLocalhostIngress() {
 	if option.Config.AlwaysAllowLocalhost() {
-		derivedFrom := labels.LabelArrayList{
-			labels.LabelArray{
-				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
-			},
-		}
-		entry := newMapStateEntry(nil, derivedFrom, 0, 0, false, NoAuthRequirement) // Authentication never required for local host ingress
+		entry := newAllowEntryWithLabels(LabelsLocalHostIngress)
 		ms.insertWithChanges(localHostKey, entry, allFeatures, ChangeState{})
 	}
 }
@@ -982,10 +985,10 @@ func (ms *mapState) determineAllowLocalhostIngress() {
 // Note that this is used when policy is not enforced, so authentication is explicitly not required.
 func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 	if ingress {
-		ms.upsert(allKey[trafficdirection.Ingress], newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, NoAuthRequirement))
+		ms.upsert(allKey[trafficdirection.Ingress], newAllowEntryWithLabels(LabelsAllowAnyIngress))
 	}
 	if egress {
-		ms.upsert(allKey[trafficdirection.Egress], newMapStateEntry(nil, LabelsAllowAnyEgress, 0, 0, false, NoAuthRequirement))
+		ms.upsert(allKey[trafficdirection.Egress], newAllowEntryWithLabels(LabelsAllowAnyEgress))
 	}
 }
 
