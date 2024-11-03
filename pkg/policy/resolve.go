@@ -77,7 +77,7 @@ type EndpointPolicy struct {
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the Key and the proxy port must be in host byte-order.
 	// Must only be accessed with PolicyOwner (aka Endpoint) lock taken.
-	policyMapState *mapState
+	policyMapState mapState
 
 	// policyMapChanges collects pending changes to the PolicyMapState
 	policyMapChanges MapChanges
