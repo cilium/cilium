@@ -24,6 +24,11 @@ const (
 // AuthRequirement is a combination of an AuthType with an 'explicit' flag on the highest bit This
 // is defined in order to keep MapStateEntry smaller and to simplify code wiring this to the bpf
 // datapath.
+//
+// NOTE: This type is part of the bpf policy API.
+//
+// This type reflects the layout of the 'auth_type' field in the bpf policy map and is used in
+// pkg/maps/policymap. This layout must not be changed!
 type AuthRequirement AuthType
 
 const (
