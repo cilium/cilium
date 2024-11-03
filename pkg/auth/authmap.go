@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -30,7 +30,7 @@ type authKey struct {
 	localIdentity  identity.NumericIdentity
 	remoteIdentity identity.NumericIdentity
 	remoteNodeID   uint16
-	authType       policy.AuthType
+	authType       policyTypes.AuthType
 }
 
 func (r authKey) String() string {

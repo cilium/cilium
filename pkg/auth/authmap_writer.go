@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/authmap"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 type authMapWriter struct {
@@ -36,7 +36,7 @@ func (r *authMapWriter) All() (map[authKey]authInfo, error) {
 			localIdentity:  identity.NumericIdentity(key.LocalIdentity),
 			remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
 			remoteNodeID:   key.RemoteNodeID,
-			authType:       policy.AuthType(key.AuthType),
+			authType:       policyTypes.AuthType(key.AuthType),
 		}] = authInfo{
 			expiration: info.Expiration.Time(),
 		}

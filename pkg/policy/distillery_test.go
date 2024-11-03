@@ -29,6 +29,12 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
+const (
+	AuthTypeSpire      = types.AuthTypeSpire
+	AuthTypeAlwaysFail = types.AuthTypeAlwaysFail
+	AuthTypeDisabled   = types.AuthTypeDisabled
+)
+
 var (
 	ep1 = testutils.NewTestEndpoint()
 	ep2 = testutils.NewTestEndpoint()
@@ -342,19 +348,19 @@ var (
 	mapKeyAllowAllE_ = EgressKey()
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
+		return newMapStateEntry(nil, lbls, 0, 0, false, NoAuthRequirement)
 	}
 	mapEntryL7ExplicitAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, false, ExplicitAuthType, at)
+		return newMapStateEntry(nil, lbls, 0, 0, false, at.AsExplicitRequirement())
 	}
 	mapEntryL7DerivedAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, false, DefaultAuthType, at)
+		return newMapStateEntry(nil, lbls, 0, 0, false, at.AsDerivedRequirement())
 	}
 	mapEntryL7Deny = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newMapStateEntry(nil, lbls, 0, 0, true, DefaultAuthType, AuthTypeDisabled)
+		return newMapStateEntry(nil, lbls, 0, 0, true, NoAuthRequirement)
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) mapStateEntry {
-		entry := newMapStateEntry(nil, lbls, 1, 0, false, DefaultAuthType, AuthTypeDisabled)
+		entry := newMapStateEntry(nil, lbls, 1, 0, false, NoAuthRequirement)
 		entry.ProxyPort = 1
 		return entry
 	}
@@ -1444,7 +1450,7 @@ var (
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
 	mapKeyL3UnknownIngress            = IngressKey()
-	mapEntryL3UnknownIngress          = newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
+	mapEntryL3UnknownIngress          = newMapStateEntry(nil, LabelsAllowAnyIngress, 0, 0, false, NoAuthRequirement)
 	mapKeyL3HostEgress                = EgressKey().WithIdentity(identity.ReservedIdentityHost)
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
