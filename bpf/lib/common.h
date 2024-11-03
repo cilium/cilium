@@ -398,7 +398,8 @@ struct policy_entry {
 	__u8		deny:1,
 			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
 			lpm_prefix_length:5; /* map key protocol and dport prefix length */
-	__u8		auth_type;
+	__u8		auth_type:7,
+			has_explicit_auth_type:1;
 	__u32		pad1;
 	__u64		packets;
 	__u64		bytes;

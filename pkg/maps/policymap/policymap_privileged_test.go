@@ -44,19 +44,23 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 func TestPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
-	fooEntry := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
-	err := testMap.AllowKey(fooEntry, 0, 0)
+	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
+	err := testMap.AllowKey(fooKey, true, 1, 0)
 	require.NoError(t, err)
 
 	dump, err := testMap.DumpToSlice()
 	require.NoError(t, err)
 	require.Len(t, dump, 1)
 
-	require.EqualValues(t, fooEntry, dump[0].Key)
+	require.EqualValues(t, fooKey, dump[0].Key)
+
+	hasExplicitAuth, authType := dump[0].PolicyEntry.GetAuthType()
+	require.NotEqual(t, 0, hasExplicitAuth)
+	require.Equal(t, uint8(1), authType)
 
 	// Special case: allow-all entry
 	barEntry := NewKey(0, 0, 0, 0, 0)
-	err = testMap.AllowKey(barEntry, 0, 0)
+	err = testMap.AllowKey(barEntry, false, 0, 0)
 	require.NoError(t, err)
 
 	dump, err = testMap.DumpToSlice()
