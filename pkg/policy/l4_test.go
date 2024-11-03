@@ -154,8 +154,8 @@ func TestCreateL4Filter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			hasAuth, authType := r.GetAuthType()
-			require.Equal(t, DefaultAuthType, hasAuth)
+			explicit, authType := r.getAuthType()
+			require.False(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
 		}
 		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
@@ -164,8 +164,8 @@ func TestCreateL4Filter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			hasAuth, authType := r.GetAuthType()
-			require.Equal(t, DefaultAuthType, hasAuth)
+			explicit, authType := r.getAuthType()
+			require.False(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
 		}
 		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
@@ -198,8 +198,8 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			hasAuth, authType := r.GetAuthType()
-			require.Equal(t, ExplicitAuthType, hasAuth)
+			explicit, authType := r.getAuthType()
+			require.True(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
 		}
 		require.Equal(t, redirectTypeEnvoy, filter.redirectType())
@@ -208,8 +208,8 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			hasAuth, authType := r.GetAuthType()
-			require.Equal(t, ExplicitAuthType, hasAuth)
+			explicit, authType := r.getAuthType()
+			require.True(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
 		}
 		require.Equal(t, redirectTypeEnvoy, filter.redirectType())

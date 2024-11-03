@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/authmap"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -24,13 +24,13 @@ type signalAuthKey authmap.AuthKey
 
 // low-cardinality stringer for metrics
 func (key signalAuthKey) String() string {
-	return policy.AuthType(key.AuthType).String()
+	return policyTypes.AuthType(key.AuthType).String()
 }
 
 type AuthManager struct {
 	logger                *slog.Logger
 	nodeIDHandler         types.NodeIDHandler
-	authHandlers          map[policy.AuthType]authHandler
+	authHandlers          map[policyTypes.AuthType]authHandler
 	authmap               authMapCacher
 	authSignalBackoffTime time.Duration
 
@@ -42,7 +42,7 @@ type AuthManager struct {
 // authHandler is responsible to handle authentication for a specific auth type
 type authHandler interface {
 	authenticate(*authRequest) (*authResponse, error)
-	authType() policy.AuthType
+	authType() policyTypes.AuthType
 	subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent
 	certProviderStatus() *models.Status
 }
@@ -58,7 +58,7 @@ type authResponse struct {
 }
 
 func newAuthManager(logger *slog.Logger, authHandlers []authHandler, authmap authMapCacher, nodeIDHandler types.NodeIDHandler, authSignalBackoffTime time.Duration) (*AuthManager, error) {
-	ahs := map[policy.AuthType]authHandler{}
+	ahs := map[policyTypes.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
 			continue
@@ -86,7 +86,7 @@ func (a *AuthManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 		localIdentity:  identity.NumericIdentity(key.LocalIdentity),
 		remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
 		remoteNodeID:   key.RemoteNodeID,
-		authType:       policy.AuthType(key.AuthType),
+		authType:       policyTypes.AuthType(key.AuthType),
 	}
 
 	if k.localIdentity.IsReservedIdentity() || k.remoteIdentity.IsReservedIdentity() {
