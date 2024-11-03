@@ -490,6 +490,26 @@ func (m *validateOpAssociateRouteTable) HandleInitialize(ctx context.Context, in
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpAssociateSecurityGroupVpc struct {
+}
+
+func (*validateOpAssociateSecurityGroupVpc) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateSecurityGroupVpc) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateSecurityGroupVpcInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateSecurityGroupVpcInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpAssociateSubnetCidrBlock struct {
 }
 
@@ -4970,6 +4990,26 @@ func (m *validateOpDisassociateRouteTable) HandleInitialize(ctx context.Context,
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDisassociateSecurityGroupVpc struct {
+}
+
+func (*validateOpDisassociateSecurityGroupVpc) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateSecurityGroupVpc) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateSecurityGroupVpcInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateSecurityGroupVpcInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisassociateSubnetCidrBlock struct {
 }
 
@@ -9046,6 +9086,10 @@ func addOpAssociateRouteTableValidationMiddleware(stack *middleware.Stack) error
 	return stack.Initialize.Add(&validateOpAssociateRouteTable{}, middleware.After)
 }
 
+func addOpAssociateSecurityGroupVpcValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateSecurityGroupVpc{}, middleware.After)
+}
+
 func addOpAssociateSubnetCidrBlockValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssociateSubnetCidrBlock{}, middleware.After)
 }
@@ -9940,6 +9984,10 @@ func addOpDisassociateNatGatewayAddressValidationMiddleware(stack *middleware.St
 
 func addOpDisassociateRouteTableValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisassociateRouteTable{}, middleware.After)
+}
+
+func addOpDisassociateSecurityGroupVpcValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateSecurityGroupVpc{}, middleware.After)
 }
 
 func addOpDisassociateSubnetCidrBlockValidationMiddleware(stack *middleware.Stack) error {
@@ -12020,6 +12068,24 @@ func validateOpAssociateRouteTableInput(v *AssociateRouteTableInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "AssociateRouteTableInput"}
 	if v.RouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("RouteTableId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpAssociateSecurityGroupVpcInput(v *AssociateSecurityGroupVpcInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateSecurityGroupVpcInput"}
+	if v.GroupId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("GroupId"))
+	}
+	if v.VpcId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -15770,6 +15836,24 @@ func validateOpDisassociateRouteTableInput(v *DisassociateRouteTableInput) error
 	invalidParams := smithy.InvalidParamsError{Context: "DisassociateRouteTableInput"}
 	if v.AssociationId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("AssociationId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDisassociateSecurityGroupVpcInput(v *DisassociateSecurityGroupVpcInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateSecurityGroupVpcInput"}
+	if v.GroupId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("GroupId"))
+	}
+	if v.VpcId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

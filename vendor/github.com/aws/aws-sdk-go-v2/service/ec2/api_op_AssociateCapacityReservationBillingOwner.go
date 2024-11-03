@@ -37,7 +37,7 @@ type AssociateCapacityReservationBillingOwnerInput struct {
 	// This member is required.
 	CapacityReservationId *string
 
-	// The ID of the consumer account to which assign billing.
+	// The ID of the consumer account to which to assign billing.
 	//
 	// This member is required.
 	UnusedReservationBillingOwnerId *string

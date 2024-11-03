@@ -11,31 +11,40 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Assigns private IPv4 addresses to a private NAT gateway. For more information,
-// see [Work with NAT gateways]in the Amazon VPC User Guide.
+// Disassociates a security group from a VPC. You cannot disassociate the security
+// group if any Elastic network interfaces in the associated VPC are still
+// associated with the security group.
 //
-// [Work with NAT gateways]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-working-with.html
-func (c *Client) AssignPrivateNatGatewayAddress(ctx context.Context, params *AssignPrivateNatGatewayAddressInput, optFns ...func(*Options)) (*AssignPrivateNatGatewayAddressOutput, error) {
+// Note that the disassociation is asynchronous and you can check the status of
+// the request with [DescribeSecurityGroupVpcAssociations].
+//
+// [DescribeSecurityGroupVpcAssociations]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSecurityGroupVpcAssociations.html
+func (c *Client) DisassociateSecurityGroupVpc(ctx context.Context, params *DisassociateSecurityGroupVpcInput, optFns ...func(*Options)) (*DisassociateSecurityGroupVpcOutput, error) {
 	if params == nil {
-		params = &AssignPrivateNatGatewayAddressInput{}
+		params = &DisassociateSecurityGroupVpcInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AssignPrivateNatGatewayAddress", params, optFns, c.addOperationAssignPrivateNatGatewayAddressMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DisassociateSecurityGroupVpc", params, optFns, c.addOperationDisassociateSecurityGroupVpcMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*AssignPrivateNatGatewayAddressOutput)
+	out := result.(*DisassociateSecurityGroupVpcOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type AssignPrivateNatGatewayAddressInput struct {
+type DisassociateSecurityGroupVpcInput struct {
 
-	// The ID of the NAT gateway.
+	// A security group ID.
 	//
 	// This member is required.
-	NatGatewayId *string
+	GroupId *string
+
+	// A VPC ID.
+	//
+	// This member is required.
+	VpcId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -43,23 +52,13 @@ type AssignPrivateNatGatewayAddressInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The number of private IP addresses to assign to the NAT gateway. You can't
-	// specify this parameter when also specifying private IP addresses.
-	PrivateIpAddressCount *int32
-
-	// The private IPv4 addresses you want to assign to the private NAT gateway.
-	PrivateIpAddresses []string
-
 	noSmithyDocumentSerde
 }
 
-type AssignPrivateNatGatewayAddressOutput struct {
+type DisassociateSecurityGroupVpcOutput struct {
 
-	// NAT gateway IP addresses.
-	NatGatewayAddresses []types.NatGatewayAddress
-
-	// The ID of the NAT gateway.
-	NatGatewayId *string
+	// The state of the disassociation.
+	State types.SecurityGroupVpcAssociationState
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -67,19 +66,19 @@ type AssignPrivateNatGatewayAddressOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationAssignPrivateNatGatewayAddressMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDisassociateSecurityGroupVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpAssignPrivateNatGatewayAddress{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDisassociateSecurityGroupVpc{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpAssignPrivateNatGatewayAddress{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDisassociateSecurityGroupVpc{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "AssignPrivateNatGatewayAddress"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DisassociateSecurityGroupVpc"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -131,10 +130,10 @@ func (c *Client) addOperationAssignPrivateNatGatewayAddressMiddlewares(stack *mi
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = addOpAssignPrivateNatGatewayAddressValidationMiddleware(stack); err != nil {
+	if err = addOpDisassociateSecurityGroupVpcValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAssignPrivateNatGatewayAddress(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisassociateSecurityGroupVpc(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -167,10 +166,10 @@ func (c *Client) addOperationAssignPrivateNatGatewayAddressMiddlewares(stack *mi
 	return nil
 }
 
-func newServiceMetadataMiddleware_opAssignPrivateNatGatewayAddress(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDisassociateSecurityGroupVpc(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "AssignPrivateNatGatewayAddress",
+		OperationName: "DisassociateSecurityGroupVpc",
 	}
 }

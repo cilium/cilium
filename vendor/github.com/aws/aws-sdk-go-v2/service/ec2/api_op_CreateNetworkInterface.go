@@ -80,7 +80,10 @@ type CreateNetworkInterfaceInput struct {
 
 	// The type of network interface. The default is interface .
 	//
-	// The only supported values are interface , efa , and trunk .
+	// If you specify efa-only , do not assign any IP addresses to the network
+	// interface. EFA-only network interfaces do not support IP addresses.
+	//
+	// The only supported values are interface , efa , efa-only , and trunk .
 	InterfaceType types.NetworkInterfaceCreationType
 
 	// The number of IPv4 prefixes that Amazon Web Services automatically assigns to

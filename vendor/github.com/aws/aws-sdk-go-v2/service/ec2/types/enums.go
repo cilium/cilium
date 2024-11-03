@@ -4022,6 +4022,42 @@ const (
 	InstanceTypeG6e16xlarge       InstanceType = "g6e.16xlarge"
 	InstanceTypeG6e24xlarge       InstanceType = "g6e.24xlarge"
 	InstanceTypeG6e48xlarge       InstanceType = "g6e.48xlarge"
+	InstanceTypeC8gMedium         InstanceType = "c8g.medium"
+	InstanceTypeC8gLarge          InstanceType = "c8g.large"
+	InstanceTypeC8gXlarge         InstanceType = "c8g.xlarge"
+	InstanceTypeC8g2xlarge        InstanceType = "c8g.2xlarge"
+	InstanceTypeC8g4xlarge        InstanceType = "c8g.4xlarge"
+	InstanceTypeC8g8xlarge        InstanceType = "c8g.8xlarge"
+	InstanceTypeC8g12xlarge       InstanceType = "c8g.12xlarge"
+	InstanceTypeC8g16xlarge       InstanceType = "c8g.16xlarge"
+	InstanceTypeC8g24xlarge       InstanceType = "c8g.24xlarge"
+	InstanceTypeC8g48xlarge       InstanceType = "c8g.48xlarge"
+	InstanceTypeC8gMetal24xl      InstanceType = "c8g.metal-24xl"
+	InstanceTypeC8gMetal48xl      InstanceType = "c8g.metal-48xl"
+	InstanceTypeM8gMedium         InstanceType = "m8g.medium"
+	InstanceTypeM8gLarge          InstanceType = "m8g.large"
+	InstanceTypeM8gXlarge         InstanceType = "m8g.xlarge"
+	InstanceTypeM8g2xlarge        InstanceType = "m8g.2xlarge"
+	InstanceTypeM8g4xlarge        InstanceType = "m8g.4xlarge"
+	InstanceTypeM8g8xlarge        InstanceType = "m8g.8xlarge"
+	InstanceTypeM8g12xlarge       InstanceType = "m8g.12xlarge"
+	InstanceTypeM8g16xlarge       InstanceType = "m8g.16xlarge"
+	InstanceTypeM8g24xlarge       InstanceType = "m8g.24xlarge"
+	InstanceTypeM8g48xlarge       InstanceType = "m8g.48xlarge"
+	InstanceTypeM8gMetal24xl      InstanceType = "m8g.metal-24xl"
+	InstanceTypeM8gMetal48xl      InstanceType = "m8g.metal-48xl"
+	InstanceTypeX8gMedium         InstanceType = "x8g.medium"
+	InstanceTypeX8gLarge          InstanceType = "x8g.large"
+	InstanceTypeX8gXlarge         InstanceType = "x8g.xlarge"
+	InstanceTypeX8g2xlarge        InstanceType = "x8g.2xlarge"
+	InstanceTypeX8g4xlarge        InstanceType = "x8g.4xlarge"
+	InstanceTypeX8g8xlarge        InstanceType = "x8g.8xlarge"
+	InstanceTypeX8g12xlarge       InstanceType = "x8g.12xlarge"
+	InstanceTypeX8g16xlarge       InstanceType = "x8g.16xlarge"
+	InstanceTypeX8g24xlarge       InstanceType = "x8g.24xlarge"
+	InstanceTypeX8g48xlarge       InstanceType = "x8g.48xlarge"
+	InstanceTypeX8gMetal24xl      InstanceType = "x8g.metal-24xl"
+	InstanceTypeX8gMetal48xl      InstanceType = "x8g.metal-48xl"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4858,6 +4894,42 @@ func (InstanceType) Values() []InstanceType {
 		"g6e.16xlarge",
 		"g6e.24xlarge",
 		"g6e.48xlarge",
+		"c8g.medium",
+		"c8g.large",
+		"c8g.xlarge",
+		"c8g.2xlarge",
+		"c8g.4xlarge",
+		"c8g.8xlarge",
+		"c8g.12xlarge",
+		"c8g.16xlarge",
+		"c8g.24xlarge",
+		"c8g.48xlarge",
+		"c8g.metal-24xl",
+		"c8g.metal-48xl",
+		"m8g.medium",
+		"m8g.large",
+		"m8g.xlarge",
+		"m8g.2xlarge",
+		"m8g.4xlarge",
+		"m8g.8xlarge",
+		"m8g.12xlarge",
+		"m8g.16xlarge",
+		"m8g.24xlarge",
+		"m8g.48xlarge",
+		"m8g.metal-24xl",
+		"m8g.metal-48xl",
+		"x8g.medium",
+		"x8g.large",
+		"x8g.xlarge",
+		"x8g.2xlarge",
+		"x8g.4xlarge",
+		"x8g.8xlarge",
+		"x8g.12xlarge",
+		"x8g.16xlarge",
+		"x8g.24xlarge",
+		"x8g.48xlarge",
+		"x8g.metal-24xl",
+		"x8g.metal-48xl",
 	}
 }
 
@@ -6324,9 +6396,10 @@ type NetworkInterfaceCreationType string
 
 // Enum values for NetworkInterfaceCreationType
 const (
-	NetworkInterfaceCreationTypeEfa    NetworkInterfaceCreationType = "efa"
-	NetworkInterfaceCreationTypeBranch NetworkInterfaceCreationType = "branch"
-	NetworkInterfaceCreationTypeTrunk  NetworkInterfaceCreationType = "trunk"
+	NetworkInterfaceCreationTypeEfa     NetworkInterfaceCreationType = "efa"
+	NetworkInterfaceCreationTypeEfaOnly NetworkInterfaceCreationType = "efa-only"
+	NetworkInterfaceCreationTypeBranch  NetworkInterfaceCreationType = "branch"
+	NetworkInterfaceCreationTypeTrunk   NetworkInterfaceCreationType = "trunk"
 )
 
 // Values returns all known values for NetworkInterfaceCreationType. Note that
@@ -6337,6 +6410,7 @@ const (
 func (NetworkInterfaceCreationType) Values() []NetworkInterfaceCreationType {
 	return []NetworkInterfaceCreationType{
 		"efa",
+		"efa-only",
 		"branch",
 		"trunk",
 	}
@@ -6398,6 +6472,7 @@ const (
 	NetworkInterfaceTypeInterface                     NetworkInterfaceType = "interface"
 	NetworkInterfaceTypeNatGateway                    NetworkInterfaceType = "natGateway"
 	NetworkInterfaceTypeEfa                           NetworkInterfaceType = "efa"
+	NetworkInterfaceTypeEfaOnly                       NetworkInterfaceType = "efa-only"
 	NetworkInterfaceTypeTrunk                         NetworkInterfaceType = "trunk"
 	NetworkInterfaceTypeLoadBalancer                  NetworkInterfaceType = "load_balancer"
 	NetworkInterfaceTypeNetworkLoadBalancer           NetworkInterfaceType = "network_load_balancer"
@@ -6423,6 +6498,7 @@ func (NetworkInterfaceType) Values() []NetworkInterfaceType {
 		"interface",
 		"natGateway",
 		"efa",
+		"efa-only",
 		"trunk",
 		"load_balancer",
 		"network_load_balancer",
@@ -7440,6 +7516,34 @@ func (SecurityGroupReferencingSupportValue) Values() []SecurityGroupReferencingS
 	return []SecurityGroupReferencingSupportValue{
 		"enable",
 		"disable",
+	}
+}
+
+type SecurityGroupVpcAssociationState string
+
+// Enum values for SecurityGroupVpcAssociationState
+const (
+	SecurityGroupVpcAssociationStateAssociating          SecurityGroupVpcAssociationState = "associating"
+	SecurityGroupVpcAssociationStateAssociated           SecurityGroupVpcAssociationState = "associated"
+	SecurityGroupVpcAssociationStateAssociationFailed    SecurityGroupVpcAssociationState = "association-failed"
+	SecurityGroupVpcAssociationStateDisassociating       SecurityGroupVpcAssociationState = "disassociating"
+	SecurityGroupVpcAssociationStateDisassociated        SecurityGroupVpcAssociationState = "disassociated"
+	SecurityGroupVpcAssociationStateDisassociationFailed SecurityGroupVpcAssociationState = "disassociation-failed"
+)
+
+// Values returns all known values for SecurityGroupVpcAssociationState. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (SecurityGroupVpcAssociationState) Values() []SecurityGroupVpcAssociationState {
+	return []SecurityGroupVpcAssociationState{
+		"associating",
+		"associated",
+		"association-failed",
+		"disassociating",
+		"disassociated",
+		"disassociation-failed",
 	}
 }
 

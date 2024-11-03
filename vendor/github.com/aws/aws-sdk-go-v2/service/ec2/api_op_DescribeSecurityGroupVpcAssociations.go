@@ -11,42 +11,50 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the stale security group rules for security groups referenced across
-// a VPC peering connection, transit gateway connection, or with a security group
-// VPC association. Rules are stale when they reference a deleted security group.
-// Rules can also be stale if they reference a security group in a peer VPC for
-// which the VPC peering connection has been deleted, across a transit gateway
-// where the transit gateway has been deleted (or [the transit gateway security group referencing feature]has been disabled), or if a
-// security group VPC association has been disassociated.
+// Describes security group VPC associations made with [AssociateSecurityGroupVpc].
 //
-// [the transit gateway security group referencing feature]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-vpc-attachments.html#vpc-attachment-security
-func (c *Client) DescribeStaleSecurityGroups(ctx context.Context, params *DescribeStaleSecurityGroupsInput, optFns ...func(*Options)) (*DescribeStaleSecurityGroupsOutput, error) {
+// [AssociateSecurityGroupVpc]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateSecurityGroupVpc.html
+func (c *Client) DescribeSecurityGroupVpcAssociations(ctx context.Context, params *DescribeSecurityGroupVpcAssociationsInput, optFns ...func(*Options)) (*DescribeSecurityGroupVpcAssociationsOutput, error) {
 	if params == nil {
-		params = &DescribeStaleSecurityGroupsInput{}
+		params = &DescribeSecurityGroupVpcAssociationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeStaleSecurityGroups", params, optFns, c.addOperationDescribeStaleSecurityGroupsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeSecurityGroupVpcAssociations", params, optFns, c.addOperationDescribeSecurityGroupVpcAssociationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeStaleSecurityGroupsOutput)
+	out := result.(*DescribeSecurityGroupVpcAssociationsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeStaleSecurityGroupsInput struct {
-
-	// The ID of the VPC.
-	//
-	// This member is required.
-	VpcId *string
+type DescribeSecurityGroupVpcAssociationsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
+
+	// Security group VPC association filters.
+	//
+	//   - group-id : The security group ID.
+	//
+	//   - vpc-id : The ID of the associated VPC.
+	//
+	//   - vpc-owner-id : The account ID of the VPC owner.
+	//
+	//   - state : The state of the association.
+	//
+	//   - tag: : The key/value combination of a tag assigned to the resource. Use the
+	//   tag key in the filter name and the tag value as the filter value. For example,
+	//   to find all resources that have a tag with the key Owner and the value TeamA ,
+	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//
+	//   - tag-key : The key of a tag assigned to the resource. Use this filter to find
+	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	Filters []types.Filter
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
@@ -62,14 +70,14 @@ type DescribeStaleSecurityGroupsInput struct {
 	noSmithyDocumentSerde
 }
 
-type DescribeStaleSecurityGroupsOutput struct {
+type DescribeSecurityGroupVpcAssociationsOutput struct {
 
 	// The token to include in another request to get the next page of items. This
 	// value is null when there are no more items to return.
 	NextToken *string
 
-	// Information about the stale security groups.
-	StaleSecurityGroupSet []types.StaleSecurityGroup
+	// The security group VPC associations.
+	SecurityGroupVpcAssociations []types.SecurityGroupVpcAssociation
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -77,19 +85,19 @@ type DescribeStaleSecurityGroupsOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeStaleSecurityGroupsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeSecurityGroupVpcAssociationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeStaleSecurityGroups{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeSecurityGroupVpcAssociations{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeStaleSecurityGroups{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeSecurityGroupVpcAssociations{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeStaleSecurityGroups"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeSecurityGroupVpcAssociations"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -141,10 +149,7 @@ func (c *Client) addOperationDescribeStaleSecurityGroupsMiddlewares(stack *middl
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = addOpDescribeStaleSecurityGroupsValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeStaleSecurityGroups(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSecurityGroupVpcAssociations(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -177,9 +182,9 @@ func (c *Client) addOperationDescribeStaleSecurityGroupsMiddlewares(stack *middl
 	return nil
 }
 
-// DescribeStaleSecurityGroupsPaginatorOptions is the paginator options for
-// DescribeStaleSecurityGroups
-type DescribeStaleSecurityGroupsPaginatorOptions struct {
+// DescribeSecurityGroupVpcAssociationsPaginatorOptions is the paginator options
+// for DescribeSecurityGroupVpcAssociations
+type DescribeSecurityGroupVpcAssociationsPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
 	// information, see [Pagination].
@@ -192,24 +197,24 @@ type DescribeStaleSecurityGroupsPaginatorOptions struct {
 	StopOnDuplicateToken bool
 }
 
-// DescribeStaleSecurityGroupsPaginator is a paginator for
-// DescribeStaleSecurityGroups
-type DescribeStaleSecurityGroupsPaginator struct {
-	options   DescribeStaleSecurityGroupsPaginatorOptions
-	client    DescribeStaleSecurityGroupsAPIClient
-	params    *DescribeStaleSecurityGroupsInput
+// DescribeSecurityGroupVpcAssociationsPaginator is a paginator for
+// DescribeSecurityGroupVpcAssociations
+type DescribeSecurityGroupVpcAssociationsPaginator struct {
+	options   DescribeSecurityGroupVpcAssociationsPaginatorOptions
+	client    DescribeSecurityGroupVpcAssociationsAPIClient
+	params    *DescribeSecurityGroupVpcAssociationsInput
 	nextToken *string
 	firstPage bool
 }
 
-// NewDescribeStaleSecurityGroupsPaginator returns a new
-// DescribeStaleSecurityGroupsPaginator
-func NewDescribeStaleSecurityGroupsPaginator(client DescribeStaleSecurityGroupsAPIClient, params *DescribeStaleSecurityGroupsInput, optFns ...func(*DescribeStaleSecurityGroupsPaginatorOptions)) *DescribeStaleSecurityGroupsPaginator {
+// NewDescribeSecurityGroupVpcAssociationsPaginator returns a new
+// DescribeSecurityGroupVpcAssociationsPaginator
+func NewDescribeSecurityGroupVpcAssociationsPaginator(client DescribeSecurityGroupVpcAssociationsAPIClient, params *DescribeSecurityGroupVpcAssociationsInput, optFns ...func(*DescribeSecurityGroupVpcAssociationsPaginatorOptions)) *DescribeSecurityGroupVpcAssociationsPaginator {
 	if params == nil {
-		params = &DescribeStaleSecurityGroupsInput{}
+		params = &DescribeSecurityGroupVpcAssociationsInput{}
 	}
 
-	options := DescribeStaleSecurityGroupsPaginatorOptions{}
+	options := DescribeSecurityGroupVpcAssociationsPaginatorOptions{}
 	if params.MaxResults != nil {
 		options.Limit = *params.MaxResults
 	}
@@ -218,7 +223,7 @@ func NewDescribeStaleSecurityGroupsPaginator(client DescribeStaleSecurityGroupsA
 		fn(&options)
 	}
 
-	return &DescribeStaleSecurityGroupsPaginator{
+	return &DescribeSecurityGroupVpcAssociationsPaginator{
 		options:   options,
 		client:    client,
 		params:    params,
@@ -228,12 +233,12 @@ func NewDescribeStaleSecurityGroupsPaginator(client DescribeStaleSecurityGroupsA
 }
 
 // HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeStaleSecurityGroupsPaginator) HasMorePages() bool {
+func (p *DescribeSecurityGroupVpcAssociationsPaginator) HasMorePages() bool {
 	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
 }
 
-// NextPage retrieves the next DescribeStaleSecurityGroups page.
-func (p *DescribeStaleSecurityGroupsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeStaleSecurityGroupsOutput, error) {
+// NextPage retrieves the next DescribeSecurityGroupVpcAssociations page.
+func (p *DescribeSecurityGroupVpcAssociationsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeSecurityGroupVpcAssociationsOutput, error) {
 	if !p.HasMorePages() {
 		return nil, fmt.Errorf("no more pages available")
 	}
@@ -250,7 +255,7 @@ func (p *DescribeStaleSecurityGroupsPaginator) NextPage(ctx context.Context, opt
 	optFns = append([]func(*Options){
 		addIsPaginatorUserAgent,
 	}, optFns...)
-	result, err := p.client.DescribeStaleSecurityGroups(ctx, &params, optFns...)
+	result, err := p.client.DescribeSecurityGroupVpcAssociations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
 	}
@@ -269,18 +274,18 @@ func (p *DescribeStaleSecurityGroupsPaginator) NextPage(ctx context.Context, opt
 	return result, nil
 }
 
-// DescribeStaleSecurityGroupsAPIClient is a client that implements the
-// DescribeStaleSecurityGroups operation.
-type DescribeStaleSecurityGroupsAPIClient interface {
-	DescribeStaleSecurityGroups(context.Context, *DescribeStaleSecurityGroupsInput, ...func(*Options)) (*DescribeStaleSecurityGroupsOutput, error)
+// DescribeSecurityGroupVpcAssociationsAPIClient is a client that implements the
+// DescribeSecurityGroupVpcAssociations operation.
+type DescribeSecurityGroupVpcAssociationsAPIClient interface {
+	DescribeSecurityGroupVpcAssociations(context.Context, *DescribeSecurityGroupVpcAssociationsInput, ...func(*Options)) (*DescribeSecurityGroupVpcAssociationsOutput, error)
 }
 
-var _ DescribeStaleSecurityGroupsAPIClient = (*Client)(nil)
+var _ DescribeSecurityGroupVpcAssociationsAPIClient = (*Client)(nil)
 
-func newServiceMetadataMiddleware_opDescribeStaleSecurityGroups(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeSecurityGroupVpcAssociations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeStaleSecurityGroups",
+		OperationName: "DescribeSecurityGroupVpcAssociations",
 	}
 }

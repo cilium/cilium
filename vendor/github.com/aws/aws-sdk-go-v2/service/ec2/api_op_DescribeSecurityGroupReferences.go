@@ -11,8 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the VPCs on the other side of a VPC peering connection that are
-// referencing the security groups you've specified in this request.
+// Describes the VPCs on the other side of a VPC peering or Transit Gateway
+// connection that are referencing the security groups you've specified in this
+// request.
 func (c *Client) DescribeSecurityGroupReferences(ctx context.Context, params *DescribeSecurityGroupReferencesInput, optFns ...func(*Options)) (*DescribeSecurityGroupReferencesOutput, error) {
 	if params == nil {
 		params = &DescribeSecurityGroupReferencesInput{}
