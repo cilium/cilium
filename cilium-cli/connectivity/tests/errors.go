@@ -56,7 +56,12 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
 		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
-		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs}
+		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
+		hubbleQueueFull, reflectPanic, svcNotFound, unableTranslateCIDRgroups, gobgpWarnings,
+		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
+		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
+		errPeerChangeNotif, failedCreategRPCClient, unableReallocateIngressIP,
+		fqdnMaxIPPerHostname, failedGetMetricsAPI}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:        nil,
@@ -284,6 +289,23 @@ const (
 	cantRecreateMasterKey     stringMatcher = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
 	cantUpdateCRDIdentity     stringMatcher = "Unable update CRD identity information with a reference for this node" // cf. https://github.com/cilium/cilium/issues/29739
 	cantDeleteFromPolicyMap   stringMatcher = "cilium_call_policy: delete: key does not exist"                        // cf. https://github.com/cilium/cilium/issues/29754
+	hubbleQueueFull           stringMatcher = "hubble events queue is full"                                           // Because we run without monitor aggregation
+	reflectPanic              stringMatcher = "reflect.Value.SetUint using value obtained using unexported field"     // cf. https://github.com/cilium/cilium/issues/33766
+	svcNotFound               stringMatcher = "service not found"                                                     // cf. https://github.com/cilium/cilium/issues/35768
+	unableTranslateCIDRgroups stringMatcher = "Unable to translate all CIDR groups to CIDRs"                          // Can be removed once v1.17 is released.
+	gobgpWarnings             stringMatcher = "component=gobgp.BgpServerInstance"                                     // cf. https://github.com/cilium/cilium/issues/35799
+	etcdReconnection          stringMatcher = "Error observed on etcd connection, reconnecting etcd"                  // cf. https://github.com/cilium/cilium/issues/35865
+	epRestoreMissingState     stringMatcher = "Couldn't find state, ignoring endpoint"                                // cf. https://github.com/cilium/cilium/issues/35869
+	mutationDetectorKlog      stringMatcher = "Mutation detector is enabled, this will result in memory leakage."     // cf. https://github.com/cilium/cilium/issues/35929
+	hubbleFailedCreatePeer    stringMatcher = "Failed to create peer client for peers synchronization"                // cf. https://github.com/cilium/cilium/issues/35930
+	fqdnDpUpdatesTimeout      stringMatcher = "Timed out waiting for datapath updates of FQDN IP information"         // cf. https://github.com/cilium/cilium/issues/35931
+	longNetpolUpdate          stringMatcher = "took longer than 100ms to update network policy"                       // cf. https://github.com/cilium/cilium/issues/36067
+	failedToGetEpLabels       stringMatcher = "Failed to get identity labels for endpoint"                            // cf. https://github.com/cilium/cilium/issues/36068
+	errPeerChangeNotif        stringMatcher = "Error while receiving peer change notification;"                       // cf. https://github.com/cilium/cilium/issues/36070
+	failedCreategRPCClient    stringMatcher = "Failed to create gRPC client"                                          // cf. https://github.com/cilium/cilium/issues/36070
+	unableReallocateIngressIP stringMatcher = "unable to re-allocate ingress IPv6"                                    // cf. https://github.com/cilium/cilium/issues/36072
+	fqdnMaxIPPerHostname      stringMatcher = "Raise tofqdns-endpoint-max-ip-per-hostname to mitigate this"           // cf. https://github.com/cilium/cilium/issues/36073
+	failedGetMetricsAPI       stringMatcher = "retrieve the complete list of server APIs: metrics.k8s.io/v1beta1"     // cf. https://github.com/cilium/cilium/issues/36085
 )
 
 var (
@@ -292,4 +314,6 @@ var (
 	// while we fix this issue.
 	// TODO: Remove this after: #31535 has been fixed.
 	knownIssueWireguardCollision = regexMatcher{regexp.MustCompile("Cannot forward proxied DNS lookup.*:51871.*bind: address already in use")} // from: https://github.com/cilium/cilium/issues/30901
+	// Cf. https://github.com/cilium/cilium/issues/35803
+	endpointMapDeleteFailed = regexMatcher{regexp.MustCompile(`Ignoring error while deleting endpoint.*from map cilium_\w+: delete: key does not exist`)}
 )
