@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -67,7 +68,18 @@ type Metadata interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset, metadata Metadata) *IPAM {
+func NewIPAM(
+	nodeAddressing types.NodeAddressing,
+	c *option.DaemonConfig,
+	nodeDiscovery Owner,
+	localNodeStore *node.LocalNodeStore,
+	k8sEventReg K8sEventRegister,
+	node agentK8s.LocalCiliumNodeResource,
+	mtuConfig MtuConfiguration,
+	clientset client.Clientset,
+	metadata Metadata,
+	sysctl sysctl.Sysctl,
+) *IPAM {
 	return &IPAM{
 		nodeAddressing:   nodeAddressing,
 		config:           c,
@@ -82,6 +94,7 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDi
 		clientset:      clientset,
 		nodeDiscovery:  nodeDiscovery,
 		metadata:       metadata,
+		sysctl:         sysctl,
 	}
 }
 
@@ -116,11 +129,11 @@ func (ipam *IPAM) ConfigureAllocator() {
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		log.Info("Initializing CRD-based IPAM")
 		if ipam.config.IPv6Enabled() {
-			ipam.IPv6Allocator = newCRDAllocator(IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig)
+			ipam.IPv6Allocator = newCRDAllocator(IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.IPv4Allocator = newCRDAllocator(IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig)
+			ipam.IPv4Allocator = newCRDAllocator(IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		log.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")
