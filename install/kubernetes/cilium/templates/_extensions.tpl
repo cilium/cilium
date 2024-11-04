@@ -48,3 +48,9 @@ disable-server-tls: true
 {{- define "hubble-relay.service.targetPort" -}}
 grpc
 {{- end }}
+
+{{/*
+Allow packagers to add extra configuration to certgen.
+*/}}
+{{- define "certgen.config.extra" -}}
+{{- end }}

@@ -116,6 +116,7 @@ spec:
                   - client auth
                   validity: {{ $certValidityStr }}
                 {{- end }}
+                {{- include "certgen.config.extra" . | nindent 12 }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:
           {{- toYaml . | nindent 10 }}
