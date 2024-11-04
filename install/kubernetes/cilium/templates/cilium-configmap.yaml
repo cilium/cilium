@@ -721,6 +721,9 @@ data:
 {{- else if hasKey $socketLB "enabled" }}
   bpf-lb-sock-terminate-pod-connections: {{ $socketLB.enabled | quote }}
 {{- end }}
+{{- if hasKey $socketLB "tracing" }}
+  trace-sock: {{ $socketLB.tracing | quote }}
+{{- end }}
 {{- end }}
 
 {{- if hasKey .Values "hostPort" }}
