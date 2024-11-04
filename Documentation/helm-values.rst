@@ -3065,7 +3065,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`serviceNoBackendResponse`
-     - Configure what the response should be to traffic for a service without backends. "reject" only works on kernels >= 5.10, on lower kernels we fallback to "drop". Possible values:  - reject (default)  - drop
+     - Configure what the response should be to traffic for a service without backends. Possible values:  - reject (default)  - drop
      - string
      - ``"reject"``
    * - :spelling:ignore:`sleepAfterInit`
