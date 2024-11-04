@@ -19,6 +19,10 @@ func (f *fakeK8sWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
 	return true
 }
 
+func (f *fakeK8sWatcherConfiguration) KVstoreEnabledWithoutPodNetworkSupport() bool {
+	return false
+}
+
 func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 	fakeClientSet, _ := client.NewFakeClientset()
 

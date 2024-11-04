@@ -322,6 +322,11 @@ communicating via the proxy must reconnect to re-establish connections.
 * The Cilium cluster name validation cannot be bypassed anymore, both for the local and
   remote clusters. The cluster name is strictly enforced to consist of at most 32 lower
   case alphanumeric characters and '-', start and end with an alphanumeric character.
+* Cilium could previously be run in a configuration where the Etcd instances
+  that distribute Cilium state between nodes would be managed in pod network by
+  Cilium itself. This support, which had been previously deprecated as complicated
+  and error prone, has now been removed. Refer to :ref:`k8s_install_etcd` for
+  alternatives for running Cilium with Etcd.
 
 Removed Options
 ~~~~~~~~~~~~~~~
