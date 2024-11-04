@@ -306,6 +306,10 @@ const (
 	// a kvstore path for too long.
 	KVStoreStaleLockTimeout = 30 * time.Second
 
+	// KVstorePodNetworkSupport represents whether to enable the support for
+	// running the Cilium KVstore in pod network.
+	KVstorePodNetworkSupport = false
+
 	// PolicyQueueSize is the default queue size for policy-related events.
 	PolicyQueueSize = 100
 
