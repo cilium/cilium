@@ -215,19 +215,12 @@ const (
 
 	// Logs messages that should not be in the cilium logs...
 	panicMessage        = "panic:"
-	deadLockHeader      = "POTENTIAL DEADLOCK:"                                      // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	segmentationFault   = "segmentation fault"                                       // from https://github.com/cilium/cilium/issues/3233
-	NACKreceived        = "NACK received for version"                                // from https://github.com/cilium/cilium/issues/4003
-	RunInitFailed       = "JoinEP: "                                                 // from https://github.com/cilium/cilium/pull/5052
-	sizeMismatch        = "size mismatch for BPF map"                                // from https://github.com/cilium/cilium/issues/7851
-	RemovingMapMsg      = "Removing map to allow for property upgrade"               // from https://github.com/cilium/cilium/pull/10626
-	logBufferMessage    = "Log buffer too small to dump verifier log"                // from https://github.com/cilium/cilium/issues/10517
-	ClangErrorsMsg      = " errors generated."                                       // from https://github.com/cilium/cilium/issues/10857
-	ClangErrorMsg       = "1 error generated."                                       // from https://github.com/cilium/cilium/issues/10857
-	symbolSubstitution  = "Skipping symbol substitution"                             //
-	uninitializedRegen  = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
-	unstableStat        = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
-	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
+	deadLockHeader      = "POTENTIAL DEADLOCK:"                        // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	RunInitFailed       = "JoinEP: "                                   // from https://github.com/cilium/cilium/pull/5052
+	RemovingMapMsg      = "Removing map to allow for property upgrade" // from https://github.com/cilium/cilium/pull/10626
+	symbolSubstitution  = "Skipping symbol substitution"               //
+	uninitializedRegen  = "Uninitialized regeneration level"           // from https://github.com/cilium/cilium/pull/10949
+	unstableStat        = "BUG: stat() has unstable behavior"          // from https://github.com/cilium/cilium/pull/11028
 	missingIptablesWait = "Missing iptables wait arg (-w):"
 	localIDRestoreFail  = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 	routerIPMismatch    = "Mismatch of router IPs found during restoration"
@@ -246,23 +239,16 @@ const (
 	errorCreatingInitialLeader = "error initially creating leader election record:"
 	cantEnableJIT              = "bpf_jit_enable: no such file or directory"                             // Because we run tests in Kind.
 	delMissingService          = "Deleting no longer present service"                                    // cf. https://github.com/cilium/cilium/issues/29679
-	failedIpcacheRestore       = "Failed to restore existing identities from the previous ipcache"       // cf. https://github.com/cilium/cilium/issues/29328
 	podCIDRUnavailable         = " PodCIDR not available"                                                // cf. https://github.com/cilium/cilium/issues/29680
 	unableGetNode              = "Unable to get node resource"                                           // cf. https://github.com/cilium/cilium/issues/29710
-	disableSocketLBTracing     = "Disabling socket-LB tracing"                                           // cf. https://github.com/cilium/cilium/issues/29734
 	sessionAffinitySocketLB    = "Session affinity for host reachable services needs kernel"             // cf. https://github.com/cilium/cilium/issues/29736
 	objectHasBeenModified      = "the object has been modified; please apply your changes"               // cf. https://github.com/cilium/cilium/issues/29712
-	unsupportedSocketLookup    = "Without socket lookup kernel functionality"                            // cf. https://github.com/cilium/cilium/issues/29735
 	legacyBGPFeature           = "You are using the legacy BGP feature"                                  // Expected when testing the legacy BGP feature.
 	etcdTimeout                = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
 	endpointRestoreFailed      = "Unable to restore endpoint, ignoring"                                  // cf. https://github.com/cilium/cilium/issues/29716
-	failedPeerSync             = "Failed to create peer client for peers synchronization"                // cf. https://github.com/cilium/cilium/issues/29726
 	unableRestoreRouterIP      = "Unable to restore router IP from filesystem"                           // cf. https://github.com/cilium/cilium/issues/29715
 	routerIPReallocated        = "Router IP could not be re-allocated"                                   // cf. https://github.com/cilium/cilium/issues/29715
 	cantFindIdentityInCache    = "unable to release identity: unable to find key in local cache"         // cf. https://github.com/cilium/cilium/issues/29732
-	kubeApiserverConnLost1     = ":6443/version\\\": http2: client connection lost"                      // cf. https://github.com/cilium/cilium/issues/29737
-	kubeApiserverConnLost2     = ":6443/healthz\\\": http2: client connection lost"                      // cf. https://github.com/cilium/cilium/issues/29737
-	heartbeatTimedOut          = "Heartbeat timed out, restarting client connections"                    // cf. https://github.com/cilium/cilium/issues/29737
 	keyAllocFailedFoundMaster  = "Found master key after proceeding with new allocation"                 // cf. https://github.com/cilium/cilium/issues/29738
 	cantRecreateMasterKey      = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
 	cantUpdateCRDIdentity      = "Unable update CRD identity information with a reference for this node" // cf. https://github.com/cilium/cilium/issues/29739
@@ -311,18 +297,11 @@ var (
 var badLogMessages = map[string][]string{
 	panicMessage:        nil,
 	deadLockHeader:      nil,
-	segmentationFault:   nil,
-	NACKreceived:        nil,
 	RunInitFailed:       {"signal: terminated", "signal: killed"},
-	sizeMismatch:        {"globals/cilium_policy"},
 	RemovingMapMsg:      nil,
-	logBufferMessage:    nil,
-	ClangErrorsMsg:      nil,
-	ClangErrorMsg:       nil,
 	symbolSubstitution:  nil,
 	uninitializedRegen:  nil,
 	unstableStat:        nil,
-	removeTransientRule: nil,
 	missingIptablesWait: nil,
 	localIDRestoreFail:  nil,
 	routerIPMismatch:    nil,
@@ -333,14 +312,11 @@ var badLogMessages = map[string][]string{
 	logutils.ErrorLogs: {opCantBeFulfilled, initLeaderElection, globalDataSupport,
 		removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName,
 		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
-	logutils.WarningLogs: {cantEnableJIT, delMissingService, failedIpcacheRestore,
-		podCIDRUnavailable, unableGetNode,
-		disableSocketLBTracing, sessionAffinitySocketLB, objectHasBeenModified,
-		unsupportedSocketLookup, legacyBGPFeature, etcdTimeout, endpointRestoreFailed,
-		failedPeerSync, unableRestoreRouterIP, routerIPReallocated,
-		cantFindIdentityInCache, kubeApiserverConnLost1, kubeApiserverConnLost2, heartbeatTimedOut,
-		keyAllocFailedFoundMaster, cantRecreateMasterKey, cantUpdateCRDIdentity,
-		cantDeleteFromPolicyMap, failedToListCRDs},
+	logutils.WarningLogs: {cantEnableJIT, delMissingService, podCIDRUnavailable,
+		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, legacyBGPFeature,
+		etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP, routerIPReallocated,
+		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
+		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs},
 }
 
 var ciliumCLICommands = map[string]string{
