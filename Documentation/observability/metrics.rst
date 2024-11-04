@@ -604,13 +604,13 @@ Name                                           Labels                           
 BGP Control Plane
 ~~~~~~~~~~~~~~~~~
 
-====================== ============================================= ======== ===================================================================
-Name                   Labels                                        Default  Description
-====================== ============================================= ======== ===================================================================
-``session_state``      ``vrouter``, ``neighbor``, ``neighbor_asn``   Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
-``advertised_routes``  ``vrouter``, ``neighbor``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
-``received_routes``    ``vrouter``, ``neighbor``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
-====================== ============================================= ======== ===================================================================
+====================== =============================================================== ======== ===================================================================
+Name                   Labels                                                          Default  Description
+====================== =============================================================== ======== ===================================================================
+``session_state``      ``vrouter``, ``neighbor``, ``neighbor_asn``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
+``advertised_routes``  ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
+``received_routes``    ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
+====================== =============================================================== ======== ===================================================================
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
