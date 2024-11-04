@@ -133,8 +133,15 @@ func TestWeightedBackendWithRemoval(t *testing.T) {
 }
 
 func BenchmarkGetMaglevTable(b *testing.B) {
+	for _, m := range []uint64{2039, 4093, 16381, 131071} {
+		b.Run(fmt.Sprintf("%d", m), func(b *testing.B) {
+			benchmarkGetMaglevTable(b, m)
+		})
+	}
+}
+
+func benchmarkGetMaglevTable(b *testing.B, m uint64) {
 	backendCount := 1000
-	m := uint64(131071)
 
 	if err := Init(DefaultHashSeed, m); err != nil {
 		b.Fatal(err)
