@@ -274,8 +274,10 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			streamLog.Debug("Waiting for endpoint restoration before serving resources...")
 			restorer.WaitForEndpointRestore(ctx)
 			for typeURL, ackObserver := range s.ackObservers {
-				streamLog.WithField(logfields.XDSTypeURL, typeURL).
-					Debug("Endpoints restored, starting serving.")
+				if typeURL == defaultTypeURL || defaultTypeURL == "" {
+					streamLog.WithField(logfields.XDSTypeURL, typeURL).
+						Debug("Endpoints restored, starting serving.")
+				}
 				ackObserver.MarkRestoreCompleted()
 			}
 		}
