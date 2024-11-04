@@ -22,7 +22,11 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var ciliumNodeGCControllerGroup = controller.NewGroup("cilium-node-gc")
+var (
+	ciliumNodeGCControllerGroup = controller.NewGroup("cilium-node-gc")
+
+	ctrlMgr = controller.NewManager()
+)
 
 // ciliumNodeGCCandidate keeps track of cilium nodes, which are candidate for GC.
 // Underlying there is a map with node name as key, and last marked timestamp as value.
@@ -58,7 +62,7 @@ func (c *ciliumNodeGCCandidate) Delete(nodeName string) {
 
 // RunCiliumNodeGC performs garbage collector for cilium node resource
 func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodeStore cache.Store, interval time.Duration, logger *slog.Logger) {
-	nodesInit(wg, clientset.Slim(), ctx.Done())
+	nodesInit(wg, clientset.Slim(), ctx.Done(), logger)
 
 	// wait for k8s nodes synced is done
 	select {

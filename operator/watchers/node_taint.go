@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -20,12 +20,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	pkgOption "github.com/cilium/cilium/pkg/option"
@@ -37,6 +37,8 @@ const (
 	// ciliumNodeConditionReason is the condition name used by Cilium to set
 	// when the Network is setup in the node.
 	ciliumNodeConditionReason = "CiliumIsUp"
+
+	maxSilentRetries = 6
 )
 
 var (
@@ -53,14 +55,10 @@ var (
 
 	queueKeyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
 
-	ctrlMgr = controller.NewManager()
-
 	mno markNodeOptions
-
-	markK8sNodeControllerGroup = controller.NewGroup("mark-k8s-node-taints-conditions")
 )
 
-func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter, workQueue workqueue.RateLimitingInterface, logger *slog.Logger) bool {
+func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter, workQueue workqueue.TypedRateLimitingInterface[string], logger *slog.Logger) bool {
 	// Get the next 'key' from the queue.
 	key, quit := workQueue.Get()
 	if quit {
@@ -71,26 +69,39 @@ func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter
 	// re-processing.
 	defer workQueue.Done(key)
 
-	success := checkAndMarkNode(c, nodeGetter, key.(string), mno, logger)
-	if !success {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := checkAndMarkNode(ctx, c, nodeGetter, key, mno, logger)
+	handleErr(err, key, workQueue, logger)
+	return true
+}
+
+func handleErr(err error, key string, workQueue workqueue.TypedRateLimitingInterface[string], logger *slog.Logger) {
+	if err == nil {
+		if workQueue.NumRequeues(key) >= maxSilentRetries {
+			logger.Info("Successfully updated tains and conditions for the node", logfields.NodeName, key)
+		}
 		workQueue.Forget(key)
-		return true
+		return
 	}
 
-	// If the event was processed correctly then forget it from the queue.
-	// If we don't do this, the next ".Get()" will always return this 'key'.
-	// It also depends on if the queue has a rate-limiter (not used in this
-	// program)
-	workQueue.Forget(key)
-	return true
+	if workQueue.NumRequeues(key) < maxSilentRetries {
+		logger.Debug("Error updating taints and conditions for the node, will retry", logfields.NodeName, key, logfields.Error, err)
+	} else {
+		logger.Warn("Multiple consecutive retries of updating taints and conditions for a node failed, will retry", logfields.NodeName, key, logfields.Error, err)
+	}
+	workQueue.AddRateLimited(key)
 }
 
 // checkAndMarkNode checks if the node contains a Cilium pod in running state
 // so that it can set the taints / conditions of the node
-func checkAndMarkNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string, options markNodeOptions, logger *slog.Logger) bool {
+func checkAndMarkNode(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string, options markNodeOptions, logger *slog.Logger) error {
 	node, err := nodeGetter.GetK8sSlimNode(nodeName)
-	if node == nil || err != nil {
-		return false
+	if err != nil {
+		return err
+	}
+	if node == nil {
+		return nil
 	}
 
 	// should we remove the taint?
@@ -99,26 +110,33 @@ func checkAndMarkNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeNam
 		if (options.RemoveNodeTaint && hasAgentNotReadyTaint(node)) ||
 			(options.SetCiliumIsUpCondition && !HasCiliumIsUpCondition(node)) {
 			logger.Info("Cilium pod running for node; marking accordingly", logfields.NodeName, node.GetName())
-
-			markNode(c, nodeGetter, node.GetName(), options, true, logger)
+			return markNode(ctx, c, nodeGetter, node.GetName(), options, true, logger)
 		}
 	} else if scheduled { // Taint nodes where the pod is scheduled but not running
 		if options.SetNodeTaint && !hasAgentNotReadyTaint(node) {
 			logger.Info("Cilium pod scheduled but not running for node; setting taint", logfields.NodeName, node.GetName())
-			markNode(c, nodeGetter, node.GetName(), options, false, logger)
+			return markNode(ctx, c, nodeGetter, node.GetName(), options, false, logger)
 		}
 	}
-	return true
+	return nil
+}
+
+func ciliumPodHandler(obj interface{}, queue workqueue.TypedRateLimitingInterface[string], logger *slog.Logger) {
+	if pod := informer.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
+		nodeName := pod.Spec.NodeName
+		// Pod might not yet be scheduled to a node
+		if nodeName != "" {
+			queue.Add(nodeName)
+		}
+	}
 }
 
 // ciliumPodsWatcher starts up a pod watcher to handle pod events.
-func ciliumPodsWatcher(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh <-chan struct{}, logger *slog.Logger) {
-	ciliumQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "cilium-pod-queue")
-
+func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, queue workqueue.TypedRateLimitingInterface[string], stopCh <-chan struct{}, logger *slog.Logger) {
 	ciliumPodInformer := informer.NewInformerWithStore(
 		k8sUtils.ListerWatcherWithModifier(
 			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](
-				clientset.Slim().CoreV1().Pods(option.Config.CiliumK8sNamespace),
+				slimClient.CoreV1().Pods(option.Config.CiliumK8sNamespace),
 			),
 			func(options *metav1.ListOptions) {
 				options.LabelSelector = option.Config.CiliumPodLabels
@@ -127,74 +145,23 @@ func ciliumPodsWatcher(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				key, _ := queueKeyFunc(obj)
-				ciliumQueue.Add(key)
+				ciliumPodHandler(obj, queue, logger)
 			},
 			UpdateFunc: func(_, newObj interface{}) {
-				key, _ := queueKeyFunc(newObj)
-				ciliumQueue.Add(key)
+				ciliumPodHandler(newObj, queue, logger)
 			},
 		},
 		transformToCiliumPod,
 		ciliumPodsStore,
 	)
 
-	nodeGetter := &nodeGetter{}
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		// Do not use the k8sClient provided by the nodesInit function since we
-		// need a k8s client that can update node structures and not simply
-		// watch for node events.
-		for processNextCiliumPodItem(clientset, nodeGetter, ciliumQueue, logger) {
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer ciliumQueue.ShutDown()
-
 		ciliumPodInformer.Run(stopCh)
 	}()
-}
 
-func processNextCiliumPodItem(c kubernetes.Interface, nodeGetter slimNodeGetter, workQueue workqueue.RateLimitingInterface, logger *slog.Logger) bool {
-	// Get the next 'key' from the queue.
-	key, quit := workQueue.Get()
-	if quit {
-		return false
-	}
-	// Done marks item as done processing, and if it has been marked as dirty
-	// again while it was being processed, it will be re-added to the queue for
-	// re-processing.
-	defer workQueue.Done(key)
-
-	podInterface, exists, err := ciliumPodsStore.GetByKey(key.(string))
-	if err != nil && !k8sErrors.IsNotFound(err) {
-		return true
-	}
-	if !exists || podInterface == nil {
-		workQueue.Forget(key)
-		return true
-	}
-
-	pod := podInterface.(*slim_corev1.Pod)
-	nodeName := pod.Spec.NodeName
-
-	success := checkAndMarkNode(c, nodeGetter, nodeName, mno, logger)
-	if !success {
-		workQueue.Forget(key)
-		return true
-	}
-
-	// If the event was processed correctly then forget it from the queue.
-	// If we don't do this, the next ".Get()" will always return this 'key'.
-	// It also depends on if the queue has a rate-limiter (not used in this
-	// program)
-	workQueue.Forget(key)
-	return true
+	cache.WaitForCacheSync(stopCh, ciliumPodInformer.HasSynced)
 }
 
 // nodeHasCiliumPod determines if a the node has a Cilium agent pod scheduled
@@ -451,35 +418,27 @@ type markNodeOptions struct {
 
 // markNode marks the Kubernetes node depending on the modes that it is passed
 // on.
-func markNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string, options markNodeOptions, running bool, logger *slog.Logger) {
-	ctrlName := fmt.Sprintf("mark-k8s-node-%s-taints-conditions", nodeName)
+func markNode(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string, options markNodeOptions, running bool, logger *slog.Logger) error {
+	if running && options.RemoveNodeTaint {
+		err := removeNodeTaint(ctx, c, nodeGetter, nodeName, logger)
+		if err != nil {
+			return err
+		}
+	}
+	if running && options.SetCiliumIsUpCondition {
+		err := setNodeNetworkUnavailableFalse(ctx, c, nodeGetter, nodeName, logger)
+		if err != nil {
+			return err
+		}
+	}
+	if !running && options.SetNodeTaint {
+		err := setNodeTaint(ctx, c, nodeGetter, nodeName, logger)
+		if err != nil {
+			return err
+		}
+	}
 
-	ctrlMgr.UpdateController(ctrlName,
-		controller.ControllerParams{
-			Group: markK8sNodeControllerGroup,
-			DoFunc: func(ctx context.Context) error {
-				if running && options.RemoveNodeTaint {
-					err := removeNodeTaint(ctx, c, nodeGetter, nodeName, logger)
-					if err != nil {
-						return err
-					}
-				}
-				if running && options.SetCiliumIsUpCondition {
-					err := setNodeNetworkUnavailableFalse(ctx, c, nodeGetter, nodeName, logger)
-					if err != nil {
-						return err
-					}
-				}
-				if !running && options.SetNodeTaint {
-					err := setNodeTaint(ctx, c, nodeGetter, nodeName, logger)
-					if err != nil {
-						return err
-					}
-				}
-
-				return nil
-			},
-		})
+	return nil
 }
 
 // HandleNodeTolerationAndTaints remove node
@@ -489,17 +448,24 @@ func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clien
 		SetNodeTaint:           option.Config.SetCiliumNodeTaints,
 		SetCiliumIsUpCondition: option.Config.SetCiliumIsUpCondition,
 	}
-	nodesInit(wg, clientset.Slim(), stopCh)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		// Do not use the k8sClient provided by the nodesInit function since we
-		// need a k8s client that can update node structures and not simply
-		// watch for node events.
-		for checkTaintForNextNodeItem(clientset, &nodeGetter{}, nodeQueue, logger) {
-		}
-	}()
+	nodesInit(wg, clientset.Slim(), stopCh, logger)
+	// ciliumPodWatcher blocks waiting for cache sync.
+	// we need to do it before starting worker threads
+	// so checkAndMarkNode has cilium-pod information.
+	// Additionally, we pass nodeQueue to ciliumPodWatcher.
+	// that was initialized in nodesInit.
+	ciliumPodsWatcher(wg, clientset.Slim(), nodeQueue, stopCh, logger)
 
-	ciliumPodsWatcher(wg, clientset, stopCh, logger)
+	for i := 1; i <= option.Config.TaintSyncWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Do not use the k8sClient provided by the nodesInit function since we
+			// need a k8s client that can update node structures and not simply
+			// watch for node events.
+			for checkTaintForNextNodeItem(clientset, &nodeGetter{}, nodeQueue, logger) {
+			}
+		}()
+	}
 }

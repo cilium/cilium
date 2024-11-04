@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
-	"github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -62,13 +61,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestUsersManagement(t *testing.T) {
-	defer func() {
-		// force cleanup of goroutines run from initialization of watchers.nodeQueue,
-		// otherwise goleak complains
-		watchers.NodeQueueShutDown()
-		time.Sleep(50 * time.Millisecond)
-	}()
-
 	var client fakeUserMgmtClient
 	client.init()
 

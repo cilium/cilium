@@ -132,6 +132,7 @@ cilium-operator-alibabacloud [flags]
       --subnet-tags-filter map                               Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --synchronize-k8s-nodes                                Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                             Synchronize Kubernetes services to kvstore (default true)
+      --taint-sync-workers int                               Number of workers used to synchronize node tains and conditions (default 10)
       --unmanaged-pod-watcher-interval int                   Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
       --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
       --version                                              Print version information
