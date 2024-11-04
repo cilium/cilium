@@ -52,6 +52,11 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
+	warningLogExceptions := []logMatcher{cantEnableJIT, delMissingService, podCIDRUnavailable,
+		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
+		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
+		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
+		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:        nil,
@@ -68,6 +73,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 		emptyIPNodeIDAlloc:  nil,
 		"DATA RACE":         nil,
 		"level=error":       errorLogExceptions,
+		"level=warn":        warningLogExceptions,
 	}
 	return &noErrorsInLogs{errorMsgsWithExceptions}
 }
@@ -260,6 +266,24 @@ const (
 	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
 	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
+
+	cantEnableJIT             stringMatcher = "bpf_jit_enable: no such file or directory"                             // Because we run tests in Kind.
+	delMissingService         stringMatcher = "Deleting no longer present service"                                    // cf. https://github.com/cilium/cilium/issues/29679
+	podCIDRUnavailable        stringMatcher = " PodCIDR not available"                                                // cf. https://github.com/cilium/cilium/issues/29680
+	unableGetNode             stringMatcher = "Unable to get node resource"                                           // cf. https://github.com/cilium/cilium/issues/29710
+	sessionAffinitySocketLB   stringMatcher = "Session affinity for host reachable services needs kernel"             // cf. https://github.com/cilium/cilium/issues/29736
+	objectHasBeenModified     stringMatcher = "the object has been modified; please apply your changes"               // cf. https://github.com/cilium/cilium/issues/29712
+	noBackendResponse         stringMatcher = "The kernel does not support --service-no-backend-response=reject"      // cf. https://github.com/cilium/cilium/issues/29733
+	legacyBGPFeature          stringMatcher = "You are using the legacy BGP feature"                                  // Expected when testing the legacy BGP feature.
+	etcdTimeout               stringMatcher = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
+	endpointRestoreFailed     stringMatcher = "Unable to restore endpoint, ignoring"                                  // cf. https://github.com/cilium/cilium/issues/29716
+	unableRestoreRouterIP     stringMatcher = "Unable to restore router IP from filesystem"                           // cf. https://github.com/cilium/cilium/issues/29715
+	routerIPReallocated       stringMatcher = "Router IP could not be re-allocated"                                   // cf. https://github.com/cilium/cilium/issues/29715
+	cantFindIdentityInCache   stringMatcher = "unable to release identity: unable to find key in local cache"         // cf. https://github.com/cilium/cilium/issues/29732
+	keyAllocFailedFoundMaster stringMatcher = "Found master key after proceeding with new allocation"                 // cf. https://github.com/cilium/cilium/issues/29738
+	cantRecreateMasterKey     stringMatcher = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
+	cantUpdateCRDIdentity     stringMatcher = "Unable update CRD identity information with a reference for this node" // cf. https://github.com/cilium/cilium/issues/29739
+	cantDeleteFromPolicyMap   stringMatcher = "cilium_call_policy: delete: key does not exist"                        // cf. https://github.com/cilium/cilium/issues/29754
 )
 
 var (
