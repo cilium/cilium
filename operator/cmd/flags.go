@@ -255,6 +255,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(operatorOption.CiliumPodLabels, "k8s-app=cilium", "Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false")
 	option.BindEnv(vp, operatorOption.CiliumPodLabels)
 
+	flags.Int(operatorOption.TaintSyncWorkers, 10, "Number of workers used to synchronize node tains and conditions")
+	option.BindEnv(vp, operatorOption.TaintSyncWorkers)
+
 	flags.Bool(operatorOption.RemoveCiliumNodeTaints, true, fmt.Sprintf("Remove node taint %q from Kubernetes nodes once Cilium is up and running", option.Config.AgentNotReadyNodeTaintValue()))
 	option.BindEnv(vp, operatorOption.RemoveCiliumNodeTaints)
 

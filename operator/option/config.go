@@ -197,6 +197,10 @@ const (
 	// with.
 	CiliumPodLabels = "cilium-pod-labels"
 
+	// TaintSyncWorkers is the number of workers used to synchronize
+	// taints and conditions in Kubernetes nodes.
+	TaintSyncWorkers = "taint-sync-workers"
+
 	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
 	// should be removed in Kubernetes nodes.
 	RemoveCiliumNodeTaints = "remove-cilium-node-taints"
@@ -381,6 +385,10 @@ type OperatorConfig struct {
 	// with.
 	CiliumPodLabels string
 
+	// TaintSyncWorkers is the number of workers used to synchronize
+	// taints and conditions in Kubernetes nodes.
+	TaintSyncWorkers int
+
 	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
 	// should be removed in Kubernetes nodes.
 	RemoveCiliumNodeTaints bool
@@ -420,6 +428,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
 	}
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
+	c.TaintSyncWorkers = vp.GetInt(TaintSyncWorkers)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
 	c.SetCiliumNodeTaints = vp.GetBool(SetCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
