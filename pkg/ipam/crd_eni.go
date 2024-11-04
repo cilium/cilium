@@ -15,6 +15,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -32,7 +33,7 @@ type eniDeviceConfig struct {
 type configMap map[string]eniDeviceConfig // by MAC addr
 type linkMap map[string]netlink.Link      // by MAC addr
 
-func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration) error {
+func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) error {
 	var (
 		existingENIByName map[string]eniTypes.ENI
 		addedENIByMac     = configMap{}
@@ -64,12 +65,12 @@ func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuCon
 		}
 	}
 
-	go setupENIDevices(addedENIByMac)
+	go setupENIDevices(addedENIByMac, sysctl)
 
 	return nil
 }
 
-func setupENIDevices(eniConfigByMac configMap) {
+func setupENIDevices(eniConfigByMac configMap, sysctl sysctl.Sysctl) {
 	// Wait for the interfaces to be attached to the local node
 	eniLinkByMac, err := waitForNetlinkDevices(eniConfigByMac)
 	if err != nil {
@@ -95,7 +96,7 @@ func setupENIDevices(eniConfigByMac configMap) {
 			log.WithField(logfields.MACAddr, mac).Warning("No configuration found for ENI device")
 			continue
 		}
-		err = configureENINetlinkDevice(link, cfg)
+		err = configureENINetlinkDevice(link, cfg, sysctl)
 		if err != nil {
 			log.WithError(err).
 				WithFields(logrus.Fields{
@@ -165,7 +166,7 @@ func waitForNetlinkDevices(configByMac configMap) (linkByMac linkMap, err error)
 	return linkByMac, errors.New("timed out waiting for ENIs to be attached")
 }
 
-func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig) error {
+func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sysctl.Sysctl) error {
 	if err := netlink.LinkSetMTU(link, cfg.mtu); err != nil {
 		return fmt.Errorf("failed to change MTU of link %s to %d: %w", link.Attrs().Name, cfg.mtu, err)
 	}
@@ -198,6 +199,12 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig) error {
 			// We ignore ESRCH, as it means the entry was already deleted
 			return fmt.Errorf("failed to delete default route %q on link %q: %w", cfg.ip, link.Attrs().Name, err)
 		}
+
+		// Disable reverse path filtering for secondary ENI interfaces. This is needed since we might
+		// receive packets from world ips directly to pod IPs when an Network Load Balancer is used
+		// in IP mode + preserve client IP mode. Since the default route for world IPs goes to the
+		// primary ENI, the kernel will drop packets from world IPs to pod IPs if rp_filter is enabled.
+		sysctl.Disable([]string{"net", "ipv4", "conf", link.Attrs().Name, "rp_filter"})
 	}
 
 	return nil

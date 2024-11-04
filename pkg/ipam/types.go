@@ -9,6 +9,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
@@ -115,6 +116,7 @@ type IPAM struct {
 	mtuConfig      MtuConfiguration
 	clientset      client.Clientset
 	nodeDiscovery  Owner
+	sysctl         sysctl.Sysctl
 }
 
 // DebugStatus implements debug.StatusObject to provide debug status collection
