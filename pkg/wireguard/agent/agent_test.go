@@ -152,7 +152,7 @@ var (
 
 	k8s2NodeName   = "k8s2"
 	k8s2PubKey     = "lH+Xsa0JClu1syeBVbXN0LZNQVB6rTPBzbzWOHwQLW4="
-	k8s2PubKey2    = "lH+Xsa0JClu1syeBVbXN0LZNQVB6rTPBzbzWOHwQLW5="
+	k8s2PubKey2    = "UXTzl/X85VYxk03PCtu8JlPbEl+jgqq4M1hkdVp/dCA="
 	k8s2NodeIPv4   = net.ParseIP("192.168.60.12")
 	k8s2NodeIPv4_2 = net.ParseIP("192.168.60.13")
 	k8s2NodeIPv6   = net.ParseIP("fd01::c")
@@ -422,6 +422,12 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 	require.NoError(t, err)
 	assertAllowedIPs(key1, pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx)
 	assertAllowedIPs(key2_2, pod4IPv4, pod4IPv6, k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx)
+
+	// Ensure that a public key change and node IP change gets reflected.
+	err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
+	require.NoError(t, err)
+	assertAllowedIPs(key1, pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx)
+	assertAllowedIPs(key2, pod4IPv4, pod4IPv6, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx)
 
 	// Ensure that a node IP change gets reflected
 	err = wgAgent.UpdatePeer(k8s2NodeName, wgDummyPeerKey.String(), k8s2NodeIPv4_2, k8s2NodeIPv6_2)
