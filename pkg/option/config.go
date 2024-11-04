@@ -3229,11 +3229,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		}
 	}
 
-	if c.EnableIPv4 && ipv4NativeRoutingCIDR == "" && c.EnableAutoDirectRouting {
-		log.Warnf("If %s is enabled, then you are recommended to also configure %s. If %s is not configured, this may lead to pod to pod traffic being masqueraded, "+
-			"which can cause problems with performance, observability and policy", EnableAutoDirectRoutingName, IPv4NativeRoutingCIDR, IPv4NativeRoutingCIDR)
-	}
-
 	ipv6NativeRoutingCIDR := vp.GetString(IPv6NativeRoutingCIDR)
 
 	if ipv6NativeRoutingCIDR != "" {
@@ -3245,11 +3240,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		if len(c.IPv6NativeRoutingCIDR.IP) != net.IPv6len {
 			log.Fatalf("%s must be an IPv6 CIDR", IPv6NativeRoutingCIDR)
 		}
-	}
-
-	if c.EnableIPv6 && ipv6NativeRoutingCIDR == "" && c.EnableAutoDirectRouting {
-		log.Warnf("If %s is enabled, then you are recommended to also configure %s. If %s is not configured, this may lead to pod to pod traffic being masqueraded, "+
-			"which can cause problems with performance, observability and policy", EnableAutoDirectRoutingName, IPv6NativeRoutingCIDR, IPv6NativeRoutingCIDR)
 	}
 
 	if c.DirectRoutingSkipUnreachable && !c.EnableAutoDirectRouting {
