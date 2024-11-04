@@ -333,7 +333,8 @@ jobs:
             --multi-cluster=${{ env.contextName2 }} \
             --external-target=google.com. \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure"
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename 'cilium-sysdump-${{ matrix.name }}-<ts>'" \
 
           # Skip external traffic (e.g. 1.1.1.1 and www.google.com) tests as IPv6 is not supported
           # in GitHub runners: https://github.com/actions/runner-images/issues/668
