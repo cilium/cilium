@@ -178,7 +178,7 @@ Timers
 
 BGP Control Plane supports modifying the following BGP timer parameters. For
 more detailed description for each timer parameters, please refer to `RFC4271
-<https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__.
+<https://datatracker.ietf.org/doc/html/rfc4271>`__.
 
 ================= ============================ ==========
 Name              Field                        Default
