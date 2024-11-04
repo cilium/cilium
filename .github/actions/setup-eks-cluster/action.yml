@@ -38,6 +38,7 @@ runs:
 
         managedNodeGroups:
         - name: ng-amd64
+          amiFamily: AmazonLinux2
           instanceTypes:
            - t3.medium
           desiredCapacity: 1
@@ -50,6 +51,7 @@ runs:
              value: "true"
              effect: "NoExecute"
         - name: ng-arm64
+          amiFamily: AmazonLinux2
           instanceTypes:
            - t4g.medium
           desiredCapacity: 2
