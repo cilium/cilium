@@ -68,12 +68,12 @@ func RegisterCollector(in collectorIn) {
 		TotalAdvertisedRoutes: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, metricsSubsystem, "advertised_routes"),
 			"Number of routes advertised to the peer",
-			[]string{LabelVRouter, LabelNeighbor, LabelAfi, LabelSafi}, nil,
+			[]string{LabelVRouter, LabelNeighbor, LabelNeighborAsn, LabelAfi, LabelSafi}, nil,
 		),
 		TotalReceivedRoutes: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, metricsSubsystem, "received_routes"),
 			"Number of routes received from the peer",
-			[]string{LabelVRouter, LabelNeighbor, LabelAfi, LabelSafi}, nil,
+			[]string{LabelVRouter, LabelNeighbor, LabelNeighborAsn, LabelAfi, LabelSafi}, nil,
 		),
 		in: in,
 	})
@@ -141,6 +141,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 				float64(family.Advertised),
 				vrouterLabel,
 				neighborLabel,
+				neighborAsnLabel,
 				family.Afi,
 				family.Safi,
 			)
@@ -150,6 +151,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 				float64(family.Received),
 				vrouterLabel,
 				neighborLabel,
+				neighborAsnLabel,
 				family.Afi,
 				family.Safi,
 			)
