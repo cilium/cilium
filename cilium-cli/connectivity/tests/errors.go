@@ -56,19 +56,12 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:        nil,
 		deadLockHeader:      nil,
-		segmentationFault:   nil,
-		NACKreceived:        nil,
 		RunInitFailed:       nil,
-		sizeMismatch:        {stringMatcher("globals/cilium_policy")},
 		emptyBPFInitArg:     nil,
 		RemovingMapMsg:      {stringMatcher("globals/cilium_policy")},
-		logBufferMessage:    nil,
-		ClangErrorsMsg:      nil,
-		ClangErrorMsg:       nil,
 		symbolSubstitution:  nil,
 		uninitializedRegen:  nil,
 		unstableStat:        nil,
-		removeTransientRule: nil,
 		missingIptablesWait: nil,
 		localIDRestoreFail:  nil,
 		routerIPMismatch:    nil,
@@ -249,21 +242,14 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, a *check.Acti
 const (
 	// Logs messages that should not be in the cilium logs
 	panicMessage                         = "panic:"
-	deadLockHeader                       = "POTENTIAL DEADLOCK:"                                      // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	segmentationFault                    = "segmentation fault"                                       // from https://github.com/cilium/cilium/issues/3233
-	NACKreceived                         = "NACK received for version"                                // from https://github.com/cilium/cilium/issues/4003
-	RunInitFailed                        = "JoinEP: "                                                 // from https://github.com/cilium/cilium/pull/5052
-	sizeMismatch                         = "size mismatch for BPF map"                                // from https://github.com/cilium/cilium/issues/7851
-	emptyBPFInitArg                      = "empty argument passed to bpf/init.sh"                     // from https://github.com/cilium/cilium/issues/10228
-	RemovingMapMsg                       = "Removing map to allow for property upgrade"               // from https://github.com/cilium/cilium/pull/10626
-	logBufferMessage                     = "Log buffer too small to dump verifier log"                // from https://github.com/cilium/cilium/issues/10517
-	ClangErrorsMsg                       = " errors generated."                                       // from https://github.com/cilium/cilium/issues/10857
-	ClangErrorMsg                        = "1 error generated."                                       // from https://github.com/cilium/cilium/issues/10857
-	symbolSubstitution                   = "Skipping symbol substitution"                             //
-	uninitializedRegen                   = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
-	unstableStat                         = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
-	removeTransientRule                  = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
-	removeInexistentID     stringMatcher = "removing identity not added to the identity manager!"     // from https://github.com/cilium/cilium/issues/16419
+	deadLockHeader                       = "POTENTIAL DEADLOCK:"                                  // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	RunInitFailed                        = "JoinEP: "                                             // from https://github.com/cilium/cilium/pull/5052
+	emptyBPFInitArg                      = "empty argument passed to bpf/init.sh"                 // from https://github.com/cilium/cilium/issues/10228
+	RemovingMapMsg                       = "Removing map to allow for property upgrade"           // from https://github.com/cilium/cilium/pull/10626
+	symbolSubstitution                   = "Skipping symbol substitution"                         //
+	uninitializedRegen                   = "Uninitialized regeneration level"                     // from https://github.com/cilium/cilium/pull/10949
+	unstableStat                         = "BUG: stat() has unstable behavior"                    // from https://github.com/cilium/cilium/pull/11028
+	removeInexistentID     stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
 	missingIptablesWait                  = "Missing iptables wait arg (-w):"
 	localIDRestoreFail                   = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 	routerIPMismatch                     = "Mismatch of router IPs found during restoration"
