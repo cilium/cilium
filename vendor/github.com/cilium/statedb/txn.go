@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
-	"sync/atomic"
 	"time"
 
 	"github.com/cilium/statedb/index"
@@ -21,18 +20,12 @@ import (
 )
 
 type txn struct {
-	db   *DB
-	root dbRoot
-
-	handle     string
-	acquiredAt time.Time     // the time at which the transaction acquired the locks
-	duration   atomic.Uint64 // the transaction duration after it finished
-	writeTxn
-}
-
-type writeTxn struct {
+	db             *DB
+	handle         string
+	root           dbRoot
 	modifiedTables []*tableEntry            // table entries being modified
 	smus           internal.SortableMutexes // the (sorted) table locks
+	acquiredAt     time.Time                // the time at which the transaction acquired the locks
 	tableNames     []string
 }
 
@@ -51,23 +44,6 @@ var zeroTxn = txn{}
 // txn fulfills the ReadTxn/WriteTxn interface.
 func (txn *txn) getTxn() *txn {
 	return txn
-}
-
-// acquiredInfo returns the information for the "Last WriteTxn" column
-// in "db tables" command. The correctness of this relies on the following assumptions:
-// - txn.handle and txn.acquiredAt are not modified
-// - txn.duration is atomically updated on Commit or Abort
-func (txn *txn) acquiredInfo() string {
-	if txn == nil {
-		return ""
-	}
-	since := internal.PrettySince(txn.acquiredAt)
-	dur := time.Duration(txn.duration.Load())
-	if txn.duration.Load() == 0 {
-		// Still locked
-		return fmt.Sprintf("%s (locked for %s)", txn.handle, since)
-	}
-	return fmt.Sprintf("%s (%s ago, locked for %s)", txn.handle, since, internal.PrettyDuration(dur))
 }
 
 // txnFinalizer is called when the GC frees *txn. It checks that a WriteTxn
@@ -360,59 +336,22 @@ func (txn *txn) delete(meta TableMeta, guardRevision Revision, data any) (object
 	return obj, true, nil
 }
 
-const (
-	nonUniqueSeparator   = 0x0
-	nonUniqueSubstitute  = 0xfe
-	nonUniqueSubstitute2 = 0xfd
-)
-
-// appendEncodePrimary encodes the 'src' (primary key) into 'dst'.
-func appendEncodePrimary(dst, src []byte) []byte {
-	for _, b := range src {
-		switch b {
-		case nonUniqueSeparator:
-			dst = append(dst, nonUniqueSubstitute)
-		case nonUniqueSubstitute:
-			dst = append(dst, nonUniqueSubstitute2, 0x00)
-		case nonUniqueSubstitute2:
-			dst = append(dst, nonUniqueSubstitute2, 0x01)
-		default:
-			dst = append(dst, b)
-		}
-	}
-	return dst
-}
-
 // encodeNonUniqueKey constructs the internal key to use with non-unique indexes.
-// The key is constructed by concatenating the secondary key with the primary key
-// along with the secondary key length. The secondary and primary key are separated
-// with by a 0x0 to ensure ordering is defined by the secondary key. To make sure the
-// separator does not appear in the primary key it is encoded using this schema:
-//
-//	0x0 => 0xfe, 0xfe => 0xfd00, 0xfd => 0xfd01
-//
-// The schema tries to avoid expansion for encoded small integers, e.g. 0x0000 becomes 0xfefe.
-// The length at the end is encoded as unsigned 16-bit big endian.
-//
-// This schema allows looking up from the non-unique index with the secondary key by
-// doing a prefix search. The length is used to safe-guard against indexers that don't
-// terminate the key properly (e.g. if secondary key is "foo", then we don't want
-// "foobar" to match).
+// It concatenates the secondary key with the primary key and the length of the secondary key.
+// The length is stored as unsigned 16-bit big endian.
+// This allows looking up from the non-unique index with the secondary key by doing a prefix
+// search. The length is used to safe-guard against indexers that don't terminate the key
+// properly (e.g. if secondary key is "foo", then we don't want "foobar" to match).
 func encodeNonUniqueKey(primary, secondary index.Key) []byte {
-	key := make([]byte, 0,
-		len(secondary)+1 /* separator */ +
-			len(primary)+
-			2 /* space for few substitutions */ +
-			2 /* length */)
+	key := make([]byte, 0, len(secondary)+len(primary)+2)
 	key = append(key, secondary...)
-	key = append(key, nonUniqueSeparator)
-	key = appendEncodePrimary(key, primary)
+	key = append(key, primary...)
 	// KeySet limits size of key to 16 bits.
 	return binary.BigEndian.AppendUint16(key, uint16(len(secondary)))
 }
 
-func decodeNonUniqueKey(key []byte) (secondary []byte, encPrimary []byte) {
-	// Non-unique key is [<secondary...>, '\xfe', <encoded primary...>, <secondary length>]
+func decodeNonUniqueKey(key []byte) (primary []byte, secondary []byte) {
+	// Multi-index key is [<secondary...>, <primary...>, <secondary length>]
 	if len(key) < 2 {
 		return nil, nil
 	}
@@ -420,13 +359,13 @@ func decodeNonUniqueKey(key []byte) (secondary []byte, encPrimary []byte) {
 	if len(key) < secondaryLength {
 		return nil, nil
 	}
-	return key[:secondaryLength], key[secondaryLength+1 : len(key)-2]
+	return key[secondaryLength : len(key)-2], key[:secondaryLength]
 }
 
 func (txn *txn) Abort() {
 	runtime.SetFinalizer(txn, nil)
 
-	// If modifiedTables is nil, this transaction has already been committed or aborted, and
+	// If writeTxns is nil, this transaction has already been committed or aborted, and
 	// thus there is nothing to do. We allow this without failure to allow for defer
 	// pattern:
 	//
@@ -445,15 +384,13 @@ func (txn *txn) Abort() {
 		return
 	}
 
-	txn.duration.Store(uint64(time.Since(txn.acquiredAt)))
-
 	txn.smus.Unlock()
 	txn.db.metrics.WriteTxnDuration(
 		txn.handle,
 		txn.tableNames,
 		time.Since(txn.acquiredAt))
 
-	txn.writeTxn = writeTxn{}
+	*txn = zeroTxn
 }
 
 // Commit the transaction. Returns a ReadTxn that is the snapshot of the database at the
@@ -484,8 +421,6 @@ func (txn *txn) Commit() ReadTxn {
 	if txn.db == nil {
 		return nil
 	}
-
-	txn.duration.Store(uint64(time.Since(txn.acquiredAt)))
 
 	db := txn.db
 
@@ -542,7 +477,6 @@ func (txn *txn) Commit() ReadTxn {
 
 	// Commit the transaction to build the new root tree and then
 	// atomically store it.
-	txn.root = root
 	db.root.Store(&root)
 	db.mu.Unlock()
 
@@ -565,8 +499,11 @@ func (txn *txn) Commit() ReadTxn {
 		txn.tableNames,
 		time.Since(txn.acquiredAt))
 
-	// Convert into a ReadTxn
-	txn.writeTxn = writeTxn{}
+	// Zero out the transaction to make it inert and
+	// convert it into a ReadTxn.
+	*txn = zeroTxn
+	txn.db = db
+	txn.root = root
 	return txn
 }
 

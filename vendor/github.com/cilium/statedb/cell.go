@@ -16,7 +16,6 @@ var Cell = cell.Module(
 
 	cell.Provide(
 		newHiveDB,
-		ScriptCommands,
 	),
 )
 

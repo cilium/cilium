@@ -1217,9 +1217,11 @@ type FileDescriptorSet struct {
 
 func (x *FileDescriptorSet) Reset() {
 	*x = FileDescriptorSet{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FileDescriptorSet) String() string {
@@ -1230,7 +1232,7 @@ func (*FileDescriptorSet) ProtoMessage() {}
 
 func (x *FileDescriptorSet) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[0]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -1289,9 +1291,11 @@ type FileDescriptorProto struct {
 
 func (x *FileDescriptorProto) Reset() {
 	*x = FileDescriptorProto{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FileDescriptorProto) String() string {
@@ -1302,7 +1306,7 @@ func (*FileDescriptorProto) ProtoMessage() {}
 
 func (x *FileDescriptorProto) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[1]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -1430,9 +1434,11 @@ type DescriptorProto struct {
 
 func (x *DescriptorProto) Reset() {
 	*x = DescriptorProto{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *DescriptorProto) String() string {
@@ -1443,7 +1449,7 @@ func (*DescriptorProto) ProtoMessage() {}
 
 func (x *DescriptorProto) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[2]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -1555,9 +1561,11 @@ const (
 
 func (x *ExtensionRangeOptions) Reset() {
 	*x = ExtensionRangeOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *ExtensionRangeOptions) String() string {
@@ -1568,7 +1576,7 @@ func (*ExtensionRangeOptions) ProtoMessage() {}
 
 func (x *ExtensionRangeOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[3]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -1672,9 +1680,11 @@ type FieldDescriptorProto struct {
 
 func (x *FieldDescriptorProto) Reset() {
 	*x = FieldDescriptorProto{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FieldDescriptorProto) String() string {
@@ -1685,7 +1695,7 @@ func (*FieldDescriptorProto) ProtoMessage() {}
 
 func (x *FieldDescriptorProto) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[4]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -1789,9 +1799,11 @@ type OneofDescriptorProto struct {
 
 func (x *OneofDescriptorProto) Reset() {
 	*x = OneofDescriptorProto{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *OneofDescriptorProto) String() string {
@@ -1802,7 +1814,7 @@ func (*OneofDescriptorProto) ProtoMessage() {}
 
 func (x *OneofDescriptorProto) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[5]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -1851,9 +1863,11 @@ type EnumDescriptorProto struct {
 
 func (x *EnumDescriptorProto) Reset() {
 	*x = EnumDescriptorProto{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *EnumDescriptorProto) String() string {
@@ -1864,7 +1878,7 @@ func (*EnumDescriptorProto) ProtoMessage() {}
 
 func (x *EnumDescriptorProto) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[6]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -1927,9 +1941,11 @@ type EnumValueDescriptorProto struct {
 
 func (x *EnumValueDescriptorProto) Reset() {
 	*x = EnumValueDescriptorProto{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *EnumValueDescriptorProto) String() string {
@@ -1940,7 +1956,7 @@ func (*EnumValueDescriptorProto) ProtoMessage() {}
 
 func (x *EnumValueDescriptorProto) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[7]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -1989,9 +2005,11 @@ type ServiceDescriptorProto struct {
 
 func (x *ServiceDescriptorProto) Reset() {
 	*x = ServiceDescriptorProto{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *ServiceDescriptorProto) String() string {
@@ -2002,7 +2020,7 @@ func (*ServiceDescriptorProto) ProtoMessage() {}
 
 func (x *ServiceDescriptorProto) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[8]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -2064,9 +2082,11 @@ const (
 
 func (x *MethodDescriptorProto) Reset() {
 	*x = MethodDescriptorProto{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *MethodDescriptorProto) String() string {
@@ -2077,7 +2097,7 @@ func (*MethodDescriptorProto) ProtoMessage() {}
 
 func (x *MethodDescriptorProto) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[9]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -2247,9 +2267,11 @@ const (
 
 func (x *FileOptions) Reset() {
 	*x = FileOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FileOptions) String() string {
@@ -2260,7 +2282,7 @@ func (*FileOptions) ProtoMessage() {}
 
 func (x *FileOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[10]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -2512,9 +2534,11 @@ const (
 
 func (x *MessageOptions) Reset() {
 	*x = MessageOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *MessageOptions) String() string {
@@ -2525,7 +2549,7 @@ func (*MessageOptions) ProtoMessage() {}
 
 func (x *MessageOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[11]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -2683,9 +2707,11 @@ const (
 
 func (x *FieldOptions) Reset() {
 	*x = FieldOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FieldOptions) String() string {
@@ -2696,7 +2722,7 @@ func (*FieldOptions) ProtoMessage() {}
 
 func (x *FieldOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[12]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -2823,9 +2849,11 @@ type OneofOptions struct {
 
 func (x *OneofOptions) Reset() {
 	*x = OneofOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[13]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *OneofOptions) String() string {
@@ -2836,7 +2864,7 @@ func (*OneofOptions) ProtoMessage() {}
 
 func (x *OneofOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[13]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -2901,9 +2929,11 @@ const (
 
 func (x *EnumOptions) Reset() {
 	*x = EnumOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[14]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *EnumOptions) String() string {
@@ -2914,7 +2944,7 @@ func (*EnumOptions) ProtoMessage() {}
 
 func (x *EnumOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[14]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -2996,9 +3026,11 @@ const (
 
 func (x *EnumValueOptions) Reset() {
 	*x = EnumValueOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[15]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *EnumValueOptions) String() string {
@@ -3009,7 +3041,7 @@ func (*EnumValueOptions) ProtoMessage() {}
 
 func (x *EnumValueOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[15]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3083,9 +3115,11 @@ const (
 
 func (x *ServiceOptions) Reset() {
 	*x = ServiceOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[16]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *ServiceOptions) String() string {
@@ -3096,7 +3130,7 @@ func (*ServiceOptions) ProtoMessage() {}
 
 func (x *ServiceOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[16]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3158,9 +3192,11 @@ const (
 
 func (x *MethodOptions) Reset() {
 	*x = MethodOptions{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[17]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *MethodOptions) String() string {
@@ -3171,7 +3207,7 @@ func (*MethodOptions) ProtoMessage() {}
 
 func (x *MethodOptions) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[17]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3238,9 +3274,11 @@ type UninterpretedOption struct {
 
 func (x *UninterpretedOption) Reset() {
 	*x = UninterpretedOption{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[18]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *UninterpretedOption) String() string {
@@ -3251,7 +3289,7 @@ func (*UninterpretedOption) ProtoMessage() {}
 
 func (x *UninterpretedOption) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[18]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3337,9 +3375,11 @@ type FeatureSet struct {
 
 func (x *FeatureSet) Reset() {
 	*x = FeatureSet{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[19]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[19]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FeatureSet) String() string {
@@ -3350,7 +3390,7 @@ func (*FeatureSet) ProtoMessage() {}
 
 func (x *FeatureSet) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[19]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3427,9 +3467,11 @@ type FeatureSetDefaults struct {
 
 func (x *FeatureSetDefaults) Reset() {
 	*x = FeatureSetDefaults{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[20]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[20]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FeatureSetDefaults) String() string {
@@ -3440,7 +3482,7 @@ func (*FeatureSetDefaults) ProtoMessage() {}
 
 func (x *FeatureSetDefaults) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[20]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3536,9 +3578,11 @@ type SourceCodeInfo struct {
 
 func (x *SourceCodeInfo) Reset() {
 	*x = SourceCodeInfo{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[21]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *SourceCodeInfo) String() string {
@@ -3549,7 +3593,7 @@ func (*SourceCodeInfo) ProtoMessage() {}
 
 func (x *SourceCodeInfo) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[21]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3586,9 +3630,11 @@ type GeneratedCodeInfo struct {
 
 func (x *GeneratedCodeInfo) Reset() {
 	*x = GeneratedCodeInfo{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[22]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *GeneratedCodeInfo) String() string {
@@ -3599,7 +3645,7 @@ func (*GeneratedCodeInfo) ProtoMessage() {}
 
 func (x *GeneratedCodeInfo) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[22]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3633,9 +3679,11 @@ type DescriptorProto_ExtensionRange struct {
 
 func (x *DescriptorProto_ExtensionRange) Reset() {
 	*x = DescriptorProto_ExtensionRange{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[23]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *DescriptorProto_ExtensionRange) String() string {
@@ -3646,7 +3694,7 @@ func (*DescriptorProto_ExtensionRange) ProtoMessage() {}
 
 func (x *DescriptorProto_ExtensionRange) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[23]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3696,9 +3744,11 @@ type DescriptorProto_ReservedRange struct {
 
 func (x *DescriptorProto_ReservedRange) Reset() {
 	*x = DescriptorProto_ReservedRange{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[24]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[24]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *DescriptorProto_ReservedRange) String() string {
@@ -3709,7 +3759,7 @@ func (*DescriptorProto_ReservedRange) ProtoMessage() {}
 
 func (x *DescriptorProto_ReservedRange) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[24]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3763,9 +3813,11 @@ type ExtensionRangeOptions_Declaration struct {
 
 func (x *ExtensionRangeOptions_Declaration) Reset() {
 	*x = ExtensionRangeOptions_Declaration{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[25]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[25]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *ExtensionRangeOptions_Declaration) String() string {
@@ -3776,7 +3828,7 @@ func (*ExtensionRangeOptions_Declaration) ProtoMessage() {}
 
 func (x *ExtensionRangeOptions_Declaration) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[25]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3843,9 +3895,11 @@ type EnumDescriptorProto_EnumReservedRange struct {
 
 func (x *EnumDescriptorProto_EnumReservedRange) Reset() {
 	*x = EnumDescriptorProto_EnumReservedRange{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[26]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[26]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *EnumDescriptorProto_EnumReservedRange) String() string {
@@ -3856,7 +3910,7 @@ func (*EnumDescriptorProto_EnumReservedRange) ProtoMessage() {}
 
 func (x *EnumDescriptorProto_EnumReservedRange) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[26]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3896,9 +3950,11 @@ type FieldOptions_EditionDefault struct {
 
 func (x *FieldOptions_EditionDefault) Reset() {
 	*x = FieldOptions_EditionDefault{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[27]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[27]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FieldOptions_EditionDefault) String() string {
@@ -3909,7 +3965,7 @@ func (*FieldOptions_EditionDefault) ProtoMessage() {}
 
 func (x *FieldOptions_EditionDefault) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[27]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -3962,9 +4018,11 @@ type FieldOptions_FeatureSupport struct {
 
 func (x *FieldOptions_FeatureSupport) Reset() {
 	*x = FieldOptions_FeatureSupport{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[28]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[28]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FieldOptions_FeatureSupport) String() string {
@@ -3975,7 +4033,7 @@ func (*FieldOptions_FeatureSupport) ProtoMessage() {}
 
 func (x *FieldOptions_FeatureSupport) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[28]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -4034,9 +4092,11 @@ type UninterpretedOption_NamePart struct {
 
 func (x *UninterpretedOption_NamePart) Reset() {
 	*x = UninterpretedOption_NamePart{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[29]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[29]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *UninterpretedOption_NamePart) String() string {
@@ -4047,7 +4107,7 @@ func (*UninterpretedOption_NamePart) ProtoMessage() {}
 
 func (x *UninterpretedOption_NamePart) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[29]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -4094,9 +4154,11 @@ type FeatureSetDefaults_FeatureSetEditionDefault struct {
 
 func (x *FeatureSetDefaults_FeatureSetEditionDefault) Reset() {
 	*x = FeatureSetDefaults_FeatureSetEditionDefault{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[30]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[30]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *FeatureSetDefaults_FeatureSetEditionDefault) String() string {
@@ -4107,7 +4169,7 @@ func (*FeatureSetDefaults_FeatureSetEditionDefault) ProtoMessage() {}
 
 func (x *FeatureSetDefaults_FeatureSetEditionDefault) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[30]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -4243,9 +4305,11 @@ type SourceCodeInfo_Location struct {
 
 func (x *SourceCodeInfo_Location) Reset() {
 	*x = SourceCodeInfo_Location{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[31]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[31]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *SourceCodeInfo_Location) String() string {
@@ -4256,7 +4320,7 @@ func (*SourceCodeInfo_Location) ProtoMessage() {}
 
 func (x *SourceCodeInfo_Location) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[31]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -4328,9 +4392,11 @@ type GeneratedCodeInfo_Annotation struct {
 
 func (x *GeneratedCodeInfo_Annotation) Reset() {
 	*x = GeneratedCodeInfo_Annotation{}
-	mi := &file_google_protobuf_descriptor_proto_msgTypes[32]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_descriptor_proto_msgTypes[32]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *GeneratedCodeInfo_Annotation) String() string {
@@ -4341,7 +4407,7 @@ func (*GeneratedCodeInfo_Annotation) ProtoMessage() {}
 
 func (x *GeneratedCodeInfo_Annotation) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_descriptor_proto_msgTypes[32]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -5318,6 +5384,424 @@ func init() { file_google_protobuf_descriptor_proto_init() }
 func file_google_protobuf_descriptor_proto_init() {
 	if File_google_protobuf_descriptor_proto != nil {
 		return
+	}
+	if !protoimpl.UnsafeEnabled {
+		file_google_protobuf_descriptor_proto_msgTypes[0].Exporter = func(v any, i int) any {
+			switch v := v.(*FileDescriptorSet); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[1].Exporter = func(v any, i int) any {
+			switch v := v.(*FileDescriptorProto); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[2].Exporter = func(v any, i int) any {
+			switch v := v.(*DescriptorProto); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[3].Exporter = func(v any, i int) any {
+			switch v := v.(*ExtensionRangeOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[4].Exporter = func(v any, i int) any {
+			switch v := v.(*FieldDescriptorProto); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[5].Exporter = func(v any, i int) any {
+			switch v := v.(*OneofDescriptorProto); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[6].Exporter = func(v any, i int) any {
+			switch v := v.(*EnumDescriptorProto); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[7].Exporter = func(v any, i int) any {
+			switch v := v.(*EnumValueDescriptorProto); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[8].Exporter = func(v any, i int) any {
+			switch v := v.(*ServiceDescriptorProto); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[9].Exporter = func(v any, i int) any {
+			switch v := v.(*MethodDescriptorProto); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[10].Exporter = func(v any, i int) any {
+			switch v := v.(*FileOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[11].Exporter = func(v any, i int) any {
+			switch v := v.(*MessageOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[12].Exporter = func(v any, i int) any {
+			switch v := v.(*FieldOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[13].Exporter = func(v any, i int) any {
+			switch v := v.(*OneofOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[14].Exporter = func(v any, i int) any {
+			switch v := v.(*EnumOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[15].Exporter = func(v any, i int) any {
+			switch v := v.(*EnumValueOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[16].Exporter = func(v any, i int) any {
+			switch v := v.(*ServiceOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[17].Exporter = func(v any, i int) any {
+			switch v := v.(*MethodOptions); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[18].Exporter = func(v any, i int) any {
+			switch v := v.(*UninterpretedOption); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[19].Exporter = func(v any, i int) any {
+			switch v := v.(*FeatureSet); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[20].Exporter = func(v any, i int) any {
+			switch v := v.(*FeatureSetDefaults); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[21].Exporter = func(v any, i int) any {
+			switch v := v.(*SourceCodeInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[22].Exporter = func(v any, i int) any {
+			switch v := v.(*GeneratedCodeInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[23].Exporter = func(v any, i int) any {
+			switch v := v.(*DescriptorProto_ExtensionRange); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[24].Exporter = func(v any, i int) any {
+			switch v := v.(*DescriptorProto_ReservedRange); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[25].Exporter = func(v any, i int) any {
+			switch v := v.(*ExtensionRangeOptions_Declaration); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[26].Exporter = func(v any, i int) any {
+			switch v := v.(*EnumDescriptorProto_EnumReservedRange); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[27].Exporter = func(v any, i int) any {
+			switch v := v.(*FieldOptions_EditionDefault); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[28].Exporter = func(v any, i int) any {
+			switch v := v.(*FieldOptions_FeatureSupport); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[29].Exporter = func(v any, i int) any {
+			switch v := v.(*UninterpretedOption_NamePart); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[30].Exporter = func(v any, i int) any {
+			switch v := v.(*FeatureSetDefaults_FeatureSetEditionDefault); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[31].Exporter = func(v any, i int) any {
+			switch v := v.(*SourceCodeInfo_Location); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_google_protobuf_descriptor_proto_msgTypes[32].Exporter = func(v any, i int) any {
+			switch v := v.(*GeneratedCodeInfo_Annotation); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

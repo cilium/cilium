@@ -67,6 +67,7 @@ type lazyExtensionValue struct {
 	xi         *extensionFieldInfo
 	value      protoreflect.Value
 	b          []byte
+	fn         func() protoreflect.Value
 }
 
 type ExtensionField struct {
@@ -157,9 +158,10 @@ func (f *ExtensionField) lazyInit() {
 		}
 		f.lazy.value = val
 	} else {
-		panic("No support for lazy fns for ExtensionField")
+		f.lazy.value = f.lazy.fn()
 	}
 	f.lazy.xi = nil
+	f.lazy.fn = nil
 	f.lazy.b = nil
 	atomic.StoreUint32(&f.lazy.atomicOnce, 1)
 }
@@ -170,6 +172,13 @@ func (f *ExtensionField) Set(t protoreflect.ExtensionType, v protoreflect.Value)
 	f.typ = t
 	f.value = v
 	f.lazy = nil
+}
+
+// SetLazy sets the type and a value that is to be lazily evaluated upon first use.
+// This must not be called concurrently.
+func (f *ExtensionField) SetLazy(t protoreflect.ExtensionType, fn func() protoreflect.Value) {
+	f.typ = t
+	f.lazy = &lazyExtensionValue{fn: fn}
 }
 
 // Value returns the value of the extension field.

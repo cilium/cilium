@@ -72,8 +72,6 @@ func (client *Client) DescribeImageComponentsWithCallback(request *DescribeImage
 type DescribeImageComponentsRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer              `position:"Query" name:"ResourceOwnerId"`
-	SystemType           string                        `position:"Query" name:"SystemType"`
-	ComponentVersion     string                        `position:"Query" name:"ComponentVersion"`
 	ImageComponentId     *[]string                     `position:"Query" name:"ImageComponentId"  type:"Repeated"`
 	ResourceGroupId      string                        `position:"Query" name:"ResourceGroupId"`
 	NextToken            string                        `position:"Query" name:"NextToken"`
@@ -82,7 +80,6 @@ type DescribeImageComponentsRequest struct {
 	ResourceOwnerAccount string                        `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                        `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer              `position:"Query" name:"OwnerId"`
-	ComponentType        string                        `position:"Query" name:"ComponentType"`
 	Name                 string                        `position:"Query" name:"Name"`
 	MaxResults           requests.Integer              `position:"Query" name:"MaxResults"`
 }

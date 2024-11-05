@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"iter"
 	"reflect"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Map of key-value pairs. The zero value is ready for use, provided
@@ -24,8 +22,8 @@ type Map[K, V any] struct {
 }
 
 type mapKVPair[K, V any] struct {
-	Key   K `json:"k" yaml:"k"`
-	Value V `json:"v" yaml:"v"`
+	Key   K `json:"k"`
+	Value V `json:"v"`
 }
 
 // FromMap copies values from the hash map into the given Map.
@@ -236,32 +234,6 @@ func (m *Map[K, V]) UnmarshalJSON(data []byte) error {
 	}
 	if d, ok := t.(json.Delim); !ok || d != ']' {
 		return fmt.Errorf("%T.UnmarshalJSON: expected ']' got %v", m, t)
-	}
-	m.tree = txn.CommitOnly()
-	return nil
-}
-
-func (m Map[K, V]) MarshalYAML() (any, error) {
-	kvs := make([]mapKVPair[K, V], 0, m.Len())
-	iter := m.tree.Iterator()
-	for _, kv, ok := iter.Next(); ok; _, kv, ok = iter.Next() {
-		kvs = append(kvs, kv)
-	}
-	return kvs, nil
-}
-
-func (m *Map[K, V]) UnmarshalYAML(value *yaml.Node) error {
-	if value.Kind != yaml.SequenceNode {
-		return fmt.Errorf("%T.UnmarshalYAML: expected sequence", m)
-	}
-	m.ensureTree()
-	txn := m.tree.Txn()
-	for _, e := range value.Content {
-		var kv mapKVPair[K, V]
-		if err := e.Decode(&kv); err != nil {
-			return err
-		}
-		txn.Insert(m.bytesFromKey(kv.Key), mapKVPair[K, V]{kv.Key, kv.Value})
 	}
 	m.tree = txn.CommitOnly()
 	return nil

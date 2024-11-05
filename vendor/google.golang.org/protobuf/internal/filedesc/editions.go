@@ -68,7 +68,7 @@ func unmarshalFeatureSet(b []byte, parent EditionFeatures) EditionFeatures {
 			v, m := protowire.ConsumeBytes(b)
 			b = b[m:]
 			switch num {
-			case genid.FeatureSet_Go_ext_number:
+			case genid.GoFeatures_LegacyUnmarshalJsonEnum_field_number:
 				parent = unmarshalGoFeature(v, parent)
 			}
 		}

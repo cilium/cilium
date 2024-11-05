@@ -26,7 +26,5 @@ type ImageComponentSet struct {
 	Name             string                        `json:"Name" xml:"Name"`
 	Content          string                        `json:"Content" xml:"Content"`
 	Owner            string                        `json:"Owner" xml:"Owner"`
-	ComponentVersion string                        `json:"ComponentVersion" xml:"ComponentVersion"`
 	Tags             TagsInDescribeImageComponents `json:"Tags" xml:"Tags"`
-	Parameters       Parameters                    `json:"Parameters" xml:"Parameters"`
 }

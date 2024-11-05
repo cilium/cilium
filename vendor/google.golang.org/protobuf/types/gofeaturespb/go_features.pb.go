@@ -29,9 +29,11 @@ type GoFeatures struct {
 
 func (x *GoFeatures) Reset() {
 	*x = GoFeatures{}
-	mi := &file_google_protobuf_go_features_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
+	if protoimpl.UnsafeEnabled {
+		mi := &file_google_protobuf_go_features_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
 }
 
 func (x *GoFeatures) String() string {
@@ -42,7 +44,7 @@ func (*GoFeatures) ProtoMessage() {}
 
 func (x *GoFeatures) ProtoReflect() protoreflect.Message {
 	mi := &file_google_protobuf_go_features_proto_msgTypes[0]
-	if x != nil {
+	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
@@ -142,6 +144,20 @@ func init() { file_google_protobuf_go_features_proto_init() }
 func file_google_protobuf_go_features_proto_init() {
 	if File_google_protobuf_go_features_proto != nil {
 		return
+	}
+	if !protoimpl.UnsafeEnabled {
+		file_google_protobuf_go_features_proto_msgTypes[0].Exporter = func(v any, i int) any {
+			switch v := v.(*GoFeatures); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
