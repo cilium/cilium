@@ -1227,6 +1227,20 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting profiling data from Cilium pods",
+			Quick:           false,
+			Task: func(_ context.Context) error {
+				if !c.Options.Profiling {
+					return nil
+				}
+				if err := c.SubmitProfilingGopsSubtasks(c.CiliumPods, ciliumAgentContainerName); err != nil {
+					return fmt.Errorf("failed to collect profiling data from Cilium pods: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting profiling data from Cilium Operator pods",
 			Quick:           false,
 			Task: func(_ context.Context) error {
@@ -1442,19 +1456,6 @@ func (c *Collector) Run() error {
 		tasks = append(tasks, ciliumTasks...)
 
 		serialTasks = append(serialTasks, Task{
-			CreatesSubtasks: true,
-			Description:     "Collecting profiling data from Cilium pods",
-			Quick:           false,
-			Task: func(_ context.Context) error {
-				if !c.Options.Profiling {
-					return nil
-				}
-				if err := c.SubmitProfilingGopsSubtasks(c.CiliumPods, ciliumAgentContainerName); err != nil {
-					return fmt.Errorf("failed to collect profiling data from Cilium pods: %w", err)
-				}
-				return nil
-			},
-		}, Task{
 			CreatesSubtasks: true,
 			Description:     "Collecting tracing data from Cilium pods",
 			Quick:           false,
