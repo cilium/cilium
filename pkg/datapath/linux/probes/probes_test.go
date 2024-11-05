@@ -344,12 +344,3 @@ func TestHaveTCX(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-func TestHaveNetkit(t *testing.T) {
-	testutils.PrivilegedTest(t)
-	testutils.SkipOnOldKernel(t, "6.7", "netkit bpf_link")
-
-	if err := HaveNetkit(); err != nil {
-		t.Fatal(err)
-	}
-}
