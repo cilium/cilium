@@ -70,3 +70,10 @@ func (c *xfrmStateListCache) invalidate() {
 	defer c.mutex.Unlock()
 	c.stateList = nil
 }
+
+func newTestableXfrmStateListCache(ttl time.Duration, clock clock.PassiveClock) *xfrmStateListCache {
+	return &xfrmStateListCache{
+		ttl:   ttl,
+		clock: clock,
+	}
+}

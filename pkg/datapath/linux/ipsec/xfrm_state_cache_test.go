@@ -1,5 +1,3 @@
-//go:build unparallel
-
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -15,16 +13,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 
-	"k8s.io/utils/clock"
 	baseclocktest "k8s.io/utils/clock/testing"
 )
-
-func newTestableXfrmStateListCache(ttl time.Duration, clock clock.PassiveClock) *xfrmStateListCache {
-	return &xfrmStateListCache{
-		ttl:   ttl,
-		clock: clock,
-	}
-}
 
 func TestXfrmStateListCache(t *testing.T) {
 	setupIPSecSuitePrivileged(t)
