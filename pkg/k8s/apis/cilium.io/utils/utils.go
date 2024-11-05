@@ -203,9 +203,7 @@ func parseToCiliumEgressCommonRule(namespace string, es api.EndpointSelector, eg
 	if egr.ToEndpoints != nil {
 		retRule.ToEndpoints = make([]api.EndpointSelector, len(egr.ToEndpoints))
 		for j, ep := range egr.ToEndpoints {
-			endpointSelector := getEndpointSelector(namespace, ep.LabelSelector, true, matchesInit)
-			endpointSelector.Generated = ep.Generated
-			retRule.ToEndpoints[j] = endpointSelector
+			retRule.ToEndpoints[j] = getEndpointSelector(namespace, ep.LabelSelector, true, matchesInit)
 		}
 	}
 

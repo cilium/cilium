@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -634,7 +635,8 @@ func TestToServicesSanitize(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, toServicesL3L4.Sanitize())
+	err := toServicesL3L4.Sanitize()
+	require.Error(t, err)
 }
 
 // This test ensures that PortRules using key-value pairs do not have empty keys

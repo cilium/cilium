@@ -218,30 +218,13 @@ func countNonGeneratedCIDRRules(s CIDRRuleSlice) int {
 	return n
 }
 
-// countNonGeneratedEndpoints counts the number of EndpointSelector items which are not
-// `Generated`, i.e. were directly provided by the user.
-// The `Generated` field is currently only set by the `ToServices`
-// implementation, which extracts service endpoints and translates them as
-// ToEndpoints rules before the CNP is passed to the policy repository.
-// Therefore, we want to allow the combination of ToEndpoints and ToServices
-// rules, if (and only if) the ToEndpoints only contains `Generated` entries.
-func countNonGeneratedEndpoints(s []EndpointSelector) int {
-	n := 0
-	for _, c := range s {
-		if !c.Generated {
-			n++
-		}
-	}
-	return n
-}
-
 func (e *EgressRule) sanitize(hostPolicy bool) error {
 	var retErr error
 
 	l3Members := map[string]int{
 		"ToCIDR":      len(e.ToCIDR),
 		"ToCIDRSet":   countNonGeneratedCIDRRules(e.ToCIDRSet),
-		"ToEndpoints": countNonGeneratedEndpoints(e.ToEndpoints),
+		"ToEndpoints": len(e.ToEndpoints),
 		"ToEntities":  len(e.ToEntities),
 		"ToServices":  len(e.ToServices),
 		"ToFQDNs":     len(e.ToFQDNs),
@@ -253,7 +236,7 @@ func (e *EgressRule) sanitize(hostPolicy bool) error {
 		"ToCIDRSet":   true,
 		"ToEndpoints": true,
 		"ToEntities":  true,
-		"ToServices":  true,
+		"ToServices":  false, // see https://github.com/cilium/cilium/issues/20067
 		"ToFQDNs":     true,
 		"ToGroups":    true,
 		"ToNodes":     true,
