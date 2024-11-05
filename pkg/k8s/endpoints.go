@@ -450,8 +450,8 @@ type EndpointSlices struct {
 	epSlices map[string]*Endpoints
 }
 
-// NewEndpointsSlices returns a new EndpointSlices
-func NewEndpointsSlices() *EndpointSlices {
+// newEndpointsSlices returns a new EndpointSlices
+func newEndpointsSlices() *EndpointSlices {
 	return &EndpointSlices{
 		epSlices: map[string]*Endpoints{},
 	}
