@@ -1643,14 +1643,15 @@ and selected service endpoint.
     Jan 13 13:47:20.932: default/mediabot:38750 (ID:5618) <> default/nginx (ID:35772) pre-xlate-rev TRACED (TCP)
 
 Socket LB tracing with Hubble requires cilium agent to detect pod cgroup paths.
-If you see a warning message in cilium agent ``Failed to setup socket load-balancing tracing with Hubble.``,
+If you see a message in cilium agent ``Failed to setup socket load-balancing tracing with Hubble.``,
 you can trace packets using ``cilium-dbg monitor`` instead.
 
 .. note::
 
-    In case of the warning log, please file a GitHub issue with the cgroup path
-    for any of your pods, obtained by running the following command on a Kubernetes
-    node in your cluster: ``sudo crictl inspectp -o=json $POD_ID | grep cgroup``.
+    If you observe the message about socket load-balancing setup failure in the logs,
+    please file a GitHub issue with the cgroup path for any of your pods,
+    obtained by running the following command on a Kubernetes node in your
+    cluster: ``sudo crictl inspectp -o=json $POD_ID | grep cgroup``.
 
 .. code-block:: shell-session
 

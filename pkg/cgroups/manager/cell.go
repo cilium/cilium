@@ -37,7 +37,7 @@ func newCGroupManager(params cgroupManagerParams) CGroupManager {
 	if err != nil {
 		params.Logger.
 			WithError(err).
-			Warn("Failed to setup socket load-balancing tracing with Hubble. See the kubeproxy-free guide for more details.")
+			Info("Failed to setup socket load-balancing tracing with Hubble. See the kubeproxy-free guide for more details.")
 
 		return &noopCGroupManager{}
 	}
