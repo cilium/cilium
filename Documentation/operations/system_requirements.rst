@@ -265,6 +265,7 @@ enabled by upgrading to more recent kernel versions as detailed below.
 ====================================================== ===============================
 Cilium Feature                                         Minimum Kernel Version
 ====================================================== ===============================
+:ref:`bandwidth-manager`                               >= 5.1
 :ref:`egress-gateway`                                  >= 5.2
 VXLAN Tunnel Endpoint (VTEP) Integration               >= 5.2
 :ref:`encryption_wg`                                   >= 5.6
