@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -1337,7 +1336,7 @@ func CheckHealth(ep *Endpoint) error {
 		})
 		return nil
 	}
-	_, err := safenetlink.LinkByName(iface)
+	_, err := netlink.LinkByName(iface)
 	var linkNotFoundError netlink.LinkNotFoundError
 	if errors.As(err, &linkNotFoundError) {
 		return fmt.Errorf("Endpoint is invalid: %w", err)
