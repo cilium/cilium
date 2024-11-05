@@ -1001,13 +1001,7 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": [
-      {
-        "type": "datasource",
-        "name": "DS_PROMETHEUS",
-        "query": "prometheus"
-      }
-    ]
+    "list": []
   },
   "time": {
     "from": "now-30m",
