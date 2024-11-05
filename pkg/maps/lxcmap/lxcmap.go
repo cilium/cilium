@@ -50,10 +50,6 @@ func LXCMap() *bpf.Map {
 const (
 	// EndpointFlagHost indicates that this endpoint represents the host
 	EndpointFlagHost = 1
-
-	// EndpointFlagAtHostNS indicates that this endpoint is located at the host networking
-	// namespace
-	EndpointFlagAtHostNS = 2
 )
 
 // EndpointFrontend is the interface to implement for an object to synchronize
@@ -66,7 +62,6 @@ type EndpointFrontend interface {
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
 	GetIdentity() identity.NumericIdentity
-	IsAtHostNS() bool
 }
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
@@ -107,10 +102,6 @@ func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 		MAC:     mac,
 		NodeMAC: nodeMAC,
 		SecID:   e.GetIdentity().Uint32(), // Host byte-order
-	}
-
-	if e.IsAtHostNS() {
-		info.Flags |= EndpointFlagAtHostNS
 	}
 
 	return info, nil

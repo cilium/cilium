@@ -177,7 +177,3 @@ func (ep *epInfoCache) GetPolicyVerdictLogFilter() uint32 {
 func (ep *epInfoCache) IsHost() bool {
 	return ep.endpoint.IsHost()
 }
-
-func (ep *epInfoCache) IsAtHostNS() bool {
-	return false
-}
