@@ -27,7 +27,6 @@ import (
 )
 
 func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
-	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
 	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
@@ -99,7 +98,6 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 }
 
 func TestIdentityModeSyncCESsInLocalCache(t *testing.T) {
-	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
 	m := newCESManagerIdentity(2, log).(*cesManagerIdentity)
@@ -171,7 +169,7 @@ func TestIdentityModeSyncCESsInLocalCache(t *testing.T) {
 }
 
 func TestDifferentSpeedQueues(t *testing.T) {
-	log := hivetest.Logger(t)
+
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
 	m := newCESManagerIdentity(2, log).(*cesManagerIdentity)
@@ -273,7 +271,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 }
 
 func TestCESManagement(t *testing.T) {
-	log := hivetest.Logger(t)
+
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
 	m := newCESManagerIdentity(2, log).(*cesManagerIdentity)

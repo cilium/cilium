@@ -9,11 +9,10 @@ package networkpolicy
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +49,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type PolicyParams struct {
 	cell.In
 
-	Logger       *slog.Logger
+	Logger       logrus.FieldLogger
 	JobGroup     job.Group
 	Clientset    k8s_client.Clientset
 	DaemonConfig *option.DaemonConfig
@@ -74,7 +73,7 @@ func registerPolicyValidator(params PolicyParams) {
 	}
 
 	if !option.Config.EnableCiliumNetworkPolicy && !option.Config.EnableCiliumClusterwideNetworkPolicy {
-		params.Logger.Info(fmt.Sprintf("CNP / CCNP validator doesn't run when CNP and CCNP are disabled (%s=false AND %s=false)", option.EnableCiliumNetworkPolicy, option.EnableCiliumClusterwideNetworkPolicy))
+		params.Logger.Infof("CNP / CCNP validator doesn't run when CNP and CCNP are disabled (%s=false AND %s=false)", option.EnableCiliumNetworkPolicy, option.EnableCiliumClusterwideNetworkPolicy)
 		return
 	}
 
@@ -105,7 +104,10 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	}
 
 	pol := event.Object
-	log := pv.params.Logger.With(logfields.K8sNamespace, pol.Namespace, logfields.CiliumNetworkPolicyName, pol.Name)
+	log := pv.params.Logger.WithFields(logrus.Fields{
+		logfields.K8sNamespace:            pol.Namespace,
+		logfields.CiliumNetworkPolicyName: pol.Name,
+	})
 
 	var errs error
 	if pol.Spec != nil {
@@ -122,7 +124,7 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	}
 
 	if errs != nil {
-		log.Debug("Detected invalid CNP, setting condition", logfields.Error, errs)
+		log.WithField(logfields.Error, errs).Debug("Detected invalid CNP, setting condition")
 	} else {
 		log.Debug("CNP now valid, setting condition")
 	}
@@ -136,7 +138,7 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		log.Error("failed to update CNP status", logfields.Error, err)
+		log.WithError(err).Error("failed to update CNP status")
 	}
 
 	return err
@@ -152,7 +154,10 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	}
 
 	pol := event.Object
-	log := pv.params.Logger.With(logfields.K8sNamespace, pol.Namespace, logfields.CiliumClusterwideNetworkPolicyName, pol.Name)
+	log := pv.params.Logger.WithFields(logrus.Fields{
+		logfields.K8sNamespace:                       pol.Namespace,
+		logfields.CiliumClusterwideNetworkPolicyName: pol.Name,
+	})
 
 	var errs error
 	if pol.Spec != nil {
@@ -169,7 +174,7 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	}
 
 	if errs != nil {
-		log.Debug("Detected invalid CCNP, setting condition", logfields.Error, errs)
+		log.WithField(logfields.Error, errs).Debug("Detected invalid CCNP, setting condition")
 	} else {
 		log.Debug("CCNP now valid, setting condition")
 	}
@@ -183,7 +188,7 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		log.Error("failed to update CCNP status", logfields.Error, err)
+		log.WithError(err).Error("failed to update CCNP status")
 	}
 
 	return err

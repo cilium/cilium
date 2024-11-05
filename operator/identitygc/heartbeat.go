@@ -4,12 +4,15 @@
 package identitygc
 
 import (
-	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-heartbeat")
 )
 
 // heartbeatStore keeps track of the heartbeat of identities
@@ -18,23 +21,21 @@ type heartbeatStore struct {
 	lastLifesign map[string]time.Time
 	firstRun     time.Time
 	timeout      time.Duration
-	logger       *slog.Logger
 }
 
 // newHeartbeatStore returns a new identity heartbeat store
-func newHeartbeatStore(timeout time.Duration, logger *slog.Logger) *heartbeatStore {
+func newHeartbeatStore(timeout time.Duration) *heartbeatStore {
 	i := &heartbeatStore{
 		timeout:      timeout,
 		lastLifesign: map[string]time.Time{},
 		firstRun:     time.Now(),
-		logger:       logger.With(logfields.LogSubsys, "identity-heartbeat"),
 	}
 	return i
 }
 
 // markAlive marks an identity as alive
 func (i *heartbeatStore) markAlive(identity string, t time.Time) {
-	i.logger.Debug("Marking identity alive", logfields.Identity, identity)
+	log.WithField(logfields.Identity, identity).Debug("Marking identity alive")
 	i.mutex.Lock()
 	i.lastLifesign[identity] = t
 	i.mutex.Unlock()
@@ -56,7 +57,7 @@ func (i *heartbeatStore) isAlive(identity string) bool {
 		// No lifesign has ever been recorded. If the operator has not
 		// been up for longer than the stale period, then the identity
 		// is still considered alive
-		i.logger.Debug(fmt.Sprintf("No lifesign exists %s > %s", time.Since(i.firstRun), i.timeout))
+		log.Debugf("No lifesign exists %s > %s", time.Since(i.firstRun), i.timeout)
 		if time.Since(i.firstRun) < i.timeout {
 			return true
 		}
@@ -67,7 +68,7 @@ func (i *heartbeatStore) isAlive(identity string) bool {
 
 // delete deletes an identity from the store
 func (i *heartbeatStore) delete(identity string) {
-	i.logger.Debug("Deleting identity in heartbeat lifesign table", logfields.Identity, identity)
+	log.WithField(logfields.Identity, identity).Debug("Deleting identity in heartbeat lifesign table")
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	delete(i.lastLifesign, identity)
@@ -83,7 +84,7 @@ func (i *heartbeatStore) gc() {
 
 	for identity, lifesign := range i.lastLifesign {
 		if time.Since(lifesign) > 10*i.timeout {
-			i.logger.Debug("Removing unused heartbeat entry", logfields.Identity, identity)
+			log.WithField(logfields.Identity, identity).Debug("Removing unused heartbeat entry")
 			delete(i.lastLifesign, identity)
 		}
 	}

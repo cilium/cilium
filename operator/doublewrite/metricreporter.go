@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
-
 package doublewrite
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"time"
 
-	"github.com/cilium/hive/cell"
+	"github.com/cilium/cilium/pkg/slices"
 
 	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/key"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
+
+	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/kvstore/allocator/doublewrite"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/slices"
 )
 
 // params contains all the dependencies for the double-write-metric-reporter.
@@ -30,7 +31,7 @@ import (
 type params struct {
 	cell.In
 
-	Logger    *slog.Logger
+	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
 
 	Clientset k8sClient.Clientset
@@ -41,7 +42,7 @@ type params struct {
 }
 
 type DoubleWriteMetricReporter struct {
-	logger *slog.Logger
+	logger logrus.FieldLogger
 
 	interval time.Duration
 
@@ -85,14 +86,14 @@ func (g *DoubleWriteMetricReporter) Start(ctx cell.HookContext) error {
 
 	kvStoreBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: "", Typ: nil, Backend: kvstore.Client()})
 	if err != nil {
-		g.logger.Error("Unable to initialize kvstore backend for the Double Write Metric Reporter", logfields.Error, err)
+		g.logger.WithError(err).Error("Unable to initialize kvstore backend for the Double Write Metric Reporter")
 		return err
 	}
 	g.kvStoreBackend = kvStoreBackend
 
 	crdBackend, err := identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{Store: nil, Client: g.clientset, KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap})
 	if err != nil {
-		g.logger.Error("Unable to initialize CRD backend for the Double Write Metric Reporter", logfields.Error, err)
+		g.logger.WithError(err).Error("Unable to initialize CRD backend for the Double Write Metric Reporter")
 		return err
 	}
 	g.crdBackend = crdBackend
@@ -136,14 +137,14 @@ func (g *DoubleWriteMetricReporter) compareCRDAndKVStoreIdentities(ctx context.C
 	// Get CRD identities
 	crdIdentityIds, err := g.crdBackend.ListIDs(ctx)
 	if err != nil {
-		g.logger.Error("Unable to get CRD identities", logfields.Error, err)
+		g.logger.WithError(err).Error("Unable to get CRD identities")
 		return err
 	}
 
 	// Get KVStore identities
 	kvstoreIdentityIds, err := g.kvStoreBackend.ListIDs(ctx)
 	if err != nil {
-		g.logger.Error("Unable to get KVStore identities", logfields.Error, err)
+		g.logger.WithError(err).Error("Unable to get KVStore identities")
 		return err
 	}
 
@@ -164,13 +165,14 @@ func (g *DoubleWriteMetricReporter) compareCRDAndKVStoreIdentities(ctx context.C
 	if onlyInCrdCount == 0 && onlyInKVStoreCount == 0 {
 		g.logger.Info("CRD and KVStore identities are in sync")
 	} else {
-		g.logger.Info("Detected differences between CRD and KVStore identities",
-			"crd_identity_count", len(crdIdentityIds),
-			"kvstore_identity_count", len(kvstoreIdentityIds),
-			"only_in_crd_count", onlyInCrdCount,
-			"only_in_kvstore_count", onlyInKVStoreCount,
-			"only_in_crd_sample", onlyInCrdSample,
-			"only_in_kvstore_sample", onlyInKVStoreSample)
+		g.logger.WithFields(logrus.Fields{
+			"crd_identity_count":     len(crdIdentityIds),
+			"kvstore_identity_count": len(kvstoreIdentityIds),
+			"only_in_crd_count":      onlyInCrdCount,
+			"only_in_kvstore_count":  onlyInKVStoreCount,
+			"only_in_crd_sample":     onlyInCrdSample,
+			"only_in_kvstore_sample": onlyInKVStoreSample,
+		}).Infof("Detected differences between CRD and KVStore identities")
 	}
 
 	return nil

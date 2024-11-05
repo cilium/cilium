@@ -5,11 +5,11 @@ package identitygc
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/workerpool"
+	"github.com/sirupsen/logrus"
 
 	authIdentity "github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -29,7 +29,7 @@ import (
 type params struct {
 	cell.In
 
-	Logger    *slog.Logger
+	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
 
 	Clientset           k8sClient.Clientset
@@ -47,7 +47,7 @@ type params struct {
 
 // GC represents the Cilium identities periodic GC.
 type GC struct {
-	logger *slog.Logger
+	logger logrus.FieldLogger
 
 	clientset           ciliumV2.CiliumIdentityInterface
 	identity            resource.Resource[*v2.CiliumIdentity]
@@ -104,7 +104,6 @@ func registerGC(p params) {
 		gcRateLimit:         p.Cfg.RateLimit,
 		heartbeatStore: newHeartbeatStore(
 			p.Cfg.HeartbeatTimeout,
-			p.Logger,
 		),
 		rateLimiter: rate.NewLimiter(
 			p.Cfg.RateInterval,

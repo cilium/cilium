@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"os"
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -18,7 +18,6 @@ import (
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // PooledAllocatorProvider defines the functions of IPAM provider front-end which additionally allow
@@ -104,11 +103,10 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 	for poolName, poolSpecStr := range poolMap {
 		poolSpec, err := parsePoolSpec(poolSpecStr)
 		if err != nil {
-			log.Error(fmt.Sprintf("Failed to parse IP pool spec in %q flag", operatorOption.IPAMAutoCreateCiliumPodIPPools),
-				"poolName", poolName,
-				"poolSpec", poolSpecStr,
-				logfields.Error, err)
-			os.Exit(1)
+			log.WithError(err).WithFields(logrus.Fields{
+				"poolName": poolName,
+				"poolSpec": poolSpecStr,
+			}).Fatalf("Failed to parse IP pool spec in %q flag", operatorOption.IPAMAutoCreateCiliumPodIPPools)
 		}
 
 		pool := &cilium_v2alpha1.CiliumPodIPPool{
@@ -122,14 +120,14 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 		if err != nil {
 			if k8sErrors.IsAlreadyExists(err) {
 				// Nothing to do, we will not try to update an existing resource
-				log.Info("Found existing CiliumPodIPPool resource. Skipping creation", "poolName", poolName)
+				log.WithField("poolName", poolName).Info("Found existing CiliumPodIPPool resource. Skipping creation")
 			} else {
-				log.Error("Failed to create CiliumPodIPPool resource", "poolName", poolName, "obj", pool, logfields.Error, err)
+				log.WithError(err).WithField("poolName", poolName).WithField("obj", pool).Error("Failed to create CiliumPodIPPool resource")
 			}
 			continue
 		}
 
-		log.Info("Created CiliumPodIPPool resource", "poolName", poolName)
+		log.WithField("poolName", poolName).Info("Created CiliumPodIPPool resource")
 	}
 }
 
@@ -162,7 +160,7 @@ func StartIPPoolAllocator(
 			}
 			ev.Done(err)
 			if err != nil {
-				log.Error(fmt.Sprintf("failed to %s pool %q", action, ev.Key), logfields.Error, err)
+				log.WithError(err).Errorf("failed to %s pool %q", action, ev.Key)
 			}
 		}
 	}()

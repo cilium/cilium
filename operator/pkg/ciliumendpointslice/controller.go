@@ -5,14 +5,13 @@ package ciliumendpointslice
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/workerpool"
+	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/util/workqueue"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -28,7 +27,7 @@ import (
 type params struct {
 	cell.In
 
-	Logger    *slog.Logger
+	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
 
 	NewClient           k8sClient.ClientBuilderFunc
@@ -46,7 +45,7 @@ type params struct {
 }
 
 type Controller struct {
-	logger        *slog.Logger
+	logger        logrus.FieldLogger
 	context       context.Context
 	contextCancel context.CancelFunc
 
@@ -138,7 +137,7 @@ func registerController(p params) error {
 // checkDeprecatedOpts will log an error if the user has supplied any of the
 // no-op, deprecated rate limit options.
 // TODO: Remove this function when the deprecated options are removed.
-func checkDeprecatedOpts(cfg Config, logger *slog.Logger) {
+func checkDeprecatedOpts(cfg Config, logger logrus.FieldLogger) {
 	switch {
 	case cfg.CESWriteQPSLimit > 0:
 	case cfg.CESWriteQPSBurst > 0:
@@ -149,5 +148,5 @@ func checkDeprecatedOpts(cfg Config, logger *slog.Logger) {
 	default:
 		return
 	}
-	logger.Error(fmt.Sprintf("You are using deprecated rate limit option(s) that have no effect. To configure custom rate limits please use --%s", CESRateLimits))
+	logger.Errorf("You are using deprecated rate limit option(s) that have no effect. To configure custom rate limits please use --%s", CESRateLimits)
 }

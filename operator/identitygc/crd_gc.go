@@ -5,10 +5,10 @@ package identitygc
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -30,7 +30,7 @@ func (igc *GC) startCRDModeGC(ctx context.Context) error {
 		return nil
 	}
 
-	igc.logger.Info("Starting CRD identity garbage collector", logfields.Interval, igc.gcInterval)
+	igc.logger.WithField(logfields.Interval, igc.gcInterval).Info("Starting CRD identity garbage collector")
 
 	igc.mgr = controller.NewManager()
 	igc.mgr.UpdateController("crd-identity-gc",
@@ -71,12 +71,12 @@ func (igc *GC) gc(ctx context.Context) error {
 	igc.logger.Debug("Running CRD identity garbage collector")
 	cepStore, err := igc.ciliumEndpoint.Store(ctx)
 	if err != nil {
-		igc.logger.Error("unable to get CEP store", logfields.Error, err)
+		igc.logger.WithError(err).Error("unable to get CEP store")
 		return err
 	}
 	identitiesStore, err := igc.identity.Store(ctx)
 	if err != nil {
-		igc.logger.Error("unable to get Cilium identities from local store", logfields.Error, err)
+		igc.logger.WithError(err).Error("unable to get Cilium identities from local store")
 		return err
 	}
 
@@ -85,7 +85,7 @@ func (igc *GC) gc(ctx context.Context) error {
 	if cesEnabled {
 		cesStore, err := igc.ciliumEndpointSlice.Store(ctx)
 		if err != nil {
-			igc.logger.Warn("unable to get CES  store", logfields.Error, err)
+			igc.logger.WithError(err).Warning("unable to get CES  store")
 		} else {
 			idsInCESs = usedIdentitiesInCESs(cesStore)
 		}
@@ -112,9 +112,10 @@ func (igc *GC) gc(ctx context.Context) error {
 		if !igc.heartbeatStore.isAlive(identity.Name) {
 			ts, ok := identity.Annotations[identitybackend.HeartBeatAnnotation]
 			if !ok {
-				igc.logger.Info("Marking CRD identity for later deletion",
-					logfields.Identity, identity.Name,
-					logfields.K8sUID, identity.UID)
+				log.WithFields(logrus.Fields{
+					logfields.Identity: identity.Name,
+					logfields.K8sUID:   identity.UID,
+				}).Info("Marking CRD identity for later deletion")
 
 				// Deep copy so we get a version we are allowed to update
 				identity = identity.DeepCopy()
@@ -124,17 +125,18 @@ func (igc *GC) gc(ctx context.Context) error {
 
 				identity.Annotations[identitybackend.HeartBeatAnnotation] = timeNow.Format(time.RFC3339Nano)
 				if err := igc.updateIdentity(ctx, identity); err != nil {
-					igc.logger.Error("Marking CRD identity for later deletion",
-						logfields.Identity, identity,
-						logfields.Error, err)
+					log.WithError(err).
+						WithField(logfields.Identity, identity).
+						Error("Marking CRD identity for later deletion")
 					return err
 				}
 
 				continue
 			}
 
-			igc.logger.Debug(fmt.Sprintf("Deleting unused CRD identity; marked for deletion at %s", ts),
-				logfields.Identity, identity)
+			log.WithFields(logrus.Fields{
+				logfields.Identity: identity,
+			}).Debugf("Deleting unused CRD identity; marked for deletion at %s", ts)
 
 			err := igc.deleteIdentity(ctx, identity)
 			if err != nil {
@@ -143,13 +145,16 @@ func (igc *GC) gc(ctx context.Context) error {
 					// run and permit gc to continue. This prevents
 					// identities from accumulating if there are frequent
 					// conflicts.
-					igc.logger.Warn("Could not delete identity due to conflict",
-						logfields.Identity, identity.Name,
-						logfields.K8sUID, identity.UID)
+					log.WithFields(logrus.Fields{
+						logfields.Identity: identity.Name,
+						logfields.K8sUID:   identity.UID,
+					}).Warn("Could not delete identity due to conflict")
 					continue
 				}
 
-				igc.logger.Error("Deleting unused CRD identity", logfields.Identity, identity, logfields.Error, err)
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.Identity: identity,
+				}).Error("Deleting unused CRD identity")
 				return err
 			} else {
 				deletedEntries++
@@ -204,7 +209,7 @@ func (igc *GC) deleteIdentity(ctx context.Context, identity *v2.CiliumIdentity) 
 		return err
 	}
 
-	igc.logger.Debug("Garbage collected CRD identity", logfields.Identity, identity.GetName())
+	log.WithField(logfields.Identity, identity.GetName()).Debug("Garbage collected CRD identity")
 
 	return nil
 }
@@ -218,7 +223,7 @@ func (igc *GC) updateIdentity(ctx context.Context, identity *v2.CiliumIdentity) 
 		return err
 	}
 
-	igc.logger.Debug("Updated CRD identity", logfields.Identity, identity.GetName())
+	log.WithField(logfields.Identity, identity.GetName()).Debug("Updated CRD identity")
 
 	return nil
 }

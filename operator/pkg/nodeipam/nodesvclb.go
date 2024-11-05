@@ -5,9 +5,9 @@ package nodeipam
 
 import (
 	"context"
-	"log/slog"
 	"slices"
 
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,10 +37,10 @@ type nodeSvcLBReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
 	DefaultIPAM bool
-	Logger      *slog.Logger
+	Logger      logrus.FieldLogger
 }
 
-func newNodeSvcLBReconciler(mgr ctrl.Manager, logger *slog.Logger, defaultIpam bool) *nodeSvcLBReconciler {
+func newNodeSvcLBReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, defaultIpam bool) *nodeSvcLBReconciler {
 	return &nodeSvcLBReconciler{
 		Client:      mgr.GetClient(),
 		Scheme:      mgr.GetScheme(),
@@ -69,8 +69,10 @@ func (r *nodeSvcLBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // enqueueRequestForEndpointSlice enqueue the service if a corresponding Enndpoint Slice is updated
 func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.Logger.With(logfields.Controller, "node-service-lb").
-			With(logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.Logger.WithFields(logrus.Fields{
+			logfields.Controller: "node-service-lb",
+			logfields.Resource:   client.ObjectKeyFromObject(o),
+		})
 		epSlice, ok := o.(*discoveryv1.EndpointSlice)
 		if !ok {
 			return []ctrl.Request{}
@@ -83,7 +85,7 @@ func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHand
 			Namespace: epSlice.GetNamespace(),
 			Name:      svcName,
 		}
-		scopedLog.Info("Enqueued Service", "service", svc)
+		scopedLog.WithField("service", svc).Info("Enqueued Service")
 		return []ctrl.Request{{NamespacedName: svc}}
 	})
 }
@@ -92,8 +94,11 @@ func (r *nodeSvcLBReconciler) enqueueRequestForEndpointSlice() handler.EventHand
 // by nodeipam (see shouldIncludeNode)
 func (r *nodeSvcLBReconciler) enqueueRequestForNode() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.Logger.With(logfields.Controller, "node-service-lb",
-			logfields.Resource, client.ObjectKeyFromObject(o))
+		scopedLog := r.Logger.WithFields(logrus.Fields{
+			logfields.Controller: "node-service-lb",
+			logfields.Resource:   client.ObjectKeyFromObject(o),
+		})
+
 		node, ok := o.(*corev1.Node)
 		if !ok {
 			return []ctrl.Request{}
@@ -104,7 +109,7 @@ func (r *nodeSvcLBReconciler) enqueueRequestForNode() handler.EventHandler {
 
 		svcList := &corev1.ServiceList{}
 		if err := r.Client.List(ctx, svcList, &client.ListOptions{}); err != nil {
-			scopedLog.Error("Failed to get Services", logfields.Error, err)
+			scopedLog.WithError(err).Error("Failed to get Services")
 			return []reconcile.Request{}
 		}
 		requests := []reconcile.Request{}
@@ -117,14 +122,17 @@ func (r *nodeSvcLBReconciler) enqueueRequestForNode() handler.EventHandler {
 				Name:      item.GetName(),
 			}
 			requests = append(requests, reconcile.Request{NamespacedName: svc})
-			scopedLog.Info("Enqueued Service", "service", svc)
+			scopedLog.WithField("service", svc).Info("Enqueued Service")
 		}
 		return requests
 	})
 }
 
 func (r *nodeSvcLBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := r.Logger.With(logfields.Controller, "node-service-lb", logfields.Resource, req.NamespacedName)
+	scopedLog := r.Logger.WithFields(logrus.Fields{
+		logfields.Controller: "node-service-lb",
+		logfields.Resource:   req.NamespacedName,
+	})
 	scopedLog.Info("Reconciling Service")
 
 	svc := corev1.Service{}
@@ -199,8 +207,10 @@ func (r *nodeSvcLBReconciler) getEndpointSliceNodeNames(ctx context.Context, svc
 
 // getRelevantNodes gets all the nodes candidates for seletion by nodeipam
 func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.Service) ([]corev1.Node, error) {
-	scopedLog := r.Logger.With(logfields.Controller, "node-service-lb",
-		logfields.Resource, client.ObjectKeyFromObject(svc))
+	scopedLog := r.Logger.WithFields(logrus.Fields{
+		logfields.Controller: "node-service-lb",
+		logfields.Resource:   client.ObjectKeyFromObject(svc),
+	})
 
 	endpointSliceNames, err := r.getEndpointSliceNodeNames(ctx, svc)
 	if err != nil {
@@ -220,7 +230,7 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 		return []corev1.Node{}, err
 	}
 	if len(nodes.Items) == 0 {
-		scopedLog.Warn("No Nodes found with configured label selector", logfields.Labels, nodeListOptions.LabelSelector)
+		scopedLog.WithFields(logrus.Fields{logfields.Labels: nodeListOptions.LabelSelector}).Warning("No Nodes found with configured label selector")
 	}
 
 	relevantNodes := []corev1.Node{}

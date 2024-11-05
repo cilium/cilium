@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func (b *BGPResourceManager) reconcileBGPClusterConfigs(ctx context.Context) error {
@@ -201,7 +201,10 @@ func (b *BGPResourceManager) upsertNodeConfig(ctx context.Context, config *v2alp
 		}
 	}
 
-	b.logger.Debug("Upserting BGP node config", "node_ config", nodeConfig.Name, "cluster_config", config.Name)
+	b.logger.WithFields(logrus.Fields{
+		"node config":    nodeConfig.Name,
+		"cluster config": config.Name,
+	}).Debug("Upserting BGP node config")
 
 	return err
 }
@@ -265,7 +268,7 @@ func (b *BGPResourceManager) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSe
 		if nodeSelector == nil || labelSelector.Matches(slim_labels.Set(n.Labels)) {
 			err := b.validNodeSelection(n, configName)
 			if err != nil {
-				b.logger.Error(fmt.Sprintf("skipping node %s", n.Name), logfields.Error, err)
+				b.logger.WithError(err).Errorf("skipping node %s", n.Name)
 				continue
 			}
 			matchingNodes.Insert(n.Name)
@@ -290,8 +293,10 @@ func (b *BGPResourceManager) deleteStaleNodeConfigs(ctx context.Context, expecte
 		} else if dErr != nil {
 			err = errors.Join(err, dErr)
 		} else {
-			b.logger.Debug("Deleting BGP node config", "node_config", existingNode.Name,
-				"cluster_config", clusterRef)
+			b.logger.WithFields(logrus.Fields{
+				"node config":    existingNode.Name,
+				"cluster config": clusterRef,
+			}).Debug("Deleting BGP node config")
 		}
 	}
 	return err

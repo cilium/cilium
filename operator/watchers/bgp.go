@@ -5,13 +5,11 @@ package watchers
 
 import (
 	"context"
-	"os"
 
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // StartBGPBetaLBIPAllocator starts the service watcher if it hasn't already and looks
@@ -21,14 +19,12 @@ func StartBGPBetaLBIPAllocator(ctx context.Context, clientset client.Clientset, 
 	go func() {
 		store, err := services.Store(ctx)
 		if err != nil {
-			log.Error("Failed to retrieve service store", logfields.Error, err)
-			os.Exit(1)
+			log.WithError(err).Fatal("Failed to retrieve service store")
 		}
 
 		m, err := manager.New(ctx, clientset, store.CacheStore())
 		if err != nil {
-			log.Error("Error creating BGP manager", logfields.Error, err)
-			os.Exit(1)
+			log.WithError(err).Fatal("Error creating BGP manager")
 		}
 
 		for ev := range services.Events(ctx) {

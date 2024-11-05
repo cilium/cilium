@@ -5,7 +5,6 @@ package watchers
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -93,27 +92,27 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterface, ciliumNodeStore cache.Store,
 	nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate) error {
 	for _, nodeName := range ciliumNodeStore.ListKeys() {
-		scopedLog := log.With(logfields.NodeName, nodeName)
+		scopedLog := log.WithField(logfields.NodeName, nodeName)
 		_, err := nodeGetter.GetK8sSlimNode(nodeName)
 		if err == nil {
-			scopedLog.Debug("CiliumNode is valid, no garbage collection required")
+			scopedLog.Debugf("CiliumNode is valid, no garbage collection required")
 			continue
 		}
 
 		if !k8serrors.IsNotFound(err) {
-			scopedLog.Error("Unable to fetch k8s node from store", logfields.Error, err)
+			scopedLog.WithError(err).Error("Unable to fetch k8s node from store")
 			return err
 		}
 
 		obj, _, err := ciliumNodeStore.GetByKey(nodeName)
 		if err != nil {
-			scopedLog.Error("Unable to fetch CiliumNode from store", logfields.Error, err)
+			scopedLog.WithError(err).Error("Unable to fetch CiliumNode from store")
 			return err
 		}
 
 		cn, ok := obj.(*cilium_v2.CiliumNode)
 		if !ok {
-			scopedLog.Error(fmt.Sprintf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj))
+			scopedLog.Errorf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj)
 			return err
 		}
 
@@ -134,7 +133,7 @@ func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterfac
 			scopedLog.Info("Perform GC for invalid CiliumNode")
 			err = client.Delete(ctx, nodeName, metav1.DeleteOptions{})
 			if err != nil && !k8serrors.IsNotFound(err) {
-				scopedLog.Error("Failed to delete invalid CiliumNode", logfields.Error, err)
+				scopedLog.WithError(err).Error("Failed to delete invalid CiliumNode")
 				return err
 			}
 			scopedLog.Info("CiliumNode is garbage collected successfully")
