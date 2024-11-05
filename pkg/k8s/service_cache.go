@@ -627,20 +627,19 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 //
 // OR Remote endpoints exist which correlate to the service.
 func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
-	endpoints := s.endpoints[id].GetEndpoints()
+	endpoints := newEndpoints()
+
+	localEndpoints := s.endpoints[id].GetEndpoints()
 	svc, svcFound := s.services[id]
 
-	hasLocalEndpoints := endpoints != nil
+	hasLocalEndpoints := localEndpoints != nil
 	if hasLocalEndpoints {
-		endpoints = s.filterEndpoints(endpoints, svc)
+		localEndpoints = s.filterEndpoints(localEndpoints, svc)
 
-		for _, e := range endpoints.Backends {
-			// The endpoints returned by GetEndpoints are already deep copies,
-			// hence we can mutate them in-place without problems.
+		for ip, e := range localEndpoints.Backends {
 			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == serviceAffinityLocal
+			endpoints.Backends[ip] = e.DeepCopy()
 		}
-	} else {
-		endpoints = newEndpoints()
 	}
 
 	var hasExternalEndpoints bool
