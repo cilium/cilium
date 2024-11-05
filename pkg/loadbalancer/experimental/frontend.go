@@ -10,10 +10,8 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
-	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // FrontendParams defines the static parameters of a frontend.
@@ -91,8 +89,6 @@ func (fe *Frontend) TableHeader() []string {
 		"PortName",
 		"Backends",
 		"Status",
-		"Since",
-		"Error",
 	}
 }
 
@@ -103,9 +99,7 @@ func (fe *Frontend) TableRow() []string {
 		fe.ServiceName.String(),
 		string(fe.PortName),
 		showBackends(fe.Backends),
-		string(fe.Status.Kind),
-		duration.HumanDuration(time.Since(fe.Status.UpdatedAt)),
-		fe.Status.Error,
+		fe.Status.String(),
 	}
 }
 

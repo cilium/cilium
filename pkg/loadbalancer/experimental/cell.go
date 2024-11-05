@@ -37,7 +37,6 @@ var Cell = cell.Module(
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
 	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
-	cell.Provide(newLBMapsCommand),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
@@ -65,6 +64,15 @@ var TablesCell = cell.Module(
 		statedb.RWTable[*Backend].ToTable,
 	),
 )
+
+func newLBMaps(lc cell.Lifecycle, cfg LBMapsConfig, w *Writer) LBMaps {
+	if !w.IsEnabled() {
+		return nil
+	}
+	r := &BPFLBMaps{Pinned: true, Cfg: cfg}
+	lc.Append(r)
+	return r
+}
 
 type resourceIn struct {
 	cell.In
