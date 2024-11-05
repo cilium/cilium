@@ -18,8 +18,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -31,13 +29,15 @@ import (
 // in cilium/cilium repository.
 
 const (
-	padding     = 3
-	minWidth    = 5
-	paddingChar = ' '
+	padding         = 3
+	minWidth        = 5
+	paddingChar     = ' '
+	alreadyExistMsg = "already exists"
+	notExistMsg     = "does not exist"
 )
 
 var (
-	errMissingGroup = ebpf.ErrKeyNotExist
+	errMissingGroup = errors.New(notExistMsg)
 )
 
 type Multicast struct {
@@ -236,7 +236,7 @@ func (m *Multicast) getGroupForSubscriberList(ctx context.Context, pod corev1.Po
 	cmd := []string{"cilium-dbg", "bpf", "multicast", "subscriber", "list", target, "-o", "json"}
 	outputByte, stdErr, err := m.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 	if err != nil {
-		if strings.Contains(stdErr.String(), ebpf.ErrKeyNotExist.Error()) {
+		if strings.Contains(stdErr.String(), notExistMsg) {
 			fmt.Fprintf(m.params.Writer, "Multicast group %s does not exist in %s\n", target, pod.Spec.NodeName)
 			return nil, errMissingGroup
 		}
@@ -465,7 +465,7 @@ func (m *Multicast) AddAllNodes() error {
 			cmd := []string{"cilium-dbg", "bpf", "multicast", "subscriber", "list", m.params.MulticastGroupIP}
 			_, stdErr, err := m.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
-				if !strings.Contains(stdErr.String(), ebpf.ErrKeyNotExist.Error()) {
+				if !strings.Contains(stdErr.String(), notExistMsg) {
 					errMsg := fmt.Sprintf("Error: %v, Stderr: %s", err, stdErr.String())
 					errCh <- errors.New(errMsg)
 					fmt.Fprintf(m.params.Writer, "Fatal error occurred while checking multicast group %s in %s\n", m.params.MulticastGroupIP, pod.Spec.NodeName)
@@ -492,7 +492,7 @@ func (m *Multicast) AddAllNodes() error {
 					if err == nil {
 						cnt++
 						nodeLists = append(nodeLists, ipToNodeMap[ip])
-					} else if !strings.Contains(stdErr.String(), ebpf.ErrKeyExist.Error()) {
+					} else if !strings.Contains(stdErr.String(), alreadyExistMsg) {
 						errMsg := fmt.Sprintf("Error: %v, Stderr: %s", err, stdErr.String())
 						errCh <- errors.New(errMsg)
 						fmt.Fprintf(m.params.Writer, "Unable to add node %s to multicast group %s in %s by fatal error\n", ip.IP, m.params.MulticastGroupIP, pod.Spec.NodeName)
@@ -558,7 +558,7 @@ func (m *Multicast) DelAllNodes() error {
 			cmd := []string{"cilium-dbg", "bpf", "multicast", "group", "delete", m.params.MulticastGroupIP}
 			_, stdErr, err := m.client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
-				if !strings.Contains(stdErr.String(), ebpf.ErrKeyNotExist.Error()) {
+				if !strings.Contains(stdErr.String(), notExistMsg) {
 					errMsg := fmt.Sprintf("Error: %v, Stderr: %s", err, stdErr.String())
 					errCh <- errors.New(errMsg)
 					fmt.Fprintf(m.params.Writer, "Unable to delete multicast group %s in %s by fatal error\n", m.params.MulticastGroupIP, pod.Spec.NodeName)
