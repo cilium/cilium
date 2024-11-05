@@ -474,6 +474,8 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 		f.srcNs = append(f.srcNs, val)
 	case "to-namespace":
 		f.dstNs = append(f.dstNs, val)
+
+	// namespace filters (will be applied to pods and/or service filters)
 	case "all-namespaces":
 		f.ns = append(f.ns, "")
 	case "from-all-namespaces":
@@ -690,18 +692,10 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 			f.NodeLabels = append(f.GetNodeLabels(), val)
 		})
 
-	// cluster name filters
+		// cluster Name filters
 	case "cluster":
 		f.apply(func(f *flowpb.FlowFilter) {
 			f.NodeName = append(f.GetNodeName(), val+"/")
-		})
-	case "from-cluster":
-		f.apply(func(f *flowpb.FlowFilter) {
-			f.SourceClusterName = append(f.GetSourceClusterName(), val)
-		})
-	case "to-cluster":
-		f.apply(func(f *flowpb.FlowFilter) {
-			f.DestinationClusterName = append(f.GetDestinationClusterName(), val)
 		})
 
 	// TCP Flags filter
