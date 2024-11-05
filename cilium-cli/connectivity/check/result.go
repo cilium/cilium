@@ -181,13 +181,6 @@ var (
 		ExitCode:       ExitAnyError,
 	}
 
-	ResultEgressUnencryptedDrop = Result{
-		Drop:           true,
-		EgressDrop:     true,
-		DropReasonFunc: unencryptedDropReason,
-		ExitCode:       ExitCurlTimeout,
-	}
-
 	// ResultDropCurlTimeout expects a dropped flow and a failed command.
 	ResultDropCurlTimeout = Result{
 		Drop:     true,
