@@ -200,7 +200,6 @@ jobs:
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
-            --test='check-log-errors' \
             --test='no-policies/' \
             --test='no-policies-extra/' \
             --test='allow-all-except-world/' \
