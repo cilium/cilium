@@ -201,20 +201,14 @@ func classPayload(req *nl.NetlinkRequest, class Class) error {
 
 // ClassList gets a list of classes in the system.
 // Equivalent to: `tc class show`.
-//
 // Generally returns nothing if link and parent are not specified.
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func ClassList(link Link, parent uint32) ([]Class, error) {
 	return pkgHandle.ClassList(link, parent)
 }
 
 // ClassList gets a list of classes in the system.
 // Equivalent to: `tc class show`.
-//
 // Generally returns nothing if link and parent are not specified.
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) ClassList(link Link, parent uint32) ([]Class, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETTCLASS, unix.NLM_F_DUMP)
 	msg := &nl.TcMsg{
@@ -228,9 +222,9 @@ func (h *Handle) ClassList(link Link, parent uint32) ([]Class, error) {
 	}
 	req.AddData(msg)
 
-	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWTCLASS)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWTCLASS)
+	if err != nil {
+		return nil, err
 	}
 
 	var res []Class
@@ -301,7 +295,7 @@ func (h *Handle) ClassList(link Link, parent uint32) ([]Class, error) {
 		res = append(res, class)
 	}
 
-	return res, executeErr
+	return res, nil
 }
 
 func parseHtbClassData(class Class, data []syscall.NetlinkRouteAttr) (bool, error) {

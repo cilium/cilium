@@ -2,7 +2,6 @@ package netlink
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 
@@ -184,18 +183,12 @@ func ruleHandle(rule *Rule, req *nl.NetlinkRequest) error {
 
 // RuleList lists rules in the system.
 // Equivalent to: ip rule list
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func RuleList(family int) ([]Rule, error) {
 	return pkgHandle.RuleList(family)
 }
 
 // RuleList lists rules in the system.
 // Equivalent to: ip rule list
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) RuleList(family int) ([]Rule, error) {
 	return h.RuleListFiltered(family, nil, 0)
 }
@@ -203,26 +196,20 @@ func (h *Handle) RuleList(family int) ([]Rule, error) {
 // RuleListFiltered gets a list of rules in the system filtered by the
 // specified rule template `filter`.
 // Equivalent to: ip rule list
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func RuleListFiltered(family int, filter *Rule, filterMask uint64) ([]Rule, error) {
 	return pkgHandle.RuleListFiltered(family, filter, filterMask)
 }
 
 // RuleListFiltered lists rules in the system.
 // Equivalent to: ip rule list
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) ([]Rule, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETRULE, unix.NLM_F_DUMP|unix.NLM_F_REQUEST)
 	msg := nl.NewIfInfomsg(family)
 	req.AddData(msg)
 
-	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWRULE)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWRULE)
+	if err != nil {
+		return nil, err
 	}
 
 	var res = make([]Rule, 0)
@@ -319,7 +306,7 @@ func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) (
 		res = append(res, *rule)
 	}
 
-	return res, executeErr
+	return res, nil
 }
 
 func (pr *RulePortRange) toRtAttrData() []byte {

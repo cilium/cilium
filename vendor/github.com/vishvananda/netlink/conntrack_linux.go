@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/vishvananda/netlink/nl"
@@ -45,9 +44,6 @@ type InetFamily uint8
 
 // ConntrackTableList returns the flow list of a table of a specific family
 // conntrack -L [table] [options]          List conntrack or expectation table
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func ConntrackTableList(table ConntrackTableType, family InetFamily) ([]*ConntrackFlow, error) {
 	return pkgHandle.ConntrackTableList(table, family)
 }
@@ -74,7 +70,7 @@ func ConntrackUpdate(table ConntrackTableType, family InetFamily, flow *Conntrac
 // ConntrackDeleteFilter deletes entries on the specified table on the base of the filter
 // conntrack -D [table] parameters         Delete conntrack or expectation
 //
-// Deprecated: use [ConntrackDeleteFilters] instead.
+// Deprecated: use [ConntrackDeleteFilter] instead.
 func ConntrackDeleteFilter(table ConntrackTableType, family InetFamily, filter CustomConntrackFilter) (uint, error) {
 	return pkgHandle.ConntrackDeleteFilters(table, family, filter)
 }
@@ -87,13 +83,10 @@ func ConntrackDeleteFilters(table ConntrackTableType, family InetFamily, filters
 
 // ConntrackTableList returns the flow list of a table of a specific family using the netlink handle passed
 // conntrack -L [table] [options]          List conntrack or expectation table
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) ConntrackTableList(table ConntrackTableType, family InetFamily) ([]*ConntrackFlow, error) {
-	res, executeErr := h.dumpConntrackTable(table, family)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	res, err := h.dumpConntrackTable(table, family)
+	if err != nil {
+		return nil, err
 	}
 
 	// Deserialize all the flows
@@ -102,7 +95,7 @@ func (h *Handle) ConntrackTableList(table ConntrackTableType, family InetFamily)
 		result = append(result, parseRawData(dataRaw))
 	}
 
-	return result, executeErr
+	return result, nil
 }
 
 // ConntrackTableFlush flushes all the flows of a specified table using the netlink handle passed
@@ -165,7 +158,6 @@ func (h *Handle) ConntrackDeleteFilters(table ConntrackTableType, family InetFam
 	}
 
 	var matched uint
-	var errMsgs []string
 	for _, dataRaw := range res {
 		flow := parseRawData(dataRaw)
 		for _, filter := range filters {
@@ -173,18 +165,14 @@ func (h *Handle) ConntrackDeleteFilters(table ConntrackTableType, family InetFam
 				req2 := h.newConntrackRequest(table, family, nl.IPCTNL_MSG_CT_DELETE, unix.NLM_F_ACK)
 				// skip the first 4 byte that are the netfilter header, the newConntrackRequest is adding it already
 				req2.AddRawData(dataRaw[4:])
-				if _, err = req2.Execute(unix.NETLINK_NETFILTER, 0); err == nil {
-					matched++
-					// flow is already deleted, no need to match on other filters and continue to the next flow.
-					break
-				}
-				errMsgs = append(errMsgs, fmt.Sprintf("failed to delete conntrack flow '%s': %s", flow.String(), err.Error()))
+				req2.Execute(unix.NETLINK_NETFILTER, 0)
+				matched++
+				// flow is already deleted, no need to match on other filters and continue to the next flow.
+				break
 			}
 		}
 	}
-	if len(errMsgs) > 0 {
-		return matched, fmt.Errorf(strings.Join(errMsgs, "; "))
-	}
+
 	return matched, nil
 }
 

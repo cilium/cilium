@@ -3,7 +3,6 @@ package netlink
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -1808,20 +1807,20 @@ func (h *Handle) LinkDel(link Link) error {
 }
 
 func (h *Handle) linkByNameDump(name string) (Link, error) {
-	links, executeErr := h.LinkList()
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	links, err := h.LinkList()
+	if err != nil {
+		return nil, err
 	}
 
 	for _, link := range links {
 		if link.Attrs().Name == name {
-			return link, executeErr
+			return link, nil
 		}
 
 		// support finding interfaces also via altnames
 		for _, altName := range link.Attrs().AltNames {
 			if altName == name {
-				return link, executeErr
+				return link, nil
 			}
 		}
 	}
@@ -1829,33 +1828,25 @@ func (h *Handle) linkByNameDump(name string) (Link, error) {
 }
 
 func (h *Handle) linkByAliasDump(alias string) (Link, error) {
-	links, executeErr := h.LinkList()
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	links, err := h.LinkList()
+	if err != nil {
+		return nil, err
 	}
 
 	for _, link := range links {
 		if link.Attrs().Alias == alias {
-			return link, executeErr
+			return link, nil
 		}
 	}
 	return nil, LinkNotFoundError{fmt.Errorf("Link alias %s not found", alias)}
 }
 
 // LinkByName finds a link by name and returns a pointer to the object.
-//
-// If the kernel doesn't support IFLA_IFNAME, this method will fall back to
-// filtering a dump of all link names. In this case, if the returned error is
-// [ErrDumpInterrupted] the result may be missing or outdated.
 func LinkByName(name string) (Link, error) {
 	return pkgHandle.LinkByName(name)
 }
 
 // LinkByName finds a link by name and returns a pointer to the object.
-//
-// If the kernel doesn't support IFLA_IFNAME, this method will fall back to
-// filtering a dump of all link names. In this case, if the returned error is
-// [ErrDumpInterrupted] the result may be missing or outdated.
 func (h *Handle) LinkByName(name string) (Link, error) {
 	if h.lookupByDump {
 		return h.linkByNameDump(name)
@@ -1888,20 +1879,12 @@ func (h *Handle) LinkByName(name string) (Link, error) {
 
 // LinkByAlias finds a link by its alias and returns a pointer to the object.
 // If there are multiple links with the alias it returns the first one
-//
-// If the kernel doesn't support IFLA_IFALIAS, this method will fall back to
-// filtering a dump of all link names. In this case, if the returned error is
-// [ErrDumpInterrupted] the result may be missing or outdated.
 func LinkByAlias(alias string) (Link, error) {
 	return pkgHandle.LinkByAlias(alias)
 }
 
 // LinkByAlias finds a link by its alias and returns a pointer to the object.
 // If there are multiple links with the alias it returns the first one
-//
-// If the kernel doesn't support IFLA_IFALIAS, this method will fall back to
-// filtering a dump of all link names. In this case, if the returned error is
-// [ErrDumpInterrupted] the result may be missing or outdated.
 func (h *Handle) LinkByAlias(alias string) (Link, error) {
 	if h.lookupByDump {
 		return h.linkByAliasDump(alias)
@@ -2338,9 +2321,6 @@ func LinkList() ([]Link, error) {
 
 // LinkList gets a list of link devices.
 // Equivalent to: `ip link show`
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) LinkList() ([]Link, error) {
 	// NOTE(vish): This duplicates functionality in net/iface_linux.go, but we need
 	//             to get the message ourselves to parse link type.
@@ -2351,9 +2331,9 @@ func (h *Handle) LinkList() ([]Link, error) {
 	attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
 	req.AddData(attr)
 
-	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWLINK)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWLINK)
+	if err != nil {
+		return nil, err
 	}
 
 	var res []Link
@@ -2365,7 +2345,7 @@ func (h *Handle) LinkList() ([]Link, error) {
 		res = append(res, link)
 	}
 
-	return res, executeErr
+	return res, nil
 }
 
 // LinkUpdate is used to pass information back from LinkSubscribe()
@@ -2401,10 +2381,6 @@ type LinkSubscribeOptions struct {
 // LinkSubscribeWithOptions work like LinkSubscribe but enable to
 // provide additional options to modify the behavior. Currently, the
 // namespace can be provided as well as an error callback.
-//
-// When options.ListExisting is true, options.ErrorCallback may be
-// called with [ErrDumpInterrupted] to indicate that results from
-// the initial dump of links may be inconsistent or incomplete.
 func LinkSubscribeWithOptions(ch chan<- LinkUpdate, done <-chan struct{}, options LinkSubscribeOptions) error {
 	if options.Namespace == nil {
 		none := netns.None()
@@ -2464,9 +2440,6 @@ func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-c
 				continue
 			}
 			for _, m := range msgs {
-				if m.Header.Flags&unix.NLM_F_DUMP_INTR != 0 && cberr != nil {
-					cberr(ErrDumpInterrupted)
-				}
 				if m.Header.Type == unix.NLMSG_DONE {
 					continue
 				}
@@ -2676,8 +2649,6 @@ func addNetkitAttrs(nk *Netkit, linkInfo *nl.RtAttr, flag int) error {
 	data.AddRtAttr(nl.IFLA_NETKIT_MODE, nl.Uint32Attr(uint32(nk.Mode)))
 	data.AddRtAttr(nl.IFLA_NETKIT_POLICY, nl.Uint32Attr(uint32(nk.Policy)))
 	data.AddRtAttr(nl.IFLA_NETKIT_PEER_POLICY, nl.Uint32Attr(uint32(nk.PeerPolicy)))
-	data.AddRtAttr(nl.IFLA_NETKIT_SCRUB, nl.Uint32Attr(uint32(nk.Scrub)))
-	data.AddRtAttr(nl.IFLA_NETKIT_PEER_SCRUB, nl.Uint32Attr(uint32(nk.PeerScrub)))
 
 	if (flag & unix.NLM_F_EXCL) == 0 {
 		// Modifying peer link attributes will not take effect
@@ -2738,12 +2709,6 @@ func parseNetkitData(link Link, data []syscall.NetlinkRouteAttr) {
 			netkit.Policy = NetkitPolicy(native.Uint32(datum.Value[0:4]))
 		case nl.IFLA_NETKIT_PEER_POLICY:
 			netkit.PeerPolicy = NetkitPolicy(native.Uint32(datum.Value[0:4]))
-		case nl.IFLA_NETKIT_SCRUB:
-			netkit.supportsScrub = true
-			netkit.Scrub = NetkitScrub(native.Uint32(datum.Value[0:4]))
-		case nl.IFLA_NETKIT_PEER_SCRUB:
-			netkit.supportsScrub = true
-			netkit.PeerScrub = NetkitScrub(native.Uint32(datum.Value[0:4]))
 		}
 	}
 }

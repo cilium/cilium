@@ -1,7 +1,6 @@
 package netlink
 
 import (
-	"errors"
 	"fmt"
 	"syscall"
 
@@ -9,14 +8,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func LinkGetProtinfo(link Link) (Protinfo, error) {
 	return pkgHandle.LinkGetProtinfo(link)
 }
 
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) LinkGetProtinfo(link Link) (Protinfo, error) {
 	base := link.Attrs()
 	h.ensureIndex(base)
@@ -24,9 +19,9 @@ func (h *Handle) LinkGetProtinfo(link Link) (Protinfo, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETLINK, unix.NLM_F_DUMP)
 	msg := nl.NewIfInfomsg(unix.AF_BRIDGE)
 	req.AddData(msg)
-	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, 0)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return pi, executeErr
+	msgs, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	if err != nil {
+		return pi, err
 	}
 
 	for _, m := range msgs {
@@ -48,7 +43,7 @@ func (h *Handle) LinkGetProtinfo(link Link) (Protinfo, error) {
 			}
 			pi = parseProtinfo(infos)
 
-			return pi, executeErr
+			return pi, nil
 		}
 	}
 	return pi, fmt.Errorf("Device with index %d not found", base.Index)

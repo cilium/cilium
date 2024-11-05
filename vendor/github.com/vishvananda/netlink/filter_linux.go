@@ -405,20 +405,14 @@ func (h *Handle) filterModify(filter Filter, proto, flags int) error {
 
 // FilterList gets a list of filters in the system.
 // Equivalent to: `tc filter show`.
-//
 // Generally returns nothing if link and parent are not specified.
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func FilterList(link Link, parent uint32) ([]Filter, error) {
 	return pkgHandle.FilterList(link, parent)
 }
 
 // FilterList gets a list of filters in the system.
 // Equivalent to: `tc filter show`.
-//
 // Generally returns nothing if link and parent are not specified.
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) FilterList(link Link, parent uint32) ([]Filter, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETTFILTER, unix.NLM_F_DUMP)
 	msg := &nl.TcMsg{
@@ -432,9 +426,9 @@ func (h *Handle) FilterList(link Link, parent uint32) ([]Filter, error) {
 	}
 	req.AddData(msg)
 
-	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWTFILTER)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWTFILTER)
+	if err != nil {
+		return nil, err
 	}
 
 	var res []Filter
@@ -522,7 +516,7 @@ func (h *Handle) FilterList(link Link, parent uint32) ([]Filter, error) {
 		}
 	}
 
-	return res, executeErr
+	return res, nil
 }
 
 func toTcGen(attrs *ActionAttrs, tcgen *nl.TcGen) {
@@ -926,11 +920,9 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 				actionnStatistic = (*ActionStatistic)(s)
 			}
 		}
-		if action != nil {
-			action.Attrs().Statistics = actionnStatistic
-			action.Attrs().Timestamp = actionTimestamp
-			actions = append(actions, action)
-		}
+		action.Attrs().Statistics = actionnStatistic
+		action.Attrs().Timestamp = actionTimestamp
+		actions = append(actions, action)
 	}
 	return actions, nil
 }

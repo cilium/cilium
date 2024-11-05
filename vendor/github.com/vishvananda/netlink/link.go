@@ -377,13 +377,6 @@ const (
 	NETKIT_POLICY_BLACKHOLE NetkitPolicy = 2
 )
 
-type NetkitScrub int
-
-const (
-	NETKIT_SCRUB_NONE    NetkitScrub = 0
-	NETKIT_SCRUB_DEFAULT NetkitScrub = 1
-)
-
 func (n *Netkit) IsPrimary() bool {
 	return n.isPrimary
 }
@@ -398,9 +391,6 @@ type Netkit struct {
 	Mode          NetkitMode
 	Policy        NetkitPolicy
 	PeerPolicy    NetkitPolicy
-	Scrub         NetkitScrub
-	PeerScrub     NetkitScrub
-	supportsScrub bool
 	isPrimary     bool
 	peerLinkAttrs LinkAttrs
 }
@@ -411,10 +401,6 @@ func (n *Netkit) Attrs() *LinkAttrs {
 
 func (n *Netkit) Type() string {
 	return "netkit"
-}
-
-func (n *Netkit) SupportsScrub() bool {
-	return n.supportsScrub
 }
 
 // Veth devices must specify PeerName on create
@@ -775,19 +761,19 @@ const (
 )
 
 var bondXmitHashPolicyToString = map[BondXmitHashPolicy]string{
-	BOND_XMIT_HASH_POLICY_LAYER2:      "layer2",
-	BOND_XMIT_HASH_POLICY_LAYER3_4:    "layer3+4",
-	BOND_XMIT_HASH_POLICY_LAYER2_3:    "layer2+3",
-	BOND_XMIT_HASH_POLICY_ENCAP2_3:    "encap2+3",
-	BOND_XMIT_HASH_POLICY_ENCAP3_4:    "encap3+4",
+	BOND_XMIT_HASH_POLICY_LAYER2:   "layer2",
+	BOND_XMIT_HASH_POLICY_LAYER3_4: "layer3+4",
+	BOND_XMIT_HASH_POLICY_LAYER2_3: "layer2+3",
+	BOND_XMIT_HASH_POLICY_ENCAP2_3: "encap2+3",
+	BOND_XMIT_HASH_POLICY_ENCAP3_4: "encap3+4",
 	BOND_XMIT_HASH_POLICY_VLAN_SRCMAC: "vlan+srcmac",
 }
 var StringToBondXmitHashPolicyMap = map[string]BondXmitHashPolicy{
-	"layer2":      BOND_XMIT_HASH_POLICY_LAYER2,
-	"layer3+4":    BOND_XMIT_HASH_POLICY_LAYER3_4,
-	"layer2+3":    BOND_XMIT_HASH_POLICY_LAYER2_3,
-	"encap2+3":    BOND_XMIT_HASH_POLICY_ENCAP2_3,
-	"encap3+4":    BOND_XMIT_HASH_POLICY_ENCAP3_4,
+	"layer2":   BOND_XMIT_HASH_POLICY_LAYER2,
+	"layer3+4": BOND_XMIT_HASH_POLICY_LAYER3_4,
+	"layer2+3": BOND_XMIT_HASH_POLICY_LAYER2_3,
+	"encap2+3": BOND_XMIT_HASH_POLICY_ENCAP2_3,
+	"encap3+4": BOND_XMIT_HASH_POLICY_ENCAP3_4,
 	"vlan+srcmac": BOND_XMIT_HASH_POLICY_VLAN_SRCMAC,
 }
 

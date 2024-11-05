@@ -1,7 +1,6 @@
 package netlink
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"syscall"
@@ -207,9 +206,6 @@ func neighHandle(neigh *Neigh, req *nl.NetlinkRequest) error {
 // NeighList returns a list of IP-MAC mappings in the system (ARP table).
 // Equivalent to: `ip neighbor show`.
 // The list can be filtered by link and ip family.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func NeighList(linkIndex, family int) ([]Neigh, error) {
 	return pkgHandle.NeighList(linkIndex, family)
 }
@@ -217,9 +213,6 @@ func NeighList(linkIndex, family int) ([]Neigh, error) {
 // NeighProxyList returns a list of neighbor proxies in the system.
 // Equivalent to: `ip neighbor show proxy`.
 // The list can be filtered by link and ip family.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func NeighProxyList(linkIndex, family int) ([]Neigh, error) {
 	return pkgHandle.NeighProxyList(linkIndex, family)
 }
@@ -227,9 +220,6 @@ func NeighProxyList(linkIndex, family int) ([]Neigh, error) {
 // NeighList returns a list of IP-MAC mappings in the system (ARP table).
 // Equivalent to: `ip neighbor show`.
 // The list can be filtered by link and ip family.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) NeighList(linkIndex, family int) ([]Neigh, error) {
 	return h.NeighListExecute(Ndmsg{
 		Family: uint8(family),
@@ -240,9 +230,6 @@ func (h *Handle) NeighList(linkIndex, family int) ([]Neigh, error) {
 // NeighProxyList returns a list of neighbor proxies in the system.
 // Equivalent to: `ip neighbor show proxy`.
 // The list can be filtered by link, ip family.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) NeighProxyList(linkIndex, family int) ([]Neigh, error) {
 	return h.NeighListExecute(Ndmsg{
 		Family: uint8(family),
@@ -252,24 +239,18 @@ func (h *Handle) NeighProxyList(linkIndex, family int) ([]Neigh, error) {
 }
 
 // NeighListExecute returns a list of neighbour entries filtered by link, ip family, flag and state.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func NeighListExecute(msg Ndmsg) ([]Neigh, error) {
 	return pkgHandle.NeighListExecute(msg)
 }
 
 // NeighListExecute returns a list of neighbour entries filtered by link, ip family, flag and state.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) NeighListExecute(msg Ndmsg) ([]Neigh, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
 	req.AddData(&msg)
 
-	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWNEIGH)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWNEIGH)
+	if err != nil {
+		return nil, err
 	}
 
 	var res []Neigh
@@ -300,7 +281,7 @@ func (h *Handle) NeighListExecute(msg Ndmsg) ([]Neigh, error) {
 		res = append(res, *neigh)
 	}
 
-	return res, executeErr
+	return res, nil
 }
 
 func NeighDeserialize(m []byte) (*Neigh, error) {
@@ -383,10 +364,6 @@ type NeighSubscribeOptions struct {
 // NeighSubscribeWithOptions work like NeighSubscribe but enable to
 // provide additional options to modify the behavior. Currently, the
 // namespace can be provided as well as an error callback.
-//
-// When options.ListExisting is true, options.ErrorCallback may be
-// called with [ErrDumpInterrupted] to indicate that results from
-// the initial dump of links may be inconsistent or incomplete.
 func NeighSubscribeWithOptions(ch chan<- NeighUpdate, done <-chan struct{}, options NeighSubscribeOptions) error {
 	if options.Namespace == nil {
 		none := netns.None()
@@ -451,9 +428,6 @@ func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <
 				continue
 			}
 			for _, m := range msgs {
-				if m.Header.Flags&unix.NLM_F_DUMP_INTR != 0 && cberr != nil {
-					cberr(ErrDumpInterrupted)
-				}
 				if m.Header.Type == unix.NLMSG_DONE {
 					if listExisting {
 						// This will be called after handling AF_UNSPEC

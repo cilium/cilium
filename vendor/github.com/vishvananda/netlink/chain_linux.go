@@ -1,8 +1,6 @@
 package netlink
 
 import (
-	"errors"
-
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 )
@@ -58,9 +56,6 @@ func (h *Handle) chainModify(cmd, flags int, link Link, chain Chain) error {
 // ChainList gets a list of chains in the system.
 // Equivalent to: `tc chain list`.
 // The list can be filtered by link.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func ChainList(link Link, parent uint32) ([]Chain, error) {
 	return pkgHandle.ChainList(link, parent)
 }
@@ -68,9 +63,6 @@ func ChainList(link Link, parent uint32) ([]Chain, error) {
 // ChainList gets a list of chains in the system.
 // Equivalent to: `tc chain list`.
 // The list can be filtered by link.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) ChainList(link Link, parent uint32) ([]Chain, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETCHAIN, unix.NLM_F_DUMP)
 	index := int32(0)
@@ -86,9 +78,9 @@ func (h *Handle) ChainList(link Link, parent uint32) ([]Chain, error) {
 	}
 	req.AddData(msg)
 
-	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWCHAIN)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWCHAIN)
+	if err != nil {
+		return nil, err
 	}
 
 	var res []Chain
@@ -116,5 +108,5 @@ func (h *Handle) ChainList(link Link, parent uint32) ([]Chain, error) {
 		res = append(res, chain)
 	}
 
-	return res, executeErr
+	return res, nil
 }

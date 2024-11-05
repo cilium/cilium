@@ -157,9 +157,6 @@ func (u *UnixSocket) deserialize(b []byte) error {
 }
 
 // SocketGet returns the Socket identified by its local and remote addresses.
-//
-// If the returned error is [ErrDumpInterrupted], the search for a result may
-// be incomplete and the caller should retry.
 func (h *Handle) SocketGet(local, remote net.Addr) (*Socket, error) {
 	var protocol uint8
 	var localIP, remoteIP net.IP
@@ -235,9 +232,6 @@ func (h *Handle) SocketGet(local, remote net.Addr) (*Socket, error) {
 }
 
 // SocketGet returns the Socket identified by its local and remote addresses.
-//
-// If the returned error is [ErrDumpInterrupted], the search for a result may
-// be incomplete and the caller should retry.
 func SocketGet(local, remote net.Addr) (*Socket, error) {
 	return pkgHandle.SocketGet(local, remote)
 }
@@ -289,9 +283,6 @@ func SocketDestroy(local, remote net.Addr) error {
 }
 
 // SocketDiagTCPInfo requests INET_DIAG_INFO for TCP protocol for specified family type and return with extension TCP info.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) SocketDiagTCPInfo(family uint8) ([]*InetDiagTCPInfoResp, error) {
 	// Construct the request
 	req := h.newNetlinkRequest(nl.SOCK_DIAG_BY_FAMILY, unix.NLM_F_DUMP)
@@ -304,9 +295,9 @@ func (h *Handle) SocketDiagTCPInfo(family uint8) ([]*InetDiagTCPInfoResp, error)
 
 	// Do the query and parse the result
 	var result []*InetDiagTCPInfoResp
-	executeErr := req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
+	var err error
+	err = req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
 		sockInfo := &Socket{}
-		var err error
 		if err = sockInfo.deserialize(msg); err != nil {
 			return false
 		}
@@ -324,24 +315,18 @@ func (h *Handle) SocketDiagTCPInfo(family uint8) ([]*InetDiagTCPInfoResp, error)
 		return true
 	})
 
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	if err != nil {
+		return nil, err
 	}
-	return result, executeErr
+	return result, nil
 }
 
 // SocketDiagTCPInfo requests INET_DIAG_INFO for TCP protocol for specified family type and return with extension TCP info.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func SocketDiagTCPInfo(family uint8) ([]*InetDiagTCPInfoResp, error) {
 	return pkgHandle.SocketDiagTCPInfo(family)
 }
 
 // SocketDiagTCP requests INET_DIAG_INFO for TCP protocol for specified family type and return related socket.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) SocketDiagTCP(family uint8) ([]*Socket, error) {
 	// Construct the request
 	req := h.newNetlinkRequest(nl.SOCK_DIAG_BY_FAMILY, unix.NLM_F_DUMP)
@@ -354,32 +339,27 @@ func (h *Handle) SocketDiagTCP(family uint8) ([]*Socket, error) {
 
 	// Do the query and parse the result
 	var result []*Socket
-	executeErr := req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
+	var err error
+	err = req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
 		sockInfo := &Socket{}
-		if err := sockInfo.deserialize(msg); err != nil {
+		if err = sockInfo.deserialize(msg); err != nil {
 			return false
 		}
 		result = append(result, sockInfo)
 		return true
 	})
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	if err != nil {
+		return nil, err
 	}
-	return result, executeErr
+	return result, nil
 }
 
 // SocketDiagTCP requests INET_DIAG_INFO for TCP protocol for specified family type and return related socket.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func SocketDiagTCP(family uint8) ([]*Socket, error) {
 	return pkgHandle.SocketDiagTCP(family)
 }
 
 // SocketDiagUDPInfo requests INET_DIAG_INFO for UDP protocol for specified family type and return with extension info.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) SocketDiagUDPInfo(family uint8) ([]*InetDiagUDPInfoResp, error) {
 	// Construct the request
 	var extensions uint8
@@ -397,14 +377,14 @@ func (h *Handle) SocketDiagUDPInfo(family uint8) ([]*InetDiagUDPInfoResp, error)
 
 	// Do the query and parse the result
 	var result []*InetDiagUDPInfoResp
-	executeErr := req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
+	var err error
+	err = req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
 		sockInfo := &Socket{}
-		if err := sockInfo.deserialize(msg); err != nil {
+		if err = sockInfo.deserialize(msg); err != nil {
 			return false
 		}
 
 		var attrs []syscall.NetlinkRouteAttr
-		var err error
 		if attrs, err = nl.ParseRouteAttr(msg[sizeofSocket:]); err != nil {
 			return false
 		}
@@ -417,24 +397,18 @@ func (h *Handle) SocketDiagUDPInfo(family uint8) ([]*InetDiagUDPInfoResp, error)
 		result = append(result, res)
 		return true
 	})
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	if err != nil {
+		return nil, err
 	}
-	return result, executeErr
+	return result, nil
 }
 
 // SocketDiagUDPInfo requests INET_DIAG_INFO for UDP protocol for specified family type and return with extension info.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func SocketDiagUDPInfo(family uint8) ([]*InetDiagUDPInfoResp, error) {
 	return pkgHandle.SocketDiagUDPInfo(family)
 }
 
 // SocketDiagUDP requests INET_DIAG_INFO for UDP protocol for specified family type and return related socket.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) SocketDiagUDP(family uint8) ([]*Socket, error) {
 	// Construct the request
 	req := h.newNetlinkRequest(nl.SOCK_DIAG_BY_FAMILY, unix.NLM_F_DUMP)
@@ -447,32 +421,27 @@ func (h *Handle) SocketDiagUDP(family uint8) ([]*Socket, error) {
 
 	// Do the query and parse the result
 	var result []*Socket
-	executeErr := req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
+	var err error
+	err = req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
 		sockInfo := &Socket{}
-		if err := sockInfo.deserialize(msg); err != nil {
+		if err = sockInfo.deserialize(msg); err != nil {
 			return false
 		}
 		result = append(result, sockInfo)
 		return true
 	})
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	if err != nil {
+		return nil, err
 	}
-	return result, executeErr
+	return result, nil
 }
 
 // SocketDiagUDP requests INET_DIAG_INFO for UDP protocol for specified family type and return related socket.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func SocketDiagUDP(family uint8) ([]*Socket, error) {
 	return pkgHandle.SocketDiagUDP(family)
 }
 
 // UnixSocketDiagInfo requests UNIX_DIAG_INFO for unix sockets and return with extension info.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) UnixSocketDiagInfo() ([]*UnixDiagInfoResp, error) {
 	// Construct the request
 	var extensions uint8
@@ -487,9 +456,10 @@ func (h *Handle) UnixSocketDiagInfo() ([]*UnixDiagInfoResp, error) {
 	})
 
 	var result []*UnixDiagInfoResp
-	executeErr := req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
+	var err error
+	err = req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
 		sockInfo := &UnixSocket{}
-		if err := sockInfo.deserialize(msg); err != nil {
+		if err = sockInfo.deserialize(msg); err != nil {
 			return false
 		}
 
@@ -499,7 +469,6 @@ func (h *Handle) UnixSocketDiagInfo() ([]*UnixDiagInfoResp, error) {
 		}
 
 		var attrs []syscall.NetlinkRouteAttr
-		var err error
 		if attrs, err = nl.ParseRouteAttr(msg[sizeofSocket:]); err != nil {
 			return false
 		}
@@ -511,24 +480,18 @@ func (h *Handle) UnixSocketDiagInfo() ([]*UnixDiagInfoResp, error) {
 		result = append(result, res)
 		return true
 	})
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	if err != nil {
+		return nil, err
 	}
-	return result, executeErr
+	return result, nil
 }
 
 // UnixSocketDiagInfo requests UNIX_DIAG_INFO for unix sockets and return with extension info.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func UnixSocketDiagInfo() ([]*UnixDiagInfoResp, error) {
 	return pkgHandle.UnixSocketDiagInfo()
 }
 
 // UnixSocketDiag requests UNIX_DIAG_INFO for unix sockets.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) UnixSocketDiag() ([]*UnixSocket, error) {
 	// Construct the request
 	req := h.newNetlinkRequest(nl.SOCK_DIAG_BY_FAMILY, unix.NLM_F_DUMP)
@@ -538,9 +501,10 @@ func (h *Handle) UnixSocketDiag() ([]*UnixSocket, error) {
 	})
 
 	var result []*UnixSocket
-	executeErr := req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
+	var err error
+	err = req.ExecuteIter(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY, func(msg []byte) bool {
 		sockInfo := &UnixSocket{}
-		if err := sockInfo.deserialize(msg); err != nil {
+		if err = sockInfo.deserialize(msg); err != nil {
 			return false
 		}
 
@@ -550,16 +514,13 @@ func (h *Handle) UnixSocketDiag() ([]*UnixSocket, error) {
 		}
 		return true
 	})
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	if err != nil {
+		return nil, err
 	}
-	return result, executeErr
+	return result, nil
 }
 
 // UnixSocketDiag requests UNIX_DIAG_INFO for unix sockets.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func UnixSocketDiag() ([]*UnixSocket, error) {
 	return pkgHandle.UnixSocketDiag()
 }

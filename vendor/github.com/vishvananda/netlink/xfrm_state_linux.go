@@ -1,7 +1,6 @@
 package netlink
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -383,9 +382,6 @@ func (h *Handle) XfrmStateDel(state *XfrmState) error {
 // XfrmStateList gets a list of xfrm states in the system.
 // Equivalent to: `ip [-4|-6] xfrm state show`.
 // The list can be filtered by ip family.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func XfrmStateList(family int) ([]XfrmState, error) {
 	return pkgHandle.XfrmStateList(family)
 }
@@ -393,15 +389,12 @@ func XfrmStateList(family int) ([]XfrmState, error) {
 // XfrmStateList gets a list of xfrm states in the system.
 // Equivalent to: `ip xfrm state show`.
 // The list can be filtered by ip family.
-//
-// If the returned error is [ErrDumpInterrupted], results may be inconsistent
-// or incomplete.
 func (h *Handle) XfrmStateList(family int) ([]XfrmState, error) {
 	req := h.newNetlinkRequest(nl.XFRM_MSG_GETSA, unix.NLM_F_DUMP)
 
-	msgs, executeErr := req.Execute(unix.NETLINK_XFRM, nl.XFRM_MSG_NEWSA)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
+	msgs, err := req.Execute(unix.NETLINK_XFRM, nl.XFRM_MSG_NEWSA)
+	if err != nil {
+		return nil, err
 	}
 
 	var res []XfrmState
@@ -414,7 +407,7 @@ func (h *Handle) XfrmStateList(family int) ([]XfrmState, error) {
 			return nil, err
 		}
 	}
-	return res, executeErr
+	return res, nil
 }
 
 // XfrmStateGet gets the xfrm state described by the ID, if found.
