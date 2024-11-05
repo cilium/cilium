@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -62,7 +61,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	defer ns.Close()
 
 	if err = ns.Do(func() error {
-		links, err := safenetlink.LinkList()
+		links, err := netlink.LinkList()
 		if err != nil {
 			return err
 		}
@@ -88,14 +87,14 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 				return fmt.Errorf("unable to retrieve index of veth peer %s: %w", vethHostName, err)
 			}
 
-			addrs, err := safenetlink.AddrList(link, netlink.FAMILY_V4)
+			addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
 			if err == nil && len(addrs) > 0 {
 				vethIP = addrs[0].IPNet.IP.String()
 			} else if err != nil {
 				pluginCtx.Logger.WithError(err).WithField(logfields.Interface, link.Attrs().Name).Warn("No valid IPv4 address found")
 			}
 
-			addrsv6, err := safenetlink.AddrList(link, netlink.FAMILY_V6)
+			addrsv6, err := netlink.AddrList(link, netlink.FAMILY_V6)
 			if err == nil && len(addrsv6) > 0 {
 				if len(addrsv6) == 1 {
 					vethIPv6 = addrsv6[0].IPNet.IP.String()
@@ -120,7 +119,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		}
 
 		if pluginCtx.NetConf.EnableRouteMTU || pluginCtx.CiliumConf.EnableRouteMTUForCNIChaining {
-			routes, err := safenetlink.RouteList(nil, netlink.FAMILY_V4)
+			routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
 			if err != nil {
 				err = fmt.Errorf("unable to list the IPv4 routes: %w", err)
 				return err
@@ -136,7 +135,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 				}
 			}
 
-			routes, err = safenetlink.RouteList(nil, netlink.FAMILY_V6)
+			routes, err = netlink.RouteList(nil, netlink.FAMILY_V6)
 			if err != nil {
 				err = fmt.Errorf("unable to list the IPv6 routes: %w", err)
 				return err

@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -286,7 +285,7 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, rules []route.Rule, 
 }
 
 func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (string, error) {
-	l, err := safenetlink.LinkByName(ifName)
+	l, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return "", fmt.Errorf("failed to lookup %q: %w", ifName, err)
 	}
@@ -959,12 +958,12 @@ func verifyInterface(netnsPinPath, ifName string, expected *cniTypesV1.Result) e
 	}
 	defer ns.Close()
 	return ns.Do(func() error {
-		link, err := safenetlink.LinkByName(ifName)
+		link, err := netlink.LinkByName(ifName)
 		if err != nil {
 			return fmt.Errorf("cannot find container link %v", ifName)
 		}
 
-		addrList, err := safenetlink.AddrList(link, netlink.FAMILY_ALL)
+		addrList, err := netlink.AddrList(link, netlink.FAMILY_ALL)
 		if err != nil {
 			return fmt.Errorf("failed to list link addresses: %w", err)
 		}
