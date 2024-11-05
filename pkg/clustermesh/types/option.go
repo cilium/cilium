@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -47,23 +49,23 @@ func (def ClusterInfo) Flags(flags *pflag.FlagSet) {
 
 // Validate validates that the ClusterID is in the valid range (including ClusterID == 0),
 // and that the ClusterName is different from the default value if the ClusterID != 0.
-func (c ClusterInfo) Validate() error {
+func (c ClusterInfo) Validate(log logrus.FieldLogger) error {
 	if c.ID < ClusterIDMin || c.ID > ClusterIDMax {
 		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
 			c.ID, ClusterIDMin, ClusterIDMax)
 	}
 
-	return c.validateName()
+	return c.validateName(log)
 }
 
 // ValidateStrict validates that the ClusterID is in the valid range, but not 0,
 // and that the ClusterName is different from the default value.
-func (c ClusterInfo) ValidateStrict() error {
+func (c ClusterInfo) ValidateStrict(log logrus.FieldLogger) error {
 	if err := ValidateClusterID(c.ID); err != nil {
 		return err
 	}
 
-	return c.validateName()
+	return c.validateName(log)
 }
 
 // ValidateBuggyClusterID returns an error if a buggy cluster ID (i.e., with the
@@ -80,9 +82,10 @@ func (c ClusterInfo) ValidateBuggyClusterID(ipamMode, chainingMode string) error
 	return nil
 }
 
-func (c ClusterInfo) validateName() error {
+func (c ClusterInfo) validateName(log logrus.FieldLogger) error {
 	if err := ValidateClusterName(c.Name); err != nil {
-		return fmt.Errorf("invalid cluster name: %w", err)
+		log.WithField(logfields.ClusterName, c.Name).WithError(err).
+			Error("Invalid cluster name. This may cause degraded functionality, and will be strictly forbidden starting from Cilium v1.17")
 	}
 
 	if c.ID != 0 && c.Name == defaults.ClusterName {
