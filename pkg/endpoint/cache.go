@@ -38,7 +38,6 @@ type epInfoCache struct {
 	requireEgressProg      bool
 	requireRouting         bool
 	requireEndpointRoute   bool
-	atHostNS               bool
 	policyVerdictLogFilter uint32
 	options                *option.IntOptions
 	lxcMAC                 mac.MAC
@@ -56,21 +55,7 @@ type epInfoCache struct {
 
 // Must be called when endpoint is still locked.
 func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
-	if e.isProperty(PropertyAtHostNS) {
-		return &epInfoCache{
-			revision: e.nextPolicyRevision,
-
-			id:       e.GetID(),
-			identity: e.getIdentity(),
-			mac:      e.GetNodeMAC(),
-			ipv4:     e.IPv4Address(),
-			ipv6:     e.IPv6Address(),
-			atHostNS: true,
-
-			endpoint: e,
-		}
-	}
-	return &epInfoCache{
+	ep := &epInfoCache{
 		revision: e.nextPolicyRevision,
 
 		epdir:                  epdir,
@@ -93,6 +78,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 
 		endpoint: e,
 	}
+	return ep
 }
 
 func (ep *epInfoCache) GetIfIndex() int {
@@ -193,5 +179,5 @@ func (ep *epInfoCache) IsHost() bool {
 }
 
 func (ep *epInfoCache) IsAtHostNS() bool {
-	return ep.atHostNS
+	return false
 }
