@@ -90,13 +90,8 @@ func (r *secretSyncer) upsertK8sSecretV1(ctx context.Context, secret *slim_corev
 		return errors.New("secret is nil")
 	}
 
-	envoySecret := k8sToEnvoySecret(secret)
-	if envoySecret == nil {
-		return nil
-	}
-
 	resource := Resources{
-		Secrets: []*envoy_extensions_tls_v3.Secret{envoySecret},
+		Secrets: []*envoy_extensions_tls_v3.Secret{k8sToEnvoySecret(secret)},
 	}
 	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
 }
@@ -173,9 +168,6 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_extensions_tls_v3.Secre
 				},
 			},
 		}
-
-	default:
-		return nil
 	}
 
 	return envoySecret
