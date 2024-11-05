@@ -77,14 +77,7 @@ func (p *policyWatcher) onUpsert(
 	if hasToServices(cnp) {
 		p.toServicesPolicies[key] = struct{}{}
 	} else {
-		if _, hadToServices := p.toServicesPolicies[key]; hadToServices {
-			// transitioning from with toServices to without toServices
-			delete(p.toServicesPolicies, key)
-			// Clear ToServices index
-			for svcID := range p.cnpByServiceID {
-				p.clearCNPForService(key, svcID)
-			}
-		}
+		delete(p.toServicesPolicies, key)
 	}
 
 	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID)
@@ -141,9 +134,7 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 	translatedCNP := cnp.DeepCopy()
 
 	// Resolve ToService references
-	if _, exists := p.toServicesPolicies[key]; exists {
-		p.resolveToServices(key, translatedCNP)
-	}
+	p.resolveToServices(key, translatedCNP)
 
 	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 	if err == nil {
