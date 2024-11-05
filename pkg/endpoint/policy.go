@@ -978,7 +978,10 @@ func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	var err error
-	derivedFrom, err = e.realizedPolicy.GetPolicyMap().GetRuleLabels(key)
-	return derivedFrom, e.policyRevision, err == nil
+	entry, ok := e.realizedPolicy.GetPolicyMap().Get(key)
+	if !ok {
+		return nil, 0, false
+	}
+
+	return entry.DerivedFromRules, e.policyRevision, true
 }
