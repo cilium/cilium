@@ -152,4 +152,3 @@ get started and experiment with Cilium.
    :caption: Reference Guides
 
    reference-guides/bpf/index
-   reference-guides/xfrm/index
