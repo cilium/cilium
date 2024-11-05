@@ -15,7 +15,7 @@ import (
 // Availability Zone in your default VPC. You can have only one default subnet per
 // Availability Zone. For more information, see [Create a default subnet]in the Amazon VPC User Guide.
 //
-// [Create a default subnet]: https://docs.aws.amazon.com/vpc/latest/userguide/work-with-default-vpc.html#create-default-subnet
+// [Create a default subnet]: https://docs.aws.amazon.com/vpc/latest/userguide/default-vpc.html#create-default-subnet
 func (c *Client) CreateDefaultSubnet(ctx context.Context, params *CreateDefaultSubnetInput, optFns ...func(*Options)) (*CreateDefaultSubnetOutput, error) {
 	if params == nil {
 		params = &CreateDefaultSubnetInput{}

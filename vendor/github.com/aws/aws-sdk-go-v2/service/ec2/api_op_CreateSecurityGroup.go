@@ -87,9 +87,6 @@ type CreateSecurityGroupOutput struct {
 	// The ID of the security group.
 	GroupId *string
 
-	// The security group ARN.
-	SecurityGroupArn *string
-
 	// The tags assigned to the security group.
 	Tags []types.Tag
 
