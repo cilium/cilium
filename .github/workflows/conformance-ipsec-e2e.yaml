@@ -179,8 +179,7 @@ jobs:
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
-          # Mutual auth doesn't currently work in kvstore mode.
-          mutual-auth: ${{ matrix.kvstore != 'true' }}
+          mutual-auth: false
           misc: ${{ matrix.misc }}
 
       - name: Set Kind params
@@ -248,11 +247,6 @@ jobs:
             --from-literal=keys="3+ ${key}"
 
           cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
-
-          if [[ "${{ matrix.kvstore }}" != "true" ]]; then
-            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
-            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
-          fi
 
           cilium status --wait
           kubectl get pods --all-namespaces -o wide
