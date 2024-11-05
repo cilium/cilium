@@ -1517,12 +1517,6 @@
             "string"
           ]
         },
-        "enableSourceIPVerification": {
-          "type": [
-            "null",
-            "boolean"
-          ]
-        },
         "runPath": {
           "type": "string"
         }
