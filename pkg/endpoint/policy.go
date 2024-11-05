@@ -348,21 +348,14 @@ func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult, datapathRegenCtxt
 
 		e.desiredPolicy = res.endpointPolicy
 
-		// Revert by changing back to the old realized policy in case of any error
+		// Revert by changing back to the realized policy in case of any error
 		// This is needed to be able to recover to a known good state, as
 		// e.realizedPolicy is set when endpoint regeneration has succeeded.
 		datapathRegenCtxt.revertStack.Push(func() error {
-			// Do nothing if e.policyMap was not initialized already
-			if e.policyMap != nil && e.desiredPolicy != e.realizedPolicy {
+			if e.desiredPolicy != e.realizedPolicy {
 				e.desiredPolicy.Detach()
 				e.desiredPolicy = e.realizedPolicy
-
-				currentMap, err := e.dumpPolicyMapToMapStateMap()
-				if err != nil {
-					return fmt.Errorf("unable to dump PolicyMap when trying to revert failed endpoint regeneration: %w", err)
-				}
-
-				_, _, err = e.syncPolicyMapWith(currentMap, false)
+				_, _, err := e.syncPolicyMapWith(e.realizedPolicy.GetPolicyMap(), false)
 				if err != nil {
 					e.getLogger().WithError(err).Errorf("failed to sync PolicyMap when reverting to last known good policy")
 				}
