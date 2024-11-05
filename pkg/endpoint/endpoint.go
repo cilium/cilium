@@ -667,13 +667,13 @@ func (e *Endpoint) GetID() uint64 {
 	return uint64(e.ID)
 }
 
-// GetLabels returns the labels.
-func (e *Endpoint) GetLabels() labels.Labels {
+// GetLabels returns the labels as slice
+func (e *Endpoint) GetLabels() []string {
 	if e.SecurityIdentity == nil {
-		return labels.Labels{}
+		return []string{}
 	}
 
-	return e.SecurityIdentity.Labels
+	return e.SecurityIdentity.Labels.GetModel()
 }
 
 // GetSecurityIdentity returns the security identity of the endpoint. It assumes
