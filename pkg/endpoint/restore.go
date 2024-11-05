@@ -301,12 +301,6 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		if err := ipcache.WaitForKVStoreSync(e.aliveCtx); err != nil {
 			return ErrNotAlive
 		}
-
-		// Additionally wait for node synchronization, as nodes also contribute
-		// entries to the ipcache map, most notably about the remote node IPs.
-		if err := regenerator.WaitForKVStoreNodesSync(e.aliveCtx); err != nil {
-			return ErrNotAlive
-		}
 	}
 
 	// Wait for ipcache and identities synchronization from all remote clusters,
