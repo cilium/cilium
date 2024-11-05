@@ -26,9 +26,9 @@ func New(vp *viper.Viper) *cobra.Command {
 		Use:   "reflect",
 		Short: "Use gRPC reflection to explore Hubble's API",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx, cancel := context.WithCancel(cmd.Context())
+			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			hubbleConn, err := conn.NewWithFlags(ctx, vp)
+			hubbleConn, err := conn.New(vp.GetString(config.KeyServer))
 			if err != nil {
 				return err
 			}

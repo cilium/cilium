@@ -26,10 +26,10 @@ func newPeerCommand(vp *viper.Viper) *cobra.Command {
 		Use:     "peers",
 		Aliases: []string{"peer"},
 		Short:   "Watch for Hubble peers updates",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx, cancel := context.WithCancel(cmd.Context())
+		RunE: func(_ *cobra.Command, _ []string) error {
+			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			hubbleConn, err := conn.NewWithFlags(ctx, vp)
+			hubbleConn, err := conn.New(vp.GetString(config.KeyServer))
 			if err != nil {
 				return err
 			}
