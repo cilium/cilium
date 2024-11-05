@@ -6,6 +6,7 @@ package experimental
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net/netip"
 	"strings"
 	"text/tabwriter"
@@ -22,6 +23,7 @@ import (
 
 // Writer provides validated write access to the service load-balancing state.
 type Writer struct {
+	log       *slog.Logger
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
 	svcs      statedb.RWTable[*Service]
@@ -35,6 +37,7 @@ type writerParams struct {
 	cell.In
 
 	Config        Config
+	Log           *slog.Logger
 	DB            *statedb.DB
 	NodeAddresses statedb.Table[tables.NodeAddress]
 	Services      statedb.RWTable[*Service]
@@ -49,6 +52,7 @@ func NewWriter(p writerParams) (*Writer, error) {
 		return nil, nil
 	}
 	w := &Writer{
+		log:       p.Log,
 		db:        p.DB,
 		bes:       p.Backends,
 		fes:       p.Frontends,
