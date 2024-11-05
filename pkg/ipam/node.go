@@ -1072,14 +1072,14 @@ func (n *Node) PopulateStaticIPStatus(node *v2.CiliumNode) {
 //
 // To initialize, or seed, the CiliumNode resource, the PreAllocate field is
 // populated with a default value and then is adjusted as necessary.
-func (n *Node) syncToAPIServer() error {
+func (n *Node) syncToAPIServer() (err error) {
 	scopedLog := n.logger()
 	scopedLog.Debug("Refreshing node")
 
 	node := n.ResourceCopy()
 	// n.resource may not have been assigned yet
 	if node == nil {
-		return nil
+		return
 	}
 
 	origNode := node.DeepCopy()
@@ -1103,8 +1103,7 @@ func (n *Node) syncToAPIServer() error {
 	// Two attempts are made in case the local resource is outdated. If the
 	// second attempt fails as well we are likely under heavy contention,
 	// fall back to the controller based background interval to retry.
-	maxRetries := 2
-	for retry := 0; retry < maxRetries; retry++ {
+	for retry := 0; retry < 2; retry++ {
 		if node.Status.IPAM.Used == nil {
 			node.Status.IPAM.Used = ipamTypes.AllocationMap{}
 		}
@@ -1113,18 +1112,18 @@ func (n *Node) syncToAPIServer() error {
 		n.PopulateIPReleaseStatus(node)
 		n.PopulateStaticIPStatus(node)
 
-		err := n.update(origNode, node, true)
+		err = n.update(origNode, node, retry, true)
 		if err == nil {
 			break
-		} else if retry+1 < maxRetries {
-			scopedLog.WithError(err).Info("Failed to update CiliumNode status, will retry")
-		} else {
-			scopedLog.WithError(err).Warning("Unable to update CiliumNode status")
-			return err
 		}
 	}
 
-	for retry := 0; retry < maxRetries; retry++ {
+	if err != nil {
+		scopedLog.WithError(err).Warning("Unable to update CiliumNode status")
+		return err
+	}
+
+	for retry := 0; retry < 2; retry++ {
 		node.Spec.IPAM.Pool = pool
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
@@ -1137,20 +1136,17 @@ func (n *Node) syncToAPIServer() error {
 			node.Spec.IPAM.PreAllocate = n.ops.GetMinimumAllocatableIPv4()
 		}
 
-		err := n.update(origNode, node, false)
+		err = n.update(origNode, node, retry, false)
 		if err == nil {
 			break
-		} else if retry+1 < maxRetries {
-			scopedLog.WithError(err).Info("Failed to update CiliumNode spec, will retry")
-		} else {
-			scopedLog.WithError(err).Warning("Unable to update CiliumNode spec")
-			return err
 		}
 	}
 
-	scopedLog.Debug("Node refreshed")
+	if err != nil {
+		scopedLog.WithError(err).Warning("Unable to update CiliumNode spec")
+	}
 
-	return nil
+	return err
 }
 
 // update is a helper function for syncToAPIServer(). This function updates the
@@ -1165,7 +1161,9 @@ func (n *Node) syncToAPIServer() error {
 //   - `origNode` and `node` are updated when we fail to update the resource,
 //     but we succeed in retrieving the latest version of it from the
 //     apiserver.
-func (n *Node) update(origNode, node *v2.CiliumNode, status bool) error {
+func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) error {
+	scopedLog := n.logger()
+
 	var (
 		updatedNode    *v2.CiliumNode
 		updateErr, err error
@@ -1183,6 +1181,11 @@ func (n *Node) update(origNode, node *v2.CiliumNode, status bool) error {
 			return nil
 		}
 	} else if updateErr != nil {
+		scopedLog.WithError(updateErr).WithFields(logrus.Fields{
+			logfields.Attempt: attempts,
+			"updateStatus":    status,
+		}).Warning("Failed to update CiliumNode")
+
 		var newNode *v2.CiliumNode
 		newNode, err = n.manager.k8sAPI.Get(node.Name)
 		if err != nil {
