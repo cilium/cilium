@@ -1962,7 +1962,8 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
 	}
 
-	if svc.checkLBSourceRange() {
+	if option.Config.EnableSVCSourceRangeCheck &&
+		svc.svcType == lb.SVCTypeLoadBalancer {
 		if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
 			svc.loadBalancerSourceRanges, nil, ipv6); err != nil {
 			return err

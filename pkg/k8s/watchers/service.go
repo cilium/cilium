@@ -363,20 +363,6 @@ func genCartesianProduct(
 	return svcs
 }
 
-func configureWithSourceRanges(svcType loadbalancer.SVCType) bool {
-	switch svcType {
-	case loadbalancer.SVCTypeLoadBalancer:
-		return true
-	case loadbalancer.SVCTypeNodePort:
-		return option.Config.LBSourceRangeAllTypes
-	case loadbalancer.SVCTypeClusterIP:
-		// ClusterIP is only needed here when exposed to N/S traffic.
-		return option.Config.LBSourceRangeAllTypes && option.Config.ExternalClusterIP
-	default:
-		return false
-	}
-}
-
 // datapathSVCs returns all services that should be set in the datapath.
 func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) ([]loadbalancer.SVC, error) {
 	svcs := []loadbalancer.SVC{}
@@ -435,10 +421,10 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
 		svcs[i].SessionAffinity = svc.SessionAffinity
 		svcs[i].SessionAffinityTimeoutSec = svc.SessionAffinityTimeoutSec
-		svcs[i].Annotations = svc.Annotations
-		if configureWithSourceRanges(svcs[i].Type) {
+		if svcs[i].Type == loadbalancer.SVCTypeLoadBalancer {
 			svcs[i].LoadBalancerSourceRanges = lbSrcRanges
 		}
+		svcs[i].Annotations = svc.Annotations
 	}
 
 	return svcs, nil
