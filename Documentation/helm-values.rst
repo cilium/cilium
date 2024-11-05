@@ -425,7 +425,7 @@
      - string
      - ``"/sys/fs/bpf"``
    * - :spelling:ignore:`bpf.tproxy`
-     - Configure the eBPF-based TPROXY to reduce reliance on iptables rules for implementing Layer 7 policy.
+     - Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy.
      - bool
      - ``false``
    * - :spelling:ignore:`bpf.vlanBypass`
