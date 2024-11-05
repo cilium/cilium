@@ -2017,16 +2017,7 @@
               ]
             },
             "format": {
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "format_json": {
-              "type": [
-                "null",
-                "object"
-              ]
+              "type": "string"
             },
             "path": {
               "type": "string"
