@@ -160,7 +160,6 @@ var (
 		"Host datapath not ready",
 		"Unknown ICMPv4 code",
 		"Forbidden ICMPv6 message",
-		"No egress gateway found",
 	}
 
 	ExpectedXFRMErrors = []string{
