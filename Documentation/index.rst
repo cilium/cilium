@@ -149,6 +149,6 @@ get started and experiment with Cilium.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Reference Guides
+   :caption: BPF and XDP Reference Guide
 
-   reference-guides/bpf/index
+   bpf/index
