@@ -50,7 +50,6 @@ type BGPParams struct {
 	ClusterConfigResource      resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
 	NodeConfigOverrideResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride]
 	NodeConfigResource         resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig]
-	PeerConfigResource         resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
 	NodeResource               resource.Resource[*cilium_api_v2.CiliumNode]
 }
 
@@ -66,11 +65,9 @@ type BGPResourceManager struct {
 	nodeConfigOverride      resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride]
 	nodeConfig              resource.Resource[*cilium_api_v2alpha1.CiliumBGPNodeConfig]
 	ciliumNode              resource.Resource[*cilium_api_v2.CiliumNode]
-	peerConfig              resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
 	clusterConfigStore      resource.Store[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
 	nodeConfigOverrideStore resource.Store[*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride]
 	nodeConfigStore         resource.Store[*cilium_api_v2alpha1.CiliumBGPNodeConfig]
-	peerConfigStore         resource.Store[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
 	ciliumNodeStore         resource.Store[*cilium_api_v2.CiliumNode]
 	nodeConfigClient        cilium_client_v2alpha1.CiliumBGPNodeConfigInterface
 
@@ -98,7 +95,6 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 		clusterConfig:      p.ClusterConfigResource,
 		nodeConfigOverride: p.NodeConfigOverrideResource,
 		nodeConfig:         p.NodeConfigResource,
-		peerConfig:         p.PeerConfigResource,
 		ciliumNode:         p.NodeResource,
 	}
 
@@ -147,14 +143,6 @@ func (b *BGPResourceManager) initializeJobs() {
 			return nil
 		}),
 
-		job.OneShot("bgpv2-operator-peer-config-tracker", func(ctx context.Context, health cell.Health) error {
-			for e := range b.peerConfig.Events(ctx) {
-				b.triggerReconcile()
-				e.Done(nil)
-			}
-			return nil
-		}),
-
 		job.OneShot("bgpv2-operator-node-tracker", func(ctx context.Context, health cell.Health) error {
 			for e := range b.ciliumNode.Events(ctx) {
 				b.triggerReconcile()
@@ -177,11 +165,6 @@ func (b *BGPResourceManager) initializeStores(ctx context.Context) (err error) {
 	}
 
 	b.nodeConfigStore, err = b.nodeConfig.Store(ctx)
-	if err != nil {
-		return
-	}
-
-	b.peerConfigStore, err = b.peerConfig.Store(ctx)
 	if err != nil {
 		return
 	}
