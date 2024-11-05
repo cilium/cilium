@@ -759,7 +759,7 @@ func TestBPFOps(t *testing.T) {
 	}
 
 	// Enable features.
-	extCfg := ExternalConfig{
+	extCfg := externalConfig{
 		EnableSessionAffinity: true,
 	}
 

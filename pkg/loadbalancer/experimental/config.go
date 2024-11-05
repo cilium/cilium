@@ -43,16 +43,16 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.MarkHidden("lb-test-fault-probability")
 }
 
-// ExternalConfig are configuration options derived from external sources such as
+// externalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
-type ExternalConfig struct {
+type externalConfig struct {
 	ExternalClusterIP        bool
 	EnableSessionAffinity    bool
 	NodePortMin, NodePortMax uint16
 }
 
-func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
-	return ExternalConfig{
+func newExternalConfig(cfg *option.DaemonConfig) externalConfig {
+	return externalConfig{
 		ExternalClusterIP:     cfg.ExternalClusterIP,
 		EnableSessionAffinity: cfg.EnableSessionAffinity,
 		NodePortMin:           uint16(cfg.NodePortMin),
