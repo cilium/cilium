@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 )
 
@@ -65,11 +64,11 @@ func runXFRMFlush() {
 		}
 	}
 
-	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		Fatalf("Failed to retrieve XFRM states: %s", err)
 	}
-	policies, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		Fatalf("Failed to retrieve XFRM policies: %s", err)
 	}

@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 const (
@@ -79,7 +78,7 @@ func dumpIPsecStatus() (models.EncryptionStatus, error) {
 		Mode:  models.EncryptionStatusModeIPsec,
 		Ipsec: &models.IPsecStatus{},
 	}
-	xfrmStates, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		return models.EncryptionStatus{}, fmt.Errorf("cannot get xfrm state: %w", err)
 	}
@@ -187,7 +186,7 @@ func maxSequenceNumber() (string, error) {
 }
 
 func isDecryptionInterface(link netlink.Link) (bool, error) {
-	filters, err := safenetlink.FilterList(link, tcFilterParentIngress)
+	filters, err := netlink.FilterList(link, tcFilterParentIngress)
 	if err != nil {
 		return false, err
 	}
@@ -205,7 +204,7 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 }
 
 func getDecryptionInterfaces() ([]string, error) {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list interfaces: %w", err)
 	}
