@@ -4,14 +4,12 @@
 package policy
 
 import (
-	"errors"
 	"fmt"
 	"iter"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -188,6 +186,12 @@ func (p *EndpointPolicy) Ready() (err error) {
 	return err
 }
 
+// GetPolicyMap gets the policy map state as the interface
+// MapState
+func (p *EndpointPolicy) GetPolicyMap() MapState {
+	return p.policyMapState
+}
+
 // Detach removes EndpointPolicy references from selectorPolicy
 // to allow the EndpointPolicy to be GC'd.
 // PolicyOwner (aka Endpoint) is also locked during this call.
@@ -204,45 +208,6 @@ func (p *EndpointPolicy) Detach() {
 	p.policyMapChanges.detach()
 }
 
-func (p *EndpointPolicy) Len() int {
-	return p.policyMapState.Len()
-}
-
-func (p *EndpointPolicy) Get(key Key) (MapStateEntry, bool) {
-	return p.policyMapState.Get(key)
-}
-
-var errMissingKey = errors.New("Key not found")
-
-// GetRuleLabels returns the list of labels of the rules that contributed
-// to the entry at this key.
-// The returned LabelArrayList is shallow-copied and therefore must not be mutated.
-func (p *EndpointPolicy) GetRuleLabels(k Key) (labels.LabelArrayList, error) {
-	entry, ok := p.policyMapState.get(k)
-	if !ok {
-		return nil, errMissingKey
-	}
-	return entry.GetRuleLabels(), nil
-}
-
-func (p *EndpointPolicy) Entries() iter.Seq2[Key, MapStateEntry] {
-	return func(yield func(Key, MapStateEntry) bool) {
-		p.policyMapState.ForEach(yield)
-	}
-}
-
-func (p *EndpointPolicy) Equals(other MapStateMap) bool {
-	return p.policyMapState.Equals(other)
-}
-
-func (p *EndpointPolicy) Diff(expected MapStateMap) string {
-	return p.policyMapState.Diff(expected)
-}
-
-func (p *EndpointPolicy) Empty() bool {
-	return p.policyMapState.Empty()
-}
-
 // Updated returns an iterator for all key/entry pairs in 'p' that are either new or updated
 // compared to the entries in 'realized'.
 // Here 'realized' is another EndpointPolicy.
@@ -250,7 +215,7 @@ func (p *EndpointPolicy) Empty() bool {
 func (p *EndpointPolicy) Updated(realized *EndpointPolicy) iter.Seq2[Key, MapStateEntry] {
 	return func(yield func(Key, MapStateEntry) bool) {
 		p.policyMapState.ForEach(func(key Key, entry MapStateEntry) bool {
-			if oldEntry, ok := realized.policyMapState.Get(key); !ok || oldEntry != entry {
+			if oldEntry, ok := realized.policyMapState.Get(key); !ok || !oldEntry.DatapathEqual(&entry) {
 				if !yield(key, entry) {
 					return false
 				}
@@ -284,7 +249,7 @@ func (p *EndpointPolicy) Missing(realized *EndpointPolicy) iter.Seq2[Key, MapSta
 func (p *EndpointPolicy) UpdatedMap(realized MapStateMap) iter.Seq2[Key, MapStateEntry] {
 	return func(yield func(Key, MapStateEntry) bool) {
 		p.policyMapState.ForEach(func(key Key, entry MapStateEntry) bool {
-			if oldEntry, ok := realized[key]; !ok || oldEntry != entry {
+			if oldEntry, ok := realized[key]; !ok || !oldEntry.DatapathEqual(&entry) {
 				if !yield(key, entry) {
 					return false
 				}
