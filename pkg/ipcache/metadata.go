@@ -225,9 +225,7 @@ func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource
 		changed = changed || c
 	}
 
-	if m.m[prefix][resource].shouldLogConflicts() {
-		m.m[prefix].logConflicts(log.WithField(logfields.CIDR, prefix))
-	}
+	m.m[prefix].logConflicts(log.WithField(logfields.CIDR, prefix))
 
 	if !changed {
 		return nil
