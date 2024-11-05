@@ -21,7 +21,6 @@
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
-    ".github/actions/ipsec/configs.yml",
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "cilium-cli/**",
@@ -718,8 +717,7 @@
     {
       "fileMatch": [
         "^\\.github/workflows/[^/]+\\.ya?ml$",
-        "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$",
-        "^\\.github/actions/ipsec/[^/]+\\.ya?ml$"
+        "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$"
       ],
       // This regex manages version strings in GitHub actions workflow files,
       // similar to the examples shown here:
