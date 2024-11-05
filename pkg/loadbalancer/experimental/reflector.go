@@ -153,6 +153,8 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			}
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
+				ev.Done(nil)
+
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -189,6 +191,8 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
+				ev.Done(nil)
+
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -250,6 +254,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
+				ev.Done(nil)
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -641,7 +646,10 @@ func bufferEvent[Obj runtime.Object](buf map[resource.Key]resource.Event[Obj], e
 	if buf == nil {
 		buf = map[resource.Key]resource.Event[Obj]{}
 	}
-	ev.Done(nil)
+
+	if ev, ok := buf[ev.Key]; ok {
+		ev.Done(nil)
+	}
 	buf[ev.Key] = ev
 	return buf
 }
