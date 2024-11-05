@@ -1399,6 +1399,11 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 		Old:     make(map[Key]MapStateEntry, len(mc.synced)),
 	}
 
+	var redirects map[string]uint16
+	if p.PolicyOwner != nil {
+		redirects = p.PolicyOwner.GetRealizedRedirects()
+	}
+
 	for i := range mc.synced {
 		if mc.synced[i].Add {
 			// Redirect entries for unrealized redirects come in with an invalid
@@ -1408,7 +1413,7 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 			if entry.ProxyPort == unrealizedRedirectPort {
 				var exists bool
 				proxyID := ProxyIDFromKey(uint16(p.PolicyOwner.GetID()), key, entry.Listener)
-				entry.ProxyPort, exists = p.Redirects[proxyID]
+				entry.ProxyPort, exists = redirects[proxyID]
 				if !exists {
 					log.WithFields(logrus.Fields{
 						logfields.PolicyKey:   key,

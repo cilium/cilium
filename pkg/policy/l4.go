@@ -549,7 +549,7 @@ func (c *ChangeState) Empty() bool {
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
 // p.SelectorCache is used as Identities interface during this call, which only has GetPrefix() that
 // needs no lock.
-func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, changes ChangeState) {
+func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redirects map[string]uint16, changes ChangeState) {
 	port := l4.Port
 	proto := l4.U8Proto
 
@@ -616,13 +616,14 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 		hasAuth, authType := currentRule.GetAuthType()
 		var proxyPort uint16
 		if isRedirect {
-			var err error
-			proxyPort, err = p.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
-			if err != nil {
+			var exists bool
+			proxyID := ProxyID(uint16(p.PolicyOwner.GetID()), l4.Ingress, string(l4.Protocol), port, listener)
+			proxyPort, exists = redirects[proxyID]
+			if !exists {
 				// Skip unrealized redirects; this happens routineously just
 				// before new redirects are realized. Once created, we are called
 				// again.
-				logger.WithError(err).WithField(logfields.EndpointSelector, cs).Debugf("Skipping unrealized redirect")
+				logger.WithField(logfields.EndpointSelector, cs).Debugf("Skipping unrealized redirect %s (%v)", proxyID, redirects)
 				continue
 			}
 		}
@@ -1618,7 +1619,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 		var proxyPort uint16
 		if redirect {
 			var err error
-			proxyPort, err = epPolicy.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
+			proxyPort, err = epPolicy.PolicyOwner.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
 			if err != nil {
 				// This happens for new redirects that have not been realized
 				// yet. The accumulated changes should only be consumed after new
@@ -1661,7 +1662,6 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
 	// SelectorCache may not be called into while holding this lock!
 	l4Policy.mutex.RLock()
-
 	for epPolicy := range l4Policy.users {
 		epPolicy.policyMapChanges.SyncMapChanges(txn)
 	}
