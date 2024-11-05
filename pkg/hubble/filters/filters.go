@@ -144,7 +144,6 @@ func DefaultFilters(log logrus.FieldLogger) []OnBuildFilter {
 		&HTTPFilter{},
 		&TCPFilter{},
 		&NodeNameFilter{},
-		&ClusterNameFilter{},
 		&IPVersionFilter{},
 		&TraceIDFilter{},
 		&TrafficDirectionFilter{},
