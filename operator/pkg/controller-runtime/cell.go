@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/go-logr/logr"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,7 +70,7 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		return proto.Equal(xdsResource1.Any, xdsResource2.Any)
 	})
 
-	ctrlRuntime.SetLogger(newLogrFromSlog(params.Logger))
+	ctrlRuntime.SetLogger(logr.FromSlogHandler(params.Logger.Handler()))
 
 	mgr, err := ctrlRuntime.NewManager(params.K8sClient.RestConfig(), ctrlRuntime.Options{
 		Scheme: params.Scheme,
@@ -77,6 +78,7 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
+		Logger: logr.FromSlogHandler(params.Logger.Handler()),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new controller-runtime manager: %w", err)
