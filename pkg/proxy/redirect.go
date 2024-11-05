@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -35,7 +36,8 @@ type Redirect struct {
 	name           string
 	listener       *ProxyPort
 	dstPortProto   restore.PortProto
-	endpointID     uint16
+	endpointID     uint64
+	localEndpoint  endpoint.EndpointUpdater
 	implementation RedirectImplementation
 
 	// The following fields are updated while the redirect is alive, the
@@ -44,12 +46,13 @@ type Redirect struct {
 	rules policy.L7DataMap
 }
 
-func newRedirect(epID uint16, name string, listener *ProxyPort, port uint16, proto u8proto.U8proto) *Redirect {
+func newRedirect(localEndpoint endpoint.EndpointUpdater, name string, listener *ProxyPort, port uint16, proto u8proto.U8proto) *Redirect {
 	return &Redirect{
-		name:         name,
-		listener:     listener,
-		dstPortProto: restore.MakeV2PortProto(port, proto),
-		endpointID:   epID,
+		name:          name,
+		listener:      listener,
+		dstPortProto:  restore.MakeV2PortProto(port, proto),
+		endpointID:    localEndpoint.GetID(),
+		localEndpoint: localEndpoint,
 	}
 }
 
