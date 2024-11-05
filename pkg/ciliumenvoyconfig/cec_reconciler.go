@@ -13,13 +13,11 @@ import (
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -300,32 +298,19 @@ func (r *ciliumEnvoyConfigReconciler) configSelectsLocalNode(cfg *config) (bool,
 	return true, nil
 }
 
-func (r *ciliumEnvoyConfigReconciler) syncEndpoints(_ context.Context, event resource.Event[*k8s.Endpoints]) error {
+func (r *ciliumEnvoyConfigReconciler) syncHeadlessService(_ context.Context) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
 	var reconcileErr error
-	defer event.Done(reconcileErr)
-
-	if event.Object == nil {
-		return reconcileErr
-	}
 
 	for key, cfg := range r.configs {
-		for _, svc := range cfg.spec.BackendServices {
-			if svc.Name != event.Object.EndpointSliceID.ServiceID.Name ||
-				svc.Namespace != event.Object.EndpointSliceID.ServiceID.Namespace {
-				continue
-			}
-
-			serviceName := loadbalancer.ServiceName{Name: svc.Name, Namespace: svc.Namespace}
-			if err := r.manager.syncHeadlessService(cfg.meta.Name, cfg.meta.Namespace, serviceName, svc.Ports); err != nil {
-				r.logger.WithField("key", key).
-					WithField(logfields.ServiceKey, event.Key).
-					WithError(err).Error("failed to sync headless service")
-				reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to sync headless service (%s): %w", key, err))
-			}
+		if err := r.manager.syncCiliumEnvoyConfigService(cfg.meta.Name, cfg.meta.Namespace, cfg.spec); err != nil {
+			r.logger.WithField("key", key).WithError(err).Info("Failed to sync headless service, Hive will retry")
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile existing config (%s): %w", key, err))
+			continue
 		}
 	}
+
 	return reconcileErr
 }
