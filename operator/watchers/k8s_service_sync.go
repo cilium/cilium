@@ -33,14 +33,15 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
-		log.Debug("Kubernetes service definition changed",
+		scopedLog := log.With(
 			logfields.K8sSvcName, event.ID.Name,
 			logfields.K8sNamespace, event.ID.Namespace,
-			"action", event.Action,
-			"service", event.Service,
-			"endpoints", event.Endpoints,
+			"action", event.Action.String(),
+			"service", event.Service.String(),
+			"endpoints", event.Endpoints.String(),
 			"shared", event.Service.Shared,
 		)
+		scopedLog.Debug("Kubernetes service definition changed")
 
 		if shared && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
@@ -53,11 +54,7 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			if err := kvs.UpsertKey(ctx, &svc); err != nil {
 				// An error is triggered only in case it concerns service marshaling,
 				// as kvstore operations are automatically re-tried in case of error.
-				log.Warn("Failed synchronizing service",
-					logfields.Error, err,
-					logfields.K8sSvcName, event.ID.Name,
-					logfields.K8sNamespace, event.ID.Namespace,
-				)
+				scopedLog.Warn("Failed synchronizing service", logfields.Error, err)
 			}
 
 		case k8s.DeleteService:
