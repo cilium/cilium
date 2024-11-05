@@ -753,7 +753,7 @@ func (p *Proxy) createNewRedirect(
 
 	scopedLog.
 		WithField(logfields.Object, logfields.Repr(redirect)).
-		Info("Created new proxy instance")
+		Debug("Created new proxy instance")
 
 	p.redirects[id] = redirect
 	p.updateRedirectMetrics()
