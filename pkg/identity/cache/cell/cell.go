@@ -60,8 +60,6 @@ type identityAllocatorParams struct {
 	PolicyRepository policy.PolicyRepository
 	PolicyUpdater    *policy.Updater
 
-	IdentityHandlers []identity.UpdateIdentities `group:"identity-handlers"`
-
 	Config config
 }
 
@@ -93,8 +91,6 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	iao := &identityAllocatorOwner{
 		policy:        params.PolicyRepository,
 		policyUpdater: params.PolicyUpdater,
-
-		identityHandlers: params.IdentityHandlers,
 	}
 
 	allocatorConfig := cache.AllocatorConfig{
@@ -125,8 +121,6 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 type identityAllocatorOwner struct {
 	policy        policy.PolicyRepository
 	policyUpdater *policy.Updater
-
-	identityHandlers []identity.UpdateIdentities
 }
 
 // UpdateIdentities informs the policy package of all identity changes
@@ -136,10 +130,6 @@ type identityAllocatorOwner struct {
 // present in both 'added' and 'deleted'.
 func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 	wg := &sync.WaitGroup{}
-	for _, handler := range iao.identityHandlers {
-		handler.UpdateIdentities(added, deleted, wg)
-	}
-	// Invoke policy selector cache always as the last handler
 	iao.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	// Wait for update propagation to endpoints before triggering policy updates
 	wg.Wait()
