@@ -684,9 +684,6 @@
           "items": {},
           "type": "array"
         },
-        "generateCA": {
-          "type": "boolean"
-        },
         "image": {
           "properties": {
             "digest": {
