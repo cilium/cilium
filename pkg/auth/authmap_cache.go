@@ -6,10 +6,10 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"maps"
 
 	"github.com/cilium/ebpf"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/authmap"
@@ -18,14 +18,14 @@ import (
 )
 
 type authMapCache struct {
-	logger            *slog.Logger
+	logger            logrus.FieldLogger
 	authmap           authMap
 	cacheEntries      map[authKey]authInfoCache
 	cacheEntriesMutex lock.RWMutex
 	pressureGauge     *metrics.GaugeWithThreshold
 }
 
-func newAuthMapCache(logger *slog.Logger, authMap authMap) *authMapCache {
+func newAuthMapCache(logger logrus.FieldLogger, authMap authMap) *authMapCache {
 	var pressureGauge *metrics.GaugeWithThreshold
 
 	if metrics.BPFMapPressure {
@@ -92,7 +92,9 @@ func (r *authMapCache) Delete(key authKey) error {
 			return fmt.Errorf("failed to delete auth entry from map: %w", err)
 		}
 
-		r.logger.Warn("Failed to delete already deleted auth entry", "key", key)
+		r.logger.
+			WithField("key", key).
+			Warning("Failed to delete already deleted auth entry")
 	}
 
 	delete(r.cacheEntries, key)
@@ -116,7 +118,9 @@ func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool)
 					return fmt.Errorf("failed to delete auth entry from map: %w", err)
 				}
 
-				r.logger.Warn("Failed to delete already deleted auth entry", "key", k)
+				r.logger.
+					WithField("key", k).
+					Warning("Failed to delete already deleted auth entry")
 			}
 			delete(r.cacheEntries, k)
 		}
@@ -140,7 +144,9 @@ func (r *authMapCache) restoreCache() error {
 	}
 
 	r.updatePressureMetric()
-	r.logger.Debug("Restored entries", "cached_entries", len(r.cacheEntries))
+	r.logger.
+		WithField("cached_entries", len(r.cacheEntries)).
+		Debug("Restored entries")
 	return nil
 }
 

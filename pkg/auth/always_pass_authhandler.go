@@ -4,7 +4,7 @@
 package auth
 
 import (
-	"log/slog"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
@@ -15,10 +15,10 @@ import (
 // alwaysPassAuthHandler implements an authHandler by just authenticate every request
 // This is only for testing purpose.
 type alwaysPassAuthHandler struct {
-	logger *slog.Logger
+	logger logrus.FieldLogger
 }
 
-func newAlwaysPassAuthHandler(logger *slog.Logger) *alwaysPassAuthHandler {
+func newAlwaysPassAuthHandler(logger logrus.FieldLogger) *alwaysPassAuthHandler {
 	return &alwaysPassAuthHandler{
 		logger: logger,
 	}

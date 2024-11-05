@@ -15,14 +15,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/hive/hivetest"
 	delegatedidentityv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "spire") // just to avoid nil errors as well as debugging tests
 
 func TestSpireDelegateClient_NumericIdentityToSNI(t *testing.T) {
 	type args struct {
@@ -47,7 +49,7 @@ func TestSpireDelegateClient_NumericIdentityToSNI(t *testing.T) {
 				cfg: SpireDelegateConfig{
 					SpiffeTrustDomain: "test.cilium.io",
 				},
-				log: hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
+				log: log,
 			}
 			if got := s.NumericIdentityToSNI(tt.args.id); got != tt.want {
 				t.Errorf("SpireDelegateClient.NumericIdentityToSNI() = %v, want %v", got, tt.want)
@@ -97,7 +99,7 @@ func TestSpireDelegateClient_SNIToNumericIdentity(t *testing.T) {
 				cfg: SpireDelegateConfig{
 					SpiffeTrustDomain: "test.cilium.io",
 				},
-				log: hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
+				log: log,
 			}
 			got, err := s.SNIToNumericIdentity(tt.args.sni)
 			if (err != nil) != tt.wantErr {
@@ -134,7 +136,7 @@ func TestSpireDelegateClient_sniToSPIFFEID(t *testing.T) {
 				cfg: SpireDelegateConfig{
 					SpiffeTrustDomain: "test.cilium.io",
 				},
-				log: hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
+				log: log,
 			}
 			if got := s.sniToSPIFFEID(tt.args.id); got != tt.want {
 				t.Errorf("SpireDelegateClient.sniToSPIFFEID() = %v, want %v", got, tt.want)
@@ -206,7 +208,7 @@ func TestSpireDelegateClient_ValidateIdentity(t *testing.T) {
 				cfg: SpireDelegateConfig{
 					SpiffeTrustDomain: "test.cilium.io",
 				},
-				log: hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
+				log: log,
 			}
 			got, err := s.ValidateIdentity(tt.args.id, tt.args.cert)
 			if (err != nil) != tt.wantErr {
@@ -254,7 +256,7 @@ func TestSpireDelegateClient_GetTrustBundle(t *testing.T) {
 				cfg: SpireDelegateConfig{
 					SpiffeTrustDomain: "test.cilium.io",
 				},
-				log:         hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
+				log:         log,
 				trustBundle: tt.trustBundle,
 			}
 			got, err := s.GetTrustBundle()
@@ -381,7 +383,7 @@ func TestSpireDelegateClient_GetCertificateForIdentity(t *testing.T) {
 				cfg: SpireDelegateConfig{
 					SpiffeTrustDomain: "test.cilium.io",
 				},
-				log:       hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
+				log:       log,
 				svidStore: svidStore,
 			}
 			got, err := s.GetCertificateForIdentity(tt.args.id)
@@ -465,7 +467,7 @@ func TestSpireDelegateClient_SubscribeToRotatedIdentities(t *testing.T) {
 				cfg: SpireDelegateConfig{
 					SpiffeTrustDomain: "test.cilium.io",
 				},
-				log:                   hivetest.Logger(t).With(logfields.LogSubsys, "spire"),
+				log:                   log,
 				rotatedIdentitiesChan: make(chan certs.CertificateRotationEvent, 10),
 				svidStore:             make(map[string]*delegatedidentityv1.X509SVIDWithKey),
 			}

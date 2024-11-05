@@ -12,10 +12,8 @@ MATCH="^\s*\"github.com/sirupsen/logrus\"$"
 CONVERTED=(
   "api/v1"
   "hubble"
-  "pkg/auth"
   "pkg/hive/health"
   "pkg/datapath/linux"
-  "operator/auth"
   "operator/pkg/ciliumenvoyconfig"
   "operator/pkg/controller-runtime"
 )

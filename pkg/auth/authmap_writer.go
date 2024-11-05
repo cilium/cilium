@@ -6,9 +6,9 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/cilium/ebpf"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/identity"
@@ -17,11 +17,11 @@ import (
 )
 
 type authMapWriter struct {
-	logger  *slog.Logger
+	logger  logrus.FieldLogger
 	authMap authmap.Map
 }
 
-func newAuthMapWriter(logger *slog.Logger, authMap authmap.Map) *authMapWriter {
+func newAuthMapWriter(logger logrus.FieldLogger, authMap authmap.Map) *authMapWriter {
 	return &authMapWriter{
 		logger:  logger,
 		authMap: authMap,
@@ -93,7 +93,9 @@ func (r *authMapWriter) DeleteIf(predicate func(key authKey, info authInfo) bool
 		if predicate(k, v) {
 			if err := r.Delete(k); err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					r.logger.Debug("Failed to delete already deleted auth entry", "key", k)
+					r.logger.
+						WithField("key", k).
+						Debug("Failed to delete already deleted auth entry")
 					continue
 				}
 				return fmt.Errorf("failed to delete auth entry from map: %w", err)
