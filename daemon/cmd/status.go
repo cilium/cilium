@@ -121,20 +121,15 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 		return s
 	}
 
-	localNode, err := d.nodeLocalStore.Get(context.TODO())
-	if err != nil {
-		return s
-	}
-
 	if option.Config.EnableIPv4 {
 		// SnatExclusionCidr is the legacy field, continue to provide
 		// it for the time being
-		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode).String()
-		s.SnatExclusionCidrV4 = datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode).String()
+		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDRv4().String()
+		s.SnatExclusionCidrV4 = datapath.RemoteSNATDstAddrExclusionCIDRv4().String()
 	}
 
 	if option.Config.EnableIPv6 {
-		s.SnatExclusionCidrV6 = datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode).String()
+		s.SnatExclusionCidrV6 = datapath.RemoteSNATDstAddrExclusionCIDRv6().String()
 	}
 
 	if option.Config.EnableBPFMasquerade {
