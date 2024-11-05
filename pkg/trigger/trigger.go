@@ -6,6 +6,7 @@ package trigger
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -172,9 +173,8 @@ func (t *Trigger) Shutdown() {
 }
 
 func (t *Trigger) waiter() {
-	tk := time.NewTicker(t.params.sleepInterval)
-	defer tk.Stop()
-
+	sleepTimer, sleepTimerDone := inctimer.New()
+	defer sleepTimerDone()
 	for {
 		// keep critical section as small as possible
 		t.mutex.Lock()
@@ -208,7 +208,8 @@ func (t *Trigger) waiter() {
 
 		select {
 		case <-t.wakeupChan:
-		case <-tk.C:
+		case <-sleepTimer.After(t.params.sleepInterval):
+
 		case <-t.closeChan:
 			shutdownFunc := t.params.ShutdownFunc
 			if shutdownFunc != nil {
