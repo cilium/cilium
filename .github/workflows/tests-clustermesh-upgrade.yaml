@@ -169,7 +169,6 @@ jobs:
           #   down the rollout process and highlight possible connection disruption
           #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
-            --disable-check=minimum-version \
             --set=debug.enabled=true \
             --set=bpf.monitorAggregation=medium \
             --set=hubble.enabled=true \
