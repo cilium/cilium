@@ -121,13 +121,6 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
       hostNetwork: false
-      {{- with .Values.certgen.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- if .Values.certgen.priorityClassName }}
-      priorityClassName: {{ .Values.certgen.priorityClassName }}
-      {{- end }}
       {{- with .Values.certgen.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
