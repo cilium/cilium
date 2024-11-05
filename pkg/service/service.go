@@ -1580,6 +1580,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 
 	var (
 		toDeleteAffinity, toAddAffinity []lb.BackendID
+		checkLBSrcRange                 bool
 	)
 
 	// Update sessionAffinity
@@ -1613,8 +1614,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 	}
 
 	// Update LB source range check cidrs
-	checkLBSrcRange := svc.checkLBSourceRange()
-	if checkLBSrcRange || len(prevLoadBalancerSourceRanges) != 0 {
+	if checkLBSrcRange = svc.checkLBSourceRange() || len(prevLoadBalancerSourceRanges) != 0; checkLBSrcRange {
 		if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
 			prevLoadBalancerSourceRanges, svc.loadBalancerSourceRanges,
 			v6FE); err != nil {
