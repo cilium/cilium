@@ -2729,30 +2729,7 @@ func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
 	return nil
 }
 
-// SetupLogging sets all logging-related options with the values from viper,
-// then setup logging based on these options and the given tag.
-//
-// This allows initializing logging as early as possible, then log entries
-// produced below in Populate can honor the requested logging configurations.
-func (c *DaemonConfig) SetupLogging(vp *viper.Viper, tag string) {
-	c.Debug = vp.GetBool(DebugArg)
-	c.LogDriver = vp.GetStringSlice(LogDriver)
-
-	if m, err := command.GetStringMapStringE(vp, LogOpt); err != nil {
-		log.Fatalf("unable to parse %s: %s", LogOpt, err)
-	} else {
-		c.LogOpt = m
-	}
-
-	if err := logging.SetupLogging(c.LogDriver, logging.LogOptions(c.LogOpt), tag, c.Debug); err != nil {
-		log.Fatal(err)
-	}
-}
-
-// Populate sets all non-logging options with the values from viper.
-//
-// This function may emit logs. Consider calling SetupLogging before this
-// to make sure that they honor logging-related options.
+// Populate sets all options with the values from viper
 func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	var err error
 
@@ -2772,6 +2749,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ClusterName = vp.GetString(clustermeshTypes.OptClusterName)
 	c.MaxConnectedClusters = vp.GetUint32(clustermeshTypes.OptMaxConnectedClusters)
 	c.DatapathMode = vp.GetString(DatapathMode)
+	c.Debug = vp.GetBool(DebugArg)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)
 	c.EnableIPv4 = vp.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = vp.GetBool(EnableIPv6Name)
@@ -2858,6 +2836,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LabelPrefixFile = vp.GetString(LabelPrefixFile)
 	c.Labels = vp.GetStringSlice(Labels)
 	c.LibDir = vp.GetString(LibDir)
+	c.LogDriver = vp.GetStringSlice(LogDriver)
 	c.LogSystemLoadConfig = vp.GetBool(LogSystemLoadConfigName)
 	c.LoopbackIPv4 = vp.GetString(LoopbackIPv4)
 	c.LocalRouterIPv4 = vp.GetString(LocalRouterIPv4)
@@ -3142,6 +3121,12 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.Fatalf("unable to parse %s: %s", KVStoreOpt, err)
 	} else {
 		c.KVStoreOpt = m
+	}
+
+	if m, err := command.GetStringMapStringE(vp, LogOpt); err != nil {
+		log.Fatalf("unable to parse %s: %s", LogOpt, err)
+	} else {
+		c.LogOpt = m
 	}
 
 	bpfEventsDefaultRateLimit := vp.GetUint32(BPFEventsDefaultRateLimit)
