@@ -19,6 +19,7 @@ import (
 	relaypb "github.com/cilium/cilium/api/v1/relay"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/hubble/relay/queue"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -74,6 +75,8 @@ func sortFlows(
 
 	go func() {
 		defer close(sortedFlows)
+		bufferTimer, bufferTimerDone := inctimer.New()
+		defer bufferTimerDone()
 	flowsLoop:
 		for {
 			select {
@@ -90,7 +93,7 @@ func sortFlows(
 					}
 				}
 				pq.Push(flow)
-			case t := <-time.After(bufferDrainTimeout):
+			case t := <-bufferTimer.After(bufferDrainTimeout):
 				// Make sure to drain old flows from the queue when no new
 				// flows are received. The bufferDrainTimeout duration is used
 				// as a sorting window.
@@ -202,7 +205,7 @@ func aggregateErrors(
 				}
 
 				pendingResponse = response
-				flushPending = time.After(errorAggregationWindow)
+				flushPending = inctimer.After(errorAggregationWindow)
 			case <-flushPending:
 				select {
 				case aggregated <- pendingResponse:

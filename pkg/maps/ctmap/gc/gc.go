@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
-	stdtime "time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -17,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -107,7 +107,9 @@ func (gc *GC) Enable() {
 		ipv4 := gc.ipv4
 		ipv6 := gc.ipv6
 		triggeredBySignal := false
+		ctTimer, ctTimerDone := inctimer.New()
 		var gcPrev time.Time
+		defer ctTimerDone()
 		for {
 			var (
 				maxDeleteRatio float64
@@ -218,7 +220,7 @@ func (gc *GC) Enable() {
 						ipv6 = true
 					}
 				}
-			case <-time.After(interval):
+			case <-ctTimer.After(interval):
 				gc.signalHandler.MuteSignals()
 				ipv4 = gc.ipv4
 				ipv6 = gc.ipv6
@@ -232,7 +234,7 @@ func (gc *GC) Enable() {
 	go func() {
 		select {
 		case <-initialScanComplete:
-		case <-stdtime.After(initialGCInterval):
+		case <-inctimer.After(initialGCInterval):
 			gc.logger.Warn("Failed to perform initial ctmap gc scan within expected duration." +
 				"This may be caused by large ctmap sizes or by constraint CPU resources upon start." +
 				"Delayed initial ctmap scan may result in delayed map pressure metrics for ctmap.")

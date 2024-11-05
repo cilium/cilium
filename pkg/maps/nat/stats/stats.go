@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -156,7 +157,7 @@ func newStats(params params) (*Stats, error) {
 			// This is to give time for init time CT/NAT gc scanning to complete
 			// to avoid NAT map GC timeouts at startup.
 			go func() {
-				<-time.After(5 * time.Second)
+				<-inctimer.After(time.Second * 5)
 				tr.Trigger()
 			}()
 			return params.Jobs.Start(hc)

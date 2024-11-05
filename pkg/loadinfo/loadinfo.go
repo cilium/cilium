@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/procfs"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -131,11 +132,13 @@ func LogPeriodicSystemLoad(ctx context.Context, logFunc LogFunc, interval time.D
 	go func() {
 		LogCurrentSystemLoad(logFunc)
 
+		timer, timerDone := inctimer.New()
+		defer timerDone()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(interval):
+			case <-timer.After(interval):
 				LogCurrentSystemLoad(logFunc)
 			}
 		}

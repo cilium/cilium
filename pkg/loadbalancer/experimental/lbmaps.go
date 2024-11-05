@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -186,7 +187,7 @@ func newLBMapsCommand(m LBMaps) hive.ScriptCmdOut {
 						select {
 						case <-s.Context().Done():
 							break
-						case <-time.After(lbmapsCompareRetryInterval):
+						case <-inctimer.After(lbmapsCompareRetryInterval):
 						}
 					}
 					return nil, fmt.Errorf("mismatch:\n%s", diff)

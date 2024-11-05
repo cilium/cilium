@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -51,6 +52,9 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 		addrs        sets.Set[netip.Addr]
 	)
 
+	retryTimer, retryTimerStop := inctimer.New()
+	defer retryTimerStop()
+
 	// Use exponential backoff for retries. Keep small minimum time for fast tests,
 	// but backoff with aggressive factor.
 	backoff := backoff.Exponential{
@@ -85,7 +89,7 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 			err := sr.ServiceManager.SyncNodePortFrontends(newAddrs)
 			if err != nil {
 				duration := backoff.Duration(retryAttempt)
-				retry = time.After(duration)
+				retry = retryTimer.After(duration)
 				retryAttempt++
 				log.WithError(err).Warnf("Could not synchronize new frontend addresses, retrying in %s", duration)
 				health.Degraded("Failed to sync NodePort frontends", err)
@@ -105,4 +109,5 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 		case <-periodicSyncTicker.C:
 		}
 	}
+
 }

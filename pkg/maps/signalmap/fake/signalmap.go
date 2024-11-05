@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/ebpf/perf"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -33,6 +34,9 @@ type fakePerfReader struct {
 }
 
 func (r *fakePerfReader) Read() (perf.Record, error) {
+	timer, timerDone := inctimer.New()
+	defer timerDone()
+
 	paused := false
 
 	for {
@@ -44,7 +48,7 @@ func (r *fakePerfReader) Read() (perf.Record, error) {
 				continue
 			}
 		// Block for the given interval between messages
-		case <-time.After(r.interval):
+		case <-timer.After(r.interval):
 		}
 		if r.index == len(r.messages) {
 			r.index = 0

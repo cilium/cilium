@@ -9,6 +9,7 @@ import (
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -51,12 +52,14 @@ func (hs healthServer) start() {
 		}
 	}
 	go func() {
+		connTimer, connTimerDone := inctimer.New()
+		defer connTimerDone()
 		check()
 		for {
 			select {
 			case <-hs.stopChan:
 				return
-			case <-time.After(hs.probeInterval):
+			case <-connTimer.After(hs.probeInterval):
 				check()
 			}
 		}
