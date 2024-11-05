@@ -11,12 +11,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-// logrErrorKey is the key used by the logr library for the error parameter.
-const logrErrorKey = "err"
 
 // SlogNopHandler discards all logs.
 var SlogNopHandler slog.Handler = nopHandler{}
@@ -99,12 +94,6 @@ func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
 		return slog.Attr{
 			Key:   a.Key,
 			Value: slog.StringValue(strings.ToLower(a.Value.String())),
-		}
-	case logrErrorKey:
-		// Uniform the attribute identifying the error
-		return slog.Attr{
-			Key:   logfields.Error,
-			Value: a.Value,
 		}
 	}
 	return a
