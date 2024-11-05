@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
@@ -54,7 +53,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 	device := link.Attrs().Name
 
 	// Check if the qdiscs are already set up as expected.
-	qdiscs, err := safenetlink.QdiscList(link)
+	qdiscs, err := netlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}
@@ -131,7 +130,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 	ops.log.Info("Setting qdisc", "qdisc", which, "device", device)
 
 	// Set the fq parameters
-	qdiscs, err = safenetlink.QdiscList(link)
+	qdiscs, err = netlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}

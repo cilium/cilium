@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
@@ -279,7 +278,7 @@ func deleteRule(r route.Rule) error {
 func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 	var link netlink.Link
 
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return -1, fmt.Errorf("unable to list interfaces: %w", err)
 	}
