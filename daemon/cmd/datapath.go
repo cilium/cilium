@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -45,7 +44,7 @@ import (
 // The filter should take a link and, if found, return the index of that
 // interface, if not found return -1.
 func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) {
-	ifs, err := safenetlink.LinkList()
+	ifs, err := netlink.LinkList()
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +343,7 @@ func setupRouteToVtepCidr() error {
 		Table: linux_defaults.RouteTableVtep,
 	}
 
-	routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, filter, netlink.RT_FILTER_TABLE)
+	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, filter, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list routes: %w", err)
 	}
