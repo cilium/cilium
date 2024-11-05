@@ -27,6 +27,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
@@ -368,7 +369,11 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
 
-	err = e.runPreCompilationSteps(regenContext)
+	// The following DNS rules code was previously inside the critical section
+	// below (runPreCompilationSteps()), but this caused a deadlock with the
+	// IPCache. Therefore, we obtain the DNSRules outside the critical section.
+	rules := e.owner.GetDNSRules(e.ID)
+	err = e.runPreCompilationSteps(regenContext, rules)
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
@@ -530,7 +535,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 // The endpoint mutex must not be held.
 //
 // Returns whether the headerfile changed and/or an error.
-func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (preCompilationError error) {
+func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rules restore.DNSRules) (preCompilationError error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
@@ -543,12 +548,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	if err != nil {
 		return fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
 	}
-
-	// Any possible DNS redirects had their rules updated by 'e.regeneratePolicy' above, so we
-	// can get the new DNS rules for restoration now, before we take the endpoint lock below.
-	// NOTE: Endpoint lock must not be held during 'GetDNSRules' as it locks IPCache, which
-	// leads to a deadlock if endpoint lock is held.
-	rules := e.owner.GetDNSRules(e.ID)
 
 	stats.waitingForLock.Start()
 	err = e.lockAlive()
