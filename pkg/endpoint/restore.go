@@ -298,9 +298,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	// the ones with fixed identity (e.g. host endpoint), this ensures that
 	// the regenerated datapath always lookups from a ready ipcache map.
 	if option.Config.KVStore != "" {
-		if err := ipcache.WaitForKVStoreSync(e.aliveCtx); err != nil {
-			return ErrNotAlive
-		}
+		ipcache.WaitForKVStoreSync()
 	}
 
 	// Wait for ipcache and identities synchronization from all remote clusters,
