@@ -56,9 +56,6 @@ concurrency:
     }}
   cancel-in-progress: true
 
-env:
-  test_concurrency: 5
-
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -134,7 +131,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
-    timeout-minutes: 35
+    timeout-minutes: 70
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -341,26 +338,12 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Run connection interrupted tests after upgrading (${{ join(matrix.*, ', ') }})
+      - name: Run tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
-
-      - name: Run sequential tests after upgrading (${{ join(matrix.*, ', ') }})
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-upgrade-${{ matrix.name }}
-          tests: 'seq-.*'
-
-      - name: Run concurrent tests after upgrading (${{ matrix.name }})
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-upgrade-${{ matrix.name }}
-          tests: '!seq-.*'
-          extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
+          full-test: 'true'
 
       - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -377,26 +360,12 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Run connection interrupted tests after downgrading (${{ join(matrix.*, ', ') }})
+      - name: Check conn-disrupt-test after downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
-
-      - name: Run sequential tests after downgrading (${{ join(matrix.*, ', ') }})
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-downgrade-${{ matrix.name }}
-          tests: 'seq-.*'
-
-      - name: Run concurrent tests after downgrading (${{ matrix.name }})
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/conn-disrupt-test-check
-        with:
-          job-name: cilium-downgrade-${{ matrix.name }}
-          tests: '!seq-.*'
-          extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
+          full-test: 'true'
 
       - name: Fetch artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
