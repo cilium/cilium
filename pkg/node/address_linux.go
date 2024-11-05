@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/ip"
 )
 
@@ -32,7 +31,7 @@ func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic b
 	}
 
 	if intf != "" && intf != "undefined" {
-		link, err = safenetlink.LinkByName(intf)
+		link, err = netlink.LinkByName(intf)
 		if err != nil {
 			link = nil
 		} else {
@@ -41,7 +40,7 @@ func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic b
 	}
 
 retryInterface:
-	addr, err := safenetlink.AddrList(link, family)
+	addr, err := netlink.AddrList(link, family)
 	if err != nil {
 		return nil, err
 	}
@@ -168,11 +167,11 @@ func firstGlobalV6Addr(intf string, preferredIP net.IP, preferPublic bool) (net.
 // getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
 // it
 func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
-	hostDev, err := safenetlink.LinkByName(devName)
+	hostDev, err := netlink.LinkByName(devName)
 	if err != nil {
 		return nil, nil
 	}
-	addrs, err := safenetlink.AddrList(hostDev, netlink.FAMILY_ALL)
+	addrs, err := netlink.AddrList(hostDev, netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, nil
 	}
