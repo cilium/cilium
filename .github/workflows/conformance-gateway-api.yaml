@@ -273,6 +273,7 @@ jobs:
               --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
               --report-output report.yaml \
               -test.run "TestExperimentalConformance" \
+              -test.timeout=29m \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}"
           else
             GATEWAY_API_CONFORMANCE_TESTS=1 go test \
@@ -282,6 +283,7 @@ jobs:
               --all-features \
               --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
               -test.run "TestConformance" \
+              -test.timeout=29m \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}"
           fi
 
