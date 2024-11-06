@@ -2404,6 +2404,10 @@
      - Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
      - string
      - ``"cluster-pool"``
+   * - :spelling:ignore:`ipam.multiPoolPreAllocation`
+     - Pre-allocation settings for IPAM in Multi-Pool mode
+     - string
+     - ``""``
    * - :spelling:ignore:`ipam.operator.autoCreateCiliumPodIPPools`
      - IP pools to auto-create in multi-pool IPAM mode.
      - object

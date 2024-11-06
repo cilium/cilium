@@ -1901,6 +1901,8 @@ ipam:
   mode: "cluster-pool"
   # -- Maximum rate at which the CiliumNode custom resource is updated.
   ciliumNodeUpdateRate: "15s"
+  # -- Pre-allocation settings for IPAM in Multi-Pool mode
+  multiPoolPreAllocation: ""
   operator:
     # @schema
     # type: [array, string]
