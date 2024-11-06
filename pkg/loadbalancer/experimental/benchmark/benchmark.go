@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -467,9 +468,9 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 				if be.Instances.Len() != 1 {
 					err = errors.Join(err, fmt.Errorf("Incorrect instances count for backend #%06d, got %v, want %v", i, be.Instances.Len(), 1))
 				} else {
-					for svcName, instance := range be.Instances.All() { // There should
-						if svcName.Name != svcs[i].Name {
-							err = errors.Join(err, fmt.Errorf("Incorrect service name for backend #%06d, got %v, want %v", i, svcName.Name, svcs[i].Name))
+					for k, instance := range be.Instances.All() { // There should
+						if k.ServiceName.Name != svcs[i].Name {
+							err = errors.Join(err, fmt.Errorf("Incorrect service name for backend #%06d, got %v, want %v", i, k.ServiceName.Name, svcs[i].Name))
 						}
 						if state, tmpErr := instance.State.String(); tmpErr != nil || state != "active" {
 							err = errors.Join(err, fmt.Errorf("Incorrect state for backend #%06d, got %q, want %q", i, state, "active"))
@@ -562,6 +563,7 @@ func testHive(maps experimental.LBMaps,
 			cell.Provide(
 				tables.NewNodeAddressTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
+				source.NewSources,
 			),
 			cell.Invoke(func(db *statedb.DB, nodeAddrs statedb.RWTable[tables.NodeAddress]) {
 				db.RegisterTable(nodeAddrs)

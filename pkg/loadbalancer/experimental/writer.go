@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/part"
 	"github.com/cilium/statedb/reconciler"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -28,7 +29,8 @@ type Writer struct {
 	fes       statedb.RWTable[*Frontend]
 	bes       statedb.RWTable[*Backend]
 
-	svcHooks []ServiceHook
+	svcHooks         []ServiceHook
+	sourcePriorities map[source.Source]uint8 // The smaller the int, the more preferred the source. Use via sourcePriority().
 }
 
 type writerParams struct {
@@ -42,6 +44,12 @@ type writerParams struct {
 	Backends      statedb.RWTable[*Backend]
 
 	ServiceHooks []ServiceHook `group:"service-hooks"`
+
+	SourcePriorities source.Sources
+}
+
+func init() {
+	part.RegisterKeyType(BackendInstanceKey.Key)
 }
 
 func NewWriter(p writerParams) (*Writer, error) {
@@ -49,14 +57,31 @@ func NewWriter(p writerParams) (*Writer, error) {
 		return nil, nil
 	}
 	w := &Writer{
-		db:        p.DB,
-		bes:       p.Backends,
-		fes:       p.Frontends,
-		svcs:      p.Services,
-		nodeAddrs: p.NodeAddresses,
-		svcHooks:  p.ServiceHooks,
+		db:               p.DB,
+		bes:              p.Backends,
+		fes:              p.Frontends,
+		svcs:             p.Services,
+		nodeAddrs:        p.NodeAddresses,
+		svcHooks:         p.ServiceHooks,
+		sourcePriorities: priorityMapFromSlice(p.SourcePriorities),
 	}
 	return w, nil
+}
+
+func priorityMapFromSlice(s source.Sources) map[source.Source]uint8 {
+	ans := make(map[source.Source]uint8)
+	for i, src := range s {
+		ans[src] = uint8(i)
+	}
+	return ans
+}
+
+func (w *Writer) sourcePriority(s source.Source) uint8 {
+	p, ok := w.sourcePriorities[s]
+	if !ok {
+		return uint8(len(w.sourcePriorities))
+	}
+	return p
 }
 
 func (w *Writer) IsEnabled() bool {
@@ -243,8 +268,8 @@ func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], fe
 		if fe.PortName != "" {
 			// A backend with specific port name requested. Look up what this backend
 			// is called for this service.
-			instance, found := be.Instances.Get(fe.ServiceName)
-			if !found {
+			instance := be.GetInstance(fe.ServiceName)
+			if instance == nil {
 				continue
 			}
 			if string(fe.PortName) != instance.PortName {
@@ -329,9 +354,12 @@ func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source
 	for _, be := range bes {
 		addrs.Insert(be.L3n4Addr)
 	}
-	orphans := statedb.Filter(
+	perSourceOrphans := statedb.Filter(
 		w.bes.List(txn, BackendByServiceName(name)),
-		func(be *Backend) bool { return !addrs.Has(be.L3n4Addr) })
+		func(be *Backend) bool {
+			inst := be.GetInstanceFromSource(name, source)
+			return inst != nil && !addrs.Has(be.L3n4Addr)
+		})
 
 	refs, err := w.updateBackends(txn, name, source, bes)
 	if err != nil {
@@ -341,14 +369,9 @@ func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source
 
 	// Release orphaned backends, e.g. all backends from this source referencing this
 	// service.
-	for orphan := range orphans {
-		for _, inst := range orphan.Instances.All() {
-			if inst.Source == source {
-				if err := w.removeBackendRef(txn, name, orphan); err != nil {
-					return err
-				}
-			}
-			break
+	for be := range perSourceOrphans {
+		if _, err := w.removeBackendRefPerSource(txn, name, be, source); err != nil {
+			return err
 		}
 	}
 
@@ -395,7 +418,7 @@ func (w *Writer) SetBackendHealth(txn WriteTxn, addr loadbalancer.L3n4Addr, heal
 // computed state and the state of all instances.
 func computeBackendState(be *Backend) loadbalancer.BackendState {
 	instanceState := loadbalancer.BackendStateActive
-	for _, instance := range be.Instances.All() {
+	for _, instance := range be.PreferredInstances() {
 		// The only states accepted from the instances are Active, Terminating or Maintenance.
 		// Quarantined can only be set via SetBackendHealth.
 		switch instance.State {
@@ -436,7 +459,7 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 		}
 
 		be.Instances = be.Instances.Set(
-			serviceName,
+			BackendInstanceKey{ServiceName: serviceName, SourcePriority: w.sourcePriority(source)},
 			BackendInstance{
 				PortName: bep.PortName,
 				Weight:   bep.Weight,
@@ -452,23 +475,32 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 			return nil, err
 		}
 
-		for name := range be.Instances.All() {
-			referencedServices.Insert(name)
+		for k := range be.PreferredInstances() {
+			referencedServices.Insert(k.ServiceName)
 		}
 	}
 	return referencedServices, nil
 }
 
-func (w *Writer) DeleteBackendsBySource(txn WriteTxn, source source.Source) error {
-	// Iterating over all as this is a rare operation and it would be costly
-	// to always index by source.
+func (w *Writer) DeleteBackendsBySource(txn WriteTxn, src source.Source) error {
+	// Iterating over all as this is a rare operation so we can afford it.
 	names := sets.New[loadbalancer.ServiceName]()
 	for be := range w.bes.All(txn) {
-		for name, inst := range be.Instances.All() {
-			if inst.Source == source {
-				names.Insert(name)
-				w.removeBackendRef(txn, name, be)
+		orphaned := false
+		for k, inst := range be.Instances.All() {
+			if inst.Source == src {
+				names.Insert(k.ServiceName)
+				be, orphaned = be.releasePerSource(k.ServiceName, src)
 			}
+		}
+		var err error
+		if orphaned {
+			_, _, err = w.bes.Delete(txn, be)
+		} else {
+			_, _, err = w.bes.Insert(txn, be)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
@@ -493,6 +525,16 @@ func (w *Writer) removeBackendRef(txn WriteTxn, name loadbalancer.ServiceName, b
 	return err
 }
 
+func (w *Writer) removeBackendRefPerSource(txn WriteTxn, name loadbalancer.ServiceName, be *Backend, src source.Source) (backend *Backend, err error) {
+	be, orphan := be.releasePerSource(name, src)
+	if orphan {
+		_, _, err = w.bes.Delete(txn, be)
+	} else {
+		_, _, err = w.bes.Insert(txn, be)
+	}
+	return be, err
+}
+
 func (w *Writer) ReleaseBackend(txn WriteTxn, name loadbalancer.ServiceName, addr loadbalancer.L3n4Addr) error {
 	be, _, ok := w.bes.Get(txn, BackendByAddress(addr))
 	if !ok {
@@ -507,14 +549,11 @@ func (w *Writer) ReleaseBackend(txn WriteTxn, name loadbalancer.ServiceName, add
 
 func (w *Writer) ReleaseBackendsFromSource(txn WriteTxn, name loadbalancer.ServiceName, source source.Source) error {
 	for be := range w.bes.List(txn, BackendByServiceName(name)) {
-		for instName, inst := range be.Instances.All() {
-			if inst.Source != source || instName != name {
-				continue
-			}
-			if err := w.removeBackendRef(txn, name, be); err != nil {
-				return err
-			}
-			break
+		if inst := be.GetInstanceFromSource(name, source); inst == nil {
+			continue
+		}
+		if _, err := w.removeBackendRefPerSource(txn, name, be, source); err != nil {
+			return err
 		}
 	}
 	return w.refreshFrontendsOfService(txn, name)

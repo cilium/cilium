@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package experimental_test
+package experimental
 
 import (
 	"encoding/binary"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -43,11 +42,11 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 		addrCluster, _ := types.AddrClusterFromIP(addr1[:])
 		p.Writer.UpsertServiceAndFrontends(
 			wtxn,
-			&experimental.Service{
+			&Service{
 				Name:   name,
 				Source: source.Kubernetes,
 			},
-			experimental.FrontendParams{
+			FrontendParams{
 				Address:     *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 				Type:        loadbalancer.SVCTypeClusterIP,
 				PortName:    "foo",
@@ -70,11 +69,11 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 			addrCluster, _ := types.AddrClusterFromIP(addr1[:])
 			p.Writer.UpsertServiceAndFrontends(
 				wtxn,
-				&experimental.Service{
+				&Service{
 					Name:   name,
 					Source: source.Kubernetes,
 				},
-				experimental.FrontendParams{
+				FrontendParams{
 					Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 					Type:     loadbalancer.SVCTypeClusterIP,
 					PortName: "",
@@ -99,11 +98,11 @@ func BenchmarkInsertBackend(b *testing.B) {
 
 	p.Writer.UpsertServiceAndFrontends(
 		wtxn,
-		&experimental.Service{
+		&Service{
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		experimental.FrontendParams{
+		FrontendParams{
 			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
@@ -125,7 +124,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 				wtxn,
 				name,
 				source.Kubernetes,
-				experimental.BackendParams{
+				BackendParams{
 					L3n4Addr: beAddr,
 					State:    loadbalancer.BackendStateActive,
 				},
@@ -150,11 +149,11 @@ func BenchmarkReplaceBackend(b *testing.B) {
 
 	p.Writer.UpsertServiceAndFrontends(
 		wtxn,
-		&experimental.Service{
+		&Service{
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		experimental.FrontendParams{
+		FrontendParams{
 			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
@@ -166,7 +165,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		wtxn,
 		name,
 		source.Kubernetes,
-		experimental.BackendParams{
+		BackendParams{
 			L3n4Addr: beAddr,
 			State:    loadbalancer.BackendStateActive,
 		},
@@ -180,7 +179,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			wtxn,
 			name,
 			source.Kubernetes,
-			experimental.BackendParams{
+			BackendParams{
 				L3n4Addr: beAddr,
 				State:    loadbalancer.BackendStateActive,
 			},
@@ -203,11 +202,11 @@ func BenchmarkReplaceService(b *testing.B) {
 
 	p.Writer.UpsertServiceAndFrontends(
 		wtxn,
-		&experimental.Service{
+		&Service{
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		experimental.FrontendParams{
+		FrontendParams{
 			Address:  l3n4Addr,
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
@@ -223,11 +222,11 @@ func BenchmarkReplaceService(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		p.Writer.UpsertServiceAndFrontends(
 			wtxn,
-			&experimental.Service{
+			&Service{
 				Name:   name,
 				Source: source.Kubernetes,
 			},
-			experimental.FrontendParams{
+			FrontendParams{
 				Address:     l3n4Addr,
 				Type:        loadbalancer.SVCTypeClusterIP,
 				PortName:    "",
