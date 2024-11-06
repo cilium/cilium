@@ -1030,6 +1030,9 @@ data:
 {{- else }}
   ipam: {{ $ipam | quote }}
 {{- end }}
+{{- if hasKey .Values.ipam "multiPoolPreAllocation" }}
+  ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation }}
+{{- end }}
 
 {{- if .Values.ipam.ciliumNodeUpdateRate }}
   ipam-cilium-node-update-rate: {{ include "validateDuration" .Values.ipam.ciliumNodeUpdateRate | quote }}

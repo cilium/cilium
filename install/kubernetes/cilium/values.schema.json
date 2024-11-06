@@ -3721,6 +3721,9 @@
         "mode": {
           "type": "string"
         },
+        "multiPoolPreAllocation": {
+          "type": "string"
+        },
         "operator": {
           "properties": {
             "autoCreateCiliumPodIPPools": {
