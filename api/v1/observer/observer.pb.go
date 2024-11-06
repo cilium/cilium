@@ -171,6 +171,7 @@ const DropReason_NO_EGRESS_GATEWAY = flow.DropReason_NO_EGRESS_GATEWAY
 const DropReason_TTL_EXCEEDED = flow.DropReason_TTL_EXCEEDED
 const DropReason_NO_NODE_ID = flow.DropReason_NO_NODE_ID
 const DropReason_DROP_HOST_NOT_READY = flow.DropReason_DROP_HOST_NOT_READY
+const DropReason_DROP_EP_NOT_READY = flow.DropReason_DROP_EP_NOT_READY
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value

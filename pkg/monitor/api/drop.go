@@ -93,6 +93,7 @@ var errors = map[uint8]string{
 	196: "TTL exceeded",
 	197: "No node ID found",
 	202: "Host datapath not ready",
+	203: "Endpoint policy program not available",
 }
 
 func extendedReason(reason uint8, extError int8) string {
