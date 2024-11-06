@@ -289,6 +289,10 @@ func TestAll(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeChurnXFRMLeaks(t)
 			})
+			t.Run("TestNodeChurnXFRMLeaksSubnetMode", func(t *testing.T) {
+				s := setup(t, tt)
+				s.TestNodeChurnXFRMLeaksSubnetMode(t)
+			})
 			t.Run("TestNodeUpdateDirectRouting", func(t *testing.T) {
 				s := setup(t, tt)
 				s.TestNodeUpdateDirectRouting(t)
@@ -807,9 +811,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 }
 
 // Tests the same as linuxPrivilegedBaseTestSuite.TestNodeChurnXFRMLeaks just
-// for the subnet encryption. IPv4-only because of https://github.com/cilium/cilium/issues/27280.
-func TestNodeChurnXFRMLeaks(t *testing.T) {
-	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
+// for the subnet encryption.
+func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksSubnetMode(t *testing.T) {
 	externalNodeDevice := "ipsec_interface"
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true
