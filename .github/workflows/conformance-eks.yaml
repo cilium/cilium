@@ -359,8 +359,6 @@ jobs:
         uses: ./.github/actions/ipsec-key-rotate
         with:
           key-algo: "gcm(aes)"
-          key-type-one: ""
-          key-type-two: ""
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         if: ${{ matrix.ipsec == true }}
