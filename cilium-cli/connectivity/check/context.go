@@ -5,6 +5,7 @@ package check
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"net"
@@ -904,13 +905,16 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 	for name, ciliumPod := range ct.ciliumPods {
 		podVersion, err := ciliumPod.K8sClient.GetCiliumVersion(ctx, ciliumPod.Pod)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse cilium version on pod %q: %w", name, err)
+			return nil, fmt.Errorf("unable to parse Cilium version on pod %q: %w", name, err)
 		}
 		if minVersion == nil || podVersion.LT(*minVersion) {
 			minVersion = podVersion
 		}
 	}
 
+	if minVersion == nil {
+		return nil, errors.New("unable to detect minimum Cilium version")
+	}
 	return minVersion, nil
 }
 
