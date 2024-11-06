@@ -297,6 +297,7 @@ jobs:
               --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
               --report-output report.yaml \
               -test.run "TestConformance" \
+              -test.timeout=29m \
               -json \
             | tparse -progress
           else
@@ -308,6 +309,7 @@ jobs:
               --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
               --allow-crds-mismatch \
               -test.run "TestConformance" \
+              -test.timeout=29m \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}" \
               -json \
             | tparse -progress
