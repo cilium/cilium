@@ -22,6 +22,12 @@ __ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 }
 
 static __always_inline void
+ipcache_v4_add_world_entry()
+{
+	__ipcache_v4_add_entry(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0, 0);
+}
+
+static __always_inline void
 ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 		     __u32 tunnel_ep, __u8 spi)
 {
