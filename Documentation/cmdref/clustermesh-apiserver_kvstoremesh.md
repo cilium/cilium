@@ -23,6 +23,7 @@ clustermesh-apiserver kvstoremesh [flags]
   -h, --help                                         help for kvstoremesh
       --kvstore string                               Key-value store type (default "etcd")
       --kvstore-connectivity-timeout duration        Time after which an incomplete kvstore operation is considered failed (default 2m0s)
+      --kvstore-lease-ttl duration                   Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint   Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                   Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
       --kvstore-periodic-sync duration               Periodic KVstore synchronization interval (default 5m0s)
