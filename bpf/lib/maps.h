@@ -51,6 +51,15 @@ struct bpf_elf_map __section_maps POLICY_EGRESSCALL_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
+
+static __always_inline int
+tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
+{
+	tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, endpoint_id);
+	/* same issue as for the POLICY_CALL_MAP calls */
+	return DROP_EP_NOT_READY;
+}
+
 #endif
 
 #ifdef ENABLE_BANDWIDTH_MANAGER
