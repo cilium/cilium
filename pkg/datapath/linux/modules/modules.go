@@ -10,7 +10,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/slices"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "modules")
 )
 
 // Manager stores information about loaded modules and provides a search operation.
@@ -32,10 +38,12 @@ func (m *Manager) FindModules(expectedNames ...string) (bool, []string) {
 // FindOrLoadModules checks whether the given kernel modules are loaded and
 // tries to load those which are not.
 func (m *Manager) FindOrLoadModules(expectedNames ...string) error {
+	log.Debugf("checking if the following kernel modules are loaded: %s)", expectedNames)
 	found, diff := m.FindModules(expectedNames...)
 	if found {
 		return nil
 	}
+	log.Infof("found not loaded kernel modules: %s)", diff)
 	for _, unloadedModule := range diff {
 		if _, err := exec.WithTimeout(
 			defaults.ExecTimeout, moduleLoader(), unloadedModule).CombinedOutput(

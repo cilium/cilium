@@ -85,6 +85,20 @@ func parseBuiltinModulesFile(r io.Reader) ([]string, error) {
 	return result, nil
 }
 
+// tryOpenModulesFile attempts to open and parse a modules.builtin file.
+func tryOpenModulesFile(path string) ([]string, error) {
+	fModules, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to open builtin modules information at %s: %w", path, err)
+	}
+	defer fModules.Close()
+
+	return parseBuiltinModulesFile(fModules)
+}
+
 // listLoadedModules returns the parsed list of loaded kernel modules names.
 func listLoadedModules() ([]string, error) {
 	fModules, err := os.Open(loadedModulesFilepath)
@@ -102,41 +116,53 @@ func listBuiltinModules() ([]string, error) {
 	var result []string
 
 	locations := []string{
-		"/lib/modules/%s/modules.builtin",
-		"/usr/lib/modules/%s/modules.builtin",
-		"/usr/lib/debug/lib/modules/%s/modules.builtin",
+		"/lib/modules",
+		"/usr/lib/modules",
+		"/usr/lib/debug/lib/modules",
 	}
+
+	locationSuffix := "modules.builtin"
 
 	release, err := kernelRelease()
 	if err != nil {
 		return nil, err
 	}
 
+	// Iterate over the predefined locations.
 	for _, location := range locations {
-		fModulePath := fmt.Sprintf(location, release)
+		fModuleFile := location + fmt.Sprintf("/%s/", release) + locationSuffix
+		log.Debugf("trying to detect builtin kernel modules in %s", fModuleFile)
 
-		fModules, err := os.Open(fModulePath)
-		if errors.Is(err, os.ErrNotExist) {
+		// Try to open the file at the formatted module path.
+		result, err = tryOpenModulesFile(fModuleFile)
+		if err == nil {
+			log.Debugf("found list of builtin kernel modules in %s", fModuleFile)
+			return result, nil
+		}
+
+		log.Debugf("list of builtin kernel modules not found in %s, trying to find them in sub-directories of %s", fModuleFile, location)
+
+		// If the file doesn't exist, try to find the correct directory.
+		dirEntries, err := os.ReadDir(location)
+		if err != nil {
 			continue
 		}
 
-		if err != nil {
-			return nil, fmt.Errorf(
-				"failed to open builtin modules information at %s: %w",
-				fModulePath, err)
+		// Iterate over all subdirectories in the current location.
+		for _, entry := range dirEntries {
+			log.Debugf("checking if '%s' is found within '%s'", locationSuffix, entry.Name())
+			if entry.IsDir() {
+				location = filepath.Join(location, entry.Name(), locationSuffix)
+				result, err = tryOpenModulesFile(location)
+				if err == nil {
+					log.Debugf("found list of builtin kernel modules: %s", location)
+					return result, nil
+				}
+			}
 		}
-
-		defer fModules.Close()
-
-		result, err = parseBuiltinModulesFile(fModules)
-		if err != nil {
-			return nil, err
-		}
-
-		break
 	}
 
-	return result, nil
+	return nil, fmt.Errorf("no builtin modules found under %+q", fmt.Sprintf("%v", locations))
 }
 
 // listModules returns the list of loaded kernel modules names parsed from
