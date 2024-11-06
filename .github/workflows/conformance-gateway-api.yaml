@@ -258,6 +258,7 @@ jobs:
             --gateway-class cilium \
             --supported-features "${{ steps.vars.outputs.supported_features }}" \
             -test.run "TestConformance" \
+            -test.timeout=29m \
             -test.skip "${{ steps.vars.outputs.skipped_tests }}"
 
       - name: Post-test information gathering
