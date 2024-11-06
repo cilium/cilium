@@ -338,6 +338,7 @@
   },
   "dynamicResources": {
     "ldsConfig": {
+      "initialFetchTimeout": "{{ .Values.envoy.initialFetchTimeoutSeconds }}s",
       "apiConfigSource": {
         "apiType": "GRPC",
         "transportApiVersion": "V3",
@@ -353,6 +354,7 @@
       "resourceApiVersion": "V3"
     },
     "cdsConfig": {
+      "initialFetchTimeout": "{{ .Values.envoy.initialFetchTimeoutSeconds }}s",
       "apiConfigSource": {
         "apiType": "GRPC",
         "transportApiVersion": "V3",

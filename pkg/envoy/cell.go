@@ -52,6 +52,7 @@ type envoyProxyConfig struct {
 	EnvoyBaseID                       uint64
 	EnvoyKeepCapNetbindservice        bool
 	ProxyConnectTimeout               uint
+	ProxyInitialFetchTimeout          uint
 	ProxyGID                          uint
 	ProxyMaxRequestsPerConnection     int
 	ProxyMaxConnectionDurationSeconds int
@@ -75,6 +76,7 @@ func (r envoyProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint64("envoy-base-id", 0, "Envoy base ID")
 	flags.Bool("envoy-keep-cap-netbindservice", false, "Keep capability NET_BIND_SERVICE for Envoy process")
 	flags.Uint("proxy-connect-timeout", 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
+	flags.Uint("proxy-initial-fetch-timeout", 30, "Time after which an xDS stream is considered timed out (in seconds)")
 	flags.Uint("proxy-gid", 1337, "Group ID for proxy control plane sockets.")
 	flags.Int("proxy-max-requests-per-connection", 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
 	flags.Int("proxy-max-connection-duration-seconds", 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
@@ -130,6 +132,10 @@ type xdsServerParams struct {
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
+	// Override the default value before bootstrap is created for embedded envoy, or
+	// the xDS ConfigSource is used for CEC/CCEC.
+	CiliumXDSConfigSource.InitialFetchTimeout.Seconds = int64(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
+
 	xdsServer, err := newXDSServer(
 		params.RestorerPromise,
 		params.IPCache,

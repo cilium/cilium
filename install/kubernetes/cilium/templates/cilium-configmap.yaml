@@ -1275,6 +1275,7 @@ data:
   proxy-xff-num-trusted-hops-ingress: {{ .Values.envoy.xffNumTrustedHopsL7PolicyIngress | quote }}
   proxy-xff-num-trusted-hops-egress: {{ .Values.envoy.xffNumTrustedHopsL7PolicyEgress | quote }}
   proxy-connect-timeout: {{ .Values.envoy.connectTimeoutSeconds | quote }}
+  proxy-initial-fetch-timeout: {{ .Values.envoy.initialFetchTimeoutSeconds | quote }}
   proxy-max-requests-per-connection: {{ .Values.envoy.maxRequestsPerConnection | quote }}
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
