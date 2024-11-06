@@ -102,7 +102,7 @@ spec:
                               Supports extended 32bit ASNs
                             format: int64
                             maximum: 4294967295
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           peerAddress:
                             description: |-
