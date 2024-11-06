@@ -420,6 +420,9 @@ func initializeFlags() {
 	flags.Uint(option.ProxyConnectTimeout, 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	option.BindEnv(Vp, option.ProxyConnectTimeout)
 
+	flags.Uint(option.ProxyInitialFetchTimeout, 30, "Time after which the initial fetch on an xDS stream is considered timed out (in seconds)")
+	option.BindEnv(Vp, option.ProxyInitialFetchTimeout)
+
 	flags.Uint32(option.ProxyXffNumTrustedHopsIngress, 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.")
 	option.BindEnv(Vp, option.ProxyXffNumTrustedHopsIngress)
 

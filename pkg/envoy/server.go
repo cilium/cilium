@@ -1158,7 +1158,8 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 }
 
 var ciliumXDS = &envoy_config_core.ConfigSource{
-	ResourceApiVersion: envoy_config_core.ApiVersion_V3,
+	InitialFetchTimeout: &durationpb.Duration{Seconds: int64(option.Config.ProxyInitialFetchTimeout)},
+	ResourceApiVersion:  envoy_config_core.ApiVersion_V3,
 	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
 		ApiConfigSource: &envoy_config_core.ApiConfigSource{
 			ApiType:                   envoy_config_core.ApiConfigSource_GRPC,

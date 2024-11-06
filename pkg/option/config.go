@@ -1264,6 +1264,10 @@ const (
 	// is considered timed out
 	ProxyConnectTimeout = "proxy-connect-timeout"
 
+	// ProxyInitialTimeout specifies the time in seconds after which the initial fetch on an xDS
+	// stream is considered timed out
+	ProxyInitialFetchTimeout = "proxy-initial-fetch-timeout"
+
 	// ProxyXffNumTrustedHopsIngress specifies the number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
 	ProxyXffNumTrustedHopsIngress = "proxy-xff-num-trusted-hops-ingress"
 
@@ -1640,6 +1644,10 @@ type DaemonConfig struct {
 	// ProxyConnectTimeout is the time in seconds after which Envoy considers a TCP
 	// connection attempt to have timed out.
 	ProxyConnectTimeout int
+
+	// ProxyInitialFetchTimeout is the time in seconds after which Envoy considers a initial
+	// fetch on an xDS stream to have timed out.
+	ProxyInitialFetchTimeout int
 
 	// ProxyXffNumTrustedHopsIngress defines the number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
 	ProxyXffNumTrustedHopsIngress uint32
@@ -3186,6 +3194,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.PrependIptablesChains = vp.GetBool(PrependIptablesChainsName)
 	c.ProcFs = vp.GetString(ProcFs)
 	c.ProxyConnectTimeout = vp.GetInt(ProxyConnectTimeout)
+	c.ProxyInitialFetchTimeout = vp.GetInt(ProxyInitialFetchTimeout)
 	c.ProxyXffNumTrustedHopsIngress = vp.GetUint32(ProxyXffNumTrustedHopsIngress)
 	c.ProxyXffNumTrustedHopsEgress = vp.GetUint32(ProxyXffNumTrustedHopsEgress)
 	c.ProxyGID = vp.GetInt(ProxyGID)
