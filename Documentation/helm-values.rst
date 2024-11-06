@@ -1152,6 +1152,10 @@
      - Envoy container image.
      - object
      - ``{"digest":"sha256:f89267235e105c008e00e8cac1c11b325b69dc25473c4170e2f1dfbe72303bc8","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.7-1730450803-0a83534f8c57b4d24405b213ed4b65e4e4987d8d","useDigest":true}``
+   * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
+     - Time in seconds after which the initial fetch on an xDS stream is considered timed out
+     - int
+     - ``30``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int

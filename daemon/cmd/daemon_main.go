@@ -429,6 +429,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Uint(option.ProxyConnectTimeout, 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	option.BindEnv(vp, option.ProxyConnectTimeout)
 
+	flags.Uint(option.ProxyInitialFetchTimeout, 30, "Time after which the initial fetch on an xDS stream is considered timed out (in seconds)")
+	option.BindEnv(vp, option.ProxyInitialFetchTimeout)
+
 	flags.Uint32(option.ProxyXffNumTrustedHopsIngress, 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.")
 	option.BindEnv(vp, option.ProxyXffNumTrustedHopsIngress)
 
