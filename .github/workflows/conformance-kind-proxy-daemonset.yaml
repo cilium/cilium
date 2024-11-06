@@ -74,6 +74,8 @@ jobs:
             --helm-set=tls.secretsBackend=k8s \
             --helm-set=envoy.enabled=true \
             --helm-set=bpf.monitorAggregation="none" \
+            --helm-set=debug.enabled=true \
+            --helm-set=debug.verbose="envoy" \
             --wait=false"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
