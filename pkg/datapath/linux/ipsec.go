@@ -171,7 +171,7 @@ func (n *linuxNodeHandler) enableIPsec(oldNode, newNode *nodeTypes.Node, nodeID 
 
 // enableIPSecIPv4DoSubnetEncryption is used to configure IPSec for a node that
 // hosts multiple PodCIDR subnets.
-func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.Node, nodeID uint16, zeroMark, updateExisting bool, errs error) (bool, error) {
+func (n *linuxNodeHandler) enableIPSecIPv4SubnetEncryption(newNode *nodeTypes.Node, nodeID uint16, zeroMark, updateExisting bool, errs error) (bool, error) {
 	statesUpdated := true
 	var spi uint8
 
