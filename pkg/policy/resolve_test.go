@@ -508,7 +508,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(map[Key]mapStateEntry{
+		policyMapState: newMapState().withState(mapStateMap{
 			EgressKey():                  allowEgressMapStateEntry,
 			IngressKey().WithTCPPort(80): rule1MapStateEntry,
 		}),
@@ -681,7 +681,7 @@ func TestMapStateWithIngress(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(map[Key]mapStateEntry{
+		policyMapState: newMapState().withState(mapStateMap{
 			EgressKey(): allowEgressMapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry.withOwners(cachedSelectorWorld),
 			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorld, cachedSelectorWorldV4),
@@ -801,7 +801,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+				PolicyMapState: newMapState().withState(mapStateMap{
 					IngressKey(): {},
 				}),
 			},
@@ -818,7 +818,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+				PolicyMapState: newMapState().withState(mapStateMap{
 					EgressKey(): {},
 				}),
 			},
@@ -835,7 +835,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+				PolicyMapState: newMapState().withState(mapStateMap{
 					IngressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
 				}),
 			},
@@ -852,7 +852,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+				PolicyMapState: newMapState().withState(mapStateMap{
 					IngressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
 				}),
 			},
@@ -869,7 +869,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+				PolicyMapState: newMapState().withState(mapStateMap{
 					EgressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
 				}),
 			},
@@ -886,7 +886,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+				PolicyMapState: newMapState().withState(mapStateMap{
 					EgressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
 				}),
 			},

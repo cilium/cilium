@@ -40,6 +40,8 @@ const NoAuthRequirement = types.NoAuthRequirement
 // as well as more extensive indexing via tries.
 type MapStateMap map[Key]MapStateEntry
 
+type mapStateMap map[Key]mapStateEntry
+
 func EgressKey() types.Key {
 	return types.EgressKey()
 }
@@ -97,7 +99,7 @@ var (
 // deletion, and insertion times.
 type mapState struct {
 	// entries is the map containing the MapStateEntries
-	entries map[Key]mapStateEntry
+	entries mapStateMap
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
 	trie bitlpm.Trie[bitlpm.Key[types.LPMKey], IDSet]
@@ -469,7 +471,7 @@ func (e *mapStateEntry) GetRuleLabels() labels.LabelArrayList {
 
 func newMapState() mapState {
 	return mapState{
-		entries: make(map[Key]mapStateEntry),
+		entries: make(mapStateMap),
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
 }
@@ -1083,7 +1085,7 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 	changes := ChangeState{
 		Adds:    make(Keys, len(mc.synced)),
 		Deletes: make(Keys, len(mc.synced)),
-		old:     make(map[Key]mapStateEntry, len(mc.synced)),
+		old:     make(mapStateMap, len(mc.synced)),
 	}
 
 	for i := range mc.synced {

@@ -509,9 +509,9 @@ func (l4 *L4Filter) Equals(bL4 *L4Filter) bool {
 // ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
 // All fields are maps so we can pass this by value.
 type ChangeState struct {
-	Adds    Keys                  // Added or modified keys, if not nil
-	Deletes Keys                  // deleted keys, if not nil
-	old     map[Key]mapStateEntry // Old values of all modified or deleted keys, if not nil
+	Adds    Keys        // Added or modified keys, if not nil
+	Deletes Keys        // deleted keys, if not nil
+	old     mapStateMap // Old values of all modified or deleted keys, if not nil
 }
 
 // NewRevertState returns an empty ChangeState suitable for reverting MapState changes.
@@ -519,7 +519,7 @@ type ChangeState struct {
 func NewRevertState() ChangeState {
 	return ChangeState{
 		Adds: make(Keys),
-		old:  make(map[Key]mapStateEntry),
+		old:  make(mapStateMap),
 	}
 }
 
