@@ -104,7 +104,6 @@ func (def config) Flags(flags *pflag.FlagSet) {
 
 	flags.Duration(option.KVstoreLeaseTTL, def.KVStoreLeaseTTL,
 		"Time-to-live for the KVstore lease.")
-	flags.MarkHidden(option.KVstoreLeaseTTL)
 
 	flags.Duration(option.KVstorePeriodicSync, def.KVStorePeriodicSync,
 		"Periodic KVstore synchronization interval")
