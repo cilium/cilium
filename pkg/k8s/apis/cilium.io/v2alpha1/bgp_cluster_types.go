@@ -108,9 +108,13 @@ type CiliumBGPPeer struct {
 	// PeerASN is the ASN of the peer BGP router.
 	// Supports extended 32bit ASNs.
 	//
+	// If peerASN is 0, the BGP OPEN message validation of ASN will be disabled and
+	// ASN will be determined based on peer's OPEN message.
+	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:default=0
 	PeerASN *int64 `json:"peerASN,omitempty"`
 
 	// PeerConfigRef is a reference to a peer configuration resource.

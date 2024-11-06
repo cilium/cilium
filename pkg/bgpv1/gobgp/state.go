@@ -64,6 +64,10 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 		}
 
 		if peer.State != nil {
+			if peer.Conf.PeerAsn == 0 { // if peerAsn is not set, use peer state peerAsn
+				peerState.PeerAsn = int64(peer.State.PeerAsn)
+			}
+
 			peerState.SessionState = toAgentSessionState(peer.State.SessionState).String()
 
 			// Uptime is time since session got established.

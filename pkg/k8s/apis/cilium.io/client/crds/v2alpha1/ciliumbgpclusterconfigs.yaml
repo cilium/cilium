@@ -83,12 +83,16 @@ spec:
                             minLength: 1
                             type: string
                           peerASN:
+                            default: 0
                             description: |-
                               PeerASN is the ASN of the peer BGP router.
                               Supports extended 32bit ASNs.
+
+                              If peerASN is 0, the BGP OPEN message validation of ASN will be disabled and
+                              ASN will be determined based on peer's OPEN message.
                             format: int64
                             maximum: 4294967295
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           peerAddress:
                             description: |-
