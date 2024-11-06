@@ -858,7 +858,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestEncryptedOverlayXFRMLeaks(t *test
 // feature is enabled and disabled.
 func (s *linuxPrivilegedIPv4OnlyTestSuite) testEncryptedOverlayXFRMLeaks(t *testing.T, config datapath.LocalNodeConfiguration) {
 	tlog := hivetest.Logger(t)
-	keys := bytes.NewReader([]byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
+	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
 	_, _, err := ipsec.LoadIPSecKeys(tlog, keys)
 	require.NoError(t, err)
 
@@ -886,7 +886,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) testEncryptedOverlayXFRMLeaks(t *test
 			{IP: net.ParseIP("4.4.4.4"), Type: nodeaddressing.NodeCiliumInternalIP},
 		},
 		IPv4AllocCIDR: cidr.MustParseCIDR("4.4.4.0/24"),
-		BootID:        "test-boot-id",
+		BootID:        "b892866c-26cb-4018-8a55-c0330551a2be",
 	}
 	err = linuxNodeHandler.NodeAdd(node)
 	require.NoError(t, err)
@@ -914,7 +914,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) testEncryptedOverlayXFRMLeaks(t *test
 
 func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testing.T, config datapath.LocalNodeConfiguration) {
 	log := hivetest.Logger(t)
-	keys := bytes.NewReader([]byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
+	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
 	_, _, err := ipsec.LoadIPSecKeys(log, keys)
 	require.NoError(t, err)
 
@@ -933,7 +933,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 		},
 		IPv4AllocCIDR: cidr.MustParseCIDR("4.4.4.0/24"),
 		IPv6AllocCIDR: cidr.MustParseCIDR("2001:aaaa::/96"),
-		BootID:        "test-boot-id",
+		BootID:        "b892866c-26cb-4018-8a55-c0330551a2be",
 	}
 	err = linuxNodeHandler.NodeAdd(node)
 	require.NoError(t, err)
