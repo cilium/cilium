@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -50,6 +51,7 @@ func TestScript(t *testing.T) {
 			cell.Provide(
 				tables.NewNodeAddressTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
+				source.NewSources,
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
 						EnableIPv4:        true,

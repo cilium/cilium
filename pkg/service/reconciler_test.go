@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 type mockSyncNodePort struct {
@@ -57,6 +58,7 @@ func TestServiceReconciler(t *testing.T) {
 			cell.Provide(
 				tables.NewNodeAddressTable,
 				statedb.RWTable[tables.NodeAddress].ToTable,
+				source.NewSources,
 			),
 			cell.Invoke(statedb.RegisterTable[tables.NodeAddress]),
 			cell.Provide(func() syncNodePort { return mock }),
