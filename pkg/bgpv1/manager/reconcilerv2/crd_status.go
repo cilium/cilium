@@ -220,8 +220,12 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 		}
 
 		for _, runningPeerState := range peers.Peers {
-			if runningPeerState.PeerAddress != *configuredPeers.PeerAddress || runningPeerState.PeerAsn != *configuredPeers.PeerASN {
+			if runningPeerState.PeerAddress != *configuredPeers.PeerAddress {
 				continue
+			}
+
+			if *configuredPeers.PeerASN == 0 { // If PeerASN is not set, use the ASN from the running state
+				peerStatus.PeerASN = ptr.To[int64](runningPeerState.PeerAsn)
 			}
 
 			peerStatus.PeeringState = ptr.To[string](runningPeerState.SessionState)
