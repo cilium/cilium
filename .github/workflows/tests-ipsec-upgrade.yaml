@@ -99,7 +99,7 @@ jobs:
         id: generate-matrix
         run: |
           cd /tmp/generated/ipsec
-          jq '[.[] | del(."key-one", ."key-two", ."key-type-one", ."key-type-two") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
+          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/ipsec/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/ipsec/matrix.json)" >> $GITHUB_OUTPUT
