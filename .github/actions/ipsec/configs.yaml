@@ -6,8 +6,6 @@
   tunnel: 'vxlan'
   key-one: 'gcm(aes)'
   key-two: 'cbc(aes)'
-  key-type-one: '+'
-  key-type-two: '+'
 - name: '2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.4-20240710.064909'
@@ -16,8 +14,6 @@
   tunnel: 'disabled'
   key-one: 'cbc(aes)'
   key-two: 'cbc(aes)'
-  key-type-one: '+'
-  key-type-two: ''
 - name: '3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20240710.064909'
@@ -27,8 +23,6 @@
   endpoint-routes: 'true'
   key-one: 'gcm(aes)'
   key-two: 'gcm(aes)'
-  key-type-one: ''
-  key-type-two: '+'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: 'bpf-next-20240711.013133'
@@ -38,8 +32,6 @@
   endpoint-routes: 'true'
   key-one: 'cbc(aes)'
   key-two: 'gcm(aes)'
-  key-type-one: ''
-  key-type-two: ''
 - name: '5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.4-20240710.064909'
@@ -48,8 +40,6 @@
   tunnel: 'disabled'
   key-one: 'cbc(aes)'
   key-two: 'cbc(aes)'
-  key-type-one: '+'
-  key-type-two: '+'
 - name: '6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.10-20240710.064909'
@@ -61,8 +51,6 @@
   ingress-controller: 'true'
   key-one: 'gcm(aes)'
   key-two: 'gcm(aes)'
-  key-type-one: '+'
-  key-type-two: '+'
 - name: '7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: '5.15-20240710.064909'
@@ -72,8 +60,6 @@
   encryption-overlay: 'true'
   key-one: 'gcm(aes)'
   key-two: 'gcm(aes)'
-  key-type-one: '+'
-  key-type-two: '+'
 - name: '8'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
   kernel: 'bpf-next-20240711.013133'
@@ -84,5 +70,3 @@
   ingress-controller: 'true'
   key-one: 'gcm(aes)'
   key-two: 'gcm(aes)'
-  key-type-one: '+'
-  key-type-two: '+'
