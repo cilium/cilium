@@ -64,6 +64,8 @@ static volatile const __u8 mac_zero[] =  {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 #define v4_pod_two	IPV4(192, 168, 0, 2)
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
+#define v4_all IPV4(0, 0, 0, 0)
+
 /* IPv6 addresses for pods in the cluster */
 static volatile const __section(".rodata") __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 1};
