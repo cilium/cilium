@@ -499,10 +499,6 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) error {
 
 	case svcFrontendNamedPorts:
 		// Get service frontends with the clusterIP and the policy config named ports.
-		ports := make([]string, len(config.frontendMappings))
-		for i, mapping := range config.frontendMappings {
-			ports[i] = mapping.fePort
-		}
 		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
 		if ip == nil {
 			// The LRP will be applied when the selected service is added later.
