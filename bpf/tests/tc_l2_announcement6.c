@@ -49,7 +49,7 @@ struct {
  *                 +-------------------------------------------------------------------+
  */
 
-static volatile const __u8 mac_bcast[] =   {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+static volatile const __u8 mac_bcast[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 static __always_inline int build_packet(struct __ctx_buff *ctx)
 {
@@ -74,7 +74,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	l4->icmp6_code = 0;
 
 	l4->icmp6_router = 0;
-	l4->icmp6_solicited = 1;
+	l4->icmp6_solicited = 0;
 	l4->icmp6_override = 0;
 	l4->icmp6_ndiscreserved = 0;
 
@@ -149,7 +149,7 @@ int l2_announcement_nd_no_entry_check(__maybe_unused const struct __ctx_buff *ct
 	assert(icmp->icmp6_code == 0);
 
 	assert(icmp->icmp6_router == 0);
-	assert(icmp->icmp6_solicited == 1);
+	assert(icmp->icmp6_solicited == 0);
 	assert(icmp->icmp6_override == 0);
 	assert(icmp->icmp6_ndiscreserved == 0);
 

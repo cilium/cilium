@@ -1023,12 +1023,20 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx,
 {
 	union macaddr mac = THIS_INTERFACE_MAC;
 	union macaddr smac;
-	__be32 __maybe_unused sip;
-	__be32 __maybe_unused tip;
-	union v6addr __maybe_unused sip6;
-	union v6addr __maybe_unused tip6;
-	struct l2_responder_v4_key __maybe_unused  key;
-	struct l2_responder_v6_key __maybe_unused  key6;
+	union {
+		struct {
+			__be32 sip;
+			__be32 tip;
+			struct l2_responder_v4_key key;
+		} __maybe_unused v4;
+
+		struct {
+			union v6addr sip;
+			union v6addr tip;
+			struct l2_responder_v6_key __maybe_unused key;
+		} __maybe_unused v6;
+	}d;
+
 	struct l2_responder_stats *stats;
 	int ret;
 	__u32 index = RUNTIME_CONFIG_AGENT_LIVENESS;
@@ -1046,24 +1054,25 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 
 	if (!ip6) {
-		if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+		if (!arp_validate(ctx, &mac, &smac, &d.v4.sip, &d.v4.tip))
 			return CTX_ACT_OK;
 
-		key.ip4 = tip;
-		key.ifindex = ctx->ingress_ifindex;
-		stats = map_lookup_elem(&L2_RESPONDER_MAP4, &key);
+		d.v4.key.ip4 = d.v4.tip;
+		d.v4.key.ifindex = ctx->ingress_ifindex;
+		stats = map_lookup_elem(&L2_RESPONDER_MAP4, &d.v4.key);
 		if (!stats)
 			return CTX_ACT_OK;
 
-		ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+		ret = arp_respond(ctx, &mac, d.v4.tip, &smac, d.v4.sip, 0);
 	} else {
 
-		if (!icmp6_ndisc_validate(ctx, ip6, &mac, &smac, &sip6, &tip6))
+		if (!icmp6_ndisc_validate(ctx, ip6, &mac, &smac, &d.v6.sip,
+								&d.v6.tip))
 			return CTX_ACT_OK;
 
-		key6.ip6 = tip6;
-		key6.ifindex = ctx->ingress_ifindex;
-		stats = map_lookup_elem(&L2_RESPONDER_MAP6, &key6);
+		d.v6.key.ip6 = d.v6.tip;
+		d.v6.key.ifindex = ctx->ingress_ifindex;
+		stats = map_lookup_elem(&L2_RESPONDER_MAP6, &d.v6.key);
 		if (!stats)
 			return CTX_ACT_OK;
 		int l3_off = (__u8*)ip6 - (__u8*)ctx_data(ctx);
