@@ -4,6 +4,8 @@
 package experimental
 
 import (
+	"fmt"
+	"iter"
 	"strconv"
 	"strings"
 
@@ -60,11 +62,48 @@ type Backend struct {
 	// Instances of this backend. A backend is always linked to a specific
 	// service and the instances may call the backend by different name
 	// (PortName) or they may come from  differents sources.
-	Instances part.Map[loadbalancer.ServiceName, BackendInstance]
+	// Instances may contain multiple [BackendInstance]s per service
+	// coming from different sources. The version from the source with the
+	// highest priority (smallest uint8) is used. This is needed for smooth
+	// transitions when ownership of endpoints is passed between upstream
+	// data sources.
+	Instances part.Map[BackendInstanceKey, BackendInstance]
 
 	// Properties are additional untyped properties that can carry feature
 	// specific metadata about the backend.
 	Properties part.Map[string, any]
+}
+
+type BackendInstanceKey struct {
+	ServiceName    loadbalancer.ServiceName
+	SourcePriority uint8
+}
+
+func (k BackendInstanceKey) Key() []byte {
+	prefix := []byte(k.ServiceName.String() + " ")
+	if k.SourcePriority == 0 {
+		return prefix
+	}
+	return append(prefix, byte(k.SourcePriority))
+}
+
+func (be *Backend) GetInstance(name loadbalancer.ServiceName) *BackendInstance {
+	// Return the instance matching the service name with highest priority
+	// (lowest number)
+	for _, inst := range be.instancesOfService(name) {
+		return &inst
+	}
+	return nil
+}
+
+func (be *Backend) GetInstanceFromSource(name loadbalancer.ServiceName, src source.Source) *BackendInstance {
+	for k, inst := range be.Instances.Prefix(BackendInstanceKey{ServiceName: name}) {
+		if k.ServiceName == name && inst.Source == src {
+			return &inst
+		}
+		break
+	}
+	return nil
 }
 
 // BackendInstance defines the backend's properties associated with a specific
@@ -96,6 +135,7 @@ func (be *Backend) TableHeader() []string {
 		"Address",
 		"State",
 		"Instances",
+		"Shadows",
 		"NodeName",
 		"ZoneID",
 	}
@@ -109,47 +149,111 @@ func (be *Backend) TableRow() []string {
 	return []string{
 		be.StringWithProtocol(),
 		state,
-		showInstances(be.Instances),
+		showInstances(be),
+		showShadows(be),
 		be.NodeName,
 		strconv.FormatUint(uint64(be.ZoneID), 10),
 	}
 }
 
-func showInstances(instances part.Map[loadbalancer.ServiceName, BackendInstance]) string {
+func showInstances(be *Backend) string {
 	var b strings.Builder
-	count := instances.Len()
-	for name, inst := range instances.All() {
-		b.WriteString(name.String())
+	for k, inst := range be.PreferredInstances() {
+		b.WriteString(k.ServiceName.String())
 		if inst.PortName != "" {
 			b.WriteString(" (")
 			b.WriteString(string(inst.PortName))
 			b.WriteRune(')')
 		}
-		count--
-		if count > 0 {
-			b.WriteString(", ")
-		}
+		b.WriteString(", ")
 	}
-	return b.String()
+	return strings.TrimSuffix(b.String(), ", ")
+}
+
+func showShadows(be *Backend) string {
+	var (
+		services           []string
+		instances          []string
+		emptyName, svcName loadbalancer.ServiceName
+	)
+	updateServices := func() {
+		services = append(services, fmt.Sprintf("%s [%s]", svcName.String(), strings.Join(instances, ", ")))
+	}
+	for k, inst := range be.Instances.All() {
+		if k.ServiceName != svcName {
+			if svcName != emptyName {
+				updateServices()
+			}
+			svcName = k.ServiceName
+			instances = instances[:0]
+			continue // Omit the instance that is already included in showInstances
+		}
+		instance := string(inst.Source)
+		if inst.PortName != "" {
+			instance += fmt.Sprintf(" (%s)", inst.PortName)
+		}
+		instances = append(instances, instance)
+	}
+	updateServices()
+	return strings.Join(services, ", ")
 }
 
 func (be *Backend) serviceNameKeys() index.KeySet {
 	if be.Instances.Len() == 1 {
 		// Avoid allocating the slice.
-		for name := range be.Instances.All() {
-			return index.NewKeySet(index.String(name.String()))
+		for k := range be.PreferredInstances() {
+			return index.NewKeySet(index.String(k.ServiceName.String()))
 		}
 	}
-	keys := make([]index.Key, 0, be.Instances.Len())
-	for name := range be.Instances.All() {
-		keys = append(keys, index.String(name.String()))
+	keys := make([]index.Key, 0, be.Instances.Len()) // This may be more than enough if non-preferred instances exist.
+	for k := range be.PreferredInstances() {
+		keys = append(keys, index.String(k.ServiceName.String()))
 	}
 	return index.NewKeySet(keys...)
 }
 
+func (be *Backend) PreferredInstances() iter.Seq2[BackendInstanceKey, BackendInstance] {
+	return func(yield func(BackendInstanceKey, BackendInstance) bool) {
+		var svcName loadbalancer.ServiceName
+		for k, v := range be.Instances.All() {
+			if k.ServiceName != svcName {
+				svcName = k.ServiceName
+				if !yield(k, v) {
+					break
+				}
+			} // Skip instances with the same ServiceName but lower (numerically larger) priorities.
+		}
+
+	}
+}
+
+func (be *Backend) instancesOfService(name loadbalancer.ServiceName) iter.Seq2[BackendInstanceKey, BackendInstance] {
+	return be.Instances.Prefix(BackendInstanceKey{name, 0})
+}
+
 func (be *Backend) release(name loadbalancer.ServiceName) (*Backend, bool) {
+	instances := be.Instances
+	for k := range be.instancesOfService(name) {
+		instances = instances.Delete(k)
+	}
 	beCopy := *be
-	beCopy.Instances = beCopy.Instances.Delete(name)
+	beCopy.Instances = instances
+	return &beCopy, beCopy.Instances.Len() == 0
+}
+
+func (be *Backend) releasePerSource(name loadbalancer.ServiceName, source source.Source) (*Backend, bool) {
+	var keyToDelete *BackendInstanceKey
+	for k, inst := range be.instancesOfService(name) {
+		if inst.Source == source {
+			keyToDelete = &k
+			break
+		}
+	}
+	if keyToDelete == nil {
+		return be, be.Instances.Len() == 0
+	}
+	beCopy := *be
+	beCopy.Instances = beCopy.Instances.Delete(*keyToDelete)
 	return &beCopy, beCopy.Instances.Len() == 0
 }
 

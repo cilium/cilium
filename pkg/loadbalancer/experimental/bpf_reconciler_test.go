@@ -73,14 +73,17 @@ var baseFrontend = Frontend{
 	nodePortAddrs: nodePortAddrs,
 }
 
-var emptyInstances part.Map[loadbalancer.ServiceName, BackendInstance]
+var emptyInstances = func() part.Map[BackendInstanceKey, BackendInstance] {
+	part.RegisterKeyType(BackendInstanceKey.Key)
+	return part.Map[BackendInstanceKey, BackendInstance]{}
+}()
 
 var baseBackend = Backend{
 	L3n4Addr: backend1,
 	NodeName: "",
 	ZoneID:   0,
 	Instances: emptyInstances.Set(
-		testServiceName,
+		BackendInstanceKey{testServiceName, 0},
 		BackendInstance{
 			PortName: "",
 			Weight:   0,

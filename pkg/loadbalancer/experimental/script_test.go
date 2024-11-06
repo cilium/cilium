@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 func TestScript(t *testing.T) {
@@ -60,6 +61,7 @@ func TestScript(t *testing.T) {
 					func(cfg TestConfig) *TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
 					statedb.RWTable[tables.NodeAddress].ToTable,
+					source.NewSources,
 					func(cfg TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
 							EnableIPv4:                   true,
