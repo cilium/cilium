@@ -388,20 +388,23 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	// 	  a mark set to zero. However, the traffic is NOT ESP. Therefore, the
 	// 	  same policy which fixes the above can be set to optional to allow
 	// 	  matching traffic with mark set to zero to not be enforced.
-	params = ipsec.NewIPSecParamaters(template)
-	params.ReqID = ipsec.DefaultReqID
-	params.Dir = ipsec.IPSecDirIn
-	params.SourceSubnet = remoteOverlayIPExactMatch
-	params.DestSubnet = localOverlayIPExactMatch
-	params.SourceTunnelIP = &remoteUnderlayIP
-	params.DestTunnelIP = &localUnderlayIP
-	params.ZeroPolicyMark = true
-	params.Optional = true
-	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-	if err != nil {
-		statesUpdated = false
-	}
+
+	// Maybe not needed?
+
+	//params = ipsec.NewIPSecParamaters(template)
+	//params.ReqID = ipsec.DefaultReqID
+	//params.Dir = ipsec.IPSecDirIn
+	//params.SourceSubnet = remoteOverlayIPExactMatch
+	//params.DestSubnet = localOverlayIPExactMatch
+	//params.SourceTunnelIP = &remoteUnderlayIP
+	//params.DestTunnelIP = &localUnderlayIP
+	//params.ZeroPolicyMark = true
+	//params.Optional = true
+	//spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	//errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	//if err != nil {
+	//	statesUpdated = false
+	//}
 
 	params = ipsec.NewIPSecParamaters(template)
 	params.ReqID = ipsec.DefaultReqID
