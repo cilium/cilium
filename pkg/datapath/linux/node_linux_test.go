@@ -800,7 +800,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 
 // Tests that we don't leak XFRM policies and states as nodes come and go.
 func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
-
 	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true
@@ -811,26 +810,19 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 // for the subnet encryption. IPv4-only because of https://github.com/cilium/cilium/issues/27280.
 func TestNodeChurnXFRMLeaks(t *testing.T) {
 	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
-
 	externalNodeDevice := "ipsec_interface"
-
-	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true
-	s.testNodeChurnXFRMLeaksWithConfig(t, config)
 
-	// In the case of subnet encryption (tested below), the IPsec logic
-	// retrieves the IP address of the encryption interface directly so we need
-	// a dummy interface.
+	// In the case of subnet encryption, the IPsec logic retrieves the IP
+	// address of the encryption interface directly so we need a dummy
+	// interface.
 	removeDevice(externalNodeDevice)
 	_, err := setupDummyDevice(externalNodeDevice, net.ParseIP("1.1.1.1"), net.ParseIP("face::1"))
 	require.NoError(t, err)
 	defer removeDevice(externalNodeDevice)
 	option.Config.EncryptInterface = []string{externalNodeDevice}
 	option.Config.RoutingMode = option.RoutingModeNative
-
-	// Same test suite, remove previous IPSec key.
-	ipsec.UnsetTestIPSecKey()
 
 	// Cover the XFRM configuration for subnet encryption: IPAM modes AKS and EKS.
 	ipv4PodSubnets, err := cidr.ParseCIDR("4.4.0.0/16")
