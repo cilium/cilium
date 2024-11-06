@@ -383,6 +383,9 @@ Added Metrics
 * ``cilium_node_health_connectivity_latency_seconds``
 * ``cilium_operator_unmanaged_pods``
 * ``cilium_policy_selector_match_count_max``
+* ``cilium_identity_cache_timer_duration``
+* ``cilium_identity_cache_timer_trigger_latency``
+* ``cilium_identity_cache_timer_trigger_folds``
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
