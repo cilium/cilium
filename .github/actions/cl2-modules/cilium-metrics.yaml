@@ -6,6 +6,9 @@
 {{$MEDIAN_MEM_USAGE_THRESHOLD := DefaultParam .CL2_MEDIAN_MEM_USAGE_THRESHOLD 250}}
 {{$MEDIAN_BOOTSTRAP_THRESHOLD := DefaultParam .CL2_MEDIAN_BOOTSTRAP_THRESHOLD 5}}
 
+{{$DEFAULT_WATCH_THRESHOLD := .Nodes}}
+{{$DEFAULT_WATCH_THRESHOLD_INCREASE := 20}}
+
 steps:
   - name: {{$action}} Cilium Agent Policy implementation delay
     measurements:
@@ -91,3 +94,54 @@ steps:
         - name: Perc50
           query: quantile(0.5, cilium_agent_bootstrap_seconds_sum{scope="overall"})
           threshold: {{$MEDIAN_BOOTSTRAP_THRESHOLD}}
+
+    - Identifier: WatchRequestThresholds
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Watch request thresholds
+        metricVersion: v1
+        unit: count
+        enableViolations: true
+        queries:
+        - name: Services
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="services"})
+          # TODO: Should be 2x not 3x - https://github.com/cilium/cilium/issues/35797
+          threshold: {{AddInt (MultiplyInt $DEFAULT_WATCH_THRESHOLD 3) $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: EndpointSlices
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="endpointslices"})
+          # TODO: Should be 1x not 2x - https://github.com/cilium/cilium/issues/35797
+          threshold: {{AddInt (MultiplyInt $DEFAULT_WATCH_THRESHOLD 2) $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: Endpoints
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="endpoints"})
+          threshold: {{$DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: Pods
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="pods"})
+          # There is no way to differentiate if we are watching all pods or node's pods easily
+          # Additionally, kubelet also watches node's pods.
+          threshold: {{AddInt (MultiplyInt $DEFAULT_WATCH_THRESHOLD 2) $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: CCNPs
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="ciliumclusterwidenetworkpolicies"})
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: CNPs
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="ciliumnetworkpolicies"})
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: NetworkPolicies
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="networkpolicies"})
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: Namespaces
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="namespaces"})
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: CiliumIdentities
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="ciliumidentities"})
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: CiliumCIDRGroups
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="ciliumcidrgroups"})
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: CiliumEndpointsAndSlices
+          # We should only watch CEP or CES, but not both
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource=~"ciliumendpoints|ciliumendpointslices"})
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+        - name: CiliumNodes
+          query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="ciliumnodes"})
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
