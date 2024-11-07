@@ -106,12 +106,10 @@ steps:
         queries:
         - name: Services
           query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="services"})
-          # TODO: Should be 2x not 3x - https://github.com/cilium/cilium/issues/35797
-          threshold: {{AddInt (MultiplyInt $DEFAULT_WATCH_THRESHOLD 3) $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+          threshold: {{AddInt (MultiplyInt $DEFAULT_WATCH_THRESHOLD 2) $DEFAULT_WATCH_THRESHOLD_INCREASE}}
         - name: EndpointSlices
           query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="endpointslices"})
-          # TODO: Should be 1x not 2x - https://github.com/cilium/cilium/issues/35797
-          threshold: {{AddInt (MultiplyInt $DEFAULT_WATCH_THRESHOLD 2) $DEFAULT_WATCH_THRESHOLD_INCREASE}}
+          threshold: {{AddInt $DEFAULT_WATCH_THRESHOLD $DEFAULT_WATCH_THRESHOLD_INCREASE}}
         - name: Endpoints
           query: sum(apiserver_longrunning_requests{scope="cluster", verb="WATCH", resource="endpoints"})
           threshold: {{$DEFAULT_WATCH_THRESHOLD_INCREASE}}
