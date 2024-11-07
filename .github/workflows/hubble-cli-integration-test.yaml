@@ -172,7 +172,7 @@ jobs:
           ./hubble/hubble --version
 
           kubectl -n kube-system port-forward service/hubble-relay 4245:80 &
-          # wait until the port-forward is running
+          echo "wait until the port-forward is running"
           until [ $(pgrep --count --full "kubectl.*port-forward.*service\/hubble-relay.*4245:80") -eq 1 ]; do
             sleep 1
           done
@@ -182,7 +182,7 @@ jobs:
 
           ./hubble/hubble status
 
-          # query hubble until we receive flows, or timeout
+          echo "query hubble until we receive flows, or timeout"
           flowCount=0
           until [ $flowCount -gt 0 ]; do
             ./hubble/hubble observe -n kube-system -o jsonpb  | tee flows.json
@@ -190,10 +190,10 @@ jobs:
             sleep 5
           done
 
-          # verify we got some flows
+          echo "verify we got some flows"
           test $(jq -r --slurp 'length' flows.json) -gt 0
-          # test piping flows into the CLI
-          test $(./hubble/hubble observe < flows.json -o json | jq -r --slurp 'length') -eq $(jq -r --slurp 'length' flows.json)
+          echo "test piping flows into the CLI"
+          test $(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length') -eq $(jq -r --slurp 'length' flows.json)
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
