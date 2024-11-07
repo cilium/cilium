@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"io"
 	"testing"
 	"time"
 
@@ -51,7 +52,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received := <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
-	assert.NotEqual(t, received.UUID, uuid.UUID{})
+	assert.NotEqual(t, uuid.UUID{}, received.UUID)
 
 	numLostEvents := uint64(7)
 	consumer.NotifyPerfEventLost(numLostEvents, cpu)
@@ -66,7 +67,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received = <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
-	assert.NotEqual(t, received.UUID, uuid.UUID{})
+	assert.NotEqual(t, uuid.UUID{}, received.UUID)
 
 	typ := api.MessageTypeAccessLog
 	message := &accesslog.LogRecord{Timestamp: time.RFC3339}
@@ -81,7 +82,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received = <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
-	assert.NotEqual(t, received.UUID, uuid.UUID{})
+	assert.NotEqual(t, uuid.UUID{}, received.UUID)
 
 	// The first notification will get through, the other two will be dropped
 	consumer.NotifyAgentEvent(1, nil)
@@ -96,7 +97,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received = <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
-	assert.NotEqual(t, received.UUID, uuid.UUID{})
+	assert.NotEqual(t, uuid.UUID{}, received.UUID)
 
 	// Now that the channel has one slot again, send another message
 	// (which will be dropped) to get a lost event notifications
@@ -112,7 +113,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received = <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
-	assert.NotEqual(t, received.UUID, uuid.UUID{})
+	assert.NotEqual(t, uuid.UUID{}, received.UUID)
 
 	// Verify that the events channel is empty now.
 	select {
@@ -120,4 +121,41 @@ func TestHubbleConsumer(t *testing.T) {
 		assert.Fail(t, "Unexpected event", ev)
 	default:
 	}
+}
+
+func BenchmarkHubbleConsumerSendEvent(b *testing.B) {
+	type benchType uint8
+	const (
+		btAllSent benchType = iota
+		btAllLost
+		btHalfSent
+	)
+
+	body := func(b *testing.B, bt benchType) {
+		observer := fakeObserver{
+			events: make(chan *observerTypes.MonitorEvent, 1),
+			logger: func() *logrus.Entry {
+				log := logrus.New()
+				log.SetOutput(io.Discard)
+				return logrus.NewEntry(log)
+			}(),
+		}
+
+		var (
+			cnsm = NewConsumer(observer)
+			data = []byte{0, 1, 2, 3, 4}
+			cpu  = 5
+		)
+
+		for i := range b.N {
+			cnsm.NotifyPerfEvent(data, cpu)
+			if bt == btAllSent || (bt == btHalfSent && i%2 == 0) {
+				<-observer.events
+			}
+		}
+	}
+
+	b.Run("all sent", func(b *testing.B) { body(b, btAllSent) })
+	b.Run("all lost", func(b *testing.B) { body(b, btAllLost) })
+	b.Run("half sent", func(b *testing.B) { body(b, btHalfSent) })
 }

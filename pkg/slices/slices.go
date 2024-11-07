@@ -4,10 +4,8 @@
 package slices
 
 import (
+	"cmp"
 	"slices"
-	"sort"
-
-	"golang.org/x/exp/constraints"
 )
 
 // Unique deduplicates the elements in the input slice, preserving their ordering and
@@ -46,6 +44,7 @@ func Unique[S ~[]T, T comparable](s S) S {
 		}
 	}
 
+	clear(s[last:]) // zero out obsolete elements for GC
 	return s[:last]
 }
 
@@ -69,39 +68,20 @@ func UniqueFunc[S ~[]T, T any, K comparable](s S, key func(i int) K) S {
 		last++
 	}
 
+	clear(s[last:]) // zero out obsolete elements for GC
 	return s[:last]
 }
 
 // SortedUnique sorts and dedup the input slice in place.
 // It uses the < operator to compare the elements in the slice and thus requires
 // the elements to satisfies contraints.Ordered.
-func SortedUnique[S ~[]T, T constraints.Ordered](s S) S {
+func SortedUnique[S ~[]T, T cmp.Ordered](s S) S {
 	if len(s) < 2 {
 		return s
 	}
 
-	sort.Slice(s, func(i, j int) bool {
-		return s[i] < s[j]
-	})
+	slices.Sort(s)
 	return slices.Compact(s)
-}
-
-// SortedUniqueFunc is like SortedUnique but allows the user to specify custom functions
-// for ordering (less function) and comparing (eq function) the elements in the slice.
-// This is useful in all the cases where SortedUnique cannot be used:
-// - for types that do not satisfy constraints.Ordered (e.g: composite types)
-// - when the user wants to customize how elements are compared (e.g: user wants to enforce reverse ordering)
-func SortedUniqueFunc[S ~[]T, T any](
-	s S,
-	less func(i, j int) bool,
-	eq func(a, b T) bool,
-) S {
-	if len(s) < 2 {
-		return s
-	}
-
-	sort.Slice(s, less)
-	return slices.CompactFunc(s, eq)
 }
 
 // Diff returns a slice of elements which is the difference of a and b.
@@ -150,4 +130,16 @@ func SubsetOf[S ~[]T, T comparable](a, b S) (bool, []T) {
 func XorNil[T any](s1, s2 []T) bool {
 	return s1 == nil && s2 != nil ||
 		s1 != nil && s2 == nil
+}
+
+// AllMatch returns true if pred is true for each element in s, false otherwise.
+// May not evaluate on all elements if not necessary for determining the result.
+// If the slice is empty then true is returned and predicate is not evaluated.
+func AllMatch[T any](s []T, pred func(v T) bool) bool {
+	for _, v := range s {
+		if !pred(v) {
+			return false
+		}
+	}
+	return true
 }

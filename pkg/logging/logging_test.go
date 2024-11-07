@@ -17,10 +17,10 @@ func TestGetLogLevel(t *testing.T) {
 
 	// case doesn't matter with log options
 	opts[LevelOpt] = "DeBuG"
-	require.Equal(t, opts.GetLogLevel(), logrus.DebugLevel)
+	require.Equal(t, logrus.DebugLevel, opts.GetLogLevel())
 
 	opts[LevelOpt] = "Invalid"
-	require.Equal(t, opts.GetLogLevel(), DefaultLogLevel)
+	require.Equal(t, DefaultLogLevel, opts.GetLogLevel())
 }
 
 func TestGetLogFormat(t *testing.T) {

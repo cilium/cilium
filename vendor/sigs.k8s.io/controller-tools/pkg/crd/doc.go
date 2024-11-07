@@ -17,14 +17,14 @@ limitations under the License.
 // Package crd contains utilities for generating CustomResourceDefinitions and
 // their corresponding OpenAPI validation schemata.
 //
-// Markers
+// # Markers
 //
 // Markers live under the markers subpackage.  Two types of markers exist:
 // those that modify schema generation (for validation), and those that modify
 // the rest of the CRD.  See the subpackage for more information and all
 // supported markers.
 //
-// Collecting Types and Generating CRDs
+// # Collecting Types and Generating CRDs
 //
 // The Parser is the entrypoint for collecting the information required to
 // generate CRDs.  Like loader and collector, its methods are idemptotent, not
@@ -40,13 +40,13 @@ limitations under the License.
 // Errors are generally attached directly to the relevant Package with
 // AddError.
 //
-// Known Packages
+// # Known Packages
 //
 // There are a few types from Kubernetes that have special meaning, but don't
 // have validation markers attached.  Those specific types have overrides
 // listed in KnownPackages that can be added as overrides to any parser.
 //
-// Flattening
+// # Flattening
 //
 // Once schemata are generated, they can be used directly by external tooling
 // (like JSONSchema validators), but must first be "flattened" to not contain

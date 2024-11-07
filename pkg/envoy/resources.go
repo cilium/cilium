@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
+	"slices"
 	"sync"
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
@@ -162,7 +162,7 @@ func (cache *NPHDSCache) handleIPUpsert(npHost *envoyAPI.NetworkPolicyHosts, ide
 		hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
 		hostAddresses = append(hostAddresses, npHost.HostAddresses...)
 		hostAddresses = append(hostAddresses, cidrStr)
-		sort.Strings(hostAddresses)
+		slices.Sort(hostAddresses)
 	}
 
 	newNpHost := envoyAPI.NetworkPolicyHosts{

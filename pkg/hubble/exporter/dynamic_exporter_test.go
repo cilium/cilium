@@ -75,7 +75,7 @@ func TestAddNewExporter(t *testing.T) {
 	sut.onConfigReload(context.TODO(), 1, config)
 
 	// then
-	assert.Equal(t, 1, len(sut.managedExporters))
+	assert.Len(t, sut.managedExporters, 1)
 	assert.Equal(t, config.FlowLogs[0], sut.managedExporters["test001"].config)
 	assert.NotNil(t, sut.managedExporters["test001"].exporter)
 }

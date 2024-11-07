@@ -32,7 +32,7 @@ func init() {
 var MeshConsumerRoute = suite.ConformanceTest{
 	ShortName:   "MeshConsumerRoute",
 	Description: "An HTTPRoute in a namespace other than its parentRef's namespace only affects requests from the route's namespace",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportMesh,
 		features.SupportMeshConsumerRoute,
 		features.SupportHTTPRoute,

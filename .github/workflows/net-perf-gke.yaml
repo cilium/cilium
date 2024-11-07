@@ -61,19 +61,18 @@ concurrency:
 
 env:
   clusterName: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
-  cilium_cli_ci_version:
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
   k8s_version: 1.28
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 489.0.0
+  gcloud_version: 499.0.0
 
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -101,73 +100,31 @@ jobs:
             name: "native"
             mode: "gke"
             encryption: "none"
-            hubble: "false"
 
           - index: 2
             name: "tunnel"
             mode: "tunnel"
             encryption: "none"
-            hubble: "false"
 
           - index: 3
             name: "native-ipsec"
             mode: "gke"
             encryption: "ipsec"
-            hubble: "false"
 
           - index: 4
             name: "tunnel-ipsec"
             mode: "tunnel"
             encryption: "ipsec"
-            hubble: "false"
 
           - index: 5
             name: "native-wireguard"
             mode: "gke"
             encryption: "wireguard"
-            hubble: "false"
 
           - index: 6
             name: "tunnel-wireguard"
             mode: "tunnel"
             encryption: "wireguard"
-            hubble: "false"
-
-          - index: 7
-            name: "native-hubble"
-            mode: "gke"
-            encryption: "none"
-            hubble: "true"
-
-          - index: 8
-            name: "tunnel-hubble"
-            mode: "tunnel"
-            encryption: "none"
-            hubble: "true"
-
-          - index: 9
-            name: "native-ipsec-hubble"
-            mode: "gke"
-            encryption: "ipsec"
-            hubble: "true"
-
-          - index: 10
-            name: "tunnel-ipsec-hubble"
-            mode: "tunnel"
-            encryption: "ipsec"
-            hubble: "true"
-
-          - index: 11
-            name: "native-wireguard-hubble"
-            mode: "gke"
-            encryption: "wireguard"
-            hubble: "true"
-
-          - index: 12
-            name: "tunnel-wireguard-hubble"
-            mode: "tunnel"
-            encryption: "wireguard"
-            hubble: "true"
 
     steps:
       - name: Collect Workflow Telemetry
@@ -176,7 +133,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -199,9 +156,6 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.index }} \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
-            --helm-set=debug.enabled=false \
-            --helm-set=bpf.monitorAggregation=maximum \
-            --helm-set=hubble.enabled=${{ matrix.hubble == 'true' }} \
             --wait=false"
 
           # only add SHA to the image tags if it was set
@@ -232,12 +186,14 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=wireguard"
           fi
 
+          CILIUM_INSTALL_DEFAULTS+=" ${{ env.CILIUM_INSTALL_NET_PERF_EXTRA_ARGS }}"
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
         with:
           workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PERF_SA }}
@@ -245,7 +201,7 @@ jobs:
           export_environment_variables: true
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@f0990588f1e5b5af6827153b93673613abdc6ec7 # v2.1.1
+        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a # v2.1.2
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
@@ -280,7 +236,7 @@ jobs:
           gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.gcp_zone }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@62bd4511031211b50a4623870955a5ad27b43e3b # v0.16.16
+        uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -297,7 +253,8 @@ jobs:
       - name: Create custom IPsec secret
         if: ${{ matrix.encryption == 'ipsec' }}
         run: |
-          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
       - name: Install Cilium
         id: install-cilium
@@ -336,7 +293,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@378ada318fd6dbf7ede1288da713e0cc9ba26f46 # main
+        uses: cilium/scale-tests-action/export-results@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}

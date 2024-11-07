@@ -104,6 +104,9 @@ Several options are available to adjust the performance and behavior of the CES 
 
 * You can also fine-tune rate-limiting settings for the Operator communications with the API-server. Refer to the ``--ces-*`` flags for the ``cilium-operator`` binary.
 
+* You can annotate priority namespaces by setting annotation ``cilium.io/ces-namespace`` to the value “priority”. When dealing with large clusters, the propagation of changes during Network Policy updates can be significantly delayed.
+  When namespace's annotation ``cilium.io/ces-namespace`` is set to "priority", the updates from this namespace will be processed before non-priority updates. This allows to quicker enforce updated network policy in critical namespaces.
+
 Known Issues and Workarounds
 ============================
 

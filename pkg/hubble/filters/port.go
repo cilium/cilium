@@ -6,6 +6,7 @@ package filters
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -52,11 +53,7 @@ func filterByPort(portStrs []string, getPort func(*v1.Event) (port uint16, ok bo
 
 	return func(ev *v1.Event) bool {
 		if port, ok := getPort(ev); ok {
-			for _, p := range ports {
-				if p == port {
-					return true
-				}
-			}
+			return slices.Contains(ports, port)
 		}
 		return false
 	}, nil

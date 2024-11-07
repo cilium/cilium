@@ -43,7 +43,7 @@ func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backe
 	ciliumPods, err := kubectl.GetCiliumPods()
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 	for _, pod := range ciliumPods {
-		err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
+		err := kubectl.CiliumServiceAdd(pod, id, "", frontend, backends, svcType, trafficPolicy)
 		ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
 	}
 }
@@ -225,14 +225,13 @@ func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, ni *helpers.Node
 			ipStr := strings.TrimSpace(strings.Split(res.Stdout(), "=")[1])
 			sourceIP, err := netip.ParseAddr(ipStr)
 			ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", ipStr)
+			sourceIP = sourceIP.Unmap()
 			var outIP netip.Addr
 			switch {
 			case sourceIP.Is4():
 				outIP, err = netip.ParseAddr(ni.OutsideIP)
+				outIP = outIP.Unmap()
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv4 address %q", ni.OutsideIP)
-			case sourceIP.Is4In6():
-				outIP, err = netip.ParseAddr(ni.OutsideIP)
-				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv4-mapped IPv6 address %q", ni.OutsideIP)
 			default:
 				outIP, err = netip.ParseAddr(ni.OutsideIPv6)
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv6 address %q", ni.OutsideIP)

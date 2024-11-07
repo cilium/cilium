@@ -49,8 +49,9 @@ func (k Key) String() string {
 }
 
 type DynamicConfig struct {
-	Key   Key
-	Value string
+	Key      Key
+	Value    string
+	Priority int
 }
 
 func (d DynamicConfig) TableHeader() []string {
@@ -66,7 +67,7 @@ func (d DynamicConfig) TableRow() []string {
 	return []string{
 		d.Key.Name,
 		d.Key.Source,
-		strconv.Itoa(priorities[d.Key.Source]),
+		strconv.Itoa(d.Priority),
 		d.Value,
 	}
 }
@@ -84,7 +85,7 @@ func NewConfigTable(db *statedb.DB) (statedb.RWTable[DynamicConfig], error) {
 	return tbl, db.RegisterTable(tbl)
 }
 
-func RegisterConfigMapReflector(jobGroup job.Group, db *statedb.DB, rcs []k8s.ReflectorConfig[DynamicConfig], c config) error {
+func RegisterConfigMapReflector(jobGroup job.Group, db *statedb.DB, rcs []k8s.ReflectorConfig[DynamicConfig], c Config) error {
 	if !c.EnableDynamicConfig {
 		return nil
 	}
@@ -124,17 +125,26 @@ func WatchKey(txn statedb.ReadTxn, table statedb.Table[DynamicConfig], key strin
 	return entries[0], true, w
 }
 
-func sortByPriority(entries []DynamicConfig) {
-	sort.Slice(entries, func(i, j int) bool {
-		return getPriority(entries[i].Key.Source) < getPriority(entries[j].Key.Source)
-	})
+// WatchAllKeys retrieves all DynamicConfig values accounting for priority when the
+// key is present in multiple config sources.
+func WatchAllKeys(txn statedb.ReadTxn, table statedb.Table[DynamicConfig]) (map[string]DynamicConfig, <-chan struct{}) {
+	keyValue := map[string]DynamicConfig{}
+	keyPriority := map[string]int{}
+
+	iter, w := table.AllWatch(txn)
+	for obj := range iter {
+		priority, found := keyPriority[obj.Key.Name]
+		if !found || priority > obj.Priority {
+			keyValue[obj.Key.Name] = obj
+			keyPriority[obj.Key.Name] = obj.Priority
+		}
+	}
+
+	return keyValue, w
 }
 
-func getPriority(name string) int {
-	priority, found := priorities[name]
-
-	if !found {
-		return len(priorities) + 1
-	}
-	return priority
+func sortByPriority(entries []DynamicConfig) {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Priority < entries[j].Priority
+	})
 }

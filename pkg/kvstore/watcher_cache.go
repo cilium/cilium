@@ -17,13 +17,18 @@ func (wc watcherCache) Exists(key []byte) bool {
 	return false
 }
 
-func (wc watcherCache) RemoveDeleted(f func(string)) {
+// RemoveDeleted removes keys marked for deletion from the local cache exiting
+// early if the given function returns false.
+func (wc watcherCache) RemoveDeleted(f func(string) bool) bool {
 	for k, localKey := range wc {
 		if localKey.deletionMark {
-			f(k)
+			if !f(k) {
+				return false
+			}
 			delete(wc, k)
 		}
 	}
+	return true
 }
 
 func (wc watcherCache) MarkAllForDeletion() {

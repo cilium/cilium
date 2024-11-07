@@ -31,9 +31,10 @@ type LBMap interface {
 }
 
 type UpsertServiceParams struct {
-	ID   uint16
-	IP   net.IP
-	Port uint16
+	ID       uint16
+	IP       net.IP
+	Port     uint16
+	Protocol uint8
 
 	// PreferredBackends is a subset of ActiveBackends
 	// Note: this is only used in clustermesh with service affinity annotation.
@@ -43,6 +44,7 @@ type UpsertServiceParams struct {
 	PrevBackendsCount         int
 	IPv6                      bool
 	Type                      loadbalancer.SVCType
+	ForwardingMode            loadbalancer.SVCForwardingMode
 	NatPolicy                 loadbalancer.SVCNatPolicy
 	ExtLocal                  bool
 	IntLocal                  bool

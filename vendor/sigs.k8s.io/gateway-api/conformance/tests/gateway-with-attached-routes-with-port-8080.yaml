@@ -26,7 +26,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: http-route-4
+  name: http-route-4-port-8080
   namespace: gateway-conformance-infra
 spec:
   parentRefs:

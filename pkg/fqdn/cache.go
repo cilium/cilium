@@ -5,19 +5,20 @@ package fqdn
 
 import (
 	"encoding/json"
+	"maps"
 	"net/netip"
 	"regexp"
+	"slices"
 	"sort"
 	"unsafe"
 
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/slices"
+	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -479,7 +480,7 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string)
 		}
 	}
 
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 
@@ -593,7 +594,7 @@ func (c *DNSCache) GetIPs() map[netip.Addr][]string {
 	out := make(map[netip.Addr][]string, len(c.reverse))
 
 	for ip, names := range c.reverse {
-		out[ip] = maps.Keys(names)
+		out[ip] = slices.Collect(maps.Keys(names))
 	}
 
 	return out
@@ -826,14 +827,14 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 	zombie, updatedExisting := zombies.deletes[addr]
 	if !updatedExisting {
 		zombie = &DNSZombieMapping{
-			Names:           slices.Unique(qname),
+			Names:           ciliumslices.Unique(qname),
 			IP:              addr,
 			DeletePendingAt: expiryTime,
 			revisionAddedAt: zombies.ctGCRevision,
 		}
 		zombies.deletes[addr] = zombie
 	} else {
-		zombie.Names = slices.Unique(append(zombie.Names, qname...))
+		zombie.Names = ciliumslices.Unique(append(zombie.Names, qname...))
 		// Keep the latest expiry time
 		if expiryTime.After(zombie.DeletePendingAt) {
 			zombie.DeletePendingAt = expiryTime

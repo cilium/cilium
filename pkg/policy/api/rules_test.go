@@ -17,8 +17,8 @@ func TestRulesDeepEqual(t *testing.T) {
 
 	var invalidRules *Rules
 
-	require.Equal(t, true, invalidRules.DeepEqual(nil))
-	require.Equal(t, true, invalidRules.DeepEqual(invalidRules))
+	require.True(t, invalidRules.DeepEqual(nil))
+	require.True(t, invalidRules.DeepEqual(invalidRules))
 
 	wcSelector1 := WildcardEndpointSelector
 	validPortRules := Rules{
@@ -41,10 +41,10 @@ func TestRulesDeepEqual(t *testing.T) {
 			}}),
 	}
 
-	require.Equal(t, false, invalidRules.DeepEqual(&validPortRules))
-	require.Equal(t, false, validPortRules.DeepEqual(invalidRules))
-	require.Equal(t, false, validPortRules.DeepEqual(nil))
-	require.Equal(t, true, validPortRules.DeepEqual(&validPortRules))
+	require.False(t, invalidRules.DeepEqual(&validPortRules))
+	require.False(t, validPortRules.DeepEqual(invalidRules))
+	require.False(t, validPortRules.DeepEqual(nil))
+	require.True(t, validPortRules.DeepEqual(&validPortRules))
 
 	// Same as WildcardEndpointSelector, but different pointer.
 	wcSelector2 := NewESFromLabels()
@@ -53,5 +53,5 @@ func TestRulesDeepEqual(t *testing.T) {
 	}
 	validPortRulesClone[0].EndpointSelector = wcSelector2
 
-	require.Equal(t, true, validPortRules.DeepEqual(&validPortRulesClone))
+	require.True(t, validPortRules.DeepEqual(&validPortRulesClone))
 }

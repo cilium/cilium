@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -54,6 +55,7 @@ type bgpRouterManagerParams struct {
 	cell.In
 	Logger           logrus.FieldLogger
 	JobGroup         job.Group
+	DaemonConfig     *option.DaemonConfig
 	ConfigMode       *mode.ConfigMode
 	Reconcilers      []reconciler.ConfigReconciler   `group:"bgp-config-reconciler"`
 	ReconcilersV2    []reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
@@ -150,6 +152,10 @@ type BGPRouterManager struct {
 //
 // See BGPRouterManager for details.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
+	if !params.DaemonConfig.BGPControlPlaneEnabled() {
+		return &BGPRouterManager{}
+	}
+
 	activeReconcilers := reconciler.GetActiveReconcilers(params.Reconcilers)
 	activeReconcilersV2 := reconcilerv2.GetActiveReconcilers(params.Logger, params.ReconcilersV2)
 
@@ -886,7 +892,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		StateNotification: make(types.StateNotificationCh, 1),
 	}
 
-	i, err := instance.NewBGPInstance(ctx, m.Logger.WithField(types.InstanceLogField, c.Name), globalConfig)
+	i, err := instance.NewBGPInstance(ctx, m.Logger.WithField(types.InstanceLogField, c.Name), c.Name, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to start BGP instance: %w", err)
 	}

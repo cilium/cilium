@@ -1,13 +1,5 @@
 {
   "properties": {
-    "LBIPAM": {
-      "properties": {
-        "requireLBClass": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "MTU": {
       "type": "integer"
     },
@@ -158,6 +150,12 @@
                           "type": "object"
                         },
                         "podSecurityContext": {
+                          "type": "object"
+                        },
+                        "priorityClassName": {
+                          "type": "string"
+                        },
+                        "resources": {
                           "type": "object"
                         },
                         "securityContext": {
@@ -364,6 +362,12 @@
                         "podSecurityContext": {
                           "type": "object"
                         },
+                        "priorityClassName": {
+                          "type": "string"
+                        },
+                        "resources": {
+                          "type": "object"
+                        },
                         "securityContext": {
                           "type": "object"
                         },
@@ -505,6 +509,9 @@
           },
           "type": "object"
         },
+        "ctAccounting": {
+          "type": "boolean"
+        },
         "ctAnyMax": {
           "type": [
             "null",
@@ -580,6 +587,9 @@
             "null",
             "integer"
           ]
+        },
+        "lbSourceRangeAllTypes": {
+          "type": "boolean"
         },
         "mapDynamicSizeRatio": {
           "type": [
@@ -674,6 +684,9 @@
           "items": {},
           "type": "array"
         },
+        "generateCA": {
+          "type": "boolean"
+        },
         "image": {
           "properties": {
             "digest": {
@@ -700,8 +713,14 @@
           },
           "type": "object"
         },
+        "nodeSelector": {
+          "type": "object"
+        },
         "podLabels": {
           "type": "object"
+        },
+        "priorityClassName": {
+          "type": "string"
         },
         "tolerations": {
           "items": {},
@@ -1501,6 +1520,12 @@
             "string"
           ]
         },
+        "enableSourceIPVerification": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
         "runPath": {
           "type": "string"
         }
@@ -1543,6 +1568,9 @@
         }
       },
       "type": "object"
+    },
+    "defaultLBServiceIPAM": {
+      "type": "string"
     },
     "directRoutingSkipUnreachable": {
       "type": "boolean"
@@ -1617,10 +1645,19 @@
     "enableIPv6Masquerade": {
       "type": "boolean"
     },
+    "enableInternalTrafficPolicy": {
+      "type": "boolean"
+    },
     "enableK8sTerminatingEndpoint": {
       "type": "boolean"
     },
+    "enableLBIPAM": {
+      "type": "boolean"
+    },
     "enableMasqueradeRouteSource": {
+      "type": "boolean"
+    },
+    "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
     "enableRuntimeDeviceDetection": {
@@ -1684,9 +1721,6 @@
           "properties": {
             "persistentKeepalive": {
               "type": "string"
-            },
-            "userspaceFallback": {
-              "type": "boolean"
             }
           },
           "type": "object"
@@ -1969,6 +2003,9 @@
           },
           "type": "object"
         },
+        "initialFetchTimeoutSeconds": {
+          "type": "integer"
+        },
         "livenessProbe": {
           "properties": {
             "failureThreshold": {
@@ -1982,8 +2019,35 @@
         },
         "log": {
           "properties": {
+            "defaultLevel": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "enum": [
+                    "trace",
+                    "debug",
+                    "info",
+                    "warning",
+                    "error",
+                    "critical",
+                    "off"
+                  ]
+                }
+              ]
+            },
             "format": {
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "format_json": {
+              "type": [
+                "null",
+                "object"
+              ]
             },
             "path": {
               "type": "string"
@@ -3698,6 +3762,9 @@
       },
       "type": "object"
     },
+    "iptablesRandomFully": {
+      "type": "boolean"
+    },
     "ipv4": {
       "properties": {
         "enabled": {
@@ -3895,6 +3962,12 @@
     },
     "name": {
       "type": "string"
+    },
+    "namespaceOverride": {
+      "type": [
+        "null",
+        "string"
+      ]
     },
     "nat": {
       "properties": {
@@ -4859,6 +4932,17 @@
     },
     "routingMode": {
       "type": "string"
+    },
+    "scheduling": {
+      "properties": {
+        "mode": {
+          "enum": [
+            "anti-affinity",
+            "kube-scheduler"
+          ]
+        }
+      },
+      "type": "object"
     },
     "sctp": {
       "properties": {

@@ -9,11 +9,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/shortener"
 )
 
 var _ translation.Translator = (*gatewayAPITranslator)(nil)
@@ -124,11 +126,11 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 		})
 	}
 
-	shortenName := model.Shorten(resource.Name)
+	shortenName := shortener.ShortenK8sResourceName(resource.Name)
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.Shorten(ciliumGatewayPrefix + resource.Name),
+			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + resource.Name),
 			Namespace: resource.Namespace,
 			Labels: mergeMap(map[string]string{
 				owningGatewayLabel: shortenName,
@@ -141,7 +143,7 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 					Kind:       resource.Kind,
 					Name:       resource.Name,
 					UID:        types.UID(resource.UID),
-					Controller: model.AddressOf(true),
+					Controller: ptr.To(true),
 				},
 			},
 		},
@@ -154,11 +156,11 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 }
 
 func getEndpoints(resource model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {
-	shortedName := model.Shorten(resource.Name)
+	shortedName := shortener.ShortenK8sResourceName(resource.Name)
 
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.Shorten(ciliumGatewayPrefix + resource.Name),
+			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + resource.Name),
 			Namespace: resource.Namespace,
 			Labels: mergeMap(map[string]string{
 				owningGatewayLabel: shortedName,
@@ -171,7 +173,7 @@ func getEndpoints(resource model.FullyQualifiedResource, labels, annotations map
 					Kind:       resource.Kind,
 					Name:       resource.Name,
 					UID:        types.UID(resource.UID),
-					Controller: model.AddressOf(true),
+					Controller: ptr.To(true),
 				},
 			},
 		},
@@ -199,7 +201,7 @@ func decorateCEC(cec *ciliumv2.CiliumEnvoyConfig, resource *model.FullyQualified
 			Kind:       resource.Kind,
 			Name:       resource.Name,
 			UID:        types.UID(resource.UID),
-			Controller: model.AddressOf(true),
+			Controller: ptr.To(true),
 		},
 	}
 
@@ -207,7 +209,7 @@ func decorateCEC(cec *ciliumv2.CiliumEnvoyConfig, resource *model.FullyQualified
 		cec.Labels = make(map[string]string)
 	}
 	cec.Labels = mergeMap(cec.Labels, labels)
-	cec.Labels[gatewayNameLabel] = model.Shorten(resource.Name)
+	cec.Labels[gatewayNameLabel] = shortener.ShortenK8sResourceName(resource.Name)
 	cec.Annotations = mergeMap(cec.Annotations, annotations)
 
 	return nil

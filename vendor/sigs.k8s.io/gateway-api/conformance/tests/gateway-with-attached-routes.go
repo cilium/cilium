@@ -35,7 +35,7 @@ func init() {
 var GatewayWithAttachedRoutes = suite.ConformanceTest{
 	ShortName:   "GatewayWithAttachedRoutes",
 	Description: "A Gateway in the gateway-conformance-infra namespace should be attached to routes.",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},
@@ -133,7 +133,7 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 var GatewayWithAttachedRoutesWithPort8080 = suite.ConformanceTest{
 	ShortName:   "GatewayWithAttachedRoutesWithPort8080",
 	Description: "A Gateway in the gateway-conformance-infra namespace should be attached to routes.",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportGatewayPort8080,
 		features.SupportHTTPRoute,

@@ -37,7 +37,7 @@ func init() {
 var HTTPRouteBackendRequestHeaderModifier = suite.ConformanceTest{
 	ShortName:   "HTTPRouteBackendRequestHeaderModifier",
 	Description: "An HTTPRoute backend has request header modifier filters applied correctly",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteBackendRequestHeaderModification,
@@ -49,7 +49,7 @@ var HTTPRouteBackendRequestHeaderModifier = suite.ConformanceTest{
 var HTTPRouteRequestHeaderModifier = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRequestHeaderModifier",
 	Description: "An HTTPRoute has request header modifier filters applied correctly",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

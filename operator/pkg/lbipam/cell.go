@@ -5,10 +5,10 @@ package lbipam
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -30,23 +30,25 @@ var Cell = cell.Module(
 	metrics.Metric(newMetrics),
 	// Register configuration flags
 	cell.Config(lbipamConfig{
-		LBIPAMRequireLBClass: false,
+		EnableLBIPAM: true,
+	}),
+	cell.Config(SharedConfig{
+		DefaultLBServiceIPAM: DefaultLBClassLBIPAM,
 	}),
 )
 
 type lbipamConfig struct {
-	LBIPAMRequireLBClass bool
+	EnableLBIPAM bool
 }
 
 func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
-	flags.BoolVar(&lc.LBIPAMRequireLBClass, "lbipam-require-lb-class", lc.LBIPAMRequireLBClass, "Require the LoadBalancerClass field to "+
-		"be set on services for LB-IPAM to start assigning IPs")
+	flags.BoolVar(&lc.EnableLBIPAM, "enable-lb-ipam", lc.EnableLBIPAM, "Enable LB IPAM")
 }
 
 type lbipamCellParams struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	LC       cell.Lifecycle
 	JobGroup job.Group
@@ -60,11 +62,12 @@ type lbipamCellParams struct {
 
 	Metrics *ipamMetrics
 
-	Config lbipamConfig
+	Config       lbipamConfig
+	SharedConfig SharedConfig
 }
 
 func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
-	if !params.Clientset.IsEnabled() {
+	if !params.Clientset.IsEnabled() || !params.Config.EnableLBIPAM {
 		return nil
 	}
 
@@ -85,17 +88,40 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		lbClasses:    lbClasses,
 		ipv4Enabled:  option.Config.IPv4Enabled(),
 		ipv6Enabled:  option.Config.IPv6Enabled(),
+		lbProtoDiff:  option.Config.LBProtoDiffEnabled(),
 		poolClient:   params.Clientset.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
 		svcClient:    params.Clientset.Slim().CoreV1(),
 		jobGroup:     params.JobGroup,
+		config:       params.Config,
+		defaultIPAM:  params.SharedConfig.DefaultLBServiceIPAM == DefaultLBClassLBIPAM,
 	})
 
 	lbIPAM.jobGroup.Add(
-		job.OneShot("lbipam main", func(ctx context.Context, health cell.Health) error {
+		job.OneShot("lbipam-main", func(ctx context.Context, health cell.Health) error {
 			lbIPAM.Run(ctx, health)
 			return nil
 		}),
 	)
 
 	return lbIPAM
+}
+
+const (
+	DefaultLBClassLBIPAM   = "lbipam"
+	DefaulLBClasstNodeIPAM = "nodeipam"
+)
+
+// SharedConfig contains the configuration that is shared between
+// this module and others.
+// It is a temporary solution meant to avoid polluting this module with a direct
+// dependency on global operator configurations.
+type SharedConfig struct {
+	// DefaultLBServiceIPAM indicate the default LoadBalancer Service IPAM
+	DefaultLBServiceIPAM string
+}
+
+func (sc SharedConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringVar(&sc.DefaultLBServiceIPAM, "default-lb-service-ipam", sc.DefaultLBServiceIPAM,
+		"Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set."+
+			"Applicable values: lbipam, nodeipam, none")
 }

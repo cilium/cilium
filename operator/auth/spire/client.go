@@ -6,12 +6,12 @@ package spire
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
@@ -98,7 +98,7 @@ type params struct {
 
 type Client struct {
 	cfg        ClientConfig
-	log        logrus.FieldLogger
+	log        *slog.Logger
 	entry      entryv1.EntryClient
 	entryMutex lock.RWMutex
 	k8sClient  k8sClient.Clientset
@@ -106,14 +106,14 @@ type Client struct {
 
 // NewClient creates a new SPIRE client.
 // If the mutual authentication is not enabled, it returns a noop client.
-func NewClient(params params, lc cell.Lifecycle, cfg ClientConfig, log logrus.FieldLogger) identity.Provider {
+func NewClient(params params, lc cell.Lifecycle, cfg ClientConfig, log *slog.Logger) identity.Provider {
 	if !cfg.MutualAuthEnabled {
 		return &noopClient{}
 	}
 	client := &Client{
 		k8sClient: params.K8sClient,
 		cfg:       cfg,
-		log:       log.WithField(logfields.LogSubsys, "spire-client"),
+		log:       log.With(logfields.LogSubsys, "spire-client"),
 	}
 
 	lc.Append(cell.Hook{
@@ -137,7 +137,7 @@ func (c *Client) onStart(_ cell.HookContext) error {
 				c.entryMutex.Unlock()
 				break
 			}
-			c.log.WithError(err).Warnf("Unable to connect to SPIRE server, attempt %d", attempts+1)
+			c.log.Warn("Unable to connect to SPIRE server", "attempt", attempts+1, logfields.Error, err)
 			time.Sleep(backoffTime.Duration(attempts))
 		}
 		c.log.Info("Initialized SPIRE client")
@@ -151,9 +151,9 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 
 	resolvedTarget, err := resolvedK8sService(ctx, c.k8sClient, c.cfg.SpireServerAddress)
 	if err != nil {
-		c.log.WithError(err).
-			WithField(logfields.URL, c.cfg.SpireServerAddress).
-			Warning("Unable to resolve SPIRE server address, using original value")
+		c.log.Warn("Unable to resolve SPIRE server address, using original value",
+			logfields.Error, err,
+			logfields.URL, c.cfg.SpireServerAddress)
 		resolvedTarget = &c.cfg.SpireServerAddress
 	}
 
@@ -175,19 +175,15 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(trustedDomain))
 
-	c.log.WithFields(logrus.Fields{
-		logfields.Address: c.cfg.SpireServerAddress,
-		logfields.IPAddr:  resolvedTarget,
-	}).Info("Trying to connect to SPIRE server")
+	c.log.Info("Trying to connect to SPIRE server", logfields.Address, c.cfg.SpireServerAddress,
+		logfields.IPAddr, resolvedTarget)
 	conn, err := grpc.NewClient(*resolvedTarget, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection to SPIRE server: %w", err)
 	}
 
-	c.log.WithFields(logrus.Fields{
-		logfields.Address: c.cfg.SpireServerAddress,
-		logfields.IPAddr:  resolvedTarget,
-	}).Info("Connected to SPIRE server")
+	c.log.Info("Connected to SPIRE server", logfields.Address, c.cfg.SpireServerAddress,
+		logfields.IPAddr, resolvedTarget)
 	return conn, nil
 }
 

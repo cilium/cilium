@@ -1,0 +1,15 @@
+# This policy denies packets towards LRP frontend address
+# The packets to the LRP frontend will be dropped by this policy
+# if LRP skips the service translation for the packets from
+# LRP backend to frontend. (SkipRedirectFromBackend=true)
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-cidr-lrp-deny
+spec:
+  endpointSelector:
+    matchLabels:
+      lrp: backend
+  egressDeny:
+  - toCIDRSet:
+    - cidr: 169.254.169.255/32

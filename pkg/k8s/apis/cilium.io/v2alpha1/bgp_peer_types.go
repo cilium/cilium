@@ -28,6 +28,7 @@ type CiliumBGPPeerConfigList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgppeerconfig",path="ciliumbgppeerconfigs",scope="Cluster",shortName={cbgppeer}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
 type CiliumBGPPeerConfig struct {
@@ -38,6 +39,11 @@ type CiliumBGPPeerConfig struct {
 
 	// Spec is the specification of the desired behavior of the CiliumBGPPeerConfig.
 	Spec CiliumBGPPeerConfigSpec `json:"spec"`
+
+	// Status is the running status of the CiliumBGPPeerConfig
+	//
+	// +kubebuilder:validation:Optional
+	Status CiliumBGPPeerConfigStatus `json:"status"`
 }
 
 type CiliumBGPPeerConfigSpec struct {
@@ -91,6 +97,22 @@ type CiliumBGPPeerConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	Families []CiliumBGPFamilyWithAdverts `json:"families,omitempty"`
 }
+
+type CiliumBGPPeerConfigStatus struct {
+	// The current conditions of the CiliumBGPPeerConfig
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// Conditions for CiliumBGPPeerConfig
+const (
+	// Referenced auth secret is missing
+	BGPPeerConfigConditionMissingAuthSecret = "cilium.io/MissingAuthSecret"
+)
 
 // CiliumBGPFamily represents a AFI/SAFI address family pair.
 type CiliumBGPFamily struct {

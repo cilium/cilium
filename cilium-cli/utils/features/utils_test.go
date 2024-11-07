@@ -6,7 +6,7 @@ package features
 import (
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"testing"
 )
 
@@ -49,7 +49,7 @@ func TestComputeFailureExceptions(t *testing.T) {
 
 			// computeFailureExceptions doesn't guarantee the order of the
 			// returned slice so we have to sort both slices.
-			sort.Strings(result)
+			slices.Sort(result)
 			if !reflect.DeepEqual(result, test.expectedExceptions) {
 				t.Errorf("Expected exceptions to be %v, but got: %v", test.expectedExceptions, result)
 			}

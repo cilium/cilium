@@ -18,17 +18,17 @@ with this Cilium version. Older Kubernetes versions not listed here do not have
 Cilium support. Newer Kubernetes versions, while not listed, will depend on the
 backward compatibility offered by Kubernetes.
 
-* 1.27
 * 1.28
 * 1.29
 * 1.30
+* 1.31
 
 Additionally, Cilium runs e2e tests against various cloud providers' managed
 Kubernetes offerings using multiple Kubernetes versions. See the following links
 for the current test matrix for each cloud provider:
 
 - :git-tree:`AKS <.github/actions/azure/k8s-versions.yaml>`
-- :git-tree:`EKS <.github/actions/aws/k8s-versions.yaml>`
+- :git-tree:`EKS <.github/actions/eks/k8s-versions.yaml>`
 - :git-tree:`GKE <.github/actions/gke/k8s-versions.yaml>`
 
 System Requirements

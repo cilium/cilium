@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/aws/endpoints"
@@ -24,6 +23,8 @@ import (
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -37,7 +38,23 @@ const (
 	// InvalidParameterValueStr sort of catch-all error code from AWS to indicate request params are invalid. Often,
 	// requires looking at the error message to get the actual reason. See SubnetFullErrMsgStr for example.
 	InvalidParameterValueStr = "InvalidParameterValue"
+
+	AssignPrivateIpAddresses        = "AssignPrivateIpAddresses"
+	AttachNetworkInterface          = "AttachNetworkInterface"
+	CreateNetworkInterface          = "CreateNetworkInterface"
+	DeleteNetworkInterface          = "DeleteNetworkInterface"
+	DescribeInstances               = "DescribeInstances"
+	DescribeInstanceTypes           = "DescribeInstanceTypes"
+	DescribeNetworkInterfaces       = "DescribeNetworkInterfaces"
+	DescribeSecurityGroups          = "DescribeSecurityGroups"
+	DescribeSubnets                 = "DescribeSubnets"
+	DescribeVpcs                    = "DescribeVpcs"
+	ModifyNetworkInterface          = "ModifyNetworkInterface"
+	ModifyNetworkInterfaceAttribute = "ModifyNetworkInterfaceAttribute"
+	UnassignPrivateIpAddresses      = "UnassignPrivateIpAddresses"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ec2")
 
 // Client represents an EC2 API client
 type Client struct {
@@ -196,10 +213,10 @@ func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamType
 
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		sinceStart := spanstat.Start()
 		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
@@ -238,10 +255,10 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 	}
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		sinceStart := spanstat.Start()
 		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
@@ -264,10 +281,10 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 	}
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		sinceStart := spanstat.Start()
 		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
@@ -287,10 +304,10 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 
 	paginator := ec2.NewDescribeInstancesPaginator(c.ec2Client, instanceAttrs)
 	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeInstances")
+		c.limiter.Limit(ctx, DescribeInstances)
 		sinceStart := spanstat.Start()
 		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeInstances", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeInstances, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
@@ -328,10 +345,10 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 
 	ENIPaginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, ENIAttrs)
 	for ENIPaginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		sinceStart := spanstat.Start()
 		output, err := ENIPaginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
@@ -414,6 +431,10 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		eni.Prefixes = append(eni.Prefixes, aws.ToString(prefix.Ipv4Prefix))
 	}
 
+	if iface.Association != nil && aws.ToString(iface.Association.PublicIp) != "" {
+		eni.PublicIP = aws.ToString(iface.Association.PublicIp)
+	}
+
 	for _, g := range iface.Groups {
 		if g.GroupId != nil {
 			eni.SecurityGroups = append(eni.SecurityGroups, aws.ToString(g.GroupId))
@@ -491,10 +512,10 @@ func (c *Client) describeVpcs(ctx context.Context) ([]ec2_types.Vpc, error) {
 	var result []ec2_types.Vpc
 	paginator := ec2.NewDescribeVpcsPaginator(c.ec2Client, &ec2.DescribeVpcsInput{})
 	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeVpcs")
+		c.limiter.Limit(ctx, DescribeVpcs)
 		sinceStart := spanstat.Start()
 		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeVpcs", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeVpcs, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
@@ -540,10 +561,10 @@ func (c *Client) describeSubnets(ctx context.Context) ([]ec2_types.Subnet, error
 	}
 	paginator := ec2.NewDescribeSubnetsPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeSubnets")
+		c.limiter.Limit(ctx, DescribeSubnets)
 		sinceStart := spanstat.Start()
 		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeSubnets", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeSubnets, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
@@ -617,10 +638,10 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		}
 	}
 
-	c.limiter.Limit(ctx, "CreateNetworkInterface")
+	c.limiter.Limit(ctx, CreateNetworkInterface)
 	sinceStart := spanstat.Start()
 	output, err := c.ec2Client.CreateNetworkInterface(ctx, input)
-	c.metricsAPI.ObserveAPICall("CreateNetworkInterface", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(CreateNetworkInterface, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return "", nil, err
 	}
@@ -644,10 +665,10 @@ func (c *Client) DeleteNetworkInterface(ctx context.Context, eniID string) error
 		NetworkInterfaceId: aws.String(eniID),
 	}
 
-	c.limiter.Limit(ctx, "DeleteNetworkInterface")
+	c.limiter.Limit(ctx, DeleteNetworkInterface)
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.DeleteNetworkInterface(ctx, input)
-	c.metricsAPI.ObserveAPICall("DeleteNetworkInterface", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(DeleteNetworkInterface, deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 
@@ -659,10 +680,10 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instan
 		NetworkInterfaceId: aws.String(eniID),
 	}
 
-	c.limiter.Limit(ctx, "AttachNetworkInterface")
+	c.limiter.Limit(ctx, AttachNetworkInterface)
 	sinceStart := spanstat.Start()
 	output, err := c.ec2Client.AttachNetworkInterface(ctx, input)
-	c.metricsAPI.ObserveAPICall("AttachNetworkInterface", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(AttachNetworkInterface, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return "", err
 	}
@@ -682,10 +703,10 @@ func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID
 		NetworkInterfaceId: aws.String(eniID),
 	}
 
-	c.limiter.Limit(ctx, "ModifyNetworkInterfaceAttribute")
+	c.limiter.Limit(ctx, ModifyNetworkInterfaceAttribute)
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.ModifyNetworkInterfaceAttribute(ctx, input)
-	c.metricsAPI.ObserveAPICall("ModifyNetworkInterface", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(ModifyNetworkInterface, deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 
@@ -697,10 +718,10 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, add
 		SecondaryPrivateIpAddressCount: aws.Int32(addresses),
 	}
 
-	c.limiter.Limit(ctx, "AssignPrivateIpAddresses")
+	c.limiter.Limit(ctx, AssignPrivateIpAddresses)
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
-	c.metricsAPI.ObserveAPICall("AssignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(AssignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 
@@ -711,10 +732,10 @@ func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, eniID string, a
 		PrivateIpAddresses: addresses,
 	}
 
-	c.limiter.Limit(ctx, "UnassignPrivateIpAddresses")
+	c.limiter.Limit(ctx, UnassignPrivateIpAddresses)
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.UnassignPrivateIpAddresses(ctx, input)
-	c.metricsAPI.ObserveAPICall("UnassignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(UnassignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 
@@ -724,10 +745,10 @@ func (c *Client) AssignENIPrefixes(ctx context.Context, eniID string, prefixes i
 		Ipv4PrefixCount:    aws.Int32(prefixes),
 	}
 
-	c.limiter.Limit(ctx, "AssignPrivateIpAddresses")
+	c.limiter.Limit(ctx, AssignPrivateIpAddresses)
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
-	c.metricsAPI.ObserveAPICall("AssignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(AssignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 
@@ -737,11 +758,60 @@ func (c *Client) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes
 		Ipv4Prefixes:       prefixes,
 	}
 
-	c.limiter.Limit(ctx, "UnassignPrivateIpAddresses")
+	c.limiter.Limit(ctx, UnassignPrivateIpAddresses)
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.UnassignPrivateIpAddresses(ctx, input)
-	c.metricsAPI.ObserveAPICall("UnassignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(UnassignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
 	return err
+}
+
+// AssociateEIP tries to find an Elastic IP Address with the given tags and associates it with the given instance
+func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ipamTypes.Tags) (string, error) {
+	if len(eipTags) == 0 {
+		return "", fmt.Errorf("no EIP tags were provided")
+	}
+
+	filters := make([]ec2_types.Filter, 0, len(eipTags))
+	for k, v := range eipTags {
+		filters = append(filters, ec2_types.Filter{
+			Name:   aws.String(fmt.Sprintf("tag:%s", k)),
+			Values: []string{v},
+		})
+	}
+
+	describeAddressesInput := &ec2.DescribeAddressesInput{
+		Filters: filters,
+	}
+	c.limiter.Limit(ctx, "DescribeAddresses")
+	sinceStart := spanstat.Start()
+	addresses, err := c.ec2Client.DescribeAddresses(ctx, describeAddressesInput)
+	c.metricsAPI.ObserveAPICall("DescribeAddresses", deriveStatus(err), sinceStart.Seconds())
+	if err != nil {
+		return "", err
+	}
+	log.Infof("Found %d EIPs corresponding to tags %v", len(addresses.Addresses), eipTags)
+
+	for _, address := range addresses.Addresses {
+		// Only pick unassociated EIPs
+		if address.AssociationId == nil {
+			associateAddressInput := &ec2.AssociateAddressInput{
+				AllocationId:       address.AllocationId,
+				AllowReassociation: aws.Bool(false),
+				InstanceId:         aws.String(instanceID),
+			}
+			c.limiter.Limit(ctx, "AssociateAddress")
+			sinceStart = spanstat.Start()
+			association, err := c.ec2Client.AssociateAddress(ctx, associateAddressInput)
+			c.metricsAPI.ObserveAPICall("AssociateAddress", deriveStatus(err), sinceStart.Seconds())
+			if err != nil {
+				return "", err
+			}
+			log.Infof("Associated EIP %s with instance %s (association ID: %s)", *address.PublicIp, instanceID, *association.AssociationId)
+			return *address.PublicIp, nil
+		}
+	}
+
+	return "", fmt.Errorf("no unassociated EIPs found for tags %v", eipTags)
 }
 
 func createAWSTagSlice(tags map[string]string) []ec2_types.Tag {
@@ -761,10 +831,10 @@ func (c *Client) describeSecurityGroups(ctx context.Context) ([]ec2_types.Securi
 	var result []ec2_types.SecurityGroup
 	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, &ec2.DescribeSecurityGroupsInput{})
 	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeSecurityGroups")
+		c.limiter.Limit(ctx, DescribeSecurityGroups)
 		sinceStart := spanstat.Start()
 		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeSecurityGroups", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeSecurityGroups, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}
@@ -807,10 +877,10 @@ func (c *Client) GetInstanceTypes(ctx context.Context) ([]ec2_types.InstanceType
 	var result []ec2_types.InstanceTypeInfo
 	paginator := ec2.NewDescribeInstanceTypesPaginator(c.ec2Client, &ec2.DescribeInstanceTypesInput{})
 	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, "DescribeInstanceTypes")
+		c.limiter.Limit(ctx, DescribeInstanceTypes)
 		sinceStart := spanstat.Start()
 		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall("DescribeInstanceTypes", deriveStatus(err), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(DescribeInstanceTypes, deriveStatus(err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
 		}

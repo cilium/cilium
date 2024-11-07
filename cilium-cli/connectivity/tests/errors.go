@@ -48,7 +48,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision}
+		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
@@ -140,7 +140,6 @@ func (n *noUnexpectedPacketDrops) Run(ctx context.Context, t *check.Test) {
 	}
 
 	for _, pod := range ct.CiliumPods() {
-		pod := pod
 		t.NewGenericAction(n, fmt.Sprintf("%s/%s", pod.K8sClient.ClusterName(), pod.NodeName())).Run(func(a *check.Action) {
 			stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
@@ -180,7 +179,6 @@ func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, ct *check.Connectivi
 
 		cluster := client.ClusterName()
 		for _, pod := range pods.Items {
-			pod := pod
 			output[podID{Cluster: cluster, Namespace: pod.Namespace, Name: pod.Name}] = podInfo{
 				client: client, containers: n.podContainers(&pod),
 			}
@@ -275,7 +273,7 @@ const (
 	failedToReleaseLock    stringMatcher = "Failed to release lock:"
 	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
-
+	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
 )
 
 var (

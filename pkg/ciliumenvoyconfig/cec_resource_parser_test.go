@@ -84,7 +84,7 @@ func TestUpstreamInject(t *testing.T) {
 	//
 	var opts envoy_upstreams_http_v3.HttpProtocolOptions
 	changed, err := injectCiliumUpstreamL7Filter(&opts, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Len(t, opts.HttpFilters, 2)
@@ -99,7 +99,7 @@ func TestUpstreamInject(t *testing.T) {
 
 	// already present
 	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Len(t, opts.HttpFilters, 2)
@@ -124,7 +124,7 @@ func TestUpstreamInject(t *testing.T) {
 		},
 	}
 	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Len(t, opts.HttpFilters, 2)
@@ -146,7 +146,7 @@ func TestUpstreamInject(t *testing.T) {
 		},
 	}
 	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Len(t, opts.HttpFilters, 2)
@@ -175,7 +175,7 @@ func TestUpstreamInject(t *testing.T) {
 		},
 	}
 	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.False(t, changed)
 	assert.ErrorContains(t, err, "filter after codec filter: name:\"cilium.l7policy\"")
 }
@@ -887,10 +887,10 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	lf, ok := lfMsg.(*cilium.BpfMetadata)
 	assert.True(t, ok)
 	assert.NotNil(t, lf)
-	assert.Equal(t, false, lf.IsIngress)
+	assert.False(t, lf.IsIngress)
 	assert.True(t, lf.UseOriginalSourceAddress)
 	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
-	assert.Equal(t, false, lf.IsL7Lb)
+	assert.False(t, lf.IsL7Lb)
 
 	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -1029,8 +1029,8 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	lf, ok := lfMsg.(*cilium.BpfMetadata)
 	assert.True(t, ok)
 	assert.NotNil(t, lf)
-	assert.Equal(t, false, lf.IsIngress)
-	assert.Equal(t, false, lf.UseOriginalSourceAddress)
+	assert.False(t, lf.IsIngress)
+	assert.False(t, lf.UseOriginalSourceAddress)
 	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
 	assert.True(t, lf.IsL7Lb)
 
@@ -1080,7 +1080,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.NotNil(t, resources.Clusters[0].TypedExtensionProtocolOptions)
 	assert.NotNil(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType])
 	opts := &envoy_upstreams_http_v3.HttpProtocolOptions{}
-	assert.Nil(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(opts))
+	assert.NoError(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(opts))
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Equal(t, "cilium.l7policy", opts.HttpFilters[0].Name)
 	assert.Equal(t, ciliumL7FilterTypeURL, opts.HttpFilters[0].GetTypedConfig().TypeUrl)
@@ -1169,7 +1169,7 @@ func TestListenersAddedOrDeleted(t *testing.T) {
 
 	// Both empty
 	res := old.ListenersAddedOrDeleted(&new)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 
 	// new adds a listener
 	new.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
@@ -1181,9 +1181,9 @@ func TestListenersAddedOrDeleted(t *testing.T) {
 	// Now both have 'foo'
 	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
 	res = old.ListenersAddedOrDeleted(&new)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 
 	// New has no listeners
 	new.Listeners = nil
@@ -1209,9 +1209,9 @@ func TestListenersAddedOrDeleted(t *testing.T) {
 	// Same listeners but in different order
 	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "bar"})
 	res = old.ListenersAddedOrDeleted(&new)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 
 	// Old has no listeners
 	old.Listeners = nil

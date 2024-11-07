@@ -32,7 +32,7 @@ func init() {
 var MeshTrafficSplit = suite.ConformanceTest{
 	ShortName:   "MeshTrafficSplit",
 	Description: "A mesh client can send traffic to a Service which is split between two versions",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportMesh,
 		features.SupportHTTPRoute,
 	},

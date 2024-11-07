@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"iter"
 	"net"
 	"net/netip"
 
@@ -119,7 +120,7 @@ func (s *syncHostIPs) loop(ctx context.Context, health cell.Health) error {
 // sync adds local host entries to bpf lxcmap, as well as ipcache, if
 // needed, and also notifies the daemon and network policy hosts cache if
 // changes were made.
-func (s *syncHostIPs) sync(addrs statedb.Iterator[tables.NodeAddress]) error {
+func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]) error {
 	type ipIDLabel struct {
 		identity.IPIdentityPair
 		labels.Labels
@@ -137,7 +138,7 @@ func (s *syncHostIPs) sync(addrs statedb.Iterator[tables.NodeAddress]) error {
 		})
 	}
 
-	for addr, _, ok := addrs.Next(); ok; addr, _, ok = addrs.Next() {
+	for addr := range addrs {
 		if addr.DeviceName == tables.WildcardDeviceName {
 			continue
 		}

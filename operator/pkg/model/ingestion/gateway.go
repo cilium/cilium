@@ -9,6 +9,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/pkg/annotation"
 )
 
 const (
@@ -40,14 +42,25 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 	var resHTTP []model.HTTPListener
 	var resTLSPassthrough []model.TLSPassthroughListener
 
-	var labels, annotations map[string]string
+	labels := make(map[string]string)
+	annotations := make(map[string]string)
 	if input.Gateway.Spec.Infrastructure != nil {
 		labels = toMapString(input.Gateway.Spec.Infrastructure.Labels)
 		annotations = toMapString(input.Gateway.Spec.Infrastructure.Annotations)
 	}
-
+	ips := make([]string, 0, len(input.Gateway.Spec.Addresses))
+	for _, address := range input.Gateway.Spec.Addresses {
+		if address.Type == nil || *address.Type == gatewayv1.IPAddressType {
+			ips = append(ips, address.Value)
+		}
+	}
+	// If already use the LBIPAMIPKeyAlias to specify the IP, don't overwrite it.
+	// At a future date this annotation will be removed if no spec.addresses are set.
+	if len(ips) != 0 && annotations[annotation.LBIPAMIPKeyAlias] == "" {
+		annotations[annotation.LBIPAMIPKeyAlias] = strings.Join(ips, ",")
+	}
 	var infra *model.Infrastructure
-	if labels != nil || annotations != nil {
+	if len(labels) != 0 || len(annotations) != 0 {
 		infra = &model.Infrastructure{
 			Labels:      labels,
 			Annotations: annotations,
@@ -148,7 +161,8 @@ func toHTTPRoutes(listener gatewayv1.Listener,
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1alpha1.ServiceImport,
-	grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+	grants []gatewayv1beta1.ReferenceGrant,
+) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
 		listenerIsParent := false
@@ -315,6 +329,7 @@ func extractRoutes(listenerPort int32, hostnames []string, hr gatewayv1.HTTPRout
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
 				Timeout:                toTimeout(rule.Timeouts),
+				Retry:                  toHTTPRetry(rule.Retry),
 			})
 		}
 
@@ -334,6 +349,7 @@ func extractRoutes(listenerPort int32, hostnames []string, hr gatewayv1.HTTPRout
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
 				Timeout:                toTimeout(rule.Timeouts),
+				Retry:                  toHTTPRetry(rule.Retry),
 			})
 		}
 	}
@@ -347,14 +363,38 @@ func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
 	}
 	if timeouts.BackendRequest != nil {
 		if duration, err := time.ParseDuration(string(*timeouts.BackendRequest)); err == nil {
-			res.Backend = model.AddressOf(duration)
+			res.Backend = ptr.To(duration)
 		}
 	}
 	if timeouts.Request != nil {
 		if duration, err := time.ParseDuration(string(*timeouts.Request)); err == nil {
-			res.Request = model.AddressOf(duration)
+			res.Request = ptr.To(duration)
 		}
 	}
+	return res
+}
+
+func toHTTPRetry(retry *gatewayv1.HTTPRouteRetry) *model.HTTPRetry {
+	if retry == nil {
+		return nil
+	}
+
+	codes := make([]uint32, 0, len(retry.Codes))
+	for _, c := range retry.Codes {
+		codes = append(codes, uint32(c))
+	}
+
+	res := &model.HTTPRetry{
+		Codes:    codes,
+		Attempts: retry.Attempts,
+	}
+
+	if retry.Backoff != nil {
+		if duration, err := time.ParseDuration(string(*retry.Backoff)); err == nil {
+			res.Backoff = ptr.To(duration)
+		}
+	}
+
 	return res
 }
 
@@ -363,7 +403,8 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1alpha1.ServiceImport,
-	grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+	grants []gatewayv1beta1.ReferenceGrant,
+) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
 		isListener := false
@@ -556,7 +597,7 @@ func toHTTPRequestRedirectFilter(listenerPort int32, redirect *gatewayv1.HTTPReq
 			// If redirect scheme is empty, the redirect port MUST be the Gateway
 			// Listener port.
 			// Refer to: https://github.com/kubernetes-sigs/gateway-api/blob/35fe25d1384a41c9b89dd5af7ae3214c431f008c/apis/v1/httproute_types.go#L1040-L1041
-			redirectPort = model.AddressOf(listenerPort)
+			redirectPort = ptr.To(listenerPort)
 		}
 	} else {
 		redirectPort = (*int32)(redirect.Port)
@@ -599,8 +640,22 @@ func toHTTPRewriteFilter(rewrite *gatewayv1.HTTPURLRewriteFilter) *model.HTTPURL
 }
 
 func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {
+	var n, d int32 = 100, 100
+
+	switch {
+	case mirror.Percent != nil:
+		n = *mirror.Percent
+	case mirror.Fraction != nil:
+		n = mirror.Fraction.Numerator
+		if mirror.Fraction.Denominator != nil {
+			d = *mirror.Fraction.Denominator
+		}
+	}
+
 	return &model.HTTPRequestMirror{
-		Backend: model.AddressOf(backendRefToModelBackend(svc, mirror.BackendRef, ns)),
+		Backend:     ptr.To(backendRefToModelBackend(svc, mirror.BackendRef, ns)),
+		Numerator:   n,
+		Denominator: d,
 	}
 }
 
@@ -690,7 +745,7 @@ func toPathMatch(match gatewayv1.HTTPRouteMatch) model.StringMatch {
 }
 
 func toGRPCPathMatch(match gatewayv1.GRPCRouteMatch) model.StringMatch {
-	if match.Method == nil || match.Method.Service == nil {
+	if match.Method == nil {
 		return model.StringMatch{}
 	}
 
@@ -698,24 +753,40 @@ func toGRPCPathMatch(match gatewayv1.GRPCRouteMatch) model.StringMatch {
 	if match.Method.Type != nil {
 		t = *match.Method.Type
 	}
-
-	path := ""
-	if match.Method.Service != nil {
-		path = path + "/" + *match.Method.Service
-	}
-
-	if match.Method.Method != nil {
-		path = path + "/" + *match.Method.Method
-	}
-
 	switch t {
 	case gatewayv1.GRPCMethodMatchExact:
-		return model.StringMatch{
-			Exact: path,
+		if match.Method.Service != nil && match.Method.Method != nil {
+			return model.StringMatch{
+				Exact: "/" + *match.Method.Service + "/" + *match.Method.Method,
+			}
+		} else if match.Method.Service != nil {
+			return model.StringMatch{
+				Prefix: "/" + *match.Method.Service + "/",
+			}
+		} else if match.Method.Method != nil {
+			return model.StringMatch{
+				Regex: "/.+/" + *match.Method.Method,
+			}
+		} else {
+			// This case is not allowed by the spec
 		}
 	case gatewayv1.GRPCMethodMatchRegularExpression:
-		return model.StringMatch{
-			Regex: path,
+		if match.Method.Service != nil && match.Method.Method != nil {
+			return model.StringMatch{
+				Regex: "/" + *match.Method.Service + "/" + *match.Method.Method,
+			}
+		} else if match.Method.Service != nil {
+			return model.StringMatch{
+				Regex: "/" + *match.Method.Service + "/.+",
+			}
+		} else if match.Method.Method != nil {
+			return model.StringMatch{
+				Regex: "/.+/" + *match.Method.Method,
+			}
+		} else {
+			return model.StringMatch{
+				Prefix: "/",
+			}
 		}
 	}
 	return model.StringMatch{}
@@ -844,7 +915,7 @@ func toHTTPHeaders(headers []gatewayv1.HTTPHeader) []model.Header {
 	return res
 }
 
-func toMapString(in map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue) map[string]string {
+func toMapString[K, V ~string](in map[K]V) map[string]string {
 	out := make(map[string]string, len(in))
 	for k, v := range in {
 		out[string(k)] = string(v)

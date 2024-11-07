@@ -36,3 +36,8 @@ func (c Counter[T]) DeepCopy() Counter[T] {
 	}
 	return result
 }
+
+// Has returns true if the given key has a non-zero refcount.
+func (c Counter[T]) Has(key T) bool {
+	return c[key] > 0
+}

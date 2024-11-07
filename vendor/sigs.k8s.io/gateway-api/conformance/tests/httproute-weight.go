@@ -43,7 +43,7 @@ var HTTPRouteWeight = suite.ConformanceTest{
 	ShortName:   "HTTPRouteWeight",
 	Description: "An HTTPRoute with weighted backends",
 	Manifests:   []string{"tests/httproute-weight.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

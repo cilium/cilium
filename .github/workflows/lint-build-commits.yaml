@@ -3,11 +3,25 @@ name: Build Commits
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request: {}
+  push:
+    branches:
+      - main
+      - ft/main/**
+
+  # If the cache was cleaned we should re-build the cache with the latest commit
+  workflow_run:
+    workflows:
+     - "Image CI Cache Cleaner"
+    branches:
+     - main
+     - ft/main/**
+    types:
+     - completed
 
 permissions: read-all
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
   cancel-in-progress: true
 
 jobs:
@@ -26,32 +40,77 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "github-actions@users.noreply.github.com"
 
-      - name: Install Go
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
-        with:
-          # renovate: datasource=golang-version depName=go
-          go-version: 1.22.6
-
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Install Go
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        with:
+          cache: false
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.2
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-all-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-all-cache-
+            ${{ runner.os }}-go-
+
+      # Load CCache build from GitHub
+      - name: Load ccache cache build from GitHub
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        id: ccache-cache
+        with:
+          path: /tmp/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('bpf/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/go/.cache/go-build
+          mkdir -p /tmp/.cache/go/pkg
+          mkdir -p /tmp/.cache/ccache/.ccache
+
       - name: Check if build works for every commit
+        if: ${{ github.event_name != 'push' || ( (github.event_name == 'push' || github.event_name == 'workflow_run' ) && (steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true')) }}
+        env:
+          CLANG: "ccache clang"
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
+          BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
-          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
+            COMMITS=${{ github.sha }}
+          else
+            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          fi
           for commit in $COMMITS ; do
             git checkout $commit || exit 1
-            contrib/scripts/builder.sh make build -j $(nproc) || exit 1
+            contrib/scripts/builder.sh make CLANG="${CLANG}" build -j $(nproc) || exit 1
           done
 
       - name: Check bpf code changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: bpf-tree
         with:
+          # If these filters are modified, also modify the step below where we
+          # do a git diff
           filters: |
             src:
               - 'bpf/**'
@@ -59,18 +118,42 @@ jobs:
       # Runs only if code under bpf/ is changed.
       - name: Check if datapath build works for every commit
         if: steps.bpf-tree.outputs.src == 'true'
+        env:
+          CLANG: "ccache clang"
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
+          BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
-          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
+            COMMITS=${{ github.sha }}
+          else
+            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          fi
           for commit in $COMMITS ; do
             git checkout $commit || exit 1
-            contrib/scripts/builder.sh make -C bpf build_all -j $(nproc) || exit 1
+            # Do not run make if there aren't any files modified in these
+            # directories from the previous commit to the current commit.
+            # If these filters are modified, also modify the step above where we
+            # run dorny/paths-filter.
+            if ! git diff --quiet HEAD^ bpf/ ; then
+              contrib/scripts/builder.sh make CLANG="${CLANG}" -C bpf build_all -j $(nproc) || exit 1
+            fi
           done
+
+      - name: Reset cache ownership to GitHub runners user
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          sudo du -sh /tmp/.cache/
+          sudo chown $USER:$USER -R /tmp/.cache
 
       - name: Check test code changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: test-tree
         with:
+          # If these filters are modified, also modify the step below where we
+          # do a git diff
           filters: |
             src:
               - 'pkg/**'
@@ -89,7 +172,7 @@ jobs:
 
       - name: Install LLVM and Clang
         if: steps.test-tree.outputs.src == 'true'
-        uses: KyleMayes/install-llvm-action@10c8957324ef77f0712d883b9ed08adb6da4a192 # v2.0.4
+        uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
         with:
           version: "17.0.6"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
@@ -104,10 +187,20 @@ jobs:
         if: steps.test-tree.outputs.src == 'true'
         run: |
           set -eu -o pipefail
-          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
+            COMMITS=${{ github.sha }}
+          else
+            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          fi
           for commit in $COMMITS ; do
             git checkout $commit || exit 1
-            (make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)) || exit 1
+            # Do not run make if there aren't any files modified in these
+            # directories from the previous commit to the current commit.
+            # If these filters are modified, also modify the step above where we
+            # run dorny/paths-filter.
+            if ! git diff --quiet HEAD^ pkg/ test/ ; then
+              (make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)) || exit 1
+            fi
           done
 
       - name: Failed commit during the build

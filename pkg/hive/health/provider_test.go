@@ -53,12 +53,12 @@ func TestProvider(t *testing.T) {
 			assert.Len(degraded, 1)
 			assert.Equal("noo", degraded[0].Message)
 			assert.Equal("err0", degraded[0].Error)
-			assert.Equal(degraded[0].Count, uint64(1))
+			assert.Equal(uint64(1), degraded[0].Count)
 
 			ok := byLevel(db, statusTable, types.LevelOK)
 			assert.Len(ok, 2)
 
-			assert.Len(byLevel(db, statusTable, types.LevelStopped), 0)
+			assert.Empty(byLevel(db, statusTable, types.LevelStopped))
 
 			h2.Stopped("done")
 			all = allStatus(db, statusTable)

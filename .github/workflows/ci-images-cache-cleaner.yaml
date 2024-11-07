@@ -16,56 +16,25 @@ concurrency:
 jobs:
   cache-cleaner:
     name: Clean Image Cache
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        include:
-          - name: cilium
-
-          - name: operator-aws
-
-          - name: operator-azure
-
-          - name: operator-alibabacloud
-
-          - name: operator-generic
-
-          - name: hubble-relay
-
-          - name: clustermesh-apiserver
-
-          - name: kvstoremesh
-
-          - name: docker-plugin
-
+    runs-on: ubuntu-latest
+    permissions:
+      # `actions:write` permission is required to delete caches
+      #   See also: https://docs.github.com/en/rest/actions/cache?apiVersion=2022-11-28#delete-a-github-actions-cache-for-a-repository-using-a-cache-id
+      actions: write
+      contents: read
     steps:
-      # Fetch the source code so that we can get the right cache key
-      - name: Checkout Source Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          persist-credentials: false
-
-      # Load Golang cache build from GitHub
-      - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
-        id: cache
-        with:
-          path: /tmp/.cache/${{ matrix.name }}
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-
-
-      - name: Create ${{ matrix.name }} cache directory
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+      - name: Clean cache from GitHub
         shell: bash
         run: |
-          mkdir -p /tmp/.cache/${{ matrix.name }}
+          gh extension install actions/gh-actions-cache
 
-      # Clean docker's golang's cache
-      - name: Clean ${{ matrix.name }} Golang cache from GitHub
-        shell: bash
-        run: |
-          rm -f /tmp/.cache/${{ matrix.name }}/go-build-cache.tar.gz
-          rm -f /tmp/.cache/${{ matrix.name }}/go-pkg-cache.tar.gz
+          REPO=${{ github.repository }}
+          set +e
+          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-go- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); do
+            gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
+          done
+          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-ccache- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); do
+            gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

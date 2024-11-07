@@ -4,7 +4,7 @@
 package xds
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
@@ -261,7 +261,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 		return nil, nil
 	}
 
-	sort.Strings(res.ResourceNames)
+	slices.Sort(res.ResourceNames)
 
 	cacheLog.Debugf("returning %d resources out of %d requested", len(res.Resources), len(resourceNames))
 	return res, nil

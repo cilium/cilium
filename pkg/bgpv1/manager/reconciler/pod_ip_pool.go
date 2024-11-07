@@ -6,12 +6,12 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/netip"
 	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"

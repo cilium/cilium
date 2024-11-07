@@ -5,7 +5,7 @@ package common
 
 import (
 	"net"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -51,6 +51,6 @@ func SortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdenti
 	if securityIdentity.HasLocalScope() {
 		labels = FilterCIDRLabels(log, labels)
 	}
-	sort.Strings(labels)
+	slices.Sort(labels)
 	return labels
 }

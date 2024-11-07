@@ -5,11 +5,11 @@ package cmd
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/maps"
 )
 
 var envoyResourceNameFlag = ""
@@ -28,7 +28,7 @@ var EnvoyAdminConfigCmd = &cobra.Command{
 	Use:       fmt.Sprintf("config %s", envoyResourceTypeOptionsString()),
 	Short:     "View config dump of Envoy Proxy",
 	Args:      cobra.OnlyValidArgs,
-	ValidArgs: maps.Keys(envoyResourceTypeMappings),
+	ValidArgs: slices.Collect(maps.Keys(envoyResourceTypeMappings)),
 	Run: func(cmd *cobra.Command, args []string) {
 		resourceType := "all"
 		if len(args) > 0 {
@@ -52,8 +52,5 @@ func init() {
 }
 
 func envoyResourceTypeOptionsString() string {
-	supportedResourceTypes := maps.Keys(envoyResourceTypeMappings)
-	slices.Sort(supportedResourceTypes)
-
-	return fmt.Sprintf("[ %s ]", strings.Join(supportedResourceTypes, " | "))
+	return fmt.Sprintf("[ %s ]", strings.Join(slices.Sorted(maps.Keys(envoyResourceTypeMappings)), " | "))
 }

@@ -75,13 +75,13 @@ func TestBackendRemoval(t *testing.T) {
 			changesInExistingBackends++
 		} else {
 			// Check that "three" placement was overridden by "one" or "two"
-			require.Equal(t, true, after[pos] == 0 || after[pos] == 1)
+			require.True(t, after[pos] == 0 || after[pos] == 1)
 		}
 	}
 
 	// Check that count of changes of existing backends is less than
 	// 1% (should be guaranteed by |backends| * 100 < M)
-	require.Equal(t, true, float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0)
+	require.Less(t, float64(changesInExistingBackends)/float64(m)*float64(100), 1.0)
 }
 
 func TestWeightedBackendWithRemoval(t *testing.T) {
@@ -115,21 +115,21 @@ func TestWeightedBackendWithRemoval(t *testing.T) {
 			changesInExistingBackends++
 		} else {
 			// Check that there is no ID 0 as backend "one" with ID 0 has been removed
-			require.Equal(t, true, after[pos] == 1 || after[pos] == 2 || after[pos] == 3)
+			require.True(t, after[pos] == 1 || after[pos] == 2 || after[pos] == 3)
 		}
 		backendsCounter[backend]++
 	}
 
 	// Check that count of changes of existing backends is less than
 	// 1% (should be guaranteed by |backends| * 100 < M)
-	require.Equal(t, true, float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0)
+	require.Less(t, float64(changesInExistingBackends)/float64(m)*float64(100), 1.0)
 
 	// Check that each backend is present x times using following formula:
 	// m / len(weightSum) * backend.Weight; e.g. 1021 / (2+13+111+10) * 13 = 97.6 => 98
-	require.Equal(t, true, backendsCounter[0] == 16)
-	require.Equal(t, true, backendsCounter[1] == 98)
-	require.Equal(t, true, backendsCounter[2] == 832)
-	require.Equal(t, true, backendsCounter[3] == 75)
+	require.EqualValues(t, 16, backendsCounter[0])
+	require.EqualValues(t, 98, backendsCounter[1])
+	require.EqualValues(t, 832, backendsCounter[2])
+	require.EqualValues(t, 75, backendsCounter[3])
 }
 
 func BenchmarkGetMaglevTable(b *testing.B) {
@@ -148,7 +148,7 @@ func BenchmarkGetMaglevTable(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		table := GetLookupTable(backends, m)
-		require.Equal(b, int(m), len(table))
+		require.Len(b, table, int(m))
 	}
 	b.StopTimer()
 }

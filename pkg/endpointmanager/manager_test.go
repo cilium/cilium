@@ -54,7 +54,7 @@ func (mgr *endpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
 }
 
 type EndpointManagerSuite struct {
-	repo *policy.Repository
+	repo policy.PolicyRepository
 }
 
 func setupEndpointManagerSuite(tb testing.TB) *EndpointManagerSuite {
@@ -64,7 +64,7 @@ func setupEndpointManagerSuite(tb testing.TB) *EndpointManagerSuite {
 	return s
 }
 
-func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {
+func (s *EndpointManagerSuite) GetPolicyRepository() policy.PolicyRepository {
 	return s.repo
 }
 
@@ -460,7 +460,7 @@ func TestLookupCiliumID(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 2, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 2, endpoint.StateReady)
 	type args struct {
 		id uint16
 	}
@@ -478,7 +478,7 @@ func TestLookupCiliumID(t *testing.T) {
 			name: "existing cilium ID",
 			preTestRun: func() {
 				ep.ID = 1
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -533,8 +533,8 @@ func TestLookupCNIAttachmentID(t *testing.T) {
 		ContainerID:            "foo",
 		ContainerInterfaceName: "bar",
 	})
-	require.Nil(t, err)
-	require.Nil(t, mgr.expose(ep))
+	require.NoError(t, err)
+	require.NoError(t, mgr.expose(ep))
 
 	good := mgr.LookupCNIAttachmentID("foo:bar")
 	require.EqualValues(t, ep, good)
@@ -550,7 +550,7 @@ func TestLookupIPv4(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 4, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 4, endpoint.StateReady)
 	type args struct {
 		ip string
 	}
@@ -568,7 +568,7 @@ func TestLookupIPv4(t *testing.T) {
 			name: "existing LookupIPv4",
 			preTestRun: func() {
 				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -637,7 +637,7 @@ func TestLookupCEPName(t *testing.T) {
 				K8sPodName:   "foo",
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -662,7 +662,7 @@ func TestLookupCEPName(t *testing.T) {
 				DisableLegacyIdentifiers: true,
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -773,7 +773,7 @@ func TestUpdateReferences(t *testing.T) {
 func TestRemove(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 7, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 7, endpoint.StateReady)
 	type args struct{}
 	type want struct{}
 	tests := []struct {
@@ -787,7 +787,7 @@ func TestRemove(t *testing.T) {
 			name: "Updating all references",
 			preTestRun: func() {
 				ep.ID = 1
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{}
@@ -803,8 +803,8 @@ func TestRemove(t *testing.T) {
 		tt.preTestRun()
 
 		mgr.RemoveAll(t)
-		require.Equal(t, 0, len(mgr.endpoints), "Test Name: %s", tt.name)
-		require.Equal(t, 0, len(mgr.endpointsAux), "Test Name: %s", tt.name)
+		require.Empty(t, mgr.endpoints, "Test Name: %s", tt.name)
+		require.Empty(t, mgr.endpointsAux, "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
 }
@@ -813,7 +813,7 @@ func TestHasGlobalCT(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 	type want struct {
 		result bool
 	}
@@ -828,7 +828,7 @@ func TestHasGlobalCT(t *testing.T) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupWant: func() want {
 				return want{
@@ -837,7 +837,7 @@ func TestHasGlobalCT(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 				ep.ID = 0
 				ep.Options = nil
 			},
@@ -848,7 +848,7 @@ func TestHasGlobalCT(t *testing.T) {
 				ep.ID = 1
 				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
 				ep.Options.SetIfUnset(option.ConntrackLocal, option.OptionEnabled)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupWant: func() want {
 				return want{
@@ -857,7 +857,7 @@ func TestHasGlobalCT(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 				ep.ID = 0
 				ep.Options = nil
 			},
@@ -875,7 +875,7 @@ func TestHasGlobalCT(t *testing.T) {
 func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	mgr := New(&dummyEpSyncher{}, nil, nil)
-	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 	type args struct {
 		ctx    context.Context
 		rev    uint64
@@ -897,7 +897,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(5)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -913,7 +913,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -921,7 +921,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(5)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				ctx, cancel := context.WithTimeout(context.Background(), 0)
@@ -939,7 +939,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -947,7 +947,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(4)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -965,7 +965,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 			},
 		},
 	}
@@ -995,19 +995,19 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	mgr.startNodeLabelsObserver(nil)
 	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k1": "v1"} })
 	_, ok := mgr.endpoints[hostEPID]
-	require.EqualValues(t, ok, false)
+	require.False(t, ok)
 
 	// Create host endpoint and expose it in the endpoint manager.
-	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+	ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 	ep.SetIsHost(true)
 	ep.ID = hostEPID
-	require.Nil(t, mgr.expose(ep))
+	require.NoError(t, mgr.expose(ep))
 
 	// Update node labels and verify that the node labels are updated correctly even if the old
 	// labels {k1=v1} are not present in the endpoint manager's state.
 	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k2": "v2"} })
 	hostEP, ok := mgr.endpoints[hostEPID]
-	require.EqualValues(t, ok, true)
+	require.True(t, ok)
 	got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
 	require.EqualValues(t, map[string]string{"k2": "v2"}, got)
 }
@@ -1035,10 +1035,10 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		{
 			name: "Add labels",
 			preTestRun: func() {
-				ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -1060,11 +1060,11 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		{
 			name: "Update labels",
 			preTestRun: func() {
-				ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
 				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -1087,11 +1087,11 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		{
 			name: "Ignore labels",
 			preTestRun: func() {
-				ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+				ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
 				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -1123,7 +1123,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = args.newLabels })
 
 		hostEP, ok := mgr.endpoints[hostEPID]
-		require.EqualValues(t, ok, true)
+		require.True(t, ok)
 		got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
 		want.labelsCheck(t, want.labels, got, "Test Name: %s", tt.name)
 		tt.postTestRun()

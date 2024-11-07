@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/cilium/fake"
-	"github.com/google/gopacket/layers"
+	"github.com/gopacket/gopacket/layers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,6 +68,7 @@ func noopParser(t testing.TB) *parser.Parser {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
+		true,
 	)
 	require.NoError(t, err)
 	return pp
@@ -251,7 +252,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 	// Make sure that all peers are connected
 	nodesResp, err := client.GetNodes(ctx, &observerpb.GetNodesRequest{})
 	require.NoError(b, err)
-	require.Equal(b, numPeers, len(nodesResp.Nodes))
+	require.Len(b, nodesResp.Nodes, numPeers)
 
 	getFlowsReq := new(observerpb.GetFlowsRequest)
 	if withFieldMask {
@@ -285,7 +286,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 		case *observerpb.GetFlowsResponse_NodeStatus:
 		}
 	}
-	assert.Equal(b, numFlows, len(found))
+	assert.Len(b, found, numFlows)
 	b.StopTimer()
 
 	for _, f := range found {

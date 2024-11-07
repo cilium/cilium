@@ -33,7 +33,7 @@ func TestUTime(t *testing.T) {
 func TestGetBoottime(t *testing.T) {
 	boottime, err := getBoottime()
 	log.Infof("Adjusted boot time: %s", boottime)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -42,17 +42,17 @@ func TestGetBoottime(t *testing.T) {
 	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &timespec)
 	timeNow := time.Now()
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	now := boottime.Add(time.Duration(timespec.Nano()))
 	diff := timeNow.Sub(now)
 
 	// Local testing showed a difference of less than a second,
 	// fail test if more than 5 seconds
-	require.Equal(t, true, diff < (time.Second*5))
+	require.Less(t, diff, (time.Second * 5))
 
 	// There should be non-zero nanosecond component in boottime that accounts for the time the
 	// boottime and monotonic clocks in all cases, as the boottime clock is sampled after the
 	// monotonic clock. This will flake if that delta is an exact number of seconds, but this
 	// should be unlikely.
-	require.Equal(t, true, boottime.Nanosecond() > 0)
+	require.Positive(t, boottime.Nanosecond())
 }

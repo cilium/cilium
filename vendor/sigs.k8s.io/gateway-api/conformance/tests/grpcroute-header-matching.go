@@ -38,7 +38,7 @@ var GRPCRouteHeaderMatching = suite.ConformanceTest{
 	ShortName:   "GRPCRouteHeaderMatching",
 	Description: "A single GRPCRoute with header matching for different backends",
 	Manifests:   []string{"tests/grpcroute-header-matching.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportGRPCRoute,
 	},

@@ -7,8 +7,8 @@ package v2
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -25,25 +25,17 @@ type CiliumNodeConfigLister interface {
 
 // ciliumNodeConfigLister implements the CiliumNodeConfigLister interface.
 type ciliumNodeConfigLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v2.CiliumNodeConfig]
 }
 
 // NewCiliumNodeConfigLister returns a new CiliumNodeConfigLister.
 func NewCiliumNodeConfigLister(indexer cache.Indexer) CiliumNodeConfigLister {
-	return &ciliumNodeConfigLister{indexer: indexer}
-}
-
-// List lists all CiliumNodeConfigs in the indexer.
-func (s *ciliumNodeConfigLister) List(selector labels.Selector) (ret []*v2.CiliumNodeConfig, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.CiliumNodeConfig))
-	})
-	return ret, err
+	return &ciliumNodeConfigLister{listers.New[*v2.CiliumNodeConfig](indexer, v2.Resource("ciliumnodeconfig"))}
 }
 
 // CiliumNodeConfigs returns an object that can list and get CiliumNodeConfigs.
 func (s *ciliumNodeConfigLister) CiliumNodeConfigs(namespace string) CiliumNodeConfigNamespaceLister {
-	return ciliumNodeConfigNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return ciliumNodeConfigNamespaceLister{listers.NewNamespaced[*v2.CiliumNodeConfig](s.ResourceIndexer, namespace)}
 }
 
 // CiliumNodeConfigNamespaceLister helps list and get CiliumNodeConfigs.
@@ -61,26 +53,5 @@ type CiliumNodeConfigNamespaceLister interface {
 // ciliumNodeConfigNamespaceLister implements the CiliumNodeConfigNamespaceLister
 // interface.
 type ciliumNodeConfigNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all CiliumNodeConfigs in the indexer for a given namespace.
-func (s ciliumNodeConfigNamespaceLister) List(selector labels.Selector) (ret []*v2.CiliumNodeConfig, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.CiliumNodeConfig))
-	})
-	return ret, err
-}
-
-// Get retrieves the CiliumNodeConfig from the indexer for a given namespace and name.
-func (s ciliumNodeConfigNamespaceLister) Get(name string) (*v2.CiliumNodeConfig, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2.Resource("ciliumnodeconfig"), name)
-	}
-	return obj.(*v2.CiliumNodeConfig), nil
+	listers.ResourceIndexer[*v2.CiliumNodeConfig]
 }

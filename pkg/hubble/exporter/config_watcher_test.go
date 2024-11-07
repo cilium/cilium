@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/test/helpers"
 )
 
 func TestYamlConfigFileUnmarshalling(t *testing.T) {
@@ -24,9 +25,9 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 	assert.NoError(t, err)
 
 	// then
-	assert.Equal(t, 3, len(config.FlowLogs))
+	assert.Len(t, config.FlowLogs, 3)
 
-	assert.Equal(t, uint64(0x31b7b661343ab32f), hash)
+	assert.Equal(t, uint64(0x912a996c7b013eb3), hash, "hash should match")
 
 	expectedDate := time.Date(2023, 10, 9, 23, 59, 59, 0, time.FixedZone("", -7*60*60))
 
@@ -45,7 +46,8 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 			FieldMask: FieldMask{"source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"},
 			IncludeFilters: FlowFilters{
 				{
-					SourcePod: []string{"default/"},
+					SourcePod:   []string{"default/"},
+					SourceLabel: []string{"networking.example.com/flow-logs=enabled"},
 					EventType: []*flow.EventTypeFilter{
 						{Type: 1},
 					},
@@ -72,7 +74,7 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 	}
 
 	for i := range expectedConfigs {
-		assertFlowLogConfig(t, expectedConfigs[i], *config.FlowLogs[i])
+		helpers.AssertProtoEqual(t, expectedConfigs[i], *config.FlowLogs[i])
 	}
 }
 
@@ -87,7 +89,7 @@ func TestEmptyYamlConfigFileUnmarshalling(t *testing.T) {
 	assert.NoError(t, err)
 
 	// then
-	assert.Equal(t, 0, len(config.FlowLogs))
+	assert.Empty(t, config.FlowLogs)
 	assert.Equal(t, uint64(0x4b2008fd98c1dd4), hash)
 }
 
@@ -145,26 +147,5 @@ func TestReloadNotificationReceived(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		return configReceived
 	}, 1*time.Second, 1*time.Millisecond)
-
-}
-
-func assertFlowLogConfig(t *testing.T, expected, actual FlowLogConfig) {
-
-	assert.Equal(t, expected.Name, actual.Name)
-	assert.Equal(t, expected.FilePath, actual.FilePath)
-	assert.Equal(t, expected.FieldMask, actual.FieldMask)
-	assert.Equal(t, len(expected.IncludeFilters), len(actual.IncludeFilters))
-	for i := range expected.IncludeFilters {
-		assert.Equal(t, expected.IncludeFilters[i].String(), actual.IncludeFilters[i].String())
-	}
-	assert.Equal(t, len(expected.ExcludeFilters), len(actual.ExcludeFilters))
-	for i := range expected.ExcludeFilters {
-		assert.Equal(t, expected.ExcludeFilters[i].String(), actual.ExcludeFilters[i].String())
-	}
-	if expected.End == nil {
-		assert.Nil(t, actual.End)
-	} else {
-		assert.True(t, expected.End.Equal(*actual.End), "expected %s vs actual %s", expected.End.String(), actual.End.String())
-	}
 
 }

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"sort"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"text/template"
@@ -452,7 +452,7 @@ func (c *cniConfigManager) findCNINetwork(wantNetwork string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list files in %s: %w", c.cniConfDir, err)
 	}
-	sort.Strings(files)
+	slices.Sort(files)
 
 	for _, file := range files {
 		// Don't inject ourselves in to ourselves :-)

@@ -5,7 +5,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: cilium-envoy
-  namespace: {{ .Values.envoy.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
+  namespace: {{ .Values.envoy.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
   labels:
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-envoy
@@ -27,7 +27,7 @@ spec:
       k8s-app: cilium-envoy
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ include "cilium.namespace" . }}
   endpoints:
   - port: envoy-metrics
     interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}

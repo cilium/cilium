@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -37,6 +36,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	_ "github.com/cilium/cilium/pkg/envoy/resource"
@@ -79,18 +79,6 @@ const (
 	adminListenerName     = "envoy-admin-listener"
 )
 
-type Listener struct {
-	// must hold the xdsServer.mutex when accessing 'count'
-	count uint
-
-	// mutex is needed when accessing the fields below.
-	// xdsServer.mutex is not needed, but if taken it must be taken before 'mutex'
-	mutex   lock.RWMutex
-	acked   bool
-	nacked  bool
-	waiters []*completion.Completion
-}
-
 // XDSServer provides a high-lever interface to manage resources published using the xDS gRPC API.
 type XDSServer interface {
 	// AddListener adds a listener to a running Envoy proxy.
@@ -119,10 +107,12 @@ type XDSServer interface {
 	//
 	// Only used for testing
 	GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error)
+	// UseCurrentNetworkPolicy waits for any pending update on NetworkPolicy to be acked.
+	UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup)
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
 	// When the proxy acknowledges the network policy update, it will result in
 	// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
+	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
 	// RemoveNetworkPolicy removes network policies relevant to the specified
 	// endpoint from the set published to L7 proxies, and stops listening for
 	// acks for policies on this endpoint.
@@ -164,11 +154,11 @@ type xdsServer struct {
 	// Manages it's own locking
 	secretMutator xds.AckingResourceMutator
 
-	// listeners is the set of names of listeners that have been added by
+	// listenerCount is the set of names of listeners that have been added by
 	// calling AddListener.
 	// mutex must be held when accessing this.
 	// Value holds the number of redirects using the listener named by the key.
-	listeners map[string]*Listener
+	listenerCount map[string]uint
 
 	// proxyListeners is the count of redirection proxy listeners in 'listeners'.
 	// When this is zero, cilium should not wait for NACKs/ACKs from envoy.
@@ -223,7 +213,7 @@ type xdsServerConfig struct {
 func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig) (*xdsServer, error) {
 	return &xdsServer{
 		restorerPromise:    restorerPromise,
-		listeners:          make(map[string]*Listener),
+		listenerCount:      make(map[string]uint),
 		ipCache:            ipCache,
 		localEndpointStore: localEndpointStore,
 
@@ -390,6 +380,16 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
 					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
 				},
+			},
+		},
+		InternalAddressConfig: &envoy_config_http.HttpConnectionManager_InternalAddressConfig{
+			UnixSockets: false,
+			CidrRanges: []*envoy_config_core.CidrRange{
+				{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
+				{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
+				{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
+				{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
+				{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
 			},
 		},
 		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
@@ -765,40 +765,6 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	listener := s.listeners[name]
-	if listener == nil {
-		listener = &Listener{}
-		s.listeners[name] = listener
-		if isProxyListener {
-			s.proxyListeners++
-		}
-	}
-	listener.count++
-	listener.mutex.Lock() // needed for other than 'count'
-	if listener.count > 1 && !listener.nacked {
-		log.Debugf("Envoy: Reusing listener: %s", name)
-		call := true
-		if !listener.acked {
-			// Listener not acked yet, add a completion to the waiter's list
-			log.Debugf("Envoy: Waiting for a non-acknowledged reused listener: %s", name)
-			listener.waiters = append(listener.waiters, wg.AddCompletionWithCallback(cb))
-			call = false
-		}
-		listener.mutex.Unlock()
-
-		// call the callback with nil error if the listener was acked already
-		if call && cb != nil {
-			cb(nil)
-		}
-		return
-	}
-	// Try again after a NACK, potentially with a different port number, etc.
-	if listener.nacked {
-		listener.acked = false
-		listener.nacked = false
-	}
-	listener.mutex.Unlock() // Listener locked again in callbacks below
-
 	listenerConfig := listenerConf()
 	if option.Config.EnableBPFTProxy {
 		// Envoy since 1.20.0 uses SO_REUSEPORT on listeners by default.
@@ -814,26 +780,18 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 		return
 	}
 
+	count := s.listenerCount[name]
+	if count == 0 {
+		if isProxyListener {
+			s.proxyListeners++
+		}
+		log.WithField(logfields.Listener, name).Infof("Envoy: Upserting new listener")
+	}
+	count++
+	s.listenerCount[name] = count
+
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
 		func(err error) {
-			// listener might have already been removed, so we can't look again
-			// but we still need to complete all the completions in case
-			// someone is still waiting!
-			listener.mutex.Lock()
-			if err == nil {
-				// Allow future users to not need to wait
-				listener.acked = true
-			} else {
-				// Prevent further reuse of a failed listener
-				listener.nacked = true
-			}
-			// Pass the completion result to all the additional waiters.
-			for _, waiter := range listener.waiters {
-				_ = waiter.Complete(err)
-			}
-			listener.waiters = nil
-			listener.mutex.Unlock()
-
 			if cb != nil {
 				cb(err)
 			}
@@ -1012,15 +970,18 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 	var listenerRevertFunc xds.AckingResourceMutatorRevertFunc
 
 	s.mutex.Lock()
-	listener, ok := s.listeners[name]
-	if ok && listener != nil {
-		listener.count--
-		if listener.count == 0 {
+	count := s.listenerCount[name]
+	if count > 0 {
+		count--
+		if count == 0 {
 			if isProxyListener {
 				s.proxyListeners--
 			}
-			delete(s.listeners, name)
+			delete(s.listenerCount, name)
+			log.WithField(logfields.Listener, name).Infof("Envoy: Deleting listener")
 			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+		} else {
+			s.listenerCount[name] = count
 		}
 	} else {
 		// Bail out if this listener does not exist
@@ -1036,8 +997,7 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 				s.proxyListeners++
 			}
 		}
-		listener.count++
-		s.listeners[name] = listener
+		s.listenerCount[name] = s.listenerCount[name] + 1
 		s.mutex.Unlock()
 	}
 }
@@ -1338,7 +1298,8 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 }
 
 var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
-	ResourceApiVersion: envoy_config_core.ApiVersion_V3,
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 30},
+	ResourceApiVersion:  envoy_config_core.ApiVersion_V3,
 	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
 		ApiConfigSource: &envoy_config_core.ApiConfigSource{
 			ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
@@ -1414,13 +1375,13 @@ func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *
 	return nil, true
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
+func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{}
 
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
-		selections := sel.GetSelections()
+		selections := sel.GetSelections(version)
 
 		// No remote policies would match this rule. Discard it.
 		if len(selections) == 0 {
@@ -1464,7 +1425,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 		for sni := range l7Rules.ServerNames {
 			r.ServerNames = append(r.ServerNames, sni)
 		}
-		sort.Strings(r.ServerNames)
+		slices.Sort(r.ServerNames)
 	}
 
 	// Assume none of the rules have side-effects so that rule evaluation can
@@ -1519,14 +1480,14 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 
 // getWildcardNetworkPolicyRule returns the rule for port 0, which
 // will be considered after port-specific rules.
-func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
+func getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
 	if len(selectors) == 1 {
 		for sel := range selectors {
 			if sel.IsWildcard() {
 				return &cilium.PortNetworkPolicyRule{}
 			}
-			selections := sel.GetSelections()
+			selections := sel.GetSelections(version)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
@@ -1554,7 +1515,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 			log.Warningf("L3-only rule for selector %v surprisingly requires proxy redirection (%v)!", sel, *l7)
 		}
 
-		selections := sel.GetSelections()
+		selections := sel.GetSelections(version)
 		if len(selections) == 0 {
 			continue
 		}
@@ -1584,32 +1545,18 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext bool, dir string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
-		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis)+1)
 		// Always allow all ports
-		PerPortPolicies = append(PerPortPolicies, allowAllTCPPortNetworkPolicy)
-		for _, visMeta := range vis {
-			// Set up rule with 'L7Proto' as needed for proxylib parsers
-			if visMeta.Proto == u8proto.TCP && visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
-				PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
-					Port:     uint32(visMeta.Port),
-					Protocol: envoy_config_core.SocketAddress_TCP,
-					Rules: []*cilium.PortNetworkPolicyRule{
-						{
-							L7Proto: visMeta.Parser.String(),
-						},
-					},
-				})
-			}
-		}
-		return SortPortNetworkPolicies(PerPortPolicies)
+		return []*cilium.PortNetworkPolicy{allowAllTCPPortNetworkPolicy}
 	}
 
 	if l4Policy == nil || l4Policy.Len() == 0 {
 		return nil
 	}
+
+	version := ep.GetPolicyVersionHandle()
 
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, l4Policy.Len())
 	l4Policy.ForEach(func(l4 *policy.L4Filter) bool {
@@ -1624,7 +1571,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 
 		port := l4.Port
 		if port == 0 && l4.PortName != "" {
-			port = ep.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
+			port = ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto)
 			if port == 0 {
 				return true // Skip if a named port can not be resolved (yet)
 			}
@@ -1642,10 +1589,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		if port == 0 {
 			// L3-only rule, must generate L7 allow-all in case there are other
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
-			rule := getWildcardNetworkPolicyRule(l4.PerSelectorPolicies)
+			rule := getWildcardNetworkPolicyRule(version, l4.PerSelectorPolicies)
 			if rule != nil {
 				log.WithFields(logrus.Fields{
 					logfields.EndpointID:       ep.GetID(),
+					logfields.Version:          version,
 					logfields.TrafficDirection: dir,
 					logfields.Port:             port,
 					logfields.PolicyID:         rule.RemotePolicies,
@@ -1666,7 +1614,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
 				// being different between the selectors.
 				wildcard := nSelectors == 1 || sel.IsWildcard()
-				rule, cs := getPortNetworkPolicyRule(sel, wildcard, l4.L7Parser, l7, useFullTLSContext)
+				rule, cs := getPortNetworkPolicyRule(version, sel, wildcard, l4.L7Parser, l7, useFullTLSContext)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false
@@ -1674,6 +1622,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 
 					log.WithFields(logrus.Fields{
 						logfields.EndpointID:       ep.GetID(),
+						logfields.Version:          version,
 						logfields.TrafficDirection: dir,
 						logfields.Port:             port,
 						logfields.PolicyID:         rule.RemotePolicies,
@@ -1691,7 +1640,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		}
 		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
 		if allowAll && canShortCircuit {
-			log.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
+			log.WithFields(logrus.Fields{
+				logfields.EndpointID:       ep.GetID(),
+				logfields.TrafficDirection: dir,
+				logfields.Port:             port,
+			}).Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
 			rules = nil
 		}
 
@@ -1700,6 +1653,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		// In this case, just don't generate any PortNetworkPolicy for this
 		// port.
 		if !allowAll && len(rules) == 0 {
+			log.WithFields(logrus.Fields{
+				logfields.EndpointID:       ep.GetID(),
+				logfields.TrafficDirection: dir,
+				logfields.Port:             port,
+			}).Debug("Skipping PortNetworkPolicy due to no matching remote identities")
 			return true
 		}
 
@@ -1721,7 +1679,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, ips []string, l4Policy *policy.L4Policy,
+func getNetworkPolicy(ep endpoint.EndpointUpdater, ips []string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext bool,
 ) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
@@ -1730,20 +1688,14 @@ func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy,
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
 
-	var visIngress policy.DirectionalVisibilityPolicy
-	var visEgress policy.DirectionalVisibilityPolicy
-	if vis != nil {
-		visIngress = vis.Ingress
-		visEgress = vis.Egress
-	}
 	var ingressMap policy.L4PolicyMap
 	var egressMap policy.L4PolicyMap
 	if l4Policy != nil {
 		ingressMap = l4Policy.Ingress.PortRules
 		egressMap = l4Policy.Egress.PortRules
 	}
-	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, useFullTLSContext, visIngress, "ingress")
-	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, useFullTLSContext, visEgress, "egress")
+	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, useFullTLSContext, "ingress")
+	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, useFullTLSContext, "egress")
 
 	return p
 }
@@ -1764,7 +1716,24 @@ func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 	return nodeIDs
 }
 
-func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
+func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// If there are no listeners configured, the local node's Envoy proxy won't
+	// query for network policies and therefore will never ACK them, and we'd
+	// wait forever.
+	if s.proxyListeners == 0 {
+		wg = nil
+	}
+
+	nodeIDs := getNodeIDs(ep, policy)
+
+	// only wait for the most current policy to be acked when no (new) policy is given
+	s.NetworkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
+}
+
+func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup,
 ) (error, func() error) {
 	s.mutex.Lock()
@@ -1788,15 +1757,13 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 		return nil, func() error { return nil }
 	}
 
-	networkPolicy := getNetworkPolicy(ep, vis, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext)
+	networkPolicy := getNetworkPolicy(ep, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext)
 
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
 		return fmt.Errorf("error validating generated NetworkPolicy for Endpoint %d: %w", ep.GetID(), err), nil
 	}
-
-	nodeIDs := getNodeIDs(ep, policy)
 
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
@@ -1816,6 +1783,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 		}
 	}
 	epID := ep.GetID()
+	nodeIDs := getNodeIDs(ep, policy)
 	resourceName := strconv.FormatUint(epID, 10)
 	revertFunc := s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 	revertUpdatedNetworkPolicyEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))

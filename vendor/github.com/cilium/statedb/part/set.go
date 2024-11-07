@@ -7,6 +7,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
+	"slices"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Set is a persistent (immutable) set of values. A Set can be
@@ -68,11 +72,11 @@ func (s Set[T]) Has(v T) bool {
 }
 
 // All returns an iterator for all values.
-func (s Set[T]) All() SetIterator[T] {
+func (s Set[T]) All() iter.Seq[T] {
 	if s.tree == nil {
-		return SetIterator[T]{nil}
+		return toSeq[T](nil)
 	}
-	return SetIterator[T]{s.tree.Iterator()}
+	return toSeq(s.tree.Iterator())
 }
 
 // Union returns a set that is the union of the values
@@ -142,22 +146,6 @@ func (s Set[T]) Equal(other Set[T]) bool {
 	}
 }
 
-// Slice converts the set into a slice.
-// Note that this allocates a new slice and appends
-// all values into it. If you just want to iterate over
-// the set use All() instead.
-func (s Set[T]) Slice() []T {
-	if s.tree == nil {
-		return nil
-	}
-	xs := make([]T, 0, s.Len())
-	iter := s.All()
-	for v, ok := iter.Next(); ok; v, ok = iter.Next() {
-		xs = append(xs, v)
-	}
-	return xs
-}
-
 // ToBytesFunc returns the function to extract the key from
 // the element type. Useful for utilities that are interested
 // in the key.
@@ -223,17 +211,42 @@ func (s *Set[T]) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// SetIterator iterates over values in a set.
-type SetIterator[T any] struct {
-	iter *Iterator[T]
+func (s Set[T]) MarshalYAML() (any, error) {
+	// TODO: Once yaml.v3 supports iter.Seq, drop the Collect().
+	return slices.Collect(s.All()), nil
 }
 
-// Next returns the next value or false if all have
-// been iterated over.
-func (it SetIterator[T]) Next() (v T, ok bool) {
-	if it.iter == nil {
-		return
+func (s *Set[T]) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind != yaml.SequenceNode {
+		return fmt.Errorf("%T.UnmarshalYAML: expected sequence", s)
 	}
-	_, v, ok = it.iter.Next()
-	return
+
+	if s.tree == nil {
+		*s = NewSet[T]()
+	}
+	txn := s.tree.Txn()
+
+	for _, e := range value.Content {
+		var v T
+		if err := e.Decode(&v); err != nil {
+			return err
+		}
+		txn.Insert(s.toBytes(v), v)
+	}
+	s.tree = txn.CommitOnly()
+	return nil
+}
+
+func toSeq[T any](iter *Iterator[T]) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		if iter == nil {
+			return
+		}
+		iter = iter.Clone()
+		for _, x, ok := iter.Next(); ok; _, x, ok = iter.Next() {
+			if !yield(x) {
+				break
+			}
+		}
+	}
 }

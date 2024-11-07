@@ -32,7 +32,7 @@ func init() {
 var MeshFrontendHostname = suite.ConformanceTest{
 	ShortName:   "MeshFrontendHostname",
 	Description: "Mesh parentRef matches Service IP (not Host)",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportMesh,
 		features.SupportMeshClusterIPMatching,
 		features.SupportHTTPRoute,

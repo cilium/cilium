@@ -80,7 +80,10 @@ type CreateNetworkInterfaceInput struct {
 
 	// The type of network interface. The default is interface .
 	//
-	// The only supported values are interface , efa , and trunk .
+	// If you specify efa-only , do not assign any IP addresses to the network
+	// interface. EFA-only network interfaces do not support IP addresses.
+	//
+	// The only supported values are interface , efa , efa-only , and trunk .
 	InterfaceType types.NetworkInterfaceCreationType
 
 	// The number of IPv4 prefixes that Amazon Web Services automatically assigns to
@@ -219,6 +222,9 @@ func (c *Client) addOperationCreateNetworkInterfaceMiddlewares(stack *middleware
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -259,6 +265,18 @@ func (c *Client) addOperationCreateNetworkInterfaceMiddlewares(stack *middleware
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

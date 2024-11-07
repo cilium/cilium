@@ -31,6 +31,7 @@
 #include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/nodeport.h"
+#include "lib/nodeport_egress.h"
 #include "lib/clustermesh.h"
 #include "lib/egress_gateway.h"
 
@@ -139,7 +140,7 @@ not_esp:
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
-	if (ep && !(ep->flags & ENDPOINT_F_HOST))
+	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
 		return ipv6_local_delivery(ctx, l3_off, *identity, MARK_MAGIC_IDENTITY,
 					   ep, METRIC_INGRESS, false, true);
 
@@ -246,7 +247,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep) {
 		/* We don't support inter-cluster SNAT from host */
-		if (ep->flags & ENDPOINT_F_HOST)
+		if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY)
 			return ipv4_host_delivery(ctx, ip4);
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity,
@@ -447,7 +448,7 @@ not_esp:
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);
-	if (ep && !(ep->flags & ENDPOINT_F_HOST))
+	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
 					   ip4, ep, METRIC_INGRESS, false, true, 0);
 

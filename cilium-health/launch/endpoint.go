@@ -19,11 +19,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -55,9 +57,6 @@ const (
 
 	// epIfaceName is the endpoint-side link device name for cilium-health.
 	epIfaceName = "cilium"
-
-	// PidfilePath
-	PidfilePath = "health-endpoint.pid"
 
 	// LaunchTime is the expected time within which the health endpoint
 	// should be able to be successfully run and its BPF program attached.
@@ -109,7 +108,7 @@ func configureHealthRouting(routes []route.Route, dev string) error {
 
 // configureHealthInterface is meant to be run inside the health service netns
 func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error {
-	link, err := netlink.LinkByName(ifName)
+	link, err := safenetlink.LinkByName(ifName)
 	if err != nil {
 		return err
 	}
@@ -118,10 +117,9 @@ func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error 
 		// Use the direct sysctl without reconciliation of errors since we're in a different
 		// network namespace and thus can't use the normal sysctl API.
 		sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), option.Config.ProcFs)
-		name := fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", ifName)
 		// Ignore the error; if IPv6 is completely disabled
 		// then it's okay if we can't write the sysctl.
-		_ = sysctl.Enable(name)
+		_ = sysctl.Enable([]string{"net", "ipv6", "conf", ifName, "disable_ipv6"})
 	} else {
 		if err = netlink.AddrAdd(link, &netlink.Addr{IPNet: ip6Addr}); err != nil {
 			return err
@@ -138,7 +136,7 @@ func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error 
 		return err
 	}
 
-	lo, err := netlink.LinkByName("lo")
+	lo, err := safenetlink.LinkByName("lo")
 	if err != nil {
 		return err
 	}
@@ -171,7 +169,7 @@ func (c *Client) PingEndpoint() error {
 //   - The health endpoint crashed during the current run of the Cilium agent
 //     and needs to be cleaned up before it is restarted.
 func KillEndpoint() {
-	path := filepath.Join(option.Config.StateDir, PidfilePath)
+	path := filepath.Join(option.Config.StateDir, healthDefaults.PidfilePath)
 	scopedLog := log.WithField(logfields.PIDFile, path)
 	scopedLog.Debug("Killing old health endpoint process")
 	pid, err := pidfile.Kill(path)
@@ -196,7 +194,7 @@ func CleanupEndpoint() {
 	case datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
 		for _, iface := range []string{legacyHealthName, healthName} {
 			scopedLog := log.WithField(logfields.Interface, iface)
-			if link, err := netlink.LinkByName(iface); err == nil {
+			if link, err := safenetlink.LinkByName(iface); err == nil {
 				err = netlink.LinkDel(link)
 				if err != nil {
 					scopedLog.WithError(err).Infof("Couldn't delete cilium-health %s device",
@@ -303,7 +301,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		return nil, fmt.Errorf("failed configure health interface %q: %w", epIfaceName, err)
 	}
 
-	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
+	pidfile := filepath.Join(option.Config.StateDir, healthDefaults.PidfilePath)
 	args := []string{"--listen", strconv.Itoa(option.Config.ClusterHealthPort), "--pidfile", pidfile}
 	cmd.SetTarget(binaryName)
 	cmd.SetArgs(args)
@@ -380,7 +378,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 }
 
 type policyRepoGetter interface {
-	GetPolicyRepository() *policy.Repository
+	GetPolicyRepository() policy.PolicyRepository
 }
 
 type routingConfigurer interface {

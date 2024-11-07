@@ -107,7 +107,7 @@ func Enable(sysctl sysctl.Sysctl) error {
 	}
 
 	// v6 will be non-nil if v6 support is compiled out.
-	_, v6 := sysctl.ReadInt("net.ipv6.conf.all.forwarding")
+	_, v6 := sysctl.ReadInt([]string{"net", "ipv6", "conf", "all", "forwarding"})
 
 	if option.Config.EnableIPv6 ||
 		(option.Config.EnableIPv4 && v6 == nil) {

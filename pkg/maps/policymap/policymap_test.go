@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -163,22 +164,21 @@ const (
 	deny
 )
 
-type direction int
-
 const (
-	ingress direction = iota
-	egress
+	ingress = trafficdirection.Ingress
+	egress  = trafficdirection.Egress
 )
 
 func TestPolicyMapWildcarding(t *testing.T) {
 	type args struct {
 		op               opType
-		id               int
-		dport            int
-		proto            int
-		trafficDirection direction
+		id               identity.NumericIdentity
+		dport            uint16
+		dportPrefixLen   uint8
+		proto            u8proto.U8proto
+		trafficDirection trafficdirection.TrafficDirection
 		authType         int
-		proxyPort        int
+		proxyPort        uint16
 	}
 	tests := []struct {
 		name string
@@ -186,85 +186,94 @@ func TestPolicyMapWildcarding(t *testing.T) {
 	}{
 		{
 			name: "Allow, no wildcarding, no redirection",
-			args: args{allow, 42, 80, 6, ingress, 0, 0},
+			args: args{allow, 42, 80, 16, 6, ingress, 0, 0},
 		},
 		{
 			name: "Allow, no wildcarding, with redirection and auth",
-			args: args{allow, 42, 80, 6, ingress, 1, 23767},
+			args: args{allow, 42, 80, 16, 6, ingress, 1, 23767},
 		},
 		{
 			name: "Allow, wildcarded port, no redirection",
-			args: args{allow, 42, 0, 6, ingress, 0, 0},
+			args: args{allow, 42, 0, 0, 6, ingress, 0, 0},
 		},
 		{
 			name: "Allow, wildcarded protocol, no redirection",
-			args: args{allow, 42, 0, 0, ingress, 0, 0},
+			args: args{allow, 42, 0, 0, 0, ingress, 0, 0},
 		},
 		{
 			name: "Deny, no wildcarding, no redirection",
-			args: args{deny, 42, 80, 6, ingress, 0, 0},
+			args: args{deny, 42, 80, 16, 6, ingress, 0, 0},
+		},
+		{
+			name: "Deny, partially wildcarded port, no redirection",
+			args: args{deny, 42, 80, 15, 6, ingress, 0, 0},
 		},
 		{
 			name: "Deny, no wildcarding, no redirection",
-			args: args{deny, 42, 80, 6, ingress, 0, 0},
+			args: args{deny, 42, 80, 16, 6, ingress, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded port, no redirection",
-			args: args{deny, 42, 0, 6, ingress, 0, 0},
+			args: args{deny, 42, 0, 0, 6, ingress, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded protocol, no redirection",
-			args: args{deny, 42, 0, 0, ingress, 0, 0},
+			args: args{deny, 42, 0, 0, 0, ingress, 0, 0},
 		},
 		{
 			name: "Allow, wildcarded id, no port wildcarding, no redirection",
-			args: args{allow, 0, 80, 6, ingress, 0, 0},
+			args: args{allow, 0, 80, 16, 6, ingress, 0, 0},
 		},
 		{
 			name: "Allow, wildcarded id, no port wildcarding, with redirection and auth",
-			args: args{allow, 0, 80, 6, ingress, 1, 23767},
+			args: args{allow, 0, 80, 16, 6, ingress, 1, 23767},
 		},
 		{
 			name: "Allow, wildcarded id, wildcarded port, no redirection",
-			args: args{allow, 0, 0, 6, ingress, 0, 0},
+			args: args{allow, 0, 0, 0, 6, ingress, 0, 0},
+		},
+		{
+			name: "Allow, wildcarded id, partially wildcarded port, no redirection",
+			args: args{allow, 0, 80, 10, 6, ingress, 0, 0},
 		},
 		{
 			name: "Allow, wildcarded id, wildcarded protocol, no redirection",
-			args: args{allow, 0, 0, 0, ingress, 0, 0},
+			args: args{allow, 0, 0, 0, 0, ingress, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded id, no port wildcarding, no redirection",
-			args: args{deny, 0, 80, 6, ingress, 0, 0},
+			args: args{deny, 0, 80, 16, 6, ingress, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded id, no port wildcarding, no redirection",
-			args: args{deny, 0, 80, 6, ingress, 0, 0},
+			args: args{deny, 0, 80, 16, 6, ingress, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded id, wildcarded port, no redirection",
-			args: args{deny, 0, 0, 6, ingress, 0, 0},
+			args: args{deny, 0, 0, 0, 6, ingress, 0, 0},
 		},
 		{
 			name: "Deny, wildcarded id, wildcarded protocol, no redirection",
-			args: args{deny, 0, 0, 0, ingress, 0, 0},
+			args: args{deny, 0, 0, 0, 0, ingress, 0, 0},
 		},
 	}
 	for _, tt := range tests {
 		// Validate test data
 		if tt.args.proto == 0 {
-			require.Equal(t, 0, tt.args.dport, "Test: %s data error: dport must be wildcarded when protocol is wildcarded", tt.name)
+			require.Equal(t, uint16(0), tt.args.dport, "Test: %s data error: dport must be wildcarded when protocol is wildcarded", tt.name)
+			require.Equal(t, uint8(0), tt.args.dportPrefixLen, "Test: %s data error: dport prefix length must be 0 when protocol is wildcarded", tt.name)
 		}
 		if tt.args.dport == 0 {
-			require.Equal(t, 0, tt.args.proxyPort, "Test: %s data error: proxyPort must be zero when dport is wildcarded", tt.name)
+			require.Equal(t, uint8(0), tt.args.dportPrefixLen, "Test: %s data error: dport prefix length must be 0 when dport is wildcarded", tt.name)
+			require.Equal(t, uint16(0), tt.args.proxyPort, "Test: %s data error: proxyPort must be zero when dport is wildcarded", tt.name)
 		}
 		if tt.args.op == deny {
-			require.Equal(t, 0, tt.args.proxyPort, "Test: %s data error: proxyPort must be zero with a deny key", tt.name)
+			require.Equal(t, uint16(0), tt.args.proxyPort, "Test: %s data error: proxyPort must be zero with a deny key", tt.name)
 			require.Equal(t, 0, tt.args.authType, "Test: %s data error: authType must be zero with a deny key", tt.name)
 		}
 
 		// Get key
-		key := newKey(uint32(tt.args.id), uint16(tt.args.dport), SinglePortMask, u8proto.U8proto(tt.args.proto),
-			trafficdirection.TrafficDirection(tt.args.trafficDirection))
+		key := NewKey(tt.args.trafficDirection, tt.args.id, tt.args.proto, tt.args.dport, tt.args.dportPrefixLen)
 
 		// Compure entry & validate key and entry
 		var entry PolicyEntry
@@ -285,20 +294,22 @@ func TestPolicyMapWildcarding(t *testing.T) {
 
 		require.Equal(t, uint32(tt.args.id), key.Identity)
 		require.Equal(t, uint8(tt.args.proto), key.Nexthdr)
+
+		// key and entry need to agree on the prefix length
+		require.Equal(t, StaticPrefixBits+uint32(entry.GetPrefixLen()), key.Prefixlen)
+
 		if key.Nexthdr == 0 {
-			require.Equal(t, policyFlagWildcardNexthdr, entry.Flags&policyFlagWildcardNexthdr)
 			require.Equal(t, uint16(0), key.DestPortNetwork)
-			require.Equal(t, policyFlagWildcardDestPort, entry.Flags&policyFlagWildcardDestPort)
 			require.Equal(t, StaticPrefixBits, key.Prefixlen)
+			require.Equal(t, uint8(0), entry.GetPrefixLen())
 		} else {
-			require.Equal(t, policyEntryFlags(0), entry.Flags&policyFlagWildcardNexthdr)
 			if key.DestPortNetwork == 0 {
-				require.Equal(t, policyFlagWildcardDestPort, entry.Flags&policyFlagWildcardDestPort)
 				require.Equal(t, StaticPrefixBits+NexthdrBits, key.Prefixlen)
+				require.Equal(t, uint8(NexthdrBits), entry.GetPrefixLen())
 			} else {
 				require.Equal(t, uint16(tt.args.dport), byteorder.NetworkToHost16(key.DestPortNetwork))
-				require.Equal(t, policyEntryFlags(0), entry.Flags&policyFlagWildcardDestPort)
-				require.Equal(t, StaticPrefixBits+FullPrefixBits, key.Prefixlen)
+				require.Equal(t, StaticPrefixBits+NexthdrBits+uint32(tt.args.dportPrefixLen), key.Prefixlen)
+				require.Equal(t, uint8(NexthdrBits)+tt.args.dportPrefixLen, entry.GetPrefixLen())
 			}
 		}
 	}

@@ -36,7 +36,7 @@ func init() {
 var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 	ShortName:   "HTTPRouteHostnameIntersection",
 	Description: "HTTPRoutes should attach to listeners only if they have intersecting hostnames, and should accept requests only for the intersecting hostnames",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

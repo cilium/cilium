@@ -49,7 +49,7 @@ func setup(tb testing.TB) (string, *k8sClient.FakeClientset, allocator.Backend) 
 			},
 			ReadFromKVStore: true,
 		})
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 	require.NotNil(tb, backend)
 
 	return kvstorePrefix, kubeClient, backend
@@ -105,7 +105,7 @@ func TestAllocateIDFailure(t *testing.T) {
 	// Verify that the identity has not been created as a CRD
 	ids, err := kubeClient.CiliumV2().CiliumIdentities().List(context.Background(), metav1.ListOptions{})
 	require.NoError(t, err)
-	require.Len(t, ids.Items, 0)
+	require.Empty(t, ids.Items)
 }
 
 func TestGetID(t *testing.T) {

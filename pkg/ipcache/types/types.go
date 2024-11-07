@@ -40,13 +40,14 @@ type ResourceID string
 type ResourceKind string
 
 var (
-	ResourceKindCNP      = ResourceKind("cnp")
-	ResourceKindCCNP     = ResourceKind("ccnp")
-	ResourceKindDaemon   = ResourceKind("daemon")
-	ResourceKindEndpoint = ResourceKind("ep")
-	ResourceKindFile     = ResourceKind("file")
-	ResourceKindNetpol   = ResourceKind("netpol")
-	ResourceKindNode     = ResourceKind("node")
+	ResourceKindCCNP      = ResourceKind("ccnp")
+	ResourceKindCIDRGroup = ResourceKind("cidrgroup")
+	ResourceKindCNP       = ResourceKind("cnp")
+	ResourceKindDaemon    = ResourceKind("daemon")
+	ResourceKindEndpoint  = ResourceKind("ep")
+	ResourceKindFile      = ResourceKind("file")
+	ResourceKindNetpol    = ResourceKind("netpol")
+	ResourceKindNode      = ResourceKind("node")
 )
 
 // NewResourceID returns a ResourceID populated with the standard fields for
@@ -60,6 +61,14 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	str.WriteRune('/')
 	str.WriteString(name)
 	return ResourceID(str.String())
+}
+
+func (r ResourceID) Namespace() string {
+	parts := strings.SplitN(string(r), "/", 3)
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[1]
 }
 
 // TunnelPeer is the IP address of the host associated with this prefix. This is

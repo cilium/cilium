@@ -32,7 +32,7 @@ func init() {
 var MeshBasic = suite.ConformanceTest{
 	ShortName:   "MeshBasic",
 	Description: "A mesh client can communicate with a mesh server. This tests basic reachability with no configuration applied.",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportMesh,
 	},
 	Manifests: []string{},

@@ -311,8 +311,6 @@ linkcheck_ignore = [
     # Needs authentication
     'https://github.com/cilium/cilium/projects/new',
     'https://github.com/cilium/cilium/settings/branches',
-    'https://jenkins.cilium.io/job/',
-    'https://jenkins.cilium.io/view/'
 ]
 
 linkcheck_anchors = False

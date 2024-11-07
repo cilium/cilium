@@ -5,10 +5,11 @@ package metric
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric/collections"
@@ -40,7 +41,7 @@ func (b *metric) forEachLabelVector(fn func(lvls []string)) {
 	}
 	var labelValues [][]string
 	for _, label := range b.labels.lbls {
-		labelValues = append(labelValues, maps.Keys(label.Values))
+		labelValues = append(labelValues, slices.Collect(maps.Keys(label.Values)))
 	}
 	for _, labelVector := range collections.CartesianProduct(labelValues...) {
 		fn(labelVector)

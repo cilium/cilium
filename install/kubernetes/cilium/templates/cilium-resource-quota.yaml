@@ -1,10 +1,10 @@
-{{- if or .Values.resourceQuotas.enabled (and (ne .Release.Namespace "kube-system") .Values.gke.enabled) }}
+{{- if or .Values.resourceQuotas.enabled (and (ne (include "cilium.namespace" .) "kube-system") .Values.gke.enabled) }}
 {{- if .Values.agent }}
 apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: cilium-resource-quota
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 spec:
   hard:
     pods: {{ .Values.resourceQuotas.cilium.hard.pods | quote }}
@@ -21,7 +21,7 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: cilium-operator-resource-quota
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 spec:
   hard:
     pods: {{ .Values.resourceQuotas.operator.hard.pods | quote }}

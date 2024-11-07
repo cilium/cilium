@@ -304,8 +304,8 @@ network mode:
               # Add NET_BIND_SERVICE to the list (keep the others!)
               - NET_BIND_SERVICE
 
-Deploy Gateway API listeners on subset of nodes
-***********************************************
+Deploy Cilium Ingress listeners on subset of nodes
+**************************************************
 The Cilium ingress controller Envoy listener can be exposed on a specific subset
 of nodes. This only works in combination with the host network mode and can be
 configured via a node label selector in the Helm values:

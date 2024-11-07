@@ -38,7 +38,7 @@ func init() {
 var HTTPRouteObservedGenerationBump = suite.ConformanceTest{
 	ShortName:   "HTTPRouteObservedGenerationBump",
 	Description: "A HTTPRoute in the gateway-conformance-infra namespace should update the observedGeneration in all of it's Status.Conditions after an update to the spec",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

@@ -61,8 +61,8 @@ func EnqueueRequestForOwner(scheme *runtime.Scheme, mapper meta.RESTMapper, owne
 // - a handler.typedEnqueueRequestForOwner EventHandler with an OwnerType of ReplicaSet and OnlyControllerOwner set to true.
 //
 // TypedEnqueueRequestForOwner is experimental and subject to future change.
-func TypedEnqueueRequestForOwner[T client.Object](scheme *runtime.Scheme, mapper meta.RESTMapper, ownerType client.Object, opts ...OwnerOption) TypedEventHandler[T] {
-	e := &enqueueRequestForOwner[T]{
+func TypedEnqueueRequestForOwner[object client.Object](scheme *runtime.Scheme, mapper meta.RESTMapper, ownerType client.Object, opts ...OwnerOption) TypedEventHandler[object, reconcile.Request] {
+	e := &enqueueRequestForOwner[object]{
 		ownerType: ownerType,
 		mapper:    mapper,
 	}
@@ -86,7 +86,7 @@ type enqueueRequestForOwnerInterface interface {
 	setIsController(bool)
 }
 
-type enqueueRequestForOwner[T client.Object] struct {
+type enqueueRequestForOwner[object client.Object] struct {
 	// ownerType is the type of the Owner object to look for in OwnerReferences.  Only Group and Kind are compared.
 	ownerType runtime.Object
 
@@ -100,12 +100,12 @@ type enqueueRequestForOwner[T client.Object] struct {
 	mapper meta.RESTMapper
 }
 
-func (e *enqueueRequestForOwner[T]) setIsController(isController bool) {
+func (e *enqueueRequestForOwner[object]) setIsController(isController bool) {
 	e.isController = isController
 }
 
 // Create implements EventHandler.
-func (e *enqueueRequestForOwner[T]) Create(ctx context.Context, evt event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForOwner[object]) Create(ctx context.Context, evt event.TypedCreateEvent[object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	reqs := map[reconcile.Request]empty{}
 	e.getOwnerReconcileRequest(evt.Object, reqs)
 	for req := range reqs {
@@ -114,7 +114,7 @@ func (e *enqueueRequestForOwner[T]) Create(ctx context.Context, evt event.TypedC
 }
 
 // Update implements EventHandler.
-func (e *enqueueRequestForOwner[T]) Update(ctx context.Context, evt event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForOwner[object]) Update(ctx context.Context, evt event.TypedUpdateEvent[object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	reqs := map[reconcile.Request]empty{}
 	e.getOwnerReconcileRequest(evt.ObjectOld, reqs)
 	e.getOwnerReconcileRequest(evt.ObjectNew, reqs)
@@ -124,7 +124,7 @@ func (e *enqueueRequestForOwner[T]) Update(ctx context.Context, evt event.TypedU
 }
 
 // Delete implements EventHandler.
-func (e *enqueueRequestForOwner[T]) Delete(ctx context.Context, evt event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForOwner[object]) Delete(ctx context.Context, evt event.TypedDeleteEvent[object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	reqs := map[reconcile.Request]empty{}
 	e.getOwnerReconcileRequest(evt.Object, reqs)
 	for req := range reqs {
@@ -133,7 +133,7 @@ func (e *enqueueRequestForOwner[T]) Delete(ctx context.Context, evt event.TypedD
 }
 
 // Generic implements EventHandler.
-func (e *enqueueRequestForOwner[T]) Generic(ctx context.Context, evt event.TypedGenericEvent[T], q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForOwner[object]) Generic(ctx context.Context, evt event.TypedGenericEvent[object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	reqs := map[reconcile.Request]empty{}
 	e.getOwnerReconcileRequest(evt.Object, reqs)
 	for req := range reqs {
@@ -143,7 +143,7 @@ func (e *enqueueRequestForOwner[T]) Generic(ctx context.Context, evt event.Typed
 
 // parseOwnerTypeGroupKind parses the OwnerType into a Group and Kind and caches the result.  Returns false
 // if the OwnerType could not be parsed using the scheme.
-func (e *enqueueRequestForOwner[T]) parseOwnerTypeGroupKind(scheme *runtime.Scheme) error {
+func (e *enqueueRequestForOwner[object]) parseOwnerTypeGroupKind(scheme *runtime.Scheme) error {
 	// Get the kinds of the type
 	kinds, _, err := scheme.ObjectKinds(e.ownerType)
 	if err != nil {
@@ -163,10 +163,10 @@ func (e *enqueueRequestForOwner[T]) parseOwnerTypeGroupKind(scheme *runtime.Sche
 
 // getOwnerReconcileRequest looks at object and builds a map of reconcile.Request to reconcile
 // owners of object that match e.OwnerType.
-func (e *enqueueRequestForOwner[T]) getOwnerReconcileRequest(object metav1.Object, result map[reconcile.Request]empty) {
+func (e *enqueueRequestForOwner[object]) getOwnerReconcileRequest(obj metav1.Object, result map[reconcile.Request]empty) {
 	// Iterate through the OwnerReferences looking for a match on Group and Kind against what was requested
 	// by the user
-	for _, ref := range e.getOwnersReferences(object) {
+	for _, ref := range e.getOwnersReferences(obj) {
 		// Parse the Group out of the OwnerReference to compare it to what was parsed out of the requested OwnerType
 		refGV, err := schema.ParseGroupVersion(ref.APIVersion)
 		if err != nil {
@@ -192,7 +192,7 @@ func (e *enqueueRequestForOwner[T]) getOwnerReconcileRequest(object metav1.Objec
 				return
 			}
 			if mapping.Scope.Name() != meta.RESTScopeNameRoot {
-				request.Namespace = object.GetNamespace()
+				request.Namespace = obj.GetNamespace()
 			}
 
 			result[request] = empty{}
@@ -203,17 +203,17 @@ func (e *enqueueRequestForOwner[T]) getOwnerReconcileRequest(object metav1.Objec
 // getOwnersReferences returns the OwnerReferences for an object as specified by the enqueueRequestForOwner
 // - if IsController is true: only take the Controller OwnerReference (if found)
 // - if IsController is false: take all OwnerReferences.
-func (e *enqueueRequestForOwner[T]) getOwnersReferences(object metav1.Object) []metav1.OwnerReference {
-	if object == nil {
+func (e *enqueueRequestForOwner[object]) getOwnersReferences(obj metav1.Object) []metav1.OwnerReference {
+	if obj == nil {
 		return nil
 	}
 
 	// If not filtered as Controller only, then use all the OwnerReferences
 	if !e.isController {
-		return object.GetOwnerReferences()
+		return obj.GetOwnerReferences()
 	}
 	// If filtered to a Controller, only take the Controller OwnerReference
-	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
+	if ownerRef := metav1.GetControllerOf(obj); ownerRef != nil {
 		return []metav1.OwnerReference{*ownerRef}
 	}
 	// No Controller OwnerReference found

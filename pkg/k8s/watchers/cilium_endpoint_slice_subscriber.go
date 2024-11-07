@@ -42,13 +42,13 @@ func newCESSubscriber(k *K8sCiliumEndpointsWatcher) *cesSubscriber {
 // OnAdd invoked for newly created CESs, iterates over coreCEPs
 // packed in the CES, converts coreCEP into types.CEP and calls endpointUpdated only for remoteNode CEPs.
 func (cs *cesSubscriber) OnAdd(ces *cilium_v2a1.CiliumEndpointSlice) {
-	for i, ep := range ces.Endpoints {
-		CEPName := ces.Namespace + "/" + ep.Name
+	for _, ep := range ces.Endpoints {
+		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ep, ces.Namespace)
+		CEPName := cep.Namespace + "/" + cep.Name
 		log.WithFields(logrus.Fields{
 			"CESName": ces.GetName(),
 			"CEPName": CEPName,
 		}).Debug("CES added, calling CoreEndpointUpdate")
-		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ces.Endpoints[i], ces.Namespace)
 		if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
 			timeSinceCepCreated := time.Since(p.GetCreatedAt())
 			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
@@ -65,31 +65,23 @@ func (cs *cesSubscriber) OnAdd(ces *cilium_v2a1.CiliumEndpointSlice) {
 // 3) any existing coreCEPs are modified in CES
 // call endpointUpdated/endpointDeleted only for remote node CEPs.
 func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlice) {
-	oldCEPs := make(map[string]*cilium_v2a1.CoreCiliumEndpoint, len(oldCES.Endpoints))
-	for i, ep := range oldCES.Endpoints {
-		oldCEPs[oldCES.Namespace+"/"+ep.Name] = &oldCES.Endpoints[i]
+	oldCEPs := make(map[string]*types.CiliumEndpoint, len(oldCES.Endpoints))
+	for _, ep := range oldCES.Endpoints {
+		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ep, oldCES.Namespace)
+		oldCEPs[cep.Namespace+"/"+cep.Name] = cep
 	}
 
-	newCEPs := make(map[string]*cilium_v2a1.CoreCiliumEndpoint, len(newCES.Endpoints))
-	for i, ep := range newCES.Endpoints {
-		newCEPs[newCES.Namespace+"/"+ep.Name] = &newCES.Endpoints[i]
+	newCEPs := make(map[string]*types.CiliumEndpoint, len(newCES.Endpoints))
+	for _, ep := range newCES.Endpoints {
+		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ep, newCES.Namespace)
+		newCEPs[cep.Namespace+"/"+cep.Name] = cep
 	}
 
 	// Handle, removed CEPs from the CES.
 	// old CES would have one or more stale cep entries, remove stale CEPs from oldCES.
 	for CEPName, oldCEP := range oldCEPs {
 		if _, exists := newCEPs[CEPName]; !exists {
-			log.WithFields(logrus.Fields{
-				"CESName": newCES.GetName(),
-				"CEPName": CEPName,
-			}).Debug("CEP deleted, calling endpointDeleted")
-			cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCES.Namespace)
-			// LocalNode already has the latest CEP.
-			// Hence, skip processing endpointupdate for localNode CEPs.
-			if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
-				continue
-			}
-			cs.deleteCEPfromCES(CEPName, newCES.GetName(), cep)
+			cs.onDelete(newCES, oldCEP)
 		}
 	}
 
@@ -100,12 +92,11 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 				"CESName": newCES.GetName(),
 				"CEPName": CEPName,
 			}).Debug("CEP inserted, calling endpointUpdated")
-			cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCES.Namespace)
-			if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
+			if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(newCEP)); p != nil {
 				timeSinceCepCreated := time.Since(p.GetCreatedAt())
 				metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
 			}
-			cs.addCEPwithCES(CEPName, newCES.GetName(), cep)
+			cs.addCEPwithCES(CEPName, newCES.GetName(), newCEP)
 		}
 	}
 
@@ -119,31 +110,35 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 				"CESName": newCES.GetName(),
 				"CEPName": CEPName,
 			}).Debug("CES updated, calling endpointUpdated")
-			newC := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCES.Namespace)
-			cs.addCEPwithCES(CEPName, newCES.GetName(), newC)
+			cs.addCEPwithCES(CEPName, newCES.GetName(), newCEP)
 		}
 	}
 }
 
-// OnDelete invoked for deleted CESs, iterates over coreCEPs
-// and calls endpointDeleted only for remoteNode CEPs.
+// OnDelete iterates over core CEPs in the slice and deletes those from remote Nodes.
+// This is invoked in response to a CES delete event.
 func (cs *cesSubscriber) OnDelete(ces *cilium_v2a1.CiliumEndpointSlice) {
-	for i, ep := range ces.Endpoints {
-		CEPName := ces.Namespace + "/" + ep.Name
-		log.WithFields(logrus.Fields{
-			"CESName": ces.GetName(),
-			"CEPName": CEPName,
-		}).Debug("CES deleted, calling endpointDeleted")
-		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ces.Endpoints[i], ces.Namespace)
-		// LocalNode already deleted the CEP.
-		// Hence, skip processing endpointDeleted for localNode CEPs.
-		if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
-			continue
-		}
-		// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.
-		// Delete CEP only if there is match in CEPToCES map and also delete CEPName in CEPToCES map.
-		cs.deleteCEPfromCES(CEPName, ces.GetName(), cep)
+	for _, ep := range ces.Endpoints {
+		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ep, ces.Namespace)
+		cs.onDelete(ces, cep)
 	}
+}
+
+// OnDelete calls endpointDeleted for CEPs from remote Nodes.
+func (cs *cesSubscriber) onDelete(ces *cilium_v2a1.CiliumEndpointSlice, cep *types.CiliumEndpoint) {
+	CEPName := cep.Namespace + "/" + cep.Name
+	log.WithFields(logrus.Fields{
+		"CESName": ces.GetName(),
+		"CEPName": CEPName,
+	}).Debug("CES deleted, calling endpointDeleted")
+	// LocalNode already deleted the CEP.
+	// Hence, skip processing endpointDeleted for localNode CEPs.
+	if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
+		return
+	}
+	// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.
+	// Delete CEP only if there is match in CEPToCES map and also delete CEPName in CEPToCES map.
+	cs.deleteCEPfromCES(CEPName, ces.GetName(), cep)
 }
 
 // deleteCEP deletes the CEP and CES from the map.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,6 +27,7 @@ var Cell = cell.Module(
 	"Allocating and managing security identities",
 
 	cell.Provide(newIdentityAllocator),
+	cell.Config(defaultConfig),
 )
 
 // CachingIdentityAllocator provides an abstraction over the concrete type in
@@ -55,8 +57,12 @@ type identityAllocatorParams struct {
 	cell.In
 
 	Lifecycle        cell.Lifecycle
-	PolicyRepository *policy.Repository
+	PolicyRepository policy.PolicyRepository
 	PolicyUpdater    *policy.Updater
+
+	IdentityHandlers []identity.UpdateIdentities `group:"identity-handlers"`
+
+	Config config
 }
 
 type identityAllocatorOut struct {
@@ -68,16 +74,35 @@ type identityAllocatorOut struct {
 	IdentityObservable     stream.Observable[cache.IdentityChange]
 }
 
+type config struct {
+	EnableOperatorManageCIDs bool `mapstructure:"operator-manages-identities"`
+}
+
+func (c config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("operator-manages-identities", c.EnableOperatorManageCIDs, "Enables operator to manage Cilium Identities by running a Cilium Identity controller")
+	flags.MarkHidden("operator-manages-identities") // See https://github.com/cilium/cilium/issues/34675
+}
+
+var defaultConfig = config{
+	EnableOperatorManageCIDs: false,
+}
+
 func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	// iao: updates SelectorCache and regenerates endpoints when
 	// identity allocation / deallocation has occurred.
 	iao := &identityAllocatorOwner{
 		policy:        params.PolicyRepository,
 		policyUpdater: params.PolicyUpdater,
+
+		identityHandlers: params.IdentityHandlers,
+	}
+
+	allocatorConfig := cache.AllocatorConfig{
+		EnableOperatorManageCIDs: params.Config.EnableOperatorManageCIDs,
 	}
 
 	// Allocator: allocates local and cluster-wide security identities.
-	idAlloc := cache.NewCachingIdentityAllocator(iao)
+	idAlloc := cache.NewCachingIdentityAllocator(iao, allocatorConfig)
 	idAlloc.EnableCheckpointing()
 
 	params.Lifecycle.Append(cell.Hook{
@@ -98,8 +123,10 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 // identityAllocatorOwner is used to break the circular dependency between
 // CachingIdentityAllocator and policy.Repository.
 type identityAllocatorOwner struct {
-	policy        *policy.Repository
+	policy        policy.PolicyRepository
 	policyUpdater *policy.Updater
+
+	identityHandlers []identity.UpdateIdentities
 }
 
 // UpdateIdentities informs the policy package of all identity changes
@@ -109,6 +136,10 @@ type identityAllocatorOwner struct {
 // present in both 'added' and 'deleted'.
 func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 	wg := &sync.WaitGroup{}
+	for _, handler := range iao.identityHandlers {
+		handler.UpdateIdentities(added, deleted, wg)
+	}
+	// Invoke policy selector cache always as the last handler
 	iao.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	// Wait for update propagation to endpoints before triggering policy updates
 	wg.Wait()

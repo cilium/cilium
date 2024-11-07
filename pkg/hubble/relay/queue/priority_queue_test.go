@@ -26,7 +26,7 @@ var (
 
 func TestPriorityQueue(t *testing.T) {
 	pq := NewPriorityQueue(42)
-	assert.Equal(t, pq.Len(), 0)
+	assert.Equal(t, 0, pq.Len())
 
 	// push some objects to the queue
 	pq.Push(resp1)
@@ -39,7 +39,7 @@ func TestPriorityQueue(t *testing.T) {
 	assert.Equal(t, event, resp2)
 
 	// calling pop on an empty priority queue should return nil
-	assert.Equal(t, pq.Len(), 0)
+	assert.Equal(t, 0, pq.Len())
 	event = pq.Pop()
 	assert.Nil(t, event)
 
@@ -49,7 +49,7 @@ func TestPriorityQueue(t *testing.T) {
 	pq.Push(resp1)
 	pq.Push(resp4)
 	pq.Push(resp2)
-	assert.Equal(t, pq.Len(), 5)
+	assert.Equal(t, 5, pq.Len())
 
 	// now, when popped out, they should pop out in chronological order
 	event = pq.Pop()
@@ -62,14 +62,14 @@ func TestPriorityQueue(t *testing.T) {
 	assert.Equal(t, event, resp4)
 	event = pq.Pop()
 	assert.Equal(t, event, resp5)
-	assert.Equal(t, pq.Len(), 0)
+	assert.Equal(t, 0, pq.Len())
 }
 
 func TestPriorityQueue_WithobjectsInTheSameSecond(t *testing.T) {
 	pq := NewPriorityQueue(2)
 	pq.Push(resp1)
 	pq.Push(resp0)
-	assert.Equal(t, pq.Len(), 2)
+	assert.Equal(t, 2, pq.Len())
 	event := pq.Pop()
 	assert.Equal(t, event, resp0)
 	event = pq.Pop()
@@ -78,15 +78,15 @@ func TestPriorityQueue_WithobjectsInTheSameSecond(t *testing.T) {
 
 func TestPriorityQueue_WithInitialCapacity0(t *testing.T) {
 	pq := NewPriorityQueue(0)
-	assert.Equal(t, pq.Len(), 0)
+	assert.Equal(t, 0, pq.Len())
 }
 
 func TestPriorityQueue_GrowingOverInitialCapacity(t *testing.T) {
 	pq := NewPriorityQueue(1)
-	assert.Equal(t, pq.Len(), 0)
+	assert.Equal(t, 0, pq.Len())
 	pq.Push(resp1)
 	pq.Push(resp2)
-	assert.Equal(t, pq.Len(), 2)
+	assert.Equal(t, 2, pq.Len())
 }
 
 func TestPriorityQueue_PopOlderThan(t *testing.T) {
@@ -154,11 +154,11 @@ func TestPriorityQueue_PopOlderThan(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pq := NewPriorityQueue(len(tt.has))
-			assert.Equal(t, pq.Len(), 0)
+			assert.Equal(t, 0, pq.Len())
 			for _, resp := range tt.has {
 				pq.Push(resp)
 			}
-			assert.Equal(t, pq.Len(), len(tt.has))
+			assert.Len(t, tt.has, pq.Len())
 			got := pq.PopOlderThan(tt.filter)
 			if diff := cmp.Diff(
 				tt.want,

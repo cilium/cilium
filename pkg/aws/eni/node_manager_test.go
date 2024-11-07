@@ -205,7 +205,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 	for _, eni := range cn.Status.ENI.ENIs {
 		totalPrefixes += len(eni.Prefixes)
 	}
-	require.Equal(t, totalPrefixes, 2)
+	require.Equal(t, 2, totalPrefixes)
 
 	// Test fallback to /32 IPs when /28 blocks aren't available
 	//
@@ -554,8 +554,8 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	require.True(t, castOK)
 	eniNode.mutex.RLock()
 	require.Len(t, eniNode.enis, 2)
-	require.Len(t, eniNode.enis[eniID1].Addresses, 0)
-	require.Equal(t, eniNode.enis[eniID1].Tags["cilium.io/no_manage"], "true")
+	require.Empty(t, eniNode.enis[eniID1].Addresses)
+	require.Equal(t, "true", eniNode.enis[eniID1].Tags["cilium.io/no_manage"])
 	eniNode.mutex.RUnlock()
 
 	// Use 7 out of 8 IPs
@@ -571,8 +571,8 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	// Unmanaged ENI remains unmanaged
 	eniNode.mutex.RLock()
 	require.Len(t, eniNode.enis, 3)
-	require.Len(t, eniNode.enis[eniID1].Addresses, 0)
-	require.Equal(t, eniNode.enis[eniID1].Tags["cilium.io/no_manage"], "true")
+	require.Empty(t, eniNode.enis[eniID1].Addresses)
+	require.Equal(t, "true", eniNode.enis[eniID1].Tags["cilium.io/no_manage"])
 	eniNode.mutex.RUnlock()
 }
 
@@ -798,7 +798,7 @@ func TestNodeManagerInstanceNotRunning(t *testing.T) {
 	mngr.Upsert(cn)
 
 	// Wait for node to be declared notRunning
-	require.Nil(t, testutils.WaitUntil(func() bool {
+	require.NoError(t, testutils.WaitUntil(func() bool {
 		if n := mngr.Get("node1"); n != nil {
 			return !n.IsRunning()
 		}
@@ -869,6 +869,88 @@ func TestInstanceBeenDeleted(t *testing.T) {
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 	require.Equal(t, 0, node.Stats().IPv4.NeededIPs)
 	require.Equal(t, 0, node.Stats().IPv4.ExcessIPs)
+}
+
+// TestNodeManagerStaticIP tests allocation with a static IP
+//
+// - m5.large (3x ENIs, 2x10-2 IPs)
+// - MinAllocate 0
+// - MaxAllocate 0
+// - PreAllocate 8
+// - FirstInterfaceIndex 0
+func TestNodeManagerStaticIP(t *testing.T) {
+	setup(t)
+
+	const instanceID = "i-testNodeManagerStaticIP-0"
+
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	instances := NewInstancesManager(ec2api)
+	require.NotNil(t, instances)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	require.NoError(t, err)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
+	require.NoError(t, err)
+	instances.Resync(context.TODO())
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	require.NoError(t, err)
+	require.NotNil(t, mngr)
+
+	staticIPTags := map[string]string{"some-eip-tag": "some-value"}
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"), withIPAMPreAllocate(8), withIPAMStaticIPTags(staticIPTags))
+	mngr.Upsert(cn)
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	node := mngr.Get("node1")
+	require.NotNil(t, node)
+	require.Equal(t, 8, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
+
+	// Use 1 IP
+	mngr.Upsert(updateCiliumNode(cn, 8, 1))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	node = mngr.Get("node1")
+	require.NotNil(t, node)
+	// Verify that the static IP has been successfully assigned
+	require.Equal(t, "192.0.2.254", node.Stats().IPv4.AssignedStaticIP)
+}
+
+// TestNodeManagerStaticIPAlreadyAssociated verifies that when an ENI already has a public IP assigned to it, it is properly detected
+//
+// - m5.large (3x ENIs, 2x10-2 IPs)
+// - MinAllocate 0
+// - MaxAllocate 0
+// - PreAllocate 8
+// - FirstInterfaceIndex 0
+func TestNodeManagerStaticIPAlreadyAssociated(t *testing.T) {
+	setup(t)
+
+	const instanceID = "i-testNodeManagerStaticIPAlreadyAssociated-0"
+
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	instances := NewInstancesManager(ec2api)
+	require.NotNil(t, instances)
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	require.NoError(t, err)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
+	require.NoError(t, err)
+	staticIP, err := ec2api.AssociateEIP(context.TODO(), instanceID, make(ipamTypes.Tags))
+	require.NoError(t, err)
+	instances.Resync(context.TODO())
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	require.NoError(t, err)
+	require.NotNil(t, mngr)
+
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"), withIPAMPreAllocate(8))
+	mngr.Upsert(cn)
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	node := mngr.Get("node1")
+	require.NotNil(t, node)
+	require.Equal(t, 8, node.Stats().IPv4.AvailableIPs)
+	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
+	// Verify that the static IP which has already been assigned to the ENI has been successfully detected
+	require.Equal(t, staticIP, node.Stats().IPv4.AssignedStaticIP)
 }
 
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
@@ -1028,6 +1110,12 @@ func withIPAMMinAllocate(minAlloc int) func(*v2.CiliumNode) {
 func withIPAMMaxAboveWatermark(aboveWM int) func(*v2.CiliumNode) {
 	return func(cn *v2.CiliumNode) {
 		cn.Spec.IPAM.MaxAboveWatermark = aboveWM
+	}
+}
+
+func withIPAMStaticIPTags(tags map[string]string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.IPAM.StaticIPTags = tags
 	}
 }
 

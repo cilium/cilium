@@ -7,8 +7,8 @@ package v2
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -26,30 +26,10 @@ type CiliumNodeLister interface {
 
 // ciliumNodeLister implements the CiliumNodeLister interface.
 type ciliumNodeLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v2.CiliumNode]
 }
 
 // NewCiliumNodeLister returns a new CiliumNodeLister.
 func NewCiliumNodeLister(indexer cache.Indexer) CiliumNodeLister {
-	return &ciliumNodeLister{indexer: indexer}
-}
-
-// List lists all CiliumNodes in the indexer.
-func (s *ciliumNodeLister) List(selector labels.Selector) (ret []*v2.CiliumNode, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.CiliumNode))
-	})
-	return ret, err
-}
-
-// Get retrieves the CiliumNode from the index for a given name.
-func (s *ciliumNodeLister) Get(name string) (*v2.CiliumNode, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2.Resource("ciliumnode"), name)
-	}
-	return obj.(*v2.CiliumNode), nil
+	return &ciliumNodeLister{listers.New[*v2.CiliumNode](indexer, v2.Resource("ciliumnode"))}
 }

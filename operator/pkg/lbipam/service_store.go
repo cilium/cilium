@@ -4,11 +4,10 @@
 package lbipam
 
 import (
+	"maps"
 	"net"
 	"net/netip"
 	"slices"
-
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -86,7 +85,7 @@ type ServiceView struct {
 }
 
 // isCompatible checks if two services are compatible for sharing an IP.
-func (sv *ServiceView) isCompatible(osv *ServiceView) (bool, string) {
+func (sv *ServiceView) isCompatible(osv *ServiceView, lbProtoDiff bool) (bool, string) {
 	// They have the same sharing key.
 	if sv.SharingKey != osv.SharingKey {
 		return false, "different sharing key"
@@ -101,13 +100,19 @@ func (sv *ServiceView) isCompatible(osv *ServiceView) (bool, string) {
 		}
 	}
 
-	// Compatible services don't have any overlapping ports.
-	// NOTE: Normally we would also consider the protocol, but the Cilium datapath can't differentiate between
-	// 	     protocols, so we don't either for this purpose. https://github.com/cilium/cilium/issues/9207
+	// Compatible services don't have any overlapping ports with the same protocol.
+	// NOTE: The Cilium datapath can differentiate between protocols,thanks to the merge
+	//       of PR https://github.com/cilium/cilium/pull/33434.
+	diff := lbProtoDiff
 	for _, port1 := range sv.Ports {
 		for _, port2 := range osv.Ports {
-			if port1.Port == port2.Port {
+			portsEqual := port1.Port == port2.Port
+			protocolEqual := port1.Protocol == port2.Protocol
+			if portsEqual && !diff {
 				return false, "same port"
+			}
+			if portsEqual && diff && protocolEqual {
+				return false, "same port and protocol"
 			}
 		}
 	}

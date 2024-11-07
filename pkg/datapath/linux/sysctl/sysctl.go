@@ -31,22 +31,22 @@ type Sysctl interface {
 	// Disable disables the given sysctl parameter.
 	// It blocks until the parameter has been actually set to "0",
 	// or timeouts after reconciliationTimeout.
-	Disable(name string) error
+	Disable(name []string) error
 
 	// Enable enables the given sysctl parameter.
 	// It blocks until the parameter has been actually set to "1",
 	// or timeouts after reconciliationTimeout.
-	Enable(name string) error
+	Enable(name []string) error
 
 	// Write writes the given sysctl parameter.
 	// It blocks until the parameter has been actually set to val,
 	// or timeouts after reconciliationTimeout.
-	Write(name string, val string) error
+	Write(name []string, val string) error
 
 	// WriteInt writes the given integer type sysctl parameter.
 	// It blocks until the parameter has been actually set to val,
 	// or timeouts after reconciliationTimeout.
-	WriteInt(name string, val int64) error
+	WriteInt(name []string, val int64) error
 
 	// ApplySettings applies all settings in sysSettings.
 	// After applying all settings, it blocks until the parameters have been
@@ -54,10 +54,10 @@ type Sysctl interface {
 	ApplySettings(sysSettings []tables.Sysctl) error
 
 	// Read reads the given sysctl parameter.
-	Read(name string) (string, error)
+	Read(name []string) (string, error)
 
 	// ReadInt reads the given sysctl parameter, return an int64 value.
-	ReadInt(name string) (int64, error)
+	ReadInt(name []string) (int64, error)
 }
 
 // reconcilingSysctl is a Sysctl implementation that uses reconciliation to
@@ -82,7 +82,7 @@ func newReconcilingSysctl(
 	return &reconcilingSysctl{db, settings, fs, cfg.ProcFs}
 }
 
-func (sysctl *reconcilingSysctl) Disable(name string) error {
+func (sysctl *reconcilingSysctl) Disable(name []string) error {
 	txn := sysctl.db.WriteTxn(sysctl.settings)
 	_, _, _ = sysctl.settings.Insert(txn, &tables.Sysctl{
 		Name:   name,
@@ -94,7 +94,7 @@ func (sysctl *reconcilingSysctl) Disable(name string) error {
 	return sysctl.waitForReconciliation(name)
 }
 
-func (sysctl *reconcilingSysctl) Enable(name string) error {
+func (sysctl *reconcilingSysctl) Enable(name []string) error {
 	txn := sysctl.db.WriteTxn(sysctl.settings)
 	_, _, _ = sysctl.settings.Insert(txn, &tables.Sysctl{
 		Name:   name,
@@ -106,7 +106,7 @@ func (sysctl *reconcilingSysctl) Enable(name string) error {
 	return sysctl.waitForReconciliation(name)
 }
 
-func (sysctl *reconcilingSysctl) Write(name string, val string) error {
+func (sysctl *reconcilingSysctl) Write(name []string, val string) error {
 	txn := sysctl.db.WriteTxn(sysctl.settings)
 	_, _, _ = sysctl.settings.Insert(txn, &tables.Sysctl{
 		Name:   name,
@@ -118,7 +118,7 @@ func (sysctl *reconcilingSysctl) Write(name string, val string) error {
 	return sysctl.waitForReconciliation(name)
 }
 
-func (sysctl *reconcilingSysctl) WriteInt(name string, val int64) error {
+func (sysctl *reconcilingSysctl) WriteInt(name []string, val int64) error {
 	txn := sysctl.db.WriteTxn(sysctl.settings)
 	_, _, _ = sysctl.settings.Insert(txn, &tables.Sysctl{
 		Name:   name,
@@ -145,7 +145,7 @@ func (sysctl *reconcilingSysctl) ApplySettings(sysSettings []tables.Sysctl) erro
 	return errors.Join(errs...)
 }
 
-func (sysctl *reconcilingSysctl) Read(name string) (string, error) {
+func (sysctl *reconcilingSysctl) Read(name []string) (string, error) {
 	path, err := parameterPath(sysctl.procFs, name)
 	if err != nil {
 		return "", err
@@ -159,7 +159,7 @@ func (sysctl *reconcilingSysctl) Read(name string) (string, error) {
 	return val, nil
 }
 
-func (sysctl *reconcilingSysctl) ReadInt(name string) (int64, error) {
+func (sysctl *reconcilingSysctl) ReadInt(name []string) (int64, error) {
 	val, err := sysctl.Read(name)
 	if err != nil {
 		return -1, err
@@ -184,15 +184,15 @@ func NewDirectSysctl(fs afero.Fs, procFs string) Sysctl {
 	return &directSysctl{fs, procFs}
 }
 
-func (ay *directSysctl) Disable(name string) error {
+func (ay *directSysctl) Disable(name []string) error {
 	return ay.WriteInt(name, 0)
 }
 
-func (ay *directSysctl) Enable(name string) error {
+func (ay *directSysctl) Enable(name []string) error {
 	return ay.WriteInt(name, 1)
 }
 
-func (ay *directSysctl) Write(name string, value string) error {
+func (ay *directSysctl) Write(name []string, value string) error {
 	path, err := parameterPath(ay.procFs, name)
 	if err != nil {
 		return err
@@ -221,7 +221,7 @@ func (ay *directSysctl) Write(name string, value string) error {
 	return nil
 }
 
-func (ay *directSysctl) WriteInt(name string, val int64) error {
+func (ay *directSysctl) WriteInt(name []string, val int64) error {
 	return ay.Write(name, strconv.FormatInt(val, 10))
 }
 
@@ -235,7 +235,7 @@ func (ay *directSysctl) ApplySettings(sysSettings []tables.Sysctl) error {
 	return nil
 }
 
-func (ay *directSysctl) Read(name string) (string, error) {
+func (ay *directSysctl) Read(name []string) (string, error) {
 	path, err := parameterPath(ay.procFs, name)
 	if err != nil {
 		return "", err
@@ -255,7 +255,7 @@ func (ay *directSysctl) Read(name string) (string, error) {
 	return strings.TrimRight(string(val), "\n"), nil
 }
 
-func (ay *directSysctl) ReadInt(name string) (int64, error) {
+func (ay *directSysctl) ReadInt(name []string) (int64, error) {
 	val, err := ay.Read(name)
 	if err != nil {
 		return -1, err
@@ -270,20 +270,19 @@ func (ay *directSysctl) ReadInt(name string) (int64, error) {
 }
 
 // parameterElemRx matches an element of a sysctl parameter.
-var parameterElemRx = regexp.MustCompile(`(?i)\A[-0-9_a-z]+\z`)
+var parameterElemRx = regexp.MustCompile(`(?i)\A[-0-9_a-z\.]+\z`)
 
 // parameterPath returns the path to the sysctl file for parameter name.
 //
 // It should by used directly only by binaries that do not rely on the
 // hive and cells framework, like cilium-cni and cilium-health.
-func parameterPath(procFs, name string) (string, error) {
-	elems := strings.Split(name, ".")
-	for _, elem := range elems {
+func parameterPath(procFs string, name []string) (string, error) {
+	for _, elem := range name {
 		if !parameterElemRx.MatchString(elem) {
-			return "", fmt.Errorf("invalid sysctl parameter: %q", name)
+			return "", fmt.Errorf("invalid sysctl parameter: %q", strings.Join(name, "."))
 		}
 	}
-	return filepath.Join(append([]string{procFs, "sys"}, elems...)...), nil
+	return filepath.Join(append([]string{procFs, "sys"}, name...)...), nil
 }
 
 // writeSysctl writes a value in a sysctl parameter loacated at path.
@@ -323,13 +322,13 @@ func readSysctl(fs afero.Fs, path string) (string, error) {
 	return strings.TrimRight(string(val), "\n"), nil
 }
 
-func (sysctl *reconcilingSysctl) waitForReconciliation(name string) error {
+func (sysctl *reconcilingSysctl) waitForReconciliation(name []string) error {
 	t := time.NewTimer(reconciliationTimeout)
 	defer t.Stop()
 
 	var err error
 	for {
-		obj, _, watch, _ := sysctl.settings.GetWatch(sysctl.db.ReadTxn(), tables.SysctlNameIndex.Query(name))
+		obj, _, watch, _ := sysctl.settings.GetWatch(sysctl.db.ReadTxn(), tables.SysctlNameIndex.Query(strings.Join(name, ".")))
 		if obj.Status.Kind == reconciler.StatusKindDone {
 			// already reconciled
 			return nil

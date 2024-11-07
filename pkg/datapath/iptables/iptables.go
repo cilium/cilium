@@ -21,6 +21,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -265,6 +267,7 @@ type Manager struct {
 }
 
 type reconcilerParams struct {
+	clock          clock.WithTicker
 	localNodeStore *node.LocalNodeStore
 	db             *statedb.DB
 	devices        statedb.Table[*tables.Device]
@@ -300,6 +303,7 @@ func newIptablesManager(p params) datapath.IptablesManager {
 		cfg:        p.Cfg,
 		sharedCfg:  p.SharedCfg,
 		reconcilerParams: reconcilerParams{
+			clock:          clock.RealClock{},
 			localNodeStore: p.LocalNodeStore,
 			db:             p.DB,
 			devices:        p.Devices,
@@ -397,6 +401,8 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 	}
 
 	if err := m.modulesMgr.FindOrLoadModules("xt_socket"); err != nil {
+		m.logger.WithError(err).Warning("xt_socket kernel module could not be loaded")
+
 		if !m.sharedCfg.TunnelingEnabled {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
 			// logic for packets for which a local socket is found by ip early
@@ -413,8 +419,6 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 			// We would not need the xt_socket at all if the datapath universally would
 			// set the "to proxy" skb mark bits on before the packet hits policy routing
 			// stage. Currently this is not true for endpoint routing modes.
-			m.logger.WithError(err).Warning("xt_socket kernel module could not be loaded")
-
 			if m.sharedCfg.EnableXTSocketFallback {
 				m.disableIPEarlyDemux()
 			}
@@ -439,7 +443,7 @@ func (m *Manager) disableIPEarlyDemux() {
 		return
 	}
 
-	disabled := m.sysctl.Disable("net.ipv4.ip_early_demux") == nil
+	disabled := m.sysctl.Disable([]string{"net", "ipv4", "ip_early_demux"}) == nil
 	if disabled {
 		m.ipEarlyDemuxDisabled = true
 		m.logger.Info("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
@@ -1204,7 +1208,7 @@ func (m *Manager) installMasqueradeRules(
 			family = netlink.FAMILY_V6
 		}
 		initialPass := true
-		if routes, err := netlink.RouteList(nil, family); err == nil {
+		if routes, err := safenetlink.RouteList(nil, family); err == nil {
 		nextPass:
 			for _, r := range routes {
 				var link netlink.Link

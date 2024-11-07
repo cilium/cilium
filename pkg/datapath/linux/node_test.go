@@ -32,11 +32,12 @@ var (
 		NodeIPv6:            fakeNodeAddressing.IPv6().PrimaryExternal(),
 		CiliumInternalIPv4:  fakeNodeAddressing.IPv4().Router(),
 		CiliumInternalIPv6:  fakeNodeAddressing.IPv6().Router(),
-		DeviceMTU:           mtuConfig.GetDeviceMTU(),
-		RouteMTU:            mtuConfig.GetRouteMTU(),
-		RoutePostEncryptMTU: mtuConfig.GetRoutePostEncryptMTU(),
+		DeviceMTU:           calcMtu.DeviceMTU,
+		RouteMTU:            calcMtu.RouteMTU,
+		RoutePostEncryptMTU: calcMtu.RoutePostEncryptMTU,
 	}
-	mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 100, net.IP("1.1.1.1"), false)
+	mtuConfig = mtu.NewConfiguration(0, false, false, false, false)
+	calcMtu   = mtuConfig.Calculate(100)
 	nh        = linuxNodeHandler{
 		nodeConfig: nodeConfig,
 		datapathConfig: DatapathConfiguration{
@@ -53,28 +54,28 @@ func TestTunnelCIDRUpdateRequired(t *testing.T) {
 	ip1 := net.ParseIP("1.1.1.1")
 	ip2 := net.ParseIP("2.2.2.2")
 
-	require.Equal(t, false, cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0)) // disabled -> disabled
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0))                // disabled -> c1
-	require.Equal(t, false, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0))                             // c1 -> c1
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))                              // c1 -> c1 (changed host IP, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0))                              // c1 -> c2
-	require.Equal(t, false, cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0))               // c2 -> disabled
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1))                              // key upgrade 0 -> 1
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0))                              // key downgrade 1 -> 0
+	require.False(t, cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0)) // disabled -> disabled
+	require.True(t, cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0))                // disabled -> c1
+	require.False(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0))                             // c1 -> c1
+	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))                              // c1 -> c1 (changed host IP, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))
+	require.True(t, cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0))                              // c1 -> c2
+	require.False(t, cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0))               // c2 -> disabled
+	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1))                              // key upgrade 0 -> 1
+	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0))                              // key downgrade 1 -> 0
 
 	c1 = cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("f00d::a0a:0:0:0/96"))
 	c2 = cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("f00d::b0b:0:0:0/96"))
 	ip1 = net.ParseIP("cafe::1")
 	ip2 = net.ParseIP("cafe::2")
 
-	require.Equal(t, false, cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0)) // disabled -> disabled
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0))                // disabled -> c1
-	require.Equal(t, false, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0))                             // c1 -> c1
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))                              // c1 -> c1 (changed host IP, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0))                              // c1 -> c2
-	require.Equal(t, false, cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0))               // c2 -> disabled
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1))                              // key upgrade 0 -> 1
-	require.Equal(t, true, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0))                              // key downgrade 1 -> 0
+	require.False(t, cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0)) // disabled -> disabled
+	require.True(t, cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0))                // disabled -> c1
+	require.False(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0))                             // c1 -> c1
+	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))                              // c1 -> c1 (changed host IP, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0))
+	require.True(t, cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0))                              // c1 -> c2
+	require.False(t, cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0))               // c2 -> disabled
+	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1))                              // key upgrade 0 -> 1
+	require.True(t, cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0))                              // key downgrade 1 -> 0
 }
 
 func TestCreateNodeRoute(t *testing.T) {
@@ -123,7 +124,7 @@ func TestStoreLoadNeighLinks(t *testing.T) {
 
 	devsActual, err := loadNeighLink(tmpDir)
 	require.NoError(t, err)
-	require.EqualValues(t, devsActual, devExpected)
+	require.EqualValues(t, devExpected, devsActual)
 }
 
 func TestLocalRule(t *testing.T) {
@@ -139,14 +140,14 @@ func TestLocalRule(t *testing.T) {
 		rules, err := route.ListRules(netlink.FAMILY_V4, nil)
 		assert.NoError(t, err)
 		assert.GreaterOrEqual(t, len(rules), 1)
-		assert.Equal(t, rules[0].Priority, linux_defaults.RulePriorityLocalLookup)
-		assert.Equal(t, rules[0].Table, unix.RT_TABLE_LOCAL)
+		assert.Equal(t, linux_defaults.RulePriorityLocalLookup, rules[0].Priority)
+		assert.Equal(t, unix.RT_TABLE_LOCAL, rules[0].Table)
 
 		rules, err = route.ListRules(netlink.FAMILY_V6, nil)
 		assert.NoError(t, err)
 		assert.GreaterOrEqual(t, len(rules), 1)
-		assert.Equal(t, rules[0].Priority, linux_defaults.RulePriorityLocalLookup)
-		assert.Equal(t, rules[0].Table, unix.RT_TABLE_LOCAL)
+		assert.Equal(t, linux_defaults.RulePriorityLocalLookup, rules[0].Priority)
+		assert.Equal(t, unix.RT_TABLE_LOCAL, rules[0].Table)
 	}
 
 	ns.Do(func() error {

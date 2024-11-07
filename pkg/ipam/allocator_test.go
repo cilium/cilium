@@ -15,7 +15,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -41,7 +40,21 @@ func (rm *resourceMock) Store(context.Context) (resource.Store[*ciliumv2.CiliumN
 	return nil, errors.New("unimplemented")
 }
 
-var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil, false)
+type fakeMTU struct{}
+
+func (f *fakeMTU) GetDeviceMTU() int {
+	return 1500
+}
+
+func (f *fakeMTU) GetRouteMTU() int {
+	return 1500
+}
+
+func (f *fakeMTU) GetRoutePostEncryptMTU() int {
+	return 1500
+}
+
+var mtuMock = fakeMTU{}
 
 func TestAllocatedIPDump(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
@@ -71,62 +84,62 @@ func TestExpirationTimer(t *testing.T) {
 	ipam.ConfigureAllocator()
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	uuid, err := ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEqual(t, "", uuid)
 	// must fail, already registered
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, "", uuid)
 	// must fail, already in use
 	err = ipam.AllocateIP(ip, "foo", PoolDefault())
-	require.NotNil(t, err)
+	require.Error(t, err)
 	// Let expiration timer expire
 	time.Sleep(2 * timeout)
 	// Must succeed, IP must be released again
 	err = ipam.AllocateIP(ip, "foo", PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// register new expiration timer
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEqual(t, "", uuid)
 	// attempt to stop with an invalid uuid, must fail
 	err = ipam.StopExpirationTimer(ip, PoolDefault(), "unknown-uuid")
-	require.NotNil(t, err)
+	require.Error(t, err)
 	// stop expiration with valid uuid
 	err = ipam.StopExpirationTimer(ip, PoolDefault(), uuid)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// Let expiration timer expire
 	time.Sleep(2 * timeout)
 	// must fail as IP is properly in use now
 	err = ipam.AllocateIP(ip, "foo", PoolDefault())
-	require.NotNil(t, err)
+	require.Error(t, err)
 	// release IP for real
 	err = ipam.ReleaseIP(ip, PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// allocate IP again
 	err = ipam.AllocateIP(ip, "foo", PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// register expiration timer
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEqual(t, "", uuid)
 	// release IP, must also stop expiration timer
 	err = ipam.ReleaseIP(ip, PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// allocate same IP again
 	err = ipam.AllocateIP(ip, "foo", PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// register expiration timer must succeed even though stop was never called
 	uuid, err = ipam.StartExpirationTimer(ip, PoolDefault(), timeout)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEqual(t, "", uuid)
 	// release IP
 	err = ipam.ReleaseIP(ip, PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestAllocateNextWithExpiration(t *testing.T) {
@@ -141,46 +154,46 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	// Allocate IPs and test expiration timer. 'pool' is empty in order to test
 	// that the allocated pool is passed to StartExpirationTimer
 	ipv4, ipv6, err := ipam.AllocateNextWithExpiration("", "foo", "", timeout)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// IPv4 address must be in use
 	err = ipam.AllocateIP(ipv4.IP, "foo", PoolDefault())
-	require.NotNil(t, err)
+	require.Error(t, err)
 	// IPv6 address must be in use
 	err = ipam.AllocateIP(ipv6.IP, "foo", PoolDefault())
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Let expiration timer expire
 	time.Sleep(time.Second)
 	// IPv4 address must be available again
 	err = ipam.AllocateIP(ipv4.IP, "foo", PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// IPv6 address must be available again
 	err = ipam.AllocateIP(ipv6.IP, "foo", PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// Release IPs
 	err = ipam.ReleaseIP(ipv4.IP, PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = ipam.ReleaseIP(ipv6.IP, PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Allocate IPs again and test stopping the expiration timer
 	ipv4, ipv6, err = ipam.AllocateNextWithExpiration("", "foo", PoolDefault(), timeout)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Stop expiration timer for IPv4 address
 	err = ipam.StopExpirationTimer(ipv4.IP, PoolDefault(), ipv4.ExpirationUUID)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Let expiration timer expire
 	time.Sleep(time.Second)
 	// IPv4 address must be in use
 	err = ipam.AllocateIP(ipv4.IP, "foo", PoolDefault())
-	require.NotNil(t, err)
+	require.Error(t, err)
 	// IPv6 address must be available again
 	err = ipam.AllocateIP(ipv6.IP, "foo", PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// Release IPv4 address
 	err = ipam.ReleaseIP(ipv4.IP, PoolDefault())
-	require.Nil(t, err)
+	require.NoError(t, err)
 }

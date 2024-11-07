@@ -5,9 +5,9 @@ package features
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
-
-	"golang.org/x/exp/maps"
 
 	"github.com/blang/semver/v4"
 	v1 "k8s.io/api/core/v1"
@@ -30,6 +30,7 @@ const (
 	KPRGracefulTermination Feature = "kpr-graceful-termination"
 	KPRHostPort            Feature = "kpr-hostport"
 	KPRSocketLB            Feature = "kpr-socket-lb"
+	KPRSocketLBHostnsOnly  Feature = "kpr-socket-lb-hostns-only"
 	KPRNodePort            Feature = "kpr-nodeport"
 	KPRSessionAffinity     Feature = "kpr-session-affinity"
 
@@ -41,8 +42,9 @@ const (
 
 	HealthChecking Feature = "health-checking"
 
-	EncryptionPod  Feature = "encryption-pod"
-	EncryptionNode Feature = "encryption-node"
+	EncryptionPod        Feature = "encryption-pod"
+	EncryptionNode       Feature = "encryption-node"
+	EncryptionStrictMode Feature = "enable-encryption-strict-mode"
 
 	IPv4 Feature = "ipv4"
 	IPv6 Feature = "ipv6"
@@ -79,6 +81,8 @@ const (
 	BGPControlPlane Feature = "enable-bgp-control-plane"
 
 	NodeLocalDNS Feature = "node-local-dns"
+
+	Multicast Feature = "multicast-enabled"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -319,11 +323,19 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	fs[BGPControlPlane] = Status{
 		Enabled: cm.Data[string(BGPControlPlane)] == "true",
 	}
+
+	fs[Multicast] = Status{
+		Enabled: cm.Data[string(Multicast)] == "true",
+	}
+
+	fs[EncryptionStrictMode] = Status{
+		Enabled: cm.Data[string(EncryptionStrictMode)] == "true",
+	}
 }
 
 func (fs Set) ExtractFromNodes(nodesWithoutCilium map[string]struct{}) {
 	fs[NodeWithoutCilium] = Status{
 		Enabled: len(nodesWithoutCilium) != 0,
-		Mode:    strings.Join(maps.Keys(nodesWithoutCilium), ","),
+		Mode:    strings.Join(slices.Collect(maps.Keys(nodesWithoutCilium)), ","),
 	}
 }

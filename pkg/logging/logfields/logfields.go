@@ -11,6 +11,21 @@ const (
 	// LogSubsys is the field denoting the subsystem when logging
 	LogSubsys = "subsys"
 
+	// Version is a field for a generic version number
+	Version = "version"
+
+	// NewVersion is a field for a new version number
+	NewVersion = "newVersion"
+
+	// OldVersion is a field for a old version number
+	OldVersion = "oldVersion"
+
+	// Stacktrace is a field for a stacktrace
+	Stacktrace = "stacktrace"
+
+	// Changes is a generic field for any relevant changes
+	Changes = "changes"
+
 	// Signal is the field to print os signals on exit etc.
 	Signal = "signal"
 
@@ -317,6 +332,9 @@ const (
 	// ServiceType is the type of the service
 	ServiceType = "svcType"
 
+	// ServiceForwardingMode is the mode of the service (SNAT, DSR)
+	ServiceForwardingMode = "svcForwardingMode"
+
 	// ServiceHealthCheckNodePort is the port on which we serve health checks
 	ServiceHealthCheckNodePort = "svcHealthCheckNodePort"
 
@@ -422,6 +440,9 @@ const (
 
 	// Selector is a selector of any sort: endpoint, CIDR, toFQDNs
 	Selector = "Selector"
+
+	// SelectorCacgeVersion is the version of the SelectorCache.
+	SelectorCacheVersion = "selectorCacheVersion"
 
 	// EndpointLabelSelector is a selector for Endpoints by label
 	EndpointLabelSelector = "EndpointLabelSelector"

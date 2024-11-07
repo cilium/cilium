@@ -94,17 +94,17 @@ func TestCIDState(t *testing.T) {
 
 	t.Run("Lookup CID state", func(t *testing.T) {
 		_, exists := state.LookupByID("0")
-		assert.Equal(t, false, exists, "cid 0 LookupByID - not found")
+		assert.False(t, exists, "cid 0 LookupByID - not found")
 
 		cidKey, exists := state.LookupByID("1")
-		assert.Equal(t, true, exists, "cid 1 LookupByID - found")
+		assert.True(t, exists, "cid 1 LookupByID - found")
 		assert.Equal(t, key.GetCIDKeyFromLabels(k8sLables_A, labels.LabelSourceK8s), cidKey, "cid 1 LookupByID - correct key")
 
 		_, exists = state.LookupByKey(key.GetCIDKeyFromLabels(k8sLables_C, labels.LabelSourceK8s))
-		assert.Equal(t, false, exists, "labels C LookupByKey - not found")
+		assert.False(t, exists, "labels C LookupByKey - not found")
 
 		cidName, exists := state.LookupByKey(key.GetCIDKeyFromLabels(k8sLables_A, labels.LabelSourceK8s))
-		assert.Equal(t, true, exists, "labels C LookupByKey - not found")
+		assert.True(t, exists, "labels C LookupByKey - not found")
 		assert.Equal(t, "1", cidName, "labels C LookupByKey - correct CID")
 	})
 
@@ -127,7 +127,7 @@ func TestCIDState(t *testing.T) {
 		assert.NoError(t, validateCIDState(state, expectedState), "cid 2 removed")
 
 		_, exists := state.LookupByID("2")
-		assert.Equal(t, false, exists, "cid 2 LookupByID - not found")
+		assert.False(t, exists, "cid 2 LookupByID - not found")
 
 		state.Remove("3")
 		expectedState = &CIDState{
@@ -196,11 +196,11 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
 	usedCID, exists := state.podToCID[podName1]
-	assert.Equal(t, false, exists, assertTxt)
+	assert.False(t, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
 	prevCID, count, exists := state.RemovePod(podName1)
-	assert.Equal(t, false, exists)
+	assert.False(t, exists)
 	assert.Equal(t, "", prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 
@@ -211,7 +211,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 1, state.CIDUsageCount(cidName1), assertTxt)
 
 	usedCID, exists = state.podToCID[podName1]
-	assert.Equal(t, true, exists, assertTxt)
+	assert.True(t, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
 	assertTxt = "Assign CID to Pod 2"
@@ -222,7 +222,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 2, state.CIDUsageCount(cidName1), assertTxt)
 
 	usedCID, exists = state.podToCID[podName2]
-	assert.Equal(t, true, exists, assertTxt)
+	assert.True(t, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
 	assertTxt = "Assign CID 2 to Pod 2"
@@ -233,7 +233,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
 	usedCID, exists = state.podToCID[podName2]
-	assert.Equal(t, true, exists, assertTxt)
+	assert.True(t, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
 	assertTxt = "Assign CID 2 to Pod 1"
@@ -244,7 +244,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
 	usedCID, exists = state.podToCID[podName1]
-	assert.Equal(t, true, exists, assertTxt)
+	assert.True(t, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
 	assertTxt = "Again assign CID 2 to Pod 1"
@@ -256,24 +256,24 @@ func TestCIDUsageInPods(t *testing.T) {
 
 	assertTxt = "Remove Pod 1"
 	prevCID, count, exists = state.RemovePod(podName1)
-	assert.Equal(t, true, exists)
+	assert.True(t, exists)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
 	usedCID, exists = state.podToCID[podName1]
-	assert.Equal(t, false, exists, assertTxt)
+	assert.False(t, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
 	assertTxt = "Remove Pod 2"
 	prevCID, count, exists = state.RemovePod(podName2)
-	assert.Equal(t, true, exists)
+	assert.True(t, exists)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName2), assertTxt)
 
 	usedCID, exists = state.podToCID[podName2]
-	assert.Equal(t, false, exists, assertTxt)
+	assert.False(t, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 }
 
@@ -292,14 +292,14 @@ func TestCIDUsageInCES(t *testing.T) {
 	assertTxt := "CES 1 is added"
 	state := NewCIDUsageInCES()
 	unusedCIDs := state.ProcessCESUpsert(ces1.Name, ces1.Endpoints)
-	assert.Equal(t, 0, len(unusedCIDs), assertTxt)
+	assert.Empty(t, unusedCIDs, assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount("2000"), assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount("3000"), assertTxt)
 
 	assertTxt = "CES 2 is added"
 	unusedCIDs = state.ProcessCESUpsert(ces2.Name, ces2.Endpoints)
-	assert.Equal(t, 0, len(unusedCIDs), assertTxt)
+	assert.Empty(t, unusedCIDs, assertTxt)
 	assert.Equal(t, 4, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount("2000"), assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount("3000"), assertTxt)
@@ -307,7 +307,7 @@ func TestCIDUsageInCES(t *testing.T) {
 	assertTxt = "Endpoint with CID 3000 is removed from CES 1"
 	ces1 = cestest.CreateStoreEndpointSlice("ces1", "ns", []capi_v2a1.CoreCiliumEndpoint{cep1, cep2, cep3})
 	unusedCIDs = state.ProcessCESUpsert(ces1.Name, ces1.Endpoints)
-	assert.Equal(t, 1, len(unusedCIDs), assertTxt)
+	assert.Len(t, unusedCIDs, 1, assertTxt)
 	if len(unusedCIDs) > 0 {
 		assert.Equal(t, int64(3000), unusedCIDs[0], assertTxt)
 	}
@@ -317,13 +317,13 @@ func TestCIDUsageInCES(t *testing.T) {
 
 	assertTxt = "CES 1 is removed"
 	unusedCIDs = state.ProcessCESDelete(ces1.Name, ces1.Endpoints)
-	assert.Equal(t, 0, len(unusedCIDs), assertTxt)
+	assert.Empty(t, unusedCIDs, assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount("2000"), assertTxt)
 
 	assertTxt = "CES 2 is removed"
 	unusedCIDs = state.ProcessCESDelete(ces1.Name, ces1.Endpoints)
-	assert.Equal(t, 2, len(unusedCIDs), assertTxt)
+	assert.Len(t, unusedCIDs, 2, assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("2000"), assertTxt)
 }

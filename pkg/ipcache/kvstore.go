@@ -437,10 +437,6 @@ func (iw *IPIdentityWatcher) selfDeletionProtection(ip string) bool {
 	return false
 }
 
-func (iw *IPIdentityWatcher) waitForInitialSync() {
-	<-iw.synced
-}
-
 var (
 	watcher     *IPIdentityWatcher
 	initialized = make(chan struct{})
@@ -460,7 +456,17 @@ func (ipc *IPCache) InitIPIdentityWatcher(ctx context.Context, factory storepkg.
 }
 
 // WaitForKVStoreSync waits until the ipcache has been synchronized from the kvstore
-func WaitForKVStoreSync() {
-	<-initialized
-	watcher.waitForInitialSync()
+func WaitForKVStoreSync(ctx context.Context) error {
+	select {
+	case <-initialized:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	select {
+	case <-watcher.synced:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

@@ -107,7 +107,6 @@ func TestEmptyMapAddPartialSync(t *testing.T) {
 	changes, err := fix.proxyNeighborTable.Changes(txn)
 	assert.NoError(t, err)
 	txn.Commit()
-	defer changes.Close()
 
 	fix.mockNetlink.LinkByNameFn = func(name string) (netlink.Link, error) {
 		return &mockLink{
@@ -152,8 +151,6 @@ func TestEmptyMapAddDelPartialSync(t *testing.T) {
 	changes, err := fix.proxyNeighborTable.Changes(txn)
 	assert.NoError(t, err)
 	txn.Commit()
-
-	defer changes.Close()
 
 	txn = fix.stateDB.WriteTxn(fix.proxyNeighborTable)
 	_, _, err = fix.proxyNeighborTable.Delete(txn, &tables.L2AnnounceEntry{
@@ -294,8 +291,6 @@ func Test1RougeAddPartialSync(t *testing.T) {
 	changes, err := fix.proxyNeighborTable.Changes(txn)
 	assert.NoError(t, err)
 	txn.Commit()
-
-	defer changes.Close()
 
 	err = fix.respondermap.Create(ip3, ifidx1)
 	assert.NoError(t, err)

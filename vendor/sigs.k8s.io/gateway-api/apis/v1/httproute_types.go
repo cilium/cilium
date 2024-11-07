@@ -296,6 +296,14 @@ type HTTPRouteRule struct {
 	// +optional
 	Timeouts *HTTPRouteTimeouts `json:"timeouts,omitempty"`
 
+	// Retry defines the configuration for when to retry an HTTP request.
+	//
+	// Support: Extended
+	//
+	// +optional
+	// <gateway:experimental>
+	Retry *HTTPRouteRetry `json:"retry,omitempty"`
+
 	// SessionPersistence defines and configures session persistence
 	// for the route rule.
 	//
@@ -360,6 +368,95 @@ type HTTPRouteTimeouts struct {
 	// +optional
 	BackendRequest *Duration `json:"backendRequest,omitempty"`
 }
+
+// HTTPRouteRetry defines retry configuration for an HTTPRoute.
+//
+// Implementations SHOULD retry on connection errors (disconnect, reset, timeout,
+// TCP failure) if a retry stanza is configured.
+type HTTPRouteRetry struct {
+	// Codes defines the HTTP response status codes for which a backend request
+	// should be retried.
+	//
+	// Support: Extended
+	//
+	// +optional
+	Codes []HTTPRouteRetryStatusCode `json:"codes,omitempty"`
+
+	// Attempts specifies the maxmimum number of times an individual request
+	// from the gateway to a backend should be retried.
+	//
+	// If the maximum number of retries has been attempted without a successful
+	// response from the backend, the Gateway MUST return an error.
+	//
+	// When this field is unspecified, the number of times to attempt to retry
+	// a backend request is implementation-specific.
+	//
+	// Support: Extended
+	//
+	// +optional
+	Attempts *int `json:"attempts,omitempty"`
+
+	// Backoff specifies the minimum duration a Gateway should wait between
+	// retry attempts and is represented in Gateway API Duration formatting.
+	//
+	// For example, setting the `rules[].retry.backoff` field to the value
+	// `100ms` will cause a backend request to first be retried approximately
+	// 100 milliseconds after timing out or receiving a response code configured
+	// to be retryable.
+	//
+	// An implementation MAY use an exponential or alternative backoff strategy
+	// for subsequent retry attempts, MAY cap the maximum backoff duration to
+	// some amount greater than the specified minimum, and MAY add arbitrary
+	// jitter to stagger requests, as long as unsuccessful backend requests are
+	// not retried before the configured minimum duration.
+	//
+	// If a Request timeout (`rules[].timeouts.request`) is configured on the
+	// route, the entire duration of the initial request and any retry attempts
+	// MUST not exceed the Request timeout duration. If any retry attempts are
+	// still in progress when the Request timeout duration has been reached,
+	// these SHOULD be canceled if possible and the Gateway MUST immediately
+	// return a timeout error.
+	//
+	// If a BackendRequest timeout (`rules[].timeouts.backendRequest`) is
+	// configured on the route, any retry attempts which reach the configured
+	// BackendRequest timeout duration without a response SHOULD be canceled if
+	// possible and the Gateway should wait for at least the specified backoff
+	// duration before attempting to retry the backend request again.
+	//
+	// If a BackendRequest timeout is _not_ configured on the route, retry
+	// attempts MAY time out after an implementation default duration, or MAY
+	// remain pending until a configured Request timeout or implementation
+	// default duration for total request time is reached.
+	//
+	// When this field is unspecified, the time to wait between retry attempts
+	// is implementation-specific.
+	//
+	// Support: Extended
+	//
+	// +optional
+	Backoff *Duration `json:"backoff,omitempty"`
+}
+
+// HTTPRouteRetryStatusCode defines an HTTP response status code for
+// which a backend request should be retried.
+//
+// Implementations MUST support the following status codes as retryable:
+//
+// * 500
+// * 502
+// * 503
+// * 504
+//
+// Implementations MAY support specifying additional discrete values in the
+// 500-599 range.
+//
+// Implementations MAY support specifying discrete values in the 400-499 range,
+// which are often inadvisable to retry.
+//
+// +kubebuilder:validation:Minimum:=400
+// +kubebuilder:validation:Maximum:=599
+// <gateway:experimental>
+type HTTPRouteRetryStatusCode int
 
 // PathMatchType specifies the semantics of how HTTP paths should be compared.
 // Valid PathMatchType values, along with their support levels, are:
@@ -757,6 +854,8 @@ type HTTPRouteFilter struct {
 	// Support: Extended
 	//
 	// +optional
+	//
+	// <gateway:experimental:validation:XValidation:message="Only one of percent or fraction may be specified in HTTPRequestMirrorFilter",rule="!(has(self.percent) && has(self.fraction))">
 	RequestMirror *HTTPRequestMirrorFilter `json:"requestMirror,omitempty"`
 
 	// RequestRedirect defines a schema for a filter that responds to the
@@ -1153,6 +1252,29 @@ type HTTPRequestMirrorFilter struct {
 	//
 	// Support: Implementation-specific for any other resource
 	BackendRef BackendObjectReference `json:"backendRef"`
+
+	// Percent represents the percentage of requests that should be
+	// mirrored to BackendRef. Its minimum value is 0 (indicating 0% of
+	// requests) and its maximum value is 100 (indicating 100% of requests).
+	//
+	// Only one of Fraction or Percent may be specified. If neither field
+	// is specified, 100% of requests will be mirrored.
+	//
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	// <gateway:experimental>
+	Percent *int32 `json:"percent,omitempty"`
+
+	// Fraction represents the fraction of requests that should be
+	// mirrored to BackendRef.
+	//
+	// Only one of Fraction or Percent may be specified. If neither field
+	// is specified, 100% of requests will be mirrored.
+	//
+	// +optional
+	// <gateway:experimental>
+	Fraction *Fraction `json:"fraction,omitempty"`
 }
 
 // HTTPBackendRef defines how a HTTPRoute forwards a HTTP request.

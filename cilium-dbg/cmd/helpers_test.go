@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -553,15 +554,15 @@ func TestParseTrafficString(t *testing.T) {
 }
 
 func TestParsePolicyUpdateArgsHelper(t *testing.T) {
-	sortProtos := func(ints []uint8) {
+	sortProtos := func(ints []u8proto.U8proto) {
 		sort.Slice(ints, func(i, j int) bool {
 			return ints[i] < ints[j]
 		})
 	}
 
-	allProtos := []uint8{}
+	allProtos := []u8proto.U8proto{}
 	for _, proto := range u8proto.ProtoIDs {
-		allProtos = append(allProtos, uint8(proto))
+		allProtos = append(allProtos, proto)
 	}
 
 	tests := []struct {
@@ -569,9 +570,9 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 		invalid          bool
 		mapBaseName      string
 		trafficDirection trafficdirection.TrafficDirection
-		peerLbl          uint32
+		peerLbl          identity.NumericIdentity
 		port             uint16
-		protos           []uint8
+		protos           []u8proto.U8proto
 		isDeny           bool
 	}{
 		{
@@ -581,7 +582,7 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
 			port:             0,
-			protos:           []uint8{0},
+			protos:           []u8proto.U8proto{u8proto.ANY},
 		},
 		{
 			args:             []string{"123", "egress", "12345", "1/tcp"},
@@ -590,7 +591,7 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 			trafficDirection: trafficdirection.Egress,
 			peerLbl:          12345,
 			port:             1,
-			protos:           []uint8{uint8(u8proto.TCP)},
+			protos:           []u8proto.U8proto{u8proto.TCP},
 		},
 		{
 			args:             []string{"123", "ingress", "12345", "1"},
@@ -619,7 +620,7 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
 			port:             0,
-			protos:           []uint8{0},
+			protos:           []u8proto.U8proto{u8proto.ANY},
 		},
 		{
 			args:             []string{"123", "egress", "12345", "1/tcp"},
@@ -629,7 +630,7 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 			trafficDirection: trafficdirection.Egress,
 			peerLbl:          12345,
 			port:             1,
-			protos:           []uint8{uint8(u8proto.TCP)},
+			protos:           []u8proto.U8proto{u8proto.TCP},
 		},
 		{
 			args:             []string{"123", "ingress", "12345", "1"},

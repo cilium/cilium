@@ -44,6 +44,7 @@ import (
 const (
 	nodeDiscoverySubsys = "nodediscovery"
 	maxRetryCount       = 10
+	backoffDuration     = 500 * time.Millisecond
 )
 
 var (
@@ -209,6 +210,17 @@ func (n *NodeDiscovery) WaitForLocalNodeInit() {
 	<-n.localStateInitialized
 }
 
+// WaitForKVStoreSync blocks until kvstore synchronization of node information
+// completed. It returns immediately in CRD mode.
+func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
+	select {
+	case <-n.Registered:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func (n *NodeDiscovery) updateLocalNode(ln *node.LocalNode) {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		n.ctrlmgr.UpdateController(
@@ -297,6 +309,8 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) {
 					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
+					// Backoff before retrying
+					time.Sleep(backoffDuration)
 					continue
 				}
 				log.WithError(err).Fatal("Unable to update CiliumNode resource")
@@ -308,7 +322,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ln *node.LocalNode) {
 				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
 					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
 					// Backoff before retrying
-					time.Sleep(500 * time.Millisecond)
+					time.Sleep(backoffDuration)
 					continue
 				}
 				log.WithError(err).Fatal("Unable to create CiliumNode resource")
@@ -440,6 +454,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
 			}
 
+			if len(c.IPAM.StaticIPTags) > 0 {
+				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
+			}
+
 			if c.ENI.FirstInterfaceIndex != nil {
 				nodeResource.Spec.ENI.FirstInterfaceIndex = c.ENI.FirstInterfaceIndex
 			}
@@ -504,6 +522,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 			}
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
+			if len(c.IPAM.StaticIPTags) > 0 {
+				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 			if c.Azure.InterfaceName != "" {
 				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
@@ -570,6 +591,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
+
+			if len(c.IPAM.StaticIPTags) > 0 {
+				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 		}
 	}

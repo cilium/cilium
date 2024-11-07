@@ -85,14 +85,14 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	db := statedb.New()
 
 	nodeAddrs, err := datapathTables.NewNodeAddressTable()
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 
 	err = db.RegisterTable(nodeAddrs)
 	require.NoError(tb, err)
 
 	s.svcCache = k8s.NewServiceCache(db, nodeAddrs)
 
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-mgr.InitIdentityAllocator(nil)
 	dir := tb.TempDir()
@@ -138,7 +138,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 
 	// wait for both clusters to appear in the list of cm clusters
 	require.EventuallyWithT(tb, func(c *assert.CollectT) {
-		assert.EqualValues(c, s.mesh.NumReadyClusters(), 2)
+		assert.EqualValues(c, 2, s.mesh.NumReadyClusters())
 	}, timeout, tick)
 
 	return s
@@ -310,7 +310,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 
 	require.NoError(t, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2"))
 	s.expectEvent(t, k8s.DeleteService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
-		assert.Len(c, event.Endpoints.Backends, 0)
+		assert.Empty(c, event.Endpoints.Backends)
 	})
 
 	swgSvcs.Stop()

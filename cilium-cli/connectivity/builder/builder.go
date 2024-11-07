@@ -54,6 +54,9 @@ var (
 	//go:embed manifests/client-egress-to-cidr-external-deny.yaml
 	clientEgressToCIDRExternalDenyPolicyYAML string
 
+	//go:embed manifests/client-egress-to-cidrgroup-external-deny.yaml
+	clientEgressToCIDRGroupExternalDenyPolicyYAML string
+
 	//go:embed manifests/client-egress-l7-http.yaml
 	clientEgressL7HTTPPolicyYAML string
 
@@ -210,6 +213,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		clientWithServiceAccountEgressToEchoDeny{},
 		clientEgressToEchoServiceAccountDeny{},
 		clientEgressToCidrDeny{},
+		clientEgressToCidrgroupDeny{},
 		clientEgressToCidrDenyDefault{},
 		clusterMeshEndpointSliceSync{},
 		health{},
@@ -250,6 +254,8 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		localRedirectPolicyWithNodeDNS{},
 		noFragmentation{},
 		bgpControlPlane{},
+		multicast{},
+		strictModeEncryption{},
 	}
 	return injectTests(tests, connTests...)
 }
@@ -274,6 +280,7 @@ func renderTemplates(param check.Parameters) (map[string]string, error) {
 		"clientEgressToCIDRExternalPolicyKNPYAML":          clientEgressToCIDRExternalPolicyKNPYAML,
 		"clientEgressToCIDRNodeKNPYAML":                    clientEgressToCIDRNodeKNPYAML,
 		"clientEgressToCIDRExternalDenyPolicyYAML":         clientEgressToCIDRExternalDenyPolicyYAML,
+		"clientEgressToCIDRGroupExternalDenyPolicyYAML":    clientEgressToCIDRGroupExternalDenyPolicyYAML,
 		"clientEgressL7HTTPPolicyYAML":                     clientEgressL7HTTPPolicyYAML,
 		"clientEgressL7HTTPPolicyPortRangeYAML":            clientEgressL7HTTPPolicyPortRangeYAML,
 		"clientEgressL7HTTPNamedPortPolicyYAML":            clientEgressL7HTTPNamedPortPolicyYAML,

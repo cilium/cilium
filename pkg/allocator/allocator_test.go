@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -17,7 +19,6 @@ import (
 	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -39,10 +40,6 @@ func newDummyBackend() *dummyBackend {
 	return &dummyBackend{
 		identities: map[idpool.ID]AllocatorKey{},
 	}
-}
-
-func (d *dummyBackend) Encode(v string) string {
-	return v
 }
 
 func (d *dummyBackend) DeleteAllKeys(ctx context.Context) {
@@ -172,7 +169,7 @@ func (d *dummyBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, er
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return maps.Keys(d.identities), nil
+	return slices.Collect(maps.Keys(d.identities)), nil
 }
 
 func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
@@ -180,9 +177,7 @@ func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations,
 	d.handler = handler
 
 	// Sort by ID to ensure consistent ordering
-	ids := maps.Keys(d.identities)
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	for _, id := range ids {
+	for _, id := range slices.Sorted(maps.Keys(d.identities)) {
 		d.handler.OnUpsert(id, d.identities[id])
 	}
 	d.mutex.Unlock()
@@ -295,7 +290,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 		require.True(t, firstUse)
 
 		// refcnt must be 1
-		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+		require.Equal(t, uint64(1), allocator.localKeys.keys[key.GetKey()].refcnt)
 	}
 
 	saved := allocator.backoffTemplate.Factor
@@ -319,7 +314,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 		require.False(t, firstUse)
 
 		// refcnt must now be 2
-		require.Equal(t, uint64(2), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+		require.Equal(t, uint64(2), allocator.localKeys.keys[key.GetKey()].refcnt)
 	}
 
 	// Create a 2nd allocator, refill it
@@ -336,7 +331,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 		require.False(t, new)
 		require.True(t, firstUse)
 
-		localKey := allocator2.localKeys.keys[allocator.encodeKey(key)]
+		localKey := allocator2.localKeys.keys[key.GetKey()]
 		require.NotNil(t, localKey)
 
 		// refcnt in the 2nd allocator is 1
@@ -353,7 +348,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 	// refcnt should be back to 1
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+		require.Equal(t, uint64(1), allocator.localKeys.keys[key.GetKey()].refcnt)
 	}
 
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
@@ -368,7 +363,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		require.NotContains(t, allocator.localKeys.keys, allocator.encodeKey(key))
+		require.NotContains(t, allocator.localKeys.keys, key.GetKey())
 	}
 
 	// running the GC should evict all entries
@@ -401,7 +396,7 @@ func TestObserveAllocatorChanges(t *testing.T) {
 		require.True(t, firstUse)
 
 		// refcnt must be 1
-		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+		require.Equal(t, uint64(1), allocator.localKeys.keys[key.GetKey()].refcnt)
 	}
 
 	// Subscribe to the changes. This should replay the current state.
@@ -612,7 +607,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: AllocatorChangeDelete}, <-events)
 	require.Equal(t, rc, global.remoteCaches["remote"])
 
-	require.Len(t, events, 0)
+	require.Empty(t, events)
 
 	// Remove the remote caches and assert that a deletion event is triggered
 	// for all entries.

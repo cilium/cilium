@@ -22,7 +22,7 @@ limitations under the License.
 // Because it uses go/packages, it's modules-aware, and works in both modules-
 // and non-modules environments.
 //
-// Loading
+// # Loading
 //
 // The main entrypoint for loading is LoadRoots, which traverse the package
 // graph starting at the given patterns (file, package, path, or ...-wildcard,
@@ -33,7 +33,7 @@ limitations under the License.
 // Packages are suitable for comparison, as each unique package only ever has
 // one *Package object returned.
 //
-// Syntax and TypeChecking
+// # Syntax and TypeChecking
 //
 // ASTs and type-checking information can be loaded with NeedSyntax and
 // NeedTypesInfo, respectively.  Both are idempotent -- repeated calls will
@@ -41,14 +41,14 @@ limitations under the License.
 // check the current package -- if you want to type-check imports as well,
 // you'll need to type-check them first.
 //
-// Reference Pruning and Recursive Checking
+// # Reference Pruning and Recursive Checking
 //
 // In order to type-check using only the packages you care about, you can use a
 // TypeChecker.  TypeChecker will visit each top-level type declaration,
 // collect (optionally filtered) references, and type-check references
 // packages.
 //
-// Errors
+// # Errors
 //
 // Errors can be added to each package.  Use ErrFromNode to create an error
 // from an AST node.  Errors can then be printed (complete with file and

@@ -6,11 +6,10 @@ package controllerruntime
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"github.com/bombsimon/logrusr/v4"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,7 +49,7 @@ func newScheme() (*runtime.Scheme, error) {
 type managerParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 	Health    cell.Health
@@ -70,7 +69,7 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		return proto.Equal(xdsResource1.Any, xdsResource2.Any)
 	})
 
-	ctrlRuntime.SetLogger(logrusr.New(params.Logger))
+	ctrlRuntime.SetLogger(newLogrFromSlog(params.Logger))
 
 	mgr, err := ctrlRuntime.NewManager(params.K8sClient.RestConfig(), ctrlRuntime.Options{
 		Scheme: params.Scheme,
@@ -78,7 +77,6 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
-		Logger: logrusr.New(params.Logger),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new controller-runtime manager: %w", err)

@@ -19,14 +19,14 @@ func setupNodeMapSuite(tb testing.TB) {
 
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 }
 
 func TestNodeMap(t *testing.T) {
 	setupNodeMapSuite(t)
 	nodeMap := newMap("test_cilium_node_map", defaultConfig)
 	err := nodeMap.init()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer nodeMap.bpfMap.Unpin()
 
 	bpfNodeIDMap := map[uint16]string{}
@@ -39,24 +39,24 @@ func TestNodeMap(t *testing.T) {
 	}
 
 	err = nodeMap.IterateWithCallback(toMap)
-	require.Nil(t, err)
-	require.Equal(t, 0, len(bpfNodeIDMap))
+	require.NoError(t, err)
+	require.Empty(t, bpfNodeIDMap)
 
 	err = nodeMap.Update(net.ParseIP("10.1.0.0"), 10)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = nodeMap.Update(net.ParseIP("10.1.0.1"), 20)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}
 	err = nodeMap.IterateWithCallback(toMap)
-	require.Nil(t, err)
-	require.Equal(t, 2, len(bpfNodeIDMap))
+	require.NoError(t, err)
+	require.Len(t, bpfNodeIDMap, 2)
 
 	err = nodeMap.Delete(net.ParseIP("10.1.0.0"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}
 	err = nodeMap.IterateWithCallback(toMap)
-	require.Nil(t, err)
-	require.Equal(t, 1, len(bpfNodeIDMap))
+	require.NoError(t, err)
+	require.Len(t, bpfNodeIDMap, 1)
 }

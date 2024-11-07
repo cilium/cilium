@@ -25,7 +25,7 @@ import (
 var _ = SkipDescribeIf(func() bool {
 	// right now, the 5.4 job is the fastest, so use only that
 	// but only if we're on jenkins
-	return helpers.DoesNotRunOn54Kernel() && helpers.RunsOnJenkins()
+	return helpers.DoesNotRunOn54Kernel()
 }, "K8sAgentPerNodeConfigTest", func() {
 	var (
 		kubectl *helpers.Kubectl

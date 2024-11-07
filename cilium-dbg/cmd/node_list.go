@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
+	"slices"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -75,7 +75,7 @@ func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
 	if len(nodesOutput) > 1 {
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 		fmt.Fprint(tab, nodesOutputHeader)
-		sort.Strings(nodesOutput)
+		slices.Sort(nodesOutput)
 		for _, s := range nodesOutput {
 			fmt.Fprint(tab, s)
 		}

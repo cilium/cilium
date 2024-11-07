@@ -86,24 +86,6 @@ func TestSortedUnique(t *testing.T) {
 	}
 }
 
-func TestSortedUniqueFunc(t *testing.T) {
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			input := slices.Clone(tc.input)
-			got := SortedUniqueFunc(
-				input,
-				func(i, j int) bool {
-					return input[i] < input[j]
-				},
-				func(a, b int) bool {
-					return a == b
-				},
-			)
-			assert.ElementsMatch(t, tc.expected, got)
-		})
-	}
-}
-
 func TestUniqueKeepOrdering(t *testing.T) {
 	input := []string{"test-4", "test-1", "test-3", "test-4", "test-4", "test-3", "test-5"}
 	expected := []*string{&input[0], &input[1], &input[2], &input[3]}
@@ -337,6 +319,63 @@ func TestXorNil(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.expected, XorNil(tc.a, tc.b))
+		})
+	}
+}
+
+func TestAllMatch(t *testing.T) {
+	testCases := []struct {
+		name     string
+		s        []bool
+		pred     func(v bool) bool
+		expected bool
+	}{
+		{
+			name:     "nil slice",
+			s:        nil,
+			pred:     func(v bool) bool { return v },
+			expected: true,
+		},
+		{
+			name:     "empty slice",
+			s:        []bool{},
+			pred:     func(v bool) bool { return v },
+			expected: true,
+		},
+		{
+			name:     "one true element",
+			s:        []bool{true},
+			pred:     func(v bool) bool { return v },
+			expected: true,
+		},
+		{
+			name:     "one false element",
+			s:        []bool{false},
+			pred:     func(v bool) bool { return v },
+			expected: false,
+		},
+		{
+			name:     "all true elements",
+			s:        []bool{true, true, true},
+			pred:     func(v bool) bool { return v },
+			expected: true,
+		},
+		{
+			name:     "all false elements",
+			s:        []bool{false, false, false},
+			pred:     func(v bool) bool { return v },
+			expected: false,
+		},
+		{
+			name:     "true and false elements",
+			s:        []bool{false, true, true},
+			pred:     func(v bool) bool { return v },
+			expected: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, AllMatch(tc.s, tc.pred))
 		})
 	}
 }

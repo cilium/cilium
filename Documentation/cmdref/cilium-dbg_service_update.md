@@ -24,6 +24,7 @@ cilium-dbg service update [flags]
       --k8s-load-balancer               Set service as a k8s LoadBalancer
       --k8s-node-port                   Set service as a k8s NodePort
       --local-redirect                  Set service as Local Redirect
+      --protocol string                 Protocol for service (e.g. TCP, UDP) (default "tcp")
       --states strings                  Backend state(s) as {active(default),terminating,quarantined,maintenance}
 ```
 

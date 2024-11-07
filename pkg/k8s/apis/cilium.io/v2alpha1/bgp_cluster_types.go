@@ -14,6 +14,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium,ciliumbgp},singular="ciliumbgpclusterconfig",path="ciliumbgpclusterconfigs",scope="Cluster",shortName={cbgpcluster}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 
 // CiliumBGPClusterConfig is the Schema for the CiliumBGPClusterConfig API
@@ -25,6 +26,11 @@ type CiliumBGPClusterConfig struct {
 
 	// Spec defines the desired cluster configuration of the BGP control plane.
 	Spec CiliumBGPClusterConfigSpec `json:"spec"`
+
+	// Status is a running status of the cluster configuration
+	//
+	// +kubebuilder:validation:Optional
+	Status CiliumBGPClusterConfigStatus `json:"status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -136,3 +142,23 @@ type PeerConfigReference struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 }
+
+type CiliumBGPClusterConfigStatus struct {
+	// The current conditions of the CiliumBGPClusterConfig
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// Conditions for CiliumBGPClusterConfig
+const (
+	// Node selector selects nothing
+	BGPClusterConfigConditionNoMatchingNode = "cilium.io/NoMatchingNode"
+	// Referenced peer configs are missing
+	BGPClusterConfigConditionMissingPeerConfigs = "cilium.io/MissingPeerConfigs"
+	// ClusterConfig with conflicting nodeSelector present
+	BGPClusterConfigConditionConflictingClusterConfigs = "cilium.io/ConflictingClusterConfig"
+)

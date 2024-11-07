@@ -5,6 +5,7 @@ set -eu
 
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
+CILIUM_EXTRA_ARGS=${3:-}
 V=${V:-"0"} # Verbosity. 0 = quiet, 1 = loud
 if [ "$V" != "0" ]; then
     set -x
@@ -72,7 +73,7 @@ function cilium_install {
             --privileged=true \
             --network=host \
             "quay.io/${IMG_OWNER}/cilium-ci:${IMG_TAG}" \
-            cilium-agent "${CFG_COMMON[@]}" "$@"
+            cilium-agent "${CFG_COMMON[@]}" "$@" ${CILIUM_EXTRA_ARGS}
     result=1
     for i in $(seq 1 10); do
         if ${CILIUM_EXEC} cilium-dbg status --brief; then

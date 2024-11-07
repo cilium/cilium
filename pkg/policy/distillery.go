@@ -5,8 +5,10 @@ package policy
 
 import (
 	"fmt"
+	"iter"
 	"sync/atomic"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
@@ -16,9 +18,13 @@ import (
 // the policy repository and ready to be distilled against a set of identities
 // to compute datapath-level policy configuration.
 type SelectorPolicy interface {
+	// CreateRedirects is used to ensure the endpoint has created all the needed redirects
+	// before a new EndpointPolicy is created.
+	RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy]
+
 	// Consume returns the policy in terms of connectivity to peer
 	// Identities.
-	Consume(owner PolicyOwner) *EndpointPolicy
+	Consume(owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
 }
 
 // PolicyCache represents a cache of resolved policies for identities.
@@ -34,7 +40,7 @@ type PolicyCache struct {
 }
 
 // NewPolicyCache creates a new cache of SelectorPolicy.
-func NewPolicyCache(repo *Repository, idmgr *identitymanager.IdentityManager) *PolicyCache {
+func NewPolicyCache(repo *Repository, idmgr identitymanager.IDManager) *PolicyCache {
 	cache := &PolicyCache{
 		repo:     repo,
 		policies: make(map[identityPkg.NumericIdentity]*cachedSelectorPolicy),
@@ -176,7 +182,7 @@ func (cache *PolicyCache) GetAuthTypes(localID, remoteID identityPkg.NumericIden
 		}
 		// Only check if 'cs' selects 'remoteID' if one of the authTypes is still missing
 		// from the result
-		if missing && cs.Selects(remoteID) {
+		if missing && cs.Selects(versioned.Latest(), remoteID) {
 			if resTypes == nil {
 				resTypes = make(AuthTypes, 1)
 			}
@@ -228,10 +234,14 @@ func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
 //
 // This denotes that a particular endpoint is 'consuming' the policy from the
 // selector policy cache.
-func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner) *EndpointPolicy {
+func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy {
 	// TODO: This currently computes the EndpointPolicy from SelectorPolicy
 	// on-demand, however in future the cip is intended to cache the
 	// EndpointPolicy for this Identity and emit datapath deltas instead.
 	isHost := cip.identity.ID == identityPkg.ReservedIdentityHost
-	return cip.getPolicy().DistillPolicy(owner, isHost)
+	return cip.getPolicy().DistillPolicy(owner, redirects, isHost)
+}
+
+func (cip *cachedSelectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy] {
+	return cip.getPolicy().RedirectFilters()
 }

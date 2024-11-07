@@ -549,7 +549,7 @@ func createTestInterface(tb testing.TB, sysctl sysctl.Sysctl, iface string, addr
 }
 
 func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) {
-	rpFilterSetting := fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)
+	rpFilterSetting := []string{"net", "ipv4", "conf", iface, "rp_filter"}
 
 	for i := 0; i < 10; i++ {
 		if err := sysctl.Enable(rpFilterSetting); err != nil {
@@ -697,7 +697,7 @@ func assertRPFilter(t *testing.T, sysctl sysctl.Sysctl, rpFilterSettings []rpFil
 
 func tryAssertRPFilterSettings(sysctl sysctl.Sysctl, rpFilterSettings []rpFilterSetting) error {
 	for _, setting := range rpFilterSettings {
-		if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", setting.iFaceName)); err != nil {
+		if val, err := sysctl.Read([]string{"net", "ipv4", "conf", setting.iFaceName, "rp_filter"}); err != nil {
 			return fmt.Errorf("failed to read rp_filter")
 		} else if val != setting.rpFilterSetting {
 			return fmt.Errorf("mismatched rp_filter iface: %s rp_filter: %s", setting.iFaceName, val)

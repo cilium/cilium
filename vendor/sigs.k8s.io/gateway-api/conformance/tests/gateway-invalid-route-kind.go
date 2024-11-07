@@ -35,7 +35,7 @@ func init() {
 var GatewayInvalidRouteKind = suite.ConformanceTest{
 	ShortName:   "GatewayInvalidRouteKind",
 	Description: "A Gateway in the gateway-conformance-infra namespace should fail to become ready an invalid Route kind is specified.",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 	},
 	Manifests: []string{"tests/gateway-invalid-route-kind.yaml"},

@@ -6,7 +6,6 @@ package api
 import (
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -182,8 +181,8 @@ func parseContextIdentifier(s string) (ContextIdentifier, error) {
 	}
 }
 
-func parseContext(s string) (cs ContextIdentifierList, err error) {
-	for _, v := range strings.Split(s, "|") {
+func parseContextValues(s ContextValues) (cs ContextIdentifierList, err error) {
+	for _, v := range s {
 		c, err := parseContextIdentifier(v)
 		if err != nil {
 			return nil, err
@@ -194,62 +193,64 @@ func parseContext(s string) (cs ContextIdentifierList, err error) {
 	return cs, nil
 }
 
-func parseLabels(s string) (labelsSet, error) {
-	labels := strings.Split(s, ",")
-	for _, label := range labels {
+func parseLabels(s ContextValues) (labelsSet, error) {
+	// TODO this labels parsing is different from options | parsing
+	// be care ful and support this
+	//labels := strings.Split(s, ",")
+	for _, label := range s {
 		if !allowedContextLabels.HasLabel(label) {
 			return labelsSet{}, fmt.Errorf("invalid labelsContext value: %s", label)
 		}
 	}
-	ls := newLabelsSet(labels)
+	ls := newLabelsSet(s)
 	return ls, nil
 }
 
 // ParseContextOptions parses a set of options and extracts the context
 // relevant options
-func ParseContextOptions(options Options) (*ContextOptions, error) {
+func ParseContextOptions(config []*ContextOptionConfig) (*ContextOptions, error) {
 	o := &ContextOptions{}
 	var err error
-	for key, value := range options {
-		switch strings.ToLower(key) {
+	for _, option := range config {
+		switch strings.ToLower(option.Name) {
 		case "destinationcontext":
-			o.Destination, err = parseContext(value)
+			o.Destination, err = parseContextValues(option.Values)
 			o.allDestinationCtx = append(o.allDestinationCtx, o.Destination...)
 			if err != nil {
 				return nil, err
 			}
 		case "destinationegresscontext":
-			o.DestinationEgress, err = parseContext(value)
+			o.DestinationEgress, err = parseContextValues(option.Values)
 			o.allDestinationCtx = append(o.allDestinationCtx, o.DestinationEgress...)
 			if err != nil {
 				return nil, err
 			}
 		case "destinationingresscontext":
-			o.DestinationIngress, err = parseContext(value)
+			o.DestinationIngress, err = parseContextValues(option.Values)
 			o.allDestinationCtx = append(o.allDestinationCtx, o.DestinationIngress...)
 			if err != nil {
 				return nil, err
 			}
 		case "sourcecontext":
-			o.Source, err = parseContext(value)
+			o.Source, err = parseContextValues(option.Values)
 			o.allSourceCtx = append(o.allSourceCtx, o.Source...)
 			if err != nil {
 				return nil, err
 			}
 		case "sourceegresscontext":
-			o.SourceEgress, err = parseContext(value)
+			o.SourceEgress, err = parseContextValues(option.Values)
 			o.allSourceCtx = append(o.allSourceCtx, o.SourceEgress...)
 			if err != nil {
 				return nil, err
 			}
 		case "sourceingresscontext":
-			o.SourceIngress, err = parseContext(value)
+			o.SourceIngress, err = parseContextValues(option.Values)
 			o.allSourceCtx = append(o.allSourceCtx, o.SourceIngress...)
 			if err != nil {
 				return nil, err
 			}
 		case "labelscontext":
-			o.Labels, err = parseLabels(value)
+			o.Labels, err = parseLabels(option.Values)
 			if err != nil {
 				return nil, err
 			}
@@ -549,7 +550,7 @@ func (o *ContextOptions) Status() string {
 		status = append(status, "destination="+o.Destination.String())
 	}
 
-	sort.Strings(status)
+	slices.Sort(status)
 
 	return strings.Join(status, ",")
 }

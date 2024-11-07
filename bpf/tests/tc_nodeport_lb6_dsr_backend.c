@@ -6,9 +6,6 @@
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
 
-/* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
-#define ETH_HLEN 14
-
 /* Enable code paths under test */
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
@@ -351,6 +348,9 @@ int check_reply(const struct __ctx_buff *ctx)
 
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0x2dbc))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }

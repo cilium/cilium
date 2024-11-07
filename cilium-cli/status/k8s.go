@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -69,11 +71,12 @@ type k8sImplementation interface {
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	KVStoreMeshStatus(ctx context.Context, namespace, pod string) ([]*models.RemoteCluster, error)
 	CiliumDbgEndpoints(ctx context.Context, namespace, pod string) ([]*models.Endpoint, error)
+	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.DaemonSet, error)
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
-	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time) (string, error)
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, previous bool) (string, error)
 }
 
 func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
@@ -308,6 +311,20 @@ func (k *K8sStatusCollector) podStatus(ctx context.Context, status *Status, name
 	return nil
 }
 
+func (k *K8sStatusCollector) ciliumConfigAnnotations(ctx context.Context, status *Status) error {
+	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+	for k, v := range cm.Annotations {
+		if strings.HasPrefix(k, annotation.ConfigPrefix) {
+			status.ConfigErrors = append(status.ConfigErrors, v)
+		}
+	}
+	sort.Strings(status.ConfigErrors)
+	return nil
+}
+
 func (s K8sStatusParameters) waitTimeout() time.Duration {
 	if s.WaitDuration != time.Duration(0) {
 		return s.WaitDuration
@@ -350,11 +367,14 @@ func (k *K8sStatusCollector) Status(ctx context.Context) (*Status, error) {
 	for {
 		select {
 		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return mostRecentStatus, fmt.Errorf("wait canceled, cilium agent container has crashed or was terminated: %w", ctx.Err())
+			}
 			return mostRecentStatus, fmt.Errorf("timeout while waiting for status to become successful: %w", ctx.Err())
 		default:
 		}
 
-		s := k.status(ctx)
+		s := k.status(ctx, cancel)
 		// We collect the most recent status that even if the last status call
 		// fails, we can still display the most recent status
 		if s != nil {
@@ -399,7 +419,7 @@ type statusTask struct {
 	task func(_ context.Context) error
 }
 
-func (k *K8sStatusCollector) status(ctx context.Context) *Status {
+func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFunc) *Status {
 	status := newStatus()
 	tasks := []statusTask{
 		{
@@ -565,6 +585,18 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 				return nil
 			},
 		},
+		{
+			name: defaults.ConfigMapName,
+			task: func(_ context.Context) error {
+				err := k.ciliumConfigAnnotations(ctx, status)
+				if err != nil {
+					status.mutex.Lock()
+					defer status.mutex.Unlock()
+					status.CollectionError(err)
+				}
+				return nil
+			},
+		},
 	}
 
 	tasks = append(tasks, statusTask{
@@ -601,6 +633,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 					var s *models.StatusResponse
 					var eps []*models.Endpoint
 					var err, epserr error
+					var isTerminated bool
 
 					if containerStatus != nil && containerStatus.State.Running != nil {
 						// if container is running, execute "cilium status" in the container and parse the result
@@ -616,6 +649,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 						if containerStatus != nil {
 							if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
 								desc = "is in CrashLoopBackOff"
+								isTerminated = true
 							}
 							if containerStatus.LastTerminationState.Terminated != nil {
 								terminated := containerStatus.LastTerminationState.Terminated
@@ -625,20 +659,27 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 								// either from container message or a separate logs request
 								dyingGasp := ""
 								if terminated.Message != "" {
-									dyingGasp = strings.TrimSpace(terminated.Message)
+									lastLog = strings.TrimSpace(terminated.Message)
 								} else {
 									agentLogsOnce.Do(func() { // in a sync.Once so we don't waste time retrieving lots of logs
-										logs, err := k.client.CiliumLogs(ctx, pod.Namespace, pod.Name, terminated.FinishedAt.Time.Add(-2*time.Minute))
+										var getPrevious bool
+										if containerStatus.RestartCount > 0 {
+											getPrevious = true
+										}
+										logs, err := k.client.CiliumLogs(ctx, pod.Namespace, pod.Name, terminated.FinishedAt.Time.Add(-2*time.Minute), getPrevious)
 										if err == nil && logs != "" {
 											dyingGasp = strings.TrimSpace(logs)
 										}
 									})
 								}
 
-								// Only output the last line
+								// output the last few log lines if available
 								if dyingGasp != "" {
 									lines := strings.Split(dyingGasp, "\n")
-									lastLog = lines[len(lines)-1]
+									lastLog = ""
+									for i := 0; i < min(len(lines), 50); i++ {
+										lastLog += fmt.Sprintf("\n%s", lines[i])
+									}
 								}
 							}
 						}
@@ -652,6 +693,11 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 					status.parseEndpointsResponse(defaults.AgentDaemonSetName, pod.Name, eps, epserr)
 					status.CiliumStatus[pod.Name] = s
 					status.CiliumEndpoints[pod.Name] = eps
+
+					// avoid repeating the status check if the container is in a terminal state
+					if isTerminated {
+						cancel()
+					}
 
 					return nil
 				},

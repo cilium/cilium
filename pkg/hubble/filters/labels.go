@@ -6,6 +6,7 @@ package filters
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -63,12 +64,9 @@ func FilterByLabelSelectors(labelSelectors []string, getLabels func(*v1.Event) k
 
 	return func(ev *v1.Event) bool {
 		labels := getLabels(ev)
-		for _, selector := range selectors {
-			if selector.Matches(labels) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(selectors, func(selector k8sLabels.Selector) bool {
+			return selector.Matches(labels)
+		})
 	}, nil
 }
 

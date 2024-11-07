@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/policy"
-	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -70,9 +69,9 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, "listener1", name)
 	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
 	require.Equal(t, port, pp.ProxyPort)
-	require.Equal(t, false, pp.Ingress)
-	require.Equal(t, true, pp.configured)
-	require.Equal(t, false, pp.isStatic)
+	require.False(t, pp.Ingress)
+	require.True(t, pp.configured)
+	require.False(t, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, uint16(0), pp.rulesPort)
 
@@ -84,7 +83,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint16(0), port1b)
 	require.Equal(t, uint16(0), pp.ProxyPort)
-	require.Equal(t, false, pp.configured)
+	require.False(t, pp.configured)
 	require.Equal(t, 0, pp.nRedirects)
 
 	// the port was never acked, so rulesPort is 0
@@ -98,10 +97,10 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, name2, name)
 	require.Equal(t, pp2, pp)
 	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
-	require.Equal(t, false, pp.Ingress)
+	require.False(t, pp.Ingress)
 	require.Equal(t, port2, pp.ProxyPort)
-	require.Equal(t, true, pp.configured)
-	require.Equal(t, false, pp.isStatic)
+	require.True(t, pp.configured)
+	require.False(t, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, uint16(0), pp.rulesPort)
 
@@ -121,14 +120,14 @@ func TestPortAllocator(t *testing.T) {
 	err = p.ReleaseProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, 1, pp.nRedirects)
-	require.Equal(t, true, pp.configured)
+	require.True(t, pp.configured)
 	require.Equal(t, port2, pp.ProxyPort)
 
 	// 2nd release decreases the count to zero
 	err = p.ReleaseProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, 0, pp.nRedirects)
-	require.Equal(t, false, pp.configured)
+	require.False(t, pp.configured)
 	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port2, pp.rulesPort)
 
@@ -136,7 +135,7 @@ func TestPortAllocator(t *testing.T) {
 	err = p.ReleaseProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, 0, pp.nRedirects)
-	require.Equal(t, false, pp.configured)
+	require.False(t, pp.configured)
 	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port2, pp.rulesPort)
 
@@ -153,10 +152,10 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, name2, name)
 	require.Equal(t, pp2, pp)
 	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
-	require.Equal(t, false, pp.Ingress)
+	require.False(t, pp.Ingress)
 	require.Equal(t, port3, pp.ProxyPort)
-	require.Equal(t, true, pp.configured)
-	require.Equal(t, false, pp.isStatic)
+	require.True(t, pp.configured)
+	require.False(t, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, port2, pp.rulesPort)
 
@@ -170,23 +169,23 @@ func TestPortAllocator(t *testing.T) {
 	err = p.ReleaseProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, 0, pp.nRedirects)
-	require.Equal(t, false, pp.configured)
+	require.False(t, pp.configured)
 	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port3, pp.rulesPort)
 
 	inuse, exists := p.allocatedPorts[port3]
-	require.Equal(t, true, exists)
-	require.Equal(t, false, inuse)
+	require.True(t, exists)
+	require.False(t, inuse)
 
 	// No-one used the port so next allocation gets the same port again
 	port4, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, port3, port4)
 	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
-	require.Equal(t, false, pp.Ingress)
+	require.False(t, pp.Ingress)
 	require.Equal(t, port4, pp.ProxyPort)
-	require.Equal(t, true, pp.configured)
-	require.Equal(t, false, pp.isStatic)
+	require.True(t, pp.configured)
+	require.False(t, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, port3, pp.rulesPort)
 }
@@ -209,8 +208,8 @@ func (p *fakeProxyPolicy) GetPort() uint16 {
 	return uint16(80)
 }
 
-func (p *fakeProxyPolicy) GetProtocol() uint8 {
-	return uint8(u8proto.UDP)
+func (p *fakeProxyPolicy) GetProtocol() u8proto.U8proto {
+	return u8proto.UDP
 }
 
 func (p *fakeProxyPolicy) GetListener() string {
@@ -226,18 +225,12 @@ func TestCreateOrUpdateRedirectMissingListener(t *testing.T) {
 	p, cleaner := proxyForTest()
 	defer cleaner()
 
-	ep := &endpointtest.ProxyUpdaterMock{
-		Id:   1000,
-		Ipv4: "10.0.0.1",
-		Ipv6: "f00d::1",
-	}
-
 	l4 := &fakeProxyPolicy{}
 
 	ctx := context.TODO()
 	wg := completion.NewWaitGroup(ctx)
 
-	proxyPort, err, finalizeFunc, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", ep, wg)
+	proxyPort, err, finalizeFunc, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
 	require.Equal(t, uint16(0), proxyPort)
 	require.Error(t, err)
 	require.Nil(t, finalizeFunc)

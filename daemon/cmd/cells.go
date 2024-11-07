@@ -28,13 +28,16 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
+	"github.com/cilium/cilium/pkg/driftchecker"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
+	"github.com/cilium/cilium/pkg/dynamiclifecycle"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
+	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
@@ -130,6 +133,9 @@ var (
 		// Allows cells to wait for CRDs before trying to list Cilium resources.
 		// This is separate from k8sSynced.Cell as this one needs to be mocked for tests.
 		k8sSynced.CRDSyncCell,
+
+		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
+		shellCell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -287,6 +293,17 @@ var (
 
 		// Provides a wrapper of the cilium config that can be watched dynamically
 		dynamicconfig.Cell,
+
+		// Provides the manager for WithDynamicFeature()
+		// Which allows to group the cell lifecycles together and control the enablement
+		// by leveraging the dynamicconfig.Cell.
+		dynamiclifecycle.Cell,
+
+		// Allows agent to monitor the configuration drift and publish drift metric
+		driftchecker.Cell,
+
+		// Runs the Hubble servers and Hubble metrics.
+		hubble.Cell,
 	)
 )
 

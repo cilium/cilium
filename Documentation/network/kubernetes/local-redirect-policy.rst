@@ -38,15 +38,9 @@ the redirection.
 Prerequisites
 =============
 
-.. note::
-
-   Local Redirect Policy feature requires a v4.19.x or more recent Linux kernel.
-
 .. include:: ../../installation/k8s-install-download-release.rst
 
-The Cilium Local Redirect Policy feature relies on :ref:`kubeproxy-free`,
-follow the guide to create a new deployment. Enable the feature by setting
-the ``localRedirectPolicy`` value to ``true``.
+Enable the feature by setting the ``localRedirectPolicy`` value to ``true``.
 
 .. parsed-literal::
 
@@ -84,6 +78,59 @@ Validate that the Cilium Local Redirect Policy CRD has been registered.
 	   NAME                              CREATED AT
 	   [...]
 	   ciliumlocalredirectpolicies.cilium.io              2020-08-24T05:31:47Z
+
+.. note::
+
+    Local Redirect Policy supports either the socket-level loadbalancer or the tc loadbalancer.
+    The configuration depends on your specific use case and the type of service handling required.
+    Below are the Helm setups to work with ``localRedirectPolicy=true``:
+
+    1. Enable full kube-proxy replacement:
+
+      This setup is for users who want to replace kube-proxy with Cilium's eBPF implementation
+      and leverage Local Redirect Policy.
+
+      .. code-block:: yaml
+
+        kubeProxyReplacement: true
+        localRedirectPolicy: true
+
+    2. Bypass the socket-level loadbalancer in pod namespaces:
+
+      This setup is for users who want to disable the socket-level loadbalancer in pod namespaces.
+      For example, this might be needed if there are custom redirection rules in the pod namespace
+      that would conflict with the socket-level load balancer.
+
+      .. code-block:: yaml
+
+        kubeProxyReplacement: true
+        socketLB:
+          hostNamespaceOnly: true
+        localRedirectPolicy: true
+
+    3. Enable the socket-level loadbalancer only:
+
+      This setup is for users who prefer to retain kube-proxy for overall service handling
+      but still want to leverage Cilium's Local Redirect Policy.
+
+      .. code-block:: yaml
+
+        kubeProxyReplacement: false
+        socketLB:
+          enabled: true
+        localRedirectPolicy: true
+
+    4. Disable any service handling except for ClusterIP services accessed from pods:
+
+      If you want to fully rely on kube-proxy for the service handling, you can disable all
+      kube-proxy replacement functionality expect ClusterIP services accessed from pod namespace.
+      Note that the pod traffic from host namespace isn't handled by Local Redirect Policy
+      with this setup.
+
+      .. code-block:: yaml
+
+        kubeProxyReplacement: false
+        localRedirectPolicy: true
 
 Create backend and client pods
 ==============================
@@ -531,8 +578,7 @@ When a local redirect policy is applied, cilium BPF datapath redirects traffic g
 However, for traffic originating from a node-local backend pod destined to the policy frontend, users may want to
 skip redirecting the traffic back to the node-local backend pod, and instead forward the traffic to the original frontend.
 This behavior can be enabled by setting the ``skipRedirectFromBackend`` flag to ``true`` in the local redirect policy spec.
-The configuration is supported with socket-based load-balancing and per packet based load-balancing, and requires ``SO_NETNS_COOKIE`` feature
-available in Linux kernel version >= 5.8.
+This configuration requires the ``SO_NETNS_COOKIE`` feature available in Linux kernel version >= 5.8.
 
 .. note::
 

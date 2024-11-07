@@ -35,10 +35,10 @@ func TestDeleteByName(t *testing.T) {
 					Name: tc.name,
 				},
 			})
-			require.Nil(t, err)
+			require.NoError(t, err)
 		}
 
-		require.Nil(t, DeleteByName(tc.name))
+		require.NoError(t, DeleteByName(tc.name))
 	}
 }
 
@@ -73,14 +73,14 @@ func TestRename(t *testing.T) {
 					Name: tc.curName,
 				},
 			})
-			require.Nil(t, err)
+			require.NoError(t, err)
 		}
 
 		err = Rename(tc.curName, tc.newName)
 		if tc.expectError {
 			require.Error(t, err)
 		} else {
-			require.Nil(t, err)
+			require.NoError(t, err)
 		}
 
 		DeleteByName(tc.newName)

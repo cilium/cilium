@@ -4,7 +4,6 @@
 package api
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,121 +20,309 @@ func mustGetLabelValues(opts *ContextOptions, flow *pb.Flow) []string {
 }
 
 func TestParseContextOptions(t *testing.T) {
-	opts, err := ParseContextOptions(Options{"unknown": ""})
-	assert.Nil(t, err)
+	opts, err := ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "unknown",
+				Values: []string{},
+			},
+		},
+	)
+	assert.NoError(t, err)
 	assert.NotNil(t, opts)
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "invalid"})
-	assert.NotNil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"invalid"},
+			},
+		},
+	)
+	assert.Error(t, err)
 	assert.Nil(t, opts)
 
-	opts, err = ParseContextOptions(Options{"destinationContext": "invalid"})
-	assert.NotNil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"invalid"},
+			},
+		},
+	)
+	assert.Error(t, err)
 	assert.Nil(t, opts)
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "namespace"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, opts.Status(), "source=namespace")
-	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, "source=namespace", opts.Status())
+	assert.EqualValues(t, []string{"source"}, opts.GetLabelNames())
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "namespace", "destinationContext": "identity"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, opts.Status(), "destination=identity,source=namespace")
-	assert.EqualValues(t, opts.GetLabelNames(), []string{"source", "destination"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"identity"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, "destination=identity,source=namespace", opts.Status())
+	assert.EqualValues(t, []string{"source", "destination"}, opts.GetLabelNames())
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "identity", "destinationContext": "identity"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, opts.Status(), "destination=identity,source=identity")
-	assert.EqualValues(t, opts.GetLabelNames(), []string{"source", "destination"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"identity"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"identity"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, "destination=identity,source=identity", opts.Status())
+	assert.EqualValues(t, []string{"source", "destination"}, opts.GetLabelNames())
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "pod"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, opts.Status(), "source=pod")
-	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, "source=pod", opts.Status())
+	assert.EqualValues(t, []string{"source"}, opts.GetLabelNames())
 
-	opts, err = ParseContextOptions(Options{"destinationContext": "dns"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, opts.Status(), "destination=dns")
-	assert.EqualValues(t, opts.GetLabelNames(), []string{"destination"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"dns"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, "destination=dns", opts.Status())
+	assert.EqualValues(t, []string{"destination"}, opts.GetLabelNames())
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "ip"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, opts.Status(), "source=ip")
-	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"ip"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, "source=ip", opts.Status())
+	assert.EqualValues(t, []string{"source"}, opts.GetLabelNames())
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "pod|dns"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, opts.Status(), "source=pod|dns")
-	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"pod", "dns"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, "source=pod|dns", opts.Status())
+	assert.EqualValues(t, []string{"source"}, opts.GetLabelNames())
 
-	opts, err = ParseContextOptions(Options{"destinationContext": "namespace|invalid"})
-	assert.NotNil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"namespace", "invalid"},
+			},
+		},
+	)
+	assert.Error(t, err)
 	assert.Nil(t, opts)
 
 	// All of the labelsContext options should work
-	opts, err = ParseContextOptions(Options{"labelsContext": strings.Join(contextLabelsList, ",")})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "labelsContext",
+				Values: contextLabelsList,
+			},
+		},
+	)
 	assert.NoError(t, err)
 	assert.EqualValues(t, "labels=source_ip,source_pod,source_namespace,source_workload,source_workload_kind,source_app,destination_ip,destination_pod,destination_namespace,destination_workload,destination_workload_kind,destination_app,traffic_direction", opts.Status())
 	assert.EqualValues(t, contextLabelsList, opts.GetLabelNames())
 
-	opts, err = ParseContextOptions(Options{"labelsContext": "non_existent_label"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "labelsContext",
+				Values: []string{"non_existent_label"},
+			},
+		},
+	)
 	assert.Error(t, err, "unsupported labelsContext option should error")
 	assert.Nil(t, opts)
 }
 
 func TestParseGetLabelValues(t *testing.T) {
-	opts, err := ParseContextOptions(Options{"sourceContext": "namespace"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo"}}), []string{"foo"})
+	opts, err := ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"foo"}, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo"}}))
 
-	opts, err = ParseContextOptions(Options{"destinationContext": "namespace"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo"}}), []string{"foo"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"namespace"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"foo"}, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo"}}))
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "namespace", "destinationContext": "identity"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"identity"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"foo", "a,b"}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo"},
 		Destination: &pb.Endpoint{Labels: []string{"a", "b"}},
-	}), []string{"foo", "a,b"})
+	}))
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "pod"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo"}}), []string{"foo/foo"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"foo/foo"}, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo"}}))
 
-	opts, err = ParseContextOptions(Options{"destinationContext": "pod"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar"}}), []string{"foo/bar"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"foo/bar"}, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar"}}))
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "pod-name"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}}), []string{"foo-123"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"pod-name"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"foo-123"}, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}}))
 
-	opts, err = ParseContextOptions(Options{"destinationContext": "pod-name"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-123"}}), []string{"bar-123"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"pod-name"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"bar-123"}, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-123"}}))
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "dns"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{SourceNames: []string{"foo", "bar"}}), []string{"foo,bar"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"dns"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"foo,bar"}, mustGetLabelValues(opts, &pb.Flow{SourceNames: []string{"foo", "bar"}}))
 
-	opts, err = ParseContextOptions(Options{"destinationContext": "dns"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{DestinationNames: []string{"bar"}}), []string{"bar"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"dns"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"bar"}, mustGetLabelValues(opts, &pb.Flow{DestinationNames: []string{"bar"}}))
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "ip"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Source: "1.1.1.1"}}), []string{"1.1.1.1"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"ip"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"1.1.1.1"}, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Source: "1.1.1.1"}}))
 
-	opts, err = ParseContextOptions(Options{"destinationContext": "ip"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Destination: "10.0.0.2"}}), []string{"10.0.0.2"})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"ip"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"10.0.0.2"}, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Destination: "10.0.0.2"}}))
 
-	opts, err = ParseContextOptions(Options{
-		"sourceContext":       "workload-name",
-		"sourceEgressContext": "pod",
-	})
-	assert.Nil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"workload-name"},
+			},
+			{
+				Name:   "sourceEgressContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{"foo/foo-123"},
 		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}}, TrafficDirection: pb.TrafficDirection_EGRESS}))
@@ -143,21 +330,42 @@ func TestParseGetLabelValues(t *testing.T) {
 		[]string{"worker"},
 		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}}, TrafficDirection: pb.TrafficDirection_INGRESS}))
 
-	opts, err = ParseContextOptions(Options{
-		"sourceContext":        "workload-name",
-		"sourceEgressContext":  "pod",
-		"sourceIngressContext": "pod",
-	})
-	assert.Nil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"workload-name"},
+			},
+
+			{
+				Name:   "sourceEgressContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "sourceIngressContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{"worker"},
 		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
 
-	opts, err = ParseContextOptions(Options{
-		"destinationContext":        "workload-name",
-		"destinationIngressContext": "pod",
-	})
-	assert.Nil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"workload-name"},
+			},
+
+			{
+				Name:   "destinationIngressContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{"api"},
 		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "api"}}}, TrafficDirection: pb.TrafficDirection_EGRESS}))
@@ -165,29 +373,53 @@ func TestParseGetLabelValues(t *testing.T) {
 		[]string{"foo/foo-123"},
 		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "api"}}}, TrafficDirection: pb.TrafficDirection_INGRESS}))
 
-	opts, err = ParseContextOptions(Options{
-		"destinationContext":        "workload-name",
-		"destinationEgressContext":  "pod",
-		"destinationIngressContext": "pod",
-	})
-	assert.Nil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"workload-name"},
+			},
+			{
+				Name:   "destinationEgressContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "destinationIngressContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{"api"},
 		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "api"}}}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
 
-	opts, err = ParseContextOptions(Options{
-		"destinationEgressContext":  "pod",
-		"destinationIngressContext": "pod",
-	})
-	assert.Nil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "destinationEgressContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "destinationIngressContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{""},
 		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
 
-	opts, err = ParseContextOptions(Options{
-		"sourceIngressContext": "pod",
-	})
-	assert.Nil(t, err)
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceIngressContext",
+				Values: []string{"pod"},
+			},
+		},
+	)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{""},
 		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
@@ -198,9 +430,20 @@ func TestParseGetLabelValues(t *testing.T) {
 		[]string{"foo/foo-123"},
 		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "api"}}}, TrafficDirection: pb.TrafficDirection_INGRESS}))
 
-	opts, err = ParseContextOptions(Options{"sourceContext": "namespace|dns", "destinationContext": "identity|pod|ip"})
-	assert.Nil(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace", "dns"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"identity", "pod", "ip"},
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.EqualValues(t, []string{"foo", "bar/foo-123"}, mustGetLabelValues(opts, &pb.Flow{
 		IP: &pb.IP{
 			Destination: "10.0.0.2",
 		},
@@ -212,8 +455,8 @@ func TestParseGetLabelValues(t *testing.T) {
 			Namespace: "bar",
 			PodName:   "foo-123",
 		},
-	}), []string{"foo", "bar/foo-123"})
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	}))
+	assert.EqualValues(t, []string{"cilium.io", "a,b"}, mustGetLabelValues(opts, &pb.Flow{
 		IP: &pb.IP{
 			Destination: "10.0.0.2",
 		},
@@ -223,14 +466,21 @@ func TestParseGetLabelValues(t *testing.T) {
 			PodName:   "foo-123",
 			Labels:    []string{"a", "b"},
 		},
-	}), []string{"cilium.io", "a,b"})
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	}))
+	assert.EqualValues(t, []string{"", "10.0.0.2"}, mustGetLabelValues(opts, &pb.Flow{
 		IP: &pb.IP{
 			Destination: "10.0.0.2",
 		},
-	}), []string{"", "10.0.0.2"})
+	}))
 
-	opts, err = ParseContextOptions(Options{"labelsContext": strings.Join(contextLabelsList, ",")})
+	opts, err = ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "labelsContext",
+				Values: contextLabelsList,
+			},
+		},
+	)
 	assert.NoError(t, err)
 	sourceEndpoint := &pb.Endpoint{
 		Namespace: "foo-ns",
@@ -264,7 +514,6 @@ func TestParseGetLabelValues(t *testing.T) {
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 	}
 	assert.EqualValues(t,
-		mustGetLabelValues(opts, flow),
 		[]string{
 			// source_ip, source_pod, source_namespace, source_workload, source_workload_kind , source_app
 			"1.2.3.4", "foo-deploy-pod", "foo-ns", "foo-deploy", "Deployment", "fooapp",
@@ -272,75 +521,118 @@ func TestParseGetLabelValues(t *testing.T) {
 			"5.6.7.8", "bar-deploy-pod", "bar-ns", "bar-deploy", "StatefulSet", "barapp",
 			// traffic_direction
 			"ingress",
-		},
+		}, mustGetLabelValues(opts, flow),
 	)
 
 	// Empty flow should just produce empty values for source/destination labels,
 	// and set traffic_direction to "unknown"
 	assert.EqualValues(t,
-		mustGetLabelValues(opts, &pb.Flow{}),
 		[]string{
 			"", "", "", "", "", "",
 			"", "", "", "", "", "",
 			"unknown",
-		},
+		}, mustGetLabelValues(opts, &pb.Flow{}),
 	)
 }
 
 func Test_reservedIdentityContext(t *testing.T) {
-	opts, err := ParseContextOptions(Options{"sourceContext": "reserved-identity", "destinationContext": "reserved-identity"})
+	opts, err := ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"reserved-identity"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"reserved-identity"},
+			},
+		},
+	)
 	assert.NoError(t, err)
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	assert.EqualValues(t, []string{"", ""}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Labels: []string{"a", "b"}},
 		Destination: &pb.Endpoint{Labels: []string{"c", "d"}},
-	}), []string{"", ""})
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	}))
+	assert.EqualValues(t, []string{"reserved:kube-apiserver", "reserved:world"}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Labels: []string{"reserved:world", "reserved:kube-apiserver", "cidr:1.2.3.4/32"}},
 		Destination: &pb.Endpoint{Labels: []string{"reserved:world", "cidr:1.2.3.4/32"}},
-	}), []string{"reserved:kube-apiserver", "reserved:world"})
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	}))
+	assert.EqualValues(t, []string{"reserved:host", "reserved:remote-node"}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Labels: []string{"a", "b", "reserved:host"}},
 		Destination: &pb.Endpoint{Labels: []string{"c", "d", "reserved:remote-node"}},
-	}), []string{"reserved:host", "reserved:remote-node"})
+	}))
 }
 
 func Test_workloadContext(t *testing.T) {
-	opts, err := ParseContextOptions(Options{"sourceContext": "workload", "destinationContext": "workload"})
+	opts, err := ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"workload"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"workload"},
+			},
+		},
+	)
 	assert.NoError(t, err)
 
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	assert.EqualValues(t, []string{"", ""}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod"},
-		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}), []string{"", ""})
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}))
+	assert.EqualValues(t, []string{"foo-ns/foo-deploy", "bar-ns/bar-deploy"}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
 		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
-	}), []string{"foo-ns/foo-deploy", "bar-ns/bar-deploy"})
+	}))
 }
 
 func Test_workloadNameContext(t *testing.T) {
-	opts, err := ParseContextOptions(Options{"sourceContext": "workload-name", "destinationContext": "workload-name"})
+	opts, err := ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"workload-name"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"workload-name"},
+			},
+		},
+	)
 	assert.NoError(t, err)
 
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	assert.EqualValues(t, []string{"", ""}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod"},
-		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}), []string{"", ""})
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}))
+	assert.EqualValues(t, []string{"foo-deploy", "bar-deploy"}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
 		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
-	}), []string{"foo-deploy", "bar-deploy"})
+	}))
 }
 
 func Test_appContext(t *testing.T) {
-	opts, err := ParseContextOptions(Options{"sourceContext": "app", "destinationContext": "app"})
+	opts, err := ParseContextOptions(
+		[]*ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"app"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"app"},
+			},
+		},
+	)
 	assert.NoError(t, err)
 
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+	assert.EqualValues(t, []string{"", ""}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod"},
-		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}), []string{"", ""})
-	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}))
+	assert.EqualValues(t, []string{"fooapp", "barapp"}, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Labels: []string{"k8s:app=fooapp"}},
 		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Labels: []string{"k8s:app=barapp"}},
-	}), []string{"fooapp", "barapp"})
+	}))
 }
 
 func Test_labelsSetString(t *testing.T) {

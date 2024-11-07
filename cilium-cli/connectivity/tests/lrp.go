@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // LRP runs test scenarios for local redirect policy. It tests local redirection
@@ -51,6 +52,9 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 		policies = append(policies, policy)
 		frontend := check.NewLRPFrontend(spec.RedirectFrontend)
 		frontendStr := net.JoinHostPort(frontend.Address(features.IPFamilyV4), fmt.Sprint(frontend.Port()))
+		if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+			frontendStr += fmt.Sprintf("/%s", frontend.Protocol())
+		}
 		lrpBackendsMap := make(map[string][]string)
 		// Check for LRP backend pods deployed on nodes in the cluster.
 		for _, pod := range t.Context().LrpBackendPods() {
@@ -70,11 +74,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 	// Tests client pods to LRP frontend connectivity: traffic gets redirected
 	// to the LRP backends.
 	for _, pod := range t.Context().LrpClientPods() {
-		pod := pod
-
 		for _, policy := range policies {
-			policy := policy
-
 			if policy.Spec.SkipRedirectFromBackend != s.skipRedirectFromBackend {
 				continue
 			}
@@ -91,11 +91,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 	// Tests LRP backend pods to LRP frontend connectivity: traffic gets redirected
 	// based on the configured skipRedirectFromBackend flag.
 	for _, pod := range t.Context().LrpBackendPods() {
-		pod := pod
-
 		for _, policy := range policies {
-			policy := policy
-
 			if policy.Spec.SkipRedirectFromBackend != s.skipRedirectFromBackend {
 				continue
 			}
@@ -107,8 +103,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 
 				if policy.Spec.SkipRedirectFromBackend {
 					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-						AltDstIP:   lf.Address(features.IPFamilyV4),
-						AltDstPort: lf.Port(),
+						RSTAllowed: true,
 					}))
 				}
 				i++
@@ -210,8 +205,6 @@ func (s lrpWithNodeDNS) Run(ctx context.Context, t *check.Test) {
 
 	i := 0
 	for _, client := range ct.ClientPods() {
-		client := client
-
 		for _, externalEchoSvc := range ct.EchoExternalServices() {
 			externalEcho := externalEchoSvc.ToEchoIPService()
 

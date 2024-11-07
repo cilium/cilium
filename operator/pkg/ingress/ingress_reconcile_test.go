@@ -17,6 +17,7 @@ import (
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -53,7 +54,7 @@ func TestReconcile(t *testing.T) {
 						Name:      "test",
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -88,8 +89,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will create an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
 	t.Run("Reconcile of Ingress without specific IngressClassName will create resources if cilium IngressClass is the default", func(t *testing.T) {
@@ -144,8 +145,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will create an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
 	t.Run("Reconcile of Ingress without specific IngressClassName won't create resources if cilium IngressClass is not the default", func(t *testing.T) {
@@ -209,7 +210,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -261,7 +262,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -331,7 +332,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -381,8 +382,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will replace it with an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
 	t.Run("Reconcile of a non-existent, potentially deleted, Cilium Ingress will try to cleanup any potentially existing shared resources", func(t *testing.T) {
@@ -423,8 +424,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will replace it with an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
 	t.Run("Reconcile of non Cilium Ingress will cleanup any potentially existing resources (dedicated and shared) and reset the Ingress status", func(t *testing.T) {
@@ -440,7 +441,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("other"),
+						IngressClassName: ptr.To("other"),
 						DefaultBackend:   defaultBackend(),
 					},
 					Status: networkingv1.IngressStatus{
@@ -517,8 +518,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will replace it with an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 
 		ingress := networkingv1.Ingress{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "test"}, &ingress)
@@ -540,7 +541,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -581,7 +582,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -625,7 +626,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -681,7 +682,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -737,7 +738,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 					},
 				},
 			).
@@ -777,7 +778,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -825,7 +826,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -918,7 +919,7 @@ func TestReconcile(t *testing.T) {
 						Name:      "test",
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -928,7 +929,7 @@ func TestReconcile(t *testing.T) {
 						Name:      "cilium-ingress-test",
 					},
 					Spec: corev1.ServiceSpec{
-						LoadBalancerClass: model.AddressOf("service.k8s.aws/nlb"),
+						LoadBalancerClass: ptr.To("service.k8s.aws/nlb"),
 					},
 				},
 			).
@@ -952,7 +953,7 @@ func TestReconcile(t *testing.T) {
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &svc)
 		require.NoError(t, err)
 
-		require.Equal(t, model.AddressOf("service.k8s.aws/nlb"), svc.Spec.LoadBalancerClass, "LoadbalancerClass should be preserved during reconciliation")
+		require.Equal(t, ptr.To("service.k8s.aws/nlb"), svc.Spec.LoadBalancerClass, "LoadbalancerClass should be preserved during reconciliation")
 	})
 
 	t.Run("If the deletionTimestamp is set (foreground deletion), no dependent objects should be modified or created", func(t *testing.T) {
@@ -963,13 +964,13 @@ func TestReconcile(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:         "test",
 						Name:              "test",
-						DeletionTimestamp: model.AddressOf(metav1.Now()),
+						DeletionTimestamp: ptr.To(metav1.Now()),
 						Finalizers: []string{
 							"foregroundDeletion",
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -1010,7 +1011,7 @@ func TestReconcile(t *testing.T) {
 						Name:      "test",
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -1070,7 +1071,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},
@@ -1109,7 +1110,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					Spec: networkingv1.IngressSpec{
-						IngressClassName: model.AddressOf("cilium"),
+						IngressClassName: ptr.To("cilium"),
 						DefaultBackend:   defaultBackend(),
 					},
 				},

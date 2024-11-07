@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -19,7 +20,7 @@ import (
 // CheckRequirements checks that minimum kernel requirements are met for
 // configuring the BPF datapath.
 func CheckRequirements(log *slog.Logger) error {
-	_, err := netlink.RuleList(netlink.FAMILY_V4)
+	_, err := safenetlink.RuleList(netlink.FAMILY_V4)
 	if errors.Is(err, unix.EAFNOSUPPORT) {
 		log.Error("Policy routing:NOT OK. "+
 			"Please enable kernel configuration item CONFIG_IP_MULTIPLE_TABLES",
@@ -39,6 +40,10 @@ func CheckRequirements(log *slog.Logger) error {
 
 		if probes.HaveDeadCodeElim() != nil {
 			return errors.New("Require support for dead code elimination (Linux 5.1 or newer)")
+		}
+
+		if probes.HaveWriteableQueueMapping() != nil {
+			return errors.New("Require support for TCP EDT and writeable skb->queue_mapping (Linux 5.1 or newer)")
 		}
 
 		if probes.HaveLargeInstructionLimit() != nil {

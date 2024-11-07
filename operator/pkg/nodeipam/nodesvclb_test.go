@@ -6,19 +6,21 @@ package nodeipam
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -108,8 +110,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "ipv4-internal"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2"), Conditions: discoveryv1.EndpointConditions{Ready: boolPtr(false)}},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2"), Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(false)}},
 			},
 		},
 		&corev1.Service{
@@ -132,8 +134,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "ipv4-external"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -156,7 +158,7 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "ipv6-internal"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -179,8 +181,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "ipv6-external"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -203,9 +205,9 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "dualstack-external"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
-				{NodeName: stringPtr("does-not-exist")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
+				{NodeName: ptr.To("does-not-exist")},
 			},
 		},
 		&corev1.Service{
@@ -241,8 +243,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "not-supported-1"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -266,8 +268,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "not-supported-2"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -283,6 +285,17 @@ var (
 			Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: []corev1.LoadBalancerIngress{{IP: "100.100.100.100"}},
 			}},
+		},
+
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default-ipam",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Type:       corev1.ServiceTypeLoadBalancer,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			},
 		},
 	}
 
@@ -334,19 +347,12 @@ var (
 	}
 )
 
-func stringPtr(str string) *string {
-	return &str
-}
-func boolPtr(boolean bool) *bool {
-	return &boolean
-}
-
-func Test_httpRouteReconciler_Reconcile(t *testing.T) {
+func Test_nodeIPAM_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithObjects(nodeSvcLbFixtures...).
 		WithStatusSubresource(&corev1.Service{}).
 		Build()
-	r := &nodeSvcLBReconciler{Client: c, Logger: logging.DefaultLogger}
+	r := &nodeSvcLBReconciler{Client: c, Logger: hivetest.Logger(t)}
 
 	t.Run("unsupported service reset", func(t *testing.T) {
 		for _, name := range []string{"not-supported-1", "not-supported-2"} {
@@ -367,7 +373,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 			require.NoError(t, err)
 			// It did not change the IPs already advertised
 			require.Len(t, svc.Status.LoadBalancer.Ingress, 1)
-			require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "100.100.100.100")
+			require.Equal(t, "100.100.100.100", svc.Status.LoadBalancer.Ingress[0].IP)
 		}
 	})
 
@@ -418,11 +424,10 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "2001:0000::1")
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.2")
+		require.Equal(t, "2001:0000::1", svc.Status.LoadBalancer.Ingress[0].IP)
+		require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[1].IP)
 	})
 
-	//
 	t.Run("external traffic policy cluster", func(t *testing.T) {
 		key := types.NamespacedName{
 			Name:      "etp-cluster",
@@ -440,17 +445,44 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
+		require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[0].IP)
+		require.Equal(t, "42.0.0.3", svc.Status.LoadBalancer.Ingress[1].IP)
 	})
 }
 
-func Test_CiliumResources_Reconcile(t *testing.T) {
+func Test_nodeIPAM_defaultIPAM_Reconcile(t *testing.T) {
+	c := fake.NewClientBuilder().
+		WithObjects(nodeSvcLbFixtures...).
+		WithStatusSubresource(&corev1.Service{}).
+		Build()
+	r := &nodeSvcLBReconciler{Client: c, DefaultIPAM: true, Logger: hivetest.Logger(t)}
+
+	key := types.NamespacedName{
+		Name:      "default-ipam",
+		Namespace: "default",
+	}
+	result, err := r.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: key,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+	svc := &corev1.Service{}
+	err = c.Get(context.Background(), key, svc)
+
+	require.NoError(t, err)
+	require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
+	require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[0].IP)
+	require.Equal(t, "42.0.0.3", svc.Status.LoadBalancer.Ingress[1].IP)
+}
+
+func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithObjects(nodeSvcLabelFixtures...).
 		WithStatusSubresource(&corev1.Service{}).
 		Build()
-	r := &nodeSvcLBReconciler{Client: c, Logger: logging.DefaultLogger}
+	r := &nodeSvcLBReconciler{Client: c, Logger: hivetest.Logger(t)}
 
 	key := types.NamespacedName{
 		Name:      "svclabels",
@@ -475,7 +507,7 @@ func Test_CiliumResources_Reconcile(t *testing.T) {
 		for _, v := range svc.Status.LoadBalancer.Ingress {
 			ips = append(ips, v.IP)
 		}
-		require.Equal(t, ips, []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"})
+		require.Equal(t, []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}, ips)
 	})
 
 	t.Run("Node Label Filter", func(t *testing.T) {
@@ -528,14 +560,11 @@ func Test_CiliumResources_Reconcile(t *testing.T) {
 
 		require.Error(t, err)
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-
 	})
 
 	t.Run("Ensure Warning raised if no Nodes found using configured label selector", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger := logging.DefaultLogger
-		logger.SetOutput(&buf)
-
+		logger := slog.New(slog.NewTextHandler(&buf, nil))
 		r.Logger = logger
 
 		ctx := context.Background()
@@ -550,6 +579,7 @@ func Test_CiliumResources_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-		require.Contains(t, buf.String(), "level=warning msg=\"No Nodes found with configured label selector\"")
+		fmt.Println(buf.String())
+		require.Contains(t, buf.String(), "level=WARN msg=\"No Nodes found with configured label selector\"")
 	})
 }

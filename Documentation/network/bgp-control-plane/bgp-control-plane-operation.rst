@@ -11,11 +11,184 @@ BGP Control Plane Operation Guide
 
 This document provides guidance on how to operate the BGP Control Plane.
 
+BGP Cilium CLI
+==============
+
+Installation
+~~~~~~~~~~~~
+
+.. include:: ../../installation/cli-download.rst
+
+Cilium BGP state can be inspected via ``cilium bgp`` subcommand.
+
+.. code-block:: shell-session
+
+    # cilium bgp --help
+    Access to BGP control plane
+
+    Usage:
+      cilium bgp [command]
+
+    Available Commands:
+      peers       Lists BGP peering state
+      routes      Lists BGP routes
+
+    Flags:
+      -h, --help   help for bgp
+
+    Global Flags:
+          --context string             Kubernetes configuration context
+          --helm-release-name string   Helm release name (default "cilium")
+          --kubeconfig string          Path to the kubeconfig file
+      -n, --namespace string           Namespace Cilium is running in (default "kube-system")
+
+    Use "cilium bgp [command] --help" for more information about a command.
+
+
+Peers
+~~~~~
+
+``cilium bgp peers`` command displays current peering states from all nodes in the kubernetes
+cluster.
+
+In the following example, peering status is displayed for two nodes in the cluster.
+
+.. code-block:: shell-session
+
+    # cilium bgp peers
+    Node                                     Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
+    bgpv2-cplane-dev-service-control-plane   65001      65000     fd00:10::1     established     33m26s   ipv4/unicast   2          2
+                                                                                                          ipv6/unicast   2          2
+    bgpv2-cplane-dev-service-worker          65001      65000     fd00:10::1     established     33m25s   ipv4/unicast   2          2
+                                                                                                          ipv6/unicast   2          2
+
+
+Using this command, you can validate BGP session state is ``established`` and expected number
+of routes are being advertised to the peers.
+
+Routes
+~~~~~~
+``cilium bgp routes`` command displays detailed information about local BGP routing table and per peer
+advertised routing information.
+
+In the following example, the local BGP routing table for IPv4/Unicast address family is shown for two nodes in the cluster.
+
+.. code-block:: shell-session
+
+    # cilium bgp routes available ipv4 unicast
+    Node                                     VRouter   Prefix        NextHop   Age      Attrs
+    bgpv2-cplane-dev-service-control-plane   65001     10.1.0.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
+    bgpv2-cplane-dev-service-worker          65001     10.1.1.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
+
+Similarly, you can inspect per peer advertisements using following command.
+
+.. code-block:: shell-session
+
+    # cilium bgp routes advertised ipv4 unicast
+    Node                                     VRouter   Peer         Prefix        NextHop          Age     Attrs
+    bgpv2-cplane-dev-service-control-plane   65001     fd00:10::1   10.1.0.0/24   fd00:10:0:1::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:1::2, NLRIs: [10.1.0.0/24]}}]
+    bgpv2-cplane-dev-service-worker          65001     fd00:10::1   10.1.1.0/24   fd00:10:0:2::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.1.1.0/24]}}]
+
+
+You can validate the BGP attributes are advertised based on configured :ref:`CiliumBGPAdvertisement <bgp-adverts>` resources.
+
+
+Policies
+~~~~~~~~
+
+Cilium BGP installs GoBGP policies for managing per peer advertisement and BGP attributes. As this
+is an internal implementation detail, it is not exposed via Cilium CLI. However, for debugging purpose
+you can inspect installed BGP policies using cilium-dbg CLI from the Cilium agent pod.
+
+.. code-block:: shell-session
+
+    /home/cilium# cilium-dbg bgp route-policies
+    VRouter   Policy Name          Type     Match Peers      Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+    65001     65000-ipv4-PodCIDR   export   fd00:10::1/128   10.1.0.0/24 (24..24)            accept       AddCommunities: [65000:99]
+    65001     65000-ipv6-PodCIDR   export   fd00:10::1/128   fd00:10:1::/64 (64..64)         accept       AddCommunities: [65000:99]
+    65001     allow-local          import                                                    accept
+
+CiliumBGPNodeConfig Status
+==========================
+
+Each Cilium node on which BGP control plane is enabled based on ``CiliumBGPClusterConfig`` node selector gets associated
+``CiliumBGPNodeConfig`` resource. ``CiliumBGPNodeConfig`` resource is the source of BGP configuration for the
+node, it is managed by Cilium operator.
+
+Status field of ``CiliumBGPNodeConfig`` maintains real-time BGP operational state. This can be used for
+automation or monitoring purposes.
+
+In the following example, you can see BGP instance state from node ``bgpv2-cplane-dev-service-worker``.
+
+.. code-block:: shell-session
+
+    # kubectl describe ciliumbgpnodeconfigs bgpv2-cplane-dev-service-worker
+    Name:         bgpv2-cplane-dev-service-worker
+    Namespace:
+    Labels:       <none>
+    Annotations:  <none>
+    API Version:  cilium.io/v2alpha1
+    Kind:         CiliumBGPNodeConfig
+    Metadata:
+      Creation Timestamp:  2024-10-17T13:59:44Z
+      Generation:          1
+      Owner References:
+        API Version:     cilium.io/v2alpha1
+        Kind:            CiliumBGPClusterConfig
+        Name:            cilium-bgp
+        UID:             f0c23da8-e5ca-40d7-8c94-91699cf1e03a
+      Resource Version:  1385
+      UID:               fc88be94-37e9-498a-b9f7-a52684090d80
+    Spec:
+      Bgp Instances:
+        Local ASN:  65001
+        Name:       65001
+        Peers:
+          Name:          65000
+          Peer ASN:      65000
+          Peer Address:  fd00:10::1
+          Peer Config Ref:
+            Group:  cilium.io
+            Kind:   CiliumBGPPeerConfig
+            Name:   cilium-peer
+    Status:
+      Bgp Instances:
+        Local ASN:  65001
+        Name:       65001
+        Peers:
+          Established Time:  2024-10-17T13:59:50Z
+          Name:              65000
+          Peer ASN:          65000
+          Peer Address:      fd00:10::1
+          Peering State:     established
+          Route Count:
+            Advertised:  2
+            Afi:         ipv4
+            Received:    2
+            Safi:        unicast
+            Advertised:  2
+            Afi:         ipv6
+            Received:    2
+            Safi:        unicast
+          Timers:
+            Applied Hold Time Seconds:  90
+            Applied Keepalive Seconds:  30
+    Events:                             <none>
+
+
 Logs
 ====
 
-BGP Control Plane logs can be found in the Cilium agent logs. The logs
-are tagged with ``subsys=bgp-control-plane``. You can use this tag to filter
+BGP Control Plane logs can be found in the Cilium operator (only for BGPv2) and the Cilium agent logs.
+
+The operator logs are tagged with ``subsys=bgp-cp-operator``. You can use this tag to filter
+the logs as in the following example:
+
+.. code-block:: shell-session
+
+   kubectl -n kube-system logs <cilium operator pod name> | grep "subsys=bgp-cp-operator"
+
+The agent logs are tagged with ``subsys=bgp-control-plane``. You can use this tag to filter
 the logs as in the following example:
 
 .. code-block:: shell-session
@@ -71,9 +244,9 @@ below to avoid packet loss as much as possible.
 
       kubectl drain <node-name> --ignore-daemonsets
 
-2. Deconfigure the BGP sessions by modifying or removing the
-   CiliumBGPPeeringPolicy node selector label on the Node object. This will
-   shut down all BGP sessions on the node.
+2. Reconfigure the BGP sessions by modifying or removing the
+   CiliumBGPPeeringPolicy or CiliumBGPClusterConfig node selector label on the Node object.
+   This will shut down all BGP sessions on the node.
 
    .. code-block:: bash
 
@@ -122,7 +295,7 @@ This document describes common failure scenarios that you may encounter when
 using the BGP Control Plane and provides guidance on how to mitigate them.
 
 Cilium Agent Down
------------------
+~~~~~~~~~~~~~~~~~
 
 If the Cilium agent goes down, the BGP session will be lost because the BGP
 speaker is integrated within the Cilium agent. The BGP session will be restored
@@ -131,7 +304,7 @@ the advertised routes will be removed from the BGP peer. As a result, you may
 temporarily lose connectivity to the Pods or Services.
 
 Mitigation
-~~~~~~~~~~
+''''''''''
 
 The recommended way to address this issue is by enabling the
 :ref:`bgp_control_plane_graceful_restart` feature. This feature allows the BGP
@@ -173,7 +346,7 @@ forwarded to a different node than before, will be reset.
 .. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/switches-interface-resilient-hashing.html
 
 Node Down
----------
+~~~~~~~~~
 
 If the node goes down, the BGP sessions from this node will be lost. The peer
 will withdraw the routes advertised by the node immediately or takes some time
@@ -183,7 +356,7 @@ The latter case is problematic when you advertise the route to a Service with
 to the unavailable node until the restart timer (which is 120s by default) expires.
 
 Mitigation
-~~~~~~~~~~
+''''''''''
 
 Involuntary Shutdown
 ++++++++++++++++++++
@@ -207,7 +380,7 @@ When you voluntarily shut down a node, you can follow the steps described in the
 possible.
 
 Peering Link Down
------------------
+~~~~~~~~~~~~~~~~~
 
 If the peering link between the BGP peers goes down, usually, both the BGP
 session and datapath connectivity will be lost. However, there may be a period
@@ -223,7 +396,7 @@ the Node goes down, the BGP session will be lost after the hold timer expires,
 which is set to 90 seconds by default.
 
 Mitigation
-~~~~~~~~~~
+''''''''''
 
 To make link detection failure fast, you can adjust ``holdTimeSeconds`` and
 ``keepAliveTimeSeconds`` in the BGP configuration to the shorter value.
@@ -233,32 +406,37 @@ use BFD (Bidirectional Forwarding Detection), but currently, Cilium does not
 support it.
 
 Cilium Operator Down
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
-If the Cilium Operator goes down, PodCIDR allocation by IPAM, and LoadBalancer
-IP allocation by LB-IPAM are stopped. Therefore, the advertisement of new
-and withdrawal of old PodCIDR and Service VIP routes will be stopped as well.
+The Cilium operator is responsible for translating ``CiliumBGPClusterConfig`` to
+the per node ``CiliumBGPNodeConfig`` resource. If the Cilium operator is down,
+provisioning of BGP control plane will be stopped.
+
+Similarly, PodCIDR allocation by IPAM, and LoadBalancer IP allocation by LB-IPAM
+are stopped. Therefore, the advertisement of new and withdrawal of old PodCIDR and
+Service VIP routes will be stopped as well.
+
 
 Mitigation
-~~~~~~~~~~
+''''''''''
 
 There's no direct mitigation in terms of the BGP. However, running the Cilium
 Operator with a :ref:`high-availability setup <cilium_operator_internals>` will
 make the Cilium Operator more resilient to failures.
 
 Service Losing All Backends
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If all service backends are gone due to an outage or a configuration mistake, BGP
 Control Plane behaves differently depending on the Service's
 ``externalTrafficPolicy``. When the ``externalTrafficPolicy`` is set to
 ``Cluster``, the Service's VIP remains advertised from all nodes selected by the
-CiliumBGPPeeringPolicy. When the ``externalTrafficPolicy`` is set to ``Local``,
-the advertisement stops entirely because the Service's VIP is only advertised
+``CiliumBGPPeeringPolicy`` or ``CiliumBGPClusterConfig``. When the ``externalTrafficPolicy``
+is set to ``Local``, the advertisement stops entirely because the Service's VIP is only advertised
 from the node where the Service backends are running.
 
 Mitigation
-~~~~~~~~~~
+''''''''''
 
 There's no direct mitigation in terms of the BGP. In general, you should
 prevent the Service backends from being all gone by Kubernetes features like

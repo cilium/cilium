@@ -17,7 +17,7 @@ import (
 	"os"
 	"path"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -236,7 +236,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	for name := range testNameToPrograms {
 		testNames = append(testNames, name)
 	}
-	sort.Strings(testNames)
+	slices.Sort(testNames)
 
 	// Get maps used for common mocking facilities
 	skbMdMap := coll.Maps[mockSkbMetaMap]

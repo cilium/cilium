@@ -130,7 +130,7 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 			},
 			nil,
 		)
-		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+kvstore.Client().Encode([]byte(shortKey.GetKey())))
+		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+shortKey.GetKey())
 		require.NoError(b, err)
 		close(gotLock2)
 	}()
@@ -156,7 +156,6 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 		oldestRev     = uint64(math.MaxUint64)
 		oldestLeaseID int64
 		oldestKey     string
-		sessionID     string
 	)
 	// Stale locks contains 2 locks, which is expected but we only want to GC
 	// the oldest one so we can unlock all the remaining clients waiting to hold
@@ -166,7 +165,6 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 			oldestKey = k
 			oldestRev = v.ModRevision
 			oldestLeaseID = v.LeaseID
-			sessionID = v.SessionID
 		}
 	}
 
@@ -175,7 +173,6 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 	staleLocks[oldestKey] = kvstore.Value{
 		ModRevision: oldestRev,
 		LeaseID:     oldestLeaseID,
-		SessionID:   sessionID,
 	}
 
 	// GC lock1 because it's the oldest lock being held.
@@ -241,7 +238,7 @@ func benchmarkGC(b *testing.B) {
 	require.Len(b, keysToDelete, 1)
 	keysToDelete, _, err = allocator.RunGC(rateLimiter, keysToDelete)
 	require.NoError(b, err)
-	require.Len(b, keysToDelete, 0)
+	require.Empty(b, keysToDelete)
 
 	// wait for cache to be updated via delete notification
 	require.EventuallyWithT(b, func(c *assert.CollectT) {
@@ -314,7 +311,7 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	require.Len(b, keysToDelete, 1)
 	keysToDelete, _, err = allocator1.RunGC(rateLimiter, keysToDelete)
 	require.NoError(b, err)
-	require.Len(b, keysToDelete, 0)
+	require.Empty(b, keysToDelete)
 
 	// Wait for cache to be updated via delete notification
 	require.EventuallyWithT(b, func(c *assert.CollectT) {
@@ -421,7 +418,7 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 
 	v, err = kvstore.Client().ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
 	require.NoError(t, err)
-	require.Len(t, v, 0)
+	require.Empty(t, v)
 
 	a.DeleteAllKeys()
 	a.Delete()
@@ -444,13 +441,13 @@ func testKeyToID(t *testing.T) {
 
 	// An error is returned because the path is outside the prefix (allocatorName/id)
 	id, err := backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "invalid"))
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// An error is returned because the path contains the prefix
 	// (allocatorName/id) but cannot be parsed ("invalid")
 	id, err = backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "id", "invalid"))
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// A valid lookup that finds an ID

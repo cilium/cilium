@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -27,18 +28,9 @@ func filterByFQDNs(fqdnPatterns []string, getFQDNs func(*v1.Event) []string) (Fi
 	}
 
 	return func(ev *v1.Event) bool {
-		names := getFQDNs(ev)
-		if len(names) == 0 {
-			return false
-		}
-
-		for _, name := range names {
-			if fqdnRegexp.MatchString(name) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(getFQDNs(ev), func(fqdn string) bool {
+			return fqdnRegexp.MatchString(fqdn)
+		})
 	}, nil
 }
 
@@ -59,12 +51,9 @@ func filterByDNSQueries(queryPatterns []string) (FilterFunc, error) {
 		if dns == nil {
 			return false
 		}
-		for _, query := range queries {
-			if query.MatchString(dns.Query) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(queries, func(query *regexp.Regexp) bool {
+			return query.MatchString(dns.Query)
+		})
 	}, nil
 }
 

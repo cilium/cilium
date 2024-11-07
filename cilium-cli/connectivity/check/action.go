@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -802,7 +801,7 @@ func (a *Action) waitForRelay(ctx context.Context, client observer.ObserverClien
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("hubble server status failure: %w", ctx.Err())
-		case <-inctimer.After(time.Second):
+		case <-time.After(time.Second):
 			a.Debug("retrying hubble relay server status request")
 		}
 	}

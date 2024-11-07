@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"regexp"
 
@@ -12,10 +13,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	controllerRuntimeMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
@@ -26,7 +27,7 @@ var goCustomCollectorsRX = regexp.MustCompile(`^/sched/latencies:seconds`)
 type params struct {
 	cell.In
 
-	Logger     logrus.FieldLogger
+	Logger     *slog.Logger
 	Lifecycle  cell.Lifecycle
 	Shutdowner hive.Shutdowner
 
@@ -37,7 +38,7 @@ type params struct {
 }
 
 type metricsManager struct {
-	logger     logrus.FieldLogger
+	logger     *slog.Logger
 	shutdowner hive.Shutdowner
 
 	server http.Server
@@ -51,9 +52,9 @@ func (mm *metricsManager) Start(ctx cell.HookContext) error {
 	mm.server.Handler = mux
 
 	go func() {
-		mm.logger.WithField("address", mm.server.Addr).Info("Starting metrics server")
+		mm.logger.Info("Starting metrics server", "address", mm.server.Addr)
 		if err := mm.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			mm.logger.WithError(err).Error("Unable to start metrics server")
+			mm.logger.Error("Unable to start metrics server", logfields.Error, err)
 			mm.shutdowner.Shutdown()
 		}
 	}()
@@ -63,7 +64,7 @@ func (mm *metricsManager) Start(ctx cell.HookContext) error {
 
 func (mm *metricsManager) Stop(ctx cell.HookContext) error {
 	if err := mm.server.Shutdown(ctx); err != nil {
-		mm.logger.WithError(err).Error("Shutdown operator metrics server failed")
+		mm.logger.Error("Shutdown operator metrics server failed", logfields.Error, err)
 		return err
 	}
 	return nil

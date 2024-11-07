@@ -8,11 +8,13 @@ import (
 	"regexp"
 	"sort"
 	"testing"
+	"time"
 
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -444,11 +446,9 @@ func TestSortableRoute(t *testing.T) {
 		"prefix match with one header and one query",
 		"prefix match with one header",
 	}, namesAfterSort)
-
 }
 
 func buildNameSlice(arr []*envoy_config_route_v3.Route) []string {
-
 	var names []string
 
 	for _, entry := range arr {
@@ -472,13 +472,13 @@ func Test_hostRewriteMutation(t *testing.T) {
 			Route: &envoy_config_route_v3.RouteAction{},
 		}
 		rewrite := &model.HTTPURLRewriteFilter{
-			HostName: model.AddressOf("example.com"),
+			HostName: ptr.To("example.com"),
 		}
 
 		res := hostRewriteMutation(rewrite)(route)
-		require.Equal(t, res.Route.HostRewriteSpecifier, &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
+		require.Equal(t, &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
 			HostRewriteLiteral: "example.com",
-		})
+		}, res.Route.HostRewriteSpecifier)
 	})
 }
 
@@ -504,7 +504,7 @@ func Test_pathPrefixMutation(t *testing.T) {
 		}
 
 		res := pathPrefixMutation(rewrite, &httpRoute)(route)
-		require.Equal(t, res.Route.PrefixRewrite, "/prefix")
+		require.Equal(t, "/prefix", res.Route.PrefixRewrite)
 	})
 	t.Run("with empty prefix rewrite", func(t *testing.T) {
 		httpRoute := model.HTTPRoute{}
@@ -571,6 +571,8 @@ func Test_requestMirrorMutation(t *testing.T) {
 						Name: "http",
 					},
 				},
+				Numerator:   100,
+				Denominator: 100,
 			},
 			{
 				Backend: &model.Backend{
@@ -581,14 +583,59 @@ func Test_requestMirrorMutation(t *testing.T) {
 						Name: "http",
 					},
 				},
+				Numerator:   100,
+				Denominator: 100,
 			},
 		}
 
 		res := requestMirrorMutation(mirror)(route)
 		require.Len(t, res.Route.RequestMirrorPolicies, 2)
-		require.Equal(t, res.Route.RequestMirrorPolicies[0].Cluster, "default:dummy-service:8080")
-		require.Equal(t, res.Route.RequestMirrorPolicies[0].RuntimeFraction.DefaultValue.Numerator, uint32(100))
-		require.Equal(t, res.Route.RequestMirrorPolicies[1].Cluster, "default:another-dummy-service:8080")
-		require.Equal(t, res.Route.RequestMirrorPolicies[1].RuntimeFraction.DefaultValue.Numerator, uint32(100))
+		require.Equal(t, "default:dummy-service:8080", res.Route.RequestMirrorPolicies[0].Cluster)
+		require.Equal(t, uint32(100), res.Route.RequestMirrorPolicies[0].RuntimeFraction.DefaultValue.Numerator)
+		require.Equal(t, "default:another-dummy-service:8080", res.Route.RequestMirrorPolicies[1].Cluster)
+		require.Equal(t, uint32(100), res.Route.RequestMirrorPolicies[1].RuntimeFraction.DefaultValue.Numerator)
+	})
+}
+
+func Test_retryMutation(t *testing.T) {
+	t.Run("no retry", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := retryMutation(nil)(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with retry without backoff", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		retry := &model.HTTPRetry{
+			Codes:    []uint32{500, 503},
+			Attempts: ptr.To(3),
+		}
+
+		res := retryMutation(retry)(route)
+		require.Equal(t, []uint32{500, 503}, res.Route.RetryPolicy.RetriableStatusCodes)
+		require.Empty(t, res.Route.RetryPolicy.RetryBackOff)
+		require.Equal(t, uint32(3), res.Route.RetryPolicy.NumRetries.Value)
+	})
+
+	t.Run("with retry with backoff", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		retry := &model.HTTPRetry{
+			Codes:    []uint32{500, 503},
+			Attempts: ptr.To(3),
+			Backoff:  ptr.To(10 * time.Second),
+		}
+
+		res := retryMutation(retry)(route)
+		require.Equal(t, []uint32{500, 503}, res.Route.RetryPolicy.RetriableStatusCodes)
+		require.Equal(t, uint32(3), res.Route.RetryPolicy.NumRetries.Value)
+		require.NotEmpty(t, res.Route.RetryPolicy.RetryBackOff)
+		require.Equal(t, int64(10), res.Route.RetryPolicy.RetryBackOff.BaseInterval.Seconds)
+		require.Equal(t, int64(20), res.Route.RetryPolicy.RetryBackOff.MaxInterval.Seconds)
 	})
 }

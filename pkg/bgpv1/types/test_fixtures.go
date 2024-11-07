@@ -99,6 +99,12 @@ var (
 									PrefixLenMax: 32,
 								},
 							},
+							MatchFamilies: []Family{
+								{
+									Afi:  AfiIPv4,
+									Safi: SafiUnicast,
+								},
+							},
 						},
 						Actions: RoutePolicyActions{
 							RouteAction:        RoutePolicyActionNone,
@@ -119,6 +125,12 @@ var (
 									CIDR:         netip.MustParsePrefix("2002::/16"),
 									PrefixLenMin: 24,
 									PrefixLenMax: 32,
+								},
+							},
+							MatchFamilies: []Family{
+								{
+									Afi:  AfiIPv6,
+									Safi: SafiUnicast,
 								},
 							},
 						},

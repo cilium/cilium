@@ -34,15 +34,16 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type EndpointSuite struct {
 	orchestrator datapath.Orchestrator
-	repo         *policy.Repository
+	repo         policy.PolicyRepository
 	mgr          *cache.CachingIdentityAllocator
 
 	// Owners interface mock
-	OnGetPolicyRepository     func() *policy.Repository
+	OnGetPolicyRepository     func() policy.PolicyRepository
 	OnGetNamedPorts           func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
@@ -56,7 +57,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	s := &EndpointSuite{
 		orchestrator: &fakeTypes.FakeOrchestrator{},
 		repo:         policy.NewPolicyRepository(nil, nil, nil, nil),
-		mgr:          cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}),
+		mgr:          cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{}),
 	}
 
 	// GetConfig the default labels prefix filter
@@ -84,7 +85,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	return s
 }
 
-func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
+func (s *EndpointSuite) GetPolicyRepository() policy.PolicyRepository {
 	return s.repo
 }
 
@@ -248,14 +249,14 @@ func TestEndpointDatapathOptions(t *testing.T) {
 			DisableSipVerification: true,
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, option.OptionDisabled, e.Options.GetValue(option.SourceIPVerification))
 }
 
 func TestEndpointUpdateLabels(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -296,7 +297,7 @@ func TestEndpointUpdateLabels(t *testing.T) {
 func TestEndpointState(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 	e.unconditionalLock()
 	defer e.unlock()
 
@@ -466,9 +467,9 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	cbRan := false
 	<-e.WaitForPolicyRevision(ctx, 0, func(time.Time) { cbRan = true })
 	// shouldn't get a timeout when waiting for policy revision already reached
-	require.Nil(t, ctx.Err())
+	require.NoError(t, ctx.Err())
 	// Should see a callback when waiting for a policy revision already reached
-	require.Equal(t, true, cbRan)
+	require.True(t, cbRan)
 
 	cancel()
 
@@ -479,9 +480,9 @@ func TestWaitForPolicyRevision(t *testing.T) {
 
 	<-e.WaitForPolicyRevision(ctx, 0, func(time.Time) { cbRan = true })
 	// shouldn't get a timeout when waiting for policy revision already reached
-	require.Nil(t, ctx.Err())
+	require.NoError(t, ctx.Err())
 	// Should see a callback because the channel returned
-	require.Equal(t, true, cbRan)
+	require.True(t, cbRan)
 
 	cancel()
 
@@ -495,7 +496,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	// context was prematurely closed on purpose the error should be nil
 	require.Equal(t, context.Canceled, ctx.Err())
 	// Should not see a callback when we don't close the channel
-	require.Equal(t, false, cbRan)
+	require.False(t, cbRan)
 
 	e.setPolicyRevision(3)
 
@@ -506,7 +507,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	}
 
 	// Number of policy revision signals should be 0
-	require.Equal(t, 0, len(e.policyRevisionSignals))
+	require.Empty(t, e.policyRevisionSignals)
 
 	e.state = StateDisconnected
 
@@ -520,10 +521,10 @@ func TestWaitForPolicyRevision(t *testing.T) {
 		t.Fatalf("channel should have been closed since the endpoint is in disconnected state")
 	}
 	// Should see a callback because the channel was closed
-	require.Equal(t, true, cbRan)
+	require.True(t, cbRan)
 
 	// Number of policy revision signals should be 0
-	require.Equal(t, 0, len(e.policyRevisionSignals))
+	require.Empty(t, e.policyRevisionSignals)
 
 	e.state = StateWaitingForIdentity
 	ctx, cancel = context.WithCancel(context.Background())
@@ -537,11 +538,11 @@ func TestWaitForPolicyRevision(t *testing.T) {
 		t.Fatalf("channel should have been closed since all policy signals were closed")
 	}
 	// Should see a callback because the channel was closed
-	require.Equal(t, true, cbRan)
+	require.True(t, cbRan)
 	cancel()
 
 	// Number of policy revision signals should be 0
-	require.Equal(t, 0, len(e.policyRevisionSignals))
+	require.Empty(t, e.policyRevisionSignals)
 }
 
 func TestProxyID(t *testing.T) {
@@ -553,33 +554,33 @@ func TestProxyID(t *testing.T) {
 	id, port, proto := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "")
 	require.NotEqual(t, "", id)
 	require.Equal(t, uint16(8080), port)
-	require.Equal(t, uint8(6), proto)
+	require.Equal(t, u8proto.TCP, proto)
 
 	endpointID, ingress, protocol, port, listener, err := policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
-	require.Equal(t, true, ingress)
+	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, "", listener)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	id, port, proto = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD}, "test-listener")
 	require.NotEqual(t, "", id)
 	require.Equal(t, uint16(8080), port)
-	require.Equal(t, uint8(6), proto)
+	require.Equal(t, u8proto.TCP, proto)
 	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
-	require.Equal(t, true, ingress)
+	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, "test-listener", listener)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Undefined named port
 	id, port, proto = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "")
 	require.Equal(t, "", id)
 	require.Equal(t, uint16(0), port)
-	require.Equal(t, uint8(0), proto)
+	require.Equal(t, u8proto.ANY, proto)
 }
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {
@@ -646,10 +647,10 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 
 func TestK8sPodNameIsSet(t *testing.T) {
 	e := Endpoint{}
-	require.Equal(t, false, e.K8sNamespaceAndPodNameIsSet())
+	require.False(t, e.K8sNamespaceAndPodNameIsSet())
 	e.K8sPodName = "foo"
 	e.K8sNamespace = "default"
-	require.Equal(t, true, e.K8sNamespaceAndPodNameIsSet())
+	require.True(t, e.K8sNamespaceAndPodNameIsSet())
 }
 
 type EndpointDeadlockEvent struct {
@@ -687,7 +688,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 		option.Config.EndpointQueueSize = oldQueueSize
 	}()
 
-	ep := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	ep.properties[PropertyFakeEndpoint] = true
 	ep.properties[PropertySkipBPFPolicy] = true
@@ -730,12 +731,12 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 
 	go func() {
 		_, err := ep.eventQueue.Enqueue(ev)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		_, err = ep.eventQueue.Enqueue(ev2)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		close(ev2EnqueueCh)
 		_, err = ep.eventQueue.Enqueue(ev3)
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}()
 
 	// Ensure that the second event is enqueued before proceeding further, as
@@ -763,7 +764,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 func BenchmarkEndpointGetModel(b *testing.B) {
 	s := setupEndpointSuite(b)
 
-	e := NewTestEndpointWithState(b, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
 
 	for i := 0; i < 256; i++ {
 		e.LogStatusOK(BPF, "Hello World!")

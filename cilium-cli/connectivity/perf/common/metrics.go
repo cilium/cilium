@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"time"
 )
@@ -25,7 +26,7 @@ type LatencyMetric struct {
 }
 
 // toPerfData export LatencyMetric in a format compatible with perfdash scheme
-func (metric *LatencyMetric) toPerfData(labels map[string]string) dataItem {
+func (metric *LatencyMetric) toPerfData(labels map[string]string, prefix string) dataItem {
 	resLabels := map[string]string{
 		"metric": "Latency",
 	}
@@ -34,9 +35,9 @@ func (metric *LatencyMetric) toPerfData(labels map[string]string) dataItem {
 		Data: map[string]float64{
 			// Let's only export percentiles
 			// Max is skewing results and doesn't make much sense to keep track of
-			"Perc50": float64(metric.Perc50) / float64(time.Microsecond),
-			"Perc90": float64(metric.Perc90) / float64(time.Microsecond),
-			"Perc99": float64(metric.Perc99) / float64(time.Microsecond),
+			prefix + "_p50": float64(metric.Perc50) / float64(time.Microsecond),
+			prefix + "_p90": float64(metric.Perc90) / float64(time.Microsecond),
+			prefix + "_p99": float64(metric.Perc99) / float64(time.Microsecond),
 		},
 		Unit:   "us",
 		Labels: resLabels,
@@ -49,14 +50,14 @@ type TransactionRateMetric struct {
 }
 
 // ToPerfData export TransactionRateMetric in a format compatible with perfdash scheme
-func (metric *TransactionRateMetric) toPerfData(labels map[string]string) dataItem {
+func (metric *TransactionRateMetric) toPerfData(labels map[string]string, prefix string) dataItem {
 	resLabels := map[string]string{
 		"metric": "TransactionRate",
 	}
 	maps.Copy(resLabels, labels)
 	return dataItem{
 		Data: map[string]float64{
-			"Throughput": metric.TransactionRate,
+			prefix + "_throughput": metric.TransactionRate,
 		},
 		Unit:   "ops/s",
 		Labels: resLabels,
@@ -69,14 +70,14 @@ type ThroughputMetric struct {
 }
 
 // ToPerfData export ThroughputMetric in a format compatible with perfdash scheme
-func (metric *ThroughputMetric) toPerfData(labels map[string]string) dataItem {
+func (metric *ThroughputMetric) toPerfData(labels map[string]string, prefix string) dataItem {
 	resLabels := map[string]string{
 		"metric": "Throughput",
 	}
 	maps.Copy(resLabels, labels)
 	return dataItem{
 		Data: map[string]float64{
-			"Throughput": metric.Throughput / 1000000,
+			prefix + "_throughput": metric.Throughput / 1000000,
 		},
 		Unit:   "Mb/s",
 		Labels: resLabels,
@@ -98,6 +99,7 @@ type PerfTests struct {
 	SameNode bool
 	Scenario string
 	Sample   int
+	MsgSize  int
 	Duration time.Duration
 }
 
@@ -137,29 +139,46 @@ func getLabelsForTest(summary PerfSummary) map[string]string {
 		node = "same-node"
 	}
 	return map[string]string{
-		"scenario":  summary.PerfTest.Scenario,
 		"node":      node,
-		"test_type": summary.PerfTest.Tool + "-" + summary.PerfTest.Test,
+		"test_type": summary.PerfTest.Tool,
 	}
 }
 
 // ExportPerfSummaries exports Perfsummary in a format compatible with perfdash
 // and saves results in reportDir directory
 func ExportPerfSummaries(summaries []PerfSummary, reportDir string) error {
-	data := []dataItem{}
+	data := map[string]dataItem{}
 	for _, summary := range summaries {
 		labels := getLabelsForTest(summary)
+		identifier := fmt.Sprintf("%s-%s", labels["node"], labels["test_type"])
 		if summary.Result.Latency != nil {
-			data = append(data, summary.Result.Latency.toPerfData(labels))
+			res := summary.Result.Latency.toPerfData(labels, summary.PerfTest.Test+"_"+summary.PerfTest.Scenario)
+			if _, ok := data[identifier+"lat"]; !ok {
+				data[identifier+"lat"] = res
+			} else {
+				maps.Copy(data[identifier+"lat"].Data, res.Data)
+			}
+
 		}
 		if summary.Result.TransactionRateMetric != nil {
-			data = append(data, summary.Result.TransactionRateMetric.toPerfData(labels))
+			res := summary.Result.TransactionRateMetric.toPerfData(labels, summary.PerfTest.Test+"_"+summary.PerfTest.Scenario)
+			if _, ok := data[identifier+"tr"]; !ok {
+				data[identifier+"tr"] = res
+			} else {
+				maps.Copy(data[identifier+"tr"].Data, res.Data)
+			}
+
 		}
 		if summary.Result.ThroughputMetric != nil {
-			data = append(data, summary.Result.ThroughputMetric.toPerfData(labels))
+			res := summary.Result.ThroughputMetric.toPerfData(labels, summary.PerfTest.Test+"_"+summary.PerfTest.Scenario)
+			if _, ok := data[identifier+"th"]; !ok {
+				data[identifier+"th"] = res
+			} else {
+				maps.Copy(data[identifier+"th"].Data, res.Data)
+			}
 		}
 	}
-	return exportSummary(perfData{Version: "v1", DataItems: data}, reportDir)
+	return exportSummary(perfData{Version: "v1", DataItems: slices.Collect(maps.Values(data))}, reportDir)
 }
 
 func exportSummary(content perfData, reportDir string) error {

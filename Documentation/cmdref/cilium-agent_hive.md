@@ -29,6 +29,7 @@ cilium-agent hive [flags]
       --direct-routing-device string                              Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)
       --disable-envoy-version-check                               Do not perform Envoy version check
       --disable-iptables-feeder-rules strings                     Chains to ignore when installing feeder rules.
+      --dynamic-lifecycle-config string                           List of dynamic lifecycle features and their configuration including the dependencies (default "[]")
       --egress-gateway-policy-map-max int                         Maximum number of entries in egress gateway policy map (default 16384)
       --egress-gateway-reconciliation-trigger-interval duration   Time between triggers of egress gateway state reconciliations (default 1s)
       --enable-active-connection-tracking                         Count open and active connections to services, grouped by zones defined in fixed-zone-mapping.
@@ -36,8 +37,13 @@ cilium-agent hive [flags]
       --enable-bbr                                                Enable BBR for the bandwidth manager
       --enable-cilium-api-server-access strings                   List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-health-api-server-access strings            List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-drift-checker                                      Enables support for config drift checker
       --enable-dynamic-config                                     Enables support for dynamic agent config
+      --enable-dynamic-lifecycle-manager                          Enables support for dynamic lifecycle management
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
+      --enable-hubble                                             Enable hubble server (default true)
+      --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format
+      --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ipv4-big-tcp                                       Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
       --enable-ipv6-big-tcp                                       Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
@@ -52,6 +58,7 @@ cilium-agent hive [flags]
       --envoy-base-id uint                                        Envoy base ID
       --envoy-config-retry-interval duration                      Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated. (default 15s)
       --envoy-config-timeout duration                             Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources (default 2m0s)
+      --envoy-default-log-level string                            Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.
       --envoy-keep-cap-netbindservice                             Keep capability NET_BIND_SERVICE for Envoy process
       --envoy-log string                                          Path to a separate Envoy log file, if any
       --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
@@ -65,6 +72,43 @@ cilium-agent hive [flags]
       --http-request-timeout uint                                 Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
       --http-retry-count uint                                     Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                                   Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
+      --hubble-disable-tls                                        Allow Hubble server to run on the given listen address without TLS.
+      --hubble-drop-events                                        Emit packet drop Events related to pods (alpha)
+      --hubble-drop-events-interval duration                      Minimum time between emitting same events (default 2m0s)
+      --hubble-drop-events-reasons strings                        Drop reasons to emit events for (default [auth_required,policy_denied])
+      --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
+      --hubble-event-queue-size int                               Buffer size of the channel to receive monitor events.
+      --hubble-export-allowlist strings                           Specify allowlist as JSON encoded FlowFilters to Hubble exporter.
+      --hubble-export-denylist strings                            Specify denylist as JSON encoded FlowFilters to Hubble exporter.
+      --hubble-export-fieldmask strings                           Specify list of fields to use for field mask in Hubble exporter.
+      --hubble-export-file-compress                               Compress rotated Hubble export files.
+      --hubble-export-file-max-backups int                        Number of rotated Hubble export files to keep. (default 5)
+      --hubble-export-file-max-size-mb int                        Size in MB at which to rotate Hubble export file. (default 10)
+      --hubble-export-file-path stdout                            Filepath to write Hubble events to. By specifying stdout the flows are logged instead of written to a rotated file.
+      --hubble-flowlogs-config-path string                        Filepath with configuration of hubble flowlogs
+      --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
+      --hubble-metrics strings                                    List of Hubble metrics to enable.
+      --hubble-metrics-server string                              Address to serve Hubble metrics on.
+      --hubble-metrics-server-enable-tls                          Run the Hubble metrics server on the given listen address with TLS.
+      --hubble-metrics-server-tls-cert-file string                Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.
+      --hubble-metrics-server-tls-client-ca-files strings         Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
+      --hubble-metrics-server-tls-key-file string                 Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.
+      --hubble-monitor-events strings                             Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. By default, Hubble observes all monitor events.
+      --hubble-prefer-ipv6                                        Prefer IPv6 addresses for announcing nodes when both address types are available.
+      --hubble-recorder-sink-queue-size int                       Queue size of each Hubble recorder sink (default 1024)
+      --hubble-recorder-storage-path string                       Directory in which pcap files created via the Hubble Recorder API are stored (default "/var/run/cilium/pcaps")
+      --hubble-redact-enabled                                     Hubble redact sensitive information from flows
+      --hubble-redact-http-headers-allow strings                  HTTP headers to keep visible in flows
+      --hubble-redact-http-headers-deny strings                   HTTP headers to redact from flows
+      --hubble-redact-http-urlquery                               Hubble redact http URL query from flows
+      --hubble-redact-http-userinfo                               Hubble redact http user info from flows (default true)
+      --hubble-redact-kafka-apikey                                Hubble redact Kafka API key from flows
+      --hubble-skip-unknown-cgroup-ids                            Skip Hubble events with unknown cgroup ids (default true)
+      --hubble-socket-path string                                 Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
+      --hubble-tls-cert-file string                               Path to the public key file for the Hubble server. The file must contain PEM encoded data.
+      --hubble-tls-client-ca-files strings                        Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
+      --hubble-tls-key-file string                                Path to the private key file for the Hubble server. The file must contain PEM encoded data.
+      --ignore-flags-drift-checker strings                        Ignores specified flags during drift checking
       --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
       --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                     Set iptables flag random-fully on masquerading rules
@@ -102,6 +146,7 @@ cilium-agent hive [flags]
       --proxy-connect-timeout uint                                Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)
       --proxy-idle-timeout-seconds int                            Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s (default 60)
+      --proxy-initial-fetch-timeout uint                          Time after which an xDS stream is considered timed out (in seconds) (default 30)
       --proxy-max-connection-duration-seconds int                 Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
       --proxy-max-requests-per-connection int                     Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
       --proxy-portrange-max uint16                                End of port range that is used to allocate ports for L7 proxies. (default 20000)

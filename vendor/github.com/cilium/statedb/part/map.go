@@ -7,7 +7,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"reflect"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Map of key-value pairs. The zero value is ready for use, provided
@@ -21,8 +24,8 @@ type Map[K, V any] struct {
 }
 
 type mapKVPair[K, V any] struct {
-	Key   K `json:"k"`
-	Value V `json:"v"`
+	Key   K `json:"k" yaml:"k"`
+	Value V `json:"v" yaml:"v"`
 }
 
 // FromMap copies values from the hash map into the given Map.
@@ -80,54 +83,47 @@ func (m Map[K, V]) Delete(key K) Map[K, V] {
 	return m
 }
 
-// MapIterator iterates over key and value pairs.
-type MapIterator[K, V any] struct {
-	iter *Iterator[mapKVPair[K, V]]
-}
-
-// Next returns the next key (as bytes) and value. If the iterator
-// is exhausted it returns false.
-func (it MapIterator[K, V]) Next() (k K, v V, ok bool) {
-	if it.iter == nil {
-		return
+func toSeq2[K, V any](iter *Iterator[mapKVPair[K, V]]) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		if iter == nil {
+			return
+		}
+		iter = iter.Clone()
+		for _, kv, ok := iter.Next(); ok; _, kv, ok = iter.Next() {
+			if !yield(kv.Key, kv.Value) {
+				break
+			}
+		}
 	}
-	_, kv, ok := it.iter.Next()
-	return kv.Key, kv.Value, ok
 }
 
 // LowerBound iterates over all keys in order with value equal
 // to or greater than [from].
-func (m Map[K, V]) LowerBound(from K) MapIterator[K, V] {
+func (m Map[K, V]) LowerBound(from K) iter.Seq2[K, V] {
 	if m.tree == nil {
-		return MapIterator[K, V]{}
+		return toSeq2[K, V](nil)
 	}
-	return MapIterator[K, V]{
-		iter: m.tree.LowerBound(m.bytesFromKey(from)),
-	}
+	return toSeq2(m.tree.LowerBound(m.bytesFromKey(from)))
 }
 
 // Prefix iterates in order over all keys that start with
 // the given prefix.
-func (m Map[K, V]) Prefix(prefix K) MapIterator[K, V] {
+func (m Map[K, V]) Prefix(prefix K) iter.Seq2[K, V] {
 	if m.tree == nil {
-		return MapIterator[K, V]{}
+		return toSeq2[K, V](nil)
 	}
 	iter, _ := m.tree.Prefix(m.bytesFromKey(prefix))
-	return MapIterator[K, V]{
-		iter: iter,
-	}
+	return toSeq2(iter)
 }
 
 // All iterates every key-value in the map in order.
 // The order is in bytewise order of the byte slice
 // returned by bytesFromKey.
-func (m Map[K, V]) All() MapIterator[K, V] {
+func (m Map[K, V]) All() iter.Seq2[K, V] {
 	if m.tree == nil {
-		return MapIterator[K, V]{}
+		return toSeq2[K, V](nil)
 	}
-	return MapIterator[K, V]{
-		iter: m.tree.Iterator(),
-	}
+	return toSeq2(m.tree.Iterator())
 }
 
 // EqualKeys returns true if both maps contain the same keys.
@@ -240,6 +236,32 @@ func (m *Map[K, V]) UnmarshalJSON(data []byte) error {
 	}
 	if d, ok := t.(json.Delim); !ok || d != ']' {
 		return fmt.Errorf("%T.UnmarshalJSON: expected ']' got %v", m, t)
+	}
+	m.tree = txn.CommitOnly()
+	return nil
+}
+
+func (m Map[K, V]) MarshalYAML() (any, error) {
+	kvs := make([]mapKVPair[K, V], 0, m.Len())
+	iter := m.tree.Iterator()
+	for _, kv, ok := iter.Next(); ok; _, kv, ok = iter.Next() {
+		kvs = append(kvs, kv)
+	}
+	return kvs, nil
+}
+
+func (m *Map[K, V]) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind != yaml.SequenceNode {
+		return fmt.Errorf("%T.UnmarshalYAML: expected sequence", m)
+	}
+	m.ensureTree()
+	txn := m.tree.Txn()
+	for _, e := range value.Content {
+		var kv mapKVPair[K, V]
+		if err := e.Decode(&kv); err != nil {
+			return err
+		}
+		txn.Insert(m.bytesFromKey(kv.Key), mapKVPair[K, V]{kv.Key, kv.Value})
 	}
 	m.tree = txn.CommitOnly()
 	return nil

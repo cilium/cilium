@@ -301,7 +301,7 @@ func (s *ServiceCache) GetEndpointsOfService(svcID ServiceID) *Endpoints {
 // Services are iterated in random order.
 // The ServiceCache is read-locked during this function call. The passed in
 // Service and Endpoints references are read-only.
-func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, eps *Endpoints) bool) {
+func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, eps *EndpointSlices) bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -310,8 +310,7 @@ func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, 
 		if !ok {
 			continue
 		}
-		eps := ep.GetEndpoints()
-		if !yield(svcID, svc, eps) {
+		if !yield(svcID, svc, ep) {
 			return
 		}
 	}
@@ -454,7 +453,7 @@ func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 			return esID.ServiceID, newEndpoints
 		}
 	} else {
-		eps = newEndpointsSlices()
+		eps = NewEndpointsSlices()
 		s.endpoints[esID.ServiceID] = eps
 	}
 
@@ -628,19 +627,20 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 //
 // OR Remote endpoints exist which correlate to the service.
 func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
-	endpoints := newEndpoints()
-
-	localEndpoints := s.endpoints[id].GetEndpoints()
+	endpoints := s.endpoints[id].GetEndpoints()
 	svc, svcFound := s.services[id]
 
-	hasLocalEndpoints := localEndpoints != nil
+	hasLocalEndpoints := endpoints != nil
 	if hasLocalEndpoints {
-		localEndpoints = s.filterEndpoints(localEndpoints, svc)
+		endpoints = s.filterEndpoints(endpoints, svc)
 
-		for ip, e := range localEndpoints.Backends {
+		for _, e := range endpoints.Backends {
+			// The endpoints returned by GetEndpoints are already deep copies,
+			// hence we can mutate them in-place without problems.
 			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == serviceAffinityLocal
-			endpoints.Backends[ip] = e.DeepCopy()
 		}
+	} else {
+		endpoints = newEndpoints()
 	}
 
 	var hasExternalEndpoints bool

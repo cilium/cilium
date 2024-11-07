@@ -100,6 +100,7 @@ Pepelnjak
 Pfaff
 PodCIDR
 Polytechnique
+Portworx
 QCon
 QLogic
 RuleParser
@@ -210,6 +211,7 @@ cassandraparser
 cep
 certgen
 certmanager
+cfg
 cgroup
 cgroups
 chainingTarget
@@ -261,6 +263,7 @@ ctf
 customConf
 daemonset
 datacenter
+datagram
 datagrams
 datapath
 datastore
@@ -275,7 +278,9 @@ decapsulated
 decapsulation
 decrypt
 decrypted
+deduplicate
 deepcopy
+defaultLBServiceIPAM
 deletetopic
 demux
 denylist
@@ -293,6 +298,7 @@ dockerhub
 dpaa
 dropdown
 dryRun
+durations
 dwarfris
 eBGP
 eBPF
@@ -303,6 +309,7 @@ effectful
 egressing
 elfutils
 ena
+enableSourceIPVerification
 enablement
 endPort
 endian
@@ -316,6 +323,7 @@ eth
 ethernet
 ethtool
 existingSecret
+expirations
 extTrafficPolicy
 extern
 externalIPs
@@ -398,6 +406,7 @@ inlined
 inlines
 inlining
 inodes
+inspectability
 instantiation
 integrations
 internalTrafficPolicy
@@ -463,6 +472,7 @@ kvstoremesh
 kvstores
 lan
 latencies
+lbipam
 leia
 len
 libbpf
@@ -505,6 +515,8 @@ maglev
 mainboard
 makefile
 mana
+marshallable
+marshalled
 masq
 matchExpressions
 matchLabels
@@ -519,6 +531,7 @@ microservice
 microservices
 minikube
 misconfiguration
+misconfigured
 misconfigures
 mitigations
 mlx
@@ -527,8 +540,10 @@ modularizing
 mountPath
 mov
 mtk
+mtu
 mul
 multicast
+multicluster
 multicore
 multihoming
 musl
@@ -540,6 +555,7 @@ myCA
 mysql
 nameError
 namespace
+namespaceOverride
 namespaced
 namespaces
 nat
@@ -551,6 +567,7 @@ netdevsim
 netfilter
 netfront
 netkit
+netlink
 netns
 netperf
 netsec
@@ -568,6 +585,7 @@ nodeX
 nodegroup
 nodeid
 nodeinit
+nodeipam
 observability
 onData
 onwards
@@ -637,6 +655,9 @@ rebase
 rebased
 rebasing
 recompiles
+reconcilation
+reconciler
+reconcilers
 reconfigurations
 reconnections
 recv
@@ -648,8 +669,9 @@ reparsing
 repo
 repos
 reproducibility
+reqid
 requireIPv
-requireLBClass
+resizable
 resync
 retpoline
 retransmission
@@ -728,7 +750,9 @@ tcx
 templating
 terminatingTLS
 terminationGracePeriodSeconds
+testability
 testsuite
+testutils
 tetragon
 th
 thunderx
@@ -764,6 +788,7 @@ uninline
 unix
 unlabel
 unmanaged
+unmarshalled
 unmigrated
 unselect
 unsettable
@@ -773,6 +798,7 @@ unwinded
 upgradeCompatibility
 uplink
 uprobes
+upstreamed
 uptime
 uretprobes
 url

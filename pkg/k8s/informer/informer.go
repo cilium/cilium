@@ -4,6 +4,7 @@
 package informer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,7 +23,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")
 func init() {
 	utilRuntime.PanicHandlers = append(
 		utilRuntime.PanicHandlers,
-		func(r interface{}) {
+		func(_ context.Context, r interface{}) {
 			// from k8s library
 			if err, ok := r.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 				// honor the http.ErrAbortHandler sentinel panic value:

@@ -52,18 +52,6 @@ WireGuard module on older kernels).
 See `WireGuard Installation <https://www.wireguard.com/install/>`_ for details
 on how to install the kernel module on your Linux distribution.
 
-If your kernel or distribution does not support WireGuard, Cilium agent can be
-configured to fall back on the user-space implementation via the
-``--enable-wireguard-userspace-fallback`` flag. When this flag is enabled and
-Cilium detects that the kernel has no native support for WireGuard, it
-will fallback on the ``wireguard-go`` user-space implementation of WireGuard.
-When running the user-space implementation, encryption and decryption of packets
-is performed by the ``cilium-agent`` process. As a consequence, connectivity
-between Cilium-managed endpoints will be unavailable whenever the
-``cilium-agent`` process is restarted, such as during upgrades or configuration
-changes. Running WireGuard in user-space mode is therefore not recommended for
-production workloads that require high availability.
-
 .. tabs::
 
     .. group-tab:: Cilium CLI
@@ -89,7 +77,7 @@ production workloads that require high availability.
              --set encryption.enabled=true \\
              --set encryption.type=wireguard
 
-WireGuard may also be enabled manually by setting setting the
+WireGuard may also be enabled manually by setting the
 ``enable-wireguard: true`` option in the Cilium ``ConfigMap`` and restarting
 each Cilium agent instance.
 
@@ -371,6 +359,14 @@ table are not subject to encryption with WireGuard and therefore assumed to be u
   configuration (see the table at the beginning of this section), it might be
   encrypted only between intermediate Node (which received client request first)
   and destination Node.
+
+Known Issues
+==========================
+
+* Packets may be dropped when configuring the WireGuard device leading to
+  connectivity issues. This happens when endpoints are added or removed or
+  when node updates occur. In some cases this may lead to failed calls to
+  ``sendmsg`` and ``sendto``. See :gh-issue:`33159` for more details.
 
 Legal
 =====

@@ -49,7 +49,7 @@ func TestGetCIDRSetWithValidValue(t *testing.T) {
 	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	require.EqualValues(t, expectedCidrRule, cidr)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestGetCIDRSetWithMultipleSorted(t *testing.T) {
@@ -62,7 +62,7 @@ func TestGetCIDRSetWithMultipleSorted(t *testing.T) {
 	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	require.EqualValues(t, expectedCidrRule, cidr)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestGetCIDRSetWithUniqueCIDRRule(t *testing.T) {
@@ -76,7 +76,7 @@ func TestGetCIDRSetWithUniqueCIDRRule(t *testing.T) {
 	group := GetGroupsRule()
 	cidr, err := group.GetCidrSet(context.TODO())
 	require.EqualValues(t, cidrRule, cidr)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestGetCIDRSetWithError(t *testing.T) {

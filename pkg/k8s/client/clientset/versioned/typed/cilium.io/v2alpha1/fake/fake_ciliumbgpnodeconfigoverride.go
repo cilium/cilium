@@ -27,20 +27,22 @@ var ciliumbgpnodeconfigoverridesKind = v2alpha1.SchemeGroupVersion.WithKind("Cil
 
 // Get takes name of the ciliumBGPNodeConfigOverride, and returns the corresponding ciliumBGPNodeConfigOverride object, and an error if there is any.
 func (c *FakeCiliumBGPNodeConfigOverrides) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumBGPNodeConfigOverride, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfigOverride{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumbgpnodeconfigoverridesResource, name), &v2alpha1.CiliumBGPNodeConfigOverride{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumbgpnodeconfigoverridesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfigOverride), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumBGPNodeConfigOverrides that match those selectors.
 func (c *FakeCiliumBGPNodeConfigOverrides) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumBGPNodeConfigOverrideList, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfigOverrideList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumbgpnodeconfigoverridesResource, ciliumbgpnodeconfigoverridesKind, opts), &v2alpha1.CiliumBGPNodeConfigOverrideList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumbgpnodeconfigoverridesResource, ciliumbgpnodeconfigoverridesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumBGPNodeConfigOverrides) List(ctx context.Context, opts v1.Lis
 // Watch returns a watch.Interface that watches the requested ciliumBGPNodeConfigOverrides.
 func (c *FakeCiliumBGPNodeConfigOverrides) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumbgpnodeconfigoverridesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumbgpnodeconfigoverridesResource, opts))
 }
 
 // Create takes the representation of a ciliumBGPNodeConfigOverride and creates it.  Returns the server's representation of the ciliumBGPNodeConfigOverride, and an error, if there is any.
 func (c *FakeCiliumBGPNodeConfigOverrides) Create(ctx context.Context, ciliumBGPNodeConfigOverride *v2alpha1.CiliumBGPNodeConfigOverride, opts v1.CreateOptions) (result *v2alpha1.CiliumBGPNodeConfigOverride, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfigOverride{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumbgpnodeconfigoverridesResource, ciliumBGPNodeConfigOverride), &v2alpha1.CiliumBGPNodeConfigOverride{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumbgpnodeconfigoverridesResource, ciliumBGPNodeConfigOverride, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfigOverride), err
 }
 
 // Update takes the representation of a ciliumBGPNodeConfigOverride and updates it. Returns the server's representation of the ciliumBGPNodeConfigOverride, and an error, if there is any.
 func (c *FakeCiliumBGPNodeConfigOverrides) Update(ctx context.Context, ciliumBGPNodeConfigOverride *v2alpha1.CiliumBGPNodeConfigOverride, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPNodeConfigOverride, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfigOverride{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumbgpnodeconfigoverridesResource, ciliumBGPNodeConfigOverride), &v2alpha1.CiliumBGPNodeConfigOverride{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumbgpnodeconfigoverridesResource, ciliumBGPNodeConfigOverride, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfigOverride), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumBGPNodeConfigOverrides) Delete(ctx context.Context, name stri
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumBGPNodeConfigOverrides) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumbgpnodeconfigoverridesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumbgpnodeconfigoverridesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumBGPNodeConfigOverrideList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumBGPNodeConfigOverrides) DeleteCollection(ctx context.Context,
 
 // Patch applies the patch and returns the patched ciliumBGPNodeConfigOverride.
 func (c *FakeCiliumBGPNodeConfigOverrides) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPNodeConfigOverride, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfigOverride{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumbgpnodeconfigoverridesResource, name, pt, data, subresources...), &v2alpha1.CiliumBGPNodeConfigOverride{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumbgpnodeconfigoverridesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfigOverride), err
 }

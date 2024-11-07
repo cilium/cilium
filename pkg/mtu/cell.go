@@ -4,7 +4,6 @@
 package mtu
 
 import (
-	"context"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -13,10 +12,10 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -24,7 +23,12 @@ var Cell = cell.Module(
 	"mtu",
 	"MTU discovery",
 
-	cell.Provide(newForCell),
+	cell.ProvidePrivate(newTable),
+	cell.Provide(
+		statedb.RWTable[RouteMTU].ToTable,
+		newForCell,
+	),
+	cell.Invoke(newEndpointUpdater),
 	cell.Config(defaultConfig),
 )
 
@@ -35,19 +39,34 @@ type MTU interface {
 	IsEnableRouteMTUForCNIChaining() bool
 }
 
+func newTable(db *statedb.DB) (statedb.RWTable[RouteMTU], error) {
+	tbl, err := NewMTUTable()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := db.RegisterTable(tbl); err != nil {
+		return nil, err
+	}
+
+	return tbl, nil
+}
+
 type mtuParams struct {
 	cell.In
 
-	LocalNode    *node.LocalNodeStore
 	IPsec        types.IPsecKeyCustodian
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
 
-	DB          *statedb.DB
-	Devices     statedb.Table[*tables.Device]
-	JobRegistry job.Registry
-	Health      cell.Health
-	Log         *slog.Logger
+	DB              *statedb.DB
+	MTUTable        statedb.RWTable[RouteMTU]
+	Devices         statedb.Table[*tables.Device]
+	JobRegistry     job.Registry
+	Health          cell.Health
+	Log             *slog.Logger
+	DaemonConfig    *option.DaemonConfig
+	LocalCiliumNode k8s.LocalCiliumNodeResource
 
 	Config Config
 }
@@ -65,43 +84,97 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-route-mtu-for-cni-chaining", c.EnableRouteMTUForCNIChaining, "Enable route MTU for pod netns when CNI chaining is used")
 }
 
-func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) MTU {
+func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	c := &Configuration{}
 	group := p.JobRegistry.NewGroup(p.Health)
 	lc.Append(group)
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			node, err := p.LocalNode.Get(ctx)
-			if err != nil {
-				return err
-			}
-			externalIP := node.GetNodeIP(false)
-			if externalIP == nil {
-				externalIP = node.GetNodeIP(true)
-			}
-			configuredMTU := option.Config.MTU
-			if mtu := p.CNI.GetMTU(); mtu > 0 {
-				configuredMTU = mtu
-				log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
-			}
-
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
 				option.Config.EnableIPSec,
 				p.TunnelConfig.ShouldAdaptMTU(),
 				option.Config.EnableWireguard,
 				option.Config.EnableHighScaleIPcache && option.Config.EnableNodePort,
-				configuredMTU,
-				externalIP,
-				cc.EnableRouteMTUForCNIChaining,
 			)
 
-			group.Add(job.OneShot("detect-runtime-mtu-change", func(ctx context.Context, health cell.Health) error {
-				return detectRuntimeMTUChange(ctx, p, health, c.GetDeviceMTU())
-			}))
+			configuredMTU := option.Config.MTU
+			if mtu := p.CNI.GetMTU(); mtu > 0 {
+				configuredMTU = mtu
+				p.Log.Info("Overwriting MTU based on CNI configuration", "mtu", configuredMTU)
+			}
+
+			if configuredMTU == 0 {
+				mgr := &MTUManager{
+					mtuParams:     p,
+					Config:        c,
+					localNodeInit: make(chan struct{}),
+				}
+
+				group.Add(job.OneShot("mtu-updater", mgr.Updater))
+				if mgr.needLocalCiliumNode() {
+					group.Add(job.Observer("local-cilium-node-observer", mgr.observeLocalCiliumNode, p.LocalCiliumNode))
+				}
+			} else {
+				p.Log.Info("Using configured MTU", "mtu", configuredMTU)
+
+				txn := p.DB.WriteTxn(p.MTUTable)
+				defer txn.Abort()
+
+				rmtu := c.Calculate(configuredMTU)
+
+				rmtu.Prefix = DefaultPrefixV4
+				_, _, err := p.MTUTable.Insert(txn, rmtu)
+				if err != nil {
+					return err
+				}
+
+				rmtu.Prefix = DefaultPrefixV6
+				_, _, err = p.MTUTable.Insert(txn, rmtu)
+				if err != nil {
+					return err
+				}
+
+				txn.Commit()
+			}
 
 			return nil
 		},
 	})
-	return c
+
+	return &LatestMTUGetter{
+		tbl:                            p.MTUTable,
+		db:                             p.DB,
+		isEnableRouteMTUForCNIChaining: cc.EnableRouteMTUForCNIChaining,
+	}, nil
+}
+
+var _ MTU = (*LatestMTUGetter)(nil)
+
+type LatestMTUGetter struct {
+	tbl                            statedb.Table[RouteMTU]
+	db                             *statedb.DB
+	isEnableRouteMTUForCNIChaining bool
+}
+
+func (m *LatestMTUGetter) GetDeviceMTU() int {
+	rtx := m.db.ReadTxn()
+	mtu, _, _ := m.tbl.Get(rtx, MTURouteIndex.Query(DefaultPrefixV4))
+	return mtu.DeviceMTU
+}
+
+func (m *LatestMTUGetter) GetRouteMTU() int {
+	rtx := m.db.ReadTxn()
+	mtu, _, _ := m.tbl.Get(rtx, MTURouteIndex.Query(DefaultPrefixV4))
+	return mtu.RouteMTU
+}
+
+func (m *LatestMTUGetter) GetRoutePostEncryptMTU() int {
+	rtx := m.db.ReadTxn()
+	mtu, _, _ := m.tbl.Get(rtx, MTURouteIndex.Query(DefaultPrefixV4))
+	return mtu.RoutePostEncryptMTU
+}
+
+func (m *LatestMTUGetter) IsEnableRouteMTUForCNIChaining() bool {
+	return m.isEnableRouteMTUForCNIChaining
 }

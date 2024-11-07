@@ -4,7 +4,16 @@
 package policy
 
 import (
+	"errors"
+	"fmt"
+	"iter"
+
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -41,6 +50,12 @@ type EndpointPolicy struct {
 	// referring to a shared selectorPolicy!
 	*selectorPolicy
 
+	// VersionHandle represents the version of the SelectorCache 'policyMapState' was generated
+	// from.
+	// Changes after this version appear in 'policyMapChanges'.
+	// This is updated when incremental changes are applied.
+	VersionHandle *versioned.VersionHandle
+
 	// policyMapState contains the state of this policy as it relates to the
 	// datapath. In the future, this will be factored out of this object to
 	// decouple the policy as it relates to the datapath vs. its userspace
@@ -49,22 +64,36 @@ type EndpointPolicy struct {
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the Key and the proxy port must be in host byte-order.
 	// Must only be accessed with PolicyOwner (aka Endpoint) lock taken.
-	policyMapState MapState
+	policyMapState *mapState
 
 	// policyMapChanges collects pending changes to the PolicyMapState
 	policyMapChanges MapChanges
 
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
+
+	// Redirects contains the proxy ports needed for this EndpointPolicy.
+	// If any redirects are missing a new policy will be computed to rectify it, so this is
+	// constant for the lifetime of this EndpointPolicy.
+	Redirects map[string]uint16
+}
+
+// LookupRedirectPort returns the redirect L4 proxy port for the given input parameters.
+// Returns 0 if not found or the filter doesn't require a redirect.
+// Returns an error if the redirect port can not be found.
+// This is called when accumulating incremental map changes, endpoint lock must not be taken.
+func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error) {
+	proxyID := ProxyID(uint16(p.PolicyOwner.GetID()), ingress, protocol, port, listener)
+	if proxyPort, exists := p.Redirects[proxyID]; exists {
+		return proxyPort, nil
+	}
+	return 0, fmt.Errorf("Proxy port for redirect %q not found", proxyID)
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
-	LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error)
-	GetRealizedRedirects() map[string]uint16
-	HasBPFPolicyMap() bool
-	GetNamedPort(ingress bool, name string, proto uint8) uint16
+	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
 }
 
@@ -103,29 +132,41 @@ func (p *selectorPolicy) Detach() {
 // Called without holding the Selector cache or Repository locks.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *EndpointPolicy {
-	calculatedPolicy := &EndpointPolicy{
-		selectorPolicy: p,
-		policyMapState: NewMapState(),
-		PolicyOwner:    policyOwner,
-	}
+func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[string]uint16, isHost bool) *EndpointPolicy {
+	var calculatedPolicy *EndpointPolicy
+
+	// EndpointPolicy is initialized while 'GetCurrentVersionHandleFunc' keeps the selector
+	// cache write locked. This syncronizes the SelectorCache handle creation and the insertion
+	// of the new policy to the selectorPolicy before any new incremental updated can be
+	// generated.
+	//
+	// With this we have to following guarantees:
+	// - Selections seen with the 'version' are the ones available at the time of the 'version'
+	//   creation, and the IDs therein have been applied to all Selectors cached at the time.
+	// - All further incremental updates are delivered to 'policyMapChanges' as whole
+	//   transactions, i.e, changes to all selectors due to addition or deletion of new/old
+	//   identities are visible in the set of changes processed and returned by
+	//   ConsumeMapChanges().
+	p.SelectorCache.GetVersionHandleFunc(func(version *versioned.VersionHandle) {
+		calculatedPolicy = &EndpointPolicy{
+			selectorPolicy: p,
+			VersionHandle:  version,
+			policyMapState: newMapState(),
+			policyMapChanges: MapChanges{
+				firstVersion: version.Version(),
+			},
+			PolicyOwner: policyOwner,
+			Redirects:   redirects,
+		}
+		// Register the new EndpointPolicy as a receiver of incremental
+		// updates before selector cache lock is released by 'GetCurrentVersionHandleFunc'.
+		p.insertUser(calculatedPolicy)
+	})
 
 	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
 		calculatedPolicy.policyMapState.allowAllIdentities(
 			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
 	}
-
-	// Register the new EndpointPolicy as a receiver of delta
-	// updates.  Any updates happening after this, but before
-	// computeDesiredL4PolicyMapEntries() call finishes may
-	// already be applied to the PolicyMapState, specifically:
-	//
-	// - policyMapChanges may contain an addition of an entry that
-	//   is already added to the PolicyMapState
-	//
-	// - policyMapChanges may contain a deletion of an entry that
-	//   has already been deleted from PolicyMapState
-	p.insertUser(calculatedPolicy)
 
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
@@ -138,21 +179,13 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	return calculatedPolicy
 }
 
-// GetPolicyMap gets the policy map state as the interface
-// MapState
-func (p *EndpointPolicy) GetPolicyMap() MapState {
-	return p.policyMapState
-}
-
-// SetPolicyMap sets the policy map state as the interface
-// MapState. If the main argument is nil, then this method
-// will initialize a new MapState object for the caller.
-func (p *EndpointPolicy) SetPolicyMap(ms MapState) {
-	if ms == nil {
-		p.policyMapState = NewMapState()
-		return
-	}
-	p.policyMapState = ms
+// Ready releases the handle on a selector cache version so that stale state can be released.
+// This should be called when the policy has been realized.
+func (p *EndpointPolicy) Ready() (err error) {
+	// release resources held for this version
+	err = p.VersionHandle.Close()
+	p.VersionHandle = nil
+	return err
 }
 
 // Detach removes EndpointPolicy references from selectorPolicy
@@ -160,37 +193,126 @@ func (p *EndpointPolicy) SetPolicyMap(ms MapState) {
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) Detach() {
 	p.selectorPolicy.removeUser(p)
+	// in case the call was missed previouly
+	if p.Ready() == nil {
+		// succeeded, so it was missed previously
+		log.Warningf("Detach: EndpointPolicy was not marked as Ready")
+	}
+	// Also release the version handle held for incremental updates, if any.
+	// This must be done after the removeUser() call above, so that we do not get a new version
+	// handles any more!
+	p.policyMapChanges.detach()
 }
 
-// NewMapStateWithInsert returns a new MapState and an insert function that can be used to populate
-// it. We keep general insert functions private so that the caller can only insert to this specific
-// map.
-func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
-	currentMap := NewMapState()
+func (p *EndpointPolicy) Len() int {
+	return p.policyMapState.Len()
+}
 
-	return currentMap, func(k Key, e MapStateEntry) {
-		currentMap.insert(k, e, nil)
+func (p *EndpointPolicy) Get(key Key) (MapStateEntry, bool) {
+	return p.policyMapState.Get(key)
+}
+
+var errMissingKey = errors.New("Key not found")
+
+// GetRuleLabels returns the list of labels of the rules that contributed
+// to the entry at this key.
+// The returned LabelArrayList is shallow-copied and therefore must not be mutated.
+func (p *EndpointPolicy) GetRuleLabels(k Key) (labels.LabelArrayList, error) {
+	entry, ok := p.policyMapState.get(k)
+	if !ok {
+		return nil, errMissingKey
+	}
+	return entry.GetRuleLabels(), nil
+}
+
+func (p *EndpointPolicy) Entries() iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		p.policyMapState.ForEach(yield)
 	}
 }
 
-func (p *EndpointPolicy) InsertMapState(key Key, entry MapStateEntry) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.insert(key, entry, p.SelectorCache)
+func (p *EndpointPolicy) Equals(other MapStateMap) bool {
+	return p.policyMapState.Equals(other)
 }
 
-func (p *EndpointPolicy) DeleteMapState(key Key) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.delete(key, p.SelectorCache)
+func (p *EndpointPolicy) Diff(expected MapStateMap) string {
+	return p.policyMapState.Diff(expected)
+}
+
+func (p *EndpointPolicy) Empty() bool {
+	return p.policyMapState.Empty()
+}
+
+// Updated returns an iterator for all key/entry pairs in 'p' that are either new or updated
+// compared to the entries in 'realized'.
+// Here 'realized' is another EndpointPolicy.
+// This can be used to figure out which entries need to be added to or updated in 'realised'.
+func (p *EndpointPolicy) Updated(realized *EndpointPolicy) iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		p.policyMapState.ForEach(func(key Key, entry MapStateEntry) bool {
+			if oldEntry, ok := realized.policyMapState.Get(key); !ok || oldEntry != entry {
+				if !yield(key, entry) {
+					return false
+				}
+			}
+			return true
+		})
+	}
+}
+
+// Missing returns an iterator for all key/entry pairs in 'realized' that missing from 'p'.
+// Here 'realized' is another EndpointPolicy.
+// This can be used to figure out which entries in 'realised' need to be deleted.
+func (p *EndpointPolicy) Missing(realized *EndpointPolicy) iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		realized.policyMapState.ForEach(func(key Key, entry MapStateEntry) bool {
+			// If key that is in realized state is not in desired state, just remove it.
+			if _, ok := p.policyMapState.Get(key); !ok {
+				if !yield(key, entry) {
+					return false
+				}
+			}
+			return true
+		})
+	}
+}
+
+// UpdatedMap returns an iterator for all key/entry pairs in 'p' that are either new or updated
+// compared to the entries in 'realized'.
+// Here 'realized' is MapStateMap.
+// This can be used to figure out which entries need to be added to or updated in 'realised'.
+func (p *EndpointPolicy) UpdatedMap(realized MapStateMap) iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		p.policyMapState.ForEach(func(key Key, entry MapStateEntry) bool {
+			if oldEntry, ok := realized[key]; !ok || oldEntry != entry {
+				if !yield(key, entry) {
+					return false
+				}
+			}
+			return true
+		})
+	}
+}
+
+// Missing returns an iterator for all key/entry pairs in 'realized' that missing from 'p'.
+// Here 'realized' is MapStateMap.
+// This can be used to figure out which entries in 'realised' need to be deleted.
+func (p *EndpointPolicy) MissingMap(realized MapStateMap) iter.Seq2[Key, MapStateEntry] {
+	return func(yield func(Key, MapStateEntry) bool) {
+		for k, v := range realized {
+			// If key that is in realized state is not in desired state, just remove it.
+			if _, ok := p.policyMapState.Get(k); !ok {
+				if !yield(k, v) {
+					break
+				}
+			}
+		}
+	}
 }
 
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.revertChanges(p.SelectorCache, changes)
-}
-
-func (p *EndpointPolicy) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, changes ChangeState) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.addVisibilityKeys(e, redirectPort, visMeta, p.SelectorCache, changes)
+	p.policyMapState.revertChanges(changes)
 }
 
 // toMapState transforms the EndpointPolicy.L4Policy into
@@ -212,43 +334,33 @@ func (p *EndpointPolicy) toMapState() {
 // but the Endpoint's build mutex is held.
 func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		l4.toMapState(p, l4policy.features, p.PolicyOwner.GetRealizedRedirects(), ChangeState{})
+		l4.toMapState(p, l4policy.features, ChangeState{})
 		return true
 	})
 }
 
-// createRedirectsFunc returns 'nil' if map changes should not be applied immemdiately,
-// otherwise the returned map is to be used to find redirect ports for map updates.
-type createRedirectsFunc func(*L4Filter) map[string]uint16
-
-// UpdateRedirects updates redirects in the EndpointPolicy's PolicyMapState by using the provided
-// function to create redirects. Changes to 'p.PolicyMapState' are collected in
-// 'adds' and 'updated' so that they can be reverted when needed.
-func (p *EndpointPolicy) UpdateRedirects(ingress bool, createRedirects createRedirectsFunc, changes ChangeState) {
-	l4policy := &p.L4Policy.Ingress
-	if ingress {
-		l4policy = &p.L4Policy.Egress
+// RedirectFilters returns an iterator for each L4Filter with a redirect in the policy.
+func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy] {
+	return func(yield func(*L4Filter, *PerSelectorPolicy) bool) {
+		if p.L4Policy.Ingress.forEachRedirectFilter(yield) {
+			p.L4Policy.Egress.forEachRedirectFilter(yield)
+		}
 	}
-
-	l4policy.updateRedirects(p, createRedirects, changes)
 }
 
-func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedirects createRedirectsFunc, changes ChangeState) {
+func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, *PerSelectorPolicy) bool) bool {
+	ok := true
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		if l4.IsRedirect() {
-			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
-			if l4policy.features.contains(denyRules) && p.policyMapState.deniesL4(p.PolicyOwner, l4) {
-				return true
-			}
-
-			redirects := createRedirects(l4)
-			if redirects != nil {
-				// Set the proxy port in the policy map.
-				l4.toMapState(p, l4policy.features, redirects, changes)
+			for _, ps := range l4.PerSelectorPolicies {
+				if ps != nil && ps.IsRedirect() {
+					ok = yield(l4, ps)
+				}
 			}
 		}
-		return true
+		return ok
 	})
+	return ok
 }
 
 // ConsumeMapChanges transfers the changes from MapChanges to the caller.
@@ -257,15 +369,42 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 // calls before calling ConsumeMapChanges so that if we see any partial changes here, there will be
 // another call after to cover for the rest.
 // PolicyOwner (aka Endpoint) is locked during this call.
-func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
+// Caller is responsible for calling the returned 'closer' to release resources held for the new version!
+// 'closer' may not be called while selector cache is locked!
+func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState) {
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
-	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, p.SelectorCache, features)
+	version, changes := p.policyMapChanges.consumeMapChanges(p, features)
+
+	closer = func() {}
+	if version.IsValid() {
+		var msg string
+		// update the version handle in p.VersionHandle so that any follow-on processing
+		// acts on the basis of the new version
+		if p.VersionHandle.IsValid() {
+			p.VersionHandle.Close()
+			msg = "ConsumeMapChanges: updated valid version"
+		} else {
+			closer = func() {
+				// p.VersionHandle was not valid, close it
+				p.Ready()
+			}
+			msg = "ConsumeMapChanges: new incremental version"
+		}
+		p.VersionHandle = version
+
+		p.PolicyOwner.PolicyDebug(logrus.Fields{
+			logfields.Version: version,
+			logfields.Changes: changes,
+		}, msg)
+	}
+
+	return closer, changes
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
-func NewEndpointPolicy(repo *Repository) *EndpointPolicy {
+func NewEndpointPolicy(repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: NewMapState(),
+		policyMapState: newMapState(),
 	}
 }

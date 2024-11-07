@@ -161,16 +161,20 @@ kind-build-image-agent: ## Build cilium-dev docker image
 	$(QUIET)$(MAKE) dev-docker-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 
 $(eval $(call KIND_ENV,kind-image-agent))
+kind-image-agent: .SHELLFLAGS=-c
 kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME)
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME); \
+	[ $$? -eq 0 ] || $(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME)
 
 $(eval $(call KIND_ENV,kind-build-image-operator))
 kind-build-image-operator: ## Build cilium-operator-dev docker image
 	$(QUIET)$(MAKE) dev-docker-operator-generic-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 
 $(eval $(call KIND_ENV,kind-image-operator))
+kind-image-operator: .SHELLFLAGS=-c
 kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME)
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME); \
+	[ $$? -eq 0 ] || $(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME)
 
 $(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
 kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
@@ -190,12 +194,18 @@ ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
 	KIND_VALUES_FAST_FILES := $(KIND_VALUES_FAST_FILES) --helm-values=$(ROOT_DIR)/contrib/testing/kind-custom.yaml
 endif
 
+ifdef ADDITIONAL_KIND_VALUES_FILE
+	KIND_VALUES_FAST_FILES := $(KIND_VALUES_FAST_FILES) --helm-values=$(ROOT_DIR)/$(ADDITIONAL_KIND_VALUES_FILE)
+endif
+
 .PHONY: kind-install-cilium-fast
+kind-install-cilium-fast: .SHELLFLAGS=-c
 kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
 	@echo "  INSTALL cilium"
 	docker pull quay.io/cilium/cilium-ci:latest
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		kind load docker-image --name $$cluster_name quay.io/cilium/cilium-ci:latest; \
+		[ $$? -eq 0 ] || kind load docker-image --name $$cluster_name quay.io/cilium/cilium-ci:latest; \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
 			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
@@ -219,8 +229,12 @@ build-operator: ## Build cilium operator binary
 build-clustermesh-apiserver: ## Build cilium clustermesh-apiserver binary
 	$(QUIET)$(MAKE) -C clustermesh-apiserver  GOOS=linux
 
+.PHONY: build-hubble-cli
+build-hubble-cli: ## Build hubble cli binary
+	$(QUIET)$(MAKE) -C hubble GOOS=linux
+
 .PHONY: kind-image-fast-agent
-kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and daemon binaries. Copy the bins and bpf files to kind nodes.
+kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli ## Build cilium cli, daemon binaries, and hubble cli. Copy the bins and bpf files to kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
@@ -238,6 +252,10 @@ kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and 
 			docker exec $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/cilium-agent"; \
+			\
+			docker exec $${node_name} rm -f "${dst}/hubble"; \
+			docker cp "./hubble/hubble" $${node_name}:"${dst}"; \
+			docker exec $${node_name} chmod +x "${dst}/hubble"; \
 		done; \
 		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
 	done
@@ -302,6 +320,41 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 		--version= \
 		>/dev/null 2>&1 &
 
+GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
+KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
+LB_CIDR ?= $(shell echo $(KIND_NET_CIDR) | sed "s@0.0/16@255.200\/28@" | sed -e 's/[\/&]/\\&/g')
+
+.PHONY: kind-servicemesh-install-cilium
+kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		$(KIND_VALUES_FILES) \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml \
+		--version= \
+		>/dev/null 2>&1 &
+
+	$(CILIUM_CLI) status --wait --wait-duration 30s
+
+	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
+	@echo "LB_CIDR: $(LB_CIDR)"
+
+	@echo "Deploying LB-IPAM Pool..."
+	sed -e "s/LB_CIDR/$(LB_CIDR)/g" $(ROOT_DIR)/contrib/testing/servicemesh/ippool.yaml | kubectl apply -f -
+
+	@echo "Deploying L2-Announcement Policy..."
+	kubectl apply -f $(ROOT_DIR)/contrib/testing/servicemesh/l2policy.yaml
 
 .PHONY: kind-egressgw-install-cilium
 kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
@@ -320,6 +373,32 @@ kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium ve
 		--nodes-without-cilium \
 		--version= \
 		>/dev/null 2>&1 &
+
+KVSTORE_POD_NAME ?= "kvstore"
+KVSTORE_POD_PORT ?= "2378"
+
+.PHONY: kind-kvstore-install-cilium
+kind-kvstore-install-cilium: check_deps kind-ready kind-kvstore-start ## Install a local Cilium version into the cluster, configured in kvstore mode.
+	$(MAKE) kind-install-cilium KIND_VALUES_FILES="\
+		$(KIND_VALUES_FILES) \
+		--set etcd.enabled=true \
+		--set etcd.endpoints[0]=http://$(shell kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) -o jsonpath='{.status.hostIP}'):$(KVSTORE_POD_PORT) \
+		--set identityAllocationMode=kvstore \
+	"
+
+.PHONY: kind-kvstore-start
+kind-kvstore-start: ## Start an etcd pod serving as Cilium's kvstore
+	kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) >/dev/null 2>/dev/null || \
+		kubectl --namespace kube-system run $(KVSTORE_POD_NAME) --image $(ETCD_IMAGE) \
+			--overrides='{ "apiVersion": "v1", "spec": { "hostNetwork": true, "nodeSelector": {"node-role.kubernetes.io/control-plane": ""},  "tolerations": [{ "operator": "Exists" }] }}' \
+			-- etcd --listen-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT) --advertise-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT)
+
+	kubectl --namespace kube-system wait --for=condition=Ready pod/$(KVSTORE_POD_NAME)
+
+.PHONY: kind-kvstore-stop
+kind-kvstore-stop: ## Stop the etcd pod serving as Cilium's kvstore
+	kubectl --namespace kube-system delete pod $(KVSTORE_POD_NAME) --ignore-not-found
+	kubectl --namespace kube-system wait --for=delete pod/$(KVSTORE_POD_NAME)
 
 .PHONY: kind-uninstall-cilium
 kind-uninstall-cilium: check_deps ## Uninstall Cilium from the cluster.

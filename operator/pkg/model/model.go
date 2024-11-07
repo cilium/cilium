@@ -251,6 +251,9 @@ type HTTPURLRewriteFilter struct {
 type HTTPRequestMirror struct {
 	// Backend is the backend handling the requests
 	Backend *Backend
+
+	Numerator   int32
+	Denominator int32
 }
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
@@ -296,6 +299,9 @@ type HTTPRoute struct {
 
 	// Timeout holds the timeout configuration for a route.
 	Timeout Timeout
+
+	// Retry holds the retry configuration for a route.
+	Retry *HTTPRetry
 }
 
 type BackendHTTPFilter struct {
@@ -445,4 +451,19 @@ type Timeout struct {
 	Request *time.Duration
 	// Backend is the timeout for the backend.
 	Backend *time.Duration
+}
+
+// HTTPRetry holds the retry configuration for a route.
+type HTTPRetry struct {
+	// Codes defines the HTTP response status codes for which a backend request
+	// should be retried.
+	Codes []uint32
+
+	// Attempts specifies the maximum number of times an individual request
+	// from the gateway to a backend should be retried.
+	Attempts *int
+
+	// Backoff specifies the minimum duration a Gateway should wait between
+	// retry attempts
+	Backoff *time.Duration
 }

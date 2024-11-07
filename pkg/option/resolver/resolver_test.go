@@ -169,13 +169,14 @@ func TestResolveConfigurations(t *testing.T) {
 
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(config).To(gomega.Equal(map[string]string{
-		"cm-key":         "cm-val",
-		"anno-key":       "anno-val",
-		"cnc-key":        "cnc-val",
-		"cnc-key-2":      "cnc-val-2",
-		"cnc-key-v2":     "cnc-val-v2",
-		"cnc-key-2-v2":   "cnc-val-2-v2",
-		"config-sources": "config-map:test-ns/cm,cilium-node-config:test-ns/test-1-v2,cilium-node-config:test-ns/test-1,node:nodename,cilium-node-config:test-ns/specific,cilium-node-config:test-ns/specific-v2",
+		"cm-key":                   "cm-val",
+		"anno-key":                 "anno-val",
+		"cnc-key":                  "cnc-val",
+		"cnc-key-2":                "cnc-val-2",
+		"cnc-key-v2":               "cnc-val-v2",
+		"cnc-key-2-v2":             "cnc-val-2-v2",
+		"config-sources":           "[{\"kind\":\"config-map\",\"namespace\":\"test-ns\",\"name\":\"cm\"},{\"kind\":\"cilium-node-config\",\"namespace\":\"test-ns\",\"name\":\"test-1-v2\"},{\"kind\":\"cilium-node-config\",\"namespace\":\"test-ns\",\"name\":\"test-1\"},{\"kind\":\"node\",\"namespace\":\"\",\"name\":\"nodename\"},{\"kind\":\"cilium-node-config\",\"namespace\":\"test-ns\",\"name\":\"specific\"},{\"kind\":\"cilium-node-config\",\"namespace\":\"test-ns\",\"name\":\"specific-v2\"}]",
+		"config-sources-overrides": "{\"allowConfigKeys\":null,\"denyConfigKeys\":null}",
 	}))
 }
 
@@ -243,9 +244,10 @@ func TestWithBlockedFields(t *testing.T) {
 		sources, []string{"allowed-key"}, nil)
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(config).To(gomega.Equal(map[string]string{
-		"cm-key":         "cm-val",
-		"allowed-key":    "allowed-val",
-		"config-sources": "config-map:test-ns/cm,cilium-node-config:test-ns/test-1",
+		"cm-key":                   "cm-val",
+		"allowed-key":              "allowed-val",
+		"config-sources":           "[{\"kind\":\"config-map\",\"namespace\":\"test-ns\",\"name\":\"cm\"},{\"kind\":\"cilium-node-config\",\"namespace\":\"test-ns\",\"name\":\"test-1\"}]",
+		"config-sources-overrides": "{\"allowConfigKeys\":[\"allowed-key\"],\"denyConfigKeys\":null}",
 	}))
 
 	// Test that blocked-key is blocked
@@ -254,9 +256,10 @@ func TestWithBlockedFields(t *testing.T) {
 		sources, nil, []string{"blocked-key", "cm-key"})
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(config).To(gomega.Equal(map[string]string{
-		"cm-key":         "cm-val",
-		"allowed-key":    "allowed-val",
-		"config-sources": "config-map:test-ns/cm,cilium-node-config:test-ns/test-1",
+		"cm-key":                   "cm-val",
+		"allowed-key":              "allowed-val",
+		"config-sources":           "[{\"kind\":\"config-map\",\"namespace\":\"test-ns\",\"name\":\"cm\"},{\"kind\":\"cilium-node-config\",\"namespace\":\"test-ns\",\"name\":\"test-1\"}]",
+		"config-sources-overrides": "{\"allowConfigKeys\":null,\"denyConfigKeys\":[\"blocked-key\",\"cm-key\"]}",
 	}))
 
 }

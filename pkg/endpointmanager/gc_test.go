@@ -39,22 +39,22 @@ func TestMarkAndSweep(t *testing.T) {
 	healthyEndpointIDs := []uint16{1, 3, 5, 7}
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
-		ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, endpoint.StateReady)
+		ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, endpoint.StateReady)
 		err := mgr.expose(ep)
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}
 	require.Equal(t, len(allEndpointIDs), len(mgr.GetEndpoints()))
 
 	// Two-phase mark and sweep: Mark should not yet delete any endpoints.
 	err := mgr.markAndSweep(ctx)
-	require.Equal(t, true, mgr.EndpointExists(endpointIDToDelete))
-	require.Nil(t, err)
+	require.True(t, mgr.EndpointExists(endpointIDToDelete))
+	require.NoError(t, err)
 	require.Equal(t, len(allEndpointIDs), len(mgr.GetEndpoints()))
 
 	// Second phase: endpoint should be marked now and we should only sweep
 	// that particular endpoint.
 	err = mgr.markAndSweep(ctx)
-	require.Equal(t, false, mgr.EndpointExists(endpointIDToDelete))
-	require.Nil(t, err)
+	require.False(t, mgr.EndpointExists(endpointIDToDelete))
+	require.NoError(t, err)
 	require.Equal(t, len(healthyEndpointIDs), len(mgr.GetEndpoints()))
 }

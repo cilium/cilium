@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
@@ -47,7 +48,7 @@ var basicHTTP = Input{
 				},
 			},
 			Infrastructure: &gatewayv1.GatewayInfrastructure{
-				Labels: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				Labels: map[gatewayv1.LabelKey]gatewayv1.LabelValue{
 					"internal-loadbalancer-label": "true",
 				},
 				Annotations: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
@@ -75,8 +76,8 @@ var basicHTTP = Input{
 						Matches: []gatewayv1.HTTPRouteMatch{
 							{
 								Path: &gatewayv1.HTTPPathMatch{
-									Type:  model.AddressOf[gatewayv1.PathMatchType]("PathPrefix"),
-									Value: model.AddressOf("/bar"),
+									Type:  ptr.To[gatewayv1.PathMatchType]("PathPrefix"),
+									Value: ptr.To("/bar"),
 								},
 							},
 						},
@@ -85,7 +86,7 @@ var basicHTTP = Input{
 								BackendRef: gatewayv1.BackendRef{
 									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "my-service",
-										Port: model.AddressOf[gatewayv1.PortNumber](8080),
+										Port: ptr.To[gatewayv1.PortNumber](8080),
 									},
 								},
 							},
@@ -95,7 +96,7 @@ var basicHTTP = Input{
 										Group: GroupPtr(mcsapiv1alpha1.GroupName),
 										Kind:  KindPtr("ServiceImport"),
 										Name:  "my-service",
-										Port:  model.AddressOf[gatewayv1.PortNumber](8080),
+										Port:  ptr.To[gatewayv1.PortNumber](8080),
 									},
 								},
 							},
@@ -219,7 +220,7 @@ var basicTLS = Input{
 							{
 								BackendObjectReference: gatewayv1alpha2.BackendObjectReference{
 									Name: "my-service",
-									Port: model.AddressOf[gatewayv1.PortNumber](443),
+									Port: ptr.To[gatewayv1.PortNumber](443),
 								},
 							},
 							{
@@ -227,7 +228,7 @@ var basicTLS = Input{
 									Group: GroupPtr(mcsapiv1alpha1.GroupName),
 									Kind:  KindPtr("ServiceImport"),
 									Name:  "my-service",
-									Port:  model.AddressOf[gatewayv1.PortNumber](443),
+									Port:  ptr.To[gatewayv1.PortNumber](443),
 								},
 							},
 						},
@@ -1370,7 +1371,7 @@ var methodMatchingHTTPListeners = []model.HTTPListener{
 		Hostname: "*",
 		Routes: []model.HTTPRoute{
 			{
-				Method: model.AddressOf("POST"),
+				Method: ptr.To("POST"),
 				Backends: []model.Backend{
 					{
 						Name:      "infra-backend-v1",
@@ -1382,7 +1383,7 @@ var methodMatchingHTTPListeners = []model.HTTPListener{
 				},
 			},
 			{
-				Method: model.AddressOf("GET"),
+				Method: ptr.To("GET"),
 				Backends: []model.Backend{
 					{
 						Name:      "infra-backend-v2",
@@ -1428,8 +1429,8 @@ var requestRedirectHTTPListeners = []model.HTTPListener{
 					},
 				},
 				RequestRedirect: &model.HTTPRequestRedirectFilter{
-					Hostname: model.AddressOf("example.com"),
-					Port:     model.AddressOf(int32(80)),
+					Hostname: ptr.To("example.com"),
+					Port:     ptr.To(int32(80)),
 				},
 			},
 			{
@@ -1439,8 +1440,8 @@ var requestRedirectHTTPListeners = []model.HTTPListener{
 					StatusCode: 500,
 				},
 				RequestRedirect: &model.HTTPRequestRedirectFilter{
-					StatusCode: model.AddressOf(301),
-					Port:       model.AddressOf(int32(80)),
+					StatusCode: ptr.To(301),
+					Port:       ptr.To(int32(80)),
 				},
 			},
 			{
@@ -1455,9 +1456,9 @@ var requestRedirectHTTPListeners = []model.HTTPListener{
 					},
 				},
 				RequestRedirect: &model.HTTPRequestRedirectFilter{
-					Hostname:   model.AddressOf("example.com"),
-					StatusCode: model.AddressOf(301),
-					Port:       model.AddressOf(int32(80)),
+					Hostname:   ptr.To("example.com"),
+					StatusCode: ptr.To(301),
+					Port:       ptr.To(int32(80)),
 				},
 			},
 		},
@@ -1937,7 +1938,7 @@ var rewriteHostHTTPListeners = []model.HTTPListener{
 					},
 				},
 				Rewrite: &model.HTTPURLRewriteFilter{
-					HostName: model.AddressOf("one.example.org"),
+					HostName: ptr.To("one.example.org"),
 				},
 			},
 			{
@@ -1952,7 +1953,7 @@ var rewriteHostHTTPListeners = []model.HTTPListener{
 					},
 				},
 				Rewrite: &model.HTTPURLRewriteFilter{
-					HostName: model.AddressOf("example.org"),
+					HostName: ptr.To("example.org"),
 				},
 			},
 		},
@@ -2127,6 +2128,8 @@ var mirrorHTTPListeners = []model.HTTPListener{
 								Port: 8080,
 							},
 						},
+						Numerator:   100,
+						Denominator: 100,
 					},
 				},
 			},
@@ -2178,9 +2181,9 @@ var (
 							Matches: []gatewayv1.GRPCRouteMatch{
 								{
 									Method: &gatewayv1.GRPCMethodMatch{
-										Type:    model.AddressOf[gatewayv1.GRPCMethodMatchType](gatewayv1.GRPCMethodMatchExact),
-										Service: model.AddressOf("service.Echo"),
-										Method:  model.AddressOf("Ping"),
+										Type:    ptr.To[gatewayv1.GRPCMethodMatchType](gatewayv1.GRPCMethodMatchExact),
+										Service: ptr.To("service.Echo"),
+										Method:  ptr.To("Ping"),
 									},
 								},
 							},
@@ -2189,7 +2192,7 @@ var (
 									BackendRef: gatewayv1.BackendRef{
 										BackendObjectReference: gatewayv1.BackendObjectReference{
 											Name: "grp-service",
-											Port: model.AddressOf[gatewayv1.PortNumber](8080),
+											Port: ptr.To[gatewayv1.PortNumber](8080),
 										},
 									},
 								},
@@ -2375,6 +2378,98 @@ func TestGRPCGatewayAPI(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			listeners, _ := GatewayAPI(tc.input)
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")
+		})
+	}
+}
+
+func TestGPRCPathMatch(t *testing.T) {
+	tests := map[string]struct {
+		input gatewayv1.GRPCRouteMatch
+		want  model.StringMatch
+	}{
+		"exact with service and method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1.GRPCMethodMatchExact),
+					Service: ptr.To("service"),
+					Method:  ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Exact: "/service/method",
+			},
+		},
+		"exact with only service specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1.GRPCMethodMatchExact),
+					Service: ptr.To("service"),
+				},
+			},
+			want: model.StringMatch{
+				Prefix: "/service/",
+			},
+		},
+		"exact with only method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:   ptr.To(gatewayv1.GRPCMethodMatchExact),
+					Method: ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/.+/method",
+			},
+		},
+		"regex with service and method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+					Service: ptr.To("service"),
+					Method:  ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/service/method",
+			},
+		},
+		"regex with only service specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+					Service: ptr.To("service"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/service/.+",
+			},
+		},
+		"regex with only method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type:   ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+					Method: ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/.+/method",
+			},
+		},
+		"regex with neither service nor method specified": {
+			input: gatewayv1.GRPCRouteMatch{
+				Method: &gatewayv1.GRPCMethodMatch{
+					Type: ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
+				},
+			},
+			want: model.StringMatch{
+				Prefix: "/",
+			},
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			match := toGRPCPathMatch(tc.input)
+			assert.Equal(t, tc.want, match, "GPRC path match was not equal")
 		})
 	}
 }

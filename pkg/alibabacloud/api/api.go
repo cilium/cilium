@@ -27,6 +27,16 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
+const (
+	AttachNetworkInterface    = "AttachNetworkInterface"
+	CreateNetworkInterface    = "CreateNetworkInterface"
+	DescribeInstances         = "DescribeInstances"
+	DescribeNetworkInterfaces = "DescribeNetworkInterfaces"
+	DescribeVpcs              = "DescribeVpcs"
+	DescribeVSwitches         = "DescribeVSwitches"
+	ListTagResources          = "ListTagResources"
+)
+
 var maxAttachRetries = wait.Backoff{
 	Duration: 2500 * time.Millisecond,
 	Factor:   1,
@@ -121,7 +131,7 @@ func (c *Client) GetVSwitches(ctx context.Context) (ipamTypes.SubnetMap, error) 
 		req := vpc.CreateDescribeVSwitchesRequest()
 		req.PageNumber = requests.NewInteger(i)
 		req.PageSize = requests.NewInteger(50)
-		c.limiter.Limit(ctx, "DescribeVSwitches")
+		c.limiter.Limit(ctx, DescribeVSwitches)
 		resp, err := c.vpcClient.DescribeVSwitches(req)
 		if err != nil {
 			return nil, err
@@ -164,7 +174,7 @@ func (c *Client) GetVSwitches(ctx context.Context) (ipamTypes.SubnetMap, error) 
 func (c *Client) GetVPC(ctx context.Context, vpcID string) (*ipamTypes.VirtualNetwork, error) {
 	req := vpc.CreateDescribeVpcsRequest()
 	req.VpcId = vpcID
-	c.limiter.Limit(ctx, "DescribeVpcs")
+	c.limiter.Limit(ctx, DescribeVpcs)
 	resp, err := c.vpcClient.DescribeVpcs(req)
 	if err != nil {
 		return nil, err
@@ -302,11 +312,11 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPC
 	}
 	req.Tag = &reqTag
 
-	c.limiter.Limit(ctx, "CreateNetworkInterface")
+	c.limiter.Limit(ctx, CreateNetworkInterface)
 
 	sinceStart := spanstat.Start()
 	resp, err := c.ecsClient.CreateNetworkInterface(req)
-	c.metricsAPI.ObserveAPICall("CreateNetworkInterface", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(CreateNetworkInterface, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return "", nil, err
 	}
@@ -342,10 +352,10 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, instanceID, eniID s
 	req := ecs.CreateAttachNetworkInterfaceRequest()
 	req.InstanceId = instanceID
 	req.NetworkInterfaceId = eniID
-	c.limiter.Limit(ctx, "AttachNetworkInterface")
+	c.limiter.Limit(ctx, AttachNetworkInterface)
 	sinceStart := spanstat.Start()
 	_, err := c.ecsClient.AttachNetworkInterface(req)
-	c.metricsAPI.ObserveAPICall("AttachNetworkInterface", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(AttachNetworkInterface, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return err
 	}
@@ -412,7 +422,7 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ecs.NetworkIn
 	req.MaxResults = requests.NewInteger(500)
 
 	for {
-		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
 		if err != nil {
 			return nil, err
@@ -478,7 +488,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 			// format: ["xxx","xxx","xxx"]
 			req.InstanceIds = fmt.Sprintf("[%s]", strings.Join(quotedIds, ","))
 			req.PageSize = requests.NewInteger(100)
-			c.limiter.Limit(ctx, "DescribeInstances")
+			c.limiter.Limit(ctx, DescribeInstances)
 			resp, err := c.ecsClient.DescribeInstances(req)
 			if err != nil {
 				return err
@@ -521,7 +531,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 			ifaceSlice := interfaceIds[idx:endIdx]
 			req.NetworkInterfaceId = &ifaceSlice
 			req.PageSize = requests.NewInteger(100)
-			c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+			c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 			resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
 			if err != nil {
 				return err
@@ -552,7 +562,7 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 		req.PageNumber = requests.NewInteger(i)
 		req.PageSize = requests.NewInteger(1000)
 		req.InstanceId = instanceID
-		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
 		resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
 		if err != nil {
 			return nil, err
@@ -585,7 +595,7 @@ func (c *Client) EcsListTagResources(ctx context.Context, tags map[string]string
 		})
 	}
 	req.Tag = &reqTags
-	c.limiter.Limit(ctx, "ListTagResources")
+	c.limiter.Limit(ctx, ListTagResources)
 
 	for {
 		resp, err := c.ecsClient.ListTagResources(req)

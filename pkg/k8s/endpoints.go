@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -121,7 +121,7 @@ func (e *Endpoints) String() string {
 		}
 	}
 
-	sort.Strings(backends)
+	slices.Sort(backends)
 
 	return strings.Join(backends, ",")
 }
@@ -450,8 +450,8 @@ type EndpointSlices struct {
 	epSlices map[string]*Endpoints
 }
 
-// newEndpointsSlices returns a new EndpointSlices
-func newEndpointsSlices() *EndpointSlices {
+// NewEndpointsSlices returns a new EndpointSlices
+func NewEndpointsSlices() *EndpointSlices {
 	return &EndpointSlices{
 		epSlices: map[string]*Endpoints{},
 	}

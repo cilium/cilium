@@ -21,11 +21,11 @@ var (
 )
 
 func TestIdentityManagerLifecycle(t *testing.T) {
-	idm := NewIdentityManager()
+	idm := newIdentityManager()
 	require.NotNil(t, idm.identities)
 
 	_, exists := idm.identities[fooIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	idm.Add(fooIdentity)
 	require.Equal(t, uint(1), idm.identities[fooIdentity.ID].refCount)
@@ -41,21 +41,21 @@ func TestIdentityManagerLifecycle(t *testing.T) {
 
 	idm.Remove(fooIdentity)
 	_, exists = idm.identities[fooIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	_, exists = idm.identities[barIdentity.ID]
 	require.True(t, exists)
 
 	idm.Remove(barIdentity)
 	_, exists = idm.identities[barIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	idm.Add(fooIdentity)
 	_, exists = idm.identities[fooIdentity.ID]
 	require.True(t, exists)
 	idm.RemoveOldAddNew(fooIdentity, barIdentity)
 	_, exists = idm.identities[fooIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 	_, exists = idm.identities[barIdentity.ID]
 	require.True(t, exists)
 	require.Equal(t, uint(1), idm.identities[barIdentity.ID].refCount)
@@ -65,12 +65,12 @@ func TestIdentityManagerLifecycle(t *testing.T) {
 }
 
 func TestHostIdentityLifecycle(t *testing.T) {
-	idm := NewIdentityManager()
+	idm := newIdentityManager()
 	require.NotNil(t, idm.identities)
 
 	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, labels.LabelHost)
 	_, exists := idm.identities[hostIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	idm.Add(hostIdentity)
 	require.Equal(t, uint(1), idm.identities[hostIdentity.ID].refCount)
@@ -108,7 +108,7 @@ func (i *identityManagerObserver) LocalEndpointIdentityRemoved(identity *identit
 }
 
 func TestLocalEndpointIdentityAdded(t *testing.T) {
-	idm := NewIdentityManager()
+	idm := newIdentityManager()
 	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, []identity.NumericIdentity{})
 	idm.Subscribe(observer)
 
@@ -144,8 +144,8 @@ func TestLocalEndpointIdentityAdded(t *testing.T) {
 	idm.Remove(fooIdentity)
 	require.Equal(t, uint(1), idm.identities[fooIdentity.ID].refCount)
 	idm.Remove(fooIdentity)
-	require.Equal(t, 2, len(observer.added))
-	require.Equal(t, 1, len(observer.removed))
+	require.Len(t, observer.added, 2)
+	require.Len(t, observer.removed, 1)
 	idm.Add(fooIdentity)
 	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID, fooIdentity.ID}, []identity.NumericIdentity{fooIdentity.ID})
 	require.EqualValues(t, expectedObserver, observer)
@@ -161,7 +161,7 @@ func TestLocalEndpointIdentityAdded(t *testing.T) {
 }
 
 func TestLocalEndpointIdentityRemoved(t *testing.T) {
-	idm := NewIdentityManager()
+	idm := newIdentityManager()
 	require.NotNil(t, idm.identities)
 	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, []identity.NumericIdentity{})
 	idm.Subscribe(observer)
@@ -179,7 +179,7 @@ func TestLocalEndpointIdentityRemoved(t *testing.T) {
 	expectedObserver := newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID}, []identity.NumericIdentity{fooIdentity.ID})
 	require.EqualValues(t, expectedObserver, observer)
 
-	idm = NewIdentityManager()
+	idm = newIdentityManager()
 	require.NotNil(t, idm.identities)
 	observer = newIdentityManagerObserver(nil, []identity.NumericIdentity{})
 	idm.Subscribe(observer)

@@ -29,9 +29,14 @@ type Route struct {
 // LogAttrs returns the route attributes as slog attributes.
 // The return type is []any to match with signature of With().
 func (r *Route) LogAttrs() []any {
+	nexthop := "<nil>"
+	if r.Nexthop != nil {
+		nexthop = r.Nexthop.String()
+	}
+
 	return []any{
 		slog.String("prefix", r.Prefix.String()),
-		slog.String("nexthop", r.Nexthop.String()),
+		slog.String("nexthop", nexthop),
 		slog.String("local", r.Local.String()),
 		slog.String(logfields.Interface, r.Device),
 	}

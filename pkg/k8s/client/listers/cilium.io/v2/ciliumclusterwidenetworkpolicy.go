@@ -7,8 +7,8 @@ package v2
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -26,30 +26,10 @@ type CiliumClusterwideNetworkPolicyLister interface {
 
 // ciliumClusterwideNetworkPolicyLister implements the CiliumClusterwideNetworkPolicyLister interface.
 type ciliumClusterwideNetworkPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v2.CiliumClusterwideNetworkPolicy]
 }
 
 // NewCiliumClusterwideNetworkPolicyLister returns a new CiliumClusterwideNetworkPolicyLister.
 func NewCiliumClusterwideNetworkPolicyLister(indexer cache.Indexer) CiliumClusterwideNetworkPolicyLister {
-	return &ciliumClusterwideNetworkPolicyLister{indexer: indexer}
-}
-
-// List lists all CiliumClusterwideNetworkPolicies in the indexer.
-func (s *ciliumClusterwideNetworkPolicyLister) List(selector labels.Selector) (ret []*v2.CiliumClusterwideNetworkPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.CiliumClusterwideNetworkPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the CiliumClusterwideNetworkPolicy from the index for a given name.
-func (s *ciliumClusterwideNetworkPolicyLister) Get(name string) (*v2.CiliumClusterwideNetworkPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2.Resource("ciliumclusterwidenetworkpolicy"), name)
-	}
-	return obj.(*v2.CiliumClusterwideNetworkPolicy), nil
+	return &ciliumClusterwideNetworkPolicyLister{listers.New[*v2.CiliumClusterwideNetworkPolicy](indexer, v2.Resource("ciliumclusterwidenetworkpolicy"))}
 }

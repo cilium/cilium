@@ -5,9 +5,10 @@ package statedb
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"time"
 
-	"golang.org/x/exp/maps"
 	"golang.org/x/time/rate"
 )
 
@@ -83,7 +84,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 		}
 
 		// Dead objects found, do a write transaction against all tables with dead objects in them.
-		tablesToModify := maps.Keys(toBeDeleted)
+		tablesToModify := slices.Collect(maps.Keys(toBeDeleted))
 		txn = db.WriteTxn(tablesToModify[0], tablesToModify[1:]...).getTxn()
 		for meta, deadObjs := range toBeDeleted {
 			tableName := meta.Name()

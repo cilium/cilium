@@ -25,8 +25,9 @@ func newNamespacesCommand(vp *viper.Viper) *cobra.Command {
 		Use:   "namespaces",
 		Short: "List namespaces with recent flows",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := cmd.Context()
-			hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			hubbleConn, err := conn.NewWithFlags(ctx, vp)
 			if err != nil {
 				return err
 			}

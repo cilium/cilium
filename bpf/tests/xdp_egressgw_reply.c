@@ -6,9 +6,6 @@
 #include <bpf/ctx/xdp.h>
 #include "pktgen.h"
 
-/* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
-#define ETH_HLEN 14
-
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
@@ -22,7 +19,7 @@
 
 #define DISABLE_LOOPBACK_LB
 
-/* Skip ingress policy checks, not needed to validate hairpin flow */
+/* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
 #define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
@@ -206,7 +203,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("outer IP doesn't have correct L4 protocol")
 
 	if (l3->check != bpf_htons(0x527e))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l3->saddr != IPV4_DIRECT_ROUTING)
 		test_fatal("outerSrcIP is not correct")
@@ -230,7 +227,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("innerDstIP hasn't been revNATed to the client IP");
 
 	if (inner_l3->check != bpf_htons(0x4212))
-		test_fatal("inner L3 checksum is invalid: %d", bpf_htons(inner_l3->check));
+		test_fatal("inner L3 checksum is invalid: %x", bpf_htons(inner_l3->check));
 
 	if (inner_l4->source != EXTERNAL_SVC_PORT)
 		test_fatal("innerSrcPort is not the external SVC port");

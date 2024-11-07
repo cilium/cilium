@@ -19,16 +19,16 @@ import (
 )
 
 // Kind is used to provide a source of events originating inside the cluster from Watches (e.g. Pod Create).
-type Kind[T client.Object] struct {
+type Kind[object client.Object, request comparable] struct {
 	// Type is the type of object to watch.  e.g. &v1.Pod{}
-	Type T
+	Type object
 
 	// Cache used to watch APIs
 	Cache cache.Cache
 
-	Handler handler.TypedEventHandler[T]
+	Handler handler.TypedEventHandler[object, request]
 
-	Predicates []predicate.TypedPredicate[T]
+	Predicates []predicate.TypedPredicate[object]
 
 	// startedErr may contain an error if one was encountered during startup. If its closed and does not
 	// contain an error, startup and syncing finished.
@@ -38,7 +38,7 @@ type Kind[T client.Object] struct {
 
 // Start is internal and should be called only by the Controller to register an EventHandler with the Informer
 // to enqueue reconcile.Requests.
-func (ks *Kind[T]) Start(ctx context.Context, queue workqueue.RateLimitingInterface) error {
+func (ks *Kind[object, request]) Start(ctx context.Context, queue workqueue.TypedRateLimitingInterface[request]) error {
 	if isNil(ks.Type) {
 		return fmt.Errorf("must create Kind with a non-nil object")
 	}
@@ -102,7 +102,7 @@ func (ks *Kind[T]) Start(ctx context.Context, queue workqueue.RateLimitingInterf
 	return nil
 }
 
-func (ks *Kind[T]) String() string {
+func (ks *Kind[object, request]) String() string {
 	if !isNil(ks.Type) {
 		return fmt.Sprintf("kind source: %T", ks.Type)
 	}
@@ -111,7 +111,7 @@ func (ks *Kind[T]) String() string {
 
 // WaitForSync implements SyncingSource to allow controllers to wait with starting
 // workers until the cache is synced.
-func (ks *Kind[T]) WaitForSync(ctx context.Context) error {
+func (ks *Kind[object, request]) WaitForSync(ctx context.Context) error {
 	select {
 	case err := <-ks.startedErr:
 		return err

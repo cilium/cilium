@@ -122,9 +122,10 @@ func (provider *CLIProfileCredentialsProvider) getCredentialsProvider(conf *conf
 			WithRoleSessionName(p.RoleSessionName).
 			Build()
 	case "ChainableRamRoleArn":
-		previousProvider, err1 := provider.getCredentialsProvider(conf, p.SourceProfile)
-		if err1 != nil {
-			err = fmt.Errorf("get source profile failed: %s", err1.Error())
+		var previousProvider CredentialsProvider
+		previousProvider, err = provider.getCredentialsProvider(conf, p.SourceProfile)
+		if err != nil {
+			err = fmt.Errorf("get source profile failed: %s", err.Error())
 			return
 		}
 		credentialsProvider, err = NewRAMRoleARNCredentialsProvider(previousProvider, p.RoleArn, p.RoleSessionName, p.DurationSeconds, "", p.StsRegion, "")
@@ -147,10 +148,9 @@ func (provider *CLIProfileCredentialsProvider) GetCredentials() (cc *Credentials
 		}
 
 		cfgPath := path.Join(homedir, ".aliyun/config.json")
-
-		conf, err1 := newConfigurationFromPath(cfgPath)
-		if err1 != nil {
-			err = err1
+		var conf *configuration
+		conf, err = newConfigurationFromPath(cfgPath)
+		if err != nil {
 			return
 		}
 
@@ -164,5 +164,15 @@ func (provider *CLIProfileCredentialsProvider) GetCredentials() (cc *Credentials
 		}
 	}
 
-	return provider.innerProvider.GetCredentials()
+	cc, err = provider.innerProvider.GetCredentials()
+	if err != nil {
+		return
+	}
+
+	cc.ProviderName = fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.innerProvider.GetProviderName())
+	return
+}
+
+func (provider *CLIProfileCredentialsProvider) GetProviderName() string {
+	return "cli_provider"
 }

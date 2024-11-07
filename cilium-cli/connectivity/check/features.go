@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -65,6 +66,7 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 
 	result[features.EncryptionNode] = features.Status{
 		Enabled: cfg.EncryptNode,
+		Mode:    cfg.NodeEncryptionOptOutLabelsString,
 	}
 
 	isFeatureKNPEnabled, err := ct.isFeatureKNPEnabled(cfg.EnableK8sNetworkPolicy)
@@ -93,13 +95,10 @@ func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, 
 
 func canAccessK8sResourceSecret(cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
-		for _, resource := range rule.Resources {
-			if resource == "secrets" {
-				return true
-			}
+		if slices.Contains(rule.Resources, "secrets") {
+			return true
 		}
 	}
-
 	return false
 }
 
@@ -167,6 +166,7 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 			}
 			if f.SocketLB != nil {
 				result[features.KPRSocketLB] = features.Status{Enabled: f.SocketLB.Enabled}
+				result[features.KPRSocketLBHostnsOnly] = features.Status{Enabled: f.BpfSocketLBHostnsOnly}
 			}
 		}
 	}

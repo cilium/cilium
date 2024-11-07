@@ -4,7 +4,6 @@
 package policymap
 
 import (
-	"errors"
 	"os"
 	"testing"
 
@@ -45,57 +44,57 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 func TestPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
-	fooEntry := newKey(1, 1, SinglePortMask, 1, 1)
+	fooEntry := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
 	err := testMap.AllowKey(fooEntry, 0, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	dump, err := testMap.DumpToSlice()
-	require.Nil(t, err)
-	require.Equal(t, 1, len(dump))
+	require.NoError(t, err)
+	require.Len(t, dump, 1)
 
 	require.EqualValues(t, fooEntry, dump[0].Key)
 
 	// Special case: allow-all entry
-	barEntry := newKey(0, 0, SinglePortMask, 0, 0)
+	barEntry := NewKey(0, 0, 0, 0, 0)
 	err = testMap.AllowKey(barEntry, 0, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	dump, err = testMap.DumpToSlice()
-	require.Nil(t, err)
-	require.Equal(t, 2, len(dump))
+	require.NoError(t, err)
+	require.Len(t, dump, 2)
 }
 
 func TestDeleteNonexistentKey(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
-	key := newKey(27, 80, SinglePortMask, u8proto.TCP, trafficdirection.Ingress)
+	key := NewKey(trafficdirection.Ingress, 27, u8proto.TCP, 80, SinglePortPrefixLen)
 	err := testMap.Map.Delete(&key)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	var errno unix.Errno
-	require.Equal(t, true, errors.As(err, &errno))
+	require.ErrorAs(t, err, &errno)
 	require.Equal(t, unix.ENOENT, errno)
 }
 
 func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
-	fooKey := newKey(1, 1, SinglePortMask, 1, 1)
+	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
 	fooEntry := newDenyEntry(fooKey)
 	err := testMap.DenyKey(fooKey)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	dump, err := testMap.DumpToSlice()
-	require.Nil(t, err)
-	require.Equal(t, 1, len(dump))
+	require.NoError(t, err)
+	require.Len(t, dump, 1)
 
 	require.EqualValues(t, fooKey, dump[0].Key)
 	require.EqualValues(t, fooEntry, dump[0].PolicyEntry)
 
 	// Special case: deny-all entry
-	barKey := newKey(0, 0, SinglePortMask, 0, 0)
+	barKey := NewKey(0, 0, 0, 0, 0)
 	err = testMap.DenyKey(barKey)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	dump, err = testMap.DumpToSlice()
-	require.Nil(t, err)
-	require.Equal(t, 2, len(dump))
+	require.NoError(t, err)
+	require.Len(t, dump, 2)
 }

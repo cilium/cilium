@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -50,11 +49,11 @@ func TestFakeListerWatcher(t *testing.T) {
 	// We should be now able to receive the object
 	select {
 	case ev := <-results:
-		require.Equal(t, ev.Type, watch.Added)
+		require.Equal(t, watch.Added, ev.Type)
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)
-	case <-inctimer.After(time.Second):
+	case <-time.After(time.Second):
 		t.Fatalf("timed out waiting for object")
 	}
 
@@ -63,11 +62,11 @@ func TestFakeListerWatcher(t *testing.T) {
 	require.NoError(t, err, "UpsertFromFile ciliumnode.yaml")
 	select {
 	case ev := <-results:
-		require.Equal(t, ev.Type, watch.Modified)
+		require.Equal(t, watch.Modified, ev.Type)
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)
-	case <-inctimer.After(time.Second):
+	case <-time.After(time.Second):
 		t.Fatalf("timed out waiting for object")
 	}
 
@@ -76,11 +75,11 @@ func TestFakeListerWatcher(t *testing.T) {
 
 	select {
 	case ev := <-results:
-		require.Equal(t, ev.Type, watch.Deleted)
+		require.Equal(t, watch.Deleted, ev.Type)
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)
-	case <-inctimer.After(time.Second):
+	case <-time.After(time.Second):
 		t.Fatalf("timed out waiting for object")
 	}
 

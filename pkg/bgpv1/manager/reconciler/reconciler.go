@@ -62,15 +62,15 @@ func GetActiveReconcilers(reconcilers []ConfigReconciler) []ConfigReconciler {
 		}
 		if existing, exists := recMap[r.Name()]; exists {
 			if existing.Priority() == r.Priority() {
-				log.Warnf("Skipping duplicate reconciler %s with the same priority (%d)", existing.Name(), existing.Priority())
+				log.Warnf("Skipping duplicate BGP v1 reconciler %s with the same priority (%d)", existing.Name(), existing.Priority())
 				continue
 			}
 			if existing.Priority() < r.Priority() {
-				log.Debugf("Skipping reconciler %s (priority %d) as it has lower priority than the existing one (%d)",
+				log.Debugf("Skipping BGP v1 reconciler %s (priority %d) as it has lower priority than the existing one (%d)",
 					r.Name(), r.Priority(), existing.Priority())
 				continue
 			}
-			log.Debugf("Overriding existing reconciler %s (priority %d) with higher priority one (%d)",
+			log.Debugf("Overriding existing BGP v1 reconciler %s (priority %d) with higher priority one (%d)",
 				existing.Name(), existing.Priority(), r.Priority())
 		}
 		recMap[r.Name()] = r
@@ -78,7 +78,7 @@ func GetActiveReconcilers(reconcilers []ConfigReconciler) []ConfigReconciler {
 
 	var activeReconcilers []ConfigReconciler
 	for _, r := range recMap {
-		log.Debugf("Adding BGP reconciler: %v (priority %d)", r.Name(), r.Priority())
+		log.Debugf("Adding BGP v1 reconciler: %v (priority %d)", r.Name(), r.Priority())
 		activeReconcilers = append(activeReconcilers, r)
 	}
 	sort.Slice(activeReconcilers, func(i, j int) bool {

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -87,7 +88,7 @@ func ipFamily(ip net.IP) int {
 // Lookup attempts to find the linux route based on the route specification.
 // If the route exists, the route is returned, otherwise an error is returned.
 func Lookup(route Route) (*Route, error) {
-	link, err := netlink.LinkByName(route.Device)
+	link, err := safenetlink.LinkByName(route.Device)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find interface '%s' of route: %w", route.Device, err)
 	}
@@ -139,7 +140,7 @@ func lookup(route *netlink.Route) *netlink.Route {
 		filter |= netlink.RT_FILTER_OIF
 	}
 
-	routes, err := netlink.RouteListFiltered(ipFamily(route.Dst.IP), route, filter)
+	routes, err := safenetlink.RouteListFiltered(ipFamily(route.Dst.IP), route, filter)
 	if err != nil {
 		return nil
 	}
@@ -237,7 +238,7 @@ func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) er
 func Upsert(route Route) error {
 	var nexthopRouteCreated bool
 
-	link, err := netlink.LinkByName(route.Device)
+	link, err := safenetlink.LinkByName(route.Device)
 	if err != nil {
 		return fmt.Errorf("unable to lookup interface %s: %w", route.Device, err)
 	}
@@ -289,7 +290,7 @@ func Upsert(route Route) error {
 // Delete deletes a Linux route. An error is returned if the route does not
 // exist or if the route could not be deleted.
 func Delete(route Route) error {
-	link, err := netlink.LinkByName(route.Device)
+	link, err := safenetlink.LinkByName(route.Device)
 	if err != nil {
 		return fmt.Errorf("unable to lookup interface %s: %w", route.Device, err)
 	}
@@ -320,11 +321,11 @@ type Rule struct {
 	Priority int
 
 	// Mark is the skb mark that needs to match
-	Mark int
+	Mark uint32
 
 	// Mask is the mask to apply to the skb mark before matching the Mark
 	// field
-	Mask int
+	Mask uint32
 
 	// From is the source address selector
 	From *net.IPNet
@@ -378,7 +379,7 @@ func (r Rule) String() string {
 }
 
 func lookupRule(spec Rule, family int) (bool, error) {
-	rules, err := netlink.RuleList(family)
+	rules, err := safenetlink.RuleList(family)
 	if err != nil {
 		return false, err
 	}
@@ -399,7 +400,7 @@ func lookupRule(spec Rule, family int) (bool, error) {
 			continue
 		}
 
-		if spec.Mask != 0 && r.Mask != spec.Mask {
+		if spec.Mask != 0 && (r.Mask == nil || (r.Mask != nil && *r.Mask != spec.Mask)) {
 			continue
 		}
 
@@ -444,17 +445,17 @@ func ListRules(family int, filter *Rule) ([]netlink.Rule, error) {
 		}
 		if filter.Mask != 0 {
 			mask |= netlink.RT_FILTER_MASK
-			nlFilter.Mask = filter.Mask
+			nlFilter.Mask = &filter.Mask
 		}
 
 		nlFilter.Priority = filter.Priority
 		nlFilter.Mark = filter.Mark
-		nlFilter.Mask = filter.Mask
+		nlFilter.Mask = &filter.Mask
 		nlFilter.Src = filter.From
 		nlFilter.Dst = filter.To
 		nlFilter.Table = filter.Table
 	}
-	return netlink.RuleListFiltered(family, &nlFilter, mask)
+	return safenetlink.RuleListFiltered(family, &nlFilter, mask)
 }
 
 // ReplaceRule add or replace rule in the routing table using a mark to indicate
@@ -479,7 +480,7 @@ func replaceRule(spec Rule, family int) error {
 	}
 	rule := netlink.NewRule()
 	rule.Mark = spec.Mark
-	rule.Mask = spec.Mask
+	rule.Mask = &spec.Mask
 	rule.Table = spec.Table
 	rule.Family = family
 	rule.Priority = spec.Priority
@@ -493,7 +494,7 @@ func replaceRule(spec Rule, family int) error {
 func DeleteRule(family int, spec Rule) error {
 	rule := netlink.NewRule()
 	rule.Mark = spec.Mark
-	rule.Mask = spec.Mask
+	rule.Mask = &spec.Mask
 	rule.Table = spec.Table
 	rule.Priority = spec.Priority
 	rule.Src = spec.From
@@ -504,7 +505,7 @@ func DeleteRule(family int, spec Rule) error {
 }
 
 func lookupDefaultRoute(family int) (netlink.Route, error) {
-	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
+	routes, err := safenetlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
 	if err != nil {
 		return netlink.Route{}, fmt.Errorf("Unable to list direct routes: %w", err)
 	}
@@ -527,7 +528,7 @@ func lookupDefaultRoute(family int) (netlink.Route, error) {
 func DeleteRouteTable(table, family int) error {
 	var routeErr error
 
-	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
+	routes, err := safenetlink.RouteListFiltered(family, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("Unable to list table %d routes: %w", table, err)
 	}

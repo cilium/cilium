@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -22,37 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-func TestUpdateVisibilityPolicy(t *testing.T) {
-	setupEndpointSuite(t)
-	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
-	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
-	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
-		return "", nil
-	})
-	require.Nil(t, ep.visibilityPolicy)
-
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return "<Ingress/80/TCP/HTTP>", nil
-	})
-
-	require.NotEqual(t, nil, ep.visibilityPolicy)
-	require.Equal(t, &policy.VisibilityMetadata{
-		Parser:  policy.ParserTypeHTTP,
-		Port:    uint16(80),
-		Proto:   u8proto.TCP,
-		Ingress: true,
-	}, ep.visibilityPolicy.Ingress["80/TCP"])
-
-	// Check that updating after previously having value works.
-	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
-		return "", nil
-	})
-	require.Nil(t, ep.visibilityPolicy)
-}
 
 // This test fuzzes the incremental update engine from an end-to-end perspective
 // to ensure we don't ever miss an incremental update.
@@ -76,10 +45,12 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil, nil)
 
 	defer func() {
-		repo.RepositoryChangeQueue.Stop()
-		repo.RuleReactionQueue.Stop()
-		repo.RepositoryChangeQueue.WaitToBeDrained()
-		repo.RuleReactionQueue.WaitToBeDrained()
+		repoChangeQueue := repo.GetRepositoryChangeQueue()
+		ruleReactionQueue := repo.GetRuleReactionQueue()
+		repoChangeQueue.Stop()
+		ruleReactionQueue.Stop()
+		repoChangeQueue.WaitToBeDrained()
+		ruleReactionQueue.WaitToBeDrained()
 	}()
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
@@ -167,11 +138,13 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	}()
 
 	stats := new(regenerationStatistics)
+	datapathRegenCtxt := new(datapathRegenerationContext)
 	// Continuously compute policy for the pod and ensure we never missed an incremental update.
 	for {
 		t.Log("Calculating policy...")
-		res, err := ep.regeneratePolicy(stats)
-		assert.Nil(t, err)
+		res, err := ep.regeneratePolicy(stats, datapathRegenCtxt)
+		assert.NoError(t, err)
+		res.endpointPolicy = res.selectorPolicy.Consume(&ep, nil)
 
 		// Sleep a random amount, so we accumulate some changes
 		// This does not slow down the test, since we always generate testFactor identities.
@@ -184,12 +157,13 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		// Apply any pending incremental changes
 		// This mirrors the existing code, where we consume map changes
 		// while holding the endpoint lock
-		res.endpointPolicy.ConsumeMapChanges()
+		closer, _ := res.endpointPolicy.ConsumeMapChanges()
+		closer()
+
 		haveIDs := make(sets.Set[identity.NumericIdentity], testfactor)
-		res.endpointPolicy.GetPolicyMap().ForEach(func(k policy.Key, _ policy.MapStateEntry) bool {
-			haveIDs.Insert(identity.NumericIdentity(k.Identity))
-			return true
-		})
+		for k := range res.endpointPolicy.Entries() {
+			haveIDs.Insert(k.Identity)
+		}
 
 		// It is okay if we have *more* IDs than allocatedIDs, since we may have propagated
 		// an ID change through the policy system but not yet added to the extra list we're
@@ -208,9 +182,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 }
 
 type mockPolicyGetter struct {
-	repo *policy.Repository
+	repo policy.PolicyRepository
 }
 
-func (m *mockPolicyGetter) GetPolicyRepository() *policy.Repository {
+func (m *mockPolicyGetter) GetPolicyRepository() policy.PolicyRepository {
 	return m.repo
 }

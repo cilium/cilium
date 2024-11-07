@@ -6,7 +6,9 @@ package sysctl
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
+	"strings"
 
 	"github.com/spf13/afero"
 
@@ -29,7 +31,7 @@ type ops struct {
 
 func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysctl) error {
 	log := ops.log.With(
-		logfields.SysParamName, s.Name,
+		logfields.SysParamName, strings.Join(s.Name, "."),
 		logfields.SysParamValue, s.Val,
 	)
 
@@ -71,7 +73,7 @@ func (ops *ops) Delete(context.Context, statedb.ReadTxn, *tables.Sysctl) error {
 	return nil
 }
 
-func (ops *ops) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*tables.Sysctl]) error {
+func (ops *ops) Prune(context.Context, statedb.ReadTxn, iter.Seq2[*tables.Sysctl, statedb.Revision]) error {
 	// sysctl settings not in the table will never be pruned, just ignored
 	return nil
 }

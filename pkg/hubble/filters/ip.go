@@ -6,7 +6,8 @@ package filters
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
+	"slices"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -29,17 +30,18 @@ func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error)
 	// IP filter can either be an exact match (e.g. "1.1.1.1") or a CIDR range
 	// (e.g. "1.1.1.0/24"). Put them into 2 separate lists here.
 	var addresses []string
-	var cidrs []*net.IPNet
+	var prefixes []netip.Prefix
 	for _, ip := range ips {
 		if strings.Contains(ip, "/") {
-			_, ipnet, err := net.ParseCIDR(ip)
+			prefix, err := netip.ParsePrefix(ip)
 			if err != nil {
-				return nil, fmt.Errorf("invalid CIDR in filter: %q", ip)
+				return nil, fmt.Errorf("invalid IP prefix %q in filter: %w", ip, err)
 			}
-			cidrs = append(cidrs, ipnet)
+			prefixes = append(prefixes, prefix)
 		} else {
-			if net.ParseIP(ip) == nil {
-				return nil, fmt.Errorf("invalid IP address in filter: %q", ip)
+			_, err := netip.ParseAddr(ip)
+			if err != nil {
+				return nil, fmt.Errorf("invalid IP address %q in filter: %w", ip, err)
 			}
 			addresses = append(addresses, ip)
 		}
@@ -51,19 +53,18 @@ func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error)
 			return false
 		}
 
-		for _, ip := range addresses {
-			if ip == eventIP {
-				return true
-			}
+		if slices.Contains(addresses, eventIP) {
+			return true
 		}
 
-		if len(cidrs) > 0 {
-			parsedIP := net.ParseIP(eventIP)
-			for _, cidr := range cidrs {
-				if cidr.Contains(parsedIP) {
-					return true
-				}
+		if len(prefixes) > 0 {
+			addr, err := netip.ParseAddr(eventIP)
+			if err != nil {
+				return false
 			}
+			return slices.ContainsFunc(prefixes, func(prefix netip.Prefix) bool {
+				return prefix.Contains(addr)
+			})
 		}
 
 		return false
@@ -105,20 +106,14 @@ func (f *IPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]
 	return fs, nil
 }
 
-func filterByIPVersion(ipver []flowpb.IPVersion) (FilterFunc, error) {
+func filterByIPVersion(ipver []flowpb.IPVersion) FilterFunc {
 	return func(ev *v1.Event) bool {
 		flow := ev.GetFlow()
 		if flow == nil {
 			return false
 		}
-		ver := flow.GetIP().GetIpVersion()
-		for _, v := range ipver {
-			if v == ver {
-				return true
-			}
-		}
-		return false
-	}, nil
+		return slices.Contains(ipver, flow.GetIP().GetIpVersion())
+	}
 }
 
 // IPVersionFilter implements IP version based filtering
@@ -128,12 +123,8 @@ type IPVersionFilter struct{}
 func (f *IPVersionFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
-	if ff.GetIpVersion() != nil {
-		pf, err := filterByIPVersion(ff.GetIpVersion())
-		if err != nil {
-			return nil, err
-		}
-		fs = append(fs, pf)
+	if ipv := ff.GetIpVersion(); ipv != nil {
+		fs = append(fs, filterByIPVersion(ipv))
 	}
 
 	return fs, nil

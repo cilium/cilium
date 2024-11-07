@@ -23,6 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -39,7 +40,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..).
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..）
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
@@ -53,6 +54,12 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
+func init() {
+	// Register the Cilium types in the default scheme.
+	_ = ciliumv2.AddToScheme(scheme.Scheme)
+	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
+}
+
 type Client struct {
 	Clientset          kubernetes.Interface
 	ExtensionClientset apiextensionsclientset.Interface // k8s api extension needed to retrieve CRDs
@@ -65,11 +72,7 @@ type Client struct {
 	HelmActionConfig   *action.Configuration
 }
 
-func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error) {
-	// Register the Cilium types in the default scheme.
-	_ = ciliumv2.AddToScheme(scheme.Scheme)
-	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
-
+func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs string, impersonateGroup []string) (*Client, error) {
 	restClientGetter := genericclioptions.ConfigFlags{
 		Context:    &contextName,
 		KubeConfig: &kubeconfig,
@@ -79,6 +82,13 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error)
 	config, err := rawKubeConfigLoader.ClientConfig()
 	if err != nil {
 		return nil, err
+	}
+
+	if impersonateAs != "" || len(impersonateGroup) > 0 {
+		config.Impersonate = rest.ImpersonationConfig{
+			UserName: impersonateAs,
+			Groups:   impersonateGroup,
+		}
 	}
 
 	rawConfig, err := rawKubeConfigLoader.RawConfig()
@@ -311,11 +321,12 @@ func (c *Client) PodLogs(namespace, name string, opts *corev1.PodLogOptions) *re
 	return c.Clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
 }
 
-func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time) (string, error) {
+func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, previous bool) (string, error) {
 	opts := &corev1.PodLogOptions{
 		Container:  defaults.AgentContainerName,
 		Timestamps: true,
 		SinceTime:  &metav1.Time{Time: since},
+		Previous:   previous,
 	}
 	req := c.PodLogs(namespace, pod, opts)
 	podLogs, err := req.Stream(ctx)
@@ -353,8 +364,9 @@ func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string
 		Container: container,
 		Command:   command,
 	})
+
 	if err != nil {
-		return result.Stdout, err
+		return result.Stdout, fmt.Errorf("%w: %q", err, result.Stderr.String())
 	}
 
 	if errString := result.Stderr.String(); errString != "" {
@@ -701,6 +713,26 @@ func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.L
 	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies().List(ctx, opts)
 }
 
+func (c *Client) ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPClusterConfigs().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumBGPPeerConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeerConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeerConfigs().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumBGPAdvertisements(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPAdvertisementList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPAdvertisements().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumBGPNodeConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPNodeConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPNodeConfigs().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumBGPNodeConfigOverrides(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPNodeConfigOverrideList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPNodeConfigOverrides().List(ctx, opts)
+}
+
 func (c *Client) ListCiliumCIDRGroups(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error) {
 	return c.CiliumClientset.CiliumV2alpha1().CiliumCIDRGroups().List(ctx, opts)
 }
@@ -877,6 +909,10 @@ func (c *Client) ListUnstructured(ctx context.Context, gvr schema.GroupVersionRe
 
 func (c *Client) ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error) {
 	return c.Clientset.CoreV1().Endpoints(corev1.NamespaceAll).List(ctx, o)
+}
+
+func (c *Client) ListEndpointSlices(ctx context.Context, o metav1.ListOptions) (*discoveryv1.EndpointSliceList, error) {
+	return c.Clientset.DiscoveryV1().EndpointSlices(corev1.NamespaceAll).List(ctx, o)
 }
 
 func (c *Client) ListIngressClasses(ctx context.Context, o metav1.ListOptions) (*networkingv1.IngressClassList, error) {
@@ -1073,4 +1109,65 @@ func (c *Client) CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, 
 	return c.Clientset.CoreV1().Pods(pod.Namespace).Patch(
 		ctx, pod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}, "ephemeralcontainers",
 	)
+}
+
+type Object interface {
+	metav1.Object
+	runtime.Object
+}
+
+// ApplyGeneric uses server-side apply to merge changes to an arbitrary object.
+// Returns the applied object.
+func (c *Client) ApplyGeneric(ctx context.Context, obj Object) (*unstructured.Unstructured, error) {
+	gvk, resource, err := c.Describe(obj)
+	if err != nil {
+		return nil, fmt.Errorf("could not get Kubernetes API information for %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+	}
+
+	// Now, convert the object to an Unstructured
+	u, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		b, err := json.Marshal(obj)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert to unstructured (marshal): %w", err)
+		}
+		u = &unstructured.Unstructured{}
+		if err := json.Unmarshal(b, u); err != nil {
+			return nil, fmt.Errorf("failed to convert to unstructured (unmarshal): %w", err)
+		}
+	}
+
+	// Dragons: If we're passed a non-Unstructured object (e.g. v1.ConfigMap), it won't have
+	// the GVK set necessarily. So, use the retrieved GVK from the schema and add it.
+	// This is a no-op for Unstructured objects.
+	// TODO: use a proper codec + serializer
+	u.GetObjectKind().SetGroupVersionKind(gvk)
+
+	// clear ManagedFields; it is not allowed to specify them in a Patch
+	u.SetManagedFields(nil)
+
+	dynamicClient := c.DynamicClientset.Resource(resource).Namespace(obj.GetNamespace())
+	return dynamicClient.Apply(ctx, obj.GetName(), u, metav1.ApplyOptions{Force: true, FieldManager: "cilium-cli"})
+}
+
+func (c *Client) GetGeneric(ctx context.Context, namespace, name string, obj Object) (*unstructured.Unstructured, error) {
+	_, resource, err := c.Describe(obj)
+	if err != nil {
+		return nil, fmt.Errorf("could not get Kubernetes API information for %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+	}
+
+	dynamicClient := c.DynamicClientset.Resource(resource).Namespace(namespace)
+
+	return dynamicClient.Get(ctx, name, metav1.GetOptions{})
+}
+
+func (c *Client) DeleteGeneric(ctx context.Context, obj Object) error {
+	_, resource, err := c.Describe(obj)
+	if err != nil {
+		return fmt.Errorf("could not get Kubernetes API information for %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+	}
+
+	dynamicClient := c.DynamicClientset.Resource(resource).Namespace(obj.GetNamespace())
+
+	return dynamicClient.Delete(ctx, obj.GetName(), metav1.DeleteOptions{})
 }

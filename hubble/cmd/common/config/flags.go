@@ -28,6 +28,11 @@ const (
 	KeyBasicAuthPassword = "basic-auth-password"  // string
 	KeyTimeout           = "timeout"              // time.Duration
 	KeyRequestTimeout    = "request-timeout"      // time.Duration
+	KeyPortForward       = "port-forward"         // bool
+	KeyPortForwardPort   = "port-forward-port"    // uint16
+	KeyKubeContext       = "kube-context"         // string
+	KeyKubeNamespace     = "kube-namespace"       // string
+	KeyKubeconfig        = "kubeconfig"           // string
 )
 
 // GlobalFlags are flags that apply to any command.
@@ -47,7 +52,7 @@ func initGlobalFlags() {
 }
 
 func initServerFlags() {
-	ServerFlags.String(KeyServer, defaults.ServerAddress, "Address of a Hubble server. Ignored when --input-file is provided.")
+	ServerFlags.String(KeyServer, defaults.ServerAddress, "Address of a Hubble server. Ignored when --input-file or --port-forward is provided.")
 	ServerFlags.Duration(KeyTimeout, defaults.DialTimeout, "Hubble server dialing timeout")
 	ServerFlags.Duration(KeyRequestTimeout, defaults.RequestTimeout, "Unary Request timeout. Only applies to non-streaming RPCs (ServerStatus, ListNodes, ListNamespaces).")
 	ServerFlags.Bool(
@@ -95,5 +100,31 @@ func initServerFlags() {
 		KeyBasicAuthPassword,
 		"",
 		"Specify a password for basic auth",
+	)
+	ServerFlags.BoolP(
+		KeyPortForward,
+		"P",
+		false,
+		"Automatically forward the relay port to the local machine. Analoguous to running: 'cilium hubble port-forward'.",
+	)
+	ServerFlags.Uint16(
+		KeyPortForwardPort,
+		4245,
+		"Local port to forward to. 0 will select a random port. This option is only considered when --port-forward is set.",
+	)
+	ServerFlags.String(
+		KeyKubeContext,
+		"",
+		"Kubernetes configuration context. This option is only considered when --port-forward is set.",
+	)
+	ServerFlags.String(
+		KeyKubeNamespace,
+		"kube-system",
+		"Namespace Cilium is running in. This option is only considered when --port-forward is set.",
+	)
+	ServerFlags.String(
+		KeyKubeconfig,
+		"",
+		"Path to the kubeconfig file. This option is only considered when --port-forward is set.",
 	)
 }

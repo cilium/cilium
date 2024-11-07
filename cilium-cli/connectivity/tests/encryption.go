@@ -6,12 +6,18 @@ package tests
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/defaults"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -197,6 +203,26 @@ func isWgEncap(t *check.Test) bool {
 	return true
 }
 
+// checkIPSecPodToPod checks whether in case of IPSec being enabled and used
+// during the podToPodEncryption test it should be executed or skipped due to:
+//
+// 1. missing backporting of the commit in previous versions;
+// 2. usage of IPv6, for which the test is flaky (see https://github.com/cilium/cilium/issues/35485).
+//
+// Once the above reasons are fixed, this function can be removed.
+func checkIPSecPodToPod(t *check.Test, ipFam features.IPFamily) error {
+	if e, ok := t.Context().Feature(features.EncryptionPod); !(ok && e.Enabled && e.Mode == "ipsec") {
+		return nil
+	}
+	if !versioncheck.MustCompile(">=1.17.0")(t.Context().CiliumVersion) {
+		return fmt.Errorf("enabling test for IPSec requires backporting")
+	}
+	if ipFam == features.IPFamilyV6 {
+		return fmt.Errorf("inactive IPv6 test with IPSec, see https://github.com/cilium/cilium/issues/35485")
+	}
+	return nil
+}
+
 // PodToPodEncryption is a test case which checks the following:
 //   - There is a connectivity between pods on different nodes when any
 //     encryption mode is on (either WireGuard or IPsec).
@@ -246,6 +272,10 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	}
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		if err := checkIPSecPodToPod(t, ipFam); err != nil {
+			t.Debugf("Skipping test: %v", err)
+			return
+		}
 		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true, wgEncap)
 	})
 }
@@ -300,6 +330,65 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	}
 }
 
+func nodeToNodeEncTestPods(nodes map[check.NodeIdentity]*ciliumv2.CiliumNode, excludeSelector labels.Selector, clients, servers []check.Pod) (client, server *check.Pod) {
+	nodeKey := func(pod *check.Pod) check.NodeIdentity {
+		if pod != nil {
+			return check.NodeIdentity{Cluster: pod.K8sClient.ClusterName(), Name: pod.NodeName()}
+		}
+		return check.NodeIdentity{}
+	}
+
+	acceptableNodes := func(pods []check.Pod) sets.Set[check.NodeIdentity] {
+		keys := sets.New[check.NodeIdentity]()
+		for _, pod := range pods {
+			node := nodes[nodeKey(&pod)]
+			if node == nil {
+				continue
+			}
+
+			if excludeSelector.Matches(labels.Set(node.Labels)) {
+				continue
+			}
+
+			keys.Insert(nodeKey(&pod))
+		}
+		return keys
+	}
+
+	getRandomPod := func(pods []check.Pod, nodes sets.Set[check.NodeIdentity]) *check.Pod {
+		for _, pod := range pods {
+			if nodes.Has(nodeKey(&pod)) {
+				return &pod
+			}
+		}
+
+		return nil
+	}
+
+	clientNodes := acceptableNodes(clients)
+	serverNodes := acceptableNodes(servers)
+
+	// Prefer selecting a client (server) running on a node which does not
+	// host a server (client) as well, to maximize the possibilities of finding
+	// a valid combination.
+	clientNodesOnly := clientNodes.Difference(serverNodes)
+	serverNodesOnly := serverNodes.Difference(clientNodes)
+
+	client = getRandomPod(clients, clientNodesOnly)
+	if client == nil {
+		client = getRandomPod(clients, clientNodes)
+	}
+
+	server = getRandomPod(servers, serverNodesOnly)
+	if server == nil {
+		// Make sure to not pick a server hosted on the same node of the client.
+		serverNodes.Delete(nodeKey(client))
+		server = getRandomPod(servers, serverNodes)
+	}
+
+	return client, server
+}
+
 func NodeToNodeEncryption(reqs ...features.Requirement) check.Scenario {
 	return &nodeToNodeEncryption{reqs}
 }
@@ -311,15 +400,26 @@ func (s *nodeToNodeEncryption) Name() string {
 }
 
 func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
-	client := t.Context().RandomClientPod()
+	ct := t.Context()
+	encryptNode, _ := ct.Feature(features.EncryptionNode)
 
-	var server check.Pod
-	for _, pod := range t.Context().EchoPods() {
-		// Make sure that the server pod is on another node than client
-		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
-			server = pod
-			break
+	// Node to node encryption can be disabled on specific nodes (e.g.,
+	// control plane ones) to prevent e.g., losing connectivity to the
+	// Kubernetes API Server. Let's take that into account when selecting
+	// the target pods/nodes.
+	excludeNodes := labels.Nothing()
+	if encryptNode.Enabled {
+		var err error
+		if excludeNodes, err = labels.Parse(encryptNode.Mode); err != nil {
+			t.Fatalf("unable to parse label selector %s: %s", encryptNode.Mode, err)
 		}
+	}
+
+	client, server := nodeToNodeEncTestPods(ct.CiliumNodes(), excludeNodes,
+		slices.Collect(maps.Values(ct.ClientPods())),
+		slices.Collect(maps.Values(ct.EchoPods())))
+	if client == nil || server == nil {
+		t.Fatal("Could not find matching pods: is node to node encryption disabled on all nodes hosting test pods?")
 	}
 
 	// clientHost is a pod running on the same node as the client pod, just in
@@ -362,6 +462,6 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 		if onlyPodToPodWGWithTunnel {
 			hostToPodAssertNoLeaks = true
 		}
-		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, &serverHost, requestHTTP, ipFam, hostToPodAssertNoLeaks, false, wgEncap)
+		testNoTrafficLeak(ctx, t, s, &clientHost, server, &clientHost, &serverHost, requestHTTP, ipFam, hostToPodAssertNoLeaks, false, wgEncap)
 	})
 }

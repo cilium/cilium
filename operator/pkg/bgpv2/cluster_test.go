@@ -5,13 +5,20 @@ package bgpv2
 
 import (
 	"context"
+	"maps"
+	"regexp"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/utils/ptr"
 
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -276,7 +283,7 @@ func Test_NodeLabels(t *testing.T) {
 				}
 
 				if tt.expectedNodeConfig == nil {
-					assert.Len(c, nodeConfigs.Items, 0)
+					assert.Empty(c, nodeConfigs.Items)
 					return
 				}
 
@@ -296,12 +303,15 @@ func Test_NodeLabels(t *testing.T) {
 
 // Test_ClusterConfigSteps is step based test to validate the BGP node config controller
 func Test_ClusterConfigSteps(t *testing.T) {
+	clusterConfigName := "bgp-cluster-config"
+
 	steps := []struct {
-		description         string
-		clusterConfig       *cilium_api_v2alpha1.CiliumBGPClusterConfig
-		nodes               []*cilium_api_v2.CiliumNode
-		nodeOverrides       []*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride
-		expectedNodeConfigs []*cilium_api_v2alpha1.CiliumBGPNodeConfig
+		description            string
+		clusterConfig          *cilium_api_v2alpha1.CiliumBGPClusterConfig
+		nodes                  []*cilium_api_v2.CiliumNode
+		nodeOverrides          []*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride
+		expectedNodeConfigs    []*cilium_api_v2alpha1.CiliumBGPNodeConfig
+		expectedTrueConditions []string
 	}{
 		{
 			description:   "initial node setup",
@@ -331,7 +341,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			description: "initial bgp cluster config",
 			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Name: "bgp-cluster-config",
+					Name: clusterConfigName,
 				},
 				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
 					NodeSelector: &slim_meta_v1.LabelSelector{
@@ -509,6 +519,9 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			},
 			nodeOverrides:       nil,
 			expectedNodeConfigs: nil,
+			expectedTrueConditions: []string{
+				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode,
+			},
 		},
 	}
 
@@ -561,6 +574,519 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					assert.Equal(c, expectedNodeConfig.Spec, nodeConfig.Spec)
 				}
 			}, TestTimeout, 50*time.Millisecond)
+
+			// Condition checks. Assuming the cluster config already exists on the API server.
+			if len(step.expectedTrueConditions) > 0 {
+				bgpcc, err := f.bgpcClient.Get(ctx, clusterConfigName, meta_v1.GetOptions{})
+				req.NoError(err)
+
+				trueConditions := sets.New[string]()
+				for _, cond := range bgpcc.Status.Conditions {
+					trueConditions.Insert(cond.Type)
+				}
+
+				for _, cond := range step.expectedTrueConditions {
+					req.True(trueConditions.Has(cond), "Condition missing or not true: %s", cond)
+				}
+			}
+		})
+	}
+}
+
+func TestClusterConfigConditions(t *testing.T) {
+	clusterConfigName := "cluster-config0"
+	peerConfigName := "peer-config0"
+
+	node := cilium_api_v2.CiliumNode{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "node-1",
+			Labels: map[string]string{
+				"bgp": "rack1",
+			},
+		},
+	}
+
+	peerConfig := cilium_api_v2alpha1.CiliumBGPPeerConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: peerConfigName,
+		},
+	}
+
+	tests := []struct {
+		name                    string
+		clusterConfig           *cilium_api_v2alpha1.CiliumBGPClusterConfig
+		expectedConditionStatus map[string]meta_v1.ConditionStatus
+	}{
+		{
+			name: "NoMatchingNode False",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"bgp": "rack1",
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "NoMatchingNode False Nil Selector",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: nil,
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "NoMatchingNode True",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"bgp": "rack2",
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionNoMatchingNode: meta_v1.ConditionTrue,
+			},
+		},
+		{
+			name: "MissingPeerConfig False",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+						{
+							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+								{
+									Name: "peer0",
+									PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+										Name: peerConfigName,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "MissingPeerConfig False nil PeerConfigRef",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+						{
+							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+								{
+									Name: "peer0",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionFalse,
+			},
+		},
+		{
+			name: "MissingPeerConfig True",
+			clusterConfig: &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: clusterConfigName,
+				},
+				Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+					NodeSelector: nil,
+					BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+						{
+							Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
+								{
+									Name: "peer0",
+									PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+										Name: peerConfigName + "-foo",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConditionStatus: map[string]meta_v1.ConditionStatus{
+				cilium_api_v2alpha1.BGPClusterConfigConditionMissingPeerConfigs: meta_v1.ConditionTrue,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
+
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			defer cancel()
+
+			f, watchersReady := newFixture(ctx, require.New(t))
+
+			tlog := hivetest.Logger(t)
+			f.hive.Start(tlog, ctx)
+			defer f.hive.Stop(tlog, ctx)
+
+			watchersReady()
+
+			// Setup resources
+			upsertNode(req, ctx, f, &node)
+			upsertBGPCC(req, ctx, f, tt.clusterConfig)
+			upsertBGPPC(req, ctx, f, &peerConfig)
+
+			require.EventuallyWithT(t, func(ct *assert.CollectT) {
+				// Check conditions
+				cc, err := f.bgpcClient.Get(ctx, clusterConfigName, meta_v1.GetOptions{})
+				if !assert.NoError(ct, err, "Cannot get cluster config") {
+					return
+				}
+
+				// Check if the expected condition exists and has an intended values
+				missing := maps.Clone(tt.expectedConditionStatus)
+				for condType, status := range tt.expectedConditionStatus {
+					for _, cond := range cc.Status.Conditions {
+						if cond.Type == condType {
+							if !assert.Equal(ct, status, cond.Status) {
+								return
+							}
+							delete(missing, cond.Type)
+						}
+					}
+				}
+
+				assert.Empty(ct, missing, "Missing conditions: %v", missing)
+			}, time.Second*3, time.Millisecond*100)
+		})
+	}
+}
+
+func TestConflictingClusterConfigCondition(t *testing.T) {
+	nodes := []*cilium_api_v2.CiliumNode{
+		{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: "node-0",
+				Labels: map[string]string{
+					"rack":             "rack0",
+					"complete-overlap": "true",
+					"partial-overlap0": "true",
+				},
+			},
+		},
+		{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: "node-1",
+				Labels: map[string]string{
+					"rack":             "rack1",
+					"complete-overlap": "true",
+					"partial-overlap0": "true",
+					"partial-overlap1": "true",
+				},
+			},
+		},
+		{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: "node-2",
+				Labels: map[string]string{
+					"rack":             "rack2",
+					"complete-overlap": "true",
+					"partial-overlap1": "true",
+				},
+			},
+		},
+	}
+
+	type clusterConfig struct {
+		name     string
+		selector *slim_meta_v1.LabelSelector
+	}
+
+	// sortRelation sorts the relation in a deterministic way.
+	sortRelation := func(a, b [2]string) int {
+		slices.Sort(a[:])
+		slices.Sort(b[:])
+		return strings.Compare(a[0]+a[1], b[0]+b[1])
+	}
+
+	tests := []struct {
+		name           string
+		clusterConfigs []clusterConfig
+
+		// conflictingRelations is a list of pairs of cluster config
+		// names that are expected to have a conflict.
+		conflictingRelations [][2]string
+	}{
+		{
+			name: "ConflictingClusterConfig False",
+			clusterConfigs: []clusterConfig{
+				{
+					name: "cluster-config-0",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"rack": "rack0",
+						},
+					},
+				},
+				{
+					name: "cluster-config-1",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"rack": "rack1",
+						},
+					},
+				},
+				{
+					name: "cluster-config-2",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"rack": "rack2",
+						},
+					},
+				},
+			},
+			conflictingRelations: [][2]string{},
+		},
+		{
+			name: "ConflictingClusterConfig True complete overlap",
+			clusterConfigs: []clusterConfig{
+				{
+					name: "cluster-config-0",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"complete-overlap": "true",
+						},
+					},
+				},
+				{
+					name: "cluster-config-1",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"complete-overlap": "true",
+						},
+					},
+				},
+			},
+			conflictingRelations: [][2]string{
+				{"cluster-config-0", "cluster-config-1"},
+			},
+		},
+		{
+			name: "ConflictingClusterConfig True complete overlap with nil",
+			clusterConfigs: []clusterConfig{
+				{
+					name:     "cluster-config-0",
+					selector: nil,
+				},
+				{
+					name:     "cluster-config-1",
+					selector: nil,
+				},
+			},
+			conflictingRelations: [][2]string{
+				{"cluster-config-0", "cluster-config-1"},
+			},
+		},
+		{
+			name: "ConflictingClusterConfig True partial overlap",
+			clusterConfigs: []clusterConfig{
+				{
+					name: "cluster-config-0",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"partial-overlap0": "true",
+						},
+					},
+				},
+				{
+					name: "cluster-config-1",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"partial-overlap1": "true",
+						},
+					},
+				},
+			},
+			conflictingRelations: [][2]string{
+				{"cluster-config-0", "cluster-config-1"},
+			},
+		},
+		{
+			name: "ConflictingClusterConfig True partial overlap of four configs",
+			clusterConfigs: []clusterConfig{
+				{
+					name: "cluster-config-0",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"partial-overlap0": "true",
+						},
+					},
+				},
+				{
+					name: "cluster-config-1",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"rack": "rack0",
+						},
+					},
+				},
+				{
+					name: "cluster-config-2",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"rack": "rack1",
+						},
+					},
+				},
+				{
+					name: "cluster-config-3",
+					selector: &slim_meta_v1.LabelSelector{
+						MatchLabels: map[string]string{
+							"rack": "rack2",
+						},
+					},
+				},
+			},
+			conflictingRelations: [][2]string{
+				{"cluster-config-0", "cluster-config-1"},
+				{"cluster-config-0", "cluster-config-2"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
+
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			defer cancel()
+
+			f, watchersReady := newFixture(ctx, require.New(t))
+
+			tlog := hivetest.Logger(t)
+			f.hive.Start(tlog, ctx)
+			defer f.hive.Stop(tlog, ctx)
+
+			watchersReady()
+
+			// Setup resources
+			for _, node := range nodes {
+				upsertNode(req, ctx, f, node)
+			}
+
+			for _, config := range tt.clusterConfigs {
+				clusterConfig := &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: config.name,
+						// Fake client doesn't set UID. Assign it manually.
+						UID: uuid.NewUUID(),
+					},
+					Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{
+						NodeSelector: config.selector,
+						BGPInstances: []cilium_api_v2alpha1.CiliumBGPInstance{
+							{
+								Peers: []cilium_api_v2alpha1.CiliumBGPPeer{},
+							},
+						},
+					},
+				}
+				upsertBGPCC(req, ctx, f, clusterConfig)
+			}
+
+			require.EventuallyWithT(t, func(ct *assert.CollectT) {
+				configs, err := f.bgpcClient.List(ctx, meta_v1.ListOptions{})
+				if !assert.NoError(ct, err, "Cannot list cluster configs") {
+					return
+				}
+
+				// Here we collect all conflicting configs from all cluster configs.
+				// Since we detect the conflict by checking the owner reference of
+				// the node config, the cluster config observes the conflict depends
+				// on the node config creation order. So we need to check all cluster
+				// configs to get the entire view of the conflicts.
+				conflictingRelations := [][2]string{}
+				for _, config := range configs.Items {
+					cond := meta.FindStatusCondition(
+						config.Status.Conditions,
+						cilium_api_v2alpha1.BGPClusterConfigConditionConflictingClusterConfigs,
+					)
+					if !assert.NotNil(ct, cond, "Condition not found") {
+						return
+					}
+
+					if len(tt.conflictingRelations) == 0 {
+						if !assert.Equal(ct, meta_v1.ConditionFalse, cond.Status, "Expected condition to be false") {
+							return
+						}
+						return
+					}
+
+					if cond.Status == meta_v1.ConditionFalse {
+						continue
+					}
+
+					expr, err := regexp.Compile(
+						`Selecting the same node\(s\) with ClusterConfig\(s\): \[(.*)\]`,
+					)
+					if !assert.NoError(ct, err, "Error during regexp match") {
+						return
+					}
+
+					match := expr.FindSubmatch([]byte(cond.Message))
+					if !assert.Len(ct, match, 2, "Invalid number of match") {
+						return
+					}
+
+					for _, conflictingConfig := range strings.Split(string(match[1]), " ") {
+						relation := [2]string{config.Name, conflictingConfig}
+						conflictingRelations = append(conflictingRelations, relation)
+					}
+				}
+
+				// Short circuit if the number of conflict relations is not the same.
+				if !assert.Len(ct, conflictingRelations, len(tt.conflictingRelations), "Exexpected number of conflicts") {
+					return
+				}
+
+				// Sort the conflicting relations to make the comparison deterministic.
+				slices.SortFunc(conflictingRelations, sortRelation)
+				slices.SortFunc(tt.conflictingRelations, sortRelation)
+
+				// Compare the conflicting relations.
+				for i := 0; i < len(tt.conflictingRelations); i++ {
+					if !assert.ElementsMatch(ct, tt.conflictingRelations[i], conflictingRelations[i]) {
+						return
+					}
+				}
+			}, time.Second*3, time.Millisecond*100)
 		})
 	}
 }
@@ -589,6 +1115,22 @@ func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc
 		req.Fail(err.Error())
 	} else {
 		_, err = f.bgpcClient.Update(ctx, bgpcc, meta_v1.UpdateOptions{})
+	}
+	req.NoError(err)
+}
+
+func upsertBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc *cilium_api_v2alpha1.CiliumBGPPeerConfig) {
+	if bgppc == nil {
+		return
+	}
+
+	_, err := f.bgpcClient.Get(ctx, bgppc.Name, meta_v1.GetOptions{})
+	if err != nil && k8sErrors.IsNotFound(err) {
+		_, err = f.bgppcClient.Create(ctx, bgppc, meta_v1.CreateOptions{})
+	} else if err != nil {
+		req.Fail(err.Error())
+	} else {
+		_, err = f.bgppcClient.Update(ctx, bgppc, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
 }

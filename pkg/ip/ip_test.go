@@ -5,6 +5,7 @@ package ip
 
 import (
 	"math/big"
+	"math/rand/v2"
 	"net"
 	"net/netip"
 	"sort"
@@ -12,12 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
-
-type IPTestSuite struct{}
-
-func setupIPTestSuite(_ testing.TB) *IPTestSuite {
-	return &IPTestSuite{}
-}
 
 func TestCountIPs(t *testing.T) {
 	tests := map[string]*big.Int{
@@ -32,7 +27,7 @@ func TestCountIPs(t *testing.T) {
 	}
 	for cidr, nIPs := range tests {
 		_, ipnet, err := net.ParseCIDR(cidr)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		count := CountIPsInCIDR(ipnet)
 		require.EqualValues(t, nIPs, count)
 	}
@@ -61,7 +56,7 @@ func TestFirstIP(t *testing.T) {
 	}
 }
 
-func (s *IPTestSuite) testIPNetsEqual(created, expected []*net.IPNet, t *testing.T) {
+func testIPNetsEqual(created, expected []*net.IPNet, t *testing.T) {
 	require.Len(t, created, len(expected))
 	for index := range created {
 		require.Equal(t, expected[index].String(), created[index].String())
@@ -69,7 +64,7 @@ func (s *IPTestSuite) testIPNetsEqual(created, expected []*net.IPNet, t *testing
 	}
 }
 
-func (s *IPTestSuite) testIPsEqual(created, expected net.IP, t *testing.T) {
+func testIPsEqual(created, expected net.IP, t *testing.T) {
 	require.Len(t, created, len(expected))
 	for k := range created {
 		require.Equal(t, expected[k], created[k])
@@ -87,8 +82,6 @@ func createIPRange(first string, last string) *netWithRange {
 }
 
 func TestRemoveRedundant(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	CIDRs := []*net.IPNet{
 		createIPNet("10.96.0.0", 12, ipv4BitLen),
 		createIPNet("10.112.0.0", 13, ipv4BitLen),
@@ -98,7 +91,7 @@ func TestRemoveRedundant(t *testing.T) {
 		createIPNet("10.112.0.0", 13, ipv4BitLen),
 	}
 	nonRedundantCIDRs := removeRedundantCIDRs(CIDRs)
-	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
 
 	CIDRs = []*net.IPNet{
 		createIPNet("10.96.0.0", 11, ipv4BitLen),
@@ -108,14 +101,14 @@ func TestRemoveRedundant(t *testing.T) {
 		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
-	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
 
 	CIDRs = []*net.IPNet{
 		createIPNet("10.112.0.0", 12, ipv4BitLen),
 		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
-	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
 
 	CIDRs = []*net.IPNet{
 		createIPNet("10.120.0.0", 13, ipv4BitLen),
@@ -130,7 +123,7 @@ func TestRemoveRedundant(t *testing.T) {
 		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
-	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
 
 	CIDRs = []*net.IPNet{
 		createIPNet("10.120.0.0", 13, ipv4BitLen),
@@ -146,12 +139,10 @@ func TestRemoveRedundant(t *testing.T) {
 		createIPNet("10.96.0.0", 11, ipv4BitLen),
 	}
 	nonRedundantCIDRs = removeRedundantCIDRs(CIDRs)
-	s.testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(nonRedundantCIDRs, expectedCIDRs, t)
 }
 
 func TestRemoveCIDRs(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	allowCIDRs := []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
 	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 12, ipv4BitLen),
 		createIPNet("10.112.0.0", 13, ipv4BitLen),
@@ -161,14 +152,14 @@ func TestRemoveCIDRs(t *testing.T) {
 		createIPNet("10.64.0.0", 11, ipv4BitLen),
 		createIPNet("10.120.0.0", 13, ipv4BitLen)}
 	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
 
 	// Removing superset removes the allowed CIDR
 	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, ipv4BitLen)}
 	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
 	expectedCIDRs = []*net.IPNet{}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
 
 	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
 	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, ipv4BitLen),
@@ -203,23 +194,23 @@ func TestRemoveCIDRs(t *testing.T) {
 		createIPNet("10.93.0.0", 30, ipv4BitLen),
 	}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
 
 	// Cannot remove CIDRs that are of a different address family.
 	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
 	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, ipv6BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, allowCIDRs, t)
 
 	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
 	removeCIDRs = []*net.IPNet{createIPNet("a000::", 8, ipv6BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, allowCIDRs, t)
 
 	allowCIDRs = []*net.IPNet{createIPNet("a000::", 8, ipv6BitLen)}
 	removeCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, ipv4BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, allowCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, allowCIDRs, t)
 
 	//IPv6 tests
 	allowCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:ff00::", 64, ipv6BitLen)}
@@ -227,7 +218,7 @@ func TestRemoveCIDRs(t *testing.T) {
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	expectedCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, ipv6BitLen),
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, ipv6BitLen)}
-	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
 
 }
 
@@ -235,32 +226,30 @@ func TestRemoveSameCIDR(t *testing.T) {
 	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, ipv4BitLen)}
 
 	allowedCIDRs := RemoveCIDRs(allowCIDRs, allowCIDRs)
-	require.Len(t, allowedCIDRs, 0)
+	require.Empty(t, allowedCIDRs)
 }
 
 func TestRemoveCIDRsEdgeCases(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	// Remote some /32s
 	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 30, ipv4BitLen)}
 	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, ipv4BitLen), createIPNet("10.96.0.1", 32, ipv4BitLen)}
 	expectedCIDRs := []*net.IPNet{createIPNet("10.96.0.2", 31, ipv4BitLen)}
 	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
 
 	// Remove some subnets
 	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 22, ipv4BitLen)}
 	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, ipv4BitLen), createIPNet("10.96.1.0", 24, ipv4BitLen)}
 	expectedCIDRs = []*net.IPNet{createIPNet("10.96.2.0", 23, ipv4BitLen)}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
 
 	// Remove all subnets
 	allowCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 23, ipv4BitLen)}
 	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 24, ipv4BitLen), createIPNet("10.96.1.0", 24, ipv4BitLen)}
 	expectedCIDRs = []*net.IPNet{}
 	allowedCIDRs = RemoveCIDRs(allowCIDRs, removeCIDRs)
-	s.testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
+	testIPNetsEqual(allowedCIDRs, expectedCIDRs, t)
 }
 
 func TestByteFunctions(t *testing.T) {
@@ -281,8 +270,6 @@ func TestByteFunctions(t *testing.T) {
 }
 
 func TestIPNetToRange(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	testRange := ipNetToRange(*createIPNet("192.0.128.0", 24, ipv4BitLen))
 	var expectedFirst, expectedLast []byte
 	expectedFirst = append(expectedFirst, v4Mappedv6Prefix...)
@@ -294,18 +281,18 @@ func TestIPNetToRange(t *testing.T) {
 	expectedLastIP := net.IP(expectedLast)
 	expectedRange := netWithRange{First: &expectedFirstIP, Last: &expectedLastIP}
 
-	s.checkRangesEqual(&expectedRange, &testRange, t)
+	checkRangesEqual(&expectedRange, &testRange, t)
 
 	// Check that all bits are masked correctly.
 	testRange = ipNetToRange(*createIPNet("192.0.128.255", 24, ipv4BitLen))
-	s.checkRangesEqual(&expectedRange, &testRange, t)
+	checkRangesEqual(&expectedRange, &testRange, t)
 
 	testRange = ipNetToRange(*createIPNet("fd44:7089:ff32:712b:ff00::", 64, ipv6BitLen))
 	testRange = ipNetToRange(*createIPNet("::ffff:0", 128, ipv6BitLen))
 
 }
 
-func (s *IPTestSuite) checkRangesEqual(range1, range2 *netWithRange, t *testing.T) {
+func checkRangesEqual(range1, range2 *netWithRange, t *testing.T) {
 	for l := range *range1.First {
 		require.Equal(t, (*range2.First)[l], (*range1.First)[l])
 	}
@@ -315,8 +302,6 @@ func (s *IPTestSuite) checkRangesEqual(range1, range2 *netWithRange, t *testing.
 }
 
 func TestNetsByRange(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	ranges := []*netWithRange{}
 
 	// Check sorting by last IP first
@@ -339,7 +324,7 @@ func TestNetsByRange(t *testing.T) {
 	// Ensure that length of ranges isn't modified first.
 	require.Equal(t, len(expectedRanges), len(ranges))
 	for k := range ranges {
-		s.checkRangesEqual(ranges[k], expectedRanges[k], t)
+		checkRangesEqual(ranges[k], expectedRanges[k], t)
 	}
 
 	ranges = []*netWithRange{createIPRange("10.0.0.0", "10.255.255.255"),
@@ -350,36 +335,34 @@ func TestNetsByRange(t *testing.T) {
 	// Ensure that length of ranges isn't modified first.
 	require.Equal(t, len(expectedRanges), len(ranges))
 	for k := range ranges {
-		s.checkRangesEqual(ranges[k], expectedRanges[k], t)
+		checkRangesEqual(ranges[k], expectedRanges[k], t)
 	}
 
 }
 
 func TestCoalesceCIDRs(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	cidrs := []*net.IPNet{createIPNet("192.0.128.0", 24, ipv4BitLen),
 		createIPNet("192.0.129.0", 24, ipv4BitLen)}
 	expected := []*net.IPNet{createIPNet("192.0.128.0", 23, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs := CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
-	s.testIPNetsEqual(mergedV4CIDRs, expected, t)
+	require.Empty(t, mergedV6CIDRs)
+	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.129.0", 24, ipv4BitLen),
 		createIPNet("192.0.130.0", 24, ipv4BitLen)}
 	expected = []*net.IPNet{createIPNet("192.0.129.0", 24, ipv4BitLen),
 		createIPNet("192.0.130.0", 24, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
-	s.testIPNetsEqual(mergedV4CIDRs, expected, t)
+	require.Empty(t, mergedV6CIDRs)
+	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, ipv4BitLen),
 		createIPNet("192.0.2.116", 31, ipv4BitLen),
 		createIPNet("192.0.2.118", 31, ipv4BitLen)}
 	expected = []*net.IPNet{createIPNet("192.0.2.112", 29, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
-	s.testIPNetsEqual(mergedV4CIDRs, expected, t)
+	require.Empty(t, mergedV6CIDRs)
+	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, ipv4BitLen),
 		createIPNet("192.0.2.116", 32, ipv4BitLen),
@@ -388,8 +371,8 @@ func TestCoalesceCIDRs(t *testing.T) {
 		createIPNet("192.0.2.116", 32, ipv4BitLen),
 		createIPNet("192.0.2.118", 31, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
-	s.testIPNetsEqual(mergedV4CIDRs, expected, t)
+	require.Empty(t, mergedV6CIDRs)
+	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 31, ipv4BitLen),
 		createIPNet("192.0.2.116", 31, ipv4BitLen),
@@ -397,8 +380,8 @@ func TestCoalesceCIDRs(t *testing.T) {
 	expected = []*net.IPNet{createIPNet("192.0.2.112", 31, ipv4BitLen),
 		createIPNet("192.0.2.116", 30, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
-	s.testIPNetsEqual(mergedV4CIDRs, expected, t)
+	require.Empty(t, mergedV6CIDRs)
+	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.1.254", 31, ipv4BitLen),
 		createIPNet("192.0.2.0", 28, ipv4BitLen),
@@ -424,21 +407,21 @@ func TestCoalesceCIDRs(t *testing.T) {
 		createIPNet("192.0.2.0", 24, ipv4BitLen),
 		createIPNet("192.0.3.0", 28, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
-	s.testIPNetsEqual(mergedV4CIDRs, expected, t)
+	require.Empty(t, mergedV6CIDRs)
+	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("::", 0, ipv6BitLen),
 		createIPNet("fe80::1", 128, ipv6BitLen)}
 	expected = []*net.IPNet{createIPNet("::", 0, ipv6BitLen)}
 	_, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	s.testIPNetsEqual(mergedV6CIDRs, expected, t)
+	testIPNetsEqual(mergedV6CIDRs, expected, t)
 
 	// assert cidr_merge(['::/0', '::192.0.2.0/124', 'ff00::101']) == [IPNetwork('::/0')]
 	cidrs = []*net.IPNet{createIPNet("::", 0, ipv6BitLen),
 		createIPNet("::192.0.2.0", 124, ipv6BitLen),
 		createIPNet("ff00::101", 128, ipv6BitLen)}
 	_, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	s.testIPNetsEqual(mergedV6CIDRs, expected, t)
+	testIPNetsEqual(mergedV6CIDRs, expected, t)
 }
 
 func TestRangeToCIDRs(t *testing.T) {
@@ -515,33 +498,31 @@ func TestRangeToCIDRs(t *testing.T) {
 }
 
 func TestPreviousIP(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	ip := net.ParseIP("10.0.0.0")
 	expectedPrev := net.ParseIP("9.255.255.255")
 	prevIP := getPreviousIP(ip)
-	s.testIPsEqual(prevIP, expectedPrev, t)
+	testIPsEqual(prevIP, expectedPrev, t)
 
 	// Check that underflow does not occur.
 	ip = net.ParseIP("0.0.0.0")
 	prevIP = getPreviousIP(ip)
 	expectedPrev = ip
-	s.testIPsEqual(prevIP, expectedPrev, t)
+	testIPsEqual(prevIP, expectedPrev, t)
 
 	ip = net.ParseIP("::")
 	prevIP = getPreviousIP(ip)
 	expectedPrev = ip
-	s.testIPsEqual(prevIP, expectedPrev, t)
+	testIPsEqual(prevIP, expectedPrev, t)
 
 	ip = net.ParseIP("10.0.0.1")
 	prevIP = getPreviousIP(ip)
 	expectedPrev = net.ParseIP("10.0.0.0")
-	s.testIPsEqual(prevIP, expectedPrev, t)
+	testIPsEqual(prevIP, expectedPrev, t)
 
 	ip = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
 	expectedPrev = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe")
 	prevIP = getPreviousIP(ip)
-	s.testIPsEqual(prevIP, expectedPrev, t)
+	testIPsEqual(prevIP, expectedPrev, t)
 }
 
 func TestNextIP(t *testing.T) {
@@ -593,50 +574,46 @@ func TestNextIP(t *testing.T) {
 }
 
 func TestCreateSpanningCIDR(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	netRange := createIPRange("10.0.0.0", "10.255.255.255")
 	expectedSpanningCIDR := createIPNet("10.0.0.0", 8, ipv4BitLen)
 	spanningCIDR := createSpanningCIDR(*netRange)
-	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
+	testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
 
 	netRange = createIPRange("10.0.0.0", "10.255.255.254")
 	expectedSpanningCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
-	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
+	testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
 
 	netRange = createIPRange("10.0.0.1", "10.0.0.1")
 	expectedSpanningCIDR = createIPNet("10.0.0.1", 32, ipv4BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
-	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
+	testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
 
 	netRange = createIPRange("10.0.0.1", "10.0.0.2")
 	expectedSpanningCIDR = createIPNet("10.0.0.0", 30, ipv4BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
-	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
+	testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
 
 	netRange = createIPRange("9.0.0.0", "10.0.0.0")
 	expectedSpanningCIDR = createIPNet("8.0.0.0", 6, ipv4BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
-	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
+	testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
 
 	netRange = createIPRange("FD44:7089:FF32:712B:FF00:0000:0000:0000", "FD44:7089:FF32:712B:FFFF:FFFF:FFFF:FFFF")
 	expectedSpanningCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 72, ipv6BitLen)
 	spanningCIDR = createSpanningCIDR(*netRange)
-	s.testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
+	testIPNetsEqual([]*net.IPNet{expectedSpanningCIDR}, []*net.IPNet{&spanningCIDR}, t)
 
 }
 
 func TestPartitionCIDR(t *testing.T) {
-	s := setupIPTestSuite(t)
-
 	targetCIDR := createIPNet("10.0.0.0", 8, ipv4BitLen)
 	excludeCIDR := createIPNet("10.255.255.255", 32, ipv4BitLen)
 	left, exclude, right := PartitionCIDR(*targetCIDR, *excludeCIDR)
 	// Exclude should just contain exclude CIDR
-	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, t)
+	testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, t)
 	// Nothing should be in right list.
-	require.Equal(t, 0, len(right))
+	require.Empty(t, right)
 	expectedLeft := []*net.IPNet{createIPNet("10.0.0.0", 9, ipv4BitLen),
 		createIPNet("10.128.0.0", 10, ipv4BitLen),
 		createIPNet("10.192.0.0", 11, ipv4BitLen),
@@ -662,15 +639,15 @@ func TestPartitionCIDR(t *testing.T) {
 		createIPNet("10.255.255.252", 31, ipv4BitLen),
 		createIPNet("10.255.255.254", 32, ipv4BitLen),
 	}
-	s.testIPNetsEqual(expectedLeft, left, t)
+	testIPNetsEqual(expectedLeft, left, t)
 
 	targetCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	excludeCIDR = createIPNet("10.0.0.0", 32, ipv4BitLen)
 	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	// Exclude should just contain exclude CIDR
-	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, t)
+	testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, t)
 	// Nothing should be in left list.
-	require.Equal(t, 0, len(left))
+	require.Empty(t, left)
 	expectedRight := []*net.IPNet{createIPNet("10.128.0.0", 9, ipv4BitLen),
 		createIPNet("10.64.0.0", 10, ipv4BitLen),
 		createIPNet("10.32.0.0", 11, ipv4BitLen),
@@ -696,31 +673,31 @@ func TestPartitionCIDR(t *testing.T) {
 		createIPNet("10.0.0.2", 31, ipv4BitLen),
 		createIPNet("10.0.0.1", 32, ipv4BitLen),
 	}
-	s.testIPNetsEqual(expectedRight, right, t)
+	testIPNetsEqual(expectedRight, right, t)
 
 	// exclude is not in target CIDR and is to left.
 	targetCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	excludeCIDR = createIPNet("9.0.0.255", 32, ipv4BitLen)
 	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
-	require.Equal(t, 0, len(left))
-	require.Equal(t, 0, len(exclude))
-	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, right, t)
+	require.Empty(t, left)
+	require.Empty(t, exclude)
+	testIPNetsEqual([]*net.IPNet{targetCIDR}, right, t)
 
 	// exclude is not in target CIDR and is to right.
 	targetCIDR = createIPNet("10.255.255.254", 32, ipv4BitLen)
 	excludeCIDR = createIPNet("10.255.255.255", 32, ipv4BitLen)
 	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
-	require.Equal(t, 0, len(right))
-	require.Equal(t, 0, len(exclude))
-	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, left, t)
+	require.Empty(t, right)
+	require.Empty(t, exclude)
+	testIPNetsEqual([]*net.IPNet{targetCIDR}, left, t)
 
 	// exclude CIDR larger than target CIDR
 	targetCIDR = createIPNet("10.96.0.0", 12, ipv4BitLen)
 	excludeCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
-	require.Equal(t, 0, len(left))
-	require.Equal(t, 0, len(right))
-	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, exclude, t)
+	require.Empty(t, left)
+	require.Empty(t, right)
+	testIPNetsEqual([]*net.IPNet{targetCIDR}, exclude, t)
 
 	targetCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 64, ipv6BitLen)
 	excludeCIDR = createIPNet("fd44:7089:ff32:712b::", 66, ipv6BitLen)
@@ -729,8 +706,8 @@ func TestPartitionCIDR(t *testing.T) {
 
 	expectedCIDRs := []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, ipv6BitLen),
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, ipv6BitLen)}
-	s.testIPNetsEqual(expectedCIDRs, right, t)
-	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, t)
+	testIPNetsEqual(expectedCIDRs, right, t)
+	testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, t)
 }
 
 func TestKeepUniqueAddrs(t *testing.T) {
@@ -894,7 +871,7 @@ func TestIPListEquals(t *testing.T) {
 	ips := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")}
 	sorted := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8"), net.ParseIP("fd00::1")}
 
-	require.Equal(t, true, UnsortedIPListsAreEqual(ips, sorted))
+	require.True(t, UnsortedIPListsAreEqual(ips, sorted))
 }
 
 func TestGetIPFromListByFamily(t *testing.T) {
@@ -1020,7 +997,7 @@ func TestPrefixToIpsValidIPv4(t *testing.T) {
 	prefix := "192.168.1.0/30"
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1028,7 +1005,7 @@ func TestPrefixToIpsValidLimitedIPv4(t *testing.T) {
 	prefix := "192.168.1.0/28"
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1036,7 +1013,7 @@ func TestPrefixToIpsValidIPv6(t *testing.T) {
 	prefix := "2001:DB8::/126"
 	expectedIPs := []string{"2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1044,7 +1021,7 @@ func TestPrefixToIpsValidLimitedIPv6(t *testing.T) {
 	prefix := "2001:DB8::/80"
 	expectedIPs := []string{"2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"}
 	ips, err := PrefixToIps(prefix, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1052,14 +1029,14 @@ func TestPrefixToIPsInvalidPrefix(t *testing.T) {
 	prefix := "invalid"
 	ips, err := PrefixToIps(prefix, 0)
 	require.Error(t, err)
-	require.Len(t, ips, 0)
+	require.Empty(t, ips)
 }
 
 func TestPrefixToIPv4sEdgeCase(t *testing.T) {
 	prefix := "192.168.1.255/32"
 	expectedIPs := []string{"192.168.1.255"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1068,6 +1045,31 @@ func TestPrefixToIpsWithMaxIPv4sExceedingRange(t *testing.T) {
 	maxIPs := 10 // Intentionally exceeding the available IPs in the prefix
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, maxIPs)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
+}
+
+func BenchmarkSortAddrList(b *testing.B) {
+	ip := [4]byte{}
+	r := rand.New(rand.NewPCG(42, 1337))
+	size := 1000
+
+	var lists [][]netip.Addr
+	for range b.N {
+		list := make([]netip.Addr, size)
+		for i := range size {
+			bits := r.Uint32()
+			ip[0] = byte(bits)
+			ip[1] = byte(bits >> 8)
+			ip[2] = byte(bits >> 16)
+			ip[3] = byte(bits >> 24)
+			list[i] = netip.AddrFrom4(ip)
+		}
+		lists = append(lists, list)
+	}
+
+	b.ResetTimer()
+	for i := range b.N {
+		SortAddrList(lists[i])
+	}
 }

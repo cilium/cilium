@@ -3,7 +3,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: hubble-relay
-  namespace: {{ .Values.hubble.relay.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
+  namespace: {{ .Values.hubble.relay.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
   labels:
     {{- with .Values.hubble.relay.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
@@ -23,7 +23,7 @@ spec:
       k8s-app: hubble-relay
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ include "cilium.namespace" . }}
   endpoints:
   - port: metrics
     interval: {{ .Values.hubble.relay.prometheus.serviceMonitor.interval | quote }}

@@ -375,7 +375,7 @@ func TestUnsignedLongestPrefixMatch(t *testing.T) {
 				// purpose of the loop condition as some tests
 				// overflow uint16 causing an infinite loop.
 				for p := uint(start); p <= uint(end); p++ {
-					got, _ := ut.LongestPrefixMatch(uint16(p))
+					_, got, _ := ut.LongestPrefixMatch(uint16(p))
 					if entry != got {
 						t.Fatalf("Looking up key %d, expected entry %q, but got %q", p, entry, got)
 					}
@@ -385,13 +385,13 @@ func TestUnsignedLongestPrefixMatch(t *testing.T) {
 			start := firstRange.start
 			end := lastRange.end
 			for p := uint(0); p < uint(start); p++ {
-				got, ok := ut.LongestPrefixMatch(uint16(p))
+				_, got, ok := ut.LongestPrefixMatch(uint16(p))
 				if ok {
 					t.Fatalf("Looking up key %d, expected no entry, but got %q", p, got)
 				}
 			}
 			for p := uint(end) + 1; p <= uint(65535); p++ {
-				got, ok := ut.LongestPrefixMatch(uint16(p))
+				_, got, ok := ut.LongestPrefixMatch(uint16(p))
 				if ok {
 					t.Fatalf("Looking up key %d, expected no entry, but got %q", p, got)
 				}
@@ -778,7 +778,7 @@ func BenchmarkTrieLongestPrefixMatch(b *testing.B) {
 	for i := uint32(0); i < 255; i++ {
 		upperOct := i << 8
 		for t := uint32(0); t < 255; t++ {
-			_, ok := tri.LongestPrefixMatch(0xffff_0000 | upperOct | t)
+			_, _, ok := tri.LongestPrefixMatch(0xffff_0000 | upperOct | t)
 			if !ok {
 				b.Fatal("expected valid lookup, but got nil")
 			}

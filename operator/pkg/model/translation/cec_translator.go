@@ -6,18 +6,19 @@ package translation
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	goslices "slices"
 	"sort"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
-	"golang.org/x/exp/maps"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -148,16 +149,13 @@ func (i *cecTranslator) getServicesWithPorts(namespace string, name string, m *m
 		}
 	}
 
-	ports := maps.Keys(allPorts)
 	// ensure the ports are stably sorted
-	goslices.SortStableFunc(ports, func(a, b uint16) int {
-		return cmp.Compare(a, b)
-	})
+	ports := goslices.Sorted(maps.Keys(allPorts))
 
 	return []*ciliumv2.ServiceListener{
 		{
 			Namespace: namespace,
-			Name:      model.Shorten(name),
+			Name:      shortener.ShortenK8sResourceName(name),
 			Ports:     ports,
 		},
 	}
@@ -382,7 +380,7 @@ func (i *cecTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 		}
 	}
 
-	sort.Strings(sortedClusterNames)
+	goslices.Sort(sortedClusterNames)
 	res := make([]ciliumv2.XDSResource, len(sortedClusterNames))
 	for i, name := range sortedClusterNames {
 		res[i] = envoyClusters[name]

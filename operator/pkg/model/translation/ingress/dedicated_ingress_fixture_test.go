@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -135,7 +136,17 @@ func toListenerFilter(name string) *envoy_config_listener.Filter {
 					{UpgradeType: "websocket"},
 				},
 				UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-				SkipXffAppend:    false,
+				InternalAddressConfig: &http_connection_manager_v3.HttpConnectionManager_InternalAddressConfig{
+					UnixSockets: false,
+					CidrRanges: []*envoy_config_core_v3.CidrRange{
+						{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
+						{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
+						{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
+						{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
+						{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
+					},
+				},
+				SkipXffAppend: false,
 				HttpFilters: []*http_connection_manager_v3.HttpFilter{
 					{
 						Name: "envoy.filters.http.grpc_web",
@@ -1240,7 +1251,7 @@ func hostNetworkListenersCiliumEnvoyConfig(address string, port uint32, nodeLabe
 				},
 			},
 			Resources: []ciliumv2.XDSResource{
-				{Any: toHTTPListenerXDSResource(false, model.AddressOf(address), model.AddressOf(port))},
+				{Any: toHTTPListenerXDSResource(false, ptr.To(address), ptr.To(port))},
 				{
 					Any: toAny(&envoy_config_route_v3.RouteConfiguration{
 						Name: "listener-insecure",

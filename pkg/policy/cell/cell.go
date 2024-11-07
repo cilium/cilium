@@ -32,11 +32,11 @@ type policyRepoParams struct {
 	Lifecycle       cell.Lifecycle
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
-	IdentityManager *identitymanager.IdentityManager
+	IdentityManager identitymanager.IDManager
 	ClusterInfo     cmtypes.ClusterInfo
 }
 
-func newPolicyRepo(params policyRepoParams) *policy.Repository {
+func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
@@ -73,7 +73,7 @@ type policyUpdaterParams struct {
 	cell.In
 
 	Lifecycle        cell.Lifecycle
-	PolicyRepository *policy.Repository
+	PolicyRepository policy.PolicyRepository
 	EndpointManager  endpointmanager.EndpointManager
 }
 

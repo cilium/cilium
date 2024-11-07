@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/policy"
@@ -15,7 +15,7 @@ import (
 
 func Test_authMapCache_restoreCache(t *testing.T) {
 	am := authMapCache{
-		logger: logrus.New(),
+		logger: hivetest.Logger(t),
 		authmap: &fakeAuthMap{
 			entries: map[authKey]authInfo{
 				{
@@ -48,7 +48,7 @@ func Test_authMapCache_restoreCache(t *testing.T) {
 
 func Test_authMapCache_allReturnsCopy(t *testing.T) {
 	am := authMapCache{
-		logger: logrus.New(),
+		logger: hivetest.Logger(t),
 		authmap: &fakeAuthMap{
 			entries: map[authKey]authInfo{},
 		},
@@ -95,7 +95,7 @@ func Test_authMapCache_Delete(t *testing.T) {
 		},
 	}
 	am := authMapCache{
-		logger:  logrus.New(),
+		logger:  hivetest.Logger(t),
 		authmap: fakeMap,
 		cacheEntries: map[authKey]authInfoCache{
 			{
@@ -173,7 +173,7 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 		},
 	}
 	am := authMapCache{
-		logger:  logrus.New(),
+		logger:  hivetest.Logger(t),
 		authmap: fakeMap,
 		cacheEntries: map[authKey]authInfoCache{
 			{

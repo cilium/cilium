@@ -6,7 +6,7 @@ package seven
 import (
 	"fmt"
 	"net/netip"
-	"sort"
+	"slices"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sirupsen/logrus"
@@ -17,9 +17,11 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -324,13 +326,14 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 
 func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) *flowpb.Endpoint {
 	labels := endpoint.Labels.GetModel()
-	sort.Strings(labels)
+	slices.Sort(labels)
 	return &flowpb.Endpoint{
-		ID:        uint32(endpoint.ID),
-		Identity:  uint32(endpoint.Identity),
-		Namespace: namespace,
-		Labels:    labels,
-		PodName:   podName,
+		ID:          uint32(endpoint.ID),
+		Identity:    uint32(endpoint.Identity),
+		ClusterName: endpoint.Labels.Get(string(source.Kubernetes) + "." + k8sConst.PolicyLabelCluster),
+		Namespace:   namespace,
+		Labels:      labels,
+		PodName:     podName,
 	}
 }
 

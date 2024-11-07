@@ -36,7 +36,7 @@ func init() {
 var HTTPRouteInvalidReferenceGrant = suite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidReferenceGrant",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace, with a backendRef in another namespace without valid ReferenceGrant, should have the ResolvedRefs condition set to False and not forward HTTP requests to any backend",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportReferenceGrant,

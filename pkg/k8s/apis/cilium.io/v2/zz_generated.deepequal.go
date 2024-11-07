@@ -921,14 +921,6 @@ func (in *EndpointStatus) DeepEqual(other *EndpointStatus) bool {
 		}
 	}
 
-	if (in.VisibilityPolicyStatus == nil) != (other.VisibilityPolicyStatus == nil) {
-		return false
-	} else if in.VisibilityPolicyStatus != nil {
-		if *in.VisibilityPolicyStatus != *other.VisibilityPolicyStatus {
-			return false
-		}
-	}
-
 	if in.State != other.State {
 		return false
 	}

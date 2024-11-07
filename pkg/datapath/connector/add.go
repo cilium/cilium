@@ -17,8 +17,8 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-connector")
 
 const (
-	// hostInterfacePrefix is the Host interface prefix.
-	hostInterfacePrefix = "lxc"
+	// HostInterfacePrefix is the Host interface prefix.
+	HostInterfacePrefix = "lxc"
 	// temporaryInterfacePrefix is the temporary interface prefix while setting up libNetwork interface.
 	temporaryInterfacePrefix = "tmp"
 )
@@ -28,7 +28,7 @@ func Endpoint2IfName(endpointID string) string {
 	sum := fmt.Sprintf("%x", sha256.Sum256([]byte(endpointID)))
 	// returned string length should be < unix.IFNAMSIZ
 	truncateLength := uint(unix.IFNAMSIZ - len(temporaryInterfacePrefix) - 1)
-	return hostInterfacePrefix + truncateString(sum, truncateLength)
+	return HostInterfacePrefix + truncateString(sum, truncateLength)
 }
 
 // Endpoint2TempIfName returns the temporary interface name for the given
@@ -46,5 +46,5 @@ func truncateString(epID string, maxLen uint) string {
 
 // DisableRpFilter tries to disable rpfilter on specified interface
 func DisableRpFilter(sysctl sysctl.Sysctl, ifName string) error {
-	return sysctl.Disable(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifName))
+	return sysctl.Disable([]string{"net", "ipv4", "conf", ifName, "rp_filter"})
 }

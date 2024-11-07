@@ -13,5 +13,5 @@ import (
 
 func TestGetMaximumAllocatableIPv4(t *testing.T) {
 	n := &Node{}
-	require.Equal(t, n.GetMaximumAllocatableIPv4(), types.InterfaceAddressLimit)
+	require.Equal(t, types.InterfaceAddressLimit, n.GetMaximumAllocatableIPv4())
 }

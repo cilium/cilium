@@ -6,7 +6,6 @@
 package loader
 
 import (
-	"fmt"
 	"net"
 	"testing"
 
@@ -79,24 +78,24 @@ func TestSetupDev(t *testing.T) {
 		err = enableForwarding(sysctl, dummy)
 		require.NoError(t, err)
 
-		enabledSettings := []string{
-			fmt.Sprintf("net.ipv6.conf.%s.forwarding", ifName),
-			fmt.Sprintf("net.ipv4.conf.%s.forwarding", ifName),
-			fmt.Sprintf("net.ipv4.conf.%s.accept_local", ifName),
+		enabledSettings := [][]string{
+			{"net", "ipv6", "conf", ifName, "forwarding"},
+			{"net", "ipv4", "conf", ifName, "forwarding"},
+			{"net", "ipv4", "conf", ifName, "accept_local"},
 		}
-		disabledSettings := []string{
-			fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifName),
-			fmt.Sprintf("net.ipv4.conf.%s.send_redirects", ifName),
+		disabledSettings := [][]string{
+			{"net", "ipv4", "conf", ifName, "rp_filter"},
+			{"net", "ipv4", "conf", ifName, "send_redirects"},
 		}
 		for _, setting := range enabledSettings {
 			s, err := sysctl.Read(setting)
 			require.NoError(t, err)
-			require.Equal(t, s, "1")
+			require.Equal(t, "1", s)
 		}
 		for _, setting := range disabledSettings {
 			s, err := sysctl.Read(setting)
 			require.NoError(t, err)
-			require.Equal(t, s, "0")
+			require.Equal(t, "0", s)
 		}
 
 		err = netlink.LinkDel(dummy)
@@ -125,7 +124,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			geneve, ok := link.(*netlink.Geneve)
 			require.True(t, ok)
 			require.True(t, geneve.FlowBased)
-			require.EqualValues(t, geneve.Dport, defaults.TunnelPortGeneve)
+			require.EqualValues(t, defaults.TunnelPortGeneve, geneve.Dport)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -150,7 +149,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			geneve, ok := link.(*netlink.Geneve)
 			require.True(t, ok)
 			require.True(t, geneve.FlowBased)
-			require.EqualValues(t, geneve.Dport, 12345)
+			require.EqualValues(t, 12345, geneve.Dport)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -198,7 +197,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			vxlan, ok := link.(*netlink.Vxlan)
 			require.True(t, ok)
 			require.True(t, vxlan.FlowBased)
-			require.EqualValues(t, vxlan.Port, defaults.TunnelPortVXLAN)
+			require.EqualValues(t, defaults.TunnelPortVXLAN, vxlan.Port)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -223,7 +222,7 @@ func TestSetupTunnelDevice(t *testing.T) {
 			vxlan, ok := link.(*netlink.Vxlan)
 			require.True(t, ok)
 			require.True(t, vxlan.FlowBased)
-			require.EqualValues(t, vxlan.Port, 12345)
+			require.EqualValues(t, 12345, vxlan.Port)
 
 			err = netlink.LinkDel(link)
 			require.NoError(t, err)
@@ -333,8 +332,8 @@ func TestAddHostDeviceAddr(t *testing.T) {
 				foundIPv6 = true
 			}
 		}
-		require.Equal(t, foundIPv4, true)
-		require.Equal(t, foundIPv6, true)
+		require.True(t, foundIPv4)
+		require.True(t, foundIPv6)
 
 		err = netlink.LinkDel(dummy)
 		require.NoError(t, err)

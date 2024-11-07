@@ -42,7 +42,7 @@ func TestOps(t *testing.T) {
 	require.NoError(t, err, "LinkAdd")
 	link, err := nlh.LinkByName("dummy0")
 	require.NoError(t, err, "LinkByName")
-	require.NoError(t, err, nlh.LinkSetUp(link))
+	require.NoError(t, nlh.LinkSetUp(link))
 	index := link.Attrs().Index
 	name := link.Attrs().Name
 
@@ -76,7 +76,7 @@ func TestOps(t *testing.T) {
 	// qdisc should now have changed from "noqueue" to mq (or fq if mq not supported)
 	qdiscs, err = nlh.QdiscList(link)
 	require.NoError(t, err, "QdiscList")
-	require.Greater(t, len(qdiscs), 0)
+	require.NotEmpty(t, qdiscs)
 	t.Logf("qdiscs after: %+v", qdiscs)
 
 	if qdiscs[0].Type() != "mq" {

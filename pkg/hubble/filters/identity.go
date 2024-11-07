@@ -5,6 +5,7 @@ package filters
 
 import (
 	"context"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -21,11 +22,7 @@ func destinationEndpoint(ev *v1.Event) *flowpb.Endpoint {
 func filterByIdentity(identities []uint32, getEndpoint func(*v1.Event) *flowpb.Endpoint) FilterFunc {
 	return func(ev *v1.Event) bool {
 		if endpoint := getEndpoint(ev); endpoint != nil {
-			for _, i := range identities {
-				if i == endpoint.Identity {
-					return true
-				}
-			}
+			return slices.Contains(identities, endpoint.Identity)
 		}
 		return false
 	}

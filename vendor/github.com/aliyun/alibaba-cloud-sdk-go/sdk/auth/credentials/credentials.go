@@ -64,6 +64,7 @@ type Credentials struct {
 	AccessKeySecret string
 	SecurityToken   string
 	BearerToken     string
+	ProviderName    string
 }
 
 type do func(req *http.Request) (*http.Response, error)
@@ -80,6 +81,7 @@ var hookNewRequest = func(fn newReuqest) newReuqest {
 
 type CredentialsProvider interface {
 	GetCredentials() (cc *Credentials, err error)
+	GetProviderName() string
 }
 
 type StaticAKCredentialsProvider struct {
@@ -98,8 +100,13 @@ func (provider *StaticAKCredentialsProvider) GetCredentials() (cc *Credentials, 
 	cc = &Credentials{
 		AccessKeyId:     provider.accessKeyId,
 		AccessKeySecret: provider.accessKeySecret,
+		ProviderName:    provider.GetProviderName(),
 	}
 	return
+}
+
+func (provider *StaticAKCredentialsProvider) GetProviderName() string {
+	return "static_ak"
 }
 
 type StaticSTSCredentialsProvider struct {
@@ -121,8 +128,13 @@ func (provider *StaticSTSCredentialsProvider) GetCredentials() (cc *Credentials,
 		AccessKeyId:     provider.accessKeyId,
 		AccessKeySecret: provider.accessKeySecret,
 		SecurityToken:   provider.securityToken,
+		ProviderName:    provider.GetProviderName(),
 	}
 	return
+}
+
+func (provider *StaticSTSCredentialsProvider) GetProviderName() string {
+	return "static_sts"
 }
 
 type BearerTokenCredentialsProvider struct {
@@ -137,9 +149,14 @@ func NewBearerTokenCredentialsProvider(bearerToken string) *BearerTokenCredentia
 
 func (provider *BearerTokenCredentialsProvider) GetCredentials() (cc *Credentials, err error) {
 	cc = &Credentials{
-		BearerToken: provider.bearerToken,
+		BearerToken:  provider.bearerToken,
+		ProviderName: provider.GetProviderName(),
 	}
 	return
+}
+
+func (provider *BearerTokenCredentialsProvider) GetProviderName() string {
+	return "bearer_token"
 }
 
 // Deprecated: the RSA key pair credentials is deprecated
@@ -193,6 +210,7 @@ func (provider *RSAKeyPairCredentialsProvider) GetCredentials() (cc *Credentials
 	cc = &Credentials{
 		AccessKeyId:     *provider.sessionAccessKey.SessionAccessKeyId,
 		AccessKeySecret: *provider.sessionAccessKey.SessionAccessKeySecret,
+		ProviderName:    provider.GetProviderName(),
 	}
 	return
 }
@@ -294,6 +312,10 @@ func (provider *RSAKeyPairCredentialsProvider) getCredentials() (sessionAK *sess
 
 	sessionAK = data.SessionAccessKey
 	return
+}
+
+func (provider *RSAKeyPairCredentialsProvider) GetProviderName() string {
+	return "rsa_key_pair"
 }
 
 type RAMRoleARNCredentialsProvider struct {
@@ -482,8 +504,13 @@ func (provider *RAMRoleARNCredentialsProvider) GetCredentials() (cc *Credentials
 		AccessKeyId:     provider.sessionCredentials.AccessKeyId,
 		AccessKeySecret: provider.sessionCredentials.AccessKeySecret,
 		SecurityToken:   provider.sessionCredentials.SecurityToken,
+		ProviderName:    fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.credentialsProvider.GetProviderName()),
 	}
 	return
+}
+
+func (provider *RAMRoleARNCredentialsProvider) GetProviderName() string {
+	return "ram_role_arn"
 }
 
 type ECSRAMRoleCredentialsProvider struct {
@@ -619,8 +646,13 @@ func (provider *ECSRAMRoleCredentialsProvider) GetCredentials() (cc *Credentials
 		AccessKeyId:     provider.sessionCredentials.AccessKeyId,
 		AccessKeySecret: provider.sessionCredentials.AccessKeySecret,
 		SecurityToken:   provider.sessionCredentials.SecurityToken,
+		ProviderName:    provider.GetProviderName(),
 	}
 	return
+}
+
+func (provider *ECSRAMRoleCredentialsProvider) GetProviderName() string {
+	return "ecs_ram_role"
 }
 
 type OIDCCredentialsProvider struct {
@@ -853,6 +885,11 @@ func (provider *OIDCCredentialsProvider) GetCredentials() (cc *Credentials, err 
 		AccessKeyId:     provider.sessionCredentials.AccessKeyId,
 		AccessKeySecret: provider.sessionCredentials.AccessKeySecret,
 		SecurityToken:   provider.sessionCredentials.SecurityToken,
+		ProviderName:    provider.GetProviderName(),
 	}
 	return
+}
+
+func (provider *OIDCCredentialsProvider) GetProviderName() string {
+	return "oidc_role_arn"
 }

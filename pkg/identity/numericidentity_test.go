@@ -18,9 +18,9 @@ func TestLocalIdentity(t *testing.T) {
 	require.True(t, localID.HasLocalScope())
 
 	maxClusterID := NumericIdentity(cmtypes.ClusterIDMax | 1)
-	require.Equal(t, false, maxClusterID.HasLocalScope())
+	require.False(t, maxClusterID.HasLocalScope())
 
-	require.Equal(t, false, ReservedIdentityWorld.HasLocalScope())
+	require.False(t, ReservedIdentityWorld.HasLocalScope())
 }
 
 func TestClusterID(t *testing.T) {

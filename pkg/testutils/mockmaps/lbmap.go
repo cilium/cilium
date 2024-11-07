@@ -14,6 +14,7 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type LBMockMap struct {
@@ -65,7 +66,11 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	}
 	svc, found := m.ServiceByID[p.ID]
 	if !found {
-		frontend := lb.NewL3n4AddrID(lb.NONE, cmtypes.MustAddrClusterFromIP(p.IP), p.Port, p.Scope, lb.ID(p.ID))
+		u8p, err := u8proto.FromNumber(p.Protocol)
+		if err != nil {
+			return err
+		}
+		frontend := lb.NewL3n4AddrID(u8p.String(), cmtypes.MustAddrClusterFromIP(p.IP), p.Port, p.Scope, lb.ID(p.ID))
 		svc = &lb.SVC{Frontend: *frontend}
 	} else {
 		if p.PrevBackendsCount != len(svc.Backends) {
@@ -143,7 +148,7 @@ func (m *LBMockMap) UpdateBackendWithState(b *lb.Backend) error {
 	if !found {
 		return fmt.Errorf("update failed : backend %d doesn't exist", id)
 	}
-	if b.ID != be.ID || b.Port != be.Port || !b.AddrCluster.Equal(be.AddrCluster) {
+	if b.ID != be.ID || b.Port != be.Port || b.Protocol != be.Protocol || !b.AddrCluster.Equal(be.AddrCluster) {
 		return fmt.Errorf("backend in the map  %+v doesn't match %+v: only backend"+
 			"state can be updated", be.String(), b.String())
 	}

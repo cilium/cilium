@@ -18,7 +18,7 @@ type dropHandler struct {
 	context *api.ContextOptions
 }
 
-func (d *dropHandler) Init(registry *prometheus.Registry, options api.Options) error {
+func (d *dropHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
 	c, err := api.ParseContextOptions(options)
 	if err != nil {
 		return err

@@ -1,6 +1,7 @@
 # This file contain which k8s-versions should be executed for each PR
+# When upgrading k8s version, increment each minor version of each line by one.
 ---
 k8s-version:
+  - "1.31"
   - "1.30"
-  - "1.29"
-  - "1.27"
+  - "1.28"

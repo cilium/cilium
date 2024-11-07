@@ -39,8 +39,6 @@ func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
 
 		var i int
 		for _, src := range ct.ClientPods() {
-			src := src // copy to avoid memory aliasing when using reference
-
 			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep, features.IPFamilyAny).Run(func(a *check.Action) {
 				opts := s.rc.CurlOptions(ep, features.IPFamilyAny, src, ct.Params())
 				a.ExecInPod(ctx, ct.CurlCommand(ep, features.IPFamilyAny, opts...))

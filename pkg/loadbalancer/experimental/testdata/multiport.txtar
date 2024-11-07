@@ -1,0 +1,119 @@
+#! --enable-experimental-lb
+
+# Start the test application
+hive start
+
+# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
+db initialized
+
+k8s add service.yaml endpointslice.yaml
+db cmp services services.table
+db cmp frontends frontends.table
+db cmp backends backends.table 
+
+lb-maps cmp lbmaps.dump
+
+# Cleanup
+k8s delete service.yaml endpointslice.yaml 
+db cmp services services_empty.table
+db cmp frontends frontends_empty.table
+db cmp backends backends_empty.table
+
+#####
+
+-- services.table --
+Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+test/echo   k8s                  Cluster            Cluster                              0             0                     false              
+
+-- frontends.table --
+
+Address                Type        ServiceName   PortName   Backends                      Status
+10.96.50.104:80/TCP    ClusterIP   test/echo     http       10.244.1.1:80/TCP (active)    Done
+10.96.50.104:443/TCP   ClusterIP   test/echo     https      10.244.1.1:443/TCP (active)   Done
+
+-- backends.table --
+Address              State    Instances           NodeName          ZoneID
+10.244.1.1:80/TCP    active   test/echo (http)    nodeport-worker   0
+10.244.1.1:443/TCP   active   test/echo (https)   nodeport-worker   0
+
+-- services_empty.table --
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+
+-- frontends_empty.table --
+Address               Type        ServiceName   PortName   Status  Backends
+
+-- backends_empty.table --
+Address             State    Instances            NodeName           ZoneID
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP
+
+-- lbmaps.dump --
+BE: ID=1 ADDR=10.244.1.1:80 STATE=active
+BE: ID=2 ADDR=10.244.1.1:443 STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+REV: ID=2 ADDR=10.96.50.104:443
+SVC: ID=1 ADDR=10.96.50.104:80 SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80 SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:443 SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:443 SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable

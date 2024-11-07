@@ -22,10 +22,9 @@ var supportedFeatures = features.AllFeatures
 
 var gatewayClassSupportedFeatures = getSupportedFeatures()
 
-var exemptFeatures = []features.SupportedFeature{
-	"GatewayStaticAddresses",
-	"HTTPRouteParentRefPort",
-	"MeshConsumerRoute",
+var exemptFeatures = []features.Feature{
+	features.HTTPRouteParentRefPortFeature,
+	features.MeshConsumerRouteFeature,
 }
 
 // List of Gateway API features supported by Cilium.
@@ -36,7 +35,7 @@ func getSupportedFeatures() []gatewayv1.SupportedFeature {
 	}
 	ret := []gatewayv1.SupportedFeature{}
 	for _, feat := range supportedFeatures.UnsortedList() {
-		ret = append(ret, gatewayv1.SupportedFeature{Name: gatewayv1.FeatureName(feat)})
+		ret = append(ret, gatewayv1.SupportedFeature{Name: gatewayv1.FeatureName(feat.Name)})
 	}
 	slices.SortFunc(ret, func(a, b gatewayv1.SupportedFeature) int {
 		return cmp.Compare(a.Name, b.Name)

@@ -110,6 +110,8 @@ type RoutePolicyConditions struct {
 	MatchNeighbors []string
 	// MatchPrefixes matches ANY of the provided prefixes. If empty matches all prefixes.
 	MatchPrefixes []*RoutePolicyPrefixMatch
+	// MatchFamilies matches ANY of the provided address families. If empty matches all address families.
+	MatchFamilies []Family
 }
 
 // RoutePolicyAction defines the action taken on a route matched by a routing policy.
@@ -204,6 +206,8 @@ type ServerParameters struct {
 }
 
 // Family holds Address Family Indicator (AFI) and Subsequent Address Family Indicator for Multi-Protocol BGP
+//
+// +deepequal-gen=true
 type Family struct {
 	Afi  Afi
 	Safi Safi

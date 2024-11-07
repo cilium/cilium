@@ -45,13 +45,19 @@ func NewDefaultCredentialsProvider() (provider *DefaultCredentialsProvider) {
 
 func (provider *DefaultCredentialsProvider) GetCredentials() (cc *Credentials, err error) {
 	if provider.lastUsedProvider != nil {
-		return provider.lastUsedProvider.GetCredentials()
+		cc, err = provider.lastUsedProvider.GetCredentials()
+		if err != nil {
+			return
+		}
+		cc.ProviderName = fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.lastUsedProvider.GetProviderName())
+		return
 	}
 
 	errors := []string{}
 	for _, p := range provider.providerChain {
 		provider.lastUsedProvider = p
 		cc, err = p.GetCredentials()
+
 		if err != nil {
 			errors = append(errors, err.Error())
 			// 如果有错误，进入下一个获取过程
@@ -59,10 +65,15 @@ func (provider *DefaultCredentialsProvider) GetCredentials() (cc *Credentials, e
 		}
 
 		if cc != nil {
+			cc.ProviderName = fmt.Sprintf("%s/%s", provider.GetProviderName(), p.GetProviderName())
 			return
 		}
 	}
 
 	err = fmt.Errorf("unable to get credentials from any of the providers in the chain: %s", strings.Join(errors, ", "))
 	return
+}
+
+func (provider *DefaultCredentialsProvider) GetProviderName() string {
+	return "default"
 }

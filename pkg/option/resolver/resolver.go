@@ -7,11 +7,12 @@ package resolver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -34,12 +35,19 @@ const (
 	KindConfigMap  = "config-map"
 	KindNode       = "node"
 	KindNodeConfig = "cilium-node-config"
+
+	ConfigSources          = "config-sources"
+	ConfigSourcesOverrides = "config-sources-overrides"
 )
 
 type ConfigSource struct {
-	Kind      string // one of config-map, overrides, node
-	Namespace string // The namespace for the ConfigMap or CiliumNodeConfigs
-	Name      string // The name of the ConfigMap or Node, unused for Overrides
+	Kind      string `json:"kind"`      // one of KindConfigMap, KindNodeConfig, KindNode
+	Namespace string `json:"namespace"` // The namespace for the ConfigMap, CiliumNodeConfigs or empty for Node
+	Name      string `json:"name"`      // The name of the ConfigMap or Node, unused for Overrides
+}
+type ConfigOverride struct {
+	AllowConfigKeys []string `json:"allowConfigKeys"` // List of configuration keys that are allowed to be overridden (e.g. set from not the first source. Takes precedence over deny-config-keys
+	DenyConfigKeys  []string `json:"denyConfigKeys"`  // List of configuration keys that are not allowed to be overridden (e.g. set from not the first source. If allow-config-keys is set, this field is ignored"
 }
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option-resolver")
@@ -50,7 +58,7 @@ func (cs *ConfigSource) String() string {
 
 func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeName string, sources []ConfigSource, allowConfigKeys, denyConfigKeys []string) (map[string]string, error) {
 	config := map[string]string{}
-	sourceDescriptions := []string{} // We want to keep track of which sources we actually use
+	var sourceDescriptions []ConfigSource // We want to keep track of which unique sources we actually use in order of source priority
 
 	// matchKeys is a set of keys that are either allowed or denied
 	var matchKeys sets.Set[string]
@@ -89,7 +97,18 @@ func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeNam
 		}
 	}
 
-	config["config-sources"] = strings.Join(sourceDescriptions, ",")
+	sConfigJson, err := json.Marshal(sourceDescriptions)
+	if err != nil {
+		return config, fmt.Errorf("encoding to JSON %s: %w", ConfigSources, err)
+	}
+
+	oConfigJson, err := json.Marshal(ConfigOverride{AllowConfigKeys: allowConfigKeys, DenyConfigKeys: denyConfigKeys})
+	if err != nil {
+		return config, fmt.Errorf("encoding to JSON %s: %w", ConfigSourcesOverrides, err)
+	}
+
+	config[ConfigSources] = string(sConfigJson)
+	config[ConfigSourcesOverrides] = string(oConfigJson)
 
 	return config, nil
 }
@@ -159,7 +178,7 @@ func WriteConfigurations(ctx context.Context, destDir string, data map[string]st
 	return nil
 }
 
-func ReadConfigSource(ctx context.Context, client client.Clientset, nodeName string, source ConfigSource) (config map[string]string, descriptions []string, err error) {
+func ReadConfigSource(ctx context.Context, client client.Clientset, nodeName string, source ConfigSource) (config map[string]string, sources []ConfigSource, err error) {
 	log.WithFields(logrus.Fields{
 		logfields.ConfigSource: source.String(),
 	}).Infof("Reading configuration from %s", source.String())
@@ -174,7 +193,7 @@ func ReadConfigSource(ctx context.Context, client client.Clientset, nodeName str
 	return nil, nil, fmt.Errorf("invalid source kind %s", source.Kind)
 }
 
-func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName string) (map[string]string, []string, error) {
+func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName string) (map[string]string, []ConfigSource, error) {
 	node, err := client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get Node %s: %w", nodeName, err)
@@ -211,10 +230,11 @@ func readNodeOverrides(ctx context.Context, client client.Clientset, nodeName st
 	if len(out) == 0 {
 		return nil, nil, nil
 	}
-	return out, []string{fmt.Sprintf("%s:%s", KindNode, nodeName)}, nil
+
+	return out, []ConfigSource{{Kind: KindNode, Namespace: "", Name: nodeName}}, nil
 }
 
-func readConfigMap(ctx context.Context, client client.Clientset, source ConfigSource) (map[string]string, []string, error) {
+func readConfigMap(ctx context.Context, client client.Clientset, source ConfigSource) (map[string]string, []ConfigSource, error) {
 	cm, err := client.CoreV1().ConfigMaps(source.Namespace).Get(ctx, source.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -228,12 +248,12 @@ func readConfigMap(ctx context.Context, client client.Clientset, source ConfigSo
 	if len(cm.Data) == 0 {
 		return nil, nil, nil
 	}
-	return cm.Data, []string{source.String()}, nil
+	return cm.Data, []ConfigSource{source}, nil
 }
 
 // readNodeConfigsAllVersions read node configurations for versions v2 and v2alpha1 of CiliumNodeConfig CRD.
 // TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
-func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []string, error) {
+func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
 	var errv2, errv2alpha1 error
 
 	nodeConfigv2, descv2, errv2 := readNodeConfigs(ctx, client, nodeName, namespace, name)
@@ -259,7 +279,13 @@ func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, no
 		maps.Copy(nodeConfigv2alpha1, nodeConfigv2)
 	}
 
-	descv2 = append(descv2, descv2alpha1...)
+	addedSources := sets.New[ConfigSource](descv2...)
+	for _, source := range descv2alpha1 {
+		if !addedSources.Has(source) {
+			descv2 = append(descv2, source)
+		}
+		addedSources.Insert(source)
+	}
 
 	return nodeConfigv2alpha1, descv2, nil
 }
@@ -267,7 +293,7 @@ func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, no
 // readNodeConfigs reads all the CiliumNodeConfig in v2 objects and returns a flattened map
 // of any key overrides that apply to this node.
 // TODO remove me when CiliumNodeConfig v2alpha1 is deprecated
-func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []string, error) {
+func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
 	var overrides []ciliumv2.CiliumNodeConfig
 
 	// Retrieve CNCs if the name is not provided
@@ -332,7 +358,7 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 	}
 
 	// Within overrides, lexicograpical ordering determines priority.
-	sort.Strings(matchingNames)
+	slices.Sort(matchingNames)
 
 	out := make(map[string]string)
 	for _, name := range matchingNames {
@@ -352,9 +378,9 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 		}
 	}
 
-	var sourceDescriptions []string
+	var sourceDescriptions []ConfigSource
 	for _, name := range matchingNames {
-		sourceDescriptions = append(sourceDescriptions, fmt.Sprintf("%s:%s/%s", KindNodeConfig, namespace, name))
+		sourceDescriptions = append(sourceDescriptions, ConfigSource{Kind: KindNodeConfig, Namespace: namespace, Name: name})
 	}
 
 	return out, sourceDescriptions, nil
@@ -363,7 +389,7 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 // readNodeConfigsv2alpha1 reads all the CiliumNodeConfig in v2alpha1 objects and returns a flattened map
 // of any key overrides that apply to this node.
 // TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
-func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []string, error) {
+func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
 	var overrides []ciliumv2alpha1.CiliumNodeConfig
 
 	// Retrieve CNCs if the name is not provided
@@ -427,7 +453,7 @@ func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeN
 	}
 
 	// Within overrides, lexicograpical ordering determines priority.
-	sort.Strings(matchingNames)
+	slices.Sort(matchingNames)
 
 	out := make(map[string]string)
 	for _, name := range matchingNames {
@@ -447,9 +473,9 @@ func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeN
 		}
 	}
 
-	var sourceDescriptions []string
+	var sourceDescriptions []ConfigSource
 	for _, name := range matchingNames {
-		sourceDescriptions = append(sourceDescriptions, fmt.Sprintf("%s:%s/%s", KindNodeConfig, namespace, name))
+		sourceDescriptions = append(sourceDescriptions, ConfigSource{Kind: KindNodeConfig, Namespace: namespace, Name: name})
 	}
 
 	return out, sourceDescriptions, nil

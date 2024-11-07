@@ -47,6 +47,13 @@ paths:
         in: header
         required: false
         type: boolean
+      - name: require-k8s-connectivity
+        description: |
+          If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
+        in: header
+        required: false
+        type: boolean
+        default: true
       responses:
         '200':
           description: Success
@@ -1030,6 +1037,7 @@ paths:
       - policy
       parameters:
       - "$ref": "#/parameters/cidr"
+      - "$ref": "#/parameters/labels"
       responses:
         '200':
           description: Success
@@ -2307,6 +2315,7 @@ definitions:
                 - SNAT
                 - DSR
                 - Hybrid
+                - Annotation
               dsrMode:
                 type: string
                 enum:
@@ -2974,6 +2983,9 @@ definitions:
     properties:
       ip:
         description: Layer 3 address
+        type: string
+      protocol:
+        description: Layer 4 protocol (TCP, UDP, etc)
         type: string
       port:
         description: Layer 4 port number
@@ -4097,6 +4109,11 @@ definitions:
         type: array
         items:
           type: string
+      match-families:
+        description:  Matches any of the provided address families. If empty matches all address families.
+        type: array
+        items:
+          "$ref": "#/definitions/BgpFamily"
       match-prefixes:
         description:  Matches any of the provided prefixes. If empty matches all prefixes.
         type: array

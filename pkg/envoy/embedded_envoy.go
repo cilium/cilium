@@ -20,13 +20,14 @@ import (
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
+	envoy_config_overload "github.com/cilium/proxy/go/envoy/config/overload/v3"
 	envoy_extensions_bootstrap_internal_listener_v3 "github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3"
+	envoy_extensions_resource_monitors_downstream_connections "github.com/cilium/proxy/go/envoy/extensions/resource_monitors/downstream_connections/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -38,15 +39,25 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
 
+const (
+	envoyLogLevelOff      = "off"
+	envoyLogLevelCritical = "critical"
+	envoyLogLevelError    = "error"
+	envoyLogLevelWarning  = "warning"
+	envoyLogLevelInfo     = "info"
+	envoyLogLevelDebug    = "debug"
+	envoyLogLevelTrace    = "trace"
+)
+
 var (
 	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
 	envoyLevelMap = map[logrus.Level]string{
-		logrus.PanicLevel: "off",
-		logrus.FatalLevel: "critical",
-		logrus.ErrorLevel: "error",
-		logrus.WarnLevel:  "warning",
-		logrus.InfoLevel:  "info",
-		logrus.DebugLevel: "debug",
+		logrus.PanicLevel: envoyLogLevelOff,
+		logrus.FatalLevel: envoyLogLevelCritical,
+		logrus.ErrorLevel: envoyLogLevelError,
+		logrus.WarnLevel:  envoyLogLevelWarning,
+		logrus.InfoLevel:  envoyLogLevelInfo,
+		logrus.DebugLevel: envoyLogLevelDebug,
 		// spdlog "trace" not mapped
 	}
 
@@ -56,6 +67,8 @@ var (
 const (
 	ciliumEnvoyStarter = "cilium-envoy-starter"
 	ciliumEnvoy        = "cilium-envoy"
+
+	maxActiveDownstreamConnections = 50000
 )
 
 // EnableTracing changes Envoy log level to "trace", producing the most logs.
@@ -63,18 +76,24 @@ func EnableTracing() {
 	tracing = true
 }
 
-func mapLogLevel(level logrus.Level) string {
+func mapLogLevel(agentLogLevel logrus.Level, defaultEnvoyLogLevel string) string {
 	// Set Envoy loglevel to trace if debug AND verbose Engoy logging is enabled
-	if level == logrus.DebugLevel && tracing {
-		return "trace"
+	if agentLogLevel == logrus.DebugLevel && tracing {
+		return envoyLogLevelTrace
 	}
 
 	// Suppress the debug level if not debugging at flow level.
-	if level == logrus.DebugLevel && !flowdebug.Enabled() {
-		level = logrus.InfoLevel
+	if agentLogLevel == logrus.DebugLevel && !flowdebug.Enabled() {
+		return envoyLogLevelInfo
 	}
 
-	return envoyLevelMap[level]
+	// If defined, use explicit default log level for Envoy
+	if defaultEnvoyLogLevel != "" {
+		return defaultEnvoyLogLevel
+	}
+
+	// Fall back to current log level of the agent
+	return envoyLevelMap[agentLogLevel]
 }
 
 // Envoy manages a running Envoy proxy instance via the
@@ -88,6 +107,7 @@ type EmbeddedEnvoy struct {
 type embeddedEnvoyConfig struct {
 	runDir                   string
 	logPath                  string
+	defaultLogLevel          string
 	baseID                   uint64
 	keepCapNetBindService    bool
 	connectTimeout           int64
@@ -101,7 +121,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 	envoy := &EmbeddedEnvoy{
 		stopCh: make(chan struct{}),
 		errCh:  make(chan error, 1),
-		admin:  NewEnvoyAdminClientForSocket(GetSocketDir(config.runDir)),
+		admin:  NewEnvoyAdminClientForSocket(GetSocketDir(config.runDir), config.defaultLogLevel),
 	}
 
 	bootstrapFilePath := filepath.Join(config.runDir, "envoy", "bootstrap.pb")
@@ -153,7 +173,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 		}
 		defer logWriter.Close()
 
-		envoyArgs := []string{"-l", mapLogLevel(logging.GetLevel(logging.DefaultLogger)), "-c", bootstrapFilePath, "--base-id", strconv.FormatUint(config.baseID, 10), "--log-format", logFormat}
+		envoyArgs := []string{"-l", mapLogLevel(logging.GetLevel(logging.DefaultLogger), config.defaultLogLevel), "-c", bootstrapFilePath, "--base-id", strconv.FormatUint(config.baseID, 10), "--log-format", logFormat}
 		envoyStarterArgs := []string{}
 		if config.keepCapNetBindService {
 			envoyStarterArgs = append(envoyStarterArgs, "--keep-cap-net-bind-service", "--")
@@ -269,13 +289,13 @@ func newEnvoyLogPiper() io.WriteCloser {
 
 			// Map the Envoy log level to a logrus level.
 			switch level {
-			case "off", "critical", "error":
+			case envoyLogLevelOff, envoyLogLevelCritical, envoyLogLevelError:
 				scopedLog.Error(msg)
-			case "warning":
+			case envoyLogLevelWarning:
 				scopedLog.Warn(msg)
-			case "info":
+			case envoyLogLevelInfo:
 				scopedLog.Info(msg)
-			case "debug", "trace":
+			case envoyLogLevelDebug, envoyLogLevelTrace:
 				scopedLog.Debug(msg)
 			default:
 				scopedLog.Debug(msg)
@@ -472,19 +492,15 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 				TypedConfig: toAny(&envoy_extensions_bootstrap_internal_listener_v3.InternalListener{}),
 			},
 		},
-		LayeredRuntime: &envoy_config_bootstrap.LayeredRuntime{
-			Layers: []*envoy_config_bootstrap.RuntimeLayer{
-				{
-					Name: "static_layer_0",
-					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
-						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
-							}}}},
-						}},
-					},
+		OverloadManager: &envoy_config_overload.OverloadManager{
+			ResourceMonitors: []*envoy_config_overload.ResourceMonitor{{
+				Name: "envoy.resource_monitors.global_downstream_max_connections",
+				ConfigType: &envoy_config_overload.ResourceMonitor_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_resource_monitors_downstream_connections.DownstreamConnectionsConfig{
+						MaxActiveDownstreamConnections: maxActiveDownstreamConnections,
+					}),
 				},
-			},
+			}},
 		},
 	}
 

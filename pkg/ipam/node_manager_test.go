@@ -129,6 +129,10 @@ func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *Alloca
 	return nil
 }
 
+func (n *nodeOperationsMock) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+	return "", nil
+}
+
 func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ReleaseAction {
 	n.mutex.RLock()
 	excessIPs = math.IntMin(excessIPs, len(n.allocatedIPs))
@@ -182,25 +186,25 @@ func TestGetNodeNames(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	node1 := newCiliumNode("node1", 0, 0, 0)
 	mngr.Upsert(node1)
 
 	names := mngr.GetNames()
-	require.Equal(t, 1, len(names))
+	require.Len(t, names, 1)
 	require.Equal(t, "node1", names[0])
 
 	mngr.Upsert(newCiliumNode("node2", 0, 0, 0))
 
 	names = mngr.GetNames()
-	require.Equal(t, 2, len(names))
+	require.Len(t, names, 2)
 
 	mngr.Delete(node1)
 
 	names = mngr.GetNames()
-	require.Equal(t, 1, len(names))
+	require.Len(t, names, 1)
 	require.Equal(t, "node2", names[0])
 }
 
@@ -208,7 +212,7 @@ func TestNodeManagerGet(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	node1 := newCiliumNode("node1", 0, 0, 0)
@@ -227,7 +231,7 @@ func TestNodeManagerDelete(t *testing.T) {
 	require.NotNil(t, am)
 	metrics := metricsmock.NewMockMetrics()
 	mngr, err := NewNodeManager(am, k8sapi, metrics, 10, false, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	node1 := newCiliumNode("node-foo", 0, 0, 0)
@@ -326,13 +330,13 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	// Announce node wait for IPs to become available
 	cn := newCiliumNode("node1", 8, 0, 0)
 	mngr.Upsert(cn)
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
 	node := mngr.Get("node1")
 	require.NotNil(t, node)
@@ -341,7 +345,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 
 	// Use 7 out of 8 IPs
 	mngr.Upsert(updateCiliumNode(cn, 7))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
 	node = mngr.Get("node1")
 	require.NotNil(t, node)
@@ -357,13 +361,13 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	// Announce node wait for IPs to become available
 	cn := newCiliumNode("node2", -1, 10, 0)
 	mngr.Upsert(cn)
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 
 	node := mngr.Get("node2")
 	require.NotNil(t, node)
@@ -372,7 +376,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 
 	// 10 available, 8 used
 	mngr.Upsert(updateCiliumNode(cn, 8))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
@@ -381,7 +385,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 
 	// Change MinAllocate to 20
 	mngr.Upsert(newCiliumNode("node2", 0, 20, 8))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
@@ -397,13 +401,13 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node2", 1, 10, 0)
 	mngr.Upsert(cn)
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 
 	node := mngr.Get("node2")
 	require.NotNil(t, node)
@@ -412,7 +416,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 
 	// Use 9 out of 10 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 9))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
 	require.Equal(t, 10, node.Stats().IPv4.AvailableIPs)
@@ -420,7 +424,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 
 	// Use 10 out of 10 IPs, PreAllocate 1 must kick in and allocate an additional IP
 	mngr.Upsert(updateCiliumNode(cn, 10))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
 	require.Equal(t, 11, node.Stats().IPv4.AvailableIPs)
@@ -428,7 +432,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 
 	// Release some IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 8))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
 	require.Equal(t, 11, node.Stats().IPv4.AvailableIPs)
@@ -446,14 +450,14 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node3", 4, 15, 0)
 	cn.Spec.IPAM.MaxAboveWatermark = 4
 	mngr.Upsert(cn)
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 1*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 1*time.Second))
 
 	node := mngr.Get("node3")
 	require.NotNil(t, node)
@@ -462,7 +466,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 
 	// Use 11 out of 19 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 11))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
 	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
@@ -470,7 +474,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 
 	// Use 19 out of 19 IPs, PreAllocate 4 + MaxAboveWatermark must kick in and allocate 8 additional IPs
 	mngr.Upsert(updateCiliumNode(cn, 19))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
 	require.Equal(t, 27, node.Stats().IPv4.AvailableIPs)
@@ -478,7 +482,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 
 	// Free some IPs, 5 excess IPs appears but only be released at interval based resync, so expect timeout here
 	mngr.Upsert(updateCiliumNode(cn, 10))
-	require.NotNil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second))
+	require.Error(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
 	require.Equal(t, 27, node.Stats().IPv4.AvailableIPs)
@@ -502,7 +506,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 		node.instanceSync.Trigger()
 	})
 
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
 	require.Equal(t, 19, node.Stats().IPv4.AvailableIPs)
@@ -517,13 +521,13 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node3", 1, 3, 0)
 	mngr.Upsert(cn)
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 1*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 1*time.Second))
 
 	node := mngr.Get("node3")
 	require.NotNil(t, node)
@@ -532,7 +536,7 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 
 	// Use 3 out of 4 IPs, no additional IPs should be allocated
 	mngr.Upsert(updateCiliumNode(cn, 3))
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
 	require.Equal(t, 4, node.Stats().IPv4.AvailableIPs)
@@ -558,7 +562,7 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		node.PopulateIPReleaseStatus(node.resource)
 
-		require.Equal(t, 1, len(node.resource.Status.IPAM.ReleaseIPs))
+		require.Len(t, node.resource.Status.IPAM.ReleaseIPs, 1)
 
 		// Fake acknowledge IPs for release like agent would.
 		testipam.FakeAcknowledgeReleaseIps(node.resource)
@@ -573,10 +577,10 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 		node.PopulateIPReleaseStatus(node.resource)
 
 		// Verify that the entry for previously marked IP is removed, instead of being set to released state.
-		require.Equal(t, 0, len(node.resource.Status.IPAM.ReleaseIPs))
+		require.Empty(t, node.resource.Status.IPAM.ReleaseIPs)
 	})
 
-	require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
 	wg.Wait()
 	node = mngr.Get("node3")
 	require.NotNil(t, node)
@@ -604,7 +608,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	require.NotNil(t, am)
 	metricsapi := metricsmock.NewMockMetrics()
 	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	state := make([]*nodeState, numNodes)
@@ -617,7 +621,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	}
 
 	for _, s := range state {
-		require.Nil(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, s.name, 0) }, 5*time.Second))
+		require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, s.name, 0) }, 5*time.Second))
 
 		node := mngr.Get(s.name)
 		require.NotNil(t, node)
@@ -648,7 +652,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	am := newAllocationImplementationMock()
 	require.NotNil(b, am)
 	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
-	require.Nil(b, err)
+	require.NoError(b, err)
 	require.NotNil(b, mngr)
 
 	state := make([]*nodeState, b.N)

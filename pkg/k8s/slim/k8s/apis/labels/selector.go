@@ -351,12 +351,12 @@ func (r *Requirement) String() string {
 
 // safeSort sorts input strings without modification
 func safeSort(in []string) []string {
-	if sort.StringsAreSorted(in) {
+	if slices.IsSorted(in) {
 		return in
 	}
 	out := make([]string, len(in))
 	copy(out, in)
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 
@@ -982,7 +982,7 @@ func (s ValidatedSetSelector) String() string {
 		keys = append(keys, k)
 	}
 	// Ensure deterministic output
-	sort.Strings(keys)
+	slices.Sort(keys)
 	b := strings.Builder{}
 	for i, key := range keys {
 		v := s[key]

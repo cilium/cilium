@@ -44,10 +44,10 @@ type EnqueueRequestForObject = TypedEnqueueRequestForObject[client.Object]
 // Controllers that have associated Resources (e.g. CRDs) to reconcile the associated Resource.
 //
 // TypedEnqueueRequestForObject is experimental and subject to future change.
-type TypedEnqueueRequestForObject[T client.Object] struct{}
+type TypedEnqueueRequestForObject[object client.Object] struct{}
 
 // Create implements EventHandler.
-func (e *TypedEnqueueRequestForObject[T]) Create(ctx context.Context, evt event.TypedCreateEvent[T], q workqueue.RateLimitingInterface) {
+func (e *TypedEnqueueRequestForObject[T]) Create(ctx context.Context, evt event.TypedCreateEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if isNil(evt.Object) {
 		enqueueLog.Error(nil, "CreateEvent received with no metadata", "event", evt)
 		return
@@ -59,7 +59,7 @@ func (e *TypedEnqueueRequestForObject[T]) Create(ctx context.Context, evt event.
 }
 
 // Update implements EventHandler.
-func (e *TypedEnqueueRequestForObject[T]) Update(ctx context.Context, evt event.TypedUpdateEvent[T], q workqueue.RateLimitingInterface) {
+func (e *TypedEnqueueRequestForObject[T]) Update(ctx context.Context, evt event.TypedUpdateEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	switch {
 	case !isNil(evt.ObjectNew):
 		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
@@ -77,7 +77,7 @@ func (e *TypedEnqueueRequestForObject[T]) Update(ctx context.Context, evt event.
 }
 
 // Delete implements EventHandler.
-func (e *TypedEnqueueRequestForObject[T]) Delete(ctx context.Context, evt event.TypedDeleteEvent[T], q workqueue.RateLimitingInterface) {
+func (e *TypedEnqueueRequestForObject[T]) Delete(ctx context.Context, evt event.TypedDeleteEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if isNil(evt.Object) {
 		enqueueLog.Error(nil, "DeleteEvent received with no metadata", "event", evt)
 		return
@@ -89,7 +89,7 @@ func (e *TypedEnqueueRequestForObject[T]) Delete(ctx context.Context, evt event.
 }
 
 // Generic implements EventHandler.
-func (e *TypedEnqueueRequestForObject[T]) Generic(ctx context.Context, evt event.TypedGenericEvent[T], q workqueue.RateLimitingInterface) {
+func (e *TypedEnqueueRequestForObject[T]) Generic(ctx context.Context, evt event.TypedGenericEvent[T], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if isNil(evt.Object) {
 		enqueueLog.Error(nil, "GenericEvent received with no metadata", "event", evt)
 		return

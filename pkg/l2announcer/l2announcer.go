@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/netip"
 	"regexp"
@@ -18,7 +19,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +37,7 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -122,12 +123,12 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	if !params.DaemonConfig.EnableL2Announcements {
 		// If the L2 announcement feature is disabled, garbage collect any leases from previous runs when the feature
 		// might have been active. Just once, not on a timer.
-		announcer.params.JobGroup.Add(job.OneShot("l2-announcer lease-gc", announcer.leaseGC))
+		announcer.params.JobGroup.Add(job.OneShot("l2-announcer-lease-gc", announcer.leaseGC))
 		return announcer
 	}
 
-	announcer.params.JobGroup.Add(job.OneShot("l2-announcer run", announcer.run))
-	announcer.params.JobGroup.Add(job.Timer("l2-announcer lease-gc", func(ctx context.Context) error {
+	announcer.params.JobGroup.Add(job.OneShot("l2-announcer-run", announcer.run))
+	announcer.params.JobGroup.Add(job.Timer("l2-announcer-lease-gc", func(ctx context.Context) error {
 		return announcer.leaseGC(ctx, nil)
 	}, time.Minute))
 
@@ -740,7 +741,7 @@ func (l2a *L2Announcer) addSelectedService(svc *slim_corev1.Service, byPolicies 
 
 	// kick off leader election job
 	l2a.scopedGroup.Add(job.OneShot(
-		fmt.Sprintf("leader-election/%s/%s", svc.Namespace, svc.Name),
+		shortener.ShortenHiveJobName(fmt.Sprintf("leader-election-%s-%s", svc.Namespace, svc.Name)),
 		ss.serviceLeaderElection),
 	)
 }
@@ -888,7 +889,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 	// If we are not the leader, we should not have any proxy entries for the service.
 	if !ss.currentlyLeader {
 		// Remove origin from entries, and delete if no origins left
-		err := statedb.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
+		for e := range entriesIter {
 			// Copy, since modifying objects directly is not allowed.
 			e = e.DeepCopy()
 
@@ -900,23 +901,16 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 			if len(e.Origins) == 0 {
 				_, _, err := tbl.Delete(txn, e)
 				if err != nil {
-					return fmt.Errorf("delete in table: %w", err)
+					return fmt.Errorf("delete from table: %w", err)
 				}
-				return nil
+			} else {
+				_, _, err := tbl.Insert(txn, e)
+				if err != nil {
+					return fmt.Errorf("insert into table: %w", err)
+				}
 			}
-
-			_, _, err := tbl.Insert(txn, e)
-			if err != nil {
-				return fmt.Errorf("update in table: %w", err)
-			}
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("failed to modify desired state: %w", err)
 		}
-
 		txn.Commit()
-
 		return nil
 	}
 
@@ -927,7 +921,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 	}
 
 	// Loop over existing entries, delete undesired entries
-	err := statedb.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
+	for e := range entriesIter {
 		key := fmt.Sprintf("%s/%s", e.IP, e.NetworkInterface)
 
 		_, desired := desiredEntries[key]
@@ -935,7 +929,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 			// Iterator only contains entries which already have the origin of the current svc.
 			// So no need to add it in the second step.
 			satisfiedEntries[key] = true
-			return nil
+			continue
 		}
 
 		// Entry is undesired.
@@ -950,18 +944,16 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 
 		if len(e.Origins) == 0 {
 			// Delete, if no services want this IP + NetDev anymore
-			tbl.Delete(txn, e)
-			return nil
+			_, _, err := tbl.Delete(txn, e)
+			if err != nil {
+				return fmt.Errorf("delete from table: %w", err)
+			}
+		} else {
+			_, _, err := tbl.Insert(txn, e)
+			if err != nil {
+				return fmt.Errorf("insert into table: %w", err)
+			}
 		}
-
-		_, _, err := tbl.Insert(txn, e)
-		if err != nil {
-			return fmt.Errorf("update in table: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to modify desired state: %w", err)
 	}
 
 	// loop over the desired states, add any that are missing
@@ -975,9 +967,6 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 			IP:               entry.IP,
 			NetworkInterface: entry.NetworkInterface,
 		}))
-		if err != nil {
-			return fmt.Errorf("first: %w", err)
-		}
 
 		if existing == nil {
 			existing = &tables.L2AnnounceEntry{
@@ -992,13 +981,11 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 		entry.Origins = append(existing.Origins, entry.Origins...)
 
 		// Insert or update
-		_, _, err = tbl.Insert(txn, entry)
+		_, _, err := tbl.Insert(txn, entry)
 		if err != nil {
 			return fmt.Errorf("insert new: %w", err)
 		}
-		continue
 	}
-
 	txn.Commit()
 
 	return nil

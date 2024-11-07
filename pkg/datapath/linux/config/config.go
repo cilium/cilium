@@ -15,7 +15,6 @@ import (
 	"net"
 	"net/netip"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -27,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -309,6 +309,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			return fmt.Errorf("getting %s ifindex: %w", wgtypes.IfaceName, err)
 		}
 		cDefinesMap["WG_IFINDEX"] = fmt.Sprintf("%d", ifindex)
+		cDefinesMap["WG_PORT"] = fmt.Sprintf("%d", wgtypes.ListenPort)
 
 		if option.Config.EncryptNode {
 			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
@@ -390,10 +391,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			// always runs with "hostNetwork: true".
 			cDefinesMap["HOST_NETNS_COOKIE"] = fmt.Sprintf("%d", cookie)
 		}
+	}
 
-		if option.Config.EnableLocalRedirectPolicy {
-			cDefinesMap["ENABLE_LOCAL_REDIRECT_POLICY"] = "1"
-		}
+	if option.Config.EnableLocalRedirectPolicy {
+		cDefinesMap["ENABLE_LOCAL_REDIRECT_POLICY"] = "1"
 	}
 
 	cDefinesMap["NAT_46X64_PREFIX_0"] = "0"
@@ -452,16 +453,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			dsrEncapIPIP
 			dsrEncapGeneve
 		)
-		const (
-			dsrL4XlateInv = iota
-			dsrL4XlateFrontend
-			dsrL4XlateBackend
-		)
 		cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
 		cDefinesMap["DSR_ENCAP_GENEVE"] = fmt.Sprintf("%d", dsrEncapGeneve)
 		cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
-		cDefinesMap["DSR_XLATE_FRONTEND"] = fmt.Sprintf("%d", dsrL4XlateFrontend)
-		cDefinesMap["DSR_XLATE_BACKEND"] = fmt.Sprintf("%d", dsrL4XlateBackend)
 		if option.Config.LoadBalancerUsesDSR() {
 			cDefinesMap["ENABLE_DSR"] = "1"
 			if option.Config.EnablePMTUDiscovery {
@@ -469,6 +463,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 			if option.Config.NodePortMode == option.NodePortModeHybrid {
 				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+			} else if option.Config.NodePortMode == option.NodePortModeAnnotation {
+				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+				cDefinesMap["ENABLE_DSR_BYUSER"] = "1"
 			}
 			if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchOption {
 				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapNone)
@@ -477,18 +474,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			} else if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
 				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapGeneve)
 			}
-			if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
-				if option.Config.LoadBalancerDSRL4Xlate == option.DSRL4XlateFrontend {
-					cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateFrontend)
-				} else if option.Config.LoadBalancerDSRL4Xlate == option.DSRL4XlateBackend {
-					cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateBackend)
-				}
-			} else {
-				cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateInv)
-			}
 		} else {
 			cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapInv)
-			cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateInv)
 		}
 		if option.Config.EnableIPv4 {
 			if option.Config.LoadBalancerRSSv4CIDR != "" {
@@ -513,6 +500,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = "128"
 			}
 		}
+
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
@@ -655,7 +643,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 					// native-routing-cidr is optional with ip-masq-agent and may be nil
 					excludeCIDR = option.Config.IPv4NativeRoutingCIDR
 				} else {
-					excludeCIDR = datapath.RemoteSNATDstAddrExclusionCIDRv4()
+					excludeCIDR = cfg.NativeRoutingCIDRIPv4
 				}
 
 				if excludeCIDR != nil {
@@ -675,7 +663,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 					excludeCIDR = option.Config.IPv6NativeRoutingCIDR
 				} else {
-					excludeCIDR = datapath.RemoteSNATDstAddrExclusionCIDRv6()
+					excludeCIDR = cfg.NativeRoutingCIDRIPv6
 				}
 
 				if excludeCIDR != nil {
@@ -739,14 +727,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["TUNNEL_MODE"] = "1"
 	}
 
-	ciliumNetLink, err := netlink.LinkByName(defaults.SecondHostDevice)
+	ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
 	}
 	cDefinesMap["CILIUM_NET_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumNetLink.Attrs().HardwareAddr))
 	cDefinesMap["HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumNetLink.Attrs().Index)
 
-	ciliumHostLink, err := netlink.LinkByName(defaults.HostDevice)
+	ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
 	}
@@ -776,14 +764,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableHealthDatapath {
 		if option.Config.IPv4Enabled() {
-			ipip4, err := netlink.LinkByName(defaults.IPIPv4Device)
+			ipip4, err := safenetlink.LinkByName(defaults.IPIPv4Device)
 			if err != nil {
 				return fmt.Errorf("looking up link %s: %w", defaults.IPIPv4Device, err)
 			}
 			cDefinesMap["ENCAP4_IFINDEX"] = fmt.Sprintf("%d", ipip4.Attrs().Index)
 		}
 		if option.Config.IPv6Enabled() {
-			ipip6, err := netlink.LinkByName(defaults.IPIPv6Device)
+			ipip6, err := safenetlink.LinkByName(defaults.IPIPv6Device)
 			if err != nil {
 				return fmt.Errorf("looking up link %s: %w", defaults.IPIPv6Device, err)
 			}
@@ -793,6 +781,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	// Write Identity and ClusterID related macros.
 	cDefinesMap["CLUSTER_ID_MAX"] = fmt.Sprintf("%d", option.Config.MaxConnectedClusters)
+
+	if option.Config.LoadBalancerProtocolDifferentiation {
+		cDefinesMap["ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION"] = "1"
+	}
 
 	fmt.Fprint(fw, declareConfig("identity_length", identity.GetClusterIDShift(), "Identity length in bits"))
 	fmt.Fprint(fw, assignConfig("identity_length", identity.GetClusterIDShift()))
@@ -805,7 +797,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	for key := range cDefinesMap {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	for _, key := range keys {
 		fmt.Fprintf(fw, "#define %s %s\n", key, cDefinesMap[key])
@@ -832,7 +824,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 }
 
 func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
-	ephemeralPortRangeStr, err := sysctl.Read("net.ipv4.ip_local_port_range")
+	ephemeralPortRangeStr, err := sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
 	if err != nil {
 		return 0, fmt.Errorf("unable to read net.ipv4.ip_local_port_range: %w", err)
 	}
@@ -869,7 +861,7 @@ func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
 
 	vlansByIfIndex := make(map[int][]int)
 
-	links, err := netlink.LinkList()
+	links, err := safenetlink.LinkList()
 	if err != nil {
 		return "", fmt.Errorf("listing network interfaces: %w", err)
 	}
@@ -886,7 +878,7 @@ func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
 	vlansCount := 0
 	for _, v := range vlansByIfIndex {
 		vlansCount += len(v)
-		sort.Ints(v) // sort Vlanids in-place since netlink.LinkList() may return them in any order
+		slices.Sort(v) // sort Vlanids in-place since safenetlink.LinkList() may return them in any order
 	}
 
 	if vlansCount == 0 {
@@ -1106,7 +1098,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 
 	fmt.Fprintf(fw, "#define HOST_EP_ID %d\n", uint32(hostEndpointID))
 
-	if option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
+	if e.IsHost() || option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
 		if e.RequireARPPassthrough() {
 			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
 		} else {

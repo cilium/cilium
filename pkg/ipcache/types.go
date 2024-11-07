@@ -5,10 +5,12 @@ package ipcache
 
 import (
 	"bytes"
+	"maps"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -157,16 +159,16 @@ func (s prefixInfo) isValid() bool {
 }
 
 func (s prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
-	resourceIDs := maps.Keys(s)
-	sort.Slice(resourceIDs, func(i, j int) bool {
-		a := resourceIDs[i]
-		b := resourceIDs[j]
+	return slices.SortedStableFunc(maps.Keys(s), func(a ipcachetypes.ResourceID, b ipcachetypes.ResourceID) int {
 		if s[a].source != s[b].source {
-			return !source.AllowOverwrite(s[a].source, s[b].source)
+			if !source.AllowOverwrite(s[a].source, s[b].source) {
+				return -1
+			} else {
+				return 1
+			}
 		}
-		return a < b
+		return strings.Compare(string(a), string(b))
 	})
-	return resourceIDs
 }
 
 func (s prefixInfo) ToLabels() labels.Labels {
@@ -175,15 +177,6 @@ func (s prefixInfo) ToLabels() labels.Labels {
 		l.MergeLabels(v.labels)
 	}
 	return l
-}
-
-func (s prefixInfo) hasLabelSource(source string) bool {
-	for _, v := range s {
-		if v.labels.HasSource(source) {
-			return true
-		}
-	}
-	return false
 }
 
 func (s prefixInfo) Source() source.Source {
@@ -254,6 +247,10 @@ func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
 	}
 
 	return identities[0], true
+}
+
+func (ri resourceInfo) shouldLogConflicts() bool {
+	return bool(ri.identityOverride) || ri.tunnelPeer.IsValid() || ri.encryptKey.IsValid() || ri.requestedIdentity.IsValid()
 }
 
 func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {

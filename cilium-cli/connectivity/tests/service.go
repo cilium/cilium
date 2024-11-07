@@ -6,13 +6,12 @@ package tests
 import (
 	"context"
 	"fmt"
+	"slices"
 
-	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // PodToService sends an HTTP request from all client Pods
@@ -43,7 +42,6 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, pod := range ct.ClientPods() {
-		pod := pod // copy to avoid memory aliasing when using reference
 		if !hasAllLabels(pod, s.sourceLabels) {
 			continue
 		}
@@ -96,7 +94,6 @@ func (s *podToIngress) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, pod := range ct.ClientPods() {
-		pod := pod // copy to avoid memory aliasing when using reference
 		if !hasAllLabels(pod, s.sourceLabels) {
 			continue
 		}
@@ -135,11 +132,8 @@ func (s *podToRemoteNodePort) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, pod := range t.Context().ClientPods() {
-		pod := pod // copy to avoid memory aliasing when using reference
-
 		for _, svc := range t.Context().EchoServices() {
 			for _, node := range t.Context().Nodes() {
-				node := node // copy to avoid memory aliasing when using reference
 				remote := true
 				for _, addr := range node.Status.Addresses {
 					if pod.Pod.Status.HostIP == addr.Address {
@@ -179,12 +173,8 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 	var i int
 
 	for _, pod := range t.Context().ClientPods() {
-		pod := pod // copy to avoid memory aliasing when using reference
-
 		for _, svc := range t.Context().EchoServices() {
 			for _, node := range t.Context().Nodes() {
-				node := node // copy to avoid memory aliasing when using reference
-
 				for _, addr := range node.Status.Addresses {
 					if pod.Pod.Status.HostIP == addr.Address {
 						// If src and dst pod are running on the same node,
@@ -237,13 +227,6 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 				}
 			}
 
-			//  Skip IPv6 requests when running on <1.14.0 Cilium with CNPs
-			if features.GetIPFamily(addr.Address) == features.IPFamilyV6 &&
-				versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) &&
-				(len(t.CiliumNetworkPolicies()) > 0 || len(t.KubernetesNetworkPolicies()) > 0) {
-				continue
-			}
-
 			// Manually construct an HTTP endpoint to override the destination IP
 			// and port of the request.
 			ep := check.HTTPEndpoint(name, fmt.Sprintf("%s://%s:%d%s", svc.Scheme(), addr.Address, np, svc.Path()))
@@ -290,8 +273,6 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 
 	for _, svc := range t.Context().EchoServices() {
 		for _, node := range t.Context().Nodes() {
-			node := node // copy to avoid memory aliasing when using reference
-
 			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, node, validateFlows, t.Context().Params().SecondaryNetworkIface != "")
 			i++
 		}
@@ -317,7 +298,6 @@ func (s *outsideToIngressService) Run(ctx context.Context, t *check.Test) {
 	for _, svc := range t.Context().IngressService() {
 		t.NewAction(s, fmt.Sprintf("curl-ingress-service-%d", i), &clientPod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
 			for _, node := range t.Context().Nodes() {
-				node := node
 				a.ExecInPod(ctx, t.Context().CurlCommand(svc.ToNodeportService(node), features.IPFamilyAny))
 
 				a.ValidateFlows(ctx, clientPod, a.GetEgressRequirements(check.FlowParameters{

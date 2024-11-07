@@ -11,6 +11,19 @@
 #include "l3.h"
 
 static __always_inline int
+add_l2_hdr(struct __ctx_buff *ctx __maybe_unused)
+{
+	__u16 proto = ctx_get_protocol(ctx);
+
+	if (ctx_change_head(ctx, __ETH_HLEN, 0))
+		return DROP_INVALID;
+	if (eth_store_proto(ctx, proto, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	return 0;
+}
+
+static __always_inline int
 maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		 __u32 ifindex __maybe_unused,
 		 bool *l2_hdr_required __maybe_unused)
@@ -24,12 +37,7 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		/* The packet is going to be redirected from L3 to L2
 		 * device, so we need to create L2 header first.
 		 */
-		__u16 proto = ctx_get_protocol(ctx);
-
-		if (ctx_change_head(ctx, __ETH_HLEN, 0))
-			return DROP_INVALID;
-		if (eth_store_proto(ctx, proto, 0) < 0)
-			return DROP_WRITE_ERROR;
+		return add_l2_hdr(ctx);
 	}
 	return 0;
 }

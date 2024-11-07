@@ -25,8 +25,8 @@ var (
 // PortProto is a pair of port number and protocol and is used as the
 // value type in named port maps.
 type PortProto struct {
-	Port  uint16 // non-0
-	Proto uint8  // 0 for any
+	Proto u8proto.U8proto // 0 for any
+	Port  uint16          // non-0
 }
 
 // NamedPortMap maps port names to port numbers and protocols.
@@ -63,7 +63,7 @@ func (pps PortProtoSet) Delete(pp PortProto) bool {
 // define the same name with different values.
 type NamedPortMultiMap interface {
 	// GetNamedPort returns the port number for the named port, if any.
-	GetNamedPort(name string, proto uint8) (uint16, error)
+	GetNamedPort(name string, proto u8proto.U8proto) (uint16, error)
 	// Len returns the number of Name->PortProtoSet mappings known.
 	Len() int
 }
@@ -142,7 +142,7 @@ func newPortProto(port int, protocol string) (pp PortProto, err error) {
 		return pp, fmt.Errorf("Port number %d out of 16-bit range", port)
 	}
 	return PortProto{
-		Proto: uint8(u8p),
+		Proto: u8p,
 		Port:  uint16(port),
 	}, nil
 }
@@ -162,7 +162,7 @@ func (npm NamedPortMap) AddPort(name string, port int, protocol string) error {
 }
 
 // GetNamedPort returns the port number for the named port, if any.
-func (npm NamedPortMap) GetNamedPort(name string, proto uint8) (uint16, error) {
+func (npm NamedPortMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
 	}
@@ -180,7 +180,7 @@ func (npm NamedPortMap) GetNamedPort(name string, proto uint8) (uint16, error) {
 }
 
 // GetNamedPort returns the port number for the named port, if any.
-func (npm *namedPortMultiMap) GetNamedPort(name string, proto uint8) (uint16, error) {
+func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
 	}

@@ -5,7 +5,6 @@ package bpf
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -92,7 +91,7 @@ func TestOpen(t *testing.T) {
 	noSuchMap := NewMap("cilium_test_no_exist",
 		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
 	err := noSuchMap.Open()
-	require.True(t, errors.Is(err, os.ErrNotExist))
+	require.ErrorIs(t, err, os.ErrNotExist)
 
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
@@ -245,7 +244,7 @@ func TestBasicManipulation(t *testing.T) {
 	}
 
 	// event buffer should be empty
-	require.Equal(t, existingMap.events.buffer.Size(), 0)
+	require.Equal(t, 0, existingMap.events.buffer.Size())
 
 	err = existingMap.Update(key1, value1)
 	require.NoError(t, err)
@@ -427,7 +426,7 @@ func TestSubscribe(t *testing.T) {
 
 	subHandle.Close()
 	<-done
-	require.Equal(t, collect, 3)
+	require.Equal(t, 3, collect)
 
 	// cleanup
 	err = existingMap.DeleteAll()
@@ -472,12 +471,12 @@ func TestDump(t *testing.T) {
 		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
 	err = noSuchMap.DumpIfExists(dump3)
 	require.NoError(t, err)
-	require.Len(t, dump3, 0)
+	require.Empty(t, dump3)
 
 	dump2 = map[string][]string{}
 	err = noSuchMap.DumpWithCallbackIfExists(customCb)
 	require.NoError(t, err)
-	require.Len(t, dump2, 0)
+	require.Empty(t, dump2)
 
 	// Validate that if the key is zero, it shows up in dump output.
 	keyZero := &TestKey{Key: 0}

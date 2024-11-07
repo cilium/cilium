@@ -27,6 +27,7 @@ Direct access to local BPF maps
 * [cilium-dbg bpf ct](cilium-dbg_bpf_ct.md)	 - Connection tracking tables
 * [cilium-dbg bpf egress](cilium-dbg_bpf_egress.md)	 - Manage the egress routing rules
 * [cilium-dbg bpf endpoint](cilium-dbg_bpf_endpoint.md)	 - Local endpoint map
+* [cilium-dbg bpf frag](cilium-dbg_bpf_frag.md)	 - Manage the IPv4 datagram fragments
 * [cilium-dbg bpf fs](cilium-dbg_bpf_fs.md)	 - BPF filesystem mount
 * [cilium-dbg bpf ipcache](cilium-dbg_bpf_ipcache.md)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
 * [cilium-dbg bpf ipmasq](cilium-dbg_bpf_ipmasq.md)	 - ip-masq-agent CIDRs

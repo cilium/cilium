@@ -11,7 +11,7 @@ import (
 )
 
 type Config struct {
-	EnableExperimentalLB bool
+	EnableExperimentalLB bool          `mapstructure:"enable-experimental-lb"`
 	RetryBackoffMin      time.Duration `mapstructure:"lb-retry-backoff-min"`
 	RetryBackoffMax      time.Duration `mapstructure:"lb-retry-backoff-max"`
 }
@@ -33,16 +33,26 @@ var DefaultConfig = Config{
 	RetryBackoffMax:      time.Minute,
 }
 
-// externalConfig are configuration options derived from external sources such as
+// TestConfig are the configuration options for testing. Only provided by tests and not present in the agent.
+type TestConfig struct {
+	TestFaultProbability float32 `mapstructure:"lb-test-fault-probability"`
+}
+
+func (def TestConfig) Flags(flags *pflag.FlagSet) {
+	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
+	flags.MarkHidden("lb-test-fault-probability")
+}
+
+// ExternalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
-type externalConfig struct {
+type ExternalConfig struct {
 	ExternalClusterIP        bool
 	EnableSessionAffinity    bool
 	NodePortMin, NodePortMax uint16
 }
 
-func newExternalConfig(cfg *option.DaemonConfig) externalConfig {
-	return externalConfig{
+func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
+	return ExternalConfig{
 		ExternalClusterIP:     cfg.ExternalClusterIP,
 		EnableSessionAffinity: cfg.EnableSessionAffinity,
 		NodePortMin:           uint16(cfg.NodePortMin),

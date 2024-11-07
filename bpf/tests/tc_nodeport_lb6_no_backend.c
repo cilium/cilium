@@ -6,9 +6,6 @@
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
 
-/* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
-#define ETH_HLEN 14
-
 /* Enable code paths under test */
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
@@ -152,7 +149,7 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	 * context with the runner option and importing the packet into
 	 * wireshark
 	 */
-	assert(l4->icmp6_cksum == bpf_htons(0x7da8));
+	assert(l4->icmp6_cksum == bpf_htons(0x9e14));
 
 	struct ratelimit_key key = {
 		.usage = RATELIMIT_USAGE_ICMPV6,

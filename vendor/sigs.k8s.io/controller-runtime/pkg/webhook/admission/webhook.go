@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
+	admissionmetrics "sigs.k8s.io/controller-runtime/pkg/webhook/admission/metrics"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics"
@@ -123,7 +124,8 @@ type Webhook struct {
 	Handler Handler
 
 	// RecoverPanic indicates whether the panic caused by webhook should be recovered.
-	RecoverPanic bool
+	// Defaults to true.
+	RecoverPanic *bool
 
 	// WithContextFunc will allow you to take the http.Request.Context() and
 	// add any additional information such as passing the request path or
@@ -141,8 +143,9 @@ type Webhook struct {
 }
 
 // WithRecoverPanic takes a bool flag which indicates whether the panic caused by webhook should be recovered.
+// Defaults to true.
 func (wh *Webhook) WithRecoverPanic(recoverPanic bool) *Webhook {
-	wh.RecoverPanic = recoverPanic
+	wh.RecoverPanic = &recoverPanic
 	return wh
 }
 
@@ -151,17 +154,26 @@ func (wh *Webhook) WithRecoverPanic(recoverPanic bool) *Webhook {
 // If the webhook is validating type, it delegates the AdmissionRequest to each handler and
 // deny the request if anyone denies.
 func (wh *Webhook) Handle(ctx context.Context, req Request) (response Response) {
-	if wh.RecoverPanic {
-		defer func() {
-			if r := recover(); r != nil {
+	defer func() {
+		if r := recover(); r != nil {
+			admissionmetrics.WebhookPanics.WithLabelValues().Inc()
+
+			if wh.RecoverPanic == nil || *wh.RecoverPanic {
 				for _, fn := range utilruntime.PanicHandlers {
-					fn(r)
+					fn(ctx, r)
 				}
 				response = Errored(http.StatusInternalServerError, fmt.Errorf("panic: %v [recovered]", r))
+				// Note: We explicitly have to set the response UID. Usually that is done via resp.Complete below,
+				// but if we encounter a panic in wh.Handler.Handle we are never going to reach resp.Complete.
+				response.UID = req.UID
 				return
 			}
-		}()
-	}
+
+			log := logf.FromContext(ctx)
+			log.Info(fmt.Sprintf("Observed a panic in webhook: %v", r))
+			panic(r)
+		}
+	}()
 
 	reqLog := wh.getLogger(&req)
 	ctx = logf.IntoContext(ctx, reqLog)
@@ -169,7 +181,10 @@ func (wh *Webhook) Handle(ctx context.Context, req Request) (response Response) 
 	resp := wh.Handler.Handle(ctx, req)
 	if err := resp.Complete(req); err != nil {
 		reqLog.Error(err, "unable to encode response")
-		return Errored(http.StatusInternalServerError, errUnableToEncodeResponse)
+		resp := Errored(http.StatusInternalServerError, errUnableToEncodeResponse)
+		// Note: We explicitly have to set the response UID. Usually that is done via resp.Complete.
+		resp.UID = req.UID
+		return resp
 	}
 
 	return resp

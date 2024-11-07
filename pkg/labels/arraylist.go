@@ -3,7 +3,10 @@
 
 package labels
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 // LabelArrayList is an array of LabelArrays. It is primarily intended as a
 // simple collection
@@ -35,14 +38,68 @@ func (ls LabelArrayList) GetModel() [][]string {
 // Equals returns true if the label arrays lists have the same label arrays in the same order.
 func (ls LabelArrayList) Equals(b LabelArrayList) bool {
 	if len(ls) != len(b) {
+		fmt.Printf("LEN DIFFERS: obtained %v, expected %v\n", ls, b)
 		return false
 	}
 	for l := range ls {
 		if !ls[l].Equals(b[l]) {
+			fmt.Printf("LABEL ARRAY %d DIFFERS: obtained %v, expected %v\n",
+				l, ls[l], b[l])
 			return false
 		}
 	}
 	return true
+}
+
+// Diff returns the string of differences between 'ls' and 'expected' LabelArrayList with
+// '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
+// For use in debugging. Assumes sorted LabelArrayLists.
+func (ls LabelArrayList) Diff(expected LabelArrayList) (res string) {
+	res += ""
+	i := 0
+	j := 0
+	for i < len(ls) && j < len(expected) {
+		if ls[i].Equals(expected[j]) {
+			i++
+			j++
+			continue
+		}
+		if ls[i].Less(expected[j]) {
+			// obtained has an unexpected labelArray
+			res += "    + " + ls[i].String() + "\n"
+			i++
+		}
+		for j < len(expected) && expected[j].Less(ls[i]) {
+			// expected has a missing labelArray
+			res += "    - " + expected[j].String() + "\n"
+			j++
+		}
+	}
+	for i < len(ls) {
+		// obtained has an unexpected labelArray
+		res += "    + " + ls[i].String() + "\n"
+		i++
+	}
+	for j < len(expected) {
+		// expected has a missing labelArray
+		res += "    - " + expected[j].String() + "\n"
+		j++
+	}
+
+	return res
+}
+
+// GetModel returns the LabelArrayList as a [][]string. Each member LabelArray
+// becomes a []string.
+func (ls LabelArrayList) String() string {
+	res := ""
+	for _, v := range ls {
+		if res != "" {
+			res += ", "
+		}
+		res += v.String()
+	}
+	return res
 }
 
 // Sort sorts the LabelArrayList in-place, but also returns the sorted list

@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: cilium-pre-flight-check
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.preflight.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -209,8 +209,8 @@ spec:
           defaultMode: 0400
           optional: true
       {{- end }}
+      {{- end }}
       {{- with .Values.preflight.extraVolumes }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
       {{- end }}
 {{- end }}

@@ -1272,6 +1272,40 @@ type CapacityReservation struct {
 	// capacity.
 	TotalInstanceCount *int32
 
+	// The ID of the Amazon Web Services account to which billing of the unused
+	// capacity of the Capacity Reservation is assigned.
+	UnusedReservationBillingOwnerId *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about a request to assign billing of the unused capacity of a
+// Capacity Reservation.
+type CapacityReservationBillingRequest struct {
+
+	// The ID of the Capacity Reservation.
+	CapacityReservationId *string
+
+	// Information about the Capacity Reservation.
+	CapacityReservationInfo *CapacityReservationInfo
+
+	// The date and time, in UTC time format, at which the request was initiated.
+	LastUpdateTime *time.Time
+
+	// The ID of the Amazon Web Services account that initiated the request.
+	RequestedBy *string
+
+	// The status of the request. For more information, see [View billing assignment requests for a shared Amazon EC2 Capacity Reservation].
+	//
+	// [View billing assignment requests for a shared Amazon EC2 Capacity Reservation]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/view-billing-transfers.html
+	Status CapacityReservationBillingRequestStatus
+
+	// Information about the status.
+	StatusMessage *string
+
+	// The ID of the Amazon Web Services account to which the request was sent.
+	UnusedReservationBillingOwnerId *string
+
 	noSmithyDocumentSerde
 }
 
@@ -1394,6 +1428,21 @@ type CapacityReservationGroup struct {
 
 	// The ID of the Amazon Web Services account that owns the resource group.
 	OwnerId *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about a Capacity Reservation.
+type CapacityReservationInfo struct {
+
+	// The Availability Zone for the Capacity Reservation.
+	AvailabilityZone *string
+
+	// The instance type for the Capacity Reservation.
+	InstanceType *string
+
+	// The tenancy of the Capacity Reservation.
+	Tenancy CapacityReservationTenancy
 
 	noSmithyDocumentSerde
 }
@@ -2419,7 +2468,8 @@ type CreateFleetInstance struct {
 	// Instance.
 	Lifecycle InstanceLifecycle
 
-	// The value is Windows for Windows instances. Otherwise, the value is blank.
+	// The value is windows for Windows instances in an EC2 Fleet. Otherwise, the
+	// value is blank.
 	Platform PlatformValues
 
 	noSmithyDocumentSerde
@@ -2478,19 +2528,16 @@ type CreateTransitGatewayVpcAttachmentRequestOptions struct {
 	// Enable or disable IPv6 support. The default is disable .
 	Ipv6Support Ipv6SupportValue
 
-	// This parameter is in preview and may not be available for your account.
-	//
 	// Enables you to reference a security group across VPCs attached to a transit
-	// gateway. Use this option to simplify security group management and control of
-	// instance-to-instance traffic across VPCs that are connected by transit gateway.
-	// You can also use this option to migrate from VPC peering (which was the only
-	// option that supported security group referencing) to transit gateways (which now
-	// also support security group referencing). This option is disabled by default and
-	// there are no additional costs to use this feature.
+	// gateway to simplify security group management.
 	//
-	// If you don't enable or disable SecurityGroupReferencingSupport in the request,
-	// the attachment will inherit the security group referencing support setting on
-	// the transit gateway.
+	// This option is set to enable by default. However, at the transit gateway level
+	// the default is set to disable .
+	//
+	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
+	// Services Transit Gateways Guide.
+	//
+	// [Security group referencing]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-vpc-attachments.html#vpc-attachment-security
 	SecurityGroupReferencingSupport SecurityGroupReferencingSupportValue
 
 	noSmithyDocumentSerde
@@ -2958,7 +3005,8 @@ type DescribeFleetsInstances struct {
 	// Instance.
 	Lifecycle InstanceLifecycle
 
-	// The value is Windows for Windows instances. Otherwise, the value is blank.
+	// The value is windows for Windows instances in an EC2 Fleet. Otherwise, the
+	// value is blank.
 	Platform PlatformValues
 
 	noSmithyDocumentSerde
@@ -3367,8 +3415,8 @@ type EbsBlockDevice struct {
 	// [instances built on the Nitro System]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances
 	Iops *int32
 
-	// Identifier (key ID, key alias, ID ARN, or alias ARN) for a customer managed CMK
-	// under which the EBS volume is encrypted.
+	// Identifier (key ID, key alias, key ARN, or alias ARN) of the customer managed
+	// KMS key to use for EBS encryption.
 	//
 	// This parameter is only supported on BlockDeviceMapping objects called by [RunInstances], [RequestSpotFleet],
 	// and [RequestSpotInstances].
@@ -3621,9 +3669,7 @@ type EgressOnlyInternetGateway struct {
 	noSmithyDocumentSerde
 }
 
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
-// or G6 instances.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
 // Describes the association between an instance and an Elastic Graphics
 // accelerator.
@@ -3645,9 +3691,7 @@ type ElasticGpuAssociation struct {
 	noSmithyDocumentSerde
 }
 
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
-// or G6 instances.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
 // Describes the status of an Elastic Graphics accelerator.
 type ElasticGpuHealth struct {
@@ -3658,9 +3702,7 @@ type ElasticGpuHealth struct {
 	noSmithyDocumentSerde
 }
 
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
-// or G6 instances.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
 // Describes an Elastic Graphics accelerator.
 type ElasticGpus struct {
@@ -3689,9 +3731,7 @@ type ElasticGpus struct {
 	noSmithyDocumentSerde
 }
 
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
-// or G6 instances.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
 // A specification for an Elastic Graphics accelerator.
 type ElasticGpuSpecification struct {
@@ -3721,6 +3761,8 @@ type ElasticGpuSpecificationResponse struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes an elastic inference accelerator.
 type ElasticInferenceAccelerator struct {
 
@@ -3738,8 +3780,9 @@ type ElasticInferenceAccelerator struct {
 	noSmithyDocumentSerde
 }
 
-//	Describes the association between an instance and an elastic inference
+// Amazon Elastic Inference is no longer available.
 //
+// Describes the association between an instance and an elastic inference
 // accelerator.
 type ElasticInferenceAcceleratorAssociation struct {
 
@@ -5879,6 +5922,42 @@ type ImageDiskContainer struct {
 	noSmithyDocumentSerde
 }
 
+// Information about the AMI.
+type ImageMetadata struct {
+
+	// The date and time the AMI was created.
+	CreationDate *string
+
+	// The deprecation date and time of the AMI, in UTC, in the following format:
+	// YYYY-MM-DDTHH:MM:SSZ.
+	DeprecationTime *string
+
+	// The ID of the AMI.
+	ImageId *string
+
+	// The alias of the AMI owner.
+	//
+	// Valid values: amazon | aws-marketplace
+	ImageOwnerAlias *string
+
+	// Indicates whether the AMI has public launch permissions. A value of true means
+	// this AMI has public launch permissions, while false means it has only implicit
+	// (AMI owner) or explicit (shared with your account) launch permissions.
+	IsPublic *bool
+
+	// The name of the AMI.
+	Name *string
+
+	// The ID of the Amazon Web Services account that owns the AMI.
+	OwnerId *string
+
+	// The current state of the AMI. If the state is available , the AMI is
+	// successfully registered and can be used to launch an instance.
+	State ImageState
+
+	noSmithyDocumentSerde
+}
+
 // Information about an AMI that is currently in the Recycle Bin.
 type ImageRecycleBinInfo struct {
 
@@ -6108,6 +6187,8 @@ type ImportVolumeTaskDetails struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes the Inference accelerators for the instance type.
 type InferenceAcceleratorInfo struct {
 
@@ -6121,6 +6202,8 @@ type InferenceAcceleratorInfo struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes the Inference accelerators for the instance type.
 type InferenceDeviceInfo struct {
 
@@ -6139,6 +6222,8 @@ type InferenceDeviceInfo struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes the memory available to the inference accelerator.
 type InferenceDeviceMemoryInfo struct {
 
@@ -6201,12 +6286,12 @@ type Instance struct {
 
 	// Deprecated.
 	//
-	// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-	// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-	// G4dn, or G5 instances.
+	// Amazon Elastic Graphics reached end of life on January 8, 2024.
 	ElasticGpuAssociations []ElasticGpuAssociation
 
-	// The elastic inference accelerator associated with the instance.
+	// Deprecated
+	//
+	// Amazon Elastic Inference is no longer available.
 	ElasticInferenceAcceleratorAssociations []ElasticInferenceAcceleratorAssociation
 
 	// Specifies whether enhanced networking with ENA is enabled.
@@ -6660,6 +6745,39 @@ type InstanceFamilyCreditSpecification struct {
 	noSmithyDocumentSerde
 }
 
+// Information about the instance and the AMI used to launch the instance.
+type InstanceImageMetadata struct {
+
+	// The Availability Zone or Local Zone of the instance.
+	AvailabilityZone *string
+
+	// Information about the AMI used to launch the instance.
+	ImageMetadata *ImageMetadata
+
+	// The ID of the instance.
+	InstanceId *string
+
+	// The instance type.
+	InstanceType InstanceType
+
+	// The time the instance was launched.
+	LaunchTime *time.Time
+
+	// The ID of the Amazon Web Services account that owns the instance.
+	OwnerId *string
+
+	// The current state of the instance.
+	State *InstanceState
+
+	// Any tags assigned to the instance.
+	Tags []Tag
+
+	// The ID of the Availability Zone or Local Zone of the instance.
+	ZoneId *string
+
+	noSmithyDocumentSerde
+}
+
 // Information about an IPv4 prefix.
 type InstanceIpv4Prefix struct {
 
@@ -6906,7 +7024,7 @@ type InstanceNetworkInterface struct {
 
 	// The type of network interface.
 	//
-	// Valid values: interface | efa | trunk
+	// Valid values: interface | efa | efa-only | trunk
 	InterfaceType *string
 
 	// The IPv4 delegated prefixes that are assigned to the network interface.
@@ -7059,7 +7177,10 @@ type InstanceNetworkInterfaceSpecification struct {
 
 	// The type of network interface.
 	//
-	// Valid values: interface | efa
+	// If you specify efa-only , do not assign any IP addresses to the network
+	// interface. EFA-only network interfaces do not support IP addresses.
+	//
+	// Valid values: interface | efa | efa-only
 	InterfaceType *string
 
 	// The number of IPv4 delegated prefixes to be automatically assigned to the
@@ -7192,14 +7313,13 @@ type InstancePrivateIpAddress struct {
 // use the launch template in the [launch instance wizard]or with the [RunInstances API], you can't specify
 // InstanceRequirements .
 //
-// For more information, see [Create a mixed instances group using attribute-based instance type selection] in the Amazon EC2 Auto Scaling User Guide, and also [Attribute-based instance type selection for EC2 Fleet]
-// , [Attribute-based instance type selection for Spot Fleet], and [Spot placement score] in the Amazon EC2 User Guide.
+// For more information, see [Create mixed instances group using attribute-based instance type selection] in the Amazon EC2 Auto Scaling User Guide, and also [Specify attributes for instance type selection for EC2 Fleet or Spot Fleet]
+// and [Spot placement score]in the Amazon EC2 User Guide.
 //
-// [Attribute-based instance type selection for EC2 Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html
+// [Specify attributes for instance type selection for EC2 Fleet or Spot Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html
 // [RunInstances API]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html
+// [Create mixed instances group using attribute-based instance type selection]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-mixed-instances-group-attribute-based-instance-type-selection.html
 // [Spot placement score]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html
-// [Create a mixed instances group using attribute-based instance type selection]: https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-mixed-instances-group-attribute-based-instance-type-selection.html
-// [Attribute-based instance type selection for Spot Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html
 // [launch instance wizard]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-instance-wizard.html
 type InstanceRequirements struct {
 
@@ -7268,8 +7388,6 @@ type InstanceRequirements struct {
 	//   - For instance types with GPU accelerators, specify gpu .
 	//
 	//   - For instance types with FPGA accelerators, specify fpga .
-	//
-	//   - For instance types with inference accelerators, specify inference .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -7542,13 +7660,12 @@ type InstanceRequirements struct {
 // use the launch template in the [launch instance wizard], or with the [RunInstances] API or [AWS::EC2::Instance] Amazon Web Services
 // CloudFormation resource, you can't specify InstanceRequirements .
 //
-// For more information, see [Attribute-based instance type selection for EC2 Fleet], [Attribute-based instance type selection for Spot Fleet], and [Spot placement score] in the Amazon EC2 User Guide.
+// For more information, see [Specify attributes for instance type selection for EC2 Fleet or Spot Fleet] and [Spot placement score] in the Amazon EC2 User Guide.
 //
-// [Attribute-based instance type selection for EC2 Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html
+// [Specify attributes for instance type selection for EC2 Fleet or Spot Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html
 // [AWS::EC2::Instance]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
 // [RunInstances]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html
 // [Spot placement score]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html
-// [Attribute-based instance type selection for Spot Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html
 // [launch instance wizard]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-instance-wizard.html
 type InstanceRequirementsRequest struct {
 
@@ -7627,8 +7744,6 @@ type InstanceRequirementsRequest struct {
 	//   - To include instance types with GPU hardware, specify gpu .
 	//
 	//   - To include instance types with FPGA hardware, specify fpga .
-	//
-	//   - To include instance types with inference hardware, specify inference .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -8206,7 +8321,8 @@ type InstanceTypeInfo struct {
 	// The supported root device types.
 	SupportedRootDeviceTypes []RootDeviceType
 
-	// Indicates whether the instance type is offered for spot or On-Demand.
+	// Indicates whether the instance type is offered for spot, On-Demand, or Capacity
+	// Blocks.
 	SupportedUsageClasses []UsageClassType
 
 	// The supported virtualization types.
@@ -8602,6 +8718,9 @@ type IpamDiscoveredResourceCidr struct {
 
 	// The last successful resource discovery time.
 	SampleTime *time.Time
+
+	// The subnet ID.
+	SubnetId *string
 
 	// The VPC ID.
 	VpcId *string
@@ -9779,7 +9898,8 @@ type LaunchTemplateEbsBlockDevice struct {
 	// The number of I/O operations per second (IOPS) that the volume supports.
 	Iops *int32
 
-	// The ARN of the Key Management Service (KMS) CMK used for encryption.
+	// Identifier (key ID, key alias, key ARN, or alias ARN) of the customer managed
+	// KMS key to use for EBS encryption.
 	KmsKeyId *string
 
 	// The ID of the snapshot.
@@ -9829,7 +9949,8 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	// [instances built on the Nitro System]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances
 	Iops *int32
 
-	// The ARN of the symmetric Key Management Service (KMS) CMK used for encryption.
+	// Identifier (key ID, key alias, key ARN, or alias ARN) of the customer managed
+	// KMS key to use for EBS encryption.
 	KmsKeyId *string
 
 	// The ID of the snapshot.
@@ -9862,6 +9983,8 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes an elastic inference accelerator.
 type LaunchTemplateElasticInferenceAccelerator struct {
 
@@ -9879,6 +10002,8 @@ type LaunchTemplateElasticInferenceAccelerator struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes an elastic inference accelerator.
 type LaunchTemplateElasticInferenceAcceleratorResponse struct {
 
@@ -10314,11 +10439,14 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 	Groups []string
 
 	// The type of network interface. To create an Elastic Fabric Adapter (EFA),
-	// specify efa . For more information, see [Elastic Fabric Adapter] in the Amazon EC2 User Guide.
+	// specify efa or efa . For more information, see [Elastic Fabric Adapter] in the Amazon EC2 User Guide.
 	//
 	// If you are not creating an EFA, specify interface or omit this parameter.
 	//
-	// Valid values: interface | efa
+	// If you specify efa-only , do not assign any IP addresses to the network
+	// interface. EFA-only network interfaces do not support IP addresses.
+	//
+	// Valid values: interface | efa | efa-only
 	//
 	// [Elastic Fabric Adapter]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html
 	InterfaceType *string
@@ -11333,15 +11461,15 @@ type ModifyTransitGatewayOptions struct {
 	// Removes CIDR blocks for the transit gateway.
 	RemoveTransitGatewayCidrBlocks []string
 
-	// This parameter is in preview and may not be available for your account.
-	//
 	// Enables you to reference a security group across VPCs attached to a transit
-	// gateway. Use this option to simplify security group management and control of
-	// instance-to-instance traffic across VPCs that are connected by transit gateway.
-	// You can also use this option to migrate from VPC peering (which was the only
-	// option that supported security group referencing) to transit gateways (which now
-	// also support security group referencing). This option is disabled by default and
-	// there are no additional costs to use this feature.
+	// gateway to simplify security group management.
+	//
+	// This option is disabled by default.
+	//
+	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
+	// Services Transit Gateways Guide.
+	//
+	// [Security group referencing]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-vpc-attachments.html#vpc-attachment-security
 	SecurityGroupReferencingSupport SecurityGroupReferencingSupportValue
 
 	// Enable or disable Equal Cost Multipath Protocol support.
@@ -11364,15 +11492,15 @@ type ModifyTransitGatewayVpcAttachmentRequestOptions struct {
 	// Enable or disable IPv6 support. The default is enable .
 	Ipv6Support Ipv6SupportValue
 
-	// This parameter is in preview and may not be available for your account.
-	//
 	// Enables you to reference a security group across VPCs attached to a transit
-	// gateway. Use this option to simplify security group management and control of
-	// instance-to-instance traffic across VPCs that are connected by transit gateway.
-	// You can also use this option to migrate from VPC peering (which was the only
-	// option that supported security group referencing) to transit gateways (which now
-	// also support security group referencing). This option is disabled by default and
-	// there are no additional costs to use this feature.
+	// gateway to simplify security group management.
+	//
+	// This option is disabled by default.
+	//
+	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
+	// Services Transit Gateways Guide.
+	//
+	// [Security group referencing]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-vpc-attachments.html#vpc-attachment-security
 	SecurityGroupReferencingSupport SecurityGroupReferencingSupportValue
 
 	noSmithyDocumentSerde
@@ -13751,6 +13879,8 @@ type RequestLaunchTemplateData struct {
 	// G4dn, or G5 instances.
 	ElasticGpuSpecifications []ElasticGpuSpecification
 
+	// Amazon Elastic Inference is no longer available.
+	//
 	// An elastic inference accelerator to associate with the instance. Elastic
 	// inference accelerators are a resource you can attach to your Amazon EC2
 	// instances to accelerate your Deep Learning (DL) inference workloads.
@@ -13863,13 +13993,12 @@ type RequestLaunchTemplateData struct {
 	// use the launch template in the [launch instance wizard], or with the [RunInstances] API or [AWS::EC2::Instance] Amazon Web Services
 	// CloudFormation resource, you can't specify InstanceRequirements .
 	//
-	// For more information, see [Attribute-based instance type selection for EC2 Fleet], [Attribute-based instance type selection for Spot Fleet], and [Spot placement score] in the Amazon EC2 User Guide.
+	// For more information, see [Specify attributes for instance type selection for EC2 Fleet or Spot Fleet] and [Spot placement score] in the Amazon EC2 User Guide.
 	//
-	// [Attribute-based instance type selection for EC2 Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html
+	// [Specify attributes for instance type selection for EC2 Fleet or Spot Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html
 	// [AWS::EC2::Instance]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
 	// [RunInstances]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html
 	// [Spot placement score]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html
-	// [Attribute-based instance type selection for Spot Fleet]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-attribute-based-instance-type-selection.html
 	// [launch instance wizard]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-instance-wizard.html
 	InstanceRequirements *InstanceRequirementsRequest
 
@@ -14463,6 +14592,8 @@ type ResponseLaunchTemplateData struct {
 	// G4dn, or G5 instances.
 	ElasticGpuSpecifications []ElasticGpuSpecificationResponse
 
+	// Amazon Elastic Inference is no longer available.
+	//
 	// An elastic inference accelerator to associate with the instance. Elastic
 	// inference accelerators are a resource you can attach to your Amazon EC2
 	// instances to accelerate your Deep Learning (DL) inference workloads.
@@ -14571,6 +14702,48 @@ type ResponseLaunchTemplateData struct {
 
 	// The user data for the instance.
 	UserData *string
+
+	noSmithyDocumentSerde
+}
+
+// A security group rule removed with [RevokeSecurityGroupEgress] or [RevokeSecurityGroupIngress].
+//
+// [RevokeSecurityGroupIngress]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RevokeSecurityGroupIngress.html
+// [RevokeSecurityGroupEgress]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RevokeSecurityGroupEgress.html
+type RevokedSecurityGroupRule struct {
+
+	// The IPv4 CIDR of the traffic source.
+	CidrIpv4 *string
+
+	// The IPv6 CIDR of the traffic source.
+	CidrIpv6 *string
+
+	// A description of the revoked security group rule.
+	Description *string
+
+	// The 'from' port number of the security group rule.
+	FromPort *int32
+
+	// A security group ID.
+	GroupId *string
+
+	// The security group rule's protocol.
+	IpProtocol *string
+
+	// Defines if a security group rule is an outbound rule.
+	IsEgress *bool
+
+	// The ID of a prefix list that's the traffic source.
+	PrefixListId *string
+
+	// The ID of a referenced security group.
+	ReferencedGroupId *string
+
+	// A security group rule ID.
+	SecurityGroupRuleId *string
+
+	// The 'to' port number of the security group rule.
+	ToPort *int32
 
 	noSmithyDocumentSerde
 }
@@ -15197,6 +15370,9 @@ type SecurityGroup struct {
 	// The Amazon Web Services account ID of the owner of the security group.
 	OwnerId *string
 
+	// The ARN of the security group.
+	SecurityGroupArn *string
+
 	// Any tags assigned to the security group.
 	Tags []Tag
 
@@ -15304,6 +15480,9 @@ type SecurityGroupRule struct {
 	// Describes the security group that is referenced in the rule.
 	ReferencedGroupInfo *ReferencedSecurityGroup
 
+	// The ARN of the security group rule.
+	SecurityGroupRuleArn *string
+
 	// The ID of the security group rule.
 	SecurityGroupRuleId *string
 
@@ -15399,6 +15578,29 @@ type SecurityGroupRuleUpdate struct {
 
 	// Information about the security group rule.
 	SecurityGroupRule *SecurityGroupRuleRequest
+
+	noSmithyDocumentSerde
+}
+
+// A security group association with a VPC that you made with [AssociateSecurityGroupVpc].
+//
+// [AssociateSecurityGroupVpc]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateSecurityGroupVpc.html
+type SecurityGroupVpcAssociation struct {
+
+	// The association's security group ID.
+	GroupId *string
+
+	// The association's state.
+	State SecurityGroupVpcAssociationState
+
+	// The association's state reason.
+	StateReason *string
+
+	// The association's VPC ID.
+	VpcId *string
+
+	// The Amazon Web Services account ID of the owner of the VPC.
+	VpcOwnerId *string
 
 	noSmithyDocumentSerde
 }
@@ -15761,7 +15963,7 @@ type SnapshotRecycleBinInfo struct {
 // Details about the import snapshot task.
 type SnapshotTaskDetail struct {
 
-	// The description of the snapshot.
+	// The description of the disk image being imported.
 	Description *string
 
 	// The size of the disk in the snapshot, in GiB.
@@ -18081,15 +18283,10 @@ type TransitGatewayOptions struct {
 	// The ID of the default propagation route table.
 	PropagationDefaultRouteTableId *string
 
-	// This parameter is in preview and may not be available for your account.
-	//
 	// Enables you to reference a security group across VPCs attached to a transit
-	// gateway. Use this option to simplify security group management and control of
-	// instance-to-instance traffic across VPCs that are connected by transit gateway.
-	// You can also use this option to migrate from VPC peering (which was the only
-	// option that supported security group referencing) to transit gateways (which now
-	// also support security group referencing). This option is disabled by default and
-	// there are no additional costs to use this feature.
+	// gateway to simplify security group management.
+	//
+	// This option is disabled by default.
 	SecurityGroupReferencingSupport SecurityGroupReferencingSupportValue
 
 	// The transit gateway CIDR blocks.
@@ -18329,15 +18526,15 @@ type TransitGatewayRequestOptions struct {
 	// Indicates whether multicast is enabled on the transit gateway
 	MulticastSupport MulticastSupportValue
 
-	// This parameter is in preview and may not be available for your account.
-	//
 	// Enables you to reference a security group across VPCs attached to a transit
-	// gateway. Use this option to simplify security group management and control of
-	// instance-to-instance traffic across VPCs that are connected by transit gateway.
-	// You can also use this option to migrate from VPC peering (which was the only
-	// option that supported security group referencing) to transit gateways (which now
-	// also support security group referencing). This option is disabled by default and
-	// there are no additional costs to use this feature.
+	// gateway to simplify security group management.
+	//
+	// This option is disabled by default.
+	//
+	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
+	// Services Transit Gateways Guide.
+	//
+	// [Security group referencing]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-vpc-attachments.html#vpc-attachment-security
 	SecurityGroupReferencingSupport SecurityGroupReferencingSupportValue
 
 	// One or more IPv4 or IPv6 CIDR blocks for the transit gateway. Must be a size
@@ -18574,15 +18771,15 @@ type TransitGatewayVpcAttachmentOptions struct {
 	// Indicates whether IPv6 support is disabled.
 	Ipv6Support Ipv6SupportValue
 
-	// This parameter is in preview and may not be available for your account.
-	//
 	// Enables you to reference a security group across VPCs attached to a transit
-	// gateway. Use this option to simplify security group management and control of
-	// instance-to-instance traffic across VPCs that are connected by transit gateway.
-	// You can also use this option to migrate from VPC peering (which was the only
-	// option that supported security group referencing) to transit gateways (which now
-	// also support security group referencing). This option is disabled by default and
-	// there are no additional costs to use this feature.
+	// gateway to simplify security group management.
+	//
+	// This option is enabled by default.
+	//
+	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
+	// Services Transit Gateways Guide.
+	//
+	// [Security group referencing]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-vpc-attachments.html#vpc-attachment-security
 	SecurityGroupReferencingSupport SecurityGroupReferencingSupportValue
 
 	noSmithyDocumentSerde

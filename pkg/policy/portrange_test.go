@@ -14,13 +14,13 @@ import (
 func validateMaskedPorts(t *testing.T, maskedPorts []MaskedPort, start, end uint16) {
 	// Wildcard case.
 	if start == 0 && end == 0 {
-		require.Equal(t, len(maskedPorts), 1)
-		require.Equal(t, maskedPorts[0].port, uint16(0))
-		require.Equal(t, maskedPorts[0].mask, uint16(0))
+		require.Len(t, maskedPorts, 1)
+		require.Equal(t, uint16(0), maskedPorts[0].port)
+		require.Equal(t, uint16(0), maskedPorts[0].mask)
 		return
 	}
 	require.NotNil(t, maskedPorts)
-	require.NotEqual(t, len(maskedPorts), 0)
+	require.NotEmpty(t, maskedPorts)
 	// validate that range elements are continuous and non-overlapping
 	first := maskedPorts[0].port
 	last := first + ^maskedPorts[0].mask
@@ -337,7 +337,7 @@ func TestPortRange(t *testing.T) {
 			return maskedPorts[i].port < maskedPorts[j].port
 		})
 		t.Logf("TestPortRange test case: 0x%x-0x%x (%d-%d)", test.start, test.end, test.start, test.end)
-		require.Equal(t, maskedPorts, test.expected)
+		require.Equal(t, test.expected, maskedPorts)
 		// Validate when given a proper range
 		if test.start <= test.end {
 			// Validation checks that the masked ports form a continuous range

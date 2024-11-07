@@ -35,7 +35,7 @@ var HTTPRouteRewriteHost = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRewriteHost",
 	Description: "An HTTPRoute with hostname rewrite filter",
 	Manifests:   []string{"tests/httproute-rewrite-host.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteHostRewrite,

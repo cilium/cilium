@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -96,6 +97,9 @@ func testNewPolicyRepository() *policy.Repository {
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
+func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
+}
+
 func TestParseNetworkPolicyIngress(t *testing.T) {
 	netPolicy := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
@@ -151,7 +155,7 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(netPolicy)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	repo := testNewPolicyRepository()
 
@@ -181,7 +185,7 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 			},
 		},
 	})
-	require.True(t, ingressL4Policy.Equals(t, expected), ingressL4Policy.Diff(t, expected))
+	require.True(t, ingressL4Policy.TestingOnlyEquals(expected), ingressL4Policy.TestingOnlyDiff(expected))
 	ingressL4Policy.Detach(repo.GetSelectorCache())
 
 	ctx.To = labels.LabelArray{
@@ -280,7 +284,7 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(&np)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
@@ -462,7 +466,7 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(netPolicy)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	fromEndpoints := labels.LabelArray{
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
@@ -506,7 +510,7 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 			},
 		},
 	})
-	require.True(t, egressL4Policy.Equals(t, expected), egressL4Policy.Diff(t, expected))
+	require.True(t, egressL4Policy.TestingOnlyEquals(expected), egressL4Policy.TestingOnlyDiff(expected))
 	egressL4Policy.Detach(repo.GetSelectorCache())
 
 	ctx.From = labels.LabelArray{
@@ -603,19 +607,19 @@ func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
 
 	ctxAToC8080 := ctxAToC
 	ctxAToC8080.DPorts = []*models.Port{{Port: 8080, Protocol: models.PortProtocolTCP}}
-	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8080), api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC8080))
 
 	ctxAToC8085 := ctxAToC
 	ctxAToC8085.DPorts = []*models.Port{{Port: 8085, Protocol: models.PortProtocolTCP}}
-	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8085), api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC8085))
 
 	ctxAToC8090 := ctxAToC
 	ctxAToC8090.DPorts = []*models.Port{{Port: 8090, Protocol: models.PortProtocolTCP}}
-	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8090), api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC8090))
 
 	ctxAToC8091 := ctxAToC
 	ctxAToC8091.DPorts = []*models.Port{{Port: 8091, Protocol: models.PortProtocolTCP}}
-	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8091), api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&ctxAToC8091))
 }
 
 func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {
@@ -686,7 +690,7 @@ func TestParseNetworkPolicyNamedPort(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(netPolicy)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 }
 
 func TestParseNetworkPolicyEmptyPort(t *testing.T) {
@@ -704,11 +708,11 @@ func TestParseNetworkPolicyEmptyPort(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(netPolicy)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
-	require.Equal(t, 1, len(rules[0].Ingress))
-	require.Equal(t, 1, len(rules[0].Ingress[0].ToPorts))
+	require.Len(t, rules, 1)
+	require.Len(t, rules[0].Ingress, 1)
+	require.Len(t, rules[0].Ingress[0].ToPorts, 1)
 	ports := rules[0].Ingress[0].ToPorts[0].Ports
-	require.Equal(t, 1, len(ports))
+	require.Len(t, ports, 1)
 	require.Equal(t, "0", ports[0].Port)
 	require.Equal(t, api.ProtoTCP, ports[0].Protocol)
 }
@@ -717,8 +721,8 @@ func TestParsePorts(t *testing.T) {
 	rules := parsePorts([]slim_networkingv1.NetworkPolicyPort{
 		{},
 	})
-	require.Equal(t, 1, len(rules))
-	require.Equal(t, 1, len(rules[0].Ports))
+	require.Len(t, rules, 1)
+	require.Len(t, rules[0].Ports, 1)
 	require.Equal(t, "0", rules[0].Ports[0].Port)
 	require.Equal(t, api.ProtoTCP, rules[0].Ports[0].Protocol)
 }
@@ -744,8 +748,8 @@ func TestParseNetworkPolicyUnknownProto(t *testing.T) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy)
-	require.NotNil(t, err)
-	require.Equal(t, 0, len(rules))
+	require.Error(t, err)
+	require.Empty(t, rules)
 }
 
 func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
@@ -765,7 +769,7 @@ func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(netPolicy1)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -802,7 +806,7 @@ func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 
 	rules, err = ParseNetworkPolicy(netPolicy2)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 	repo = testNewPolicyRepository()
 	repo.MustAddList(rules)
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
@@ -820,7 +824,7 @@ func TestParseNetworkPolicyDenyAll(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(netPolicy1)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -853,7 +857,7 @@ func TestParseNetworkPolicyNoIngress(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(netPolicy)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 }
 
 func TestNetworkPolicyExamples(t *testing.T) {
@@ -943,7 +947,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 	rules, err := ParseNetworkPolicy(&np)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
@@ -1077,7 +1081,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 	rules, err = ParseNetworkPolicy(&np)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	repo = testNewPolicyRepository()
 	repo.MustAddList(rules)
@@ -1145,7 +1149,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 	rules, err = ParseNetworkPolicy(&np)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	repo = testNewPolicyRepository()
 	repo.MustAddList(rules)
@@ -1239,7 +1243,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 	rules, err = ParseNetworkPolicy(&np)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	// Example 4b: Example 4 is similar to example 2 but we will add both network
 	// policies to see if the rules are additive for the same podSelector.
@@ -1284,7 +1288,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 	rules, err = ParseNetworkPolicy(&np)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 
 	repo = testNewPolicyRepository()
 	// add example 4
@@ -1433,7 +1437,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 	rules, err = ParseNetworkPolicy(&np)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 	repo.MustAddList(rules)
 
 	// A reminder: from the kubernetes network policy spec:
@@ -1578,8 +1582,8 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	rules, err := ParseNetworkPolicy(&np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
-	require.Equal(t, 1, len(rules))
-	require.Equal(t, 2, len(rules[0].Ingress))
+	require.Len(t, rules, 1)
+	require.Len(t, rules[0].Ingress, 2)
 
 	ex2 := []byte(`{
   "kind": "NetworkPolicy",
@@ -1626,7 +1630,7 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	rules, err = ParseNetworkPolicy(&np)
 	require.NoError(t, err)
 	require.NotNil(t, rules)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 	require.Equal(t, api.CIDR("10.0.0.0/8"), rules[0].Egress[0].ToCIDRSet[0].Cidr)
 
 	expectedCIDRs := []api.CIDR{"10.96.0.0/12", "10.255.255.254/32"}
@@ -1639,7 +1643,7 @@ func TestCIDRPolicyExamples(t *testing.T) {
 		require.Equal(t, expectedCIDRs[k], v)
 	}
 
-	require.Equal(t, 2, len(rules[0].Egress))
+	require.Len(t, rules[0].Egress, 2)
 
 }
 
@@ -1895,7 +1899,7 @@ func TestIPBlockToCIDRRule(t *testing.T) {
 			exceptCIDRs[i] = api.CIDR(v)
 		}
 
-		require.Equal(t, false, cidrRule.Generated)
+		require.False(t, cidrRule.Generated)
 		require.Equal(t, api.CIDR(block.CIDR), cidrRule.Cidr)
 
 		if len(block.Except) == 0 {

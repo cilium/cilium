@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"testing"
 
@@ -59,7 +60,7 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 	repo := s.GetPolicyRepository()
 	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
 
-	ep := NewTestEndpointWithState(nil, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
+	ep := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
@@ -86,20 +87,20 @@ func TestReadEPsFromDirNames(t *testing.T) {
 	const unsupportedTestOption = "unsupported-test-only-option-xyz"
 
 	os.Chdir(tmpDir)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	epsNames := []string{}
 	for _, ep := range epsWanted {
 		require.NotNil(t, ep)
 
 		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
 		err := os.MkdirAll(fullDirName, 0777)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		// Add an unsupported option and see that it is removed on "restart"
 		ep.Options.SetValidated(unsupportedTestOption, option.OptionEnabled)
 
 		err = ep.writeHeaderfile(fullDirName)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		// Remove unsupported option so that equality check works after restore
 		ep.Options.Delete(unsupportedTestOption)
@@ -108,7 +109,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		case 256, 257:
 			failedDir := filepath.Join(tmpDir, ep.FailedDirectoryPath())
 			err := os.Rename(fullDirName, failedDir)
-			require.Nil(t, err)
+			require.NoError(t, err)
 			epsNames = append(epsNames, ep.FailedDirectoryPath())
 
 			// create one failed and the other non failed directory for ep 256.
@@ -117,7 +118,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 				// "256_next_fail" and with one is in the "256" directory.
 				ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 				err = ep.writeHeaderfile(failedDir)
-				require.Nil(t, err)
+				require.NoError(t, err)
 			}
 		default:
 			epsNames = append(epsNames, ep.DirectoryPath())
@@ -158,25 +159,25 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	}()
 
 	os.Chdir(tmpDir)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
 	err = os.MkdirAll(fullDirName, 0777)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	err = ep.writeHeaderfile(fullDirName)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	nextDir := filepath.Join(tmpDir, ep.NextDirectoryPath())
 	err = os.MkdirAll(nextDir, 0777)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Change endpoint a little bit so we know which endpoint is in
 	// "${EPID}_next" and with one is in the "${EPID}" directory.
 	tmpNodeMAC := ep.nodeMAC
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 	err = ep.writeHeaderfile(nextDir)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ep.nodeMAC = tmpNodeMAC
 
 	epNames := []string{
@@ -184,7 +185,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	}
 
 	epResult := ReadEPsFromDirNames(context.TODO(), s, s, s, tmpDir, epNames)
-	require.Equal(t, 1, len(epResult))
+	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
 	require.EqualValues(t, ep.String(), restoredEP.String())
@@ -200,8 +201,8 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		}
 		return false
 	}
-	require.Equal(t, false, fileExists(nextDir))
-	require.Equal(t, true, fileExists(fullDirName))
+	require.False(t, fileExists(nextDir))
+	require.True(t, fileExists(fullDirName))
 }
 
 func BenchmarkReadEPsFromDirNames(b *testing.B) {
@@ -219,17 +220,17 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	}()
 
 	os.Chdir(tmpDir)
-	require.Nil(b, err)
+	require.NoError(b, err)
 	epsNames := []string{}
 	for _, ep := range epsWanted {
 		require.NotNil(b, ep)
 
 		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
 		err := os.MkdirAll(fullDirName, 0777)
-		require.Nil(b, err)
+		require.NoError(b, err)
 
 		err = ep.writeHeaderfile(fullDirName)
-		require.Nil(b, err)
+		require.NoError(b, err)
 
 		epsNames = append(epsNames, ep.DirectoryPath())
 	}
@@ -256,10 +257,10 @@ func TestPartitionEPDirNamesByRestoreStatus(t *testing.T) {
 
 	complete, incomplete := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
-	sort.Strings(complete)
-	sort.Strings(completeWanted)
-	sort.Strings(incomplete)
-	sort.Strings(incompleteWanted)
+	slices.Sort(complete)
+	slices.Sort(completeWanted)
+	slices.Sort(incomplete)
+	slices.Sort(incompleteWanted)
 	require.EqualValues(t, completeWanted, complete)
 	require.EqualValues(t, incompleteWanted, incomplete)
 }

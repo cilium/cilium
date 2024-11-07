@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
@@ -140,7 +140,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 	for k := range n.enis {
 		eniIds = append(eniIds, k)
 	}
-	sort.Strings(eniIds)
+	slices.Sort(eniIds)
 	// Iterate over ENIs on this node, select the ENI with the most
 	// addresses available for release
 	for _, eniId := range eniIds {
@@ -291,6 +291,10 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 		}).Warning("Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore")
 	}
 	return n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
+}
+
+func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+	return n.manager.api.AssociateEIP(ctx, n.node.InstanceID(), staticIPTags)
 }
 
 func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec) ([]string, error) {
@@ -595,6 +599,12 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			for _, ip := range e.Addresses {
 				available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
 			}
+
+			// If the primary ENI has a public IP, we store it
+			if e.Number == 0 && e.PublicIP != "" {
+				stats.AssignedStaticIP = e.PublicIP
+			}
+
 			return nil
 		})
 	enis := len(n.enis)

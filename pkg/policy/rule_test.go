@@ -5,7 +5,6 @@ package policy
 
 import (
 	"bytes"
-	"fmt"
 	stdlog "log"
 	"strings"
 	"testing"
@@ -578,7 +577,7 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 	state = traceState{}
 	_, err = rule2.resolveIngressPolicy(td.testPolicyContext, toBar, &state, res, nil, nil)
 
-	require.NotNil(t, err)
+	require.Error(t, err)
 	res.Detach(td.sc)
 
 	// Similar to 'rule2', but with different topics for the l3-dependent
@@ -954,7 +953,7 @@ func TestRuleWithNoEndpointSelector(t *testing.T) {
 	}
 
 	err := apiRule1.Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestL3Policy(t *testing.T) {
@@ -1006,7 +1005,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Test CIDRRule with no provided CIDR or ExceptionCIDR.
 	// Should fail as CIDR is required.
@@ -1018,7 +1017,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Test CIDRRule with only CIDR provided; should not fail, as ExceptionCIDR
 	// is optional.
@@ -1042,7 +1041,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Cannot exclude a range that is not part of the CIDR.
 	err = (&api.Rule{
@@ -1053,7 +1052,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Must have a contiguous mask, make sure Validate fails when not.
 	err = (&api.Rule{
@@ -1064,7 +1063,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Prefix length must be in range for the address, make sure
 	// Validate fails if given prefix length is out of range.
@@ -1076,7 +1075,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestICMPPolicy(t *testing.T) {
@@ -1284,7 +1283,7 @@ func TestEgressRuleRestrictions(t *testing.T) {
 	}
 
 	err := apiRule1.Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestPolicyEntityValidationEgress(t *testing.T) {
@@ -1298,15 +1297,15 @@ func TestPolicyEntityValidationEgress(t *testing.T) {
 			},
 		},
 	}
-	require.Nil(t, r.Sanitize())
-	require.Equal(t, 1, len(r.Egress[0].ToEntities))
+	require.NoError(t, r.Sanitize())
+	require.Len(t, r.Egress[0].ToEntities, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{api.EntityHost}
-	require.Nil(t, r.Sanitize())
-	require.Equal(t, 1, len(r.Egress[0].ToEntities))
+	require.NoError(t, r.Sanitize())
+	require.Len(t, r.Egress[0].ToEntities, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{"trololo"}
-	require.NotNil(t, r.Sanitize())
+	require.Error(t, r.Sanitize())
 }
 
 func TestPolicyEntityValidationIngress(t *testing.T) {
@@ -1320,15 +1319,15 @@ func TestPolicyEntityValidationIngress(t *testing.T) {
 			},
 		},
 	}
-	require.Nil(t, r.Sanitize())
-	require.Equal(t, 1, len(r.Ingress[0].FromEntities))
+	require.NoError(t, r.Sanitize())
+	require.Len(t, r.Ingress[0].FromEntities, 1)
 
 	r.Ingress[0].FromEntities = []api.Entity{api.EntityHost}
-	require.Nil(t, r.Sanitize())
-	require.Equal(t, 1, len(r.Ingress[0].FromEntities))
+	require.NoError(t, r.Sanitize())
+	require.Len(t, r.Ingress[0].FromEntities, 1)
 
 	r.Ingress[0].FromEntities = []api.Entity{"trololo"}
-	require.NotNil(t, r.Sanitize())
+	require.Error(t, r.Sanitize())
 }
 
 func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
@@ -1349,9 +1348,9 @@ func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
 			},
 		},
 	}
-	require.Nil(t, r.Sanitize())
-	require.Equal(t, 2, len(r.Ingress[0].FromEntities))
-	require.Equal(t, 2, len(r.Egress[0].ToEntities))
+	require.NoError(t, r.Sanitize())
+	require.Len(t, r.Ingress[0].FromEntities, 2)
+	require.Len(t, r.Egress[0].ToEntities, 2)
 }
 
 func TestL3RuleLabels(t *testing.T) {
@@ -1471,7 +1470,7 @@ func TestL3RuleLabels(t *testing.T) {
 							break
 						}
 					}
-					require.True(t, matches, fmt.Sprintf("%s: expected filter %+v to be derived from rule %s", test.description, filter, rule))
+					require.True(t, matches, "%s: expected filter %+v to be derived from rule %s", test.description, filter, rule)
 
 					matches = false
 					for sel := range filter.PerSelectorPolicies {
@@ -1481,7 +1480,7 @@ func TestL3RuleLabels(t *testing.T) {
 							break
 						}
 					}
-					require.True(t, matches, fmt.Sprintf("%s: expected cidr %s to match filter %+v", test.description, cidr, filter))
+					require.True(t, matches, "%s: expected cidr %s to match filter %+v", test.description, cidr, filter)
 				}
 			}
 		}
@@ -1593,7 +1592,7 @@ func TestL4RuleLabels(t *testing.T) {
 			portProtoSlice := strings.Split(portProto, "/")
 			out := finalPolicy.Ingress.PortRules.ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
 			require.NotNil(t, out, test.description)
-			require.Equal(t, 1, len(out.RuleOrigin), test.description)
+			require.Len(t, out.RuleOrigin, 1, test.description)
 			require.EqualValues(t, test.expectedIngressLabels[portProto], out.RuleOrigin[out.wildcard], test.description)
 		}
 
@@ -1603,7 +1602,7 @@ func TestL4RuleLabels(t *testing.T) {
 			out := finalPolicy.Egress.PortRules.ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
 			require.NotNil(t, out, test.description)
 
-			require.Equal(t, 1, len(out.RuleOrigin), test.description)
+			require.Len(t, out.RuleOrigin, 1, test.description)
 			require.EqualValues(t, test.expectedEgressLabels[portProto], out.RuleOrigin[out.wildcard], test.description)
 		}
 		finalPolicy.Detach(td.sc)
@@ -1640,8 +1639,8 @@ func expectResult(t *testing.T, expected, obtained api.Decision, buffer *bytes.B
 }
 
 func checkIngress(t *testing.T, repo *Repository, ctx *SearchContext, verdict api.Decision) {
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	buffer := new(bytes.Buffer)
 	ctx.Logging = stdlog.New(buffer, "", 0)
@@ -1649,8 +1648,8 @@ func checkIngress(t *testing.T, repo *Repository, ctx *SearchContext, verdict ap
 }
 
 func checkEgress(t *testing.T, repo *Repository, ctx *SearchContext, verdict api.Decision) {
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	buffer := new(bytes.Buffer)
 	ctx.Logging = stdlog.New(buffer, "", 0)
@@ -1801,7 +1800,7 @@ func TestIngressL4AllowAll(t *testing.T) {
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
@@ -1849,7 +1848,7 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 	require.Equal(t, "port-80", filter.PortName)
 	require.True(t, filter.Ingress)
 
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
@@ -1922,9 +1921,9 @@ func TestEgressL4AllowAll(t *testing.T) {
 	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
-	require.Equal(t, false, filter.Ingress)
+	require.False(t, filter.Ingress)
 
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	l4EgressPolicy.Detach(repo.GetSelectorCache())
 }
@@ -1980,9 +1979,9 @@ func TestEgressL4AllowWorld(t *testing.T) {
 	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
-	require.Equal(t, false, filter.Ingress)
+	require.False(t, filter.Ingress)
 
-	require.Equal(t, 3, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 3)
 	l4EgressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -2037,9 +2036,9 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
-	require.Equal(t, false, filter.Ingress)
+	require.False(t, filter.Ingress)
 
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	l4EgressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -2220,7 +2219,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
-	require.Equal(t, 2, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 2)
 	require.NotNil(t, filter.PerSelectorPolicies[td.cachedSelectorC])
 	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.EqualValues(t, expected, filter)
@@ -2247,7 +2246,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	require.Equal(t, uint16(7000), filterL7.Port)
 	require.True(t, filterL7.Ingress)
 
-	require.Equal(t, 1, len(filterL7.PerSelectorPolicies))
+	require.Len(t, filterL7.PerSelectorPolicies, 1)
 	require.NotNil(t, filterL7.PerSelectorPolicies[td.cachedSelectorC])
 	require.Nil(t, filterL7.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.EqualValues(t, expectedL7, filterL7)
@@ -2328,7 +2327,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
-	require.Equal(t, 2, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 2)
 	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.NotNil(t, filter.PerSelectorPolicies[td.cachedSelectorC])
 	require.EqualValues(t, expected, filter)
@@ -2339,7 +2338,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	require.Equal(t, uint16(7000), filterL7.Port)
 	require.True(t, filterL7.Ingress)
 
-	require.Equal(t, 1, len(filterL7.PerSelectorPolicies))
+	require.Len(t, filterL7.PerSelectorPolicies, 1)
 	require.NotNil(t, filterL7.PerSelectorPolicies[td.cachedSelectorC])
 	require.Nil(t, filterL7.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.EqualValues(t, expectedL7, filterL7)
@@ -2393,7 +2392,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
-	require.Equal(t, 2, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 2)
 	require.EqualValues(t, expected, filter)
 
 	// Test the reverse order as well; ensure that we check both conditions
@@ -2447,7 +2446,7 @@ func TestL4WildcardMerge(t *testing.T) {
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
-	require.Equal(t, 2, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 2)
 	require.EqualValues(t, expected, filter)
 }
 
@@ -2506,12 +2505,12 @@ func TestL3L4L7Merge(t *testing.T) {
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
-	require.Equal(t, 2, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 2)
 	require.NotNil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.Nil(t, filter.PerSelectorPolicies[td.cachedSelectorC])
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
-	require.Equal(t, 2, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 2)
 	require.Equal(t, &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
@@ -2576,7 +2575,7 @@ func TestL3L4L7Merge(t *testing.T) {
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
-	require.Equal(t, 2, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 2)
 	require.NotNil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.Nil(t, filter.PerSelectorPolicies[td.cachedSelectorC])
 	require.Equal(t, &L4Filter{
@@ -2645,7 +2644,7 @@ func TestMatches(t *testing.T) {
 
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added
 	// to EndpointsSelected.
-	require.Equal(t, false, epRule.matchesSubject(notSelectedIdentity))
+	require.False(t, epRule.matchesSubject(notSelectedIdentity))
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
@@ -2657,13 +2656,13 @@ func TestMatches(t *testing.T) {
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
 	// needs to handle this case correctly.
-	require.Equal(t, false, epRule.matchesSubject(notSelectedIdentity))
+	require.False(t, epRule.matchesSubject(notSelectedIdentity))
 
 	// host endpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.Equal(t, false, epRule.matchesSubject(hostIdentity))
+	require.False(t, epRule.matchesSubject(hostIdentity))
 
 	// selectedEndpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.Equal(t, false, hostRule.matchesSubject(selectedIdentity))
+	require.False(t, hostRule.matchesSubject(selectedIdentity))
 
 	// host endpoint is selected by rule, but host labels are mutable, so don't cache them
 	require.True(t, hostRule.matchesSubject(hostIdentity))
@@ -2840,10 +2839,10 @@ func TestMergeListenerReference(t *testing.T) {
 	// Cannot merge two different listeners with the default (zero) priority
 	ps0a := &PerSelectorPolicy{Listener: "listener0a"}
 	err = ps0.mergeListenerReference(ps0a)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	err = ps0a.mergeListenerReference(ps0)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Listener with a defined (non-zero) priority takes precedence over
 	// a listener with an undefined (zero) priority
@@ -2874,9 +2873,9 @@ func TestMergeListenerReference(t *testing.T) {
 	ps12 := &PerSelectorPolicy{Listener: "listener1", Priority: 2}
 	ps2 = &PerSelectorPolicy{Listener: "listener2", Priority: 2}
 	err = ps12.mergeListenerReference(ps2)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	err = ps2.mergeListenerReference(ps12)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Lower priority is propagated also when the listeners are the same
 	ps23 := &PerSelectorPolicy{Listener: "listener2", Priority: 3}

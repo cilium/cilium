@@ -57,7 +57,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		},
 		Name: multiPoolTriggerName,
 	})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	c.k8sUpdater = k8sUpdater
 
 	currentNode := &ciliumv2.CiliumNode{
@@ -65,10 +65,10 @@ func Test_MultiPoolManager(t *testing.T) {
 	}
 	// provide initial CiliumNode CRD - we expect the agent to request the preAlloc pools
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 
 	// Wait for agent pre-allocation request, then validate it
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, &ciliumv2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: nodeTypes.GetName()},
@@ -117,17 +117,17 @@ func Test_MultiPoolManager(t *testing.T) {
 	currentNode.Spec.IPAM.Pools.Allocated = allocatedPools
 
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	c.waitForAllPools()
 
 	// test allocation in default pool
 	defaultAllocation, err := c.allocateIP(net.ParseIP("10.0.22.1"), "default-pod-1", "default", IPv4, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, defaultAllocation.IP, net.ParseIP("10.0.22.1"))
 
 	// cannot allocate the same IP twice
 	faultyAllocation, err := c.allocateIP(net.ParseIP("10.0.22.1"), "default-pod-1", "default", IPv4, false)
-	assert.Error(t, err, ipallocator.ErrAllocated)
+	assert.ErrorIs(t, err, ipallocator.ErrAllocated)
 	assert.Nil(t, faultyAllocation)
 
 	// Allocation from an unknown pool should create a new pending allocation
@@ -148,7 +148,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.ErrorContains(t, err, "pool not (yet) available")
 	assert.Nil(t, faultyAllocation)
 
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	// Check that the agent has not (yet) removed the unused pool.
 	assert.Equal(t, allocatedPools, currentNode.Spec.IPAM.Pools.Allocated)
@@ -212,7 +212,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		},
 	}
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 
 	c.waitForPool(context.TODO(), IPv4, "jupiter")
 	c.waitForPool(context.TODO(), IPv6, "jupiter")
@@ -220,21 +220,21 @@ func Test_MultiPoolManager(t *testing.T) {
 	// Allocations should now succeed
 	jupiterIP0 := net.ParseIP("192.168.1.1")
 	allocatedJupiterIP0, err := c.allocateIP(jupiterIP0, "jupiter-pod-0", "jupiter", IPv4, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, jupiterIP0.Equal(allocatedJupiterIP0.IP))
 	allocatedJupiterIP1, err := c.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, juptierIPv6CIDR.Contains(allocatedJupiterIP1.IP))
 
 	// Release IPs from jupiter pool. This should fully remove it from both
 	// "requested" and "allocated"
 	err = c.releaseIP(allocatedJupiterIP0.IP, "jupiter", IPv4, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = c.releaseIP(allocatedJupiterIP1.IP, "jupiter", IPv6, true) // triggers sync
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// Wait for agent to release jupiter and unused CIDRs
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, types.IPAMPoolSpec{
 		Requested: []types.IPAMPoolRequest{
@@ -277,12 +277,12 @@ func Test_MultiPoolManager(t *testing.T) {
 	for i := 0; i < numMarsIPs; i++ {
 		// set upstreamSync to true for last allocation, to ensure we only get one upsert event
 		ar, err := c.allocateNext(fmt.Sprintf("mars-pod-%d", i), "mars", IPv4, i == numMarsIPs-1)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, marsIPv4CIDR1.Contains(ar.IP))
 		allocatedMarsIPs = append(allocatedMarsIPs, ar.IP)
 	}
 	_, err = c.allocateNext("mars-pod-overflow", "mars", IPv4, false)
-	assert.Error(t, errors.New("all pod CIDR ranges are exhausted"), err)
+	assert.ErrorContains(t, err, "all pod CIDR ranges are exhausted")
 
 	ipv4Dump, _ := c.dump(IPv4)
 	assert.Len(t, ipv4Dump, 2) // 2 pools: default + mars
@@ -290,7 +290,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.Len(t, ipv4Dump[Pool("mars")], numMarsIPs)
 
 	// Ensure Requested numbers are bumped
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, []types.IPAMPoolRequest{
 		{
@@ -330,19 +330,19 @@ func Test_MultiPoolManager(t *testing.T) {
 		},
 	}
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 
 	// Should now be able to allocate from mars pool again
 	marsAllocation, err := c.allocateNext("mars-pod-overflow", "mars", IPv4, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, marsIPv4CIDR2.Contains(marsAllocation.IP))
 
 	// Deallocate all other IPs from mars pool. This should release the old CIDR
 	for i, ip := range allocatedMarsIPs {
 		err = c.releaseIP(ip, "mars", IPv4, i == numMarsIPs-1)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, []types.IPAMPoolRequest{
 		{

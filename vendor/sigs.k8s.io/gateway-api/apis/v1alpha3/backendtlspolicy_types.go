@@ -75,6 +75,21 @@ type BackendTLSPolicySpec struct {
 
 	// Validation contains backend TLS validation configuration.
 	Validation BackendTLSPolicyValidation `json:"validation"`
+
+	// Options are a list of key/value pairs to enable extended TLS
+	// configuration for each implementation. For example, configuring the
+	// minimum TLS version or supported cipher suites.
+	//
+	// A set of common keys MAY be defined by the API in the future. To avoid
+	// any ambiguity, implementation-specific definitions MUST use
+	// domain-prefixed names, such as `example.com/my-custom-option`.
+	// Un-prefixed names are reserved for key names defined by Gateway API.
+	//
+	// Support: Implementation-specific
+	//
+	// +optional
+	// +kubebuilder:validation:MaxProperties=16
+	Options map[v1.AnnotationKey]v1.AnnotationValue `json:"options,omitempty"`
 }
 
 // BackendTLSPolicyValidation contains backend TLS validation configuration.
@@ -126,11 +141,52 @@ type BackendTLSPolicyValidation struct {
 	// backends:
 	//
 	// 1. Hostname MUST be used as the SNI to connect to the backend (RFC 6066).
-	// 2. Hostname MUST be used for authentication and MUST match the certificate
-	//    served by the matching backend.
+	// 2. If SubjectAltNames is not specified, Hostname MUST be used for
+	//    authentication and MUST match the certificate served by the matching
+	//    backend.
 	//
 	// Support: Core
 	Hostname v1.PreciseHostname `json:"hostname"`
+
+	// SubjectAltNames contains one or more Subject Alternative Names.
+	// When specified, the certificate served from the backend MUST have at least one
+	// Subject Alternate Name matching one of the specified SubjectAltNames.
+	//
+	// Support: Core
+	//
+	// +optional
+	// +kubebuilder:validation:MaxItems=5
+	SubjectAltNames []SubjectAltName `json:"subjectAltNames,omitempty"`
+}
+
+// SubjectAltName represents Subject Alternative Name.
+// +kubebuilder:validation:XValidation:message="SubjectAltName element must contain Hostname, if Type is set to Hostname",rule="!(self.type == \"Hostname\" && (!has(self.hostname) || self.hostname == \"\"))"
+// +kubebuilder:validation:XValidation:message="SubjectAltName element must not contain Hostname, if Type is not set to Hostname",rule="!(self.type != \"Hostname\" && has(self.hostname) && self.hostname != \"\")"
+// +kubebuilder:validation:XValidation:message="SubjectAltName element must contain URI, if Type is set to URI",rule="!(self.type == \"URI\" && (!has(self.uri) || self.uri == \"\"))"
+// +kubebuilder:validation:XValidation:message="SubjectAltName element must not contain URI, if Type is not set to URI",rule="!(self.type != \"URI\" && has(self.uri) && self.uri != \"\")"
+type SubjectAltName struct {
+	// Type determines the format of the Subject Alternative Name. Always required.
+	//
+	// Support: Core
+	Type SubjectAltNameType `json:"type"`
+
+	// Hostname contains Subject Alternative Name specified in DNS name format.
+	// Required when Type is set to Hostname, ignored otherwise.
+	//
+	// Support: Core
+	//
+	// +optional
+	Hostname v1.Hostname `json:"hostname,omitempty"`
+
+	// URI contains Subject Alternative Name specified in a full URI format.
+	// It MUST include both a scheme (e.g., "http" or "ftp") and a scheme-specific-part.
+	// Common values include SPIFFE IDs like "spiffe://mycluster.example.com/ns/myns/sa/svc1sa".
+	// Required when Type is set to URI, ignored otherwise.
+	//
+	// Support: Core
+	//
+	// +optional
+	URI v1.AbsoluteURI `json:"uri,omitempty"`
 }
 
 // WellKnownCACertificatesType is the type of CA certificate that will be used
@@ -141,4 +197,20 @@ type WellKnownCACertificatesType string
 const (
 	// WellKnownCACertificatesSystem indicates that well known system CA certificates should be used.
 	WellKnownCACertificatesSystem WellKnownCACertificatesType = "System"
+)
+
+// SubjectAltNameType is the type of the Subject Alternative Name.
+// +kubebuilder:validation:Enum=Hostname;URI
+type SubjectAltNameType string
+
+const (
+	// HostnameSubjectAltNameType specifies hostname-based SAN.
+	//
+	// Support: Core
+	HostnameSubjectAltNameType SubjectAltNameType = "Hostname"
+
+	// URISubjectAltNameType specifies URI-based SAN, e.g. SPIFFE id.
+	//
+	// Support: Core
+	URISubjectAltNameType SubjectAltNameType = "URI"
 )

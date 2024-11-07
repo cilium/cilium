@@ -61,7 +61,7 @@ func testGetSet(t *testing.T) {
 
 	pairs, err := Client().ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
-	require.Len(t, pairs, 0)
+	require.Empty(t, pairs)
 
 	for i := 0; i < maxID; i++ {
 		val, err := Client().Get(context.TODO(), testKey(prefix, i))
@@ -89,7 +89,7 @@ func testGetSet(t *testing.T) {
 
 	pairs, err = Client().ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
-	require.Len(t, pairs, 0)
+	require.Empty(t, pairs)
 }
 
 func BenchmarkGet(b *testing.B) {
@@ -172,7 +172,7 @@ func testCreateOnly(t *testing.T) {
 
 	success, err := Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(0)), false)
 	require.NoError(t, err)
-	require.Equal(t, true, success)
+	require.True(t, success)
 
 	val, err := Client().Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
@@ -180,7 +180,7 @@ func testCreateOnly(t *testing.T) {
 
 	success, err = Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(1)), false)
 	require.NoError(t, err)
-	require.Equal(t, false, success)
+	require.False(t, success)
 
 	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
@@ -216,7 +216,7 @@ func testListAndWatch(t *testing.T) {
 
 	success, err := Client().CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)
-	require.Equal(t, true, success)
+	require.True(t, success)
 
 	w := Client().ListAndWatch(context.TODO(), "foo2/", 100)
 	require.NotNil(t, t)
@@ -226,7 +226,7 @@ func testListAndWatch(t *testing.T) {
 
 	success, err = Client().CreateOnly(context.Background(), key2, []byte(val2), false)
 	require.NoError(t, err)
-	require.Equal(t, true, success)
+	require.True(t, success)
 	expectEvent(t, w, EventTypeCreate, key2, val2)
 
 	err = Client().Delete(context.TODO(), key1)
@@ -235,7 +235,7 @@ func testListAndWatch(t *testing.T) {
 
 	success, err = Client().CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)
-	require.Equal(t, true, success)
+	require.True(t, success)
 	expectEvent(t, w, EventTypeCreate, key1, val1)
 
 	err = Client().Delete(context.TODO(), key1)

@@ -27,20 +27,22 @@ var ciliumbgpadvertisementsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumBG
 
 // Get takes name of the ciliumBGPAdvertisement, and returns the corresponding ciliumBGPAdvertisement object, and an error if there is any.
 func (c *FakeCiliumBGPAdvertisements) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumBGPAdvertisement, err error) {
+	emptyResult := &v2alpha1.CiliumBGPAdvertisement{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumbgpadvertisementsResource, name), &v2alpha1.CiliumBGPAdvertisement{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumbgpadvertisementsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPAdvertisement), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumBGPAdvertisements that match those selectors.
 func (c *FakeCiliumBGPAdvertisements) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumBGPAdvertisementList, err error) {
+	emptyResult := &v2alpha1.CiliumBGPAdvertisementList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumbgpadvertisementsResource, ciliumbgpadvertisementsKind, opts), &v2alpha1.CiliumBGPAdvertisementList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumbgpadvertisementsResource, ciliumbgpadvertisementsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumBGPAdvertisements) List(ctx context.Context, opts v1.ListOpti
 // Watch returns a watch.Interface that watches the requested ciliumBGPAdvertisements.
 func (c *FakeCiliumBGPAdvertisements) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumbgpadvertisementsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumbgpadvertisementsResource, opts))
 }
 
 // Create takes the representation of a ciliumBGPAdvertisement and creates it.  Returns the server's representation of the ciliumBGPAdvertisement, and an error, if there is any.
 func (c *FakeCiliumBGPAdvertisements) Create(ctx context.Context, ciliumBGPAdvertisement *v2alpha1.CiliumBGPAdvertisement, opts v1.CreateOptions) (result *v2alpha1.CiliumBGPAdvertisement, err error) {
+	emptyResult := &v2alpha1.CiliumBGPAdvertisement{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumbgpadvertisementsResource, ciliumBGPAdvertisement), &v2alpha1.CiliumBGPAdvertisement{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumbgpadvertisementsResource, ciliumBGPAdvertisement, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPAdvertisement), err
 }
 
 // Update takes the representation of a ciliumBGPAdvertisement and updates it. Returns the server's representation of the ciliumBGPAdvertisement, and an error, if there is any.
 func (c *FakeCiliumBGPAdvertisements) Update(ctx context.Context, ciliumBGPAdvertisement *v2alpha1.CiliumBGPAdvertisement, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPAdvertisement, err error) {
+	emptyResult := &v2alpha1.CiliumBGPAdvertisement{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumbgpadvertisementsResource, ciliumBGPAdvertisement), &v2alpha1.CiliumBGPAdvertisement{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumbgpadvertisementsResource, ciliumBGPAdvertisement, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPAdvertisement), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumBGPAdvertisements) Delete(ctx context.Context, name string, o
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumBGPAdvertisements) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumbgpadvertisementsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumbgpadvertisementsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumBGPAdvertisementList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumBGPAdvertisements) DeleteCollection(ctx context.Context, opts
 
 // Patch applies the patch and returns the patched ciliumBGPAdvertisement.
 func (c *FakeCiliumBGPAdvertisements) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPAdvertisement, err error) {
+	emptyResult := &v2alpha1.CiliumBGPAdvertisement{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumbgpadvertisementsResource, name, pt, data, subresources...), &v2alpha1.CiliumBGPAdvertisement{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumbgpadvertisementsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPAdvertisement), err
 }

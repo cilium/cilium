@@ -28,7 +28,7 @@ type ipCacheParams struct {
 
 	Lifecycle              cell.Lifecycle
 	CacheIdentityAllocator cache.IdentityAllocator
-	PolicyRepository       *policy.Repository
+	PolicyRepository       policy.PolicyRepository
 	EndpointManager        endpointmanager.EndpointManager
 	CacheStatus            synced.CacheStatus
 }

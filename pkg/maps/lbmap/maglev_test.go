@@ -92,5 +92,5 @@ func TestInitMaps(t *testing.T) {
 	require.NoError(t, err)
 	deleted, err = deleteMapIfMNotMatch(MaglevOuter4MapName, uint32(option.Config.MaglevTableSize))
 	require.NoError(t, err)
-	require.Equal(t, false, deleted)
+	require.False(t, deleted)
 }

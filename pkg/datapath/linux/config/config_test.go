@@ -105,9 +105,9 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 
 		tlog := hivetest.Logger(t)
 		require.NoError(t, h.Start(tlog, context.TODO()))
-		t.Cleanup(func() { require.Nil(t, h.Stop(tlog, context.TODO())) })
+		t.Cleanup(func() { require.NoError(t, h.Stop(tlog, context.TODO())) })
 		err := write(test.output, writer)
-		require.True(t, test.wantErr == (err != nil), "wantErr=%v, err=%s", test.wantErr, err)
+		require.Equal(t, test.wantErr, (err != nil), "wantErr=%v, err=%s", test.wantErr, err)
 	}
 }
 
@@ -241,11 +241,11 @@ func TestWriteStaticData(t *testing.T) {
 				break
 			}
 		}
-		require.Equal(t, true, bytes.Contains(b, []byte(k)))
+		require.True(t, bytes.Contains(b, []byte(k)))
 	}
 	for _, v := range mapSub {
 		t.Logf("Ensuring config has %s", v)
-		require.Equal(t, true, bytes.Contains(b, []byte(v)))
+		require.True(t, bytes.Contains(b, []byte(v)))
 	}
 }
 
@@ -278,7 +278,7 @@ func createVlanLink(vlanId int, mainLink *netlink.Dummy, t *testing.T) *netlink.
 		VlanId:       vlanId,
 	}
 	err := netlink.LinkAdd(link)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	return link
 }
@@ -329,7 +329,7 @@ func TestVLANBypassConfig(t *testing.T) {
 
 	option.Config.VLANBPFBypass = []int{4004}
 	m, err := vlanFilterMacros(devs)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	require.Equal(t, fmt.Sprintf(`switch (ifindex) { \
 case %d: \
 switch (vlan_id) { \
@@ -354,7 +354,7 @@ return false;`, main1.Index, main2.Index), m)
 
 	option.Config.VLANBPFBypass = []int{0}
 	m, err = vlanFilterMacros(devs)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "return true", m)
 }
 

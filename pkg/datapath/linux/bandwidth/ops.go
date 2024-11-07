@@ -6,12 +6,14 @@ package bandwidth
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
@@ -32,7 +34,7 @@ func (*ops) Delete(context.Context, statedb.ReadTxn, *tables.BandwidthQDisc) err
 }
 
 // Prune implements reconciler.Operations.
-func (*ops) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*tables.BandwidthQDisc]) error {
+func (*ops) Prune(context.Context, statedb.ReadTxn, iter.Seq2[*tables.BandwidthQDisc, statedb.Revision]) error {
 	// We don't touch qdiscs of other devices.
 	return nil
 }
@@ -52,7 +54,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 	device := link.Attrs().Name
 
 	// Check if the qdiscs are already set up as expected.
-	qdiscs, err := netlink.QdiscList(link)
+	qdiscs, err := safenetlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}
@@ -129,7 +131,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, q *tables.Bandw
 	ops.log.Info("Setting qdisc", "qdisc", which, "device", device)
 
 	// Set the fq parameters
-	qdiscs, err = netlink.QdiscList(link)
+	qdiscs, err = safenetlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}

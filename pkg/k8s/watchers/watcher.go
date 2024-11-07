@@ -52,7 +52,7 @@ const (
 
 func init() {
 	// Replace error handler with our own
-	runtime.ErrorHandlers = []func(error){
+	runtime.ErrorHandlers = []runtime.ErrorHandler{
 		k8s.K8sErrorHandler,
 	}
 }

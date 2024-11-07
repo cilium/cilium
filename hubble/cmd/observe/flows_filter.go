@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -209,7 +210,6 @@ func newFlowFilter() *flowFilter {
 			{"identity", "from-identity"},
 			{"workload", "to-workload"},
 			{"workload", "from-workload"},
-			{"node-name", "cluster"},
 			{"node-label"},
 			{"tcp-flags"},
 			{"uuid"},
@@ -219,22 +219,13 @@ func newFlowFilter() *flowFilter {
 	}
 }
 
-func (of *flowFilter) hasChanged(list []string, name string) bool {
-	for _, c := range list {
-		if c == name {
-			return true
-		}
-	}
-	return false
-}
-
 func (of *flowFilter) checkConflict(t *filterTracker) error {
 	// check for conflicts
 	for _, group := range of.conflicts {
 		for _, flag := range group {
-			if of.hasChanged(t.changed, flag) {
+			if slices.Contains(t.changed, flag) {
 				for _, conflict := range group {
-					if flag != conflict && of.hasChanged(t.changed, conflict) {
+					if flag != conflict && slices.Contains(t.changed, conflict) {
 						return fmt.Errorf(
 							"filters --%s and --%s cannot be combined",
 							flag, conflict,
@@ -482,8 +473,6 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 		f.srcNs = append(f.srcNs, val)
 	case "to-namespace":
 		f.dstNs = append(f.dstNs, val)
-
-	// namespace filters (will be applied to pods and/or service filters)
 	case "all-namespaces":
 		f.ns = append(f.ns, "")
 	case "from-all-namespaces":
@@ -700,10 +689,21 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 			f.NodeLabels = append(f.GetNodeLabels(), val)
 		})
 
-		// cluster Name filters
+	// cluster name filters
 	case "cluster":
+		f.applyLeft(func(f *flowpb.FlowFilter) {
+			f.SourceClusterName = append(f.GetSourceClusterName(), val)
+		})
+		f.applyRight(func(f *flowpb.FlowFilter) {
+			f.DestinationClusterName = append(f.GetDestinationClusterName(), val)
+		})
+	case "from-cluster":
 		f.apply(func(f *flowpb.FlowFilter) {
-			f.NodeName = append(f.GetNodeName(), val+"/")
+			f.SourceClusterName = append(f.GetSourceClusterName(), val)
+		})
+	case "to-cluster":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.DestinationClusterName = append(f.GetDestinationClusterName(), val)
 		})
 
 	// TCP Flags filter

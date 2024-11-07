@@ -3,7 +3,8 @@
 # Copyright Authors of Cilium
 
 # Check that viper's default instance is not used in the agent or operator.
-if grep -r -E -i --include \*.go "viper\.(Set|Get[^V])" pkg daemon operator clustermesh-apiserver; then
+if grep -r -v -E --include \*.go '^\s*//' pkg daemon operator clustermesh-apiserver \
+  | grep -E -i "viper\.(Set|Get[^V])"; then
   echo "Found viper.(Get|Set)* usage. Please use viper.New() or the hive.Viper() instance instead.";
   exit 1
 fi

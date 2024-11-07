@@ -46,6 +46,10 @@ type PolicyWatcherParams struct {
 	Logger     logrus.FieldLogger
 }
 
+type ResourcesWatcher interface {
+	WatchDirectoryPolicyResources(ctx context.Context, policyManager PolicyManager)
+}
+
 type PolicyResourcesWatcher struct {
 	params PolicyWatcherParams
 	cfg    Config
@@ -68,7 +72,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String(staticCNPPath, defaultConfig.StaticCNPPath, "Directory path to watch and load static cilium network policy yaml files.")
 }
 
-func newDirectoryPolicyResourcesWatcher(p PolicyWatcherParams, cfg Config) *PolicyResourcesWatcher {
+func newDirectoryPolicyResourcesWatcher(p PolicyWatcherParams, cfg Config) ResourcesWatcher {
 	if cfg.StaticCNPPath == "" {
 		close(p.ReadStatus)
 		return nil

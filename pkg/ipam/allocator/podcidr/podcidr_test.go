@@ -873,9 +873,9 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 		}
 		newNodeCIDRs, gotAllocated, err := n.reuseIPNets(tt.args.nodeName, tt.args.v4CIDR, tt.args.v6CIDR)
 		gotErr := err != nil
-		require.Equal(t, tt.wantErr, gotErr, fmt.Sprintf("Test Name: %s", tt.name))
-		require.Equal(t, tt.wantAllocated, gotAllocated, fmt.Sprintf("Test Name: %s", tt.name))
-		require.EqualValues(t, tt.fields.newNodeCIDRs, newNodeCIDRs, fmt.Sprintf("Test Name: %s", tt.name))
+		require.Equal(t, tt.wantErr, gotErr, "Test Name: %s", tt.name)
+		require.Equal(t, tt.wantAllocated, gotAllocated, "Test Name: %s", tt.name)
+		require.EqualValues(t, tt.fields.newNodeCIDRs, newNodeCIDRs, "Test Name: %s", tt.name)
 
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.fields)
@@ -1076,9 +1076,9 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 			nodes:            tt.fields.nodes,
 		}
 		nodeCIDRs, gotAllocated, err := n.allocateNext(tt.args.nodeName)
-		require.Equal(t, tt.wantErr, err, fmt.Sprintf("Test Name: %s", tt.name))
-		require.Equal(t, tt.nodeCIDRs, nodeCIDRs, fmt.Sprintf("Test Name: %s", tt.name))
-		require.Equal(t, tt.wantAllocated, gotAllocated, fmt.Sprintf("Test Name: %s", tt.name))
+		require.Equal(t, tt.wantErr, err, "Test Name: %s", tt.name)
+		require.Equal(t, tt.nodeCIDRs, nodeCIDRs, "Test Name: %s", tt.name)
+		require.Equal(t, tt.wantAllocated, gotAllocated, "Test Name: %s", tt.name)
 
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.fields)
@@ -1144,7 +1144,7 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				require.Len(t, fields.nodes, 0)
+				require.Empty(t, fields.nodes)
 				require.Equal(t, 1, onReleaseCalls)
 			},
 			args: args{
@@ -1179,7 +1179,7 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				require.Len(t, fields.nodes, 0)
+				require.Empty(t, fields.nodes)
 				require.Equal(t, 1, onReleaseCalls)
 			},
 			args: args{
@@ -1196,7 +1196,7 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 			nodes:            tt.fields.nodes,
 		}
 		got := n.releaseIPNets(tt.args.nodeName)
-		require.Equal(t, tt.want, got, fmt.Sprintf("Test Name: %s", tt.name))
+		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
 
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.fields)
@@ -1292,7 +1292,7 @@ func Test_parsePodCIDRs(t *testing.T) {
 		nodeCIDRs, err := parsePodCIDRs(tt.args.podCIDRs)
 		gotErr := err != nil
 		require.Equal(t, tt.wantErr, gotErr, fmt.Sprintf("Test Name: %s", tt.name), gotErr)
-		require.EqualValues(t, tt.want, nodeCIDRs, fmt.Sprintf("Test Name: %s", tt.name))
+		require.EqualValues(t, tt.want, nodeCIDRs, "Test Name: %s", tt.name)
 	}
 }
 
@@ -1696,7 +1696,7 @@ func Test_syncToK8s(t *testing.T) {
 	for _, tt := range tests {
 		tt.testSetup()
 		gotErr := syncToK8s(tt.args.nodeGetter, tt.args.ciliumNodesToK8s) != nil
-		require.Equal(t, tt.wantErr, gotErr, fmt.Sprintf("Test Name: %s", tt.name))
+		require.Equal(t, tt.wantErr, gotErr, "Test Name: %s", tt.name)
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.args)
 		}

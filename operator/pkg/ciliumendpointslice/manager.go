@@ -4,7 +4,7 @@
 package ciliumendpointslice
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -20,8 +20,8 @@ var (
 // operations is an interface to all operations that a CES manager can perform.
 type operations interface {
 	// External APIs to Insert/Remove CEP in local dataStore
-	UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESName
-	RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESName
+	UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESKey
+	RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESKey
 
 	initializeMappingForCES(ces *cilium_v2.CiliumEndpointSlice) CESName
 	initializeMappingCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ns string, ces CESName)
@@ -36,7 +36,7 @@ type operations interface {
 // is inserted, then the CEP is queued in any one of the available CES. CEPs are
 // inserted into CESs without any preference or any priority.
 type cesMgr struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 	// mapping is used to map CESName to CESTracker[i.e. list of CEPs],
 	// as well as CEPName to CESName.
 	mapping *CESToCEPMapping
@@ -65,7 +65,7 @@ type cesManagerIdentity struct {
 
 // newCESManagerFcfs creates and initializes a new FirstComeFirstServe based CES
 // manager, in this mode CEPs are batched based on FirstComeFirtServe algorithm.
-func newCESManagerFcfs(maxCEPsInCES int, logger logrus.FieldLogger) operations {
+func newCESManagerFcfs(maxCEPsInCES int, logger *slog.Logger) operations {
 	return &cesManagerFcfs{
 		cesMgr{
 			logger:       logger,
@@ -76,7 +76,7 @@ func newCESManagerFcfs(maxCEPsInCES int, logger logrus.FieldLogger) operations {
 }
 
 // newCESManagerIdentity creates and initializes a new Identity based manager.
-func newCESManagerIdentity(maxCEPsInCES int, logger logrus.FieldLogger) operations {
+func newCESManagerIdentity(maxCEPsInCES int, logger *slog.Logger) operations {
 	return &cesManagerIdentity{
 		cesMgr: cesMgr{
 			logger:       logger,
@@ -98,65 +98,50 @@ func (c *cesMgr) createCES(name, ns string) CESName {
 	if name == "" {
 		name = uniqueCESliceName(c.mapping)
 	}
-	cesName := NewCESName(name)
+	cesName := CESName(name)
 	c.mapping.insertCES(cesName, ns)
-	c.logger.WithFields(logrus.Fields{
-		logfields.CESName: cesName.string(),
-	}).Debug("Generated CES")
+	c.logger.Debug("Generated CES", logfields.CESName, cesName)
 	return cesName
 }
 
 // UpdateCEPMapping is used to insert CEP in local cache, this may result in creating a new
 // CES object or updating an existing CES object.
-func (c *cesManagerFcfs) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESName {
+func (c *cesManagerFcfs) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
-	c.logger.WithFields(logrus.Fields{
-		logfields.CEPName: cepName.string(),
-	}).Debug("Insert CEP in local cache")
+	c.logger.Debug("Insert CEP in local cache", logfields.CEPName, cepName.string())
 	// check the given cep is already exists in any of the CES.
 	// if yes, Update a ces with the given cep object.
 	cesName, exists := c.mapping.getCESName(cepName)
 	if exists {
-		c.logger.WithFields(logrus.Fields{
-			logfields.CEPName: cepName.string(),
-			logfields.CESName: cesName.string(),
-		}).Debug("CEP already mapped to CES")
-		return []CESName{cesName}
+		c.logger.Debug("CEP already mapped to CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName.string())
+		return []CESKey{NewCESKey(cesName.string(), ns)}
 	}
 
 	// Get the largest available CES.
 	// This ensures the minimum number of CES updates, as the CESs will be
 	// consistently filled up in order.
 	cesName = c.getLargestAvailableCESForNamespace(ns)
-	if cesName.Name == "" {
+	if cesName == "" {
 		cesName = c.createCES("", ns)
 	}
 	c.mapping.insertCEP(cepName, cesName)
-	c.logger.WithFields(logrus.Fields{
-		logfields.CEPName: cepName.string(),
-		logfields.CESName: cesName.string(),
-	}).Debug("CEP mapped to CES")
-	return []CESName{cesName}
+	c.logger.Debug("CEP mapped to CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName.string())
+	return []CESKey{NewCESKey(cesName.string(), ns)}
 }
 
-func (c *cesManagerFcfs) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESName {
+func (c *cesManagerFcfs) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
-	c.logger.WithFields(logrus.Fields{
-		logfields.CEPName: cepName.string(),
-	}).Debug("Removing CEP from local cache")
+	c.logger.Debug("Removing CEP from local cache", logfields.CEPName, cepName.string())
 	cesName, exists := c.mapping.getCESName(cepName)
 	if exists {
-		c.logger.WithFields(logrus.Fields{
-			logfields.CEPName: cepName.string(),
-			logfields.CESName: cesName.string(),
-		}).Debug("Removing CEP from CES")
+		c.logger.Debug("Removing CEP from CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName.string())
 		c.mapping.deleteCEP(cepName)
 		if c.mapping.countCEPsInCES(cesName) == 0 {
 			c.mapping.deleteCES(cesName)
 		}
-		return cesName
+		return NewCESKey(cesName.string(), ns)
 	}
-	return CESName(resource.Key{})
+	return CESKey(resource.Key{})
 }
 
 // getLargestAvailableCESForNamespace returns the largest CES from cache for the
@@ -164,7 +149,7 @@ func (c *cesManagerFcfs) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns 
 // maximum CEPs). If it is not found, a nil is returned.
 func (c *cesManagerFcfs) getLargestAvailableCESForNamespace(ns string) CESName {
 	largestCEPCount := 0
-	selectedCES := CESName(resource.Key{})
+	selectedCES := CESName("")
 	for _, ces := range c.mapping.getAllCESs() {
 		cepCount := c.mapping.countCEPsInCES(ces)
 		if cepCount < c.maxCEPsInCES && cepCount > largestCEPCount && c.mapping.getCESData(ces).ns == ns {
@@ -180,7 +165,7 @@ func (c *cesManagerFcfs) getLargestAvailableCESForNamespace(ns string) CESName {
 
 // UpdateCEPMapping is used to insert CEP in local cache, this may result in creating a new
 // CES object or updating an existing CES object. CEPs are grouped based on CEP identity.
-func (c *cesManagerIdentity) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESName {
+func (c *cesManagerIdentity) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESKey {
 	// check the given cep is already exists in any of the CES.
 	// if yes, compare the given CEP Identity with the CEPs stored in CES.
 	// If they are same UPDATE the CEP in the CES. This will trigger CES UPDATE to k8s-apiserver.
@@ -190,51 +175,42 @@ func (c *cesManagerIdentity) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint,
 	// 2) CES CREATE to k8s-apiserver, inserting the given CEP in a new CES or
 	// 3) CES UPDATE to k8s-apiserver, inserting the given CEP in existing CES
 	cepName := GetCEPNameFromCCEP(cep, ns)
-	c.logger.WithFields(logrus.Fields{
-		logfields.CEPName: cepName.string(),
-	}).Debug("Insert CEP in local cache")
+	c.logger.Debug("Insert CEP in local cache", logfields.CEPName, cepName.string())
 	var cesName CESName
 	var exists bool
-	removedFromCES := CESName(resource.Key{})
+	removedFromCES := CESName("")
 	if cesName, exists = c.mapping.getCESName(cepName); exists {
 		if c.cesToIdentity[cesName] != cep.IdentityID {
-			c.logger.WithFields(logrus.Fields{
-				logfields.CEPName:     cepName.string(),
-				logfields.CESName:     cesName.string(),
-				logfields.OldIdentity: c.cesToIdentity[cesName],
-				logfields.Identity:    cep.IdentityID,
-			}).Debug("CEP already mapped to CES but identity has changed")
+			c.logger.Debug("CEP already mapped to CES but identity has changed",
+				logfields.CEPName, cepName.string(),
+				logfields.CESName, cesName.string(),
+				logfields.OldIdentity, c.cesToIdentity[cesName],
+				logfields.Identity, cep.IdentityID)
 			removedFromCES = cesName
 			c.mapping.deleteCEP(cepName)
 		} else {
-			c.logger.WithFields(logrus.Fields{
-				logfields.CEPName: cepName.string(),
-				logfields.CESName: cesName.string(),
-			}).Debug("CEP already mapped to CES")
-			return []CESName{cesName}
+			c.logger.Debug("CEP already mapped to CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName.string())
+			return []CESKey{NewCESKey(cesName.string(), ns)}
 		}
 	}
 
 	// If given cep object isn't packed in any of the CES. find a new ces
 	// to pack this cep.
 	cesName = c.getLargestAvailableCESForIdentity(cep.IdentityID, ns)
-	if cesName.Name == "" {
+	if cesName == "" {
 		cesName = c.createCES("", ns)
 		// Update the identityToCES and cesToIdentity maps respectively.
 		c.identityToCES[cep.IdentityID] = append(c.identityToCES[cep.IdentityID], cesName)
 		c.cesToIdentity[cesName] = cep.IdentityID
 	}
 	c.mapping.insertCEP(cepName, cesName)
-	c.logger.WithFields(logrus.Fields{
-		logfields.CEPName: cepName.string(),
-		logfields.CESName: cesName.string(),
-	}).Debug("CEP mapped to CES")
-	return []CESName{removedFromCES, cesName}
+	c.logger.Debug("CEP mapped to CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName)
+	return []CESKey{NewCESKey(removedFromCES.string(), ns), NewCESKey(cesName.string(), ns)}
 }
 
 func (c *cesManagerIdentity) getLargestAvailableCESForIdentity(id int64, ns string) CESName {
 	largestCEPCount := 0
-	selectedCES := CESName(resource.Key{})
+	selectedCES := CESName("")
 	if cess, exist := c.identityToCES[id]; exist {
 		for _, ces := range cess {
 			cepCount := c.mapping.countCEPsInCES(ces)
@@ -250,25 +226,20 @@ func (c *cesManagerIdentity) getLargestAvailableCESForIdentity(id int64, ns stri
 	return selectedCES
 }
 
-func (c *cesManagerIdentity) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESName {
+func (c *cesManagerIdentity) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
-	c.logger.WithFields(logrus.Fields{
-		logfields.CEPName: cepName.string(),
-	}).Debug("Removing CEP from local cache")
+	c.logger.Debug("Removing CEP from local cache", logfields.CEPName, cepName.string())
 	cesName, exists := c.mapping.getCESName(cepName)
 	if exists {
-		c.logger.WithFields(logrus.Fields{
-			logfields.CEPName: cepName.string(),
-			logfields.CESName: cesName.string(),
-		}).Debug("Removing CEP from CES")
+		c.logger.Debug("Removing CEP from CES", logfields.CEPName, cepName.string(), logfields.CESName, cesName.string())
 		c.mapping.deleteCEP(cepName)
 		if c.mapping.countCEPsInCES(cesName) == 0 {
 			c.removeCESToIdentity(cep.IdentityID, cesName)
 			c.mapping.deleteCES(cesName)
 		}
-		return cesName
+		return NewCESKey(cesName.string(), ns)
 	}
-	return CESName(resource.Key{})
+	return CESKey(resource.Key{})
 }
 
 func (c *cesManagerIdentity) removeCESToIdentity(id int64, cesName CESName) {
@@ -321,5 +292,5 @@ func (c *cesMgr) getCEPinCES(ces CESName) []CEPName {
 
 func (c *cesMgr) isCEPinCES(cep CEPName, ces CESName) bool {
 	mappedCES, exists := c.mapping.getCESName(cep)
-	return exists && mappedCES.Name == ces.Name
+	return exists && mappedCES == ces
 }

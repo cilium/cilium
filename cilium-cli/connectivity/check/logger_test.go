@@ -89,7 +89,7 @@ func TestConcurrentLogger(t *testing.T) {
 
 			// assert log lines count
 			expectedLogLines := tt.concurrency * tt.testCount * len(testMessages)
-			require.Equal(t, expectedLogLines, len(logLines))
+			require.Len(t, logLines, expectedLogLines)
 
 			// assert test message order and total count
 			uniqueTests := make(map[string]struct{})
@@ -105,7 +105,7 @@ func TestConcurrentLogger(t *testing.T) {
 
 			// assert unique test count
 			expectedTestCount := tt.concurrency * tt.testCount
-			require.Equal(t, expectedTestCount, len(uniqueTests))
+			require.Len(t, uniqueTests, expectedTestCount)
 		})
 	}
 }

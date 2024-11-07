@@ -27,20 +27,22 @@ var ciliumendpointslicesKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumEndpo
 
 // Get takes name of the ciliumEndpointSlice, and returns the corresponding ciliumEndpointSlice object, and an error if there is any.
 func (c *FakeCiliumEndpointSlices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumEndpointSlice, err error) {
+	emptyResult := &v2alpha1.CiliumEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumendpointslicesResource, name), &v2alpha1.CiliumEndpointSlice{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumendpointslicesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumEndpointSlice), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumEndpointSlices that match those selectors.
 func (c *FakeCiliumEndpointSlices) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumEndpointSliceList, err error) {
+	emptyResult := &v2alpha1.CiliumEndpointSliceList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumendpointslicesResource, ciliumendpointslicesKind, opts), &v2alpha1.CiliumEndpointSliceList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumendpointslicesResource, ciliumendpointslicesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumEndpointSlices) List(ctx context.Context, opts v1.ListOptions
 // Watch returns a watch.Interface that watches the requested ciliumEndpointSlices.
 func (c *FakeCiliumEndpointSlices) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumendpointslicesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumendpointslicesResource, opts))
 }
 
 // Create takes the representation of a ciliumEndpointSlice and creates it.  Returns the server's representation of the ciliumEndpointSlice, and an error, if there is any.
 func (c *FakeCiliumEndpointSlices) Create(ctx context.Context, ciliumEndpointSlice *v2alpha1.CiliumEndpointSlice, opts v1.CreateOptions) (result *v2alpha1.CiliumEndpointSlice, err error) {
+	emptyResult := &v2alpha1.CiliumEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumendpointslicesResource, ciliumEndpointSlice), &v2alpha1.CiliumEndpointSlice{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumendpointslicesResource, ciliumEndpointSlice, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumEndpointSlice), err
 }
 
 // Update takes the representation of a ciliumEndpointSlice and updates it. Returns the server's representation of the ciliumEndpointSlice, and an error, if there is any.
 func (c *FakeCiliumEndpointSlices) Update(ctx context.Context, ciliumEndpointSlice *v2alpha1.CiliumEndpointSlice, opts v1.UpdateOptions) (result *v2alpha1.CiliumEndpointSlice, err error) {
+	emptyResult := &v2alpha1.CiliumEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumendpointslicesResource, ciliumEndpointSlice), &v2alpha1.CiliumEndpointSlice{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumendpointslicesResource, ciliumEndpointSlice, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumEndpointSlice), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumEndpointSlices) Delete(ctx context.Context, name string, opts
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumEndpointSlices) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumendpointslicesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumendpointslicesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumEndpointSliceList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumEndpointSlices) DeleteCollection(ctx context.Context, opts v1
 
 // Patch applies the patch and returns the patched ciliumEndpointSlice.
 func (c *FakeCiliumEndpointSlices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumEndpointSlice, err error) {
+	emptyResult := &v2alpha1.CiliumEndpointSlice{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumendpointslicesResource, name, pt, data, subresources...), &v2alpha1.CiliumEndpointSlice{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumendpointslicesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumEndpointSlice), err
 }

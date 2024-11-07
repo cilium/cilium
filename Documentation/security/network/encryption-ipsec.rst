@@ -49,9 +49,11 @@ following command:
 
 .. attention::
 
-    The ``+`` sign in the secret is mandatory since v1.16. It will force the
-    use of per-tunnel IPsec keys. The former global IPsec keys are considered
-    insecure (cf. `GHSA-pwqm-x5x6-5586`_).
+    The ``+`` sign in the secret is strongly recommended. It will force the use
+    of per-tunnel IPsec keys. The former global IPsec keys are considered
+    insecure (cf. `GHSA-pwqm-x5x6-5586`_) and were deprecated in v1.16. When
+    using ``+``, the per-tunnel keys will be derived from the secret you
+    generated.
 
 .. _GHSA-pwqm-x5x6-5586: https://github.com/cilium/cilium/security/advisories/GHSA-pwqm-x5x6-5586
 
@@ -363,9 +365,7 @@ Limitations
     * Transparent encryption is not currently supported when chaining Cilium on
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
-    * IPsec encryption does not work when using :ref:`kube-proxy replacement
-      <kubeproxy-free>`. Be aware that other features may require a kube-proxy
-      free environment in which case they are mutual exclusive.
+    * IPsec encryption currently does not work with BPF Host Routing.
     * IPsec encryption is not currently supported in combination with IPv6-only clusters.
     * IPsec encryption is not supported on clusters or clustermeshes with more
       than 65535 nodes.

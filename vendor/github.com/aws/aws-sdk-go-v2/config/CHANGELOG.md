@@ -1,3 +1,63 @@
+# v1.28.1 (2024-10-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.28.0 (2024-10-16)
+
+* **Feature**: Adds the LoadOptions hook `WithBaseEndpoint` for setting global endpoint override in-code.
+
+# v1.27.43 (2024-10-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.42 (2024-10-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.41 (2024-10-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.40 (2024-10-03)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.39 (2024-09-27)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.38 (2024-09-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.37 (2024-09-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.36 (2024-09-20)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.35 (2024-09-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.34 (2024-09-16)
+
+* **Bug Fix**: Read `AWS_CONTAINER_CREDENTIALS_FULL_URI` env variable if set when reading a profile with `credential_source`. Also ensure `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` is always read before it
+
+# v1.27.33 (2024-09-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.32 (2024-09-03)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.27.31 (2024-08-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.27.30 (2024-08-23)
 
 * **Bug Fix**: Don't fail credentials unit tests if credentials are found on a file

@@ -20,17 +20,13 @@ import (
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ces-controller")
 
 func TestReconcileCreate(t *testing.T) {
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
-	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
+	m := newCESManagerFcfs(2, hivetest.Logger(t)).(*cesManagerFcfs)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -53,7 +49,7 @@ func TestReconcileCreate(t *testing.T) {
 	)
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cepStore, _ := ciliumEndpoint.Store(context.Background())
 
 	var createdSlice *cilium_v2a1.CiliumEndpointSlice
@@ -69,15 +65,15 @@ func TestReconcileCreate(t *testing.T) {
 	cepStore.CacheStore().Add(cep2)
 	cep3 := tu.CreateStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
-	m.mapping.insertCES(NewCESName("ces1"), "ns")
-	m.mapping.insertCES(NewCESName("ces2"), "ns")
-	m.mapping.insertCEP(NewCEPName("cep1", "ns"), NewCESName("ces1"))
-	m.mapping.insertCEP(NewCEPName("cep2", "ns"), NewCESName("ces1"))
-	m.mapping.insertCEP(NewCEPName("cep3", "ns"), NewCESName("ces2"))
-	r.reconcileCES(NewCESName("ces1"))
+	m.mapping.insertCES(CESName("ces1"), "ns")
+	m.mapping.insertCES(CESName("ces2"), "ns")
+	m.mapping.insertCEP(NewCEPName("cep1", "ns"), CESName("ces1"))
+	m.mapping.insertCEP(NewCEPName("cep2", "ns"), CESName("ces1"))
+	m.mapping.insertCEP(NewCEPName("cep3", "ns"), CESName("ces2"))
+	r.reconcileCES(CESName("ces1"))
 
 	assert.Equal(t, "ces1", createdSlice.Name)
-	assert.Equal(t, 2, len(createdSlice.Endpoints))
+	assert.Len(t, createdSlice.Endpoints, 2)
 	assert.Equal(t, "ns", createdSlice.Namespace)
 	eps := []string{createdSlice.Endpoints[0].Name, createdSlice.Endpoints[1].Name}
 	assert.Contains(t, eps, "cep1")
@@ -89,7 +85,7 @@ func TestReconcileCreate(t *testing.T) {
 func TestReconcileUpdate(t *testing.T) {
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
-	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
+	m := newCESManagerFcfs(2, hivetest.Logger(t)).(*cesManagerFcfs)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -113,7 +109,7 @@ func TestReconcileUpdate(t *testing.T) {
 
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cepStore, _ := ciliumEndpoint.Store(context.Background())
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
 
@@ -132,17 +128,17 @@ func TestReconcileUpdate(t *testing.T) {
 	cepStore.CacheStore().Add(cep3)
 	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{tu.CreateManagerEndpoint("cep1", 1), tu.CreateManagerEndpoint("cep3", 2)})
 	cesStore.CacheStore().Add(ces1)
-	m.mapping.insertCES(NewCESName("ces1"), "ns")
-	m.mapping.insertCES(NewCESName("ces2"), "ns")
-	m.mapping.insertCEP(NewCEPName("cep1", "ns"), NewCESName("ces1"))
-	m.mapping.insertCEP(NewCEPName("cep2", "ns"), NewCESName("ces1"))
-	m.mapping.insertCEP(NewCEPName("cep3", "ns"), NewCESName("ces2"))
+	m.mapping.insertCES(CESName("ces1"), "ns")
+	m.mapping.insertCES(CESName("ces2"), "ns")
+	m.mapping.insertCEP(NewCEPName("cep1", "ns"), CESName("ces1"))
+	m.mapping.insertCEP(NewCEPName("cep2", "ns"), CESName("ces1"))
+	m.mapping.insertCEP(NewCEPName("cep3", "ns"), CESName("ces2"))
 	// ces1 contains cep1 and cep3, but it's mapped to cep1 and cep2
 	// so it's expected that after update it would contain cep1 and cep2
-	r.reconcileCES(NewCESName("ces1"))
+	r.reconcileCES(CESName("ces1"))
 
 	assert.Equal(t, "ces1", updatedSlice.Name)
-	assert.Equal(t, 2, len(updatedSlice.Endpoints))
+	assert.Len(t, updatedSlice.Endpoints, 2)
 	assert.Equal(t, "ns", updatedSlice.Namespace)
 	eps := []string{updatedSlice.Endpoints[0].Name, updatedSlice.Endpoints[1].Name}
 	assert.Contains(t, eps, "cep1")
@@ -154,7 +150,7 @@ func TestReconcileUpdate(t *testing.T) {
 func TestReconcileDelete(t *testing.T) {
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
-	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
+	m := newCESManagerFcfs(2, hivetest.Logger(t)).(*cesManagerFcfs)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -178,7 +174,7 @@ func TestReconcileDelete(t *testing.T) {
 
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cepStore, _ := ciliumEndpoint.Store(context.Background())
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
 
@@ -197,13 +193,13 @@ func TestReconcileDelete(t *testing.T) {
 	cepStore.CacheStore().Add(cep3)
 	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{tu.CreateManagerEndpoint("cep1", 1), tu.CreateManagerEndpoint("cep3", 2)})
 	cesStore.CacheStore().Add(ces1)
-	m.mapping.insertCES(NewCESName("ces1"), "ns")
-	m.mapping.insertCES(NewCESName("ces2"), "ns")
-	m.mapping.insertCEP(NewCEPName("cep1", "ns"), NewCESName("ces2"))
-	m.mapping.insertCEP(NewCEPName("cep2", "ns"), NewCESName("ces2"))
-	m.mapping.insertCEP(NewCEPName("cep3", "ns"), NewCESName("ces2"))
+	m.mapping.insertCES(CESName("ces1"), "ns")
+	m.mapping.insertCES(CESName("ces2"), "ns")
+	m.mapping.insertCEP(NewCEPName("cep1", "ns"), CESName("ces2"))
+	m.mapping.insertCEP(NewCEPName("cep2", "ns"), CESName("ces2"))
+	m.mapping.insertCEP(NewCEPName("cep3", "ns"), CESName("ces2"))
 	// ces1 contains cep1 and cep3, but it's mapped to nothing so it should be deleted
-	r.reconcileCES(NewCESName("ces1"))
+	r.reconcileCES(CESName("ces1"))
 
 	assert.Equal(t, "ces1", deletedSlice)
 
@@ -213,7 +209,7 @@ func TestReconcileDelete(t *testing.T) {
 func TestReconcileNoop(t *testing.T) {
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
-	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
+	m := newCESManagerFcfs(2, hivetest.Logger(t)).(*cesManagerFcfs)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -236,7 +232,7 @@ func TestReconcileNoop(t *testing.T) {
 	)
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cepStore, _ := ciliumEndpoint.Store(context.Background())
 
 	noRequest := true
@@ -251,15 +247,15 @@ func TestReconcileNoop(t *testing.T) {
 	cepStore.CacheStore().Add(cep2)
 	cep3 := tu.CreateStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
-	m.mapping.insertCES(NewCESName("ces1"), "ns")
-	m.mapping.insertCES(NewCESName("ces2"), "ns")
-	m.mapping.insertCEP(NewCEPName("cep1", "ns"), NewCESName("ces2"))
-	m.mapping.insertCEP(NewCEPName("cep2", "ns"), NewCESName("ces2"))
-	m.mapping.insertCEP(NewCEPName("cep3", "ns"), NewCESName("ces2"))
+	m.mapping.insertCES(CESName("ces1"), "ns")
+	m.mapping.insertCES(CESName("ces2"), "ns")
+	m.mapping.insertCEP(NewCEPName("cep1", "ns"), CESName("ces2"))
+	m.mapping.insertCEP(NewCEPName("cep2", "ns"), CESName("ces2"))
+	m.mapping.insertCEP(NewCEPName("cep3", "ns"), CESName("ces2"))
 	// ces1 contains cep1 and cep3, but it's mapped to nothing so it should be deleted
-	r.reconcileCES(NewCESName("ces1"))
+	r.reconcileCES(CESName("ces1"))
 
-	assert.Equal(t, true, noRequest)
+	assert.True(t, noRequest)
 
 	hive.Stop(tlog, context.Background())
 }

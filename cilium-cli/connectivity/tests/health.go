@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 )
 
 func CiliumHealth() check.Scenario {
@@ -32,7 +31,6 @@ func (s *ciliumHealth) Name() string {
 
 func (s *ciliumHealth) Run(ctx context.Context, t *check.Test) {
 	for name, pod := range t.Context().CiliumPods() {
-		pod := pod
 		t.NewGenericAction(s, name).Run(func(_ *check.Action) {
 			runHealthProbe(ctx, t, &pod)
 		})
@@ -45,8 +43,6 @@ func runHealthProbe(ctx context.Context, t *check.Test, pod *check.Pod) {
 
 	// Probe health status until it passes checks or timeout is reached.
 	for {
-		retryTimer := inctimer.After(time.Second)
-
 		if _, err := pod.K8sClient.GetPod(ctx, pod.Pod.Namespace, pod.Pod.Name, metav1.GetOptions{}); k8serrors.IsNotFound(err) {
 			t.Failf("cilium-health validation failed. Cilium Agent Pod %s/%s no longer exists", pod.Pod.Namespace, pod.Pod.Name)
 			return
@@ -67,7 +63,7 @@ func runHealthProbe(ctx context.Context, t *check.Test, pod *check.Pod) {
 		case <-done:
 			t.Context().Fatalf("cilium-health probe on '%s' failed: %s", pod.Name(), err)
 			return
-		case <-retryTimer:
+		case <-time.After(time.Second):
 		}
 	}
 }

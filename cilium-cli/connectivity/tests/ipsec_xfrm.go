@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -70,7 +69,6 @@ func (n *noIPsecXfrmErrors) collectXfrmErrors(ctx context.Context, t *check.Test
 	cmd := []string{"cilium", "metrics", "list", "-ojson", "-pcilium_ipsec_xfrm_error"}
 
 	for _, pod := range ct.CiliumPods() {
-		pod := pod
 		encryptStatus, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 		if err != nil {
 			t.Fatalf("Unable to get cilium ipsec xfrm error metrics: %s", err)
@@ -89,7 +87,7 @@ func (n *noIPsecXfrmErrors) collectXfrmErrors(ctx context.Context, t *check.Test
 			if xfrmMetric.Value > 0 {
 				xErrors = append(xErrors, fmt.Sprintf("%s:%d", name, xfrmMetric.Value))
 			}
-			sort.Strings(xErrors)
+			slices.Sort(xErrors)
 			xfrmErrors[pod.Pod.Status.HostIP] = strings.Join(xErrors, ",")
 		}
 

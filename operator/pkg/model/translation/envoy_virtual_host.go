@@ -17,6 +17,7 @@ import (
 	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/math"
@@ -108,7 +109,7 @@ func (s SortableRoute) Less(i, j int) bool {
 func getMethod(headers []*envoy_config_route_v3.HeaderMatcher) *string {
 	for _, h := range headers {
 		if h.Name == ":method" {
-			return model.AddressOf(h.GetStringMatch().GetExact())
+			return ptr.To(h.GetStringMatch().GetExact())
 		}
 	}
 	return nil
@@ -331,12 +332,43 @@ func requestMirrorMutation(mirrors []*model.HTTPRequestMirror) routeActionMutati
 				Cluster: fmt.Sprintf("%s:%s:%s", m.Backend.Namespace, m.Backend.Name, m.Backend.Port.GetPort()),
 				RuntimeFraction: &envoy_config_core_v3.RuntimeFractionalPercent{
 					DefaultValue: &envoy_type_v3.FractionalPercent{
-						Numerator: 100,
+						Numerator: uint32(m.Numerator * 100 / m.Denominator),
+						// Normalized to HUNDRED
+						Denominator: envoy_type_v3.FractionalPercent_HUNDRED,
 					},
 				},
 			})
 		}
 		route.Route.RequestMirrorPolicies = action
+		return route
+	}
+}
+
+func retryMutation(retry *model.HTTPRetry) routeActionMutation {
+	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
+		if retry == nil {
+			return route
+		}
+
+		rp := &envoy_config_route_v3.RetryPolicy{
+			RetriableStatusCodes: retry.Codes,
+		}
+
+		if retry.Attempts != nil {
+			rp.NumRetries = wrapperspb.UInt32(uint32(*retry.Attempts))
+		}
+
+		if retry.Backoff != nil {
+			baseInterval := *retry.Backoff
+			rp.RetryBackOff = &envoy_config_route_v3.RetryPolicy_RetryBackOff{
+				BaseInterval: durationpb.New(baseInterval),
+				// By default, the maximum interval is 10 times the base interval, which is
+				// too high for most use cases. Reduce it to 2 times the base interval.
+				MaxInterval: durationpb.New(2 * baseInterval),
+			}
+		}
+
+		route.Route.RetryPolicy = rp
 		return route
 	}
 }
@@ -369,6 +401,7 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTT
 		pathFullReplaceMutation(rewrite),
 		requestMirrorMutation(mirrors),
 		timeoutMutation(route.Timeout.Backend, route.Timeout.Request),
+		retryMutation(route.Retry),
 	}
 
 	if len(backends) == 1 {

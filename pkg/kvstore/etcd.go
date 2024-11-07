@@ -28,7 +28,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -829,13 +828,13 @@ reList:
 				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
 			}
 
-			queueStart := spanstat.Start()
-			w.Events <- KeyValueEvent{
+			if !w.emit(ctx, scope, KeyValueEvent{
 				Key:   string(key.Key),
 				Value: key.Value,
 				Typ:   t,
+			}) {
+				return
 			}
-			trackEventQueued(scope, t, queueStart.End(true).Total())
 		}
 
 		nextRev := revision + 1
@@ -843,7 +842,7 @@ reList:
 		// Send out deletion events for all keys that were deleted
 		// between our last known revision and the latest revision
 		// received via Get
-		localCache.RemoveDeleted(func(k string) {
+		if !localCache.RemoveDeleted(func(k string) bool {
 			event := KeyValueEvent{
 				Key: k,
 				Typ: EventTypeDelete,
@@ -852,15 +851,16 @@ reList:
 			if traceEnabled {
 				scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
 			}
-
-			queueStart := spanstat.Start()
-			w.Events <- event
-			trackEventQueued(scope, EventTypeDelete, queueStart.End(true).Total())
-		})
+			return w.emit(ctx, scope, event)
+		}) {
+			return
+		}
 
 		// Only send the list signal once
 		if !listSignalSent {
-			w.Events <- KeyValueEvent{Typ: EventTypeListDone}
+			if !w.emit(ctx, scope, KeyValueEvent{Typ: EventTypeListDone}) {
+				return
+			}
 			listSignalSent = true
 		}
 
@@ -873,6 +873,8 @@ reList:
 			case <-e.client.Ctx().Done():
 				return
 			case <-ctx.Done():
+				return
+			case <-w.stopWatch:
 				return
 			default:
 				goto recreateWatcher
@@ -942,10 +944,9 @@ reList:
 					if traceEnabled {
 						scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
 					}
-
-					queueStart := spanstat.Start()
-					w.Events <- event
-					trackEventQueued(scope, event.Typ, queueStart.End(true).Total())
+					if !w.emit(ctx, scope, event) {
+						return
+					}
 				}
 			}
 		}
@@ -1015,9 +1016,6 @@ func (e *etcdClient) statusChecker() {
 	ctx := context.Background()
 
 	var consecutiveQuorumErrors uint
-
-	statusTimer, statusTimerDone := inctimer.New()
-	defer statusTimerDone()
 
 	e.RWMutex.Lock()
 	// Ensure that lastHearbeat is always set to a non-zero value when starting
@@ -1104,7 +1102,7 @@ func (e *etcdClient) statusChecker() {
 		case <-e.stopStatusChecker:
 			close(e.statusCheckErrors)
 			return
-		case <-statusTimer.After(e.extraOptions.StatusCheckInterval(allConnected)):
+		case <-time.After(e.extraOptions.StatusCheckInterval(allConnected)):
 		}
 	}
 }
@@ -1545,16 +1543,6 @@ func (e *etcdClient) Close() {
 	// Wait until all child goroutines spawned by the lease managers have terminated.
 	e.leaseManager.Wait()
 	e.lockLeaseManager.Wait()
-}
-
-// Encode encodes a binary slice into a character set that the backend supports
-func (e *etcdClient) Encode(in []byte) (out string) {
-	return string(in)
-}
-
-// Decode decodes a key previously encoded back into the original binary slice
-func (e *etcdClient) Decode(in string) (out []byte, err error) {
-	return []byte(in), nil
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd

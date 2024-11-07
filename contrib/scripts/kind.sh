@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+usage() {
+  echo "Usage: ${PROG} [--xdp] [--secondary-network] [--optimize-sysctl] [--external-dns ipv4-addr] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family] [apiserver-addr] [apiserver-port] [kubeconfig-path]"
+}
+
 default_controlplanes=1
 default_workers=1
 default_cluster_name="kind"
@@ -22,6 +26,7 @@ default_network="kind-cilium"
 default_apiserver_addr="127.0.0.1"
 default_apiserver_port=0 # kind will randomly select
 default_kubeconfig=""
+default_external_dns="1.1.1.1"
 secondary_network="${default_network}-secondary"
 
 PROG=${0}
@@ -29,25 +34,38 @@ PROG=${0}
 SED="${SED:-sed}"
 
 xdp=false
-if [ "${1:-}" = "--xdp" ]; then
-  xdp=true
-  shift
-fi
-readonly xdp
-
 secondary_network_flag=false
-if [ "${1:-}" = "--secondary-network" ]; then
-  secondary_network_flag=true
-  shift
-fi
-readonly secondary_network_flag
-
 optimize_sysctl=false
-if [ "${1:-}" = "--optimize-sysctl" ]; then
-  optimize_sysctl=true
-  shift
-fi
+external_dns="${EXTERNAL_DNS:=${default_external_dns}}"
+while :; do
+  case "${1:-}" in
+    "--xdp")
+      xdp=true
+      shift;;
+    "--secondary-network")
+      secondary_network_flag=true
+      shift;;
+    "--optimize-sysctl")
+      optimize_sysctl=true
+      shift;;
+    "--external-dns")
+      if [[ $# -lt 2 || ! "$2" =~ [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+        usage
+        exit 1
+      fi
+      external_dns="$2"
+      shift 2;;
+    "--help"|"-h")
+      usage
+      exit 0;;
+    *)
+      break;;
+  esac
+done
+readonly xdp
+readonly secondary_network_flag
 readonly optimize_sysctl
+readonly external_dns
 
 controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"
 workers="${2:-${WORKERS:=${default_workers}}}"
@@ -71,10 +89,6 @@ v4_range_secondary="192.168.0.0/24"
 v6_prefix="fc00:c111::/64"
 v6_prefix_secondary="fc00:c112::/64"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
-
-usage() {
-  echo "Usage: ${PROG} [--xdp] [--secondary-network] [--optimize-sysctl] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family] [apiserver-addr] [apiserver-port] [kubeconfig-path]"
-}
 
 have_kind() {
     [[ -n "$(command -v kind)" ]]
@@ -101,11 +115,6 @@ if [ ${#} -gt 9 ]; then
   exit 1
 fi
 
-if [[ "${controlplanes}" == "-h" || "${controlplanes}" == "--help" ]]; then
-  usage
-  exit 0
-fi
-
 kind_cmd="kind create cluster"
 
 kind_cmd+=" --name ${cluster_name}"
@@ -130,6 +139,22 @@ node_config() {
     echo "  extraMounts:"
     echo "  - hostPath: $CILIUM_ROOT"
     echo "    containerPath: /home/vagrant/go/src/github.com/cilium/cilium"
+    # Kubelet drop-in that replaces the nameserver configured by the container engine
+    # with dnsmasq defaulting to $external_dns, but deferring local lookups to docker
+    # so that kubelets can resolve nodes by name.
+    # This is required for two reasons:
+    # (a) in case of BPF Host Routing we bypass iptables thus breaking DNS.
+    #     See https://github.com/cilium/cilium/issues/23330
+    # (b) In case host has L7 DNS policy dockerd's iptables rule acts before
+    #     we redirect the DNS request to proxy port, breaking DNS proxy.
+    echo "  - hostPath: $CILIUM_ROOT/contrib/scripts/kind-kubelet.conf"
+    echo "    containerPath: /etc/systemd/system/kubelet.service.d/12-cilium.conf"
+    echo "    readOnly: true"
+    # Mount a safe dummy file at a safe container path to pass in external DNS address
+    # without having to write to our source filesystem (i.e. where kind.sh is running)
+    echo "  - hostPath: /dev/null"
+    echo "    containerPath: /etc/kind-external-dns-$external_dns.conf"
+    echo "    readOnly: true"
     if [[ "${max}" -lt 10 ]]; then
         echo "  extraPortMappings:"
         echo "  - containerPort: 2345"
@@ -247,11 +272,11 @@ if [ "${xdp}" = true ]; then
   done
 fi
 
-# 1) Replace "forward . /etc/resolv.conf" in the coredns cm with "forward . 1.1.1.1".
+# 1) Replace "forward . /etc/resolv.conf" in the coredns cm with "forward . $external_dns".
 # This is required because in case of BPF Host Routing we bypass iptables thus
 # breaking DNS. See https://github.com/cilium/cilium/issues/23330
 # 2) Enable the log plugin to log all DNS queries for debugging.
-NewCoreFile=$(kubectl get cm -n kube-system coredns -o jsonpath='{.data.Corefile}' | "${SED}" 's,forward . /etc/resolv.conf,forward . 1.1.1.1,' | "${SED}" 's/loadbalance/loadbalance\n    log/' | awk ' { printf "%s\\n", $0 } ')
+NewCoreFile=$(kubectl get cm -n kube-system coredns -o jsonpath='{.data.Corefile}' | "${SED}" "s,forward . /etc/resolv.conf,forward . $external_dns," | "${SED}" 's/loadbalance/loadbalance\n    log/' | awk ' { printf "%s\\n", $0 } ')
 kubectl patch configmap/coredns -n kube-system --type merge -p '{"data":{"Corefile": "'"$NewCoreFile"'"}}'
 
 set +e

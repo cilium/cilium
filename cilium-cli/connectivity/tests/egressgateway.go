@@ -206,11 +206,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	// Ping hosts (pod to host connectivity). Should not get masqueraded with egress IP
 	i := 0
 	for _, client := range ct.ClientPods() {
-		client := client
-
 		for _, dst := range ct.HostNetNSPodsByNode() {
-			dst := dst
-
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &client, &dst, features.IPFamilyV4).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ct.PingCommand(dst, features.IPFamilyV4))
 			})
@@ -221,8 +217,6 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	// DNS query (pod to service connectivity). Should not get masqueraded with egress IP
 	i = 0
 	for _, client := range ct.ClientPods() {
-		client := client
-
 		kubeDNSService, err := ct.K8sClient().GetService(ctx, "kube-system", "kube-dns", metav1.GetOptions{})
 		if err != nil {
 			t.Fatal("Cannot get kube-dns service")
@@ -238,8 +232,6 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	// Traffic matching an egress gateway policy should leave the cluster masqueraded with the egress IP (pod to external service using DNS)
 	i = 0
 	for _, client := range ct.ClientPods() {
-		client := client
-
 		for _, externalEchoSvc := range ct.EchoExternalServices() {
 			externalEcho := externalEchoSvc.ToEchoIPService()
 
@@ -258,8 +250,6 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	// Traffic matching an egress gateway policy should leave the cluster masqueraded with the egress IP (pod to external service)
 	i = 0
 	for _, client := range ct.ClientPods() {
-		client := client
-
 		for _, externalEcho := range ct.ExternalEchoPods() {
 			externalEcho := externalEcho.ToEchoIPPod()
 
@@ -279,8 +269,6 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	// the reply traffic should not be SNATed with the egress IP
 	i = 0
 	for _, client := range ct.ExternalEchoPods() {
-		client := client
-
 		for _, node := range ct.Nodes() {
 			for _, echo := range ct.EchoServices() {
 				// convert the service to a ServiceExternalIP as we want to access it through its external IP
@@ -304,8 +292,6 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		// running (while in tunneling mode we would need the external node to send the traffic over the tunnel)
 		i = 0
 		for _, client := range ct.ExternalEchoPods() {
-			client := client
-
 			for _, echo := range ct.EchoPods() {
 				t.NewAction(s, fmt.Sprintf("curl-echo-pod-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
@@ -391,8 +377,6 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 	// node IP where the pod is running rather than with the egress IP(pod to external service)
 	i := 0
 	for _, client := range ct.ClientPods() {
-		client := client
-
 		for _, externalEcho := range ct.ExternalEchoPods() {
 			externalEcho := externalEcho.ToEchoIPPod()
 

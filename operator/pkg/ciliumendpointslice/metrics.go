@@ -17,6 +17,9 @@ const (
 	// LabelOpcode indicates the kind of CES metric, could be CEP insert or remove
 	LabelOpcode = "opcode"
 
+	// LabelQueue denotes which queue was used
+	LabelQueue = "queue"
+
 	// Label values
 
 	// LabelValueOutcomeSuccess is used as a successful outcome of an operation
@@ -30,6 +33,12 @@ const (
 
 	// LabelValueCEPRemove is used to indicate the number of CEPs removed from a CES
 	LabelValueCEPRemove = "cepremoved"
+
+	//LabelQueueFast is used when the fast queue was used
+	LabelQueueFast = "fast"
+
+	//LabelQueueStandard is used when the standard queue was used
+	LabelQueueStandard = "standard"
 )
 
 func NewMetrics() *Metrics {
@@ -53,12 +62,12 @@ func NewMetrics() *Metrics {
 			Help:      "The number of completed CES syncs by outcome",
 		}, []string{LabelOutcome}),
 
-		CiliumEndpointSliceQueueDelay: metric.NewHistogram(metric.HistogramOpts{
+		CiliumEndpointSliceQueueDelay: metric.NewHistogramVec(metric.HistogramOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Name:      "ces_queueing_delay_seconds",
 			Help:      "CiliumEndpointSlice queueing delay in seconds",
 			Buckets:   append(prometheus.DefBuckets, 60, 300, 900, 1800, 3600),
-		}),
+		}, []string{LabelQueue}),
 	}
 }
 
@@ -76,5 +85,5 @@ type Metrics struct {
 
 	// CiliumEndpointSliceQueueDelay measures the time spent by CES's in the workqueue. This measures time difference between
 	// CES insert in the workqueue and removal from workqueue.
-	CiliumEndpointSliceQueueDelay metric.Histogram
+	CiliumEndpointSliceQueueDelay metric.Vec[metric.Observer] //metric.Histogram
 }

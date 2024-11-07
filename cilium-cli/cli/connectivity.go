@@ -55,6 +55,8 @@ var tests []string
 func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		params.CiliumNamespace = namespace
+		params.ImpersonateAs = impersonateAs
+		params.ImpersonateGroups = impersonateGroups
 
 		for _, test := range tests {
 			if strings.HasPrefix(test, "!") {
@@ -152,6 +154,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.DNSTestServerImage, "dns-test-server-image", defaults.ConnectivityDNSTestServerImage, "Image path to use for CoreDNS")
 	cmd.Flags().StringVar(&params.TestConnDisruptImage, "test-conn-disrupt-image", defaults.ConnectivityTestConnDisruptImage, "Image path to use for connection disruption tests")
 	cmd.Flags().StringVar(&params.FRRImage, "frr-image", defaults.ConnectivityTestFRRImage, "Image path to use for FRR")
+	cmd.Flags().StringVar(&params.SocatImage, "socat-image", defaults.ConnectivityTestSocatImage, "Image path to use for multicast tests")
 
 	cmd.Flags().UintVar(&params.Retry, "retry", defaults.ConnectRetry, "Number of retries on connection failure to external targets")
 	cmd.Flags().DurationVar(&params.RetryDelay, "retry-delay", defaults.ConnectRetryDelay, "Delay between retries for external targets")
@@ -206,13 +209,19 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 		RunE: RunE(hooks),
 	}
 
-	cmd.Flags().DurationVar(&params.PerfDuration, "duration", 10*time.Second, "Duration for the Performance test to run")
-	cmd.Flags().IntVar(&params.PerfSamples, "samples", 1, "Number of Performance samples to capture (how many times to run each test)")
-	cmd.Flags().BoolVar(&params.PerfHostNet, "host-net", false, "Test host network")
-	cmd.Flags().BoolVar(&params.PerfPodNet, "pod-net", true, "Test pod network")
+	cmd.Flags().DurationVar(&params.PerfParameters.Duration, "duration", 10*time.Second, "Duration for the Performance test to run")
+	cmd.Flags().IntVar(&params.PerfParameters.MessageSize, "msg-size", 1024, "Size of message to use in UDP test")
+	cmd.Flags().BoolVar(&params.PerfParameters.CRR, "crr", false, "Run CRR test")
+	cmd.Flags().BoolVar(&params.PerfParameters.RR, "rr", true, "Run RR test")
+	cmd.Flags().BoolVar(&params.PerfParameters.UDP, "udp", false, "Run UDP tests")
+	cmd.Flags().BoolVar(&params.PerfParameters.Throughput, "throughput", true, "Run throughput test")
+	cmd.Flags().BoolVar(&params.PerfParameters.Mixed, "mixed", false, "Run pod-to-host and host-to-pod tests (only works if both host-net=true and pod-net=true)")
+	cmd.Flags().IntVar(&params.PerfParameters.Samples, "samples", 1, "Number of Performance samples to capture (how many times to run each test)")
+	cmd.Flags().BoolVar(&params.PerfParameters.HostNet, "host-net", true, "Test host network")
+	cmd.Flags().BoolVar(&params.PerfParameters.PodNet, "pod-net", true, "Test pod network")
 
-	cmd.Flags().StringVar(&params.PerformanceImage, "performance-image", defaults.ConnectivityPerformanceImage, "Image path to use for performance")
-	cmd.Flags().StringVar(&params.PerfReportDir, "report-dir", "", "Directory to save perf results in json format")
+	cmd.Flags().StringVar(&params.PerfParameters.Image, "performance-image", defaults.ConnectivityPerformanceImage, "Image path to use for performance")
+	cmd.Flags().StringVar(&params.PerfParameters.ReportDir, "report-dir", "", "Directory to save perf results in json format")
 	registerCommonFlags(cmd.Flags())
 
 	return cmd

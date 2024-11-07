@@ -15,7 +15,11 @@ import (
 // terminate all instances running in the VPC, delete all security groups
 // associated with the VPC (except the default one), delete all route tables
 // associated with the VPC (except the default one), and so on. When you delete the
-// VPC, it deletes the VPC's default security group, network ACL, and route table.
+// VPC, it deletes the default security group, network ACL, and route table for the
+// VPC.
+//
+// If you created a flow log for the VPC that you are deleting, note that flow
+// logs for deleted VPCs are eventually automatically removed.
 func (c *Client) DeleteVpc(ctx context.Context, params *DeleteVpcInput, optFns ...func(*Options)) (*DeleteVpcOutput, error) {
 	if params == nil {
 		params = &DeleteVpcInput{}
@@ -97,6 +101,9 @@ func (c *Client) addOperationDeleteVpcMiddlewares(stack *middleware.Stack, optio
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -134,6 +141,18 @@ func (c *Client) addOperationDeleteVpcMiddlewares(stack *middleware.Stack, optio
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

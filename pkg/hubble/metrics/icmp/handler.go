@@ -6,7 +6,7 @@ package icmp
 import (
 	"context"
 
-	"github.com/google/gopacket/layers"
+	"github.com/gopacket/gopacket/layers"
 	"github.com/prometheus/client_golang/prometheus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -18,7 +18,7 @@ type icmpHandler struct {
 	context *api.ContextOptions
 }
 
-func (h *icmpHandler) Init(registry *prometheus.Registry, options api.Options) error {
+func (h *icmpHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
 	c, err := api.ParseContextOptions(options)
 	if err != nil {
 		return err

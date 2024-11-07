@@ -10,8 +10,7 @@ import (
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/cilium/cilium/operator/pkg/model"
+	"k8s.io/utils/ptr"
 )
 
 func TestGetAnnotationServiceType(t *testing.T) {
@@ -167,7 +166,7 @@ func TestGetAnnotationRequestTimeout(t *testing.T) {
 					},
 				},
 			},
-			want: model.AddressOf(time.Second * 10),
+			want: ptr.To(time.Second * 10),
 		},
 		{
 			name: "request timeout annotation with invalid value",
@@ -500,7 +499,7 @@ func TestGetAnnotationEnforceHTTPSEnabled(t *testing.T) {
 					},
 				},
 			},
-			want: model.AddressOf(true),
+			want: ptr.To(true),
 		},
 		{
 			name: "SSL Passthrough annotation present and disabled",
@@ -513,7 +512,7 @@ func TestGetAnnotationEnforceHTTPSEnabled(t *testing.T) {
 					},
 				},
 			},
-			want: model.AddressOf(false),
+			want: ptr.To(false),
 		},
 		{
 			name: "SSL Passthrough annotation present and true",
@@ -526,7 +525,7 @@ func TestGetAnnotationEnforceHTTPSEnabled(t *testing.T) {
 					},
 				},
 			},
-			want: model.AddressOf(true),
+			want: ptr.To(true),
 		},
 		{
 			name: "SSL Passthrough annotation present and false",
@@ -539,7 +538,7 @@ func TestGetAnnotationEnforceHTTPSEnabled(t *testing.T) {
 					},
 				},
 			},
-			want: model.AddressOf(false),
+			want: ptr.To(false),
 		},
 		{
 			name: "SSL Passthrough annotation present and invalid",

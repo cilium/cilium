@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: cilium
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -27,7 +27,7 @@ metadata:
     app.kubernetes.io/name: cilium-agent
     {{- if .Values.keepDeprecatedLabels }}
     kubernetes.io/cluster-service: "true"
-    {{- if and .Values.gke.enabled (eq .Release.Namespace "kube-system" ) }}
+    {{- if and .Values.gke.enabled (eq (include "cilium.namespace" .) "kube-system" ) }}
       {{- fail "Invalid configuration: Installing Cilium on GKE with 'kubernetes.io/cluster-service' labels on 'kube-system' namespace causes Cilium DaemonSet to be removed by GKE. Either install Cilium on a different Namespace or install with '--set keepDeprecatedLabels=false'" }}
     {{- end }}
     {{- end }}
@@ -315,13 +315,9 @@ spec:
         {{- end}}
         - name: cilium-run
           mountPath: /var/run/cilium
-        {{- /* mount the directory if socketLB.enabled is true and socketLB.terminatePodConnections is not explicitly set to false */ -}}
-        {{- if or (and (kindIs "invalid" .Values.socketLB.terminatePodConnections) .Values.socketLB.enabled)
-                  (and .Values.socketLB.enabled .Values.socketLB.terminatePodConnections)  }}
         - name: cilium-netns
           mountPath: /var/run/cilium/netns
           mountPropagation: HostToContainer
-        {{- end}}
         - name: etc-cni-netd
           mountPath: {{ .Values.cni.hostConfDirMountPath }}
         {{- if .Values.etcd.enabled }}
@@ -767,9 +763,11 @@ spec:
       {{- if .Values.dnsPolicy }}
       dnsPolicy: {{ .Values.dnsPolicy }}
       {{- end }}
+      {{- if (eq .Values.scheduling.mode "anti-affinity")  }}
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
@@ -797,14 +795,11 @@ spec:
         hostPath:
           path: {{ .Values.daemon.runPath }}
           type: DirectoryOrCreate
-      {{- if or (and (kindIs "invalid" .Values.socketLB.terminatePodConnections) .Values.socketLB.enabled)
-                (and .Values.socketLB.enabled .Values.socketLB.terminatePodConnections)  }}
         # To exec into pod network namespaces
       - name: cilium-netns
         hostPath:
           path: /var/run/netns
           type: DirectoryOrCreate
-      {{- end }}
       {{- if .Values.bpf.autoMount.enabled }}
         # To keep state between restarts / upgrades for bpf maps
       - name: bpf-maps

@@ -69,44 +69,48 @@ func TestExporter(t *testing.T) {
 }
 
 func TestExporterWithFilters(t *testing.T) {
-	allowNodeName := "allow/node"
+	allowFilterPod := &flowpb.FlowFilter{SourcePod: []string{"namespace-a/"}}
+	denyFilterPod := &flowpb.FlowFilter{SourcePod: []string{"namespace-b/"}}
+	denyFilterNamespace := &flowpb.FlowFilter{NodeName: []string{"bad/node"}}
+
 	events := []*v1.Event{
 		// Non-flow events will not be processed when filters are set
 		{Timestamp: &timestamp.Timestamp{Seconds: 2}, Event: &observerpb.AgentEvent{}},
 		{Timestamp: &timestamp.Timestamp{Seconds: 3}, Event: &observerpb.DebugEvent{}},
 		{Timestamp: &timestamp.Timestamp{Seconds: 4}, Event: &observerpb.LostEvent{}},
+		// Does not match allowFilter.
 		{
 			Event: &observerpb.Flow{
-				NodeName: allowNodeName,
-				Time:     &timestamp.Timestamp{Seconds: 12},
+				Time: &timestamp.Timestamp{Seconds: 12},
 			},
 		},
+		// Matches allowFilter.
 		{
 			Event: &observerpb.Flow{
-				SourceNames: []string{"deny-pod/a"},
-				NodeName:    allowNodeName,
-				Time:        &timestamp.Timestamp{Seconds: 13},
+				Source: &flowpb.Endpoint{Namespace: "namespace-a", PodName: "x"},
+				Time:   &timestamp.Timestamp{Seconds: 13},
 			},
 		},
+		// Matches denyFilter.
 		{
 			Event: &observerpb.Flow{
-				SourceNames: []string{"allow-pod/a"},
-				NodeName:    allowNodeName,
-				Time:        &timestamp.Timestamp{Seconds: 14},
+				Source: &flowpb.Endpoint{Namespace: "namespace-b", PodName: "y"},
+				Time:   &timestamp.Timestamp{Seconds: 14},
 			},
 		},
+		// Matches allowFilter, but also denyFilter - not processed.
 		{
 			Event: &observerpb.Flow{
-				SourceNames: []string{"allow-pod/a"},
-				NodeName:    "another-node",
-				Time:        &timestamp.Timestamp{Seconds: 15},
+				Source:   &flowpb.Endpoint{Namespace: "namespace-a", PodName: "v"},
+				NodeName: "bad/node",
+				Time:     &timestamp.Timestamp{Seconds: 15},
 			},
 		},
+		// Matches allowFilter, but the context gets canceled below before it is processed.
 		{
 			Event: &observerpb.Flow{
-				SourceNames: []string{"allow-pod/a"},
-				NodeName:    allowNodeName,
-				Time:        &timestamp.Timestamp{Seconds: 16},
+				Source: &flowpb.Endpoint{Namespace: "namespace-a", PodName: "z"},
+				Time:   &timestamp.Timestamp{Seconds: 16},
 			},
 		},
 	}
@@ -114,13 +118,10 @@ func TestExporterWithFilters(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	allowFilter := &flowpb.FlowFilter{NodeName: []string{"allow/"}}
-	denyFilter := &flowpb.FlowFilter{SourcePod: []string{"deny-pod/"}}
-
 	opts := exporteroption.Default
 	for _, opt := range []exporteroption.Option{
-		exporteroption.WithAllowList(log, []*flowpb.FlowFilter{allowFilter}),
-		exporteroption.WithDenyList(log, []*flowpb.FlowFilter{denyFilter}),
+		exporteroption.WithAllowList(log, []*flowpb.FlowFilter{allowFilterPod}),
+		exporteroption.WithDenyList(log, []*flowpb.FlowFilter{denyFilterPod, denyFilterNamespace}),
 	} {
 		err := opt(&opts)
 		assert.NoError(t, err)
@@ -141,9 +142,8 @@ func TestExporterWithFilters(t *testing.T) {
 		assert.NoError(t, err)
 
 	}
-	assert.Equal(t, `{"flow":{"time":"1970-01-01T00:00:12Z","node_name":"allow/node"},"node_name":"allow/node","time":"1970-01-01T00:00:12Z"}
-{"flow":{"time":"1970-01-01T00:00:13Z","node_name":"allow/node","source_names":["deny-pod/a"]},"node_name":"allow/node","time":"1970-01-01T00:00:13Z"}
-{"flow":{"time":"1970-01-01T00:00:14Z","node_name":"allow/node","source_names":["allow-pod/a"]},"node_name":"allow/node","time":"1970-01-01T00:00:14Z"}
+	assert.Equal(t,
+		`{"flow":{"time":"1970-01-01T00:00:13Z","source":{"namespace":"namespace-a","pod_name":"x"}},"time":"1970-01-01T00:00:13Z"}
 `, buf.String())
 }
 
@@ -177,7 +177,7 @@ func TestEventToExportEvent(t *testing.T) {
 		NodeName:      newNodeName,
 		Time:          ev.GetFlow().Time,
 	}
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
 
 	// lost event
 	ev = v1.Event{
@@ -190,7 +190,7 @@ func TestEventToExportEvent(t *testing.T) {
 		NodeName:      newNodeName,
 		Time:          ev.Timestamp,
 	}
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
 
 	// agent event
 	ev = v1.Event{
@@ -203,7 +203,7 @@ func TestEventToExportEvent(t *testing.T) {
 		NodeName:      newNodeName,
 		Time:          ev.Timestamp,
 	}
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
 
 	// debug event
 	ev = v1.Event{
@@ -216,7 +216,7 @@ func TestEventToExportEvent(t *testing.T) {
 		NodeName:      newNodeName,
 		Time:          ev.Timestamp,
 	}
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
 }
 
 func TestExporterWithFieldMask(t *testing.T) {

@@ -77,7 +77,8 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
            az aks create \
              --resource-group "${AZURE_RESOURCE_GROUP}" \
              --name "${NAME}" \
-             --network-plugin none
+             --network-plugin none \
+             --generate-ssh-keys
 
            # Get the credentials to access the cluster with kubectl
            az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${NAME}"

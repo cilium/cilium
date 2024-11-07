@@ -14,6 +14,11 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 )
 
+const (
+	CRDStatusReconcilerName     = "CiliumBGPNodeConfigStatusReconciler"
+	CRDStatusReconcilerPriority = 50
+)
+
 type StateReconcileParams struct {
 	// ConfigMode is the current configuration mode of BGP control plane
 	// This is required by some reconcilers to determine if they need to run or not.

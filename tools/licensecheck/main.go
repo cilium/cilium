@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/google/go-licenses/licenses"
 )
@@ -58,19 +59,10 @@ func check(path ...string) ([]string, error) {
 			continue
 		}
 		for _, license := range lib.Licenses {
-			if !isAllowedLicense(license.Name) {
+			if !slices.Contains(allowedLicenses, license.Name) {
 				unauthorized = append(unauthorized, fmt.Sprintf("%s (%s)", lib.Name(), license.Name))
 			}
 		}
 	}
 	return unauthorized, nil
-}
-
-func isAllowedLicense(name string) bool {
-	for _, allowed := range allowedLicenses {
-		if allowed == name {
-			return true
-		}
-	}
-	return false
 }

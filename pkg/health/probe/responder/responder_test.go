@@ -45,7 +45,7 @@ func TestNewServersInitialization(t *testing.T) {
 	for _, tt := range tests {
 		s := NewServers(tt.address, 4240)
 		assert.NotNil(t, s)
-		assert.Equal(t, len(s.httpServers), tt.expectedServerCount, "Number of listen address doesn't match")
+		assert.Len(t, s.httpServers, tt.expectedServerCount, "Number of listen address doesn't match")
 		for i, s := range s.httpServers {
 			assert.Equal(t, tt.exptectedServerAddress[i], s.Addr)
 		}

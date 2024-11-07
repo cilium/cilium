@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -390,11 +389,9 @@ func (m *manager) backgroundSyncInterval() time.Duration {
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
 func (m *manager) backgroundSync(ctx context.Context) error {
-	syncTimer, syncTimerDone := inctimer.New()
-	defer syncTimerDone()
 	for {
 		syncInterval := m.backgroundSyncInterval()
-		startWaiting := syncTimer.After(syncInterval)
+		startWaiting := time.After(syncInterval)
 		log.WithField("syncInterval", syncInterval.String()).Debug("Starting new iteration of background sync")
 		err := m.singleBackgroundLoop(ctx, syncInterval)
 		log.WithField("syncInterval", syncInterval.String()).Debug("Finished iteration of background sync")
@@ -1127,8 +1124,9 @@ func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
 
 					log.Debugf("Refreshing node neighbor link for %s", e.node.Name)
 					hr := sc.NewScope(e.node.Name)
-					if errs = errors.Join(errs, nh.NodeNeighborRefresh(ctx, *e.node, e.refresh)); errs != nil {
-						hr.Degraded("Failed node neighbor link update", errs)
+					if err := nh.NodeNeighborRefresh(ctx, *e.node, e.refresh); err != nil {
+						hr.Degraded("Failed node neighbor link update", err)
+						errs = errors.Join(errs, err)
 					} else {
 						hr.OK("Node neighbor link update successful")
 					}

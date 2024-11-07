@@ -5,7 +5,7 @@ package api
 
 import "fmt"
 
-// Keep in sync with __source_file_name_to_id in bpf/source_names_to_ids.h.
+// Keep in sync with __id_for_file in bpf/lib/source_info.h.
 var files = map[uint8]string{
 	// @@ source files list begin
 
@@ -33,6 +33,7 @@ var files = map[uint8]string{
 	112: "encap.h",
 	113: "encrypt.h",
 	114: "host_firewall.h",
+	115: "nodeport_egress.h",
 
 	// @@ source files list end
 }

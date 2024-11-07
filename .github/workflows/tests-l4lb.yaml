@@ -57,14 +57,11 @@ concurrency:
     }}
   cancel-in-progress: true
 
-env:
-  cilium_cli_ci_version:
-
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -83,7 +80,7 @@ jobs:
     name: Setup & Test
     # Ubuntu 22.04 runner uses cgroup v2-only which is needed for some
     # our LB functionality
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Collect Workflow Telemetry
@@ -92,7 +89,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -120,11 +117,11 @@ jobs:
       - name: Run LoadBalancing test
         id: lb-test
         run: |
-          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }} ${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}
 
       - name: Run NAT46x64 test
         run: |
-          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }} ${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}
 
       - name: Fetch DinD information
         if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}

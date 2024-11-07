@@ -6,6 +6,7 @@ package translation
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	goslices "slices"
 	"syscall"
 
@@ -16,7 +17,6 @@ import (
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -218,8 +218,9 @@ func httpsFilterChains(name string, ciliumSecretNamespace string, tlsSecretsToHo
 
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedSecrets := maps.Keys(tlsSecretsToHostnames)
-	goslices.SortStableFunc(orderedSecrets, func(a, b model.TLSSecret) int { return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name) })
+	orderedSecrets := goslices.SortedStableFunc(maps.Keys(tlsSecretsToHostnames), func(a, b model.TLSSecret) int {
+		return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
+	})
 
 	for _, secret := range orderedSecrets {
 		hostNames := tlsSecretsToHostnames[secret]
@@ -359,8 +360,7 @@ func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) ([]*e
 
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedBackends := maps.Keys(ptBackendsToHostnames)
-	goslices.Sort(orderedBackends)
+	orderedBackends := goslices.Sorted(maps.Keys(ptBackendsToHostnames))
 
 	for _, backend := range orderedBackends {
 		hostNames := ptBackendsToHostnames[backend]

@@ -213,23 +213,23 @@ func TestLabel(t *testing.T) {
 	shortLabel := `"web"`
 
 	err := json.Unmarshal([]byte(longLabel), &label)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	require.Equal(t, "kubernetes", label.Source)
 	require.Equal(t, "foo", label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(invLabel), &label)
-	require.NotEqual(t, nil, err)
+	require.Error(t, err)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(shortLabel), &label)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	require.Equal(t, LabelSourceUnspec, label.Source)
 	require.Equal(t, "", label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(""), &label)
-	require.NotEqual(t, nil, err)
+	require.Error(t, err)
 }
 
 func TestLabelCompare(t *testing.T) {
@@ -239,12 +239,12 @@ func TestLabelCompare(t *testing.T) {
 	c1 := NewLabel("bar", "", "kubernetes")
 	d1 := NewLabel("", "", "")
 
-	require.Equal(t, true, a1.Equals(&a2))
-	require.Equal(t, true, a2.Equals(&a1))
-	require.Equal(t, false, a1.Equals(&b1))
-	require.Equal(t, false, a1.Equals(&c1))
-	require.Equal(t, false, a1.Equals(&d1))
-	require.Equal(t, false, b1.Equals(&c1))
+	require.True(t, a1.Equals(&a2))
+	require.True(t, a2.Equals(&a1))
+	require.False(t, a1.Equals(&b1))
+	require.False(t, a1.Equals(&c1))
+	require.False(t, a1.Equals(&d1))
+	require.False(t, b1.Equals(&c1))
 }
 
 func TestLabelParseKey(t *testing.T) {
@@ -289,15 +289,15 @@ func TestLabelsCompare(t *testing.T) {
 	lblsLa22 := Labels{la22.Key: la22}
 	lblsLb22 := Labels{lb22.Key: lb22}
 
-	require.Equal(t, true, lblsAll.Equals(lblsAll))
-	require.Equal(t, false, lblsAll.Equals(lblsFewer))
-	require.Equal(t, false, lblsFewer.Equals(lblsAll))
-	require.Equal(t, false, lblsLa11.Equals(lblsLa12))
-	require.Equal(t, false, lblsLa12.Equals(lblsLa11))
-	require.Equal(t, false, lblsLa12.Equals(lblsLa22))
-	require.Equal(t, false, lblsLa22.Equals(lblsLa12))
-	require.Equal(t, false, lblsLa22.Equals(lblsLb22))
-	require.Equal(t, false, lblsLb22.Equals(lblsLa22))
+	require.True(t, lblsAll.Equals(lblsAll))
+	require.False(t, lblsAll.Equals(lblsFewer))
+	require.False(t, lblsFewer.Equals(lblsAll))
+	require.False(t, lblsLa11.Equals(lblsLa12))
+	require.False(t, lblsLa12.Equals(lblsLa11))
+	require.False(t, lblsLa12.Equals(lblsLa22))
+	require.False(t, lblsLa22.Equals(lblsLa12))
+	require.False(t, lblsLa22.Equals(lblsLb22))
+	require.False(t, lblsLb22.Equals(lblsLa22))
 }
 
 func TestLabelsK8sStringMap(t *testing.T) {

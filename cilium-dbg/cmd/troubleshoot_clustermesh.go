@@ -7,15 +7,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
@@ -62,7 +63,7 @@ func TroubleshootClusterMesh(
 	fmt.Fprintf(stdout, "Found %d cluster configurations\n", len(cfgs))
 
 	if len(clusters) == 0 {
-		clusters = maps.Keys(cfgs)
+		clusters = slices.Collect(maps.Keys(cfgs))
 	} else {
 		fmt.Fprintf(stdout, "Troubleshooting filtered subset of clusters: %s\n", strings.Join(clusters, ", "))
 	}
@@ -74,6 +75,11 @@ func TroubleshootClusterMesh(
 		fmt.Fprintf(stdout, "\nCluster %q:\n", cluster)
 		if cluster == local {
 			fmt.Fprintln(stdout, "ℹ️  This entry corresponds to the local cluster")
+		}
+
+		if err := types.ValidateClusterName(cluster); err != nil {
+			fmt.Fprintln(stdout, "❌ Invalid cluster name:", err)
+			continue
 		}
 
 		cfg, ok := cfgs[cluster]

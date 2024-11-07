@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -23,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -43,6 +43,29 @@ const (
 	reinitRetryDuration = 10 * time.Second
 )
 
+var DefaultConfig = Config{
+	// By default the masquerading IP is the primary IP address of the device in
+	// question.
+	DeriveMasqIPAddrFromDevice: "",
+}
+
+type Config struct {
+	// DeriveMasqIPAddrFromDevice specifies which device's IP addr is used for BPF masquerade.
+	// This is a hidden option and by default not set. Only needed in very specific setups
+	// with ECMP and multiple devices.
+	// See commit d204d789746b1389cc2ba02fdd55b81a2f55b76e for original context.
+	// This can be removed once https://github.com/cilium/cilium/issues/17158 is resolved.
+	DeriveMasqIPAddrFromDevice string
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	const deriveFlag = "derive-masq-ip-addr-from-device"
+	flags.String(
+		deriveFlag, def.DeriveMasqIPAddrFromDevice,
+		"Device name from which Cilium derives the IP addr for BPF masquerade")
+	flags.MarkHidden(deriveFlag)
+}
+
 type orchestrator struct {
 	params orchestratorParams
 
@@ -60,10 +83,12 @@ type reinitializeRequest struct {
 type orchestratorParams struct {
 	cell.In
 
+	Config              Config
 	Log                 *slog.Logger
 	Loader              datapath.Loader
 	TunnelConfig        tunnel.Config
-	MTU                 mtu.MTU
+	OldMTU              mtu.MTU
+	MTU                 statedb.Table[mtu.RouteMTU]
 	IPTablesManager     datapath.IptablesManager
 	Proxy               *proxy.Proxy
 	DB                  *statedb.DB
@@ -89,18 +114,31 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			// Reinitialize the host device in a separate, blocking start hook to make sure all
-			// our dependencies can access the host device. This is necessary because one of these
-			// is the Daemon, which the main reconciliation loop has to wait for.
-			if err := o.params.Loader.ReinitializeHostDev(ctx, params.MTU.GetDeviceMTU()); err != nil {
-				return fmt.Errorf("failed to reinitialize host device: %w", err)
+			for {
+				rxt := params.DB.ReadTxn()
+				mtuRoute, _, watch, found := params.MTU.GetWatch(rxt, mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
+				if !found {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-watch:
+						continue
+					}
+				}
+
+				// Reinitialize the host device in a separate, blocking start hook to make sure all
+				// our dependencies can access the host device. This is necessary because one of these
+				// is the Daemon, which the main reconciliation loop has to wait for.
+				if err := o.params.Loader.ReinitializeHostDev(ctx, mtuRoute.DeviceMTU); err != nil {
+					return fmt.Errorf("failed to reinitialize host device: %w", err)
+				}
+				return nil
 			}
-			return nil
 		},
 	})
 
 	group := params.JobRegistry.NewGroup(params.Health)
-	group.Add(job.OneShot("Reinitialize", o.reconciler, job.WithShutdown()))
+	group.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
 	params.Lifecycle.Append(group)
 
 	return o
@@ -149,19 +187,18 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		request   reinitializeRequest
 		retryChan <-chan time.Time
 	)
-	retryTimer, stopRetryTimer := inctimer.New()
-	defer stopRetryTimer()
 	for {
-		localNodeConfig, devsWatch, addrsWatch, directRoutingDevWatch, err := newLocalNodeConfig(
+		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
 			option.Config,
 			localNode,
-			o.params.MTU,
 			o.params.DB.ReadTxn(),
 			o.params.DirectRoutingDevice,
 			o.params.Devices,
 			o.params.NodeAddresses,
+			o.params.Config.DeriveMasqIPAddrFromDevice,
 			o.params.XDPConfig,
+			o.params.MTU,
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)
@@ -173,10 +210,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
 				o.params.Log.Warn("Failed to initialize datapath, retrying later", logfields.Error, err, "retry-delay", reinitRetryDuration)
 				health.Degraded("Failed to reinitialize datapath", err)
-				retryChan = retryTimer.After(reinitRetryDuration)
+				retryChan = time.After(reinitRetryDuration)
 			} else {
 				retryChan = nil
-				stopRetryTimer()
 				health.OK("OK")
 			}
 		} else {
@@ -191,9 +227,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-devsWatch:
-		case <-addrsWatch:
-		case <-directRoutingDevWatch:
+		case <-localNodeConfigWatch:
 		case <-retryChan:
 		case localNode = <-localNodes:
 		case request = <-o.trigger:

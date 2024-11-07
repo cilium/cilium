@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -28,9 +27,9 @@ var (
 )
 
 const (
-	// maxAllocAttempts is the number of attempted allocation requests
-	// performed before failing.
-	maxAllocAttempts = 16
+	// defaultMaxAllocAttempts is the default number of attempted allocation
+	// requests performed before failing.
+	defaultMaxAllocAttempts = 16
 )
 
 // Allocator is a distributed ID allocator backed by a KVstore. It maps
@@ -151,6 +150,13 @@ type Allocator struct {
 	// disableAutostart prevents starting the allocator when it is initialized
 	disableAutostart bool
 
+	// operatorIDManagement indicates if cilium-operator is managing Cilium Identities.
+	operatorIDManagement bool
+
+	// maxAllocAttempts is the number of attempted allocation requests
+	// performed before failing.
+	maxAllocAttempts int
+
 	// cacheValidators implement extra validations of retrieved identities, e.g.,
 	// to ensure that they belong to the expected range.
 	cacheValidators []CacheValidator
@@ -203,10 +209,6 @@ type Backend interface {
 
 	// DeleteID deletes the identity with the given ID
 	DeleteID(ctx context.Context, id idpool.ID) error
-
-	// Encode encodes a key string as required to conform to the key
-	// restrictions of the backend
-	Encode(string) string
 
 	// AllocateID creates a new key->ID association. This is expected to be a
 	// create-only operation, and the ID may be allocated by another node. An
@@ -319,6 +321,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 			Min:    time.Duration(20) * time.Millisecond,
 			Factor: 2.0,
 		},
+		maxAllocAttempts: defaultMaxAllocAttempts,
 	}
 
 	for _, fn := range opts {
@@ -402,6 +405,18 @@ func WithPrefixMask(mask idpool.ID) AllocatorOption {
 // re-created them if local usage suggests that the key is still in use
 func WithMasterKeyProtection() AllocatorOption {
 	return func(a *Allocator) { a.enableMasterKeyProtection = true }
+}
+
+// WithOperatorIDManagement enables the mode with cilium-operator managing
+// Cilium Identities.
+func WithOperatorIDManagement() AllocatorOption {
+	return func(a *Allocator) { a.operatorIDManagement = true }
+}
+
+// WithMaxAllocAttempts sets the maxAllocAttempts. If not set, new Allocator
+// will use defaultMaxAllocAttempts.
+func WithMaxAllocAttempts(maxAttempts int) AllocatorOption {
+	return func(a *Allocator) { a.maxAllocAttempts = maxAttempts }
 }
 
 // WithoutGC disables the use of the garbage collector
@@ -501,10 +516,6 @@ type AllocatorKey interface {
 	Value(key any) any
 }
 
-func (a *Allocator) encodeKey(key AllocatorKey) string {
-	return a.backend.Encode(key.GetKey())
-}
-
 // Return values:
 //  1. allocated ID
 //  2. whether the ID is newly allocated from kvstore
@@ -516,7 +527,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	kvstore.Trace("Allocating key in kvstore", nil, logrus.Fields{fieldKey: key})
 
-	k := a.encodeKey(key)
+	k := key.GetKey()
 	lock, err := a.backend.Lock(ctx, key)
 	if err != nil {
 		return 0, false, false, err
@@ -663,7 +674,6 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		value    idpool.ID
 		isNew    bool
 		firstUse bool
-		k        = a.encodeKey(key)
 	)
 
 	log.WithField(fieldKey, key).Debug("Allocating key")
@@ -674,13 +684,22 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		return 0, false, false, fmt.Errorf("allocation was cancelled while waiting for initial key list to be received: %w", ctx.Err())
 	}
 
+	if a.operatorIDManagement {
+		id, err := a.GetWithRetry(ctx, key)
+		// The second and third return values are always false when
+		// operatorIDManagement is enabled because cilium-operator manages security
+		// IDs, and they are never newly allocated or require holding a reference to
+		// a key.
+		return id, false, false, err
+	}
+
 	kvstore.Trace("Allocating from kvstore", nil, logrus.Fields{fieldKey: key})
 
 	// make a copy of the template and customize it
 	boff := a.backoffTemplate
 	boff.Name = key.String()
 
-	for attempt := 0; attempt < maxAllocAttempts; attempt++ {
+	for attempt := 0; attempt < a.maxAllocAttempts; attempt++ {
 		// Check our list of local keys already in use and increment the
 		// refcnt. The returned key must be released afterwards. No kvstore
 		// operation was performed for this allocation.
@@ -688,7 +707,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		// allocated the key while we are attempting to allocate in this
 		// execution thread. It does not hurt to check if localKeys contains a
 		// reference for the key that we are attempting to allocate.
-		if val := a.localKeys.use(k); val != idpool.NoID {
+		if val := a.localKeys.use(key.GetKey()); val != idpool.NoID {
 			kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
 			a.mainCache.insert(key, val)
 			return val, false, false, nil
@@ -725,11 +744,60 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	return 0, false, false, err
 }
 
+func (a *Allocator) GetWithRetry(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
+	getID := func() (idpool.ID, error) {
+		id, err := a.Get(ctx, key)
+		if err != nil {
+			return idpool.NoID, err
+		}
+
+		if id == idpool.NoID {
+			return idpool.NoID, fmt.Errorf("security identity not found for key %s", key.String())
+		}
+
+		return id, nil
+	}
+
+	// Make a copy of the template and customize it.
+	boff := a.backoffTemplate
+	boff.Name = key.String()
+
+	var id idpool.ID
+	var err error
+
+	for attempt := 0; attempt < a.maxAllocAttempts; attempt++ {
+		id, err = getID()
+		if err == nil {
+			return id, nil
+		}
+
+		scopedLog := log.WithFields(logrus.Fields{
+			fieldKey:          key,
+			logfields.Attempt: attempt,
+		})
+
+		select {
+		case <-ctx.Done():
+			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
+			return idpool.NoID, fmt.Errorf("key allocation cancelled: %w", ctx.Err())
+		default:
+			scopedLog.WithError(err).Debug("CiliumIdentity not yet created by cilium-operator, retrying...")
+		}
+
+		if waitErr := boff.Wait(ctx); waitErr != nil {
+			scopedLog.Warning("timed out waiting for cilium-operator to allocate CiliumIdentity")
+			return idpool.NoID, fmt.Errorf("timed out waiting for cilium-operator to allocate CiliumIdentity for key %v, error: %w", key.GetKey(), waitErr)
+		}
+	}
+
+	return idpool.NoID, err
+}
+
 // GetIfLocked returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet if the client is still holding the given
 // lock.
 func (a *Allocator) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error) {
-	if id := a.mainCache.get(a.encodeKey(key)); id != idpool.NoID {
+	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
@@ -739,7 +807,7 @@ func (a *Allocator) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvst
 // Get returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet.
 func (a *Allocator) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
-	if id := a.mainCache.get(a.encodeKey(key)); id != idpool.NoID {
+	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
@@ -766,17 +834,15 @@ func (a *Allocator) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, er
 // caches of watched remote kvstores in the query. Returns an ID of NoID if no
 // ID has been allocated in any remote kvstore to this key yet.
 func (a *Allocator) GetIncludeRemoteCaches(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
-	encoded := a.encodeKey(key)
-
 	// check main cache first
-	if id := a.mainCache.get(encoded); id != idpool.NoID {
+	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
 	// check remote caches
 	a.remoteCachesMutex.RLock()
 	for _, rc := range a.remoteCaches {
-		if id := rc.cache.get(encoded); id != idpool.NoID {
+		if id := rc.cache.get(key.GetKey()); id != idpool.NoID {
 			a.remoteCachesMutex.RUnlock()
 			return id, nil
 		}
@@ -828,6 +894,11 @@ func (a *Allocator) GetByIDIncludeRemoteCaches(ctx context.Context, id idpool.ID
 // the last user has released the ID, the key is removed in the KVstore and
 // the returned lastUse value is true.
 func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool, err error) {
+	if a.operatorIDManagement {
+		log.WithField(fieldKey, key).Debug("Skipping key release when cilium-operator ID management is enabled")
+		return false, nil
+	}
+
 	log.WithField(fieldKey, key).Info("Releasing key")
 
 	select {
@@ -836,7 +907,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 		return false, fmt.Errorf("release was cancelled while waiting for initial key list to be received: %w", ctx.Err())
 	}
 
-	k := a.encodeKey(key)
+	k := key.GetKey()
 
 	a.slaveKeysMutex.Lock()
 	defer a.slaveKeysMutex.Unlock()
@@ -899,8 +970,6 @@ func (a *Allocator) syncLocalKeys() error {
 
 func (a *Allocator) startLocalKeySync() {
 	go func(a *Allocator) {
-		kvTimer, kvTimerDone := inctimer.New()
-		defer kvTimerDone()
 		for {
 			if err := a.syncLocalKeys(); err != nil {
 				log.WithError(err).Warning("Unable to run local key sync routine")
@@ -910,7 +979,7 @@ func (a *Allocator) startLocalKeySync() {
 			case <-a.stopGC:
 				log.Debug("Stopped master key sync routine")
 				return
-			case <-kvTimer.After(option.Config.KVstorePeriodicSync):
+			case <-time.After(option.Config.KVstorePeriodicSync):
 			}
 		}
 	}(a)

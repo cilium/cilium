@@ -5,11 +5,11 @@ package auth
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/auth/spire"
@@ -38,7 +38,7 @@ var Cell = cell.Module(
 	// In addition, it handles re-authentication and auth map garbage collection.
 	cell.Provide(registerAuthManager),
 	cell.ProvidePrivate(
-		// Null auth handler provides support for auth type "null" - which always succeeds.
+		// Auth handler that performs a mutual auth handshake
 		newMutualAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
 		newAlwaysFailAuthHandler,
@@ -70,7 +70,7 @@ func (r config) Flags(flags *pflag.FlagSet) {
 type authManagerParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 	Health    cell.Health
@@ -84,7 +84,7 @@ type authManagerParams struct {
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
-	PolicyRepo      *policy.Repository
+	PolicyRepo      policy.PolicyRepository
 }
 
 func registerAuthManager(params authManagerParams) (*AuthManager, error) {
@@ -129,13 +129,13 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 func registerReAuthenticationJob(jobGroup job.Group, mgr *AuthManager, authHandlers []authHandler) {
 	for _, ah := range authHandlers {
 		if ah != nil && ah.subscribeToRotatedIdentities() != nil {
-			jobGroup.Add(job.Observer("auth re-authentication", mgr.handleCertificateRotationEvent, stream.FromChannel(ah.subscribeToRotatedIdentities())))
+			jobGroup.Add(job.Observer("auth-re-authentication", mgr.handleCertificateRotationEvent, stream.FromChannel(ah.subscribeToRotatedIdentities())))
 		}
 	}
 }
 
 func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm signal.SignalManager, config config) error {
-	var signalChannel = make(chan signalAuthKey, config.MeshAuthQueueSize)
+	signalChannel := make(chan signalAuthKey, config.MeshAuthQueueSize)
 
 	// RegisterHandler registers signalChannel with SignalManager, but flow of events
 	// starts later during the OnStart hook of the SignalManager
@@ -143,7 +143,7 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm si
 		return fmt.Errorf("failed to set up signal channel for datapath authentication required events: %w", err)
 	}
 
-	jobGroup.Add(job.Observer("auth request-authentication", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
+	jobGroup.Add(job.Observer("auth-request-authentication", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
 
 	return nil
 }
@@ -162,8 +162,8 @@ func registerGCJobs(jobGroup job.Group, lifecycle cell.Lifecycle, mapGC *authMap
 		},
 	})
 
-	jobGroup.Add(job.Observer("auth gc-identity-events", mapGC.handleIdentityChange, identityChanges))
-	jobGroup.Add(job.Timer("auth gc-cleanup", mapGC.cleanup, cfg.MeshAuthGCInterval))
+	jobGroup.Add(job.Observer("auth-gc-identity-events", mapGC.handleIdentityChange, identityChanges))
+	jobGroup.Add(job.Timer("auth-gc-cleanup", mapGC.cleanup, cfg.MeshAuthGCInterval))
 }
 
 type authHandlerResult struct {

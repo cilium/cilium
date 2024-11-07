@@ -121,15 +121,20 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 		return s
 	}
 
+	localNode, err := d.nodeLocalStore.Get(context.TODO())
+	if err != nil {
+		return s
+	}
+
 	if option.Config.EnableIPv4 {
 		// SnatExclusionCidr is the legacy field, continue to provide
 		// it for the time being
-		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDRv4().String()
-		s.SnatExclusionCidrV4 = datapath.RemoteSNATDstAddrExclusionCIDRv4().String()
+		s.SnatExclusionCidr = datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode).String()
+		s.SnatExclusionCidrV4 = datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode).String()
 	}
 
 	if option.Config.EnableIPv6 {
-		s.SnatExclusionCidrV6 = datapath.RemoteSNATDstAddrExclusionCIDRv6().String()
+		s.SnatExclusionCidrV6 = datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode).String()
 	}
 
 	if option.Config.EnableBPFMasquerade {
@@ -292,7 +297,8 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		case option.DSRDispatchGeneve:
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeGeneve
 		}
-		if option.Config.NodePortMode == option.NodePortModeHybrid {
+		if option.Config.NodePortMode == option.NodePortModeHybrid ||
+			option.Config.NodePortMode == option.NodePortModeAnnotation {
 			//nolint:staticcheck
 			features.NodePort.Mode = strings.Title(option.Config.NodePortMode)
 		}
@@ -455,13 +461,14 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 
 func getHealthzHandler(d *Daemon, params GetHealthzParams) middleware.Responder {
 	brief := params.Brief != nil && *params.Brief
-	sr := d.getStatus(brief)
+	requireK8sConnectivity := params.RequireK8sConnectivity != nil && *params.RequireK8sConnectivity
+	sr := d.getStatus(brief, requireK8sConnectivity)
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
 // getStatus returns the daemon status. If brief is provided a minimal version
 // of the StatusResponse is provided.
-func (d *Daemon) getStatus(brief bool) models.StatusResponse {
+func (d *Daemon) getStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse {
 	staleProbes := d.statusCollector.GetStaleProbes()
 	stale := make(map[string]strfmt.DateTime, len(staleProbes))
 	for probe, startTime := range staleProbes {
@@ -532,7 +539,7 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 			State: d.statusResponse.ContainerRuntime.State,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
-	case d.clientset.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk:
+	case d.clientset.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk && requireK8sConnectivity:
 		msg := "Kubernetes service is not ready: " + d.statusResponse.Kubernetes.Msg
 		sr.Cilium = &models.Status{
 			State: d.statusResponse.Kubernetes.State,
@@ -808,7 +815,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 		{
 			Name: "hubble",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				return d.getHubbleStatus(ctx), nil
+				return d.hubble.Status(ctx), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
 				d.statusCollectMutex.Lock()

@@ -399,8 +399,8 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 
-	p, err := New(logrus.New(), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter)
-	assert.Nil(t, err)
+	p, err := New(logrus.New(), endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, false)
+	assert.NoError(t, err)
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
@@ -409,7 +409,7 @@ func TestDecodeSockEvent(t *testing.T) {
 			if data == nil {
 				buf := &bytes.Buffer{}
 				err := binary.Write(buf, byteorder.Native, &tc.msg)
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 				data = buf.Bytes()
 			}
 			flow := &flowpb.Flow{}
@@ -417,7 +417,7 @@ func TestDecodeSockEvent(t *testing.T) {
 			if tc.errMsg != "" {
 				assert.ErrorContains(t, err, tc.errMsg)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 				require.EqualValues(t, tc.flow, flow)
 			}
 		})

@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -106,14 +107,46 @@ func (p *policyContext) SetDeny(deny bool) bool {
 	return oldDeny
 }
 
+// RepositoryLock exposes methods to protect the whole policy tree.
+type RepositoryLock interface {
+	Lock()
+	Unlock()
+	RLock()
+	RUnlock()
+}
+
+type PolicyRepository interface {
+	RepositoryLock
+
+	AddListLocked(rules api.Rules) (ruleSlice, uint64)
+	BumpRevision() uint64
+	DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int)
+	DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSlice, uint64)
+	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
+	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
+	GetPolicyCache() *PolicyCache
+	GetRevision() uint64
+	GetRulesList() *models.Policy
+	GetSelectorCache() *SelectorCache
+	GetRepositoryChangeQueue() *eventqueue.EventQueue
+	GetRuleReactionQueue() *eventqueue.EventQueue
+	Iterate(f func(rule *api.Rule))
+	Release(rs ruleSlice)
+	ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64)
+	SearchRLocked(lbls labels.LabelArray) api.Rules
+	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool))
+	Start()
+}
+
 // Repository is a list of policy rules which in combination form the security
 // policy. A policy repository can be
 type Repository struct {
-	// Mutex protects the whole policy tree
-	Mutex lock.RWMutex
+	// mutex protects the whole policy tree
+	mutex lock.RWMutex
 
-	rules           map[ruleKey]*rule
-	rulesByResource map[ipcachetypes.ResourceID]map[ruleKey]*rule
+	rules            map[ruleKey]*rule
+	rulesByNamespace map[string]sets.Set[ruleKey]
+	rulesByResource  map[ipcachetypes.ResourceID]map[ruleKey]*rule
 
 	// We will need a way to synthesize a rule key for rules without a resource;
 	// these are - in practice - very rare, as they only come from the local API,
@@ -125,15 +158,15 @@ type Repository struct {
 	// Always positive (>0).
 	revision atomic.Uint64
 
-	// RepositoryChangeQueue is a queue which serializes changes to the policy
+	// repositoryChangeQueue is a queue which serializes changes to the policy
 	// repository.
-	RepositoryChangeQueue *eventqueue.EventQueue
+	repositoryChangeQueue *eventqueue.EventQueue
 
-	// RuleReactionQueue is a queue which serializes the resultant events that
+	// ruleReactionQueue is a queue which serializes the resultant events that
 	// need to occur after updating the state of the policy repository. This
 	// can include queueing endpoint regenerations, policy revision increments
 	// for endpoints, etc.
-	RuleReactionQueue *eventqueue.EventQueue
+	ruleReactionQueue *eventqueue.EventQueue
 
 	// SelectorCache tracks the selectors used in the policies
 	// resolved from the repository.
@@ -148,9 +181,37 @@ type Repository struct {
 	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
+// Lock acquiers the lock of the whole policy tree.
+func (p *Repository) Lock() {
+	p.mutex.Lock()
+}
+
+// Unlock releases the lock of the whole policy tree.
+func (p *Repository) Unlock() {
+	p.mutex.Unlock()
+}
+
+// RLock acquiers the read lock of the whole policy tree.
+func (p *Repository) RLock() {
+	p.mutex.RLock()
+}
+
+// RUnlock releases the read lock of the whole policy tree.
+func (p *Repository) RUnlock() {
+	p.mutex.RUnlock()
+}
+
 // GetSelectorCache() returns the selector cache used by the Repository
 func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
+}
+
+func (p *Repository) GetRepositoryChangeQueue() *eventqueue.EventQueue {
+	return p.repositoryChangeQueue
+}
+
+func (p *Repository) GetRuleReactionQueue() *eventqueue.EventQueue {
+	return p.ruleReactionQueue
 }
 
 // GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID
@@ -180,7 +241,7 @@ func NewPolicyRepository(
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
-	idmgr *identitymanager.IdentityManager,
+	idmgr identitymanager.IDManager,
 ) *Repository {
 	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager, idmgr)
 	repo.Start()
@@ -196,15 +257,16 @@ func NewStoppedPolicyRepository(
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
-	idmgr *identitymanager.IdentityManager,
+	idmgr identitymanager.IDManager,
 ) *Repository {
 	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
-		rules:           make(map[ruleKey]*rule),
-		rulesByResource: make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
-		selectorCache:   selectorCache,
-		certManager:     certManager,
-		secretManager:   secretManager,
+		rules:            make(map[ruleKey]*rule),
+		rulesByNamespace: make(map[string]sets.Set[ruleKey]),
+		rulesByResource:  make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
+		selectorCache:    selectorCache,
+		certManager:      certManager,
+		secretManager:    secretManager,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = NewPolicyCache(repo, idmgr)
@@ -253,10 +315,10 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 //
 // Must only be called if using [NewStoppedPolicyRepository]
 func (p *Repository) Start() {
-	p.RepositoryChangeQueue = eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
-	p.RuleReactionQueue = eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
-	p.RepositoryChangeQueue.Run()
-	p.RuleReactionQueue.Run()
+	p.repositoryChangeQueue = eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
+	p.ruleReactionQueue = eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
+	p.repositoryChangeQueue.Run()
+	p.ruleReactionQueue.Run()
 }
 
 // ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints
@@ -451,6 +513,10 @@ func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachety
 
 func (p *Repository) insert(r *rule) {
 	p.rules[r.key] = r
+	if _, ok := p.rulesByNamespace[r.key.resource.Namespace()]; !ok {
+		p.rulesByNamespace[r.key.resource.Namespace()] = sets.New[ruleKey]()
+	}
+	p.rulesByNamespace[r.key.resource.Namespace()].Insert(r.key)
 	rid := r.key.resource
 	if len(rid) > 0 {
 		if p.rulesByResource[rid] == nil {
@@ -467,6 +533,10 @@ func (p *Repository) del(key ruleKey) {
 		return
 	}
 	delete(p.rules, key)
+	p.rulesByNamespace[key.resource.Namespace()].Delete(key)
+	if len(p.rulesByNamespace[key.resource.Namespace()]) == 0 {
+		delete(p.rulesByNamespace, key.resource.Namespace())
+	}
 
 	rid := key.resource
 	if len(rid) > 0 && p.rulesByResource[rid] != nil {
@@ -509,16 +579,16 @@ func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 			panic(err)
 		}
 	}
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	return p.AddListLocked(rules)
 }
 
 // Iterate iterates the policy repository, calling f for each rule. It is safe
 // to execute Iterate concurrently.
 func (p *Repository) Iterate(f func(rule *api.Rule)) {
-	p.Mutex.RWMutex.Lock()
-	defer p.Mutex.RWMutex.Unlock()
+	p.mutex.RWMutex.Lock()
+	defer p.mutex.RWMutex.Unlock()
 	for _, r := range p.rules {
 		f(&r.Rule)
 	}
@@ -584,8 +654,8 @@ func (p *Repository) DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSl
 // DeleteByLabels deletes all rules in the policy repository which contain the
 // specified labels
 func (p *Repository) DeleteByLabels(lbls labels.LabelArray) (uint64, int) {
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	_, rev, numDeleted := p.DeleteByLabelsLocked(lbls)
 	return rev, numDeleted
 }
@@ -600,24 +670,10 @@ func JSONMarshalRules(rules api.Rules) string {
 	return string(b)
 }
 
-// GetJSON returns all rules of the policy repository as string in JSON
-// representation
-func (p *Repository) GetJSON() string {
-	p.Mutex.RLock()
-	defer p.Mutex.RUnlock()
-
-	result := api.Rules{}
-	for _, r := range p.rules {
-		result = append(result, &r.Rule)
-	}
-
-	return JSONMarshalRules(result)
-}
-
 // GetRulesMatching returns whether any of the rules in a repository contain a
 // rule with labels matching the labels in the provided LabelArray.
 //
-// Must be called with p.Mutex held
+// Must be called with p.mutex held
 func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool, egressMatch bool) {
 	ingressMatch = false
 	egressMatch = false
@@ -645,25 +701,9 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 	return
 }
 
-// NumRules returns the amount of rules in the policy repository.
-//
-// Must be called with p.Mutex held
-func (p *Repository) NumRules() int {
-	return len(p.rules)
-}
-
 // GetRevision returns the revision of the policy repository
 func (p *Repository) GetRevision() uint64 {
 	return p.revision.Load()
-}
-
-// Empty returns 'true' if repository has no rules, 'false' otherwise.
-//
-// Must be called without p.Mutex held
-func (p *Repository) Empty() bool {
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
-	return p.NumRules() == 0
 }
 
 // BumpRevision allows forcing policy regeneration
@@ -674,8 +714,8 @@ func (p *Repository) BumpRevision() uint64 {
 
 // GetRulesList returns the current policy
 func (p *Repository) GetRulesList() *models.Policy {
-	p.Mutex.RLock()
-	defer p.Mutex.RUnlock()
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
 
 	lbls := labels.ParseSelectLabelArrayFromArray([]string{})
 	ruleList := p.SearchRLocked(lbls)
@@ -777,9 +817,21 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	}
 
 	matchingRules = []*rule{}
-	for _, r := range p.rules {
+	// Match cluster-wide rules
+	for rKey := range p.rulesByNamespace[""] {
+		r := p.rules[rKey]
 		if r.matchesSubject(securityIdentity) {
 			matchingRules = append(matchingRules, r)
+		}
+	}
+	// Match namespace-specific rules
+	namespace := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+	if namespace != "" {
+		for rKey := range p.rulesByNamespace[namespace] {
+			r := p.rules[rKey]
+			if r.matchesSubject(securityIdentity) {
+				matchingRules = append(matchingRules, r)
+			}
 		}
 	}
 

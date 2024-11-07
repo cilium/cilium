@@ -3,7 +3,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: hubble-ui
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- if or .Values.hubble.ui.service.annotations  .Values.hubble.ui.annotations }}
   annotations:
     {{- with .Values.hubble.ui.annotations }}

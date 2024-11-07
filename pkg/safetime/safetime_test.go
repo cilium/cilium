@@ -49,5 +49,5 @@ func TestNonNegativeDuration(t *testing.T) {
 
 	require.True(t, ok)
 	require.Greater(t, int64(d), int64(time.Duration(0)))
-	require.Equal(t, 0, len(s.out.String()))
+	require.Empty(t, s.out.String())
 }

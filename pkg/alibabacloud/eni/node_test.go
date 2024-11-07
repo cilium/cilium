@@ -57,7 +57,7 @@ func TestGetMaximumAllocatableIPv4(t *testing.T) {
 
 	n := &Node{}
 	n.k8sObj = newCiliumNode("node", "i-1", "ecs.g7ne.24xlarge", "cn-hangzhou-i", "vpc-1")
-	require.Equal(t, n.GetMaximumAllocatableIPv4(), 700)
+	require.Equal(t, 700, n.GetMaximumAllocatableIPv4())
 }
 
 func TestCreateInterface(t *testing.T) {
@@ -87,9 +87,9 @@ func TestCreateInterface(t *testing.T) {
 		}
 		switch e.Type {
 		case eniTypes.ENITypeSecondary:
-			require.Equal(t, utils.GetENIIndexFromTags(e.Tags), 1)
+			require.Equal(t, 1, utils.GetENIIndexFromTags(e.Tags))
 		case eniTypes.ENITypePrimary:
-			require.Equal(t, utils.GetENIIndexFromTags(e.Tags), 0)
+			require.Equal(t, 0, utils.GetENIIndexFromTags(e.Tags))
 		}
 		return nil
 	})
@@ -101,7 +101,7 @@ func TestCreateInterface(t *testing.T) {
 		EmptyInterfaceSlots: 2,
 	}, log)
 	require.NoError(t, err)
-	require.Equal(t, toAlloc, 10)
+	require.Equal(t, 10, toAlloc)
 
 	toAlloc, _, err = mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
 		IPv4: ipam.IPAllocationAction{
@@ -110,7 +110,7 @@ func TestCreateInterface(t *testing.T) {
 		EmptyInterfaceSlots: 1,
 	}, log)
 	require.NoError(t, err)
-	require.Equal(t, toAlloc, 10)
+	require.Equal(t, 10, toAlloc)
 }
 
 func TestCandidateAndEmptyInterfaces(t *testing.T) {
@@ -130,7 +130,7 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	n := &Node{}
 	n.k8sObj = cn
 	// Primary ENI excluded, max allocatable = 3 ( 1 (ENI) * 3 (IPv4/ENI) )
-	require.Equal(t, n.GetMaximumAllocatableIPv4(), 3)
+	require.Equal(t, 3, n.GetMaximumAllocatableIPv4())
 
 	// Wait for IPs to become available
 	require.Eventually(t, func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second, 1*time.Second)
@@ -139,8 +139,8 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	a, err := node3.Ops().PrepareIPAllocation(log)
 	require.NoError(t, err)
 	// 1 ENI attached, 1/3 IPs allocated, 0 empty slots left
-	require.Equal(t, a.IPv4.InterfaceCandidates, 1)
-	require.Equal(t, a.EmptyInterfaceSlots, 0)
+	require.Equal(t, 1, a.IPv4.InterfaceCandidates)
+	require.Equal(t, 0, a.EmptyInterfaceSlots)
 	require.Equal(t, 1, node3.Stats().IPv4.AvailableIPs)
 }
 
@@ -158,7 +158,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
 	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	require.NoError(t, err)
-	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, fmt.Sprintf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
+	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 
 	// create one eni
 	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
@@ -168,12 +168,12 @@ func TestPrepareIPAllocation(t *testing.T) {
 		EmptyInterfaceSlots: 2,
 	}, log)
 	require.NoError(t, err)
-	require.Equal(t, toAlloc, 10)
+	require.Equal(t, 10, toAlloc)
 
 	// one eni left
 	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	require.NoError(t, err)
-	require.Equal(t, 1, a.EmptyInterfaceSlots, fmt.Sprintf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
+	require.Equal(t, 1, a.EmptyInterfaceSlots, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 }
 
 func TestNode_allocENIIndex(t *testing.T) {
@@ -186,7 +186,7 @@ func TestNode_allocENIIndex(t *testing.T) {
 	}}
 	index, err := n.allocENIIndex()
 	require.NoError(t, err)
-	require.Equal(t, index, 1)
+	require.Equal(t, 1, index)
 
 	n.enis["eni-2"] = eniTypes.ENI{
 		InstanceID: "eni-2",
@@ -195,7 +195,7 @@ func TestNode_allocENIIndex(t *testing.T) {
 	}
 	index, err = n.allocENIIndex()
 	require.NoError(t, err)
-	require.Equal(t, index, 2)
+	require.Equal(t, 2, index)
 }
 
 type k8sMock struct{}

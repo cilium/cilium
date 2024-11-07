@@ -34,7 +34,7 @@ func init() {
 var HTTPRouteCrossNamespace = suite.ConformanceTest{
 	ShortName:   "HTTPRouteCrossNamespace",
 	Description: "A single HTTPRoute in the gateway-conformance-web-backend namespace should attach to Gateway in another namespace",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

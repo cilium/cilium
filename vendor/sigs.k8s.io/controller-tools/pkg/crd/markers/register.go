@@ -17,6 +17,7 @@ limitations under the License.
 package markers
 
 import (
+	"fmt"
 	"reflect"
 
 	"sigs.k8s.io/controller-tools/pkg/markers"
@@ -42,9 +43,30 @@ func (d *definitionWithHelp) Register(reg *markers.Registry) error {
 	return nil
 }
 
+func (d *definitionWithHelp) clone() *definitionWithHelp {
+	newDef, newHelp := *d.Definition, *d.Help
+	return &definitionWithHelp{
+		Definition: &newDef,
+		Help:       &newHelp,
+	}
+}
+
 func must(def *markers.Definition, err error) *definitionWithHelp {
 	return &definitionWithHelp{
 		Definition: markers.Must(def, err),
+	}
+}
+
+func mustOptional(def *markers.Definition, err error) *definitionWithHelp {
+	def = markers.Must(def, err)
+	if !def.AnonymousField() {
+		def = markers.Must(def, fmt.Errorf("not an anonymous field: %v", def))
+	}
+	field := def.Fields[""]
+	field.Optional = true
+	def.Fields[""] = field
+	return &definitionWithHelp{
+		Definition: def,
 	}
 }
 
@@ -60,7 +82,7 @@ type hasHelp interface {
 func mustMakeAllWithPrefix(prefix string, target markers.TargetType, objs ...interface{}) []*definitionWithHelp {
 	defs := make([]*definitionWithHelp, len(objs))
 	for i, obj := range objs {
-		name := prefix + ":" + reflect.TypeOf(obj).Name()
+		name := prefix + reflect.TypeOf(obj).Name()
 		def, err := markers.MakeDefinition(name, target, obj)
 		if err != nil {
 			panic(err)

@@ -16,12 +16,12 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
-	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -42,10 +41,6 @@ const (
 	netdevHeaderFileName = "netdev_config.h"
 	// preFilterHeaderFileName is the name of the header file used for bpf_xdp.c.
 	preFilterHeaderFileName = "filter_config.h"
-	// retry configuration for linkList()
-	linkListMaxTries         = 15
-	linkListMinRetryInterval = 100 * time.Millisecond
-	linkListMaxRetryInterval = 10 * time.Second
 )
 
 func (l *loader) writeNetdevHeader(dir string) error {
@@ -127,7 +122,7 @@ func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
 	}
 
 	retSettings := append(sysSettings, tables.Sysctl{
-		Name:      fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface.Attrs().Name),
+		Name:      []string{"net", "ipv4", "conf", iface.Attrs().Name, "rp_filter"},
 		Val:       "2",
 		IgnoreErr: false,
 	})
@@ -146,11 +141,11 @@ func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
 
 func cleanIngressQdisc(devices []string) error {
 	for _, iface := range devices {
-		link, err := netlink.LinkByName(iface)
+		link, err := safenetlink.LinkByName(iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve link %s by name: %w", iface, err)
 		}
-		qdiscs, err := netlink.QdiscList(link)
+		qdiscs, err := safenetlink.QdiscList(link)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve qdisc list of link %s: %w", iface, err)
 		}
@@ -167,28 +162,6 @@ func cleanIngressQdisc(devices []string) error {
 		}
 	}
 	return nil
-}
-
-// netlink.LinkList() can return a transient kernel interrupt error.
-// This function will retry the call with a backoff if an error is returned.
-func linkList() ([]netlink.Link, error) {
-	var last_error error
-	for try := 0; try < linkListMaxTries; try++ {
-		links, err := netlink.LinkList()
-		if err == nil {
-			return links, nil
-		}
-		last_error = err
-		sleep := backoff.CalculateDuration(
-			linkListMinRetryInterval,
-			linkListMaxRetryInterval,
-			2.0,
-			false,
-			try)
-		time.Sleep(sleep)
-	}
-
-	return nil, fmt.Errorf("Could not load links: %w", last_error)
 }
 
 // reinitializeIPSec is used to recompile and load encryption network programs.
@@ -212,7 +185,7 @@ func (l *loader) reinitializeIPSec() error {
 		// received encrypted packets. This logic will attach to all
 		// !veth devices.
 		interfaces = nil
-		links, err := linkList()
+		links, err := safenetlink.LinkList()
 		if err != nil {
 			return err
 		}
@@ -249,7 +222,7 @@ func (l *loader) reinitializeIPSec() error {
 
 	var errs error
 	for _, iface := range interfaces {
-		device, err := netlink.LinkByName(iface)
+		device, err := safenetlink.LinkByName(iface)
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("retrieving device %s: %w", iface, err))
 			continue
@@ -277,7 +250,7 @@ func (l *loader) reinitializeIPSec() error {
 	return nil
 }
 
-func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
+func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
 	// tunnelConfig.Protocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.Protocol() == tunnel.Disabled {
@@ -285,7 +258,7 @@ func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 	}
 
 	iface := tunnelConfig.DeviceName()
-	link, err := netlink.LinkByName(iface)
+	link, err := safenetlink.LinkByName(iface)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", iface, err)
 	}
@@ -308,14 +281,14 @@ func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorld))
 	}
 
-	if err := l.replaceOverlayDatapath(ctx, opts, iface); err != nil {
+	if err := replaceOverlayDatapath(ctx, opts, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
 
 	return nil
 }
 
-func (l *loader) reinitializeWireguard(ctx context.Context) (err error) {
+func reinitializeWireguard(ctx context.Context) (err error) {
 	// to-wireguard bpf is only used for rev-DNAT, which is only needed when NodePort, KPR, native routing and L7 proxy are enabled together
 	if !option.Config.EnableWireguard ||
 		!option.Config.EnableNodePort ||
@@ -325,7 +298,7 @@ func (l *loader) reinitializeWireguard(ctx context.Context) (err error) {
 		return
 	}
 
-	link, err := netlink.LinkByName(wgTypes.IfaceName)
+	link, err := safenetlink.LinkByName(wgTypes.IfaceName)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}
@@ -337,14 +310,14 @@ func (l *loader) reinitializeWireguard(ctx context.Context) (err error) {
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
 	}
 
-	if err := l.replaceWireguardDatapath(ctx, opts, wgTypes.IfaceName); err != nil {
+	if err := replaceWireguardDatapath(ctx, opts, link); err != nil {
 		return fmt.Errorf("failed to load wireguard programs: %w", err)
 	}
 	return
 }
 
-func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string, xdpConfig xdp.Config) error {
-	l.maybeUnloadObsoleteXDPPrograms(devices, xdpConfig.Mode(), bpf.CiliumPath())
+func reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string, xdpConfig xdp.Config) error {
+	maybeUnloadObsoleteXDPPrograms(devices, xdpConfig.Mode(), bpf.CiliumPath())
 	if xdpConfig.Disabled() {
 		return nil
 	}
@@ -380,7 +353,8 @@ func (l *loader) ReinitializeXDP(ctx context.Context, cfg *datapath.LocalNodeCon
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 	devices := cfg.DeviceNames()
-	return l.reinitializeXDPLocked(ctx, extraCArgs, devices, cfg.XDPConfig)
+
+	return reinitializeXDPLocked(ctx, extraCArgs, devices, cfg.XDPConfig)
 }
 
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
@@ -398,11 +372,11 @@ func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	sysSettings := []tables.Sysctl{
-		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
-		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
-		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
-		{Name: "kernel.unprivileged_bpf_disabled", Val: "1", IgnoreErr: true},
-		{Name: "kernel.timer_migration", Val: "0", IgnoreErr: true},
+		{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
+		{Name: []string{"net", "ipv4", "conf", "all", "rp_filter"}, Val: "0", IgnoreErr: false},
+		{Name: []string{"net", "ipv4", "fib_multipath_use_neigh"}, Val: "1", IgnoreErr: true},
+		{Name: []string{"kernel", "unprivileged_bpf_disabled"}, Val: "1", IgnoreErr: true},
+		{Name: []string{"kernel", "timer_migration"}, Val: "0", IgnoreErr: true},
 	}
 
 	// Lock so that endpoints cannot be built while we are compile base programs.
@@ -423,7 +397,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
 		sysSettings = append(sysSettings,
-			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
+			tables.Sysctl{Name: []string{"net", "ipv6", "conf", "all", "disable_ipv6"}, Val: "0", IgnoreErr: false})
 	}
 
 	// BPF file system setup.
@@ -441,7 +415,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 		sysSettings = append(
 			sysSettings,
 			tables.Sysctl{
-				Name: "net.core.fb_tunnels_only_for_init_net", Val: "2", IgnoreErr: true,
+				Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true,
 			},
 		)
 		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
@@ -514,7 +488,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices, cfg.XDPConfig); err != nil {
+	if err := reinitializeXDPLocked(ctx, extraArgs, devices, cfg.XDPConfig); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")
 	}
 
@@ -537,11 +511,11 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := l.reinitializeOverlay(ctx, tunnelConfig); err != nil {
+	if err := reinitializeOverlay(ctx, tunnelConfig); err != nil {
 		return err
 	}
 
-	if err := l.reinitializeWireguard(ctx); err != nil {
+	if err := reinitializeWireguard(ctx); err != nil {
 		return err
 	}
 
@@ -551,7 +525,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 
 	// Reinstall proxy rules for any running proxies if needed
 	if option.Config.EnableL7Proxy {
-		if err := p.ReinstallRoutingRules(); err != nil {
+		if err := p.ReinstallRoutingRules(cfg.RouteMTU); err != nil {
 			return err
 		}
 	}

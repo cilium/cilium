@@ -14,7 +14,7 @@ import (
 
 func TestGroupOps(t *testing.T) {
 	ifs, err := netlink.LinkList()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	if len(ifs) == 0 {
 		t.Skip("no interfaces to test")
@@ -25,21 +25,21 @@ func TestGroupOps(t *testing.T) {
 
 	// Join Group
 	err = JoinGroup(ifc.Attrs().Name, maddr)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// maddr in group
 	inGroup, err := IsInGroup(ifc.Attrs().Name, maddr)
-	require.Nil(t, err)
-	require.Equal(t, true, inGroup)
+	require.NoError(t, err)
+	require.True(t, inGroup)
 
 	// LeaveGroup
 	err = LeaveGroup(ifc.Attrs().Name, maddr)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// maddr not in group
 	inGroup, err = IsInGroup(ifc.Attrs().Name, maddr)
-	require.Nil(t, err)
-	require.Equal(t, false, inGroup)
+	require.NoError(t, err)
+	require.False(t, inGroup)
 }
 
 func TestSolicitedNodeMaddr(t *testing.T) {

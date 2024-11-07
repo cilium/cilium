@@ -126,12 +126,18 @@ srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 		   __u8 nexthdr, union v6addr *saddr, struct in6_addr *sid)
 {
 	__u32 len = sizeof(struct ipv6hdr) - 2 * sizeof(struct in6_addr);
+	__u32 hash;
+
 	struct ipv6hdr new_ip6 = {
 		.version     = 0x6,
 		.payload_len = bpf_htons(new_payload_len),
 		.nexthdr     = nexthdr,
 		.hop_limit   = IPDEFTTL,
 	};
+
+	hash = get_hash_recalc(ctx);
+	new_ip6.flow_lbl[1] = (hash >> 16) & 0xff;
+	new_ip6.flow_lbl[2] = (hash >> 24) & 0xff;
 
 #ifdef ENABLE_SRV6_SRH_ENCAP
 	/* If reduced encapsulation is disabled, the next header will be the

@@ -24,8 +24,8 @@ func TestGet(t *testing.T) {
 
 	l, ok := Get("m3.large")
 	require.True(t, ok)
-	require.NotEqual(t, l.Adapters, 0)
-	require.NotEqual(t, l.IPv4, 0)
+	require.NotEqual(t, 0, l.Adapters)
+	require.NotEqual(t, 0, l.IPv4)
 	require.Equal(t, "xen", l.HypervisorType)
 
 	UpdateFromUserDefinedMappings(option.Config.AWSInstanceLimitMapping)
@@ -69,9 +69,9 @@ func TestParseLimitString(t *testing.T) {
 	limit, err = parseLimitString(limitString3)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "invalid limit value")
-	require.NotEqual(t, limit.Adapters, 4)
-	require.NotEqual(t, limit.IPv4, 5)
-	require.Equal(t, limit.IPv6, 0)
+	require.NotEqual(t, 4, limit.Adapters)
+	require.NotEqual(t, 5, limit.IPv4)
+	require.Equal(t, 0, limit.IPv6)
 
 	limit, err = parseLimitString(limitString4)
 	require.Error(t, err)

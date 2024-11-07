@@ -32,7 +32,7 @@ func init() {
 var MeshPorts = suite.ConformanceTest{
 	ShortName:   "MeshPorts",
 	Description: "A mesh route can optionally configure 'port' in parentRef",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportMesh,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteParentRefPort,

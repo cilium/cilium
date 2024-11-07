@@ -23,9 +23,9 @@ import (
 )
 
 func TestRedirectType(t *testing.T) {
-	require.Equal(t, redirectTypes(0), redirectTypeNone)
-	require.Equal(t, redirectTypes(0x1), redirectTypeDNS)
-	require.Equal(t, redirectTypes(0x2), redirectTypeEnvoy)
+	require.Equal(t, redirectTypeNone, redirectTypes(0))
+	require.Equal(t, redirectTypeDNS, redirectTypes(0x1))
+	require.Equal(t, redirectTypeEnvoy, redirectTypes(0x2))
 	require.Equal(t, redirectTypes(0x4)|redirectTypeEnvoy, redirectTypeProxylib)
 	require.Equal(t, redirectTypeEnvoy, redirectTypeProxylib&redirectTypeEnvoy)
 }
@@ -118,12 +118,12 @@ func TestParserTypeMerge(t *testing.T) {
 	} {
 		res, err := tt.a.Merge(tt.b)
 		if tt.success {
-			require.Equal(t, nil, err)
+			require.NoError(t, err)
 		} else {
-			require.NotEqual(t, nil, err)
+			require.Error(t, err)
 		}
 		if res != tt.c {
-			fmt.Printf("Merge %s with %s, expecting %s\n", tt.a, tt.b, tt.c)
+			t.Logf("Merge %s with %s, expecting %s\n", tt.a, tt.b, tt.c)
 		}
 		require.Equal(t, tt.c, res)
 	}
@@ -152,7 +152,7 @@ func TestCreateL4Filter(t *testing.T) {
 		// or if it is based on specific labels.
 		filter, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(filter.PerSelectorPolicies))
+		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
 			hasAuth, authType := r.GetAuthType()
 			require.Equal(t, DefaultAuthType, hasAuth)
@@ -162,7 +162,7 @@ func TestCreateL4Filter(t *testing.T) {
 
 		filter, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(filter.PerSelectorPolicies))
+		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
 			hasAuth, authType := r.GetAuthType()
 			require.Equal(t, DefaultAuthType, hasAuth)
@@ -196,7 +196,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		// or if it is based on specific labels.
 		filter, err := createL4IngressFilter(td.testPolicyContext, eps, auth, nil, portrule, tuple, tuple.Protocol, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(filter.PerSelectorPolicies))
+		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
 			hasAuth, authType := r.GetAuthType()
 			require.Equal(t, ExplicitAuthType, hasAuth)
@@ -206,7 +206,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 
 		filter, err = createL4EgressFilter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(filter.PerSelectorPolicies))
+		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
 			hasAuth, authType := r.GetAuthType()
 			require.Equal(t, ExplicitAuthType, hasAuth)
@@ -248,10 +248,10 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
 		_, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
-		require.NotNil(t, err)
+		require.Error(t, err)
 
 		_, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
-		require.NotNil(t, err)
+		require.Error(t, err)
 	}
 }
 
@@ -472,11 +472,11 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 				l4Map.Upsert(altStartPort, altPR.endPort, "TCP", altFilter)
 				altL4 = l4Map.ExactLookup(altStartPort, altPR.endPort, "TCP")
 				require.NotNilf(t, altL4, "%d-%d range not found and it should have been", altPR.startPort, altPR.endPort)
-				require.True(t, altL4.Equals(nil, altFilter), "%d-%d range lookup returned a range of %d-%d",
+				require.True(t, altL4.Equals(altFilter), "%d-%d range lookup returned a range of %d-%d",
 					altPR.startPort, altPR.endPort, altL4.Port, altL4.EndPort)
 
 				gotMainFilter := l4Map.ExactLookup(startPort, portRange.endPort, "TCP")
-				require.Truef(t, gotMainFilter.Equals(nil, startFilter), "main range look up failed after %d-%d range upsert", altPR.startPort, altPR.endPort)
+				require.Truef(t, gotMainFilter.Equals(startFilter), "main range look up failed after %d-%d range upsert", altPR.startPort, altPR.endPort)
 
 				// Delete overlapping port range, and make sure it's not there.
 				l4Map.Delete(altStartPort, altPR.endPort, "TCP")
@@ -487,7 +487,7 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 				require.Nil(t, altL4)
 
 				gotMainFilter = l4Map.ExactLookup(startPort, portRange.endPort, "TCP")
-				require.Truef(t, gotMainFilter.Equals(nil, startFilter), "main range look up failed after %d-%d range delete", altPR.startPort, altPR.endPort)
+				require.Truef(t, gotMainFilter.Equals(startFilter), "main range look up failed after %d-%d range delete", altPR.startPort, altPR.endPort)
 
 				// Put it back for the next iteration.
 				l4Map.Upsert(altStartPort, altPR.endPort, "TCP", altFilter)

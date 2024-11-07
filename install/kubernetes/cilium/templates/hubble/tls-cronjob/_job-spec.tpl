@@ -30,9 +30,9 @@ spec:
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
-            - "--ca-generate"
+            - "--ca-generate={{ .Values.certgen.generateCA }}"
             - "--ca-reuse-secret"
-            - "--ca-secret-namespace={{ .Release.Namespace }}"
+            - "--ca-secret-namespace={{ include "cilium.namespace" . }}"
             - "--ca-secret-name=cilium-ca"
             - "--ca-common-name=Cilium CA"
           env:
@@ -40,7 +40,7 @@ spec:
               value: |
                 certs:
                 - name: hubble-server-certs
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: {{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." | quote }}
                   hosts:
                   - {{ list "*" (.Values.cluster.name | replace "." "-") "hubble-grpc.cilium.io" | join "." | quote }}
@@ -54,10 +54,11 @@ spec:
                   - signing
                   - key encipherment
                   - server auth
+                  - client auth
                   validity: {{ $certValidityStr }}
                 {{- if .Values.hubble.relay.enabled }}
                 - name: hubble-relay-client-certs
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: "*.hubble-relay.cilium.io"
                   hosts:
                   - "*.hubble-relay.cilium.io"
@@ -69,7 +70,7 @@ spec:
                 {{- end }}
                 {{- if and .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
                 - name: hubble-relay-server-certs
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: "*.hubble-relay.cilium.io"
                   hosts:
                   - "*.hubble-relay.cilium.io"
@@ -87,7 +88,7 @@ spec:
                 {{- end }}
                 {{- if and .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
                 - name: hubble-metrics-server-certs
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: {{ list (.Values.cluster.name | replace "." "-") "hubble-metrics.cilium.io" | join "." }} | quote }}
                   hosts:
                   - {{ list (.Values.cluster.name | replace "." "-") "hubble-metrics.cilium.io" | join "." }} | quote }}
@@ -105,7 +106,7 @@ spec:
                 {{- end }}
                 {{- if and .Values.hubble.ui.enabled .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
                 - name: hubble-ui-client-certs
-                  namespace: {{ .Release.Namespace }}
+                  namespace: {{ include "cilium.namespace" . }}
                   commonName: "*.hubble-ui.cilium.io"
                   hosts:
                   - "*.hubble-ui.cilium.io"
@@ -120,6 +121,13 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
       hostNetwork: false
+      {{- with .Values.certgen.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.certgen.priorityClassName }}
+      priorityClassName: {{ .Values.certgen.priorityClassName }}
+      {{- end }}
       {{- with .Values.certgen.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}

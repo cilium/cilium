@@ -11,8 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the VPCs on the other side of a VPC peering connection that are
-// referencing the security groups you've specified in this request.
+// Describes the VPCs on the other side of a VPC peering or Transit Gateway
+// connection that are referencing the security groups you've specified in this
+// request.
 func (c *Client) DescribeSecurityGroupReferences(ctx context.Context, params *DescribeSecurityGroupReferencesInput, optFns ...func(*Options)) (*DescribeSecurityGroupReferencesOutput, error) {
 	if params == nil {
 		params = &DescribeSecurityGroupReferencesInput{}
@@ -98,6 +99,9 @@ func (c *Client) addOperationDescribeSecurityGroupReferencesMiddlewares(stack *m
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -135,6 +139,18 @@ func (c *Client) addOperationDescribeSecurityGroupReferencesMiddlewares(stack *m
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

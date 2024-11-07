@@ -21,7 +21,7 @@ message CustomResourceDefinition {
   // Standard object's metadata
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 }
 
 // CustomResourceDefinitionList is a list of CustomResourceDefinition objects.
@@ -29,7 +29,7 @@ message CustomResourceDefinitionList {
   // Standard object's metadata
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // items list individual CustomResourceDefinition objects
   repeated CustomResourceDefinition items = 2;

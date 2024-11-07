@@ -7,13 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
-	"github.com/sirupsen/logrus"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 
-	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -32,97 +34,244 @@ func (b *BGPResourceManager) reconcileBGPClusterConfigs(ctx context.Context) err
 }
 
 func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, config *v2alpha1.CiliumBGPClusterConfig) error {
-	// get nodes which match node selector for given cluster config
-	matchingNodes, err := b.getMatchingNodes(config.Spec.NodeSelector, config.Name)
+	var errs error
+
+	matchingNodes, conflictingClusterConfigs, err := b.upsertNodeConfigs(ctx, config)
 	if err != nil {
 		return err
 	}
 
-	// update node configs for matched nodes
-	for nodeRef := range matchingNodes {
-		upsertErr := b.upsertNodeConfig(ctx, config, nodeRef)
-		if upsertErr != nil {
-			err = errors.Join(err, upsertErr)
+	if err := b.deleteNodeConfigs(ctx, matchingNodes, config); err != nil {
+		errs = errors.Join(err)
+	}
+
+	// Collect the missing peerConfig references
+	missingPCs := b.missingPeerConfigs(config)
+
+	// Update ClusterConfig conditions
+	updateStatus := false
+	if changed := b.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0); changed {
+		updateStatus = true
+	}
+	if changed := b.updateMissingPeerConfigsCondition(config, missingPCs); changed {
+		updateStatus = true
+	}
+	if changed := b.updateConflictingClusterConfigsCondition(config, conflictingClusterConfigs); changed {
+		updateStatus = true
+	}
+
+	// Sort conditions to the stable order
+	slices.SortStableFunc(config.Status.Conditions, func(a, b meta_v1.Condition) int {
+		return strings.Compare(a.Type, b.Type)
+	})
+
+	// Call API only when there's a condition change
+	if updateStatus {
+		_, err := b.clientset.CiliumV2alpha1().CiliumBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
+		if err != nil {
+			errs = errors.Join(errs, err)
 		}
 	}
 
-	// delete node configs for this cluster that are not in the matching nodes
-	dErr := b.deleteStaleNodeConfigs(ctx, matchingNodes, config.Name)
-	if dErr != nil {
-		err = errors.Join(err, dErr)
-	}
-
-	return err
+	return errs
 }
 
-func (b *BGPResourceManager) upsertNodeConfig(ctx context.Context, config *v2alpha1.CiliumBGPClusterConfig, nodeName string) error {
-	prev, exists, err := b.nodeConfigStore.GetByKey(resource.Key{Name: nodeName})
-	if err != nil {
-		return err
-	}
-
-	// find node overrides for given node
-	var overrideInstances []v2alpha1.CiliumBGPNodeConfigInstanceOverride
-	overrides := b.nodeConfigOverrideStore.List()
-	for _, override := range overrides {
-		if override.Name == nodeName {
-			overrideInstances = override.Spec.BGPInstances
-			break
+func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2alpha1.CiliumBGPClusterConfig) (sets.Set[string], sets.Set[string], error) {
+	var nodeSelector slim_labels.Selector
+	if config.Spec.NodeSelector == nil {
+		// nil selector means select all nodes
+		nodeSelector = slim_labels.Everything()
+	} else {
+		selector, err := slim_meta_v1.LabelSelectorAsSelector(config.Spec.NodeSelector)
+		if err != nil {
+			return nil, nil, err
 		}
+		nodeSelector = selector
 	}
 
-	// create new config
-	nodeConfig := &v2alpha1.CiliumBGPNodeConfig{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: nodeName,
-			OwnerReferences: []meta_v1.OwnerReference{
-				{
-					APIVersion: v2alpha1.SchemeGroupVersion.String(),
-					Kind:       v2alpha1.BGPCCKindDefinition,
-					Name:       config.GetName(),
-					UID:        config.GetUID(),
+	// Name of the nodes selected by nodeSelector
+	matchingNodes := sets.New[string]()
+
+	// Name of the ClusterConfig selecting the same node
+	conflictingClusterConfigs := sets.New[string]()
+
+	// Errors
+	var errs error
+
+	for _, node := range b.ciliumNodeStore.List() {
+		if !nodeSelector.Matches(slim_labels.Set(node.Labels)) {
+			continue
+		}
+
+		// Record selected node for later use
+		matchingNodes.Insert(node.Name)
+
+		// Find node config for this node
+		oldNodeConfig, oldNodeConfigExists, err := b.nodeConfigStore.GetByKey(resource.Key{Name: node.Name})
+		if err != nil {
+			errs = errors.Join(errs, err)
+			continue
+		}
+
+		// Conflict detection
+		if oldNodeConfigExists && !isOwner(oldNodeConfig.OwnerReferences, config) {
+			owner := ownerClusterConfigName(oldNodeConfig.OwnerReferences)
+			if owner != "" {
+				conflictingClusterConfigs.Insert(owner)
+			}
+			// Conflict detected. Skip this node.
+			continue
+		}
+
+		// Find node overrides for this node
+		nodeConfigOverride, nodeConfigOverrideExists, err := b.nodeConfigOverrideStore.GetByKey(resource.Key{Name: node.Name})
+		if err != nil {
+			errs = errors.Join(errs, err)
+			continue
+		}
+
+		// Build a desired node config
+		var overrideInstances []v2alpha1.CiliumBGPNodeConfigInstanceOverride
+		if nodeConfigOverrideExists {
+			overrideInstances = nodeConfigOverride.Spec.BGPInstances
+		}
+		newNodeConfig := &v2alpha1.CiliumBGPNodeConfig{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: node.Name,
+				OwnerReferences: []meta_v1.OwnerReference{
+					{
+						APIVersion: v2alpha1.SchemeGroupVersion.String(),
+						Kind:       v2alpha1.BGPCCKindDefinition,
+						Name:       config.GetName(),
+						UID:        config.GetUID(),
+
+						// It is generally recommended to set this to the
+						// reference from the controller object. Note that
+						// we shouldn't rely on this field to be set (e.g.
+						// don't use metav1.GetControllerOf until v1.19
+						// since we might have an existing resource that
+						// doesn't have this set.
+						Controller: ptr.To(true),
+					},
 				},
 			},
-		},
-		Spec: v2alpha1.CiliumBGPNodeSpec{
-			BGPInstances: toNodeBGPInstance(config.Spec.BGPInstances, overrideInstances),
-		},
-	}
+			Spec: v2alpha1.CiliumBGPNodeSpec{
+				BGPInstances: toNodeBGPInstance(config.Spec.BGPInstances, overrideInstances),
+			},
+		}
 
-	switch {
-	case exists && prev.Spec.DeepEqual(&nodeConfig.Spec):
-		return nil
-	case exists:
-		// reinitialize spec and status fields
-		prev.Spec = nodeConfig.Spec
-		_, err = b.nodeConfigClient.Update(ctx, prev, meta_v1.UpdateOptions{})
-	default:
-		_, err = b.nodeConfigClient.Create(ctx, nodeConfig, meta_v1.CreateOptions{})
-		if err != nil && k8s_errors.IsAlreadyExists(err) {
-			// local store is not yet updated, but API server has the resource. Get resource from API server
-			// to compare spec.
-			prev, err = b.nodeConfigClient.Get(ctx, nodeConfig.Name, meta_v1.GetOptions{})
-			if err != nil {
-				return err
+		switch {
+		case !oldNodeConfigExists:
+			// Create a new NodeConfig the new spec
+			if _, err := b.nodeConfigClient.Create(ctx, newNodeConfig, meta_v1.CreateOptions{}); err != nil {
+				errs = errors.Join(errs, err)
+				continue
 			}
+			b.logger.Debug("Creating a new CiliumBGPNodeConfig", "node_config", newNodeConfig.Name, "cluster_config", config.Name)
 
-			// if prev already exist and spec is different, update it
-			if !prev.Spec.DeepEqual(&nodeConfig.Spec) {
-				prev.Spec = nodeConfig.Spec
-				_, err = b.nodeConfigClient.Update(ctx, prev, meta_v1.UpdateOptions{})
-			} else {
-				// idempotent change, skip
-				return nil
+		case oldNodeConfigExists && !oldNodeConfig.Spec.DeepEqual(&newNodeConfig.Spec):
+			// Update existing NodeConfig with the new spec
+			oldNodeConfig.Spec = newNodeConfig.Spec
+			if _, err := b.nodeConfigClient.Update(ctx, oldNodeConfig, meta_v1.UpdateOptions{}); err != nil {
+				errs = errors.Join(errs, err)
+				continue
 			}
+			b.logger.Debug("Updating an existing CiliumBGPNodeConfig", "node_config", oldNodeConfig.Name, "cluster_config", config.Name)
 		}
 	}
 
-	b.logger.WithFields(logrus.Fields{
-		"node config":    nodeConfig.Name,
-		"cluster config": config.Name,
-	}).Debug("Upserting BGP node config")
+	return matchingNodes, conflictingClusterConfigs, errs
+}
 
-	return err
+func (b *BGPResourceManager) deleteNodeConfigs(ctx context.Context, selectedNodes sets.Set[string], config *v2alpha1.CiliumBGPClusterConfig) error {
+	var errs error
+	for _, nodeConfig := range b.nodeConfigStore.List() {
+		if selectedNodes.Has(nodeConfig.Name) || !isOwner(nodeConfig.OwnerReferences, config) {
+			continue
+		}
+		// If the NodeConfig is not selected by the ClusterConfig, but
+		// owned by it, it is a stale NodeConfig. Delete it.
+		if err := b.nodeConfigClient.Delete(ctx, nodeConfig.Name, meta_v1.DeleteOptions{}); err != nil {
+			if k8s_errors.IsNotFound(err) {
+				continue
+			}
+			errs = errors.Join(err)
+			continue
+		}
+		b.logger.Debug("Deleted BGP node config", "node_config", nodeConfig.Name, "cluster_config", config.Name)
+	}
+	return errs
+}
+
+// missingPeerConfigs returns a CiliumBGPPeerConfig which is referenced from
+// the ClusterConfig, but doesn't exist. The returned slice is sorted and
+// deduplicated for output stability.
+func (b *BGPResourceManager) missingPeerConfigs(config *v2alpha1.CiliumBGPClusterConfig) []string {
+	missing := []string{}
+	for _, instance := range config.Spec.BGPInstances {
+		for _, peer := range instance.Peers {
+			if peer.PeerConfigRef == nil {
+				continue
+			}
+
+			_, exists, _ := b.peerConfigStore.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
+			if !exists {
+				missing = append(missing, peer.PeerConfigRef.Name)
+			}
+
+			// Just ignore the error other than NotFound. It might
+			// be a network issue, or something else, but we are
+			// only interested in detecting the invalid reference
+			// here.
+		}
+	}
+	slices.Sort(missing)
+	return slices.Compact(missing)
+}
+
+func (b *BGPResourceManager) updateConflictingClusterConfigsCondition(config *v2alpha1.CiliumBGPClusterConfig, conflictingClusterConfigs sets.Set[string]) bool {
+	cond := meta_v1.Condition{
+		Type:               v2alpha1.BGPClusterConfigConditionConflictingClusterConfigs,
+		Status:             meta_v1.ConditionFalse,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "ConflictingClusterConfigs",
+	}
+	if conflictingClusterConfigs.Len() != 0 {
+		cond.Status = meta_v1.ConditionTrue
+		cond.Message = fmt.Sprintf("Selecting the same node(s) with ClusterConfig(s): %v", sets.List(conflictingClusterConfigs))
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
+}
+
+func (b *BGPResourceManager) updateMissingPeerConfigsCondition(config *v2alpha1.CiliumBGPClusterConfig, missingPCs []string) bool {
+	cond := meta_v1.Condition{
+		Type:               v2alpha1.BGPClusterConfigConditionMissingPeerConfigs,
+		Status:             meta_v1.ConditionFalse,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "MissingPeerConfigs",
+	}
+	if len(missingPCs) != 0 {
+		cond.Status = meta_v1.ConditionTrue
+		cond.Message = fmt.Sprintf("Referenced CiliumBGPPeerConfig(s) are missing: %v", missingPCs)
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
+}
+
+func (b *BGPResourceManager) updateNoMatchingNodeCondition(config *v2alpha1.CiliumBGPClusterConfig, noMatchingNode bool) bool {
+	cond := meta_v1.Condition{
+		Type:               v2alpha1.BGPClusterConfigConditionNoMatchingNode,
+		Status:             meta_v1.ConditionTrue,
+		ObservedGeneration: config.Generation,
+		LastTransitionTime: meta_v1.Now(),
+		Reason:             "NoMatchingNode",
+		Message:            "No node matches spec.nodeSelector",
+	}
+	if !noMatchingNode {
+		cond.Status = meta_v1.ConditionFalse
+	}
+	return meta.SetStatusCondition(&config.Status.Conditions, cond)
 }
 
 func toNodeBGPInstance(clusterBGPInstances []v2alpha1.CiliumBGPInstance, overrideBGPInstances []v2alpha1.CiliumBGPNodeConfigInstanceOverride) []v2alpha1.CiliumBGPNodeInstance {
@@ -169,75 +318,22 @@ func toNodeBGPInstance(clusterBGPInstances []v2alpha1.CiliumBGPInstance, overrid
 	return res
 }
 
-// getMatchingNodes returns a map of node names that match the given cluster config's node selector.
-func (b *BGPResourceManager) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSelector, configName string) (sets.Set[string], error) {
-	labelSelector, err := slim_meta_v1.LabelSelectorAsSelector(nodeSelector)
-	if err != nil {
-		return nil, err
-	}
-
-	// find nodes that match the cluster config's node selector
-	matchingNodes := sets.New[string]()
-
-	for _, n := range b.ciliumNodeStore.List() {
-		// nil node selector means match all nodes
-		if nodeSelector == nil || labelSelector.Matches(slim_labels.Set(n.Labels)) {
-			err := b.validNodeSelection(n, configName)
-			if err != nil {
-				b.logger.WithError(err).Errorf("skipping node %s", n.Name)
-				continue
-			}
-			matchingNodes.Insert(n.Name)
-		}
-	}
-
-	return matchingNodes, nil
-}
-
-// deleteStaleNodeConfigs deletes node configs that are not in the expected list for given cluster.
-// TODO there might be a race where stale node configs are not detected and deleted. Check issue #30320 for more details.
-func (b *BGPResourceManager) deleteStaleNodeConfigs(ctx context.Context, expectedNodes sets.Set[string], clusterRef string) error {
-	var err error
-	for _, existingNode := range b.nodeConfigStore.List() {
-		if expectedNodes.Has(existingNode.Name) || !IsOwner(existingNode.GetOwnerReferences(), clusterRef) {
-			continue
-		}
-
-		dErr := b.nodeConfigClient.Delete(ctx, existingNode.Name, meta_v1.DeleteOptions{})
-		if dErr != nil && k8s_errors.IsNotFound(dErr) {
-			continue
-		} else if dErr != nil {
-			err = errors.Join(err, dErr)
-		} else {
-			b.logger.WithFields(logrus.Fields{
-				"node config":    existingNode.Name,
-				"cluster config": clusterRef,
-			}).Debug("Deleting BGP node config")
-		}
-	}
-	return err
-}
-
-// validNodeSelection checks if the node is already present in another cluster config.
-func (b *BGPResourceManager) validNodeSelection(node *cilium_api_v2.CiliumNode, expectedOwnerName string) error {
-	existingBGPNodeConfig, exists, err := b.nodeConfigStore.GetByKey(resource.Key{Name: node.Name})
-	if err != nil {
-		return err
-	}
-
-	if exists && !IsOwner(existingBGPNodeConfig.GetOwnerReferences(), expectedOwnerName) {
-		return fmt.Errorf("BGPResourceManager node config %s already exist", existingBGPNodeConfig.Name)
-	}
-
-	return nil
-}
-
-// IsOwner checks if the expected is present in owners list.
-func IsOwner(owners []meta_v1.OwnerReference, expected string) bool {
+// isOwner checks if the expected is present in owners list.
+func isOwner(owners []meta_v1.OwnerReference, config *v2alpha1.CiliumBGPClusterConfig) bool {
 	for _, owner := range owners {
-		if owner.Name == expected {
+		if owner.UID == config.GetUID() {
 			return true
 		}
 	}
 	return false
+}
+
+// ownerClusterConfigName returns the name of the ClusterConfig that owns the object
+func ownerClusterConfigName(owners []meta_v1.OwnerReference) string {
+	for _, owner := range owners {
+		if owner.APIVersion == v2alpha1.SchemeGroupVersion.String() && owner.Kind == v2alpha1.BGPCCKindDefinition {
+			return owner.Name
+		}
+	}
+	return ""
 }

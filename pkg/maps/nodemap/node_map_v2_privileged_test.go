@@ -21,7 +21,7 @@ func setupNodeMapV2TestSuite(tb testing.TB) {
 
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 }
 
 func TestNodeMapV2(t *testing.T) {
@@ -30,7 +30,7 @@ func TestNodeMapV2(t *testing.T) {
 		NodeMapMax: 1024,
 	})
 	err := nodeMap.init()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer nodeMap.bpfMap.Unpin()
 
 	bpfNodeIDMap := map[uint16]string{}
@@ -45,35 +45,35 @@ func TestNodeMapV2(t *testing.T) {
 	}
 
 	err = nodeMap.IterateWithCallback(toMap)
-	require.Nil(t, err)
-	require.Equal(t, 0, len(bpfNodeIDMap))
-	require.Equal(t, 0, len(bpfNodeSPI))
+	require.NoError(t, err)
+	require.Empty(t, bpfNodeIDMap)
+	require.Empty(t, bpfNodeSPI)
 
 	err = nodeMap.Update(net.ParseIP("10.1.0.0"), 10, 3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = nodeMap.Update(net.ParseIP("10.1.0.1"), 20, 3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}
 	bpfNodeSPI = []uint8{}
 	err = nodeMap.IterateWithCallback(toMap)
-	require.Nil(t, err)
-	require.Equal(t, 2, len(bpfNodeIDMap))
-	require.Equal(t, 2, len(bpfNodeSPI))
+	require.NoError(t, err)
+	require.Len(t, bpfNodeIDMap, 2)
+	require.Len(t, bpfNodeSPI, 2)
 
 	err = nodeMap.Delete(net.ParseIP("10.1.0.0"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}
 	bpfNodeSPI = []uint8{}
 	err = nodeMap.IterateWithCallback(toMap)
-	require.Nil(t, err)
-	require.Equal(t, 1, len(bpfNodeIDMap))
-	require.Equal(t, 1, len(bpfNodeSPI))
+	require.NoError(t, err)
+	require.Len(t, bpfNodeIDMap, 1)
+	require.Len(t, bpfNodeSPI, 1)
 
 	// ensure we see mirrored writes in MapV1
 	_, err = ciliumebpf.LoadPinnedMap(bpf.MapPath("test_cilium_node_map"), nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	toMapV1 := func(key *NodeKey, val *NodeValue) {
 		address := key.IP.String()
@@ -84,7 +84,7 @@ func TestNodeMapV2(t *testing.T) {
 	}
 
 	err = nodeMap.v1Map.IterateWithCallback(toMapV1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestNodeMapMigration(t *testing.T) {
@@ -103,32 +103,32 @@ func TestNodeMapMigration(t *testing.T) {
 		NodeMapMax: 1024,
 	})
 	err := nodeMapV1.init()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	nodeMapV2 := newMapV2(name2, name1, Config{
 		NodeMapMax: 1024,
 	})
 	err = nodeMapV2.init()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer nodeMapV2.bpfMap.Unpin()
 
 	encryptMap := encrypt.NewMap(emName)
 	err = encryptMap.OpenOrCreate()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	encrypt.MapUpdateContextWithMap(encryptMap, 0, 3)
 
 	err = nodeMapV1.Update(IP1, ID1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = nodeMapV1.Update(IP2, ID2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// done with nodeMapV2 so we can close the FD.
 	nodeMapV2.close()
 
 	// do migration
 	err = nodeMapV2.migrateV1(name1, emName)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// confirm we see the correct migrated values
 	parse := func(k *NodeKey, v *NodeValueV2) {
@@ -152,6 +152,6 @@ func TestNodeMapMigration(t *testing.T) {
 
 	// confirm that the map is not removed, we need it around to mirror writes
 	m, err := ciliumebpf.LoadPinnedMap(bpf.MapPath(name1), nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, m)
 }

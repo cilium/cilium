@@ -46,6 +46,7 @@ type PodIPPoolReconciler struct {
 	logger     logrus.FieldLogger
 	peerAdvert *CiliumPeerAdvertisement
 	poolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
+	metadata   map[string]PodIPPoolReconcilerMetadata
 }
 
 // PodIPPoolReconcilerMetadata holds any announced pod ip pool CIDRs keyed by pool name of the backing CiliumPodIPPool.
@@ -64,23 +65,35 @@ func NewPodIPPoolReconciler(in PodIPPoolReconcilerIn) PodIPPoolReconcilerOut {
 			logger:     in.Logger.WithField(types.ReconcilerLogField, "PodIPPool"),
 			peerAdvert: in.PeerAdvert,
 			poolStore:  in.PoolStore,
+			metadata:   make(map[string]PodIPPoolReconcilerMetadata),
 		},
 	}
 }
 
 func (r *PodIPPoolReconciler) Name() string {
-	return "PodIPPool"
+	return PodIPPoolReconcilerName
 }
 
 func (r *PodIPPoolReconciler) Priority() int {
-	return 50
+	return PodIPPoolReconcilerPriority
 }
 
-func (r *PodIPPoolReconciler) Init(_ *instance.BGPInstance) error {
+func (r *PodIPPoolReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = PodIPPoolReconcilerMetadata{
+		PoolAFPaths:       make(ResourceAFPathsMap),
+		PoolRoutePolicies: make(ResourceRoutePolicyMap),
+	}
 	return nil
 }
 
-func (r *PodIPPoolReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *PodIPPoolReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
@@ -113,33 +126,15 @@ func (r *PodIPPoolReconciler) reconcilePaths(ctx context.Context, p ReconcilePar
 	}
 
 	metadata := r.getMetadata(p.BGPInstance)
-	for poolKey, desiredPoolAFPaths := range poolsAFPaths {
-		currentPoolAFPaths, exists := metadata.PoolAFPaths[poolKey]
-		if !exists && len(desiredPoolAFPaths) == 0 {
-			// No paths to reconcile for this pool.
-			continue
-		}
 
-		updatedPoolAFPaths, rErr := ReconcileAFPaths(&ReconcileAFPathsParams{
-			Logger: r.logger.WithFields(
-				logrus.Fields{
-					types.InstanceLogField:  p.DesiredConfig.Name,
-					types.PodIPPoolLogField: poolKey,
-				}),
-			Ctx:          ctx,
-			Router:       p.BGPInstance.Router,
-			DesiredPaths: desiredPoolAFPaths,
-			CurrentPaths: currentPoolAFPaths,
-		})
+	metadata.PoolAFPaths, err = ReconcileResourceAFPaths(ReconcileResourceAFPathsParams{
+		Logger:                 r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Ctx:                    ctx,
+		Router:                 p.BGPInstance.Router,
+		DesiredResourceAFPaths: poolsAFPaths,
+		CurrentResourceAFPaths: metadata.PoolAFPaths,
+	})
 
-		if rErr == nil && len(desiredPoolAFPaths) == 0 {
-			// No paths left for this pool.
-			delete(metadata.PoolAFPaths, poolKey)
-		} else {
-			metadata.PoolAFPaths[poolKey] = updatedPoolAFPaths
-		}
-		err = errors.Join(err, rErr)
-	}
 	r.setMetadata(p.BGPInstance, metadata)
 	return err
 }
@@ -420,15 +415,9 @@ func podIPPoolLabelSet(pool *v2alpha1.CiliumPodIPPool) labels.Labels {
 }
 
 func (r *PodIPPoolReconciler) getMetadata(i *instance.BGPInstance) PodIPPoolReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = PodIPPoolReconcilerMetadata{
-			PoolAFPaths:       make(ResourceAFPathsMap),
-			PoolRoutePolicies: make(ResourceRoutePolicyMap),
-		}
-	}
-	return i.Metadata[r.Name()].(PodIPPoolReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *PodIPPoolReconciler) setMetadata(i *instance.BGPInstance, metadata PodIPPoolReconcilerMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Name] = metadata
 }

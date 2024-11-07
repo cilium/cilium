@@ -55,9 +55,8 @@ type testData struct {
 
 func newTestData() *testData {
 	td := &testData{
-		sc:   testNewSelectorCache(nil),
-		repo: NewPolicyRepository(nil, nil, nil, nil),
-
+		sc:                testNewSelectorCache(nil),
+		repo:              NewStoppedPolicyRepository(nil, nil, nil, nil),
 		testPolicyContext: &testPolicyContextType{},
 	}
 	td.testPolicyContext.sc = td.sc
@@ -81,7 +80,7 @@ func newTestData() *testData {
 // resetRepo clears only the policy repository.
 // Some tests rely on the accumulated state, but a clean repo.
 func (td *testData) resetRepo() *Repository {
-	td.repo = NewPolicyRepository(nil, nil, nil, nil)
+	td.repo = NewStoppedPolicyRepository(nil, nil, nil, nil)
 	td.repo.selectorCache = td.sc
 	return td.repo
 }
@@ -218,7 +217,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	require.True(t, filter.SelectsAllEndpoints())
 
 	require.Equal(t, ParserTypeNone, filter.L7Parser)
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 
 	// Case1B: an empty non-nil FromEndpoints does not select any identity.
@@ -388,7 +387,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 	require.True(t, filter.SelectsAllEndpoints())
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 }
 
@@ -606,7 +605,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state := traceState{}
 	res, err := conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B: HTTP first, Kafka second.
@@ -654,7 +653,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B+: HTTP first, generic L7 second.
@@ -706,7 +705,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingParsersIngressRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B++: generic L7 without rules first, HTTP second.
@@ -756,7 +755,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	state = traceState{}
 	res, err = conflictingParsersEgressRule.resolveEgressPolicy(td.testPolicyContext, &ctxAToC, &state, NewL4PolicyMap(), nil, nil)
 	t.Log(buffer)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 }
 
@@ -941,7 +940,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		},
 	}})
 
-	require.True(t, res.Equals(t, expected), res.Diff(t, expected))
+	require.True(t, res.TestingOnlyEquals(expected), res.TestingOnlyDiff(expected))
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeHTTP, l4Filter.L7Parser)
@@ -1053,7 +1052,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 	}})
 
 	require.EqualValues(t, expected, res)
-	require.True(t, res.Equals(t, expected), res.Diff(t, expected))
+	require.True(t, res.TestingOnlyEquals(expected), res.TestingOnlyDiff(expected))
 
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
@@ -1900,7 +1899,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 
 	state := traceState{}
 	res, err := conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	state = traceState{}
@@ -1955,7 +1954,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	state = traceState{}

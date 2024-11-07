@@ -678,7 +678,7 @@ func validatePoliciesMatch(t *testing.T, actual map[string]*types.RoutePolicy, e
 	for _, expPolicy := range expected {
 		policy := actual[expPolicy.Name]
 		require.NotNil(t, policy)
-		require.EqualValues(t, policy, expPolicy)
+		require.EqualValues(t, expPolicy, policy)
 	}
 }
 

@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
-	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
@@ -59,8 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
-	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -102,7 +100,6 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -357,7 +354,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DirectRoutingSkipUnreachableName, defaults.EnableDirectRoutingSkipUnreachable, "Enable skipping L2 routes between nodes on different subnets")
 	option.BindEnv(vp, option.DirectRoutingSkipUnreachableName)
 
-	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection, if support available")
+	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection (beta), if support available")
 	option.BindEnv(vp, option.EnableBPFTProxy)
 
 	flags.Bool(option.EnableHostLegacyRouting, defaults.EnableHostLegacyRouting, "Enable the legacy host forwarding model which does not bypass upper stack in host namespace")
@@ -386,6 +383,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(vp, option.EnableTracing)
+
+	flags.Bool(option.BPFConntrackAccounting, defaults.BPFConntrackAccounting, "Enable CT accounting for packets and bytes (default false)")
+	option.BindEnv(vp, option.BPFConntrackAccounting)
 
 	flags.Bool(option.EnableUnreachableRoutes, false, "Add unreachable routes on pod deletion")
 	option.BindEnv(vp, option.EnableUnreachableRoutes)
@@ -426,10 +426,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Duration(option.L2AnnouncerRetryPeriod, 2*time.Second, "Timeout after a renew failure, before the next retry")
 	option.BindEnv(vp, option.L2AnnouncerRetryPeriod)
-
-	flags.Bool(option.EnableWireguardUserspaceFallback, false, "Enable fallback to the WireGuard userspace implementation")
-	flags.MarkDeprecated(option.EnableWireguardUserspaceFallback, "WireGuard userspace fallback is deprecated")
-	option.BindEnv(vp, option.EnableWireguardUserspaceFallback)
 
 	flags.Duration(option.WireguardPersistentKeepalive, 0, "The Wireguard keepalive interval as a Go duration string")
 	option.BindEnv(vp, option.WireguardPersistentKeepalive)
@@ -594,9 +590,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.LoadBalancerDSRDispatch, option.DSRDispatchOption, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\", \"geneve\")")
 	option.BindEnv(vp, option.LoadBalancerDSRDispatch)
 
-	flags.String(option.LoadBalancerDSRL4Xlate, option.DSRL4XlateFrontend, "BPF load balancing DSR L4 DNAT method for IPIP (\"frontend\", \"backend\")")
-	option.BindEnv(vp, option.LoadBalancerDSRL4Xlate)
-
 	flags.String(option.LoadBalancerRSSv4CIDR, "", "BPF load balancing RSS outer source IPv4 CIDR prefix for IPIP")
 	option.BindEnv(vp, option.LoadBalancerRSSv4CIDR)
 
@@ -607,6 +600,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		"BPF load balancing acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
 	option.BindEnv(vp, option.LoadBalancerAcceleration)
+
+	flags.Bool(option.LoadBalancerProtocolDifferentiation, true, "Enable support for service protocol differentiation (TCP, UDP, SCTP)")
+	option.BindEnv(vp, option.LoadBalancerProtocolDifferentiation)
 
 	flags.Uint(option.MaglevTableSize, maglev.DefaultTableSize, "Maglev per service backend table size (parameter M)")
 	option.BindEnv(vp, option.MaglevTableSize)
@@ -884,113 +880,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
 	option.BindEnv(vp, option.PolicyAccountingArg)
 
-	flags.Bool(option.EnableHubble, false, "Enable hubble server")
-	option.BindEnv(vp, option.EnableHubble)
-
-	flags.String(option.HubbleSocketPath, defaults.HubbleSockPath, "Set hubble's socket path to listen for connections")
-	option.BindEnv(vp, option.HubbleSocketPath)
-
-	flags.String(option.HubbleListenAddress, "", `An additional address for Hubble server to listen to, e.g. ":4244"`)
-	option.BindEnv(vp, option.HubbleListenAddress)
-
-	flags.Bool(option.HubblePreferIpv6, false, "Prefer IPv6 addresses for announcing nodes when both address types are available.")
-	option.BindEnv(vp, option.HubblePreferIpv6)
-
-	flags.Bool(option.HubbleTLSDisabled, false, "Allow Hubble server to run on the given listen address without TLS.")
-	option.BindEnv(vp, option.HubbleTLSDisabled)
-
-	flags.String(option.HubbleTLSCertFile, "", "Path to the public key file for the Hubble server. The file must contain PEM encoded data.")
-	option.BindEnv(vp, option.HubbleTLSCertFile)
-
-	flags.String(option.HubbleTLSKeyFile, "", "Path to the private key file for the Hubble server. The file must contain PEM encoded data.")
-	option.BindEnv(vp, option.HubbleTLSKeyFile)
-
-	flags.StringSlice(option.HubbleTLSClientCAFiles, []string{}, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
-	option.BindEnv(vp, option.HubbleTLSClientCAFiles)
-
-	flags.Int(option.HubbleEventBufferCapacity, observeroption.Default.MaxFlows.AsInt(), "Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535)")
-	option.BindEnv(vp, option.HubbleEventBufferCapacity)
-
-	flags.Int(option.HubbleEventQueueSize, 0, "Buffer size of the channel to receive monitor events.")
-	option.BindEnv(vp, option.HubbleEventQueueSize)
-
-	flags.String(option.HubbleMetricsServer, "", "Address to serve Hubble metrics on.")
-	option.BindEnv(vp, option.HubbleMetricsServer)
-
-	flags.StringSlice(option.HubbleMetrics, []string{}, "List of Hubble metrics to enable.")
-	option.BindEnv(vp, option.HubbleMetrics)
-
-	flags.String(option.HubbleFlowlogsConfigFilePath, "", "Filepath with configuration of hubble flowlogs")
-	option.BindEnv(vp, option.HubbleFlowlogsConfigFilePath)
-
-	flags.String(option.HubbleExportFilePath, exporteroption.Default.Path, "Filepath to write Hubble events to. By specifying `stdout` the flows are logged instead of written to a rotated file.")
-	option.BindEnv(vp, option.HubbleExportFilePath)
-
-	flags.Int(option.HubbleExportFileMaxSizeMB, exporteroption.Default.MaxSizeMB, "Size in MB at which to rotate Hubble export file.")
-	option.BindEnv(vp, option.HubbleExportFileMaxSizeMB)
-
-	flags.Int(option.HubbleExportFileMaxBackups, exporteroption.Default.MaxBackups, "Number of rotated Hubble export files to keep.")
-	option.BindEnv(vp, option.HubbleExportFileMaxBackups)
-
-	flags.Bool(option.HubbleExportFileCompress, exporteroption.Default.Compress, "Compress rotated Hubble export files.")
-	option.BindEnv(vp, option.HubbleExportFileCompress)
-
-	flags.StringSlice(option.HubbleExportAllowlist, []string{}, "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
-	option.BindEnv(vp, option.HubbleExportAllowlist)
-
-	flags.StringSlice(option.HubbleExportDenylist, []string{}, "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
-	option.BindEnv(vp, option.HubbleExportDenylist)
-
-	flags.StringSlice(option.HubbleExportFieldmask, []string{}, "Specify list of fields to use for field mask in Hubble exporter.")
-	option.BindEnv(vp, option.HubbleExportFieldmask)
-
-	flags.Bool(option.EnableHubbleRecorderAPI, true, "Enable the Hubble recorder API")
-	option.BindEnv(vp, option.EnableHubbleRecorderAPI)
-
-	flags.String(option.HubbleRecorderStoragePath, defaults.HubbleRecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
-	option.BindEnv(vp, option.HubbleRecorderStoragePath)
-
-	flags.Int(option.HubbleRecorderSinkQueueSize, defaults.HubbleRecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
-	option.BindEnv(vp, option.HubbleRecorderSinkQueueSize)
-
-	flags.Bool(option.HubbleSkipUnknownCGroupIDs, true, "Skip Hubble events with unknown cgroup ids")
-	option.BindEnv(vp, option.HubbleSkipUnknownCGroupIDs)
-
-	flags.StringSlice(option.HubbleMonitorEvents, []string{},
-		fmt.Sprintf(
-			"Cilium monitor events for Hubble to observe: [%s]. By default, Hubble observes all monitor events.",
-			strings.Join(monitorAPI.AllMessageTypeNames(), " "),
-		),
-	)
-	option.BindEnv(vp, option.HubbleMonitorEvents)
-
-	flags.Bool(option.HubbleRedactEnabled, defaults.HubbleRedactEnabled, "Hubble redact sensitive information from flows")
-	option.BindEnv(vp, option.HubbleRedactEnabled)
-
-	flags.Bool(option.HubbleRedactHttpURLQuery, defaults.HubbleRedactHttpURLQuery, "Hubble redact http URL query from flows")
-	option.BindEnv(vp, option.HubbleRedactHttpURLQuery)
-
-	flags.Bool(option.HubbleRedactHttpUserInfo, defaults.HubbleRedactHttpUserInfo, "Hubble redact http user info from flows")
-	option.BindEnv(vp, option.HubbleRedactHttpUserInfo)
-
-	flags.Bool(option.HubbleRedactKafkaApiKey, defaults.HubbleRedactKafkaApiKey, "Hubble redact Kafka API key from flows")
-	option.BindEnv(vp, option.HubbleRedactKafkaApiKey)
-
-	flags.StringSlice(option.HubbleRedactHttpHeadersAllow, []string{}, "HTTP headers to keep visible in flows")
-	option.BindEnv(vp, option.HubbleRedactHttpHeadersAllow)
-
-	flags.StringSlice(option.HubbleRedactHttpHeadersDeny, []string{}, "HTTP headers to redact from flows")
-	option.BindEnv(vp, option.HubbleRedactHttpHeadersDeny)
-
-	flags.Bool(option.HubbleDropEvents, defaults.HubbleDropEventsEnabled, "Emit packet drop Events related to pods (alpha)")
-	option.BindEnv(vp, option.HubbleDropEvents)
-
-	flags.Duration(option.HubbleDropEventsInterval, defaults.HubbleDropEventsInterval, "Minimum time between emitting same events")
-	option.BindEnv(vp, option.HubbleDropEventsInterval)
-
-	flags.String(option.HubbleDropEventsReasons, defaults.HubbleDropEventsReasons, "Drop reasons to emit events for")
-	option.BindEnv(vp, option.HubbleDropEventsReasons)
-
 	flags.Bool(option.EnableIPv4FragmentsTrackingName, defaults.EnableIPv4FragmentsTracking, "Enable IPv4 fragments tracking for L4-based lookups")
 	option.BindEnv(vp, option.EnableIPv4FragmentsTrackingName)
 
@@ -1079,7 +968,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DisableExternalIPMitigation, false, "Disable ExternalIP mitigation (CVE-2020-8554, default false)")
 	option.BindEnv(vp, option.DisableExternalIPMitigation)
 
-	flags.Bool(option.EnableICMPRules, true, "Enable ICMP-based rule support for Cilium Network Policies")
+	flags.Bool(option.EnableICMPRules, defaults.EnableICMPRules, "Enable ICMP-based rule support for Cilium Network Policies")
 	flags.MarkHidden(option.EnableICMPRules)
 	option.BindEnv(vp, option.EnableICMPRules)
 
@@ -1129,6 +1018,14 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableK8sNetworkPolicy)
 	option.BindEnv(vp, option.EnableK8sNetworkPolicy)
 
+	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy")
+	flags.MarkHidden(option.EnableCiliumNetworkPolicy)
+	option.BindEnv(vp, option.EnableCiliumNetworkPolicy)
+
+	flags.Bool(option.EnableCiliumClusterwideNetworkPolicy, defaults.EnableCiliumClusterwideNetworkPolicy, "Enable support for Cilium Clusterwide Network Policy")
+	flags.MarkHidden(option.EnableCiliumClusterwideNetworkPolicy)
+	option.BindEnv(vp, option.EnableCiliumClusterwideNetworkPolicy)
+
 	flags.StringSlice(option.PolicyCIDRMatchMode, defaults.PolicyCIDRMatchMode, "The entities that can be selected by CIDR policy. Supported values: 'nodes'")
 	option.BindEnv(vp, option.PolicyCIDRMatchMode)
 
@@ -1141,6 +1038,16 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.StringSlice(option.NodeLabels, []string{}, "List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)")
 	option.BindEnv(vp, option.NodeLabels)
+
+	flags.Bool(option.EnableInternalTrafficPolicy, defaults.EnableInternalTrafficPolicy, "Enable internal traffic policy")
+	option.BindEnv(vp, option.EnableInternalTrafficPolicy)
+
+	flags.Bool(option.EnableNonDefaultDenyPolicies, defaults.EnableNonDefaultDenyPolicies, "Enable use of non-default-deny policies")
+	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
+	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)
+
+	flags.Bool(option.LBSourceRangeAllTypes, false, "Propagate loadbalancerSourceRanges to all corresponding service types")
+	option.BindEnv(vp, option.LBSourceRangeAllTypes)
 
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
@@ -1171,17 +1078,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initLogging() {
-	// add hooks after setting up metrics in the option.Config
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
-
-	// Logging should always be bootstrapped first. Do not add any code above this!
-	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func initDaemonConfig(vp *viper.Viper) {
+func initDaemonConfigAndLogging(vp *viper.Viper) {
 	option.Config.SetMapElementSizes(
 		// for the conntrack and NAT element size we assume the largest possible
 		// key size, i.e. IPv6 keys
@@ -1190,7 +1087,11 @@ func initDaemonConfig(vp *viper.Viper) {
 		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue,
 		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
 
+	option.Config.SetupLogging(vp, "cilium-agent")
 	option.Config.Populate(vp)
+
+	// add hooks after setting up metrics in the option.Config
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
 
 	time.MaxInternalTimerDelay = vp.GetDuration(option.MaxInternalTimerDelay)
 }
@@ -1340,11 +1241,11 @@ func initEnv(vp *viper.Viper) {
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, option.Config.BPFEventsPolicyVerdictEnabled)
 	option.Config.Opts.SetBool(option.TraceNotify, option.Config.BPFEventsTraceEnabled)
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
-	option.Config.Opts.SetBool(option.ConntrackAccounting, false)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, option.Config.BPFConntrackAccounting)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 	option.Config.Opts.SetBool(option.PolicyAccounting, option.Config.PolicyAccounting)
-	option.Config.Opts.SetBool(option.SourceIPVerification, true)
+	option.Config.Opts.SetBool(option.SourceIPVerification, option.Config.EnableSourceIPVerification)
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)
 	if err != nil {
@@ -1376,6 +1277,9 @@ func initEnv(vp *viper.Viper) {
 		// before netkit and supporting legacy tc in this context does
 		// not make any sense whatsoever.
 		option.Config.EnableTCX = true
+		if err := probes.HaveNetkit(); err != nil {
+			log.Fatal("netkit devices need kernel 6.7.0 or newer and CONFIG_NETKIT")
+		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
@@ -1527,6 +1431,10 @@ func initEnv(vp *viper.Viper) {
 		)
 	}
 
+	if option.Config.IPAM == ipamOption.IPAMENI && option.Config.TunnelingEnabled() {
+		log.Fatalf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM)
+	}
+
 	if option.Config.IPAM == ipamOption.IPAMMultiPool {
 		if option.Config.TunnelingEnabled() {
 			log.Fatalf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM)
@@ -1669,9 +1577,9 @@ type daemonParams struct {
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
 	IdentityAllocator      identitycell.CachingIdentityAllocator
-	Policy                 *policy.Repository
+	Policy                 policy.PolicyRepository
 	IPCache                *ipcache.IPCache
-	DirectoryPolicyWatcher *policyDirectory.PolicyResourcesWatcher
+	DirectoryPolicyWatcher policyDirectory.ResourcesWatcher
 	DirReadStatus          policyDirectory.DirectoryWatcherReadStatus
 	CNIConfigManager       cni.CNIConfigManager
 	SwaggerSpec            *server.Spec
@@ -1707,14 +1615,13 @@ type daemonParams struct {
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	CompilationLock     datapath.CompilationLock
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
-	CGroupManager       cgroup.CGroupManager
 	ServiceResolver     *dial.ServiceResolver
-	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	IdentityManager     *identitymanager.IdentityManager
+	IdentityManager     identitymanager.IDManager
 	Orchestrator        datapath.Orchestrator
 	IPTablesManager     datapath.IptablesManager
+	Hubble              hubblecell.HubbleIntegration
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {
@@ -1836,14 +1743,22 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	if params.WGAgent != nil {
 		go func() {
-			select {
-			case <-d.nodeDiscovery.Registered:
-				// Wait until the kvstore synchronization completed, to avoid
-				// causing connectivity blips due incorrectly removing
-				// WireGuard peers that have not yet been discovered. The
-				// Registered channel is immediately closed in CRD mode.
-			case <-d.ctx.Done():
+			// Wait until the kvstore synchronization completed, to avoid
+			// causing connectivity blips due incorrectly removing
+			// WireGuard peers that have not yet been discovered.
+			// WaitForKVStoreSync returns immediately in CRD mode.
+			if err := d.nodeDiscovery.WaitForKVStoreSync(d.ctx); err != nil {
 				return
+			}
+
+			// When running in KVStore mode, we need to additionally wait until
+			// we have discovered all remote IP addresses, to prevent triggering
+			// the collection of stale AllowedIPs entries too early, leading to
+			// the disruption of otherwise valid long running connections.
+			if option.Config.KVStore != "" {
+				if err := ipcache.WaitForKVStoreSync(d.ctx); err != nil {
+					return
+				}
 			}
 
 			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {
@@ -1982,7 +1897,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
-	go d.launchHubble()
 
 	// Start controller to validate daemon config is unchanged
 	cfgGroup := controller.NewGroup("daemon-validate-config")

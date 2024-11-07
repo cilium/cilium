@@ -39,10 +39,11 @@ func init() {
 var GatewayInfrastructure = suite.ConformanceTest{
 	ShortName:   "GatewayInfrastructure",
 	Description: "Propagation of metadata from Gateway infrastructure to generated components",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportGatewayInfrastructurePropagation,
 	},
+	Provisional: true,
 	Manifests: []string{
 		"tests/gateway-infrastructure.yaml",
 	},

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding"
 	"errors"
+	"iter"
 	"testing"
 
 	"github.com/cilium/ebpf"
@@ -39,13 +40,7 @@ func (o *TestObject) BinaryValue() encoding.BinaryMarshaler {
 	return StructBinaryMarshaler{&o.Value}
 }
 
-type emptyIterator struct{}
-
-func (*emptyIterator) Next() (*TestObject, uint64, bool) {
-	return nil, 0, false
-}
-
-var _ statedb.Iterator[*TestObject] = &emptyIterator{}
+var emptySeq iter.Seq2[*TestObject, statedb.Revision] = func(yield func(*TestObject, uint64) bool) {}
 
 func Test_MapOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
@@ -89,17 +84,17 @@ func Test_MapOps(t *testing.T) {
 
 	v, err = testMap.Lookup(&TestKey{2})
 	if assert.NoError(t, err, "Lookup") {
-		assert.Equal(t, v.(*TestValue).Value, uint32(3))
+		assert.Equal(t, uint32(3), v.(*TestValue).Value)
 	}
 
 	// Give Prune() an empty set of objects, which should cause it to
 	// remove everything.
-	err = ops.Prune(ctx, nil, &emptyIterator{})
+	err = ops.Prune(ctx, nil, emptySeq)
 	assert.NoError(t, err, "Prune")
 
 	data := map[string][]string{}
 	testMap.Dump(data)
-	assert.Len(t, data, 0)
+	assert.Empty(t, data)
 }
 
 func Test_MapOpsPrune(t *testing.T) {
@@ -134,12 +129,12 @@ func Test_MapOpsPrune(t *testing.T) {
 	assert.NoError(t, err, "Update 3")
 
 	// Prune should now remove everything
-	err = ops.Prune(ctx, nil, &emptyIterator{})
+	err = ops.Prune(ctx, nil, emptySeq)
 	assert.NoError(t, err, "Prune")
 
 	data := map[string][]string{}
 	testMap.Dump(data)
-	assert.Len(t, data, 0)
+	assert.Empty(t, data)
 }
 
 // Test_MapOps_ReconcilerExample serves as a testable example for the map ops.

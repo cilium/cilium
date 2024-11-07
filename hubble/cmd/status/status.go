@@ -34,14 +34,14 @@ func New(vp *viper.Viper) *cobra.Command {
 		Short: "Display status of Hubble server",
 		Long: `Display shows the status of the Hubble server. This is intended as a basic
 connectivity health check.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			hubbleConn, err := conn.NewWithFlags(ctx, vp)
 			if err != nil {
 				return err
 			}
 			defer hubbleConn.Close()
-
 			return runStatus(ctx, cmd.OutOrStdout(), hubbleConn)
 		},
 	}

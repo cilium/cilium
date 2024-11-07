@@ -65,7 +65,7 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: true``
 .. warning::
 
     You must have installed Cilium with the Helm values ``k8sServiceHost`` and
-    ``k8sServicePort``. Otherwise Cilium will not be able to reach the Kubernetes
+    ``k8sServicePort``. Otherwise, Cilium will not be able to reach the Kubernetes
     APIServer after kube-proxy is uninstalled.
 
     You can apply these two values to a running cluster via ``helm upgrade``.

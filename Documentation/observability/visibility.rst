@@ -19,16 +19,10 @@ will only provide visibility into L3/L4 packet events. If you want L7
 protocol visibility, you can use L7 Cilium Network Policies (see :ref:`l7_policy`).
 
 
-.. note::
-
-    Historically, it had been possible to enable L7 visibility using Pod
-    annotations (``policy.cilium.io/proxy-visibility``). This method is
-    no longer supported and we recommend users to switch to L7 policies instead.
-
 To enable visibility for L7 traffic, create a ``CiliumNetworkPolicy`` that specifies
 L7 rules. Traffic flows matching a L7 rule in a ``CiliumNetworkPolicy`` will become
-visible to Cilium and, thus, can be exposed to the end user. It's important to 
-remember that L7 network policies not only enables visibility but also restrict 
+visible to Cilium and, thus, can be exposed to the end user. It's important to
+remember that L7 network policies not only enables visibility but also restrict
 what traffic is allowed to flow in and out of a Pod.
 
 
@@ -70,10 +64,10 @@ permit all requests that match the L4 section of each rule:
             rules:
               http: [{}]
 
-Based on the above policy, Cilium will pick up all TCP/UDP/53, TCP/80 and TCP/8080 
-egress traffic from Pods in the ``default`` namespace and redirect it to the 
-proxy (see :ref:`proxy_injection`) such that the output of ``cilium monitor`` or 
-``hubble observe`` shows the L7 flow details. 
+Based on the above policy, Cilium will pick up all TCP/UDP/53, TCP/80 and TCP/8080
+egress traffic from Pods in the ``default`` namespace and redirect it to the
+proxy (see :ref:`proxy_injection`) such that the output of ``cilium monitor`` or
+``hubble observe`` shows the L7 flow details.
 Below is the example of running ``hubble observe -f -t l7 -o compact`` command:
 
 ::

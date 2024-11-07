@@ -61,7 +61,7 @@ func ProxyID(endpointID uint16, ingress bool, protocol string, port uint16, list
 
 // ProxyIDFromKey returns a unique string to identify a proxy mapping.
 func ProxyIDFromKey(endpointID uint16, key Key, listener string) string {
-	return ProxyID(endpointID, key.TrafficDirection == trafficdirection.Ingress.Uint8(), u8proto.U8proto(key.Nexthdr).String(), key.DestPort, listener)
+	return ProxyID(endpointID, key.TrafficDirection() == trafficdirection.Ingress, u8proto.U8proto(key.Nexthdr).String(), key.DestPort, listener)
 }
 
 // ParseProxyID parses a proxy ID returned by ProxyID and returns its components.

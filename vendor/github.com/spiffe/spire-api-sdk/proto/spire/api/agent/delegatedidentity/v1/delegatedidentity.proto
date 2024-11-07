@@ -20,6 +20,9 @@ service DelegatedIdentity {
     // The lifetime of the subscription aligns to the lifetime of the stream.
     rpc SubscribeToX509SVIDs(SubscribeToX509SVIDsRequest) returns (stream SubscribeToX509SVIDsResponse);
 
+    // Subscribe to get X.509-SVIDs for workloads that match the given selectors.
+    // The lifetime of the subscription aligns to the lifetime of the stream.
+    //
     // Subscribe to get local and all federated bundles.
     // The lifetime of the subscription aligns to the lifetime of the stream.
     rpc SubscribeToX509Bundles(SubscribeToX509BundlesRequest) returns (stream SubscribeToX509BundlesResponse);
@@ -44,10 +47,24 @@ message X509SVIDWithKey {
 
 // SubscribeToX509SVIDsRequest is used by clients to subscribe the set of SVIDs that
 // any given workload is entitled to. Clients subscribe to a workload's SVIDs by providing
-// a set of selectors describing the workload.
+// one-of
+//  - a set of selectors describing the workload.
+//  - a PID of a workload process.
+// Specifying both at the same time is not allowed.
+//
+// Subscribers are expected to ensure that the PID they use is not recycled
+// for the lifetime of the stream, and in the event that it is, are expected
+// to immediately close the stream.
+//
+// TODO we should use `oneof` here but you currently cannot use `repeated`
+// in a `oneof` without creating and nesting an intermediate `message` type, which would break
+// back compat - so we accept both and check for mutual exclusion in the handler
 message SubscribeToX509SVIDsRequest {
-    // Required. Selectors describing the workload to subscribe to.
+    // Selectors describing the workload to subscribe to. Mutually exclusive with `pid`.
     repeated spire.api.types.Selector selectors = 1;
+
+    // PID for the workload to subscribe to. Mutually exclusive with `selectors`
+    int32 pid = 2;
 }
 
 message SubscribeToX509SVIDsResponse {
@@ -68,12 +85,28 @@ message SubscribeToX509BundlesResponse {
     map<string, bytes> ca_certificates = 1;
 }
 
+// FetchJWTSVIDsRequest is used by clients to fetch a JWT-SVID for a workload.
+// Clients may provide one-of
+//  - a set of selectors describing the workload.
+//  - a PID of a workload process.
+// Specifying both at the same time is not allowed.
+//
+// Callers are expected to ensure that the PID they use is not recycled
+// until obtaining a response, and in the event that it is, are expected
+// to discard the response of this call.
+//
+// TODO we should use `oneof` here but you currently cannot use `repeated`
+// in a `oneof` without creating and nesting an intermediate `message` type, which would break
+// back compat - so we accept both and check for mutual exclusion in the handler
 message FetchJWTSVIDsRequest {
     // Required. The audience(s) the workload intends to authenticate against.
     repeated string audience = 1;
 
-    // Required. Selectors describing the workload to fetch.
+    // Selectors describing the workload to subscribe to. Mutually exclusive with `pid`
     repeated spire.api.types.Selector selectors = 2;
+
+    // PID for the workload to subscribe to. Mutually exclusive with `selectors`.
+    int32 pid = 3;
 }
 
 // The FetchJWTSVIDsResponse message conveys JWT-SVIDs.

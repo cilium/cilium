@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -76,10 +75,10 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	backendsOk := ipv6 || !ipv6 && p.NatPolicy != loadbalancer.SVCNatPolicyNat46
 
 	if ipv6 {
-		svcKey = NewService6Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
+		svcKey = NewService6Key(p.IP, p.Port, u8proto.U8proto(p.Protocol), p.Scope, 0)
 		svcVal = &Service6Value{}
 	} else {
-		svcKey = NewService4Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
+		svcKey = NewService4Key(p.IP, p.Port, u8proto.U8proto(p.Protocol), p.Scope, 0)
 		svcVal = &Service4Value{}
 	}
 
@@ -135,8 +134,9 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
-		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
+	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
+		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
+		p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
 	}
@@ -207,18 +207,26 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 		revNATKey RevNatKey
 	)
 
+	u8p, err := u8proto.ParseProtocol(svc.Protocol)
+	if err != nil {
+		return err
+	}
+
 	if ipv6 {
-		svcKey = NewService6Key(svc.AddrCluster.AsNetIP(), svc.Port, u8proto.ANY, svc.Scope, 0)
+		svcKey = NewService6Key(svc.AddrCluster.AsNetIP(), svc.Port, u8p, svc.Scope, 0)
 		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
-		svcKey = NewService4Key(svc.AddrCluster.AsNetIP(), svc.Port, u8proto.ANY, svc.Scope, 0)
+		svcKey = NewService4Key(svc.AddrCluster.AsNetIP(), svc.Port, u8p, svc.Scope, 0)
 		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 
 	for slot := 0; slot <= backendCount; slot++ {
 		svcKey.SetBackendSlot(slot)
-		if err := svcKey.MapDelete(); err != nil {
-			return fmt.Errorf("Unable to delete service entry %+v: %w", svcKey, err)
+		if err := deleteServiceLocked(svcKey); err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.ServiceKey:  svcKey,
+				logfields.BackendSlot: svcKey.GetBackendSlot(),
+			}).WithError(err).Warn("Unable to delete service entry from BPF map")
 		}
 	}
 
@@ -395,7 +403,8 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 }
 
 func deleteRevNatLocked(key RevNatKey) error {
-	return key.Map().Delete(key.ToNetwork())
+	_, err := key.Map().SilentDelete(key.ToNetwork())
+	return err
 }
 
 func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CIDR,
@@ -444,6 +453,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	errors := []error{}
 	flagsCache := map[string]loadbalancer.ServiceFlags{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
+	revNatValueMap := map[uint16]RevNatValue{}
+	inconsistentServiceKeys := []ServiceKey{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
@@ -451,9 +462,29 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
+	parseRevNatEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		revNatKey := key.(RevNatKey).ToHost()
+		revNatValue := value.(RevNatValue).ToHost()
+		revNatValueMap[revNatKey.GetKey()] = revNatValue
+	}
+
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		svcKey := key.(ServiceKey).ToHost()
 		svcValue := value.(ServiceValue).ToHost()
+
+		serviceID := svcValue.RevNatKey().GetKey()
+		revNatValue := svcKey.RevNatValue().String()
+		val, found := revNatValueMap[serviceID]
+		if !found {
+			errors = append(errors, fmt.Errorf("revNat %d not found", serviceID))
+			inconsistentServiceKeys = append(inconsistentServiceKeys, svcKey)
+			return
+		} else if valueStr := val.String(); valueStr != revNatValue {
+			errors = append(errors, fmt.Errorf("inconsistent service %s and revNat %s found",
+				svcKey, valueStr))
+			inconsistentServiceKeys = append(inconsistentServiceKeys, svcKey)
+			return
+		}
 
 		fe := svcFrontend(svcKey, svcValue)
 
@@ -461,11 +492,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if svcKey.GetBackendSlot() == 0 {
 			// Build a cache of flags stored in the value of the master key to
 			// map it later.
-			// FIXME proto is being ignored everywhere in the datapath.
-			addrStr := svcKey.GetAddress().String()
-			portStr := strconv.Itoa(int(svcKey.GetPort()))
-			flagsCache[net.JoinHostPort(addrStr, portStr)] = loadbalancer.ServiceFlags(svcValue.GetFlags())
 
+			flagsCache[fe.String()] = loadbalancer.ServiceFlags(svcValue.GetFlags())
 			newSVCMap.addFE(fe)
 			return
 		}
@@ -488,6 +516,10 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if err != nil {
 			errors = append(errors, err)
 		}
+		err = RevNat4Map.DumpWithCallback(parseRevNatEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
 		err = Service4MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
@@ -500,22 +532,33 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if err != nil {
 			errors = append(errors, err)
 		}
+		err = RevNat6Map.DumpWithCallback(parseRevNatEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
 		err = Service6MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
 	}
 
+	for _, svcKey := range inconsistentServiceKeys {
+		log.WithField(logfields.ServiceKey, svcKey).
+			Warn("Deleting service with inconsistent revNat")
+		if err := deleteServiceLocked(svcKey); err != nil {
+			log.WithField(logfields.ServiceKey, svcKey).
+				WithError(err).Warn("Unable to delete service entry from BPF map")
+		}
+	}
+
 	newSVCList := make([]*loadbalancer.SVC, 0, len(newSVCMap))
 	for hash := range newSVCMap {
 		svc := newSVCMap[hash]
-		addrStr := svc.Frontend.AddrCluster.String()
-		portStr := strconv.Itoa(int(svc.Frontend.Port))
-		host := net.JoinHostPort(addrStr, portStr)
-		svc.Type = flagsCache[host].SVCType()
-		svc.ExtTrafficPolicy = flagsCache[host].SVCExtTrafficPolicy()
-		svc.IntTrafficPolicy = flagsCache[host].SVCIntTrafficPolicy()
-		svc.NatPolicy = flagsCache[host].SVCNatPolicy(svc.Frontend.L3n4Addr)
+		key := svc.Frontend.String()
+		svc.Type = flagsCache[key].SVCType()
+		svc.ExtTrafficPolicy = flagsCache[key].SVCExtTrafficPolicy()
+		svc.IntTrafficPolicy = flagsCache[key].SVCIntTrafficPolicy()
+		svc.NatPolicy = flagsCache[key].SVCNatPolicy(svc.Frontend.L3n4Addr)
 		newSVCList = append(newSVCList, &svc)
 	}
 
@@ -553,7 +596,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		ip := backendVal.GetAddress()
 		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
 		port := backendVal.GetPort()
-		proto := loadbalancer.NONE
+		proto := loadbalancer.NewL4TypeFromNumber(backendVal.GetProtocol())
 		state := loadbalancer.GetBackendStateFromFlags(backendVal.GetFlags())
 		zone := backendVal.GetZone()
 		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, addrCluster, port, zone, state)
@@ -572,9 +615,10 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int, svcType loadbalancer.SVCType,
-	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
-	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
+func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int,
+	svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode, svcExtLocal, svcIntLocal bool,
+	svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
+	checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
@@ -586,6 +630,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	v.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
+		SvcFwdModeDSR:    svcForwardingMode == loadbalancer.SVCForwardingModeDSR,
 		SvcExtLocal:      svcExtLocal,
 		SvcIntLocal:      svcIntLocal,
 		SvcNatPolicy:     svcNatPolicy,
@@ -607,7 +652,8 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 }
 
 func deleteServiceLocked(key ServiceKey) error {
-	return key.Map().Delete(key.ToNetwork())
+	_, err := key.Map().SilentDelete(key.ToNetwork())
+	return err
 }
 
 func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
@@ -620,11 +666,17 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 		return lbBackend, fmt.Errorf("invalid backend ID 0")
 	}
 
+	u8p, err := u8proto.ParseProtocol(backend.Protocol)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse protocol lbBackend (%d, %s, %d, %s, %t): %w",
+			backend.ID, backend.AddrCluster.String(), backend.Port, backend.Protocol, ipv6, err)
+	}
+
 	if ipv6 {
-		lbBackend, err = NewBackend6V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend6V3(backend.ID, backend.AddrCluster, backend.Port, u8p,
 			backend.State, backend.ZoneID)
 	} else {
-		lbBackend, err = NewBackend4V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend4V3(backend.ID, backend.AddrCluster, backend.Port, u8p,
 			backend.State, backend.ZoneID)
 	}
 	if err != nil {

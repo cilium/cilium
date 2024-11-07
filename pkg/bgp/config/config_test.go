@@ -13,17 +13,17 @@ import (
 
 func TestParse(t *testing.T) {
 	config, err := Parse(strings.NewReader(yaml))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, config)
 
 	config, err = Parse(strings.NewReader(json))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, config)
 
 	config, err = Parse(strings.NewReader(`{"json":"random"}`))
 	// Usually we use ErrorMatches here, but the error string has newlines
 	// which makes the regex matching fail.
-	require.Equal(t, true, strings.HasPrefix(err.Error(), "failed to parse MetalLB config:"))
+	require.True(t, strings.HasPrefix(err.Error(), "failed to parse MetalLB config:"))
 	require.Nil(t, config)
 }
 

@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -24,7 +23,7 @@ import (
 func registerServiceReconciler(p serviceReconcilerParams) {
 	sr := serviceReconciler(p)
 	g := p.Jobs.NewGroup(p.Health)
-	g.Add(job.OneShot("ServiceReconciler", sr.reconcileLoop))
+	g.Add(job.OneShot("service-reconciler", sr.reconcileLoop))
 	p.Lifecycle.Append(g)
 }
 
@@ -51,9 +50,6 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 		retryAttempt int
 		addrs        sets.Set[netip.Addr]
 	)
-
-	retryTimer, retryTimerStop := inctimer.New()
-	defer retryTimerStop()
 
 	// Use exponential backoff for retries. Keep small minimum time for fast tests,
 	// but backoff with aggressive factor.
@@ -89,7 +85,7 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 			err := sr.ServiceManager.SyncNodePortFrontends(newAddrs)
 			if err != nil {
 				duration := backoff.Duration(retryAttempt)
-				retry = retryTimer.After(duration)
+				retry = time.After(duration)
 				retryAttempt++
 				log.WithError(err).Warnf("Could not synchronize new frontend addresses, retrying in %s", duration)
 				health.Degraded("Failed to sync NodePort frontends", err)
@@ -109,5 +105,4 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 		case <-periodicSyncTicker.C:
 		}
 	}
-
 }

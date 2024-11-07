@@ -265,8 +265,7 @@ func (n *nodeAddressController) register() {
 				}
 
 				// Do an immediate update to populate the table before it is read from.
-				devices := n.Devices.All(txn)
-				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+				for dev := range n.Devices.All(txn) {
 					n.update(txn, n.getAddressesFromDevice(dev), nil, dev.Name)
 					n.updateWildcardDevice(txn, dev, false)
 				}
@@ -302,15 +301,14 @@ func (n *nodeAddressController) updateK8sNodeIPs(node node.LocalNode) (updated b
 }
 
 func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) error {
-	defer n.deviceChanges.Close()
-
 	localNodeChanges := stream.ToChannel(ctx, n.LocalNode)
 	n.updateK8sNodeIPs(<-localNodeChanges)
 
 	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
 	for {
 		txn := n.DB.WriteTxn(n.NodeAddresses)
-		for change, _, ok := n.deviceChanges.Next(); ok; change, _, ok = n.deviceChanges.Next() {
+		changes, watch := n.deviceChanges.Next(txn)
+		for change := range changes {
 			dev := change.Object
 
 			var new []NodeAddress
@@ -325,7 +323,7 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) e
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-n.deviceChanges.Watch(n.DB.ReadTxn()):
+		case <-watch:
 		case localNode, ok := <-localNodeChanges:
 			if !ok {
 				localNodeChanges = nil
@@ -335,8 +333,7 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) e
 				// Recompute the node addresses as the k8s node IP has changed, which
 				// affects the prioritization.
 				txn := n.DB.WriteTxn(n.NodeAddresses)
-				devices := n.Devices.All(txn)
-				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+				for dev := range n.Devices.All(txn) {
 					n.update(txn, n.getAddressesFromDevice(dev), nil, dev.Name)
 					n.updateWildcardDevice(txn, dev, false)
 				}
@@ -365,7 +362,7 @@ func (n *nodeAddressController) updateWildcardDevice(txn statedb.WriteTxn, dev *
 
 	// Clear existing fallback addresses.
 	iter := n.NodeAddresses.List(txn, NodeAddressDeviceNameIndex.Query(WildcardDeviceName))
-	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+	for addr := range iter {
 		n.NodeAddresses.Delete(txn, addr)
 	}
 
@@ -395,8 +392,7 @@ func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device
 	fallbacks := &n.fallbackAddresses
 	if deleted && fallbacks.fromDevice(dev) {
 		fallbacks.clear()
-		devices := n.Devices.All(txn)
-		for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+		for dev := range n.Devices.All(txn) {
 			if strings.HasPrefix(dev.Name, "lxc") {
 				// Never pick the fallback from lxc* devices.
 				continue
@@ -585,7 +581,7 @@ func showAddresses(addrs []NodeAddress) string {
 			ss = append(ss, addr.Addr.String())
 		}
 	}
-	sort.Strings(ss)
+	slices.Sort(ss)
 	return strings.Join(ss, ", ")
 }
 

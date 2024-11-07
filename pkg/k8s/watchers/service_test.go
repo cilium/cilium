@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -61,6 +62,8 @@ func newDB(t *testing.T) (*statedb.DB, statedb.Table[datapathTables.NodeAddress]
 }
 
 func Test_addK8sSVCs_ClusterIP(t *testing.T) {
+	option.Config.LoadBalancerProtocolDifferentiation = true
+
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
@@ -76,15 +79,12 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 					Protocol: slim_corev1.ProtocolUDP,
 					Port:     80,
 				},
-				// FIXME: We don't distinguish about the protocol being used
-				//        so we can't tell if a UDP/80 maps to port 8080/udp
-				//        or if TCP/80 maps to port 8081/TCP
-				// {
-				// 	Name:       "port-tcp-80",
-				// 	Protocol:  slim_corev1.ProtocolTCP,
-				// 	Port:       80,
-				// 	TargetPort: intstr.FromString("port-80-t"),
-				// },
+				{
+					Name:       "port-tcp-80",
+					Protocol:   slim_corev1.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.FromString("port-80-t"),
+				},
 				{
 					Name:     "port-tcp-81",
 					Protocol: slim_corev1.ProtocolTCP,
@@ -116,14 +116,11 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 						Port:     8080,
 						Protocol: slim_corev1.ProtocolUDP,
 					},
-					// FIXME: We don't distinguish about the protocol being used
-					//        so we can't tell if a UDP/80 maps to port 8080/udp
-					//        or if TCP/80 maps to port 8081/TCP
-					// {
-					// 	Name:     "port-tcp-80",
-					// 	Protocol:slim_corev1.ProtocolTCP,
-					// 	Port:     8081,
-					// },
+					{
+						Name:     "port-tcp-80",
+						Protocol: slim_corev1.ProtocolTCP,
+						Port:     8081,
+					},
 					{
 						Name:     "port-tcp-81",
 						Protocol: slim_corev1.ProtocolTCP,
@@ -135,7 +132,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 	}
 
 	lb1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, cmtypes.MustParseAddrCluster("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
-	// lb2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	lb2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
 	lb3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 	upsert1stWanted := map[string]loadbalancer.SVC{
 		lb1.Hash(): {
@@ -155,24 +152,23 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 				},
 			},
 		},
-		// FIXME: We don't distinguish about the protocol being used
-		//        so we can't tell if a UDP/80 maps to port 8080/udp
-		//        or if TCP/80 maps to port 8081/TCP
-		// lb2.Hash(): {
-		// 	Type:     loadbalancer.SVCTypeClusterIP,
-		// 	Frontend: *lb2,
-		// 	Backends: []*loadbalancer.Backend{
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.2"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// },
+		lb2.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *lb2,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		},
 		lb3.Hash(): {
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Frontend: *lb3,
@@ -227,33 +223,34 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 				},
 			},
 		},
-		// FIXME: We don't distinguish about the protocol being used
-		//        so we can't tell if a UDP/80 maps to port 8080/udp
-		//        or if TCP/80 maps to port 8081/TCP
-		// lb2.Hash(): {
-		// 	Type:     loadbalancer.SVCTypeClusterIP,
-		// 	Frontend: *lb2,
-		// 	Backends: []*loadbalancer.Backend{
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.2"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.3"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// },
+		lb2.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *lb2,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		},
 		lb3.Hash(): {
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Frontend: *lb3,
@@ -286,7 +283,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 
 	del1stWanted := map[string]struct{}{
 		lb1.Hash(): {},
-		// lb2.Hash(): {},
+		lb2.Hash(): {},
 		lb3.Hash(): {},
 	}
 
@@ -321,6 +318,11 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 			return false, 0, nil
 		},
 		OnDeleteService: func(fe loadbalancer.L3n4Addr) (b bool, e error) {
+			// TODO: doc
+			if fe.Protocol == loadbalancer.ANY {
+				return true, nil
+			}
+
 			del1st[fe.Hash()] = struct{}{}
 			svcDeleteManagerCalls++
 			return true, nil
@@ -349,6 +351,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 
 	swg.Stop()
 	swg.Wait()
+
 	require.Equal(t, len(upsert1stWanted)+len(upsert2ndWanted), svcUpsertManagerCalls)
 	require.Equal(t, len(del1stWanted), svcDeleteManagerCalls)
 
@@ -482,6 +485,7 @@ func TestChangeSVCPort(t *testing.T) {
 func Test_addK8sSVCs_NodePort(t *testing.T) {
 	enableNodePortBak := option.Config.EnableNodePort
 	option.Config.EnableNodePort = true
+	option.Config.LoadBalancerProtocolDifferentiation = true
 	defer func() {
 		option.Config.EnableNodePort = enableNodePortBak
 	}()
@@ -502,16 +506,13 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 					Port:     80,
 					NodePort: 18080,
 				},
-				// FIXME: We don't distinguish about the protocol being used
-				//        so we can't tell if a UDP/80 maps to port 8080/udp
-				//        or if TCP/80 maps to port 8081/TCP
-				// {
-				// 	Name:       "port-tcp-80",
-				// 	Protocol:  slim_corev1.ProtocolTCP,
-				// 	Port:       80,
-				// 	TargetPort: intstr.FromString("port-80-t"),
-				//  NodePort:   18080,
-				// },
+				{
+					Name:       "port-tcp-80",
+					Protocol:   slim_corev1.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.FromString("port-80-t"),
+					NodePort:   18080,
+				},
 				{
 					Name:     "port-tcp-81",
 					Protocol: slim_corev1.ProtocolTCP,
@@ -544,14 +545,11 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 						Port:     8080,
 						Protocol: slim_corev1.ProtocolUDP,
 					},
-					// FIXME: We don't distinguish about the protocol being used
-					//        so we can't tell if a UDP/80 maps to port 8080/udp
-					//        or if TCP/80 maps to port 8081/TCP
-					// {
-					// 	Name:     "port-tcp-80",
-					// 	Protocol:slim_corev1.ProtocolTCP,
-					// 	Port:     8081,
-					// },
+					{
+						Name:     "port-tcp-80",
+						Protocol: slim_corev1.ProtocolTCP,
+						Port:     8081,
+					},
 					{
 						Name:     "port-tcp-81",
 						Protocol: slim_corev1.ProtocolTCP,
@@ -563,7 +561,7 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 	}
 
 	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, cmtypes.MustParseAddrCluster("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
-	// clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
 	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 
 	upsert1stWanted := map[string]loadbalancer.SVC{
@@ -584,24 +582,23 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 				},
 			},
 		},
-		// FIXME: We don't distinguish about the protocol being used
-		//        so we can't tell if a UDP/80 maps to port 8080/udp
-		//        or if TCP/80 maps to port 8081/TCP
-		// clusterIP2.Hash(): {
-		// 	Type:     loadbalancer.SVCTypeClusterIP,
-		// 	Frontend: *clusterIP2,
-		// 	Backends: []*loadbalancer.Backend{
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.2"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// },
+		clusterIP2.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP2,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		},
 		clusterIP3.Hash(): {
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Frontend: *clusterIP3,
@@ -648,28 +645,30 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 			},
 		}
 	}
-	// nodePortIPs2 := []*loadbalancer.L3n4AddrID{
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.Pv4NodePortAddress, 18080, loadbalancer.ScopeExternal, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18080, loadbalancer.ScopeExternal, 0),
-	// }
-	// for _, nodePort := range nodePortIPs2 {
-	// 	upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
-	// 		Type:     loadbalancer.SVCTypeNodePort,
-	// 		Frontend: *nodePort,
-	// 		Backends: []*loadbalancer.Backend{
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.2"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// }
+	nodePortIPs2 := []*loadbalancer.L3n4AddrID{
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, ipv4NodePortAddrCluster, 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, ipv4InternalAddrCluster, 18080, loadbalancer.ScopeExternal, 0),
+	}
+	for _, nodePort := range nodePortIPs2 {
+		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		}
+	}
 	nodePortIPs3 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 18081, loadbalancer.ScopeExternal, 0),
 		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, ipv4NodePortAddrCluster, 18081, loadbalancer.ScopeExternal, 0),
@@ -730,33 +729,34 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 				},
 			},
 		},
-		// FIXME: We don't distinguish about the protocol being used
-		//        so we can't tell if a UDP/80 maps to port 8080/udp
-		//        or if TCP/80 maps to port 8081/TCP
-		// clusterIP2.Hash(): {
-		// 	Type:     loadbalancer.SVCTypeClusterIP,
-		// 	Frontend: *clusterIP2,
-		// 	Backends: []*loadbalancer.Backend{
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.2"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.3"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// },
+		clusterIP2.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP2,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		},
 		clusterIP3.Hash(): {
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Frontend: *clusterIP3,
@@ -817,32 +817,36 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 			},
 		}
 	}
-	// for _, nodePort := range nodePortIPs2 {
-	// 	upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
-	// 		Type:     loadbalancer.SVCTypeNodePort,
-	// 		Frontend: *nodePort,
-	// 		Backends: []*loadbalancer.Backend{
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.2"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.3"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// }
+	for _, nodePort := range nodePortIPs2 {
+		upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		}
+	}
 	for _, nodePort := range nodePortIPs3 {
 		upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
 			Type:     loadbalancer.SVCTypeNodePort,
@@ -876,10 +880,10 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 
 	del1stWanted := map[string]struct{}{
 		clusterIP1.Hash(): {},
-		// clusterIP2.Hash(): {},
+		clusterIP2.Hash(): {},
 		clusterIP3.Hash(): {},
 	}
-	for _, nodePort := range append(nodePortIPs1, nodePortIPs3...) {
+	for _, nodePort := range append(nodePortIPs1, append(nodePortIPs2, nodePortIPs3...)...) {
 		del1stWanted[nodePort.Hash()] = struct{}{}
 	}
 
@@ -914,6 +918,11 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 			return false, 0, nil
 		},
 		OnDeleteService: func(fe loadbalancer.L3n4Addr) (b bool, e error) {
+			// TODO: doc
+			if fe.Protocol == loadbalancer.ANY {
+				return true, nil
+			}
+
 			del1st[fe.Hash()] = struct{}{}
 			svcDeleteManagerCalls++
 			return true, nil
@@ -957,6 +966,7 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 
 	enableNodePortBak := option.Config.EnableNodePort
 	option.Config.EnableNodePort = true
+	option.Config.LoadBalancerProtocolDifferentiation = true
 	defer func() {
 		option.Config.EnableNodePort = enableNodePortBak
 	}()
@@ -1248,6 +1258,7 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 
 	enableNodePortBak := option.Config.EnableNodePort
 	option.Config.EnableNodePort = true
+	option.Config.LoadBalancerProtocolDifferentiation = true
 	defer func() {
 		option.Config.EnableNodePort = enableNodePortBak
 	}()
@@ -1531,6 +1542,7 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	enableNodePortBak := option.Config.EnableNodePort
 	option.Config.EnableNodePort = true
+	option.Config.LoadBalancerProtocolDifferentiation = true
 	defer func() {
 		option.Config.EnableNodePort = enableNodePortBak
 	}()
@@ -1551,16 +1563,13 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 					Port:     80,
 					NodePort: 18080,
 				},
-				// FIXME: We don't distinguish about the protocol being used
-				//        so we can't tell if a UDP/80 maps to port 8080/udp
-				//        or if TCP/80 maps to port 8081/TCP
-				// {
-				// 	Name:       "port-tcp-80",
-				// 	Protocol:  slim_corev1.ProtocolTCP,
-				// 	Port:       80,
-				// 	TargetPort: intstr.FromString("port-80-t"),
-				//  NodePort:   18080,
-				// },
+				{
+					Name:       "port-tcp-80",
+					Protocol:   slim_corev1.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.FromString("port-80-t"),
+					NodePort:   18080,
+				},
 				{
 					Name:     "port-tcp-81",
 					Protocol: slim_corev1.ProtocolTCP,
@@ -1596,14 +1605,11 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 						Port:     8080,
 						Protocol: slim_corev1.ProtocolUDP,
 					},
-					// FIXME: We don't distinguish about the protocol being used
-					//        so we can't tell if a UDP/80 maps to port 8080/udp
-					//        or if TCP/80 maps to port 8081/TCP
-					// {
-					// 	Name:     "port-tcp-80",
-					// 	Protocol:slim_corev1.ProtocolTCP,
-					// 	Port:     8081,
-					// },
+					{
+						Name:     "port-tcp-80",
+						Protocol: slim_corev1.ProtocolTCP,
+						Port:     8081,
+					},
 					{
 						Name:     "port-tcp-81",
 						Protocol: slim_corev1.ProtocolTCP,
@@ -1621,7 +1627,7 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	)
 
 	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, cmtypes.MustParseAddrCluster("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
-	// clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
 	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 
 	upsert1stWanted := map[string]loadbalancer.SVC{
@@ -1642,24 +1648,23 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 				},
 			},
 		},
-		// FIXME: We don't distinguish about the protocol being used
-		//        so we can't tell if a UDP/80 maps to port 8080/udp
-		//        or if TCP/80 maps to port 8081/TCP
-		// clusterIP2.Hash(): {
-		// 	Type:     loadbalancer.SVCTypeClusterIP,
-		// 	Frontend: *clusterIP2,
-		// 	Backends: []*loadbalancer.Backend{
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.2"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// },
+		clusterIP2.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP2,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		},
 		clusterIP3.Hash(): {
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Frontend: *clusterIP3,
@@ -1680,10 +1685,10 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	}
 
 	externalIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, cmtypes.MustParseAddrCluster("127.8.8.8"), 80, loadbalancer.ScopeExternal, 0)
-	// externalIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.8.8.8"), 80, loadbalancer.ScopeExternal, 0)
+	externalIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("127.8.8.8"), 80, loadbalancer.ScopeExternal, 0)
 	externalIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("127.8.8.8"), 81, loadbalancer.ScopeExternal, 0)
 	externalIP4 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, cmtypes.MustParseAddrCluster("127.9.9.9"), 80, loadbalancer.ScopeExternal, 0)
-	// externalIP5 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.9.9.9"), 80, loadbalancer.ScopeExternal, 0)
+	externalIP5 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("127.9.9.9"), 80, loadbalancer.ScopeExternal, 0)
 	externalIP6 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("127.9.9.9"), 81, loadbalancer.ScopeExternal, 0)
 	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP1, externalIP4} {
 		upsert1stWanted[externalIP.Hash()] = loadbalancer.SVC{
@@ -1704,23 +1709,25 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 			},
 		}
 	}
-	// for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2, externalIP5} {
-	// 	upsert1stWanted[externalIP.Hash()] = loadbalancer.SVC{
-	// 		Type:     loadbalancer.SVCTypeExternalIPs,
-	// 		Frontend: *externalIP,
-	// 		Backends: []*loadbalancer.Backend{
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.2"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.UDP,
-	// 						Port:     8080,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// }
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2, externalIP5} {
+		upsert1stWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		}
+	}
 	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP3, externalIP6} {
 		upsert1stWanted[externalIP.Hash()] = loadbalancer.SVC{
 			Type:     loadbalancer.SVCTypeExternalIPs,
@@ -1768,28 +1775,30 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 			},
 		}
 	}
-	// nodePortIPs2 := []*loadbalancer.L3n4AddrID{
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18080, loadbalancer.ScopeExternal, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18080, loadbalancer.ScopeExternal, 0),
-	// }
-	// for _, nodePort := range nodePortIPs2 {
-	// 	upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
-	// 		Type:     loadbalancer.SVCTypeNodePort,
-	// 		Frontend: *nodePort,
-	// 		Backends: []*loadbalancer.Backend{
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.2"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// }
+	nodePortIPs2 := []*loadbalancer.L3n4AddrID{
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, ipv4NodePortAddrCluster, 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, ipv4InternalAddrCluster, 18080, loadbalancer.ScopeExternal, 0),
+	}
+	for _, nodePort := range nodePortIPs2 {
+		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		}
+	}
 	nodePortIPs3 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, cmtypes.MustParseAddrCluster("0.0.0.0"), 18081, loadbalancer.ScopeExternal, 0),
 		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, ipv4NodePortAddrCluster, 18081, loadbalancer.ScopeExternal, 0),
@@ -1844,33 +1853,34 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 				},
 			},
 		},
-		// FIXME: We don't distinguish about the protocol being used
-		//        so we can't tell if a UDP/80 maps to port 8080/udp
-		//        or if TCP/80 maps to port 8081/TCP
-		// clusterIP2.Hash(): {
-		// 	Type:     loadbalancer.SVCTypeClusterIP,
-		// 	Frontend: *clusterIP2,
-		// 	Backends: []*loadbalancer.Backend{
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.2"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.3"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// },
+		clusterIP2.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP2,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		},
 		clusterIP3.Hash(): {
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Frontend: *clusterIP3,
@@ -1931,32 +1941,36 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 			},
 		}
 	}
-	// for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2, externalIP5} {
-	// 	upsert2ndWanted[externalIP.Hash()] = loadbalancer.SVC{
-	// 		Type:     loadbalancer.SVCTypeExternalIPs,
-	// 		Frontend: *externalIP,
-	// 		Backends: []*loadbalancer.Backend{
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.2"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.UDP,
-	// 						Port:     8080,
-	// 					},
-	// 				},
-	// 			},
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.3"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// }
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2, externalIP5} {
+		upsert2ndWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		}
+	}
 	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP3, externalIP6} {
 		upsert2ndWanted[externalIP.Hash()] = loadbalancer.SVC{
 			Type:     loadbalancer.SVCTypeExternalIPs,
@@ -2018,32 +2032,36 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 			},
 		}
 	}
-	// for _, nodePort := range nodePortIPs2 {
-	// 	upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
-	// 		Type:     loadbalancer.SVCTypeNodePort,
-	// 		Frontend: *nodePort,
-	// 		Backends: []*loadbalancer.Backend{
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.2"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.3"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// }
+	for _, nodePort := range nodePortIPs2 {
+		upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		}
+	}
 	for _, nodePort := range nodePortIPs3 {
 		upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
 			Type:     loadbalancer.SVCTypeNodePort,
@@ -2104,33 +2122,34 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 				},
 			},
 		},
-		// FIXME: We don't distinguish about the protocol being used
-		//        so we can't tell if a UDP/80 maps to port 8080/udp
-		//        or if TCP/80 maps to port 8081/TCP
-		// clusterIP2.Hash(): {
-		// 	Type:     loadbalancer.SVCTypeClusterIP,
-		// 	Frontend: *clusterIP2,
-		// 	Backends: []*loadbalancer.Backend{
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.2"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 		{
-		// 			L3n4Addr: loadbalancer.L3n4Addr{
-		// 				IP: net.ParseIP("10.0.0.3"),
-		// 				L4Addr: loadbalancer.L4Addr{
-		// 					Protocol: loadbalancer.TCP,
-		// 					Port:     8081,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// },
+		clusterIP2.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP2,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		},
 		clusterIP3.Hash(): {
 			Type:     loadbalancer.SVCTypeClusterIP,
 			Frontend: *clusterIP3,
@@ -2191,32 +2210,36 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 			},
 		}
 	}
-	// for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2} {
-	// 	upsert3rdWanted[externalIP.Hash()] = loadbalancer.SVC{
-	// 		Type:     loadbalancer.SVCTypeExternalIPs,
-	// 		Frontend: *externalIP,
-	// 		Backends: []*loadbalancer.Backend{
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.2"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.3"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// }
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2} {
+		upsert3rdWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		}
+	}
 	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP3} {
 		upsert3rdWanted[externalIP.Hash()] = loadbalancer.SVC{
 			Type:     loadbalancer.SVCTypeExternalIPs,
@@ -2278,32 +2301,36 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 			},
 		}
 	}
-	// for _, nodePort := range nodePortIPs2 {
-	// 	upsert3rdWanted[nodePort.Hash()] = loadbalancer.SVC{
-	// 		Type:     loadbalancer.SVCTypeNodePort,
-	// 		Frontend: *nodePort,
-	// 		Backends: []*loadbalancer.Backend{
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.2"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 			{
-	// 				L3n4Addr: loadbalancer.L3n4Addr{
-	// 					IP: net.ParseIP("10.0.0.3"),
-	// 					L4Addr: loadbalancer.L4Addr{
-	// 						Protocol: loadbalancer.TCP,
-	// 						Port:     8081,
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	}
-	// }
+	for _, nodePort := range nodePortIPs2 {
+		upsert3rdWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+				{
+					FEPortName: "port-tcp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		}
+	}
 	for _, nodePort := range nodePortIPs3 {
 		upsert3rdWanted[nodePort.Hash()] = loadbalancer.SVC{
 			Type:     loadbalancer.SVCTypeNodePort,
@@ -2337,18 +2364,18 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 
 	del1stWanted := map[string]struct{}{
 		externalIP4.Hash(): {},
-		// externalIP5.Hash():{},
+		externalIP5.Hash(): {},
 		externalIP6.Hash(): {},
 	}
 	del2ndWanted := map[string]struct{}{
-		clusterIP1.Hash(): {},
-		// clusterIP2.Hash(): {},
+		clusterIP1.Hash():  {},
+		clusterIP2.Hash():  {},
 		clusterIP3.Hash():  {},
 		externalIP1.Hash(): {},
-		// externalIP2.Hash():{},
+		externalIP2.Hash(): {},
 		externalIP3.Hash(): {},
 	}
-	for _, nodePort := range append(nodePortIPs1, nodePortIPs3...) {
+	for _, nodePort := range append(nodePortIPs1, append(nodePortIPs2, nodePortIPs3...)...) {
 		del2ndWanted[nodePort.Hash()] = struct{}{}
 	}
 
@@ -2392,6 +2419,11 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 			return false, 0, nil
 		},
 		OnDeleteService: func(fe loadbalancer.L3n4Addr) (b bool, e error) {
+			// TODO: doc
+			if fe.Protocol == loadbalancer.ANY {
+				return true, nil
+			}
+
 			switch {
 			// 1st update endpoints
 			case svcDeleteManagerCalls < len(del1stWanted):

@@ -42,6 +42,28 @@ int check_get_identity(struct __ctx_buff *ctx)
 	test_finish();
 }
 
+CHECK("tc", "set_identity_mark_bits")
+int set_identity_mark_bits(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	set_identity_mark(ctx, 0x0, MARK_MAGIC_IDENTITY);
+	set_identity_mark(ctx, 0x0, MARK_MAGIC_OVERLAY);
+
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_OVERLAY)
+		test_fatal("expected %x got %x", MARK_MAGIC_OVERLAY, ctx->mark);
+
+	set_identity_mark(ctx, 0x0, 0x000);
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != 0)
+		test_fatal("expected %x got %x", 0, ctx->mark);
+
+	set_identity_mark(ctx, 0x0, MARK_MAGIC_HOST_MASK);
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_HOST_MASK)
+		test_fatal("expected %x got %x", MARK_MAGIC_HOST_MASK, ctx->mark);
+
+	test_finish();
+}
+
 CHECK("tc", "set_and_get_cluster_id")
 int check_ctx_get_cluster_id_mark(struct __ctx_buff *ctx)
 {

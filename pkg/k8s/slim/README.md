@@ -17,7 +17,7 @@ generated diff is what needs to be committed; all other changes are
 unnecessary.
 
 ```bash
-tag=v1.29.0-rc.1
+tag=v1.31.0
 url="https://raw.githubusercontent.com/kubernetes/kubernetes/${tag}"
 
 curl "${url}/staging/src/k8s.io/api/core/v1/doc.go" > pkg/k8s/slim/k8s/api/core/v1/doc.go

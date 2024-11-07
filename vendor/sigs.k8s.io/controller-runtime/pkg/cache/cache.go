@@ -117,8 +117,8 @@ type Informer interface {
 	// This function is guaranteed to be idempotent and thread-safe.
 	RemoveEventHandler(handle toolscache.ResourceEventHandlerRegistration) error
 
-	// AddIndexers adds indexers to this store. If this is called after there is already data
-	// in the store, the results are undefined.
+	// AddIndexers adds indexers to this store. It is valid to add indexers
+	// after an informer was started.
 	AddIndexers(indexers toolscache.Indexers) error
 
 	// HasSynced return true if the informers underlying store has synced.

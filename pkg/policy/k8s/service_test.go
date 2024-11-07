@@ -18,6 +18,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -56,9 +57,11 @@ type fakeService struct {
 
 type fakeServiceCache map[k8s.ServiceID]fakeService
 
-func (f fakeServiceCache) ForEachService(yield func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) bool) {
+func (f fakeServiceCache) ForEachService(yield func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool) {
 	for svcID, s := range f {
-		if !yield(svcID, s.svc, s.eps) {
+		eps := k8s.NewEndpointsSlices()
+		eps.Upsert("foo", s.eps)
+		if !yield(svcID, s.svc, eps) {
 			break
 		}
 	}
@@ -240,12 +243,14 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		Name:      "baz-svc",
 		Namespace: "baz-ns",
 	}
-	bazSvc := &k8s.Service{
-		Labels: barSvcLabels,
-		Selector: map[string]string{
-			"app": "baz",
-		},
+	bazSvcLabels := map[string]string{
+		"app": "baz",
 	}
+	bazSvc := &k8s.Service{
+		Labels:   barSvcLabels,
+		Selector: bazSvcLabels,
+	}
+
 	bazEps := barEps.DeepCopy()
 
 	logger := logrus.New()
@@ -282,10 +287,10 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Empty(t, rules[0].Egress[0].ToCIDRSet)
 
 	// Check that policies are recognized as ToServices policies
-	assert.Equal(t, p.toServicesPolicies, map[resource.Key]struct{}{
+	assert.Equal(t, map[resource.Key]struct{}{
 		svcByNameKey:  {},
 		svcByLabelKey: {},
-	})
+	}, p.toServicesPolicies)
 
 	// Add foo-svc, which is selected by svcByNameCNP twice
 	svcCache[fooSvcID] = fakeService{
@@ -301,26 +306,26 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Contains(t, rules[0].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, rules[0].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(rules[0].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	})
+	}, sortCIDRSet(rules[0].Egress[0].ToCIDRSet))
 
 	// Check that Specs was translated
 	assert.Len(t, rules[1].Egress, 1)
 	assert.Contains(t, rules[1].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Specs[0].Egress[0].ToServices, rules[1].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(rules[1].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	})
+	}, sortCIDRSet(rules[1].Egress[0].ToCIDRSet))
 
 	// Check that policy has been marked
-	assert.Equal(t, p.cnpByServiceID, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
-	})
+	}, p.cnpByServiceID)
 
 	// Add bar-svc, which is selected by both policies
 	svcCache[barSvcID] = fakeService{
@@ -344,32 +349,32 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Len(t, byNameRules[0].Egress, 1)
 	assert.Contains(t, byNameRules[0].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, byNameRules[0].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(byNameRules[0].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
 		addrToCIDRRule(barEpAddr.Addr()),
-	})
+	}, sortCIDRSet(byNameRules[0].Egress[0].ToCIDRSet))
 
 	// Check that svcByNameCNP Specs (matching only foo) was translated
 	assert.Len(t, byNameRules[1].Egress, 1)
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Specs[0].Egress[0].ToServices, byNameRules[1].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	})
+	}, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet))
 
 	// Check that svcByLabelCNP Spec (matching only bar) was translated
 	assert.Len(t, byLabelRules, 1)
 	assert.Len(t, byLabelRules[0].Egress, 1)
 	assert.Contains(t, byLabelRules[0].Labels, svcByLabelLbl)
 	assert.Equal(t, svcByLabelCNP.Spec.Egress[0].ToServices, byLabelRules[0].Egress[0].ToServices)
-	assert.Equal(t, byLabelRules[0].Egress[0].ToCIDRSet, api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(barEpAddr.Addr()),
-	})
+	}, byLabelRules[0].Egress[0].ToCIDRSet)
 
 	// Check that policies have been marked
-	assert.Equal(t, p.cnpByServiceID, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
@@ -377,7 +382,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 			svcByNameKey:  {},
 			svcByLabelKey: {},
 		},
-	})
+	}, p.cnpByServiceID)
 
 	// Change foo-svc endpoints, which is selected by svcByNameCNP twice
 	delete(fooEps.Backends, fooEpAddr2)
@@ -390,18 +395,18 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Len(t, byNameRules[0].Egress, 1)
 	assert.Contains(t, byNameRules[0].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, byNameRules[0].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(byNameRules[0].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(barEpAddr.Addr()),
-	})
+	}, sortCIDRSet(byNameRules[0].Egress[0].ToCIDRSet))
 
 	// Check that Specs was translated (matching only foo) was translated
 	assert.Len(t, byNameRules[1].Egress, 1)
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Specs[0].Egress[0].ToServices, byNameRules[1].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
-	})
+	}, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet))
 
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
 	oldBarSvc := barSvc.DeepCopy()
@@ -434,25 +439,320 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Empty(t, byLabelRules[0].Egress[0].ToCIDRSet)
 
 	// Check that policies have been cleared
-	assert.Equal(t, p.cnpByServiceID, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
 		barSvcID: {
 			svcByNameKey: {},
 		},
-	})
+	}, p.cnpByServiceID)
 
-	// Add baz-svc, which is not selectable and thus must not trigger a policyAdd
+	// Add baz-svc, which is selected by svcByLabelCNP
 	svcCache[bazSvcID] = fakeService{
 		svc: bazSvc,
 		eps: bazEps,
 	}
 	err = p.updateToServicesPolicies(bazSvcID, bazSvc, nil)
 	assert.NoError(t, err)
-	assert.Empty(t, policyAdd)
+	rules = <-policyAdd
+	assert.Len(t, rules, 1)
+	// Check that Spec was translated
+	assert.Len(t, rules[0].Egress, 1)
+	assert.Contains(t, rules[0].Labels, svcByLabelLbl)
+	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
+
+	bazEndpointSelectors := api.NewESFromMatchRequirements(bazSvcLabels, nil)
+	bazEndpointSelectors.Generated = true
+	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
+	bazEndpointSelectors.AddMatch(podPrefixLbl, bazSvcID.Namespace)
+
+	// The endpointSelector should be copied from the Service's selector
+	assert.Equal(t, bazEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+
+	// Check that policy has been marked
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+		fooSvcID: {
+			svcByNameKey: {},
+		},
+		barSvcID: {
+			svcByNameKey: {},
+		},
+		bazSvcID: {
+			svcByLabelKey: {},
+		},
+	}, p.cnpByServiceID)
+
 }
 
+func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T) {
+	policyAdd := make(chan api.Rules, 1)
+	policyDelete := make(chan api.Rules, 1)
+	policyManager := &fakePolicyManager{
+		OnPolicyAdd: func(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
+			policyAdd <- rules
+			return 0, nil
+		},
+		OnPolicyDelete: func(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
+			policyDelete <- nil
+			return 0, nil
+		},
+	}
+
+	svcByNameCNP := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "cilium.io/v2",
+				Kind:       "CiliumNetworkPolicy",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "svc-by-name",
+				Namespace: "test",
+			},
+			Spec: &api.Rule{
+				EndpointSelector: api.NewESFromLabels(),
+				Egress: []api.EgressRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{
+									// Selects foo service by name
+									K8sService: &api.K8sServiceNamespace{
+										ServiceName: "foo-svc",
+										Namespace:   "foo-ns",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	svcByNameLbl := labels.NewLabel("io.cilium.k8s.policy.name", svcByNameCNP.Name, "k8s")
+	svcByNameKey := resource.NewKey(svcByNameCNP)
+	svcByNameResourceID := resourceIDForCiliumNetworkPolicy(svcByNameKey, svcByNameCNP)
+
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	svcCache := fakeServiceCache{}
+	p := &policyWatcher{
+		log:                logrus.NewEntry(logger),
+		config:             &option.DaemonConfig{},
+		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
+		k8sAPIGroups:       &k8sSynced.APIGroups{},
+		policyManager:      policyManager,
+		svcCache:           svcCache,
+		cnpCache:           map[resource.Key]*types.SlimCNP{},
+		toServicesPolicies: map[resource.Key]struct{}{},
+		cnpByServiceID:     map[k8s.ServiceID]map[resource.Key]struct{}{},
+	}
+
+	// Upsert policies. No services are known, so generated ToEndpoints should be empty
+	err := p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID)
+	assert.NoError(t, err)
+	rules := <-policyAdd
+	assert.Len(t, rules, 1)
+	assert.Len(t, rules[0].Egress, 1)
+	assert.Empty(t, rules[0].Egress[0].ToEndpoints)
+
+	// Check that policies are recognized as ToServices policies
+	assert.Equal(t, map[resource.Key]struct{}{
+		svcByNameKey: {},
+	}, p.toServicesPolicies)
+	fooSvcID := k8s.ServiceID{
+		Name:      "foo-svc",
+		Namespace: "foo-ns",
+	}
+	fooSvcLabels := map[string]string{
+		"app": "foo",
+	}
+	fooSvc := &k8s.Service{
+		Selector: fooSvcLabels,
+	}
+	svcCache[fooSvcID] = fakeService{
+		svc: fooSvc,
+	}
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
+	assert.NoError(t, err)
+	rules = <-policyAdd
+	assert.Len(t, rules, 1)
+
+	// Check that Spec was translated
+	assert.Len(t, rules[0].Egress, 1)
+	assert.Contains(t, rules[0].Labels, svcByNameLbl)
+	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, rules[0].Egress[0].ToServices)
+	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
+
+	fooEndpointSelectors := api.NewESFromMatchRequirements(fooSvcLabels, nil)
+	fooEndpointSelectors.Generated = true
+	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
+	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
+
+	// The endpointSelector should be copied from the Service's selector
+	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+
+	// Check that policies have been marked
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+		fooSvcID: {
+			svcByNameKey: {},
+		},
+	}, p.cnpByServiceID)
+
+	// Change foo-svc labels. This should keep the ToEndpoints
+	oldFooSvc := fooSvc.DeepCopy()
+	fooSvc.Labels = map[string]string{
+		"app": "foo",
+		"new": "label",
+	}
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, oldFooSvc)
+	assert.NoError(t, err)
+	rules = <-policyAdd
+	assert.Len(t, rules, 1)
+	assert.Len(t, rules[0].Egress, 1)
+	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
+
+	fooEndpointSelectors = api.NewESFromMatchRequirements(fooSvcLabels, nil)
+	fooEndpointSelectors.Generated = true
+	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
+
+	// The endpointSelector should be copied from the Service's selector
+	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+
+	// bar-svc is selected by svcByLabelCNP
+	barSvcLabels := map[string]string{
+		"app": "bar",
+	}
+	barSvcSelector := api.ServiceSelector(api.NewESFromMatchRequirements(barSvcLabels, nil))
+
+	svcByLabelCNP := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "cilium.io/v2",
+				Kind:       "ClusterwideCiliumNetworkPolicy",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "svc-by-label",
+				Namespace: "",
+			},
+			Spec: &api.Rule{
+				EndpointSelector: api.NewESFromLabels(),
+				Egress: []api.EgressRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{
+									// Selects bar service by label selector
+									K8sServiceSelector: &api.K8sServiceSelectorNamespace{
+										Selector: barSvcSelector,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// svcByLabelLbl := labels.NewLabel("io.cilium.k8s.policy.name", svcByLabelCNP.Name, "k8s")
+	svcByLabelKey := resource.NewKey(svcByLabelCNP)
+	svcByLabelResourceID := resourceIDForCiliumNetworkPolicy(svcByLabelKey, svcByLabelCNP)
+	barSvcID := k8s.ServiceID{
+		Name:      "bar-svc",
+		Namespace: "bar-ns",
+	}
+	barSvc := &k8s.Service{
+		Labels:   barSvcLabels,
+		Selector: barSvcLabels,
+	}
+
+	err = p.onUpsert(svcByLabelCNP, svcByLabelKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByLabelResourceID)
+	// Upsert policies. No services are known, so generated ToEndpoints should be empty
+	assert.NoError(t, err)
+	rules = <-policyAdd
+	assert.Len(t, rules, 1)
+	assert.Len(t, rules[0].Egress, 1)
+	assert.Empty(t, rules[0].Egress[0].ToEndpoints)
+
+	svcCache[barSvcID] = fakeService{
+		svc: barSvc,
+	}
+	err = p.updateToServicesPolicies(barSvcID, barSvc, nil)
+	assert.NoError(t, err)
+	rules = <-policyAdd
+	assert.Len(t, rules, 1)
+	assert.Len(t, rules[0].Egress, 1)
+	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
+
+	barEndpointSelectors := api.NewESFromMatchRequirements(barSvcLabels, nil)
+	barEndpointSelectors.Generated = true
+	barEndpointSelectors.AddMatch(podPrefixLbl, barSvcID.Namespace)
+
+	// The endpointSelector should be copied from the Service's selector
+	assert.Equal(t, barEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+
+	// Check that policies have been marked
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+		fooSvcID: {
+			svcByNameKey: {},
+		},
+		barSvcID: {
+			svcByLabelKey: {},
+		},
+	}, p.cnpByServiceID)
+
+	// Delete bar-svc labels. This should remove all toEndpoints from svcByLabelCNP
+	oldBarSvc := barSvc.DeepCopy()
+	barSvc.Labels = nil
+
+	err = p.updateToServicesPolicies(barSvcID, barSvc, oldBarSvc)
+	assert.NoError(t, err)
+	rules = <-policyAdd
+	assert.Len(t, rules, 1)
+	assert.Len(t, rules[0].Egress, 1)
+	assert.Empty(t, rules[0].Egress[0].ToEndpoints)
+
+	// Check that policies have been cleared
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+		fooSvcID: {
+			svcByNameKey: {},
+		},
+	}, p.cnpByServiceID)
+
+	// Delete svc-by-name policy and check that the policy is removed
+	err = p.onDelete(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID)
+	assert.NoError(t, err)
+
+	// Expect policy to be deleted
+	<-policyDelete
+
+	// Check that policies have been cleared
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{}, p.cnpByServiceID)
+
+	// Add foo-svc again, which should re-add the policy
+	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
+	p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID)
+	assert.NoError(t, err)
+	rules = <-policyAdd
+	assert.Len(t, rules, 1)
+	assert.Len(t, rules[0].Egress, 1)
+	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
+
+	fooEndpointSelectors = api.NewESFromMatchRequirements(fooSvcLabels, nil)
+	fooEndpointSelectors.Generated = true
+	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace)
+
+	// The endpointSelector should be copied from the Service's selector
+	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+
+	// Check that policies have been marked
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
+		fooSvcID: {
+			svcByNameKey: {},
+		},
+	}, p.cnpByServiceID)
+}
 func Test_hasMatchingToServices(t *testing.T) {
 	type args struct {
 		spec  *api.Rule

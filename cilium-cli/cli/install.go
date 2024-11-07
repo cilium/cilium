@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -17,7 +18,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium/cilium-cli/install"
-	"github.com/cilium/cilium/pkg/inctimer"
 )
 
 // addCommonInstallFlags adds install command flags that are shared between install and upgrade commands.
@@ -27,6 +27,7 @@ func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
 	cmd.Flags().BoolVar(&params.NodesWithoutCilium, "nodes-without-cilium", false, "Configure the affinities to avoid scheduling Cilium components on nodes labeled with cilium.io/no-schedule. It is assumed that the infrastructure has set up routing on these nodes to provide connectivity within the Cilium cluster.")
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
+	cmd.Flags().MarkDeprecated("disable-check", "cilium-cli no longer performs any validation checks.")
 }
 
 // addCommonUninstallFlags adds uninstall command flags that are shared between classic and helm mode.
@@ -136,7 +137,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 						break
 					}
 					select {
-					case <-inctimer.After(defaults.WaitRetryInterval):
+					case <-time.After(defaults.WaitRetryInterval):
 					case <-ctx.Done():
 						fatalf("Timed out waiting for Hubble Pods to terminate")
 					}
