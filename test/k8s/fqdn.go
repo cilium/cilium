@@ -95,6 +95,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		_ = kubectl.Exec(fmt.Sprintf("%s delete --all cnp", helpers.KubectlCmd))
 	})
 
+	JustAfterEach(func() {
+		kubectl.CollectFeatures()
+	})
+
 	It("Restart Cilium validate that FQDN is still working", func() {
 		// Test functionality:
 		// - When Cilium is running) Connectivity from App2 application can

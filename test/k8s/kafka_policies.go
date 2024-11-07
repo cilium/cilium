@@ -88,6 +88,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sKafkaPolicyTest", func() {
 
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+			kubectl.CollectFeatures()
 		})
 
 		AfterEach(func() {
