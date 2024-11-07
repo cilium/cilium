@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -2437,4 +2438,117 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	require.EqualValues(t, upsert3rdWanted, upsert3rd)
 	require.EqualValues(t, del1stWanted, del1st)
 	require.EqualValues(t, del2ndWanted, del2nd)
+}
+
+func TestHeadless(t *testing.T) {
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "port-udp-80",
+					Protocol: slim_corev1.ProtocolUDP,
+					Port:     80,
+				},
+			},
+			ClusterIP: "172.0.20.1",
+			Type:      slim_corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	ep1stApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "10.0.0.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "port-udp-80",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolUDP,
+					},
+				},
+			},
+		},
+	}
+
+	lb1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, cmtypes.MustParseAddrCluster("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	upsertsWanted := []loadbalancer.SVC{
+		{
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *lb1,
+			Backends: []*loadbalancer.Backend{
+				{
+					FEPortName: "port-udp-80",
+					L3n4Addr: loadbalancer.L3n4Addr{
+						AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+					Weight: loadbalancer.DefaultBackendWeight,
+				},
+			},
+		},
+	}
+
+	delstWanted := map[string]struct{}{
+		lb1.Hash(): {},
+	}
+
+	k8sSvcChanged := k8sSvc.DeepCopy()
+	k8sSvcChanged.Labels[corev1.IsHeadlessService] = ""
+
+	upserts := []loadbalancer.SVC{}
+	delst := map[string]struct{}{}
+
+	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
+
+	svcManager := &fakeSvcManager{
+		OnUpsertService: func(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
+			upserts = append(upserts, loadbalancer.SVC{
+				Frontend: p.Frontend,
+				Backends: p.Backends,
+				Type:     p.Type,
+			})
+			svcUpsertManagerCalls++
+			return false, 0, nil
+		},
+		OnDeleteService: func(fe loadbalancer.L3n4Addr) (b bool, e error) {
+			delst[fe.Hash()] = struct{}{}
+			svcDeleteManagerCalls++
+			return true, nil
+		},
+	}
+
+	db, nodeAddrs := newDB(t)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	svcWatcher := &K8sServiceWatcher{
+		k8sSvcCache: k8sSvcCache,
+		svcManager:  svcManager,
+	}
+
+	go svcWatcher.k8sServiceHandler()
+	swg := lock.NewStoppableWaitGroup()
+
+	k8sSvcCache.UpdateService(k8sSvc, swg)
+	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
+	k8sSvcCache.UpdateService(k8sSvcChanged, swg)
+
+	swg.Stop()
+	swg.Wait()
+	require.Equal(t, len(upsertsWanted), svcUpsertManagerCalls)
+	require.Equal(t, len(delstWanted), svcDeleteManagerCalls)
+	require.EqualValues(t, upsertsWanted, upserts)
+	require.EqualValues(t, delstWanted, delst)
 }
