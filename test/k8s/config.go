@@ -49,6 +49,10 @@ var _ = SkipDescribeIf(func() bool {
 		kubectl.CloseSSHClient()
 	})
 
+	JustAfterEach(func() {
+		kubectl.CollectFeatures()
+	})
+
 	It("Correctly computes config overrides", func() {
 		pods, err := kubectl.GetPodsNodes(helpers.CiliumNamespace, helpers.CiliumSelector)
 		Expect(err).To(BeNil(), "error finding cilium pods")
@@ -118,7 +122,7 @@ spec:
 		recreatePods()
 		nodeConfigKeys := getNodeConfigKeys("test-key")
 		Expect(nodeConfigKeys).To(HaveKey(nodeName))
-		Expect(nodeConfigKeys).To(HaveEach("")) //ensure that all elements are ""
+		Expect(nodeConfigKeys).To(HaveEach("")) // ensure that all elements are ""
 
 		// Now, label 1 node and check the only it gets this config key
 		By("Labeling node %s with io.cilium.testing=foo", nodeName)

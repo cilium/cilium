@@ -294,6 +294,13 @@ jobs:
 
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
+      - name: Features tested after egress gateway tests
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested after egress gateway tests"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - egress-gateway"
+          cilium-cli: './cilium-cli'
+
       - name: Start unencrypted packets check
         uses: ./.github/actions/bpftrace/start
         with:
@@ -311,6 +318,13 @@ jobs:
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --flush-ct
+
+      - name: Features tested after running all other tests
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested after all other tests"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - other tests"
+          cilium-cli: './cilium-cli'
 
       - name: Assert that no unencrypted packets are leaked
         uses: ./.github/actions/bpftrace/check
@@ -339,6 +353,13 @@ jobs:
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-check
 
+      - name: Features tested after egress gateway tests after rotating ipsec keys
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested after egress gateway tests after rotating ipsec keys"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - egress-gateway after rotating keys"
+          cilium-cli: './cilium-cli'
+
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
         with:
@@ -362,6 +383,13 @@ jobs:
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
             --flush-ct $TEST
+
+      - name: Features tested after running all other tests after rotating ipsec keys
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested after all other tests after rotating ipsec keys"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - other tests after rotating keys"
+          cilium-cli: './cilium-cli'
 
       - name: Assert that no unencrypted packets are leaked during tests
         uses: ./.github/actions/bpftrace/check
@@ -395,6 +423,13 @@ jobs:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
 
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.name }}
+          path: ${{ env.job_name }}*.json
+
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
@@ -421,6 +456,13 @@ jobs:
         with:
           name: cilium-junits
           pattern: cilium-junits-*
+          retention-days: 5
+          delete-merged: true
+      - name: Merge Features tested
+        uses: actions/upload-artifact/merge@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested
+          pattern: features-tested-*
           retention-days: 5
           delete-merged: true
 
