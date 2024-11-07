@@ -5,6 +5,7 @@ package features
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
@@ -14,6 +15,7 @@ import (
 // Each field is named according to the specific feature that it tracks.
 type Metrics struct {
 	DPMode metric.Vec[metric.Gauge]
+	DPIPAM metric.Vec[metric.Gauge]
 }
 
 const (
@@ -31,6 +33,17 @@ var (
 		networkModeOverlayVXLAN,
 		networkModeOverlayGENEVE,
 		networkModeDirectRouting,
+	}
+
+	defaultIPAMModes = []string{
+		ipamOption.IPAMKubernetes,
+		ipamOption.IPAMCRD,
+		ipamOption.IPAMENI,
+		ipamOption.IPAMAzure,
+		ipamOption.IPAMClusterPool,
+		ipamOption.IPAMMultiPool,
+		ipamOption.IPAMAlibabaCloud,
+		ipamOption.IPAMDelegatedPlugin,
 	}
 )
 
@@ -55,6 +68,24 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		DPIPAM: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "IPAM mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemDP,
+			Name:      "ipam",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultIPAMModes...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -74,4 +105,8 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 	}
 
 	m.DPMode.WithLabelValues(networkMode).Add(1)
+
+	ipamMode := config.IPAMMode()
+
+	m.DPIPAM.WithLabelValues(ipamMode).Add(1)
 }
