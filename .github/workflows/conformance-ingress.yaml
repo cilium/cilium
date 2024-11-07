@@ -271,7 +271,7 @@ jobs:
         timeout-minutes: 5
         run: |
           kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
-          if [ ${{ matrix.default-ingress-controller }} = "true" ]; then
+          if [ "${{ matrix.default-ingress-controller }}" = "true" ]; then
             # remove ingressClassName line from basic-ingress.yaml
             sed -i '/ingressClassName/d' untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
             kubectl apply -n default -f untrusted/examples/kubernetes/servicemesh/basic-ingress.yaml
@@ -294,7 +294,7 @@ jobs:
         if: ${{ matrix.kube-proxy-replacement == true }}
         timeout-minutes: 5
         run: |
-          if [ ${{ matrix.loadbalancer-mode }} = "dedicated" ]; then
+          if [ "${{ matrix.loadbalancer-mode }}" = "dedicated" ]; then
             node_port=$(kubectl get svc cilium-ingress-basic-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
           else
             node_port=$(kubectl get -n kube-system svc cilium-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
