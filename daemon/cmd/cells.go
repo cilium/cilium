@@ -26,6 +26,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
@@ -153,5 +154,10 @@ var (
 
 		// RegeneratorCell provides extra options and utilities for endpoints regeneration.
 		endpoint.RegeneratorCell,
+
+		// The feature Cell will retrieve information from all other cells /
+		// configuration to describe, in form of prometheus metrics, which
+		// features are enabled on the agent.
+		features.Cell,
 	)
 )
