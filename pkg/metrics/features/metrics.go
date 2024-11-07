@@ -13,10 +13,11 @@ import (
 // Metrics represents a collection of metrics related to a specific feature.
 // Each field is named according to the specific feature that it tracks.
 type Metrics struct {
-	DPMode     metric.Vec[metric.Gauge]
-	DPIPAM     metric.Vec[metric.Gauge]
-	DPChaining metric.Vec[metric.Gauge]
-	DPIP       metric.Vec[metric.Gauge]
+	DPMode               metric.Vec[metric.Gauge]
+	DPIPAM               metric.Vec[metric.Gauge]
+	DPChaining           metric.Vec[metric.Gauge]
+	DPIP                 metric.Vec[metric.Gauge]
+	DPIdentityAllocation metric.Vec[metric.Gauge]
 }
 
 const (
@@ -71,6 +72,11 @@ var (
 		networkIPv4,
 		networkIPv6,
 		networkDualStack,
+	}
+
+	defaultIdentityAllocationModes = []string{
+		option.IdentityAllocationModeKVstore,
+		option.IdentityAllocationModeCRD,
 	}
 )
 
@@ -149,6 +155,24 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		DPIdentityAllocation: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Identity Allocation mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemDP,
+			Name:      "identity_allocation",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultIdentityAllocationModes...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -184,4 +208,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 		ip = networkIPv6
 	}
 	m.DPIP.WithLabelValues(ip).Add(1)
+
+	identityAllocationMode := config.IdentityAllocationMode
+	m.DPIdentityAllocation.WithLabelValues(identityAllocationMode).Add(1)
 }
