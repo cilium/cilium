@@ -60,6 +60,7 @@ func TestUpdateNetworkMode(t *testing.T) {
 				RoutingMode:            tt.tunnelMode,
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -107,6 +108,7 @@ func TestUpdateIPAMMode(t *testing.T) {
 				IPAM:                   tt.IPAMMode,
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -153,6 +155,7 @@ func TestUpdateCNIChainingMode(t *testing.T) {
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -210,6 +213,7 @@ func TestUpdateInternetProtocol(t *testing.T) {
 				EnableIPv4:             tt.enableIPv4,
 				EnableIPv6:             tt.enableIPv6,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -256,6 +260,7 @@ func TestUpdateIdentityAllocationMode(t *testing.T) {
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
 				IdentityAllocationMode: tt.identityAllocationMode,
+				DatapathMode:           defaultDeviceModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -267,6 +272,95 @@ func TestUpdateIdentityAllocationMode(t *testing.T) {
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultIdentityAllocationModes {
 				counter, err := metrics.DPIdentityAllocation.GetMetricWithLabelValues(mode)
+				assert.NoError(t, err)
+
+				counterValue := counter.Get()
+				if mode == tt.expectedMode {
+					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
+				} else {
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateCiliumEndpointSlices(t *testing.T) {
+	tests := []struct {
+		name      string
+		enableCES bool
+		expected  float64
+	}{
+		{
+			name:      "Enable CES",
+			enableCES: true,
+			expected:  1,
+		},
+		{
+			name:      "Disable CES",
+			enableCES: false,
+			expected:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                      defaultIPAMModes[0],
+				EnableIPv4:                true,
+				IdentityAllocationMode:    defaultIdentityAllocationModes[0],
+				EnableCiliumEndpointSlice: tt.enableCES,
+				DatapathMode:              defaultDeviceModes[0],
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.DPCiliumEndpointSlicesEnabled.Get()
+
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableCES, counterValue)
+		})
+	}
+}
+
+func TestUpdateDeviceMode(t *testing.T) {
+	type testCase struct {
+		name         string
+		deviceMode   string
+		expectedMode string
+	}
+	var tests []testCase
+	for _, mode := range defaultDeviceModes {
+		tests = append(tests, testCase{
+			name:         fmt.Sprintf("Device %s mode", mode),
+			deviceMode:   mode,
+			expectedMode: mode,
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           tt.deviceMode,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultDeviceModes {
+				counter, err := metrics.DPDeviceMode.GetMetricWithLabelValues(mode)
 				assert.NoError(t, err)
 
 				counterValue := counter.Get()
