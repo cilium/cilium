@@ -318,6 +318,29 @@ func TestParseService(t *testing.T) {
 		Type:                     loadbalancer.SVCTypeClusterIP,
 	}, svc)
 
+	k8sSvc = &slim_corev1.Service{
+		ObjectMeta: *objMeta.DeepCopy(),
+		Spec: slim_corev1.ServiceSpec{
+			Type:      slim_corev1.ServiceTypeClusterIP,
+			ClusterIP: "127.0.0.1",
+		},
+	}
+	k8sSvc.ObjectMeta.Labels[corev1.IsHeadlessService] = ""
+
+	id, svc = ParseService(k8sSvc, nil)
+	require.EqualValues(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
+	require.EqualValues(t, &Service{
+		IsHeadless:               true,
+		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
+		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
+		Labels:                   map[string]string{"foo": "bar", corev1.IsHeadlessService: ""},
+		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
+		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		Type:                     loadbalancer.SVCTypeClusterIP,
+	}, svc)
+
 	serviceInternalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
 	k8sSvc = &slim_corev1.Service{
 		ObjectMeta: objMeta,
