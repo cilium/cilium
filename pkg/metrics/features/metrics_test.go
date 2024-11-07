@@ -56,10 +56,11 @@ func TestUpdateNetworkMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewMetrics(true)
 			config := &option.DaemonConfig{
-				DatapathMode: defaults.DatapathMode,
-				IPAM:         defaultIPAMModes[0],
-				RoutingMode:  tt.tunnelMode,
-				EnableIPv4:   true,
+				DatapathMode:           defaults.DatapathMode,
+				IPAM:                   defaultIPAMModes[0],
+				RoutingMode:            tt.tunnelMode,
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -104,9 +105,10 @@ func TestUpdateIPAMMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewMetrics(true)
 			config := &option.DaemonConfig{
-				DatapathMode: defaults.DatapathMode,
-				IPAM:         tt.IPAMMode,
-				EnableIPv4:   true,
+				DatapathMode:           defaults.DatapathMode,
+				IPAM:                   tt.IPAMMode,
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -150,9 +152,10 @@ func TestUpdateCNIChainingMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewMetrics(true)
 			config := &option.DaemonConfig{
-				DatapathMode: defaults.DatapathMode,
-				IPAM:         defaultIPAMModes[0],
-				EnableIPv4:   true,
+				DatapathMode:           defaults.DatapathMode,
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -206,10 +209,11 @@ func TestUpdateInternetProtocol(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewMetrics(true)
 			config := &option.DaemonConfig{
-				DatapathMode: defaults.DatapathMode,
-				IPAM:         defaultIPAMModes[0],
-				EnableIPv4:   tt.enableIPv4,
-				EnableIPv6:   tt.enableIPv6,
+				DatapathMode:           defaults.DatapathMode,
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             tt.enableIPv4,
+				EnableIPv6:             tt.enableIPv6,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -225,6 +229,53 @@ func TestUpdateInternetProtocol(t *testing.T) {
 
 				counterValue := counter.Get()
 				if mode == tt.expectedProtocol {
+					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
+				} else {
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateIdentityAllocationMode(t *testing.T) {
+	type testCase struct {
+		name                   string
+		identityAllocationMode string
+		expectedMode           string
+	}
+	var tests []testCase
+	for _, mode := range defaultIdentityAllocationModes {
+		tests = append(tests, testCase{
+			name:                   fmt.Sprintf("Identity Allocation mode %s", mode),
+			identityAllocationMode: mode,
+			expectedMode:           mode,
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				DatapathMode:           defaults.DatapathMode,
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: tt.identityAllocationMode,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultIdentityAllocationModes {
+				counter, err := metrics.DPIdentityAllocation.GetMetricWithLabelValues(mode)
+				assert.NoError(t, err)
+
+				counterValue := counter.Get()
+				if mode == tt.expectedMode {
 					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
 				} else {
 					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
