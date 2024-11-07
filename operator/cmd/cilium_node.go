@@ -129,25 +129,28 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 
 	if s.nodeManager != nil {
 		nodeManagerSyncHandler = s.syncHandlerConstructor(
-			func(node *cilium_v2.CiliumNode) {
+			func(node *cilium_v2.CiliumNode) error {
 				s.nodeManager.Delete(node)
+				return nil
 			},
-			func(node *cilium_v2.CiliumNode) {
+			func(node *cilium_v2.CiliumNode) error {
 				// node is deep copied before it is stored in pkg/aws/eni
 				s.nodeManager.Upsert(node)
+				return nil
 			})
 	}
 
 	if s.withKVStore {
 		kvStoreSyncHandler = s.syncHandlerConstructor(
-			func(node *cilium_v2.CiliumNode) {
+			func(node *cilium_v2.CiliumNode) error {
 				nodeDel := ciliumNodeName{
 					cluster: option.Config.ClusterName,
 					name:    node.Name,
 				}
 				ciliumNodeKVStore.DeleteLocalKey(ctx, &nodeDel)
+				return nil
 			},
-			func(node *cilium_v2.CiliumNode) {
+			func(node *cilium_v2.CiliumNode) error {
 				// This fallback update logic is not required when the kvstore
 				// is running outside of pod network, as the agent is always
 				// assumed to be able to connect to the kvstore (otherwise
@@ -157,8 +160,9 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 				// agents, especially upon operator restart.
 				if option.Config.KVstorePodNetworkSupport {
 					nodeNew := nodeTypes.ParseCiliumNode(node)
-					ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew, false)
+					return ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew, false)
 				}
+				return nil
 			})
 	}
 
@@ -278,7 +282,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 	return nil
 }
 
-func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler func(node *cilium_v2.CiliumNode), foundHandler func(node *cilium_v2.CiliumNode)) func(key string) error {
+func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler, foundHandler func(node *cilium_v2.CiliumNode) error) func(key string) error {
 	return func(key string) error {
 		_, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
@@ -289,12 +293,11 @@ func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler func(nod
 
 		// Delete handling
 		if !exists || errors.IsNotFound(err) {
-			notFoundHandler(&cilium_v2.CiliumNode{
+			return notFoundHandler(&cilium_v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: name,
 				},
 			})
-			return nil
 		}
 		if err != nil {
 			log.WithError(err).Warning("Unable to retrieve CiliumNode from watcher store")
@@ -312,11 +315,9 @@ func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler func(nod
 			}
 		}
 		if cn.DeletionTimestamp != nil {
-			notFoundHandler(cn)
-			return nil
+			return notFoundHandler(cn)
 		}
-		foundHandler(cn)
-		return nil
+		return foundHandler(cn)
 	}
 }
 
