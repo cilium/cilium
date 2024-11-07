@@ -15,11 +15,16 @@ import (
 )
 
 type mockFeaturesParams struct {
-	TunnelConfig tunnel.Protocol
+	TunnelConfig    tunnel.Protocol
+	CNIChainingMode string
 }
 
 func (m mockFeaturesParams) TunnelProtocol() tunnel.Protocol {
 	return m.TunnelConfig
+}
+
+func (m mockFeaturesParams) GetChainingMode() string {
+	return m.CNIChainingMode
 }
 
 func TestUpdateNetworkMode(t *testing.T) {
@@ -58,7 +63,8 @@ func TestUpdateNetworkMode(t *testing.T) {
 			}
 
 			params := mockFeaturesParams{
-				TunnelConfig: tt.tunnelProto,
+				TunnelConfig:    tt.tunnelProto,
+				CNIChainingMode: defaultChainingModes[0],
 			}
 
 			metrics.update(params, config)
@@ -102,13 +108,60 @@ func TestUpdateIPAMMode(t *testing.T) {
 				IPAM:         tt.IPAMMode,
 			}
 
-			params := mockFeaturesParams{}
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
 
 			metrics.update(params, config)
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultIPAMModes {
 				counter, err := metrics.DPIPAM.GetMetricWithLabelValues(mode)
+				assert.NoError(t, err)
+
+				counterValue := counter.Get()
+				if mode == tt.expectedMode {
+					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
+				} else {
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateCNIChainingMode(t *testing.T) {
+	type testCase struct {
+		name         string
+		chainingMode string
+		expectedMode string
+	}
+	var tests []testCase
+	for _, mode := range defaultChainingModes {
+		tests = append(tests, testCase{
+			name:         fmt.Sprintf("CNI mode %s", mode),
+			chainingMode: mode,
+			expectedMode: mode,
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				DatapathMode: defaults.DatapathMode,
+				IPAM:         defaultIPAMModes[0],
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: tt.chainingMode,
+			}
+
+			metrics.update(params, config)
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultChainingModes {
+				counter, err := metrics.DPChaining.GetMetricWithLabelValues(mode)
 				assert.NoError(t, err)
 
 				counterValue := counter.Get()
