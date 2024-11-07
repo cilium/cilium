@@ -63,6 +63,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOnNetNextKernel, "K8sDatapathBandwidthT
 
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+			kubectl.CollectFeatures()
 		})
 
 		waitForTestPods := func() {

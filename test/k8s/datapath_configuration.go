@@ -55,6 +55,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		kubectl.CollectFeatures()
 	})
 
 	Context("MonitorAggregation", func() {

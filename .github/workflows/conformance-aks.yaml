@@ -287,6 +287,12 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1"
+
       - name: Clean up Cilium
         run: |
           cilium uninstall --wait
@@ -314,6 +320,12 @@ jobs:
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2.xml" \
           --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
+
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2"
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
@@ -343,6 +355,13 @@ jobs:
           name: cilium-junits-${{ matrix.index }}
           path: cilium-junits/*.xml
 
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.index }}
+          path: ${{ env.job_name }}*.json
+
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
@@ -371,6 +390,12 @@ jobs:
         with:
           name: cilium-junits
           pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge Features tested
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: features-tested
+          pattern: features-tested-*
           token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:

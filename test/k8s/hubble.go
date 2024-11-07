@@ -141,6 +141,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+			kubectl.CollectFeatures()
 		})
 
 		AfterAll(func() {

@@ -42,6 +42,7 @@ var _ = SkipDescribeIf(
 
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+			kubectl.CollectFeatures()
 		})
 
 		AfterAll(func() {
