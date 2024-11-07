@@ -271,6 +271,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.KVstoreLeaseTTL)
 	option.BindEnv(vp, option.KVstoreLeaseTTL)
 
+	flags.Bool(option.KVstorePodNetworkSupport, defaults.KVstorePodNetworkSupport, "Enable the support for running the Cilium KVstore in pod network")
+	flags.MarkHidden(option.KVstorePodNetworkSupport)
+	option.BindEnv(vp, option.KVstorePodNetworkSupport)
+
 	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy")
 	flags.MarkHidden(option.EnableCiliumNetworkPolicy)
 	option.BindEnv(vp, option.EnableCiliumNetworkPolicy)

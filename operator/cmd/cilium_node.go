@@ -148,8 +148,17 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 				ciliumNodeKVStore.DeleteLocalKey(ctx, &nodeDel)
 			},
 			func(node *cilium_v2.CiliumNode) {
-				nodeNew := nodeTypes.ParseCiliumNode(node)
-				ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew, false)
+				// This fallback update logic is not required when the kvstore
+				// is running outside of pod network, as the agent is always
+				// assumed to be able to connect to the kvstore (otherwise
+				// connectivity to that node is broken anyways), and keep it
+				// up-to-date. Hence, let's skip it, given that it causes
+				// unnecessary churn and load on both etcd and all watching
+				// agents, especially upon operator restart.
+				if option.Config.KVstorePodNetworkSupport {
+					nodeNew := nodeTypes.ParseCiliumNode(node)
+					ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew, false)
+				}
 			})
 	}
 
