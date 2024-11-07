@@ -106,6 +106,7 @@ cilium connectivity test`,
 		newCmdInstallWithHelm(),
 		newCmdUninstallWithHelm(),
 		newCmdUpgradeWithHelm(),
+		newCmdFeatures(),
 	)
 
 	cmd.SetOut(os.Stdout)
