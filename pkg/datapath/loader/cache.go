@@ -182,6 +182,16 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	obj := o.serialize(hash)
 	defer obj.Unlock()
 
+	// The serialize call might have blocked for a significant amount of time
+	// if another compilation was in progress. Make sure that the endpoint is
+	// still alive, to bail out early otherwise, and prevent doing unnecessary
+	// operations that would likely fail.
+	select {
+	case <-ctx.Done():
+		return nil, "", ctx.Err()
+	default:
+	}
+
 	if obj.spec != nil {
 		return obj.spec.Copy(), hash, nil
 	}
