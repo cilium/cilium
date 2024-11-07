@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/envoy"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -70,6 +71,10 @@ func newProxy(params proxyParams) *Proxy {
 
 	triggerDone := make(chan struct{})
 
+	controllerManager := controller.NewManager()
+	controllerGroup := controller.NewGroup("proxy-ports-allocator")
+	controllerName := "proxy-ports-checkpoint"
+
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) (err error) {
 			// Restore all proxy ports before we create the trigger to overwrite the
@@ -77,9 +82,18 @@ func newProxy(params proxyParams) *Proxy {
 			p.RestoreProxyPorts(params.Config.RestoredProxyPortsAgeLimit)
 
 			p.proxyPortsTrigger, err = trigger.NewTrigger(trigger.Parameters{
-				MinInterval:  10 * time.Second,
-				TriggerFunc:  p.storeProxyPorts,
-				ShutdownFunc: func() { close(triggerDone) },
+				MinInterval: 10 * time.Second,
+				TriggerFunc: func(reasons []string) {
+					controllerManager.UpdateController(controllerName, controller.ControllerParams{
+						Group:    controllerGroup,
+						DoFunc:   p.storeProxyPorts,
+						StopFunc: p.storeProxyPorts, // perform one last checkpoint when the controller is removed
+					})
+				},
+				ShutdownFunc: func() {
+					controllerManager.RemoveControllerAndWait(controllerName) // waits for StopFunc
+					close(triggerDone)
+				},
 			})
 			return err
 		},

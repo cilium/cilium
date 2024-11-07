@@ -332,9 +332,9 @@ func proxyNotFoundError(name string) error {
 }
 
 // must be called with mutex NOT held via p.proxyPortsTrigger
-func (p *Proxy) storeProxyPorts(reasons []string) {
+func (p *Proxy) storeProxyPorts(ctx context.Context) error {
 	if p.proxyPortsPath == "" {
-		return // this is a unit test
+		return nil // this is a unit test
 	}
 	log := log.WithField(logfields.Path, p.proxyPortsPath)
 
@@ -342,7 +342,7 @@ func (p *Proxy) storeProxyPorts(reasons []string) {
 	out, err := renameio.NewPendingFile(p.proxyPortsPath, renameio.WithExistingPermissions(), renameio.WithPermissions(0o600))
 	if err != nil {
 		log.WithError(err).Error("failed to prepare proxy ports file")
-		return
+		return err
 	}
 	defer out.Cleanup()
 
@@ -360,13 +360,14 @@ func (p *Proxy) storeProxyPorts(reasons []string) {
 
 	if err := jw.Encode(portsMap); err != nil {
 		log.WithError(err).Error("failed to marshal proxy ports state")
-		return
+		return err
 	}
 	if err := out.CloseAtomicallyReplace(); err != nil {
 		log.WithError(err).Error("failed to write proxy ports file")
-		return
+		return err
 	}
 	log.Debug("Wrote proxy ports state")
+	return nil
 }
 
 var (
