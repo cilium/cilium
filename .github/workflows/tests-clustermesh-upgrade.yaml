@@ -603,7 +603,7 @@ jobs:
         if: ${{ !matrix.external-kvstore }}
         run: |
           kubectl --context ${{ env.contextName1 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
-          if [ ${{ matrix.kube-proxy }} != "none" ]; then
+          if [ "${{ matrix.kube-proxy }}" != "none" ]; then
             kubectl --context ${{ env.contextName2 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
           fi
 

@@ -144,11 +144,11 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
           EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute"
-          if [ ${{ matrix.crd-channel }} == "standard" ]; then
+          if [ "${{ matrix.crd-channel }}" == "standard" ]; then
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
           fi
 
-          if [ ${{ matrix.conformance-profile }} == "true" ]; then
+          if [ "${{ matrix.conformance-profile }}" == "true" ]; then
             SKIPPED_TESTS+="MeshConsumerRoute,HTTPRouteListenerPortMatching"
           fi
 
@@ -224,7 +224,7 @@ jobs:
         id: install-cilium
         run: |
           cilium_install_defaults="${{ steps.vars.outputs.cilium_install_defaults }}"
-          if [ ${{ matrix.encryption }} == "ipsec" ]; then
+          if [ "${{ matrix.encryption }}" == "ipsec" ]; then
             kubectl create -n kube-system secret generic cilium-ipsec-keys \
               --from-literal=keys="3 rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
             cilium_install_defaults+=" --helm-set=encryption.enabled=true \
@@ -286,7 +286,7 @@ jobs:
           GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.216@")
           echo "GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES"
           echo "GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES"
-          if [ ${{ matrix.conformance-profile }} == "true" ]; then
+          if [ "${{ matrix.conformance-profile }}" == "true" ]; then
             GATEWAY_API_CONFORMANCE_TESTS=1 \
             GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES  \
             GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES \
