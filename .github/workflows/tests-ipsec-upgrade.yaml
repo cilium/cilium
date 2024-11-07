@@ -383,6 +383,13 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
+      - name: Features tested before downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested before downgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - before downgrade"
+
       - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
@@ -416,6 +423,13 @@ jobs:
           tests: '!seq-.*'
           extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
 
+      - name: Features tested after downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested after downgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - after downgrade"
+
       - name: Fetch artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
         shell: bash
@@ -445,6 +459,13 @@ jobs:
           name: cilium-junits-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-junits/*.xml
 
+      - name: Upload features tested
+        if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.name }}-${{ matrix.mode }}
+          path: ${{ env.job_name }}*.json
+
       - name: Publish Test Results As GitHub Summary
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
@@ -473,6 +494,12 @@ jobs:
         with:
           name: cilium-junits
           pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge Features tested
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: features-tested
+          pattern: features-tested-*
           token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:

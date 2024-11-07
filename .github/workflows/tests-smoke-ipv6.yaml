@@ -155,6 +155,12 @@ jobs:
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
+
       - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
         # The following is needed to prevent hubble from receiving an empty
@@ -172,3 +178,10 @@ jobs:
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested
+          path: ${{ env.job_name }}*.json
