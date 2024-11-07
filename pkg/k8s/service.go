@@ -150,7 +150,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		}
 	}
 
-	headless := false
+	_, headless := svc.Labels[v1.IsHeadlessService]
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		headless = true
 	}
@@ -227,7 +227,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
 				// This can happen if the service type is NodePort/LoadBalancer but the upstream apiserver
-				// did not assign any NodePort to the serivce port field.
+				// did not assign any NodePort to the service port field.
 				// For example if `allocateLoadBalancerNodePorts` is set to false in the service
 				// spec. For more details see -
 				// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1864-disable-lb-node-ports
@@ -486,8 +486,8 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRanges []string,
 	headless bool, extTrafficPolicy, intTrafficPolicy loadbalancer.SVCTrafficPolicy,
 	healthCheckNodePort uint16, labels, selector map[string]string,
-	namespace string, svcType loadbalancer.SVCType) *Service {
-
+	namespace string, svcType loadbalancer.SVCType,
+) *Service {
 	var (
 		k8sExternalIPs     map[string]net.IP
 		k8sLoadBalancerIPs map[string]net.IP
