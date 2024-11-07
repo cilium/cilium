@@ -255,7 +255,7 @@ func (r *cecManager) getK8sService(name string, namespace string) (*slim_corev1.
 		Namespace: namespace,
 	})
 	if svc == nil {
-		return nil, fmt.Errorf("retrieved nil details for Service %s/%s", namespace, name)
+		return nil, nil
 	}
 	if !exists || err != nil {
 		return nil, err
