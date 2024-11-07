@@ -210,11 +210,11 @@ func (k *K8sServiceWatcher) RunK8sServiceHandler() {
 }
 
 func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) {
-	// Headless services do not need any datapath implementation
-	if svcInfo.IsHeadless {
+	// Cleanup any headless services with a frontend IP as services may still be
+	// marked as headless if labeled with `service.kubernetes.io/headless`.
+	if svcInfo.IsHeadless && len(svcInfo.FrontendIPs) == 0 {
 		return
 	}
-
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:   svc.Name,
 		logfields.K8sNamespace: svc.Namespace,
@@ -507,6 +507,7 @@ func stripEndpointsProtocol(endpoints *k8s.Endpoints) *k8s.Endpoints {
 func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) {
 	// Headless services do not need any datapath implementation
 	if svc.IsHeadless {
+		k.delK8sSVCs(svcID, svc)
 		return
 	}
 
