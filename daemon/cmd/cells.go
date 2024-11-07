@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	natStats "github.com/cilium/cilium/pkg/maps/nat/stats"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -267,6 +268,11 @@ var (
 
 		// Provide pcap recorder
 		recorder.Cell,
+
+		// The feature Cell will retrieve information from all other cells /
+		// configuration to describe, in form of prometheus metrics, which
+		// features are enabled on the agent.
+		features.Cell,
 	)
 )
 
