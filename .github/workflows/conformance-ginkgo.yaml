@@ -276,8 +276,13 @@ jobs:
         uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
-          ci-version: ${{ env.CILIUM_CLI_VERSION }}
-          binary-dir: '.'
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ needs.setup-vars.outputs.SHA }}
+
+      - name: Copy cilium-cli
+        shell: bash
+        run: |
+          cp -f /usr/local/bin/cilium ./cilium-cli-bin
 
       - name: Install helm
         shell: bash
@@ -304,7 +309,7 @@ jobs:
           cmd: |
             git config --global --add safe.directory /host
             mv /host/helm /usr/bin
-            mv /host/cilium /usr/bin/cilium-cli
+            cp /host/cilium-cli-bin /usr/bin/cilium-cli
 
       - name: Provision kind
         timeout-minutes: 5
@@ -440,6 +445,31 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             tar -zcf "test_results-${{ env.job_name }}.tar.gz" /host/test/test_results
 
+      - name: Prepare script to run inside lvm
+        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+        shell: bash
+        run: |
+          cat <<EOF > run-in-lvm.sh
+          #!/usr/bin/env bash
+          cd /host
+          if ! find /host/test/test_results -type f -iname 'feature-status-*.json' | grep -q .; then
+            exit 0
+          fi
+          find . -type f -iname 'feature-status-*.json' | while IFS= read -r file; do
+            mv "\$file" "./${{ env.job_name }}-\${file##*/feature-status-}"
+          done
+          EOF
+          chmod +x run-in-lvm.sh
+
+      - name: Fetch features tested
+        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            ./run-in-lvm.sh
+
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
@@ -465,6 +495,13 @@ jobs:
         with:
           name: cilium-junits-${{ matrix.k8s-version }}-${{matrix.focus}}
           path: cilium-junits/*.xml
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.k8s-version }}-${{matrix.focus}}
+          path: ${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
@@ -494,6 +531,12 @@ jobs:
         with:
           name: cilium-junits
           pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge Features tested
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: features-tested
+          pattern: features-tested-*
           token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:

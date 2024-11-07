@@ -40,6 +40,8 @@ jobs:
 
   cyclonus-test:
     name: Cyclonus Test
+    env:
+      job_name: "Cyclonus Test"
     runs-on: ubuntu-latest
     steps:
       - name: Collect Workflow Telemetry
@@ -139,6 +141,12 @@ jobs:
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.tag }}
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
+
       - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
         run: |
@@ -153,3 +161,10 @@ jobs:
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested
+          path: ${{ env.job_name }}*.json

@@ -4919,3 +4919,26 @@ func serviceAddressKey(ip, port, proto, scope string) string {
 	}
 	return fmt.Sprintf("%s%s", k, scope)
 }
+
+func (kub *Kubectl) CollectFeatures() {
+	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
+	defer cancel()
+
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+		return
+	}
+
+	// We need to get into the root directory because the CLI doesn't yet
+	// support absolute path. Once https://github.com/cilium/cilium-cli/pull/1552
+	// is installed in test VM images, we can remove this.
+	res := kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o markdown --output-file='%s/feature-status-%s.md'", testPath, ginkgoext.GetTestName()))
+	if !res.WasSuccessful() {
+		log.WithError(res.GetError()).Errorf("failed to collect feature status")
+	}
+	res = kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o json --output-file='%s/feature-status-%s.json'", testPath, ginkgoext.GetTestName()))
+	if !res.WasSuccessful() {
+		log.WithError(res.GetError()).Errorf("failed to collect feature status")
+	}
+}

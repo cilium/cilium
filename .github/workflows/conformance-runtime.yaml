@@ -391,6 +391,17 @@ jobs:
             go${{ env.go-version}} install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442
             make SKIP_COVERAGE=1 tests-privileged GO=go${{ env.go-version }}
 
+      - name: Copy tested features
+        if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            docker create --name cilium-dbg quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+            docker cp cilium-dbg:/usr/bin/cilium-dbg /usr/local/bin/cilium-dbg
+            docker rm cilium-dbg
+            cilium-dbg metrics list -p cilium_feature -o json > '/host/${{ env.job_name }} (${{ matrix.focus }}).json'
+
       - name: Debug failure on VM
         # Only debug the failure on the LVH that have Cilium running as a service,
         # which is 'agent' and 'datapath' focus.
@@ -441,6 +452,13 @@ jobs:
           name: cilium-junits-${{ matrix.focus }}
           path: cilium-junits/*.xml
 
+      - name: Upload features tested
+        if: ${{ always() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.focus }}
+          path: ${{ env.job_name }}*.json
+
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
@@ -469,6 +487,12 @@ jobs:
         with:
           name: cilium-junits
           pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge Features tested
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: features-tested
+          pattern: features-tested-*
           token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:

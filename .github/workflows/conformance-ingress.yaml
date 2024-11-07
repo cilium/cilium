@@ -99,6 +99,8 @@ jobs:
 
   ingress-conformance-test:
     name: Ingress Conformance Test
+    env:
+      job_name: "Ingress Conformance Test"
     needs: [wait-for-images]
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -425,6 +427,12 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --test 'packet-drops'
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} ${{ matrix.name }}"
+
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
@@ -440,6 +448,13 @@ jobs:
           name: cilium-sysdump-out-${{ matrix.name }}
           path: cilium-sysdump-out-*.zip
           retention-days: 5
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.name }}
+          path: ${{ env.job_name }}*.json
 
   commit-status-final:
     if: ${{ always() }}
