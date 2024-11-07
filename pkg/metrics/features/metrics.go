@@ -16,6 +16,7 @@ type Metrics struct {
 	DPMode     metric.Vec[metric.Gauge]
 	DPIPAM     metric.Vec[metric.Gauge]
 	DPChaining metric.Vec[metric.Gauge]
+	DPIP       metric.Vec[metric.Gauge]
 }
 
 const (
@@ -33,6 +34,10 @@ const (
 	networkChainingModeCalico      = "calico"
 	networkChainingModeFlannel     = "flannel"
 	networkChainingModeGenericVeth = "generic-veth"
+
+	networkIPv4      = "ipv4-only"
+	networkIPv6      = "ipv6-only"
+	networkDualStack = "ipv4-ipv6-dual-stack"
 )
 
 var (
@@ -60,6 +65,12 @@ var (
 		networkChainingModeCalico,
 		networkChainingModeFlannel,
 		networkChainingModeGenericVeth,
+	}
+
+	defaultIProtocols = []string{
+		networkIPv4,
+		networkIPv6,
+		networkDualStack,
 	}
 )
 
@@ -120,6 +131,24 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		DPIP: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "IP mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemDP,
+			Name:      "internet_protocol",
+		}, metric.Labels{
+			{
+				Name: "protocol", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultIProtocols...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -144,4 +173,15 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	chainingMode := params.GetChainingMode()
 	m.DPChaining.WithLabelValues(chainingMode).Add(1)
+
+	var ip string
+	switch {
+	case config.IPv4Enabled() && config.IPv6Enabled():
+		ip = networkDualStack
+	case config.IPv4Enabled():
+		ip = networkIPv4
+	case config.IPv6Enabled():
+		ip = networkIPv6
+	}
+	m.DPIP.WithLabelValues(ip).Add(1)
 }

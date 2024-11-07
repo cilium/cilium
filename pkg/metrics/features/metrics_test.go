@@ -176,3 +176,60 @@ func TestUpdateCNIChainingMode(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateInternetProtocol(t *testing.T) {
+	tests := []struct {
+		name             string
+		enableIPv4       bool
+		enableIPv6       bool
+		expectedProtocol string
+	}{
+		{
+			name:             "IPv4-only",
+			enableIPv4:       true,
+			expectedProtocol: networkIPv4,
+		},
+		{
+			name:             "IPv6-only",
+			enableIPv6:       true,
+			expectedProtocol: networkIPv6,
+		},
+		{
+			name:             "IPv4-IPv6-dual-stack",
+			enableIPv4:       true,
+			enableIPv6:       true,
+			expectedProtocol: networkDualStack,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				DatapathMode: defaults.DatapathMode,
+				IPAM:         defaultIPAMModes[0],
+				EnableIPv4:   tt.enableIPv4,
+				EnableIPv6:   tt.enableIPv6,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultChainingModes {
+				counter, err := metrics.DPIP.GetMetricWithLabelValues(mode)
+				assert.NoError(t, err)
+
+				counterValue := counter.Get()
+				if mode == tt.expectedProtocol {
+					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
+				} else {
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+				}
+			}
+		})
+	}
+}
