@@ -36,6 +36,7 @@ jobs:
         ipFamily: ["ipv4"]
     env:
       IP_FAMILY: ${{ matrix.ipFamily }}
+      job_name: "Installation and Conformance Test"
 
     steps:
       - name: Collect Workflow Telemetry
@@ -205,6 +206,12 @@ jobs:
             --report-dir=${E2E_REPORT_DIR}                \
             --disable-log-dump=true
 
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} ${{ matrix.ipFamily }}"
+
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
@@ -221,6 +228,13 @@ jobs:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
           retention-days: 5
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: "features-tested-${{ matrix.ipFamily }}"
+          path: ${{ env.job_name }}*.json
 
       - name: Upload cluster logs
         if: ${{ !success() }}
