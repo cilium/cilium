@@ -31,6 +31,7 @@ var _ = SkipDescribeIf(func() bool { return helpers.RunsOn54Kernel() && helpers.
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		kubectl.CollectFeatures()
 	})
 
 	AfterAll(func() {

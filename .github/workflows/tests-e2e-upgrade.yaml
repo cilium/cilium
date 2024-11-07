@@ -403,6 +403,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
+        id: provision-vh-vms
         uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           images-folder-parent: "/tmp"
@@ -555,6 +556,47 @@ jobs:
             ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
               --conn-disrupt-dispatch-interval 0ms
 
+      - name: Prepare script to run inside lvm
+        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+        shell: bash
+        run: |
+          cat <<EOF > run-in-lvm.sh
+          #!/usr/bin/env bash
+          ./cilium-cli features status -o markdown --output-file="feature-status.md"
+          ./cilium-cli features status -o json --output-file="${1}.json"
+          cd /host
+          if ! find /host/test/test_results -type f -iname 'feature-status-*.json' | grep -q .; then
+            exit 0
+          fi
+          find . -type f -iname 'feature-status-*.json' | while IFS= read -r file; do
+            mv "\$file" "./${{ env.job_name }}-\${file##*/feature-status-}"
+          done
+          EOF
+          chmod +x run-in-lvm.sh
+
+      - name: Fetch features tested
+        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+        continue-on-error: true
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            ./run-in-lvm.sh "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
+
+      - name: Report summary for features enabled on the agent
+        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+        shell: bash
+        run: |
+          echo ""                                                    >> "$GITHUB_STEP_SUMMARY"
+          echo "## Summary of all features tested before downgrade"  >> "$GITHUB_STEP_SUMMARY"
+          echo ""                                                    >> "$GITHUB_STEP_SUMMARY"
+          echo "<details>"                                           >> "$GITHUB_STEP_SUMMARY"
+          echo "  <summary>Click here to see</summary>"              >> "$GITHUB_STEP_SUMMARY"
+          echo ""                                                    >> "$GITHUB_STEP_SUMMARY"
+          cat feature-status.md                                      >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>"                                          >> "$GITHUB_STEP_SUMMARY"
+
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
@@ -602,6 +644,29 @@ jobs:
               --junit-property github_job_step="Run tests upgrade 3 (${{ join(matrix.*, ', ') }})" \
               "\${EXTRA[@]}"
 
+      - name: Fetch features tested
+        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+        continue-on-error: true
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            ./run-in-lvm.sh "${{ env.job_name }} (${{ matrix.name }}) - after downgrade"
+
+      - name: Report summary for features enabled on the agent
+        if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+        shell: bash
+        run: |
+          echo ""                                                   >> "$GITHUB_STEP_SUMMARY"
+          echo "## Summary of all features tested after downgrade"  >> "$GITHUB_STEP_SUMMARY"
+          echo ""                                                   >> "$GITHUB_STEP_SUMMARY"
+          echo "<details>"                                          >> "$GITHUB_STEP_SUMMARY"
+          echo "  <summary>Click here to see</summary>"             >> "$GITHUB_STEP_SUMMARY"
+          echo ""                                                   >> "$GITHUB_STEP_SUMMARY"
+          cat feature-status.md                                     >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>"                                         >> "$GITHUB_STEP_SUMMARY"
+
       - name: Fetch artifacts
         if: ${{ !success() }}
         uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
@@ -637,6 +702,13 @@ jobs:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
 
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.name }}
+          path: ${{ env.job_name }}*.json
+
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
@@ -663,6 +735,13 @@ jobs:
         with:
           name: cilium-junits
           pattern: cilium-junits-*
+          retention-days: 5
+          delete-merged: true
+      - name: Merge Features tested
+        uses: actions/upload-artifact/merge@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested
+          pattern: features-tested-*
           retention-days: 5
           delete-merged: true
 
