@@ -13,11 +13,12 @@ import (
 // Metrics represents a collection of metrics related to a specific feature.
 // Each field is named according to the specific feature that it tracks.
 type Metrics struct {
-	DPMode               metric.Vec[metric.Gauge]
-	DPIPAM               metric.Vec[metric.Gauge]
-	DPChaining           metric.Vec[metric.Gauge]
-	DPIP                 metric.Vec[metric.Gauge]
-	DPIdentityAllocation metric.Vec[metric.Gauge]
+	DPMode                        metric.Vec[metric.Gauge]
+	DPIPAM                        metric.Vec[metric.Gauge]
+	DPChaining                    metric.Vec[metric.Gauge]
+	DPIP                          metric.Vec[metric.Gauge]
+	DPIdentityAllocation          metric.Vec[metric.Gauge]
+	DPCiliumEndpointSlicesEnabled metric.Gauge
 }
 
 const (
@@ -173,6 +174,13 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		DPCiliumEndpointSlicesEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Cilium Endpoint Slices enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemDP,
+			Name:      "cilium_endpoint_slices_enabled",
+		}),
 	}
 }
 
@@ -211,4 +219,8 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	identityAllocationMode := config.IdentityAllocationMode
 	m.DPIdentityAllocation.WithLabelValues(identityAllocationMode).Add(1)
+
+	if config.EnableCiliumEndpointSlice {
+		m.DPCiliumEndpointSlicesEnabled.Add(1)
+	}
 }
