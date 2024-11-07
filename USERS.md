@@ -847,6 +847,12 @@ Users (Alphabetically)
       U. CNI, BGP, eBPF, Hubble, DirectRouting (via kube-router)
       Q: @nerzhul
 
+    * N: Virtuozzo
+      D: Cilium CNI is the default network plugin for Kubernetes clusters within Virtuozzo Hybrid Infrastructure.
+      U: Networking, NetworkPolicy, Services
+      L: https://docs.virtuozzo.com/virtuozzo_hybrid_infrastructure_6_3_admins_guide/index.html#provisioning-kubernetes.html
+      Q: egor.ustinov@virtuozzo.com
+
     * N: VMware by Broadcom
       D: VMware offers multi-arch (ARM, AMD) and multi-distro (Ubuntu, RedHat UBI, Debian, PhotonOS) Cilium as part of the Tanzu Application Catalog, enabling customers to deploy it in their Kubernetes infrastructure.
       U: CNI, Hubble, BGP, eBPF, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy
