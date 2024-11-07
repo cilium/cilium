@@ -13,8 +13,9 @@ import (
 // Metrics represents a collection of metrics related to a specific feature.
 // Each field is named according to the specific feature that it tracks.
 type Metrics struct {
-	DPMode metric.Vec[metric.Gauge]
-	DPIPAM metric.Vec[metric.Gauge]
+	DPMode     metric.Vec[metric.Gauge]
+	DPIPAM     metric.Vec[metric.Gauge]
+	DPChaining metric.Vec[metric.Gauge]
 }
 
 const (
@@ -25,6 +26,13 @@ const (
 	networkModeOverlayVXLAN  = "overlay-vxlan"
 	networkModeOverlayGENEVE = "overlay-geneve"
 	networkModeDirectRouting = "direct-routing"
+
+	networkChainingModeNone        = "none"
+	networkChainingModeAWSCNI      = "aws-cni"
+	networkChainingModeAWSVPCCNI   = "aws-vpc-cni"
+	networkChainingModeCalico      = "calico"
+	networkChainingModeFlannel     = "flannel"
+	networkChainingModeGenericVeth = "generic-veth"
 )
 
 var (
@@ -43,6 +51,15 @@ var (
 		ipamOption.IPAMMultiPool,
 		ipamOption.IPAMAlibabaCloud,
 		ipamOption.IPAMDelegatedPlugin,
+	}
+
+	defaultChainingModes = []string{
+		networkChainingModeNone,
+		networkChainingModeAWSCNI,
+		networkChainingModeAWSVPCCNI,
+		networkChainingModeCalico,
+		networkChainingModeFlannel,
+		networkChainingModeGenericVeth,
 	}
 )
 
@@ -85,6 +102,24 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		DPChaining: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Chaining mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemDP,
+			Name:      "chaining_enabled",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultChainingModes...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -102,10 +137,11 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 			networkMode = networkModeOverlayGENEVE
 		}
 	}
-
 	m.DPMode.WithLabelValues(networkMode).Add(1)
 
 	ipamMode := config.IPAMMode()
-
 	m.DPIPAM.WithLabelValues(ipamMode).Add(1)
+
+	chainingMode := params.GetChainingMode()
+	m.DPChaining.WithLabelValues(chainingMode).Add(1)
 }

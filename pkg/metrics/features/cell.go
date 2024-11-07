@@ -4,6 +4,7 @@
 package features
 
 import (
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/option"
@@ -31,17 +32,23 @@ var Cell = cell.Module(
 type featuresParams struct {
 	cell.In
 
-	JobRegistry   job.Registry
-	Health        cell.Health
-	Lifecycle     cell.Lifecycle
-	ConfigPromise promise.Promise[*option.DaemonConfig]
-	Metrics       featureMetrics
+	JobRegistry      job.Registry
+	Health           cell.Health
+	Lifecycle        cell.Lifecycle
+	ConfigPromise    promise.Promise[*option.DaemonConfig]
+	Metrics          featureMetrics
+	CNIConfigManager cni.CNIConfigManager
 }
 
 func (fp *featuresParams) TunnelProtocol() string {
 	return option.Config.TunnelProtocol
 }
 
+func (fp *featuresParams) GetChainingMode() string {
+	return fp.CNIConfigManager.GetChainingMode()
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() string
+	GetChainingMode() string
 }
