@@ -581,8 +581,14 @@ func ipSecReplaceStateOut(log *slog.Logger, params *IPSecParameters) (uint8, err
 	state.Dst = *params.DestTunnelIP
 	state.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
 	state.OutputMark = &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkEncrypt,
+		Value: 0,
 		Mask:  linux_defaults.OutputMarkMask,
+	}
+	if option.Config.RoutingMode == option.RoutingModeTunnel {
+		// If running in tunnel mode, we want to keep the mark to be able to
+		// redirect encrypted packets to cilium_host where our BPF program will
+		// set up the tunneling configuration.
+		state.OutputMark.Value = linux_defaults.RouteMarkEncrypt
 	}
 	return key.Spi, xfrmStateReplace(log, state, params.RemoteRebooted)
 }
