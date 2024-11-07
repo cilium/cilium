@@ -252,7 +252,6 @@ const (
 	disableSocketLBTracing     = "Disabling socket-LB tracing"                                           // cf. https://github.com/cilium/cilium/issues/29734
 	sessionAffinitySocketLB    = "Session affinity for host reachable services needs kernel"             // cf. https://github.com/cilium/cilium/issues/29736
 	objectHasBeenModified      = "the object has been modified; please apply your changes"               // cf. https://github.com/cilium/cilium/issues/29712
-	noBackendResponse          = "The kernel does not support --service-no-backend-response=reject"      // cf. https://github.com/cilium/cilium/issues/29733
 	unsupportedSocketLookup    = "Without socket lookup kernel functionality"                            // cf. https://github.com/cilium/cilium/issues/29735
 	legacyBGPFeature           = "You are using the legacy BGP feature"                                  // Expected when testing the legacy BGP feature.
 	etcdTimeout                = "etcd client timeout exceeded"                                          // cf. https://github.com/cilium/cilium/issues/29714
@@ -336,7 +335,7 @@ var badLogMessages = map[string][]string{
 		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
 	logutils.WarningLogs: {cantEnableJIT, delMissingService, failedIpcacheRestore,
 		podCIDRUnavailable, unableGetNode,
-		disableSocketLBTracing, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
+		disableSocketLBTracing, sessionAffinitySocketLB, objectHasBeenModified,
 		unsupportedSocketLookup, legacyBGPFeature, etcdTimeout, endpointRestoreFailed,
 		failedPeerSync, unableRestoreRouterIP, routerIPReallocated,
 		cantFindIdentityInCache, kubeApiserverConnLost1, kubeApiserverConnLost2, heartbeatTimedOut,
