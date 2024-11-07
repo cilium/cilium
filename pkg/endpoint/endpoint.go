@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1758,6 +1759,15 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		return false, nil
 	}
 
+	filterResolveMetadataError := func(err error) error {
+		if restoredEndpoint && k8sErrors.IsNotFound(err) {
+			e.getLogger().WithError(err).Info("Unable to resolve metadata during endpoint restoration. Is the pod still running?")
+			return nil
+		}
+
+		return err
+	}
+
 	// copy the base labels into this local variable
 	// so that we don't override 'baseLabels'.
 	controllerBaseLabels := labels.NewFrom(baseLabels)
@@ -1767,6 +1777,10 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	pod, k8sMetadata, err := resolveMetadata(ns, podName)
 	switch {
 	case err != nil:
+		if filterResolveMetadataError(err) == nil {
+			break
+		}
+
 		e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
 		fallthrough
 	case e.K8sUID != "" && e.K8sUID != string(pod.GetUID()):
@@ -1798,7 +1812,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
 		po, _, err := resolveMetadata(ns, podName)
 		if err != nil {
-			return "", err
+			return "", filterResolveMetadataError(err)
 		}
 		value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
 		return value, nil
@@ -1806,7 +1820,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		po, _, err := resolveMetadata(ns, podName)
 		if err != nil {
-			return "", err
+			return "", filterResolveMetadataError(err)
 		}
 		value, _ := annotation.Get(po, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
 		return value, nil
@@ -1814,7 +1828,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, err error) {
 		_, k8sMetadata, err := resolveMetadata(ns, podName)
 		if err != nil {
-			return "", err
+			return "", filterResolveMetadataError(err)
 		}
 		return k8sMetadata.Annotations[bandwidth.EgressBandwidth], nil
 	})
