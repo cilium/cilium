@@ -4,6 +4,7 @@
 package features
 
 import (
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -20,6 +21,7 @@ type Metrics struct {
 	DPIP                          metric.Vec[metric.Gauge]
 	DPIdentityAllocation          metric.Vec[metric.Gauge]
 	DPCiliumEndpointSlicesEnabled metric.Gauge
+	DPDeviceMode                  metric.Vec[metric.Gauge]
 }
 
 const (
@@ -81,6 +83,13 @@ var (
 		option.IdentityAllocationModeCRD,
 		option.IdentityAllocationModeDoubleWriteReadKVstore,
 		option.IdentityAllocationModeDoubleWriteReadCRD,
+	}
+
+	defaultDeviceModes = []string{
+		datapathOption.DatapathModeVeth,
+		datapathOption.DatapathModeNetkit,
+		datapathOption.DatapathModeNetkitL2,
+		datapathOption.DatapathModeLBOnly,
 	}
 )
 
@@ -184,6 +193,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemDP,
 			Name:      "cilium_endpoint_slices_enabled",
 		}),
+
+		DPDeviceMode: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Device mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemDP,
+			Name:      "device",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultDeviceModes...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -226,4 +253,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 	if config.EnableCiliumEndpointSlice {
 		m.DPCiliumEndpointSlicesEnabled.Add(1)
 	}
+
+	deviceMode := config.DatapathMode
+	m.DPDeviceMode.WithLabelValues(deviceMode).Add(1)
 }
