@@ -284,3 +284,45 @@ func TestUpdateIdentityAllocationMode(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateCiliumEndpointSlices(t *testing.T) {
+	tests := []struct {
+		name      string
+		enableCES bool
+		expected  float64
+	}{
+		{
+			name:      "Enable CES",
+			enableCES: true,
+			expected:  1,
+		},
+		{
+			name:      "Disable CES",
+			enableCES: false,
+			expected:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				DatapathMode:              defaults.DatapathMode,
+				IPAM:                      defaultIPAMModes[0],
+				EnableIPv4:                true,
+				IdentityAllocationMode:    defaultIdentityAllocationModes[0],
+				EnableCiliumEndpointSlice: tt.enableCES,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.DPCiliumEndpointSlicesEnabled.Get()
+
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableCES, counterValue)
+		})
+	}
+}
