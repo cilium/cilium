@@ -404,6 +404,9 @@ type MapStateEntry struct {
 	// IsDeny is true when the policy should be denied.
 	IsDeny bool
 
+	// Invalid is only set to mark the current entry for update when syncing entries to datapath
+	Invalid bool
+
 	// AuthType is non-zero when authentication is required for the traffic to be allowed.
 	AuthType AuthType
 }

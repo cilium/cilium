@@ -458,19 +458,8 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	return entries, err
 }
 
-// DumpValid calls 'cb' for each key/value in the policy map where the prefix length fields
-// in the key and value agree. This should be used to filter out invalid entries so that
-// they will be rewritten with the valid values.
-func (pm *PolicyMap) DumpValid(cb func(key *PolicyKey, value *PolicyEntry)) error {
-	return pm.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
-		k := key.(*PolicyKey)
-		v := value.(*PolicyEntry)
-
-		// Call 'cb' only for entries with valid prefix len
-		if v.GetPrefixLen() == uint8(k.Prefixlen-StaticPrefixBits) {
-			cb(k, v)
-		}
-	})
+func (v *PolicyEntry) IsValid(k *PolicyKey) bool {
+	return v.GetPrefixLen() == uint8(k.Prefixlen-StaticPrefixBits)
 }
 
 func newMap(path string) *PolicyMap {
