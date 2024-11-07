@@ -700,7 +700,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 		operatorWatchers.PodStore = podStore.CacheStore()
 
-		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg); err != nil {
+		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg, podStore); err != nil {
 			log.WithError(err).Fatal("Unable to setup cilium node synchronizer")
 		}
 
