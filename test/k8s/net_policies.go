@@ -68,6 +68,7 @@ var _ = SkipDescribeIf(func() bool {
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		kubectl.CollectFeatures()
 	})
 
 	Context("Basic Test", func() {
@@ -1280,6 +1281,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 
 		JustAfterEach(func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+			kubectl.CollectFeatures()
 		})
 
 		// Test must run with KPR enabled, see below comments.
