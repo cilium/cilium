@@ -23,7 +23,8 @@ type Metrics struct {
 	DPCiliumEndpointSlicesEnabled metric.Gauge
 	DPDeviceMode                  metric.Vec[metric.Gauge]
 
-	NPHostFirewallEnabled metric.Gauge
+	NPHostFirewallEnabled        metric.Gauge
+	NPLocalRedirectPolicyEnabled metric.Gauge
 }
 
 const (
@@ -221,6 +222,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemNP,
 			Name:      "host_firewall_enabled",
 		}),
+
+		NPLocalRedirectPolicyEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Local Redirect Policy enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "local_redirect_policy_enabled",
+		}),
 	}
 }
 
@@ -269,5 +277,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.EnableHostFirewall {
 		m.NPHostFirewallEnabled.Add(1)
+	}
+
+	if config.EnableLocalRedirectPolicy {
+		m.NPLocalRedirectPolicyEnabled.Add(1)
 	}
 }
