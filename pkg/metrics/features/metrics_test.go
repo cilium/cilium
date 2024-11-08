@@ -890,3 +890,48 @@ func TestUpdateBGPAvertisment(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateIPv4EgressGateway(t *testing.T) {
+	tests := []struct {
+		name      string
+		enableEGW bool
+		expected  float64
+	}{
+		{
+			name:      "Enable EGW",
+			enableEGW: true,
+			expected:  1,
+		},
+		{
+			name:      "Disable EGW",
+			enableEGW: false,
+			expected:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                    defaultIPAMModes[0],
+				EnableIPv4:              true,
+				IdentityAllocationMode:  defaultIdentityAllocationModes[0],
+				DatapathMode:            defaultDeviceModes[0],
+				NodePortMode:            defaultNodePortModes[0],
+				NodePortAlg:             defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:    defaultNodePortModeAccelerations[0],
+				EnableIPv4EgressGateway: tt.enableEGW,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBEgressGatewayEnabled.Get()
+
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEGW, counterValue)
+		})
+	}
+}
