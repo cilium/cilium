@@ -22,10 +22,13 @@ type Metrics struct {
 	DPIdentityAllocation          metric.Vec[metric.Gauge]
 	DPCiliumEndpointSlicesEnabled metric.Gauge
 	DPDeviceMode                  metric.Vec[metric.Gauge]
+
+	NPHostFirewallEnabled metric.Gauge
 }
 
 const (
 	subsystemDP = "feature_datapath"
+	subsystemNP = "feature_network_policies"
 )
 
 const (
@@ -211,6 +214,13 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		NPHostFirewallEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Host firewall enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "host_firewall_enabled",
+		}),
 	}
 }
 
@@ -256,4 +266,8 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	deviceMode := config.DatapathMode
 	m.DPDeviceMode.WithLabelValues(deviceMode).Add(1)
+
+	if config.EnableHostFirewall {
+		m.NPHostFirewallEnabled.Add(1)
+	}
 }
