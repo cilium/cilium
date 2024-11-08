@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -161,6 +162,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 			func() egressmap.PolicyMap { return nil },
 			func() datapath.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
+			func() garp.L2PodAnnouncementConfig { return &fakeTypes.GarpConfig{} },
 		),
 		monitorAgent.Cell,
 		ControlPlane,

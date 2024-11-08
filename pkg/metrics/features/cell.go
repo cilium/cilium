@@ -6,6 +6,7 @@ package features
 import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -34,13 +35,14 @@ var Cell = cell.Module(
 type featuresParams struct {
 	cell.In
 
-	JobRegistry      job.Registry
-	Health           cell.Health
-	Lifecycle        cell.Lifecycle
-	ConfigPromise    promise.Promise[*option.DaemonConfig]
-	Metrics          featureMetrics
-	CNIConfigManager cni.CNIConfigManager
-	MutualAuth       auth.MeshAuthConfig
+	JobRegistry       job.Registry
+	Health            cell.Health
+	Lifecycle         cell.Lifecycle
+	ConfigPromise     promise.Promise[*option.DaemonConfig]
+	Metrics           featureMetrics
+	CNIConfigManager  cni.CNIConfigManager
+	MutualAuth        auth.MeshAuthConfig
+	L2PodAnnouncement garp.L2PodAnnouncementConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() string {
@@ -66,10 +68,15 @@ func (fp *featuresParams) BigTCPConfig() types.BigTCPConfig {
 	}
 }
 
+func (fp *featuresParams) IsL2PodAnnouncementEnabled() bool {
+	return fp.L2PodAnnouncement.Enabled()
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() string
 	GetChainingMode() string
 	IsMutualAuthEnabled() bool
 	IsBandwidthManagerEnabled() bool
 	BigTCPConfig() types.BigTCPConfig
+	IsL2PodAnnouncementEnabled() bool
 }
