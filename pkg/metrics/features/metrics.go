@@ -38,6 +38,7 @@ type Metrics struct {
 	ACLBBandwidthManagerEnabled      metric.Gauge
 	ACLBSCTPEnabled                  metric.Gauge
 	ACLBInternalTrafficPolicyEnabled metric.Gauge
+	ACLBVTEPEnabled                  metric.Gauge
 }
 
 const (
@@ -416,6 +417,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "k8s_internal_traffic_policy_enabled",
 		}),
+
+		ACLBVTEPEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "VTEP enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "vtep_enabled",
+		}),
 	}
 }
 
@@ -521,5 +529,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.EnableInternalTrafficPolicy {
 		m.ACLBInternalTrafficPolicyEnabled.Add(1)
+	}
+
+	if config.EnableVTEP {
+		m.ACLBVTEPEnabled.Add(1)
 	}
 }
