@@ -45,6 +45,7 @@ type Metrics struct {
 	ACLBL2PodAnnouncementEnabled     metric.Gauge
 	ACLBExternalEnvoyProxyEnabled    metric.Vec[metric.Gauge]
 	ACLBCiliumNodeConfigEnabled      metric.Gauge
+	ACLBSRv6Enabled                  metric.Gauge
 }
 
 const (
@@ -511,6 +512,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "cilium_node_config_enabled",
 		}),
+
+		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "SRv6 enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "srv6_enabled",
+		}),
 	}
 }
 
@@ -658,5 +666,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if params.IsDynamicConfigSourceKindNodeConfig() {
 		m.ACLBCiliumNodeConfigEnabled.Add(1)
+	}
+
+	if config.EnableSRv6 {
+		m.ACLBSRv6Enabled.Add(1)
 	}
 }
