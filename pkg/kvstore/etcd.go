@@ -820,7 +820,13 @@ reList:
 		kvs, revision, err := e.paginatedList(ctx, scopedLog, w.Prefix)
 		if err != nil {
 			lr.Error(err, -1)
-			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
+
+			if attempt := errLimiter.Attempt(); attempt < 10 {
+				scopedLog.WithError(Hint(err)).WithField(logfields.Attempt, attempt).Info("Unable to list keys before starting watcher, will retry")
+			} else {
+				scopedLog.WithError(Hint(err)).WithField(logfields.Attempt, attempt).Warn("Unable to list keys before starting watcher, will retry")
+			}
+
 			errLimiter.Wait(ctx)
 			continue
 		}
