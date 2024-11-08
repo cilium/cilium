@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -241,19 +242,11 @@ func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 	w.WriteMsg(m)
 }
 
-type DummySelectorCacheUser struct{}
-
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
-}
-
-func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
-}
-
 // Setup identities, ports and endpoint IDs we will need
 var (
 	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})
 	testSelectorCache       = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
-	dummySelectorCacheUser  = &DummySelectorCacheUser{}
+	dummySelectorCacheUser  = &testpolicy.DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
 	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, DstID1Selector)
 	DstID2Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst2=test"))

@@ -13,8 +13,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/container/versioned"
-	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -24,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 var (
@@ -83,21 +82,13 @@ var (
 		EndPort: &int8090,
 	}
 
-	dummySelectorCacheUser = &DummySelectorCacheUser{}
+	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 )
-
-type DummySelectorCacheUser struct{}
 
 func testNewPolicyRepository() *policy.Repository {
 	repo := policy.NewPolicyRepository(nil, nil, nil, nil)
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
-}
-
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
-}
-
-func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
 }
 
 func TestParseNetworkPolicyIngress(t *testing.T) {
