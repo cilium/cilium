@@ -38,6 +38,7 @@ type Metrics struct {
 	ACLBBigTCPEnabled               metric.Vec[metric.Gauge]
 	ACLBL2LBEnabled                 metric.Gauge
 	ACLBL2PodAnnouncementEnabled    metric.Gauge
+	ACLBExternalEnvoyProxyEnabled   metric.Vec[metric.Gauge]
 }
 
 const (
@@ -68,6 +69,9 @@ const (
 	advConnBigTCPIPv4      = "ipv4-only"
 	advConnBigTCPIPv6      = "ipv6-only"
 	advConnBigTCPDualStack = "ipv4-ipv6-dual-stack"
+
+	advConnExtEnvoyProxyStandalone = "standalone"
+	advConnExtEnvoyProxyEmbedded   = "embedded"
 )
 
 var (
@@ -139,6 +143,11 @@ var (
 		advConnBigTCPIPv4,
 		advConnBigTCPIPv6,
 		advConnBigTCPDualStack,
+	}
+
+	defaultExternalEnvoyProxyModes = []string{
+		advConnExtEnvoyProxyStandalone,
+		advConnExtEnvoyProxyEmbedded,
 	}
 )
 
@@ -429,6 +438,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "l2_pod_announcement_enabled",
 		}),
+
+		ACLBExternalEnvoyProxyEnabled: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Envoy Proxy mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "envoy_proxy_enabled",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultExternalEnvoyProxyModes...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -552,5 +579,11 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if params.IsL2PodAnnouncementEnabled() {
 		m.ACLBL2PodAnnouncementEnabled.Add(1)
+	}
+
+	if config.ExternalEnvoyProxy {
+		m.ACLBExternalEnvoyProxyEnabled.WithLabelValues(advConnExtEnvoyProxyStandalone).Add(1)
+	} else {
+		m.ACLBExternalEnvoyProxyEnabled.WithLabelValues(advConnExtEnvoyProxyEmbedded).Add(1)
 	}
 }
