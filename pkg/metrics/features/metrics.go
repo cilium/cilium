@@ -39,6 +39,8 @@ type Metrics struct {
 	ACLBVTEPEnabled                 metric.Gauge
 	ACLBCiliumEnvoyConfigEnabled    metric.Gauge
 	ACLBBigTCPEnabled               metric.Vec[metric.Gauge]
+	ACLBL2LBEnabled                 metric.Gauge
+	ACLBL2PodAnnouncementEnabled    metric.Gauge
 }
 
 const (
@@ -442,6 +444,20 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		ACLBL2LBEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "L2 LB announcement enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "l2_lb_enabled",
+		}),
+
+		ACLBL2PodAnnouncementEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "L2 pod announcement enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "l2_pod_announcement_enabled",
+		}),
 	}
 }
 
@@ -561,5 +577,13 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if bigTCPProto != "" {
 		m.ACLBBigTCPEnabled.WithLabelValues(bigTCPProto).Add(1)
+	}
+
+	if config.EnableL2Announcements {
+		m.ACLBL2LBEnabled.Add(1)
+	}
+
+	if params.IsL2PodAnnouncementEnabled() {
+		m.ACLBL2PodAnnouncementEnabled.Add(1)
 	}
 }
