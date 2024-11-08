@@ -18,11 +18,12 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 )
 
-// Cell provides OnDecodeEvent handlers that export hubble events to files.
+// Cell provides OnDecodeEvent handlers exporting hubble events to files.
 var Cell = cell.Module(
 	"hubble-exporters",
-	"Hubble Exporters",
+	"Hubble flow log exporters",
 
+	cell.Provide(newValidatedConfig),
 	cell.Provide(newHubbleStaticExporter),
 	cell.Provide(newHubbleDynamicExporter),
 	cell.Config(defaultConfig),
@@ -93,65 +94,72 @@ type hubbleExportersParams struct {
 
 	JobGroup  job.Group
 	Lifecycle cell.Lifecycle
-	Config    config
+	Config    validatedConfig
 
 	// TODO: replace by slog
 	Logger logrus.FieldLogger
 }
 
+// validatedConfig is a config that is known to be valid.
+type validatedConfig config
+
+func newValidatedConfig(cfg config) (validatedConfig, error) {
+	if err := cfg.validate(); err != nil {
+		return validatedConfig{}, fmt.Errorf("hubble-exporter configuration error: %w", err)
+	}
+	return validatedConfig(cfg), nil
+}
+
 func newHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, error) {
-	if err := params.Config.validate(); err != nil {
-		return hubbleExportersOut{}, fmt.Errorf("hubble-exporter configuration error: %w", err)
+	if params.Config.ExportFilePath == "" {
+		// exporter is disabled
+		return hubbleExportersOut{}, nil
 	}
 
-	if params.Config.ExportFilePath != "" {
-		exporterOpts := []exporteroption.Option{
-			exporteroption.WithPath(params.Config.ExportFilePath),
-			exporteroption.WithMaxSizeMB(params.Config.ExportFileMaxSizeMB),
-			exporteroption.WithMaxBackups(params.Config.ExportFileMaxBackups),
-			exporteroption.WithAllowList(params.Logger, params.Config.ExportAllowlist),
-			exporteroption.WithDenyList(params.Logger, params.Config.ExportDenylist),
-			exporteroption.WithFieldMask(params.Config.ExportFieldmask),
-		}
-		if params.Config.ExportFileCompress {
-			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
-		}
-		exporter, err := NewExporter(params.Logger, exporterOpts...)
-		if err == nil {
-			params.Lifecycle.Append(cell.Hook{
-				OnStop: func(hc cell.HookContext) error {
-					return exporter.Stop()
-				},
-			})
-			return hubbleExportersOut{
-				ObserverOptions: []observeroption.Option{observeroption.WithOnDecodedEvent(exporter)},
-			}, nil
-		}
+	exporterOpts := []exporteroption.Option{
+		exporteroption.WithPath(params.Config.ExportFilePath),
+		exporteroption.WithMaxSizeMB(params.Config.ExportFileMaxSizeMB),
+		exporteroption.WithMaxBackups(params.Config.ExportFileMaxBackups),
+		exporteroption.WithAllowList(params.Logger, params.Config.ExportAllowlist),
+		exporteroption.WithDenyList(params.Logger, params.Config.ExportDenylist),
+		exporteroption.WithFieldMask(params.Config.ExportFieldmask),
+	}
+	if params.Config.ExportFileCompress {
+		exporterOpts = append(exporterOpts, exporteroption.WithCompress())
+	}
+	exporter, err := NewExporter(params.Logger, exporterOpts...)
+	if err != nil {
+		// non-fatal failure, log and continue
 		params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
+		return hubbleExportersOut{}, nil
 	}
 
-	return hubbleExportersOut{}, nil
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			return exporter.Stop()
+		},
+	})
+	return hubbleExportersOut{
+		ObserverOptions: []observeroption.Option{observeroption.WithOnDecodedEvent(exporter)},
+	}, nil
 }
 
 func newHubbleDynamicExporter(params hubbleExportersParams) (hubbleExportersOut, error) {
-	if err := params.Config.validate(); err != nil {
-		return hubbleExportersOut{}, fmt.Errorf("hubble-exporter configuration error: %w", err)
+	if params.Config.FlowlogsConfigFilePath == "" {
+		// exporter is disabled
+		return hubbleExportersOut{}, nil
 	}
 
-	if params.Config.FlowlogsConfigFilePath != "" {
-		exporter := NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath, params.Config.ExportFileMaxSizeMB, params.Config.ExportFileMaxBackups)
-		params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, health cell.Health) error {
-			return exporter.Watch(ctx)
-		}))
-		params.Lifecycle.Append(cell.Hook{
-			OnStop: func(hc cell.HookContext) error {
-				return exporter.Stop()
-			},
-		})
-		return hubbleExportersOut{
-			ObserverOptions: []observeroption.Option{observeroption.WithOnDecodedEvent(exporter)},
-		}, nil
-	}
-
-	return hubbleExportersOut{}, nil
+	exporter := NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath, params.Config.ExportFileMaxSizeMB, params.Config.ExportFileMaxBackups)
+	params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, health cell.Health) error {
+		return exporter.Watch(ctx)
+	}))
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			return exporter.Stop()
+		},
+	})
+	return hubbleExportersOut{
+		ObserverOptions: []observeroption.Option{observeroption.WithOnDecodedEvent(exporter)},
+	}, nil
 }
