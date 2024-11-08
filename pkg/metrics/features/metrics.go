@@ -32,6 +32,7 @@ type Metrics struct {
 
 	ACLBTransparentEncryption       metric.Vec[metric.Gauge]
 	ACLBKubeProxyReplacementEnabled metric.Gauge
+	ACLBStandaloneNSLB              metric.Vec[metric.Gauge]
 }
 
 const (
@@ -115,6 +116,24 @@ var (
 	defaultEncryptionModes = []string{
 		advConnNetEncIPSec,
 		advConnNetEncWireGuard,
+	}
+
+	defaultNodePortModes = []string{
+		option.NodePortModeSNAT,
+		option.NodePortModeDSR,
+		option.NodePortModeAnnotation,
+		option.NodePortModeHybrid,
+	}
+
+	defaultNodePortModeAlgorithms = []string{
+		option.NodePortAlgMaglev,
+		option.NodePortAlgRandom,
+	}
+
+	defaultNodePortModeAccelerations = []string{
+		option.NodePortAccelerationGeneric,
+		option.NodePortAccelerationBestEffort,
+		option.NodePortAccelerationNative,
 	}
 )
 
@@ -318,6 +337,44 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "kube_proxy_replacement_enabled",
 		}),
+
+		ACLBStandaloneNSLB: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Standalone North-South Load Balancer configuration enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "standalone_nslb_enabled",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultNodePortModes...,
+					)
+				}(),
+			},
+			{
+				Name: "algorithm", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultNodePortModeAlgorithms...,
+					)
+				}(),
+			},
+			{
+				Name: "acceleration", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultNodePortModeAccelerations...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -401,5 +458,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
 		m.ACLBKubeProxyReplacementEnabled.Add(1)
+	}
+
+	if config.NodePortAcceleration != option.NodePortAccelerationDisabled {
+		m.ACLBStandaloneNSLB.WithLabelValues(config.NodePortMode, config.NodePortAlg, config.NodePortAcceleration).Add(1)
 	}
 }
