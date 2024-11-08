@@ -519,80 +519,27 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 		},
 	}
 	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
-		Src: remote,
-		Dst: local,
-		Dir: netlink.XFRM_DIR_IN,
-		Mark: &netlink.XfrmMark{
-			Mask:  linux_defaults.IPsecMarkBitMask,
-			Value: linux_defaults.RouteMarkDecrypt,
-		},
+		Src:   wildcardCIDRv4,
+		Dst:   wildcardCIDRv4,
+		Dir:   netlink.XFRM_DIR_IN,
 		Tmpls: tmpls,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, policy)
 
 	// ensure XFRM policy is as we want it...
-	if !policy.Src.IP.Equal(remote.IP) {
-		t.Fatalf("Expected Src to be %s, but got %s", remote.IP.String(), policy.Src.IP.String())
+	if !policy.Src.IP.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Src to be %s, but got %s", wildcardIPv4.String(), policy.Src.IP.String())
 	}
-	if !policy.Dst.IP.Equal(local.IP) {
-		t.Fatalf("Expected Dst to be %s, but got %s", local.IP.String(), policy.Dst.IP.String())
+	if !policy.Dst.IP.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Dst to be %s, but got %s", wildcardIPv4.String(), policy.Dst.IP.String())
 	}
 	require.Equal(t, netlink.XFRM_DIR_IN, policy.Dir)
-	require.Equal(t, uint32(linux_defaults.RouteMarkDecrypt), policy.Mark.Value)
-	require.Equal(t, uint32(linux_defaults.IPsecMarkBitMask), policy.Mark.Mask)
+	require.Nil(t, policy.Mark)
 	require.Len(t, policy.Tmpls, 1)
 
 	// ensure the template is correct as well...
 	policyTmpl := policy.Tmpls[0]
-	if !policyTmpl.Src.Equal(remote.IP) {
-		t.Fatalf("Expected Src to be %s, but got %s", remote.IP.String(), policyTmpl.Src.String())
-	}
-	if !policyTmpl.Dst.Equal(local.IP) {
-		t.Fatalf("Expected Dst to be %s, but got %s", local.IP.String(), policyTmpl.Dst.String())
-	}
-	require.Equal(t, netlink.XFRM_PROTO_ESP, policyTmpl.Proto)
-	require.Equal(t, params.ReqID, policyTmpl.Reqid)
-	require.Equal(t, netlink.XFRM_MODE_TUNNEL, policyTmpl.Mode)
-
-	// Confirm a policy was created for L7 traffic as well...
-	tmpls = []netlink.XfrmPolicyTmpl{
-		{
-			Src:   remote.IP,
-			Dst:   local.IP,
-			Proto: netlink.XFRM_PROTO_ESP,
-			Reqid: params.ReqID,
-			Mode:  netlink.XFRM_MODE_TUNNEL,
-		},
-	}
-	policy, err = netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
-		Src: remote,
-		Dst: local,
-		Dir: netlink.XFRM_DIR_IN,
-		Mark: &netlink.XfrmMark{
-			Mask:  linux_defaults.IPsecMarkBitMask,
-			Value: linux_defaults.RouteMarkToProxy,
-		},
-		Tmpls: tmpls,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, policy)
-
-	// ensure XFRM policy is as we want it...
-	if !policy.Src.IP.Equal(remote.IP) {
-		t.Fatalf("Expected Src to be %s, but got %s", remote.IP.String(), policy.Src.IP.String())
-	}
-	if !policy.Dst.IP.Equal(local.IP) {
-		t.Fatalf("Expected Dst to be %s, but got %s", local.IP.String(), policy.Dst.IP.String())
-	}
-	require.Equal(t, netlink.XFRM_DIR_IN, policy.Dir)
-	require.Equal(t, uint32(linux_defaults.RouteMarkToProxy), policy.Mark.Value)
-	require.Equal(t, uint32(linux_defaults.IPsecMarkBitMask), policy.Mark.Mask)
-	require.Len(t, policy.Tmpls, 1)
-
-	// ensure the template is correct as well...
-	policyTmpl = policy.Tmpls[0]
-	// l7 proxy policy has a wildcard source
 	if !policyTmpl.Src.Equal(wildcardIPv4) {
 		t.Fatalf("Expected Src to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Src.String())
 	}

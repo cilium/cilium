@@ -233,7 +233,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 
 		params = ipsec.NewIPSecParamaters(template)
 		params.Dir = ipsec.IPSecDirIn
-		params.SourceSubnet = cidr
+		params.SourceSubnet = wildcardCIDR
 		params.DestSubnet = wildcardCIDR
 		params.SourceTunnelIP = &remoteCiliumInternalIP
 		params.DestTunnelIP = &localCiliumInternalIP
@@ -271,7 +271,6 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv4
 	localIP := localCiliumInternalIP
 
-	localCIDR := n.nodeConfig.AllocCIDRIPv4.IPNet
 	remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 	if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
@@ -312,7 +311,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 	params = ipsec.NewIPSecParamaters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
-	params.DestSubnet = localCIDR
+	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteIP
 	params.DestTunnelIP = &localIP
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
@@ -483,7 +482,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 
 		params = ipsec.NewIPSecParamaters(template)
 		params.Dir = ipsec.IPSecDirIn
-		params.SourceSubnet = cidr
+		params.SourceSubnet = wildcardCIDR6
 		params.DestSubnet = wildcardCIDR6
 		params.SourceTunnelIP = &remoteCiliumInternalIP
 		params.DestTunnelIP = &localCiliumInternalIP
@@ -520,7 +519,6 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv6
 	localIP := localCiliumInternalIP
 
-	localCIDR := n.nodeConfig.AllocCIDRIPv6.IPNet
 	remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 	if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
@@ -564,7 +562,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 	params = ipsec.NewIPSecParamaters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR6
-	params.DestSubnet = localCIDR
+	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &remoteIP
 	params.DestTunnelIP = &localIP
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
