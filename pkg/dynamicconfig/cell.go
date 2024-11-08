@@ -4,6 +4,8 @@
 package dynamicconfig
 
 import (
+	"encoding/json"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
@@ -37,6 +39,7 @@ var Cell = cell.Module(
 	),
 	cell.Provide(
 		statedb.RWTable[DynamicConfig].ToTable,
+		func(c Config) ConfigSource { return c },
 	),
 	cell.Invoke(
 		RegisterConfigMapReflector,
@@ -62,4 +65,24 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.MarkHidden(resolver.ConfigSources)
 	flags.String(resolver.ConfigSourcesOverrides, c.ConfigSourcesOverrides, "List of configuration keys that are allowed and not allowed to be overridden. Allowed config keys takes precedence over deny config keys.")
 	flags.MarkHidden(resolver.ConfigSourcesOverrides)
+}
+
+type ConfigSource interface {
+	IsKindNodeConfig() bool
+}
+
+func (c Config) IsKindNodeConfig() bool {
+	var configSources []resolver.ConfigSource
+	if c.ConfigSources != "" {
+		err := json.Unmarshal([]byte(c.ConfigSources), &configSources)
+		if err != nil {
+			return false
+		}
+		for _, cfgSrc := range configSources {
+			if cfgSrc.Kind == resolver.KindNodeConfig {
+				return true
+			}
+		}
+	}
+	return false
 }
