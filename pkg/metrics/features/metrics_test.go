@@ -1336,3 +1336,57 @@ func TestUpdateL2PodAnnouncements(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateExtEnvoyProxyMode(t *testing.T) {
+	tests := []struct {
+		name               string
+		externalEnvoyProxy bool
+		expectedMode       string
+	}{
+		{
+			name:               "ExtEnvoyProxyMode embedded",
+			externalEnvoyProxy: false,
+			expectedMode:       advConnExtEnvoyProxyEmbedded,
+		},
+		{
+			name:               "ExtEnvoyProxyMode standalone",
+			externalEnvoyProxy: true,
+			expectedMode:       advConnExtEnvoyProxyStandalone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				ExternalEnvoyProxy:     tt.externalEnvoyProxy,
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAlg:            defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultExternalEnvoyProxyModes {
+				counter, err := metrics.ACLBExternalEnvoyProxyEnabled.GetMetricWithLabelValues(mode)
+				assert.NoError(t, err)
+
+				counterValue := counter.Get()
+				if mode == tt.expectedMode {
+					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
+				} else {
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+				}
+			}
+		})
+	}
+}
