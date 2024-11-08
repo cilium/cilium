@@ -15,12 +15,13 @@ import (
 )
 
 type mockFeaturesParams struct {
-	TunnelConfig      tunnel.Protocol
-	CNIChainingMode   string
-	MutualAuth        bool
-	BandwidthManager  bool
-	bigTCPMock        bigTCPMock
-	L2PodAnnouncement bool
+	TunnelConfig                        tunnel.Protocol
+	CNIChainingMode                     string
+	MutualAuth                          bool
+	BandwidthManager                    bool
+	bigTCPMock                          bigTCPMock
+	L2PodAnnouncement                   bool
+	isDynamicConfigSourceKindNodeConfig bool
 }
 
 func (m mockFeaturesParams) TunnelProtocol() tunnel.Protocol {
@@ -45,6 +46,10 @@ func (m mockFeaturesParams) BigTCPConfig() types.BigTCPConfig {
 
 func (m mockFeaturesParams) IsL2PodAnnouncementEnabled() bool {
 	return m.L2PodAnnouncement
+}
+
+func (m mockFeaturesParams) IsDynamicConfigSourceKindNodeConfig() bool {
+	return m.isDynamicConfigSourceKindNodeConfig
 }
 
 type bigTCPMock struct {
@@ -1387,6 +1392,50 @@ func TestUpdateExtEnvoyProxyMode(t *testing.T) {
 					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
 				}
 			}
+		})
+	}
+}
+
+func TestUpdateDynamicNodeConfig(t *testing.T) {
+	tests := []struct {
+		name                    string
+		enableDynamicNodeConfig bool
+		expected                float64
+	}{
+		{
+			name:                    "DynamicNodeConfig enabled",
+			enableDynamicNodeConfig: true,
+			expected:                1,
+		},
+		{
+			name:                    "DynamicNodeConfig disabled",
+			enableDynamicNodeConfig: false,
+			expected:                0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAlg:            defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode:                     defaultChainingModes[0],
+				isDynamicConfigSourceKindNodeConfig: tt.enableDynamicNodeConfig,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBCiliumNodeConfigEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableDynamicNodeConfig, counterValue)
 		})
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -47,12 +48,13 @@ type featuresParams struct {
 	ConfigPromise promise.Promise[*option.DaemonConfig]
 	Metrics       featureMetrics
 
-	TunnelConfig      tunnel.Config
-	CNIConfigManager  cni.CNIConfigManager
-	MutualAuth        auth.MeshAuthConfig
-	BandwidthManager  types.BandwidthManager
-	BigTCP            types.BigTCPConfig
-	L2PodAnnouncement garp.L2PodAnnouncementConfig
+	TunnelConfig        tunnel.Config
+	CNIConfigManager    cni.CNIConfigManager
+	MutualAuth          auth.MeshAuthConfig
+	BandwidthManager    types.BandwidthManager
+	BigTCP              types.BigTCPConfig
+	L2PodAnnouncement   garp.L2PodAnnouncementConfig
+	DynamicConfigSource dynamicconfig.ConfigSource
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.Protocol {
@@ -79,6 +81,10 @@ func (fp *featuresParams) IsL2PodAnnouncementEnabled() bool {
 	return fp.L2PodAnnouncement.Enabled()
 }
 
+func (fp *featuresParams) IsDynamicConfigSourceKindNodeConfig() bool {
+	return fp.DynamicConfigSource.IsKindNodeConfig()
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.Protocol
 	GetChainingMode() string
@@ -86,4 +92,5 @@ type enabledFeatures interface {
 	IsBandwidthManagerEnabled() bool
 	BigTCPConfig() types.BigTCPConfig
 	IsL2PodAnnouncementEnabled() bool
+	IsDynamicConfigSourceKindNodeConfig() bool
 }

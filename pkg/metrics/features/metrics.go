@@ -44,6 +44,7 @@ type Metrics struct {
 	ACLBL2LBEnabled                  metric.Gauge
 	ACLBL2PodAnnouncementEnabled     metric.Gauge
 	ACLBExternalEnvoyProxyEnabled    metric.Vec[metric.Gauge]
+	ACLBCiliumNodeConfigEnabled      metric.Gauge
 }
 
 const (
@@ -504,6 +505,13 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		ACLBCiliumNodeConfigEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Cilium Node Config enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "cilium_node_config_enabled",
+		}),
 	}
 }
 
@@ -645,5 +653,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 		m.ACLBExternalEnvoyProxyEnabled.WithLabelValues(advConnExtEnvoyProxyStandalone).Add(1)
 	} else {
 		m.ACLBExternalEnvoyProxyEnabled.WithLabelValues(advConnExtEnvoyProxyEmbedded).Add(1)
+	}
+
+	if params.IsDynamicConfigSourceKindNodeConfig() {
+		m.ACLBCiliumNodeConfigEnabled.Add(1)
 	}
 }
