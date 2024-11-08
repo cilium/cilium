@@ -218,7 +218,7 @@ payload and then the decrypted inner packet (pod-to-pod). This occurs as, once a
 is decrypted, it is recirculated back to the same interface for further processing.
 Therefore, depending on the ``tcpdump`` filter applied, the capture might differ, but this
 **does not** indicate that encryption is not functioning correctly. In particular, to observe:
-    
+
 1. Only the encrypted packet: use the filter ``esp``.
 2. Only the decrypted packet: use a specific filter for the protocol used by the pods (such as ``icmp`` for ping).
 3. Both encrypted and decrypted packets: use no filter or combine the filters for both (such as ``esp or icmp``).
@@ -359,6 +359,112 @@ Disabling Encryption
 To disable the encryption, regenerate the YAML with the option
 ``encryption.enabled=false``
 
+.. _ipsec_xdp_acceleration:
+
+Acceleration with XDP
+=====================
+
+Decryption with Cilium IPsec is limited to a single CPU core per IPsec tunnel, which
+may impact performance in high-throughput workloads. An experimental flag can be
+given to the Cilium Agent to enable Receive Packet Steering (RPS) for IPsec ESP
+packets, which may improve throughput performance:
+
+This experimental feature improves IPsec throughput by allowing for flows within a single
+IPsec tunnel to be processed in parallel. Spare room in the SPI field of each ESP packet is
+utilized to transfer the hash of the inner encrypted packet. An XDP program running on
+each node extracts the inner packet hash and uses it to perform deterministic packet
+steering across available CPU cores on the node.
+
+.. warning::
+  By placing an encrypted packet's hash in the outer ESP header, complete obfuscation of
+  packets within the IPsec tunnel is lost. Each ESP packet will contain an identifier that
+  can be used to characterize the inner encrypted packet, potentially enabling
+  side-channel attacks. Ensure this is an acceptable risk before enabling this feature.
+
+  Additionally, this experimental feature is unable to tolerate CPU hotplugging.
+  Removing one or more CPUs after Cilium starts will potentially cause packets to
+  be dropped. Adding one or more CPUs after Cilium starts will not improve performance,
+  as they will not be utilized for packet processing on the ingress side.
+
+Before the feature is enabled, IPsec packet processing will take place on a single core:
+
+.. image:: ./_static/ipsec-stream-all-server-network-cpu.png
+
+After the feature is enabled, IPsec packet processing will take place on multiple cores
+as the number of Pod-to-Pod connections increases:
+
+.. image:: ./_static/ipsec-rps-stream-all-server-network-cpu.png
+
+As a result of utilizing more cores for packet processing, CPU usage will increase, therefore
+this feature allows for improved throughput at the cost of extra resource utilization.
+
+Performance improvements in cross-node Pod-to-Pod workloads scale with the number of connections.
+Workloads using a single, long-lived Pod-to-Pod connection will see the least gains in
+throughput, if none at all, while workloads using multiple, long-lived Pod-to-Pod connections
+will see the most gains in throughput.
+
+To enable this experimental feature, set ``encryption.ipsec.accelerate=true``:
+
+.. tabs::
+
+    .. group-tab:: Cilium CLI
+
+       .. parsed-literal::
+
+          cilium install |CHART_VERSION| \
+             --set encryption.enabled=true \
+             --set encryption.type=ipsec \
+             --set encryption.ipsec.accelerate=true
+
+    .. group-tab:: Helm
+
+       .. code-block:: shell-session
+
+           --set encryption.ipsec.accelerate=true
+
+The following requirements must be met for the feature to be enabled:
+
+1. Cilium must be configured with :ref:`native_routing`.
+2. Nodes in the cluster must support XDP in native mode. See :ref:`bpf_iproute2` for more
+   details.
+
+To validate the feature was enabled successfully, run a ``bash`` shell in one of the Cilium
+pods with ``kubectl -n kube-system exec -it ds/cilium -- bash`` and execute the following commands:
+
+  1. Install tcpdump
+
+     .. code-block:: shell-session
+
+         $ apt-get update
+         $ apt-get -y install tcpdump
+
+  2. Check that traffic is encrypted, the SPI field in each egressing ESP packet
+     contains extra data, and the SPI field in each ingressing ESP packet contains
+     just the SPI. In the example below, the SPI for the tunnel is ``0x03``. ESP packets
+     leaving the node contain the SPI of the tunnel at the end of the SPI field along with
+     extra data at the beginning of the SPI field. ESP packets entering the node contain only
+     the SPI of the tunnel.
+
+     .. code-block:: shell-session
+
+         tcpdump -l -n -i eth0 esp
+         tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+         listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
+         17:54:45.820076 IP 10.244.0.243 > 10.244.1.247: ESP(spi=0xfd804603,seq=0xf), length 96
+         17:54:45.820427 IP 10.244.1.247 > 10.244.0.243: ESP(spi=0x00000003,seq=0xc), length 96
+         17:54:45.820620 IP 10.244.0.243 > 10.244.1.247: ESP(spi=0xfd804603,seq=0x10), length 88
+         17:54:45.820673 IP 10.244.0.243 > 10.244.1.247: ESP(spi=0xfd804603,seq=0x11), length 160
+         17:54:45.821086 IP 10.244.1.247 > 10.244.0.243: ESP(spi=0x00000003,seq=0xd), length 88
+         17:54:45.821092 IP 10.244.1.247 > 10.244.0.243: ESP(spi=0x00000003,seq=0xe), length 324
+         17:54:45.821096 IP 10.244.1.247 > 10.244.0.243: ESP(spi=0x00000003,seq=0xf), length 700
+         17:54:45.821229 IP 10.244.0.243 > 10.244.1.247: ESP(spi=0xfd804603,seq=0x12), length 88
+         17:54:45.821237 IP 10.244.0.243 > 10.244.1.247: ESP(spi=0xfd804603,seq=0x13), length 88
+         17:54:45.821574 IP 10.244.0.243 > 10.244.1.247: ESP(spi=0xfd804603,seq=0x14), length 88
+         17:54:45.821807 IP 10.244.1.247 > 10.244.0.243: ESP(spi=0x00000003,seq=0x10), length 88
+         17:54:45.821901 IP 10.244.0.243 > 10.244.1.247: ESP(spi=0xfd804603,seq=0x15), length 88
+
+
+
 Limitations
 ===========
 
@@ -371,4 +477,5 @@ Limitations
       than 65535 nodes.
     * Decryption with Cilium IPsec is limited to a single CPU core per IPsec
       tunnel. This may affect performance in case of high throughput between
-      two nodes.
+      two nodes. See :ref:`ipsec_xdp_acceleration` for an experimental feature
+      to address this limitation.

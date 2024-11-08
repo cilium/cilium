@@ -628,7 +628,7 @@ A full command line example with llc's ``-mcpu=probe``:
     $ clang -O2 -Wall --target=bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -mcpu=probe -filetype=obj -o xdp-example.o
 
-Generally, LLVM IR generation is architecture independent. However, there are 
+Generally, LLVM IR generation is architecture independent. However, there are
 a few differences when using ``clang --target=bpf`` versus
 leaving ``--target=bpf`` out and thus using clang's default target which,
 depending on the underlying architecture, might be ``x86_64``, ``arm64``
@@ -1505,6 +1505,8 @@ describe some of the differences for the BPF model:
     if (ip4->protocol == IPPROTO_TCP) {
         // do something
     }
+
+.. _bpf_iproute2:
 
 iproute2
 --------
