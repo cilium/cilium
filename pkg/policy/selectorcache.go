@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -136,6 +137,26 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 	return selCacheMdl
 }
 
+func (sc *SelectorCache) Stats() selectorStats {
+	result := newSelectorStats()
+
+	sc.mutex.RLock()
+	defer sc.mutex.RUnlock()
+
+	version := sc.GetVersionHandle()
+	defer version.Close()
+
+	for _, idSel := range sc.selectors {
+		selections := idSel.GetSelections(version)
+		class := idSel.source.metricsClass()
+		if result.maxCardinalityByClass[class] < len(selections) {
+			result.maxCardinalityByClass[class] = len(selections)
+		}
+	}
+
+	return result
+}
+
 func labelArrayToModel(arr labels.LabelArray) models.LabelArray {
 	lbls := make(models.LabelArray, 0, len(arr))
 	for _, l := range arr {
@@ -226,6 +247,12 @@ func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	}
 
 	return sc
+}
+
+func (sc *SelectorCache) RegisterMetrics() {
+	if err := metrics.Register(newSelectorCacheMetrics(sc)); err != nil {
+		log.WithError(err).Warning("Selector cache metrics registration failed. No metrics will be reported.")
+	}
 }
 
 // oldVersionCleaner is called from a goroutine without holding any locks
