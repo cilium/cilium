@@ -26,6 +26,7 @@ type Metrics struct {
 	NPHostFirewallEnabled        metric.Gauge
 	NPLocalRedirectPolicyEnabled metric.Gauge
 	NPMutualAuthEnabled          metric.Gauge
+	NPNonDefaultDenyEnabled      metric.Gauge
 }
 
 const (
@@ -237,6 +238,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemNP,
 			Name:      "mutual_auth_enabled",
 		}),
+
+		NPNonDefaultDenyEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Non DefaultDeny Policies is enabled in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "non_defaultdeny_policies_enabled",
+		}),
 	}
 }
 
@@ -293,5 +301,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if params.IsMutualAuthEnabled() {
 		m.NPMutualAuthEnabled.Add(1)
+	}
+
+	if config.EnableNonDefaultDenyPolicies {
+		m.NPNonDefaultDenyEnabled.Add(1)
 	}
 }
