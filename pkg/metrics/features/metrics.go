@@ -29,6 +29,7 @@ type Metrics struct {
 	ACLBTransparentEncryption       metric.Vec[metric.Gauge]
 	ACLBKubeProxyReplacementEnabled metric.Gauge
 	ACLBNodePortConfig              metric.Vec[metric.Gauge]
+	ACLBBGPEnabled                  metric.Gauge
 }
 
 const (
@@ -336,6 +337,13 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		ACLBBGPEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "BGP Advertisement enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "bgp_advertisement_enabled",
+		}),
 	}
 }
 
@@ -414,4 +422,8 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 	}
 
 	m.ACLBNodePortConfig.WithLabelValues(config.NodePortMode, config.NodePortAlg, config.NodePortAcceleration).Add(1)
+
+	if config.BGPAnnouncePodCIDR || config.BGPAnnounceLBIP || config.EnableBGPControlPlane {
+		m.ACLBBGPEnabled.Add(1)
+	}
 }
