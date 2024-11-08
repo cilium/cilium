@@ -784,3 +784,65 @@ func TestUpdateStandaloneNSLB(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateBGPAvertisment(t *testing.T) {
+	tests := []struct {
+		name               string
+		bgpAnnouncePodCIDR bool
+		bgpAnnounceLBIP    bool
+		bgpControlPlane    bool
+		expected           float64
+	}{
+		{
+			name:               "Announce PodCIDR enabled",
+			bgpAnnouncePodCIDR: true,
+			expected:           1,
+		},
+		{
+			name:               "Announce LBIP enabled",
+			bgpAnnouncePodCIDR: true,
+			expected:           1,
+		},
+		{
+			name:               "Announce PodCIDR and LBIP enabled",
+			bgpAnnouncePodCIDR: true,
+			expected:           1,
+		},
+		{
+			name:            "Enable BGP Control Plane",
+			bgpControlPlane: true,
+			expected:        1,
+		},
+		{
+			name:     "Announce none",
+			expected: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAlg:            defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+				BGPAnnouncePodCIDR:     tt.bgpAnnouncePodCIDR,
+				BGPAnnounceLBIP:        tt.bgpAnnounceLBIP,
+				EnableBGPControlPlane:  tt.bgpControlPlane,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBBGPEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for bgpAnnouncePodCIDR: %t and bgpAnnounceLBIP: %t and bgpControlPlane: %t, got %.f", tt.expected, tt.bgpAnnouncePodCIDR, tt.bgpAnnounceLBIP, tt.bgpControlPlane, counterValue)
+		})
+	}
+}
