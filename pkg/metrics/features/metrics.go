@@ -25,6 +25,7 @@ type Metrics struct {
 
 	NPHostFirewallEnabled        metric.Gauge
 	NPLocalRedirectPolicyEnabled metric.Gauge
+	NPMutualAuthEnabled          metric.Gauge
 }
 
 const (
@@ -227,6 +228,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemNP,
 			Name:      "local_redirect_policy_enabled",
 		}),
+
+		NPMutualAuthEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Mutual Auth enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "mutual_auth_enabled",
+		}),
 	}
 }
 
@@ -279,5 +287,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.EnableLocalRedirectPolicy {
 		m.NPLocalRedirectPolicyEnabled.Add(1)
+	}
+
+	if params.IsMutualAuthEnabled() {
+		m.NPMutualAuthEnabled.Add(1)
 	}
 }
