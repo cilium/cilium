@@ -29,11 +29,14 @@ type Metrics struct {
 	NPMutualAuthEnabled          metric.Gauge
 	NPNonDefaultDenyEnabled      metric.Gauge
 	NPCIDRPoliciesToNodes        metric.Vec[metric.Gauge]
+
+	ACLBTransparentEncryption metric.Vec[metric.Gauge]
 }
 
 const (
-	subsystemDP = "feature_datapath"
-	subsystemNP = "feature_network_policies"
+	subsystemDP   = "feature_datapath"
+	subsystemNP   = "feature_network_policies"
+	subsystemACLB = "feature_adv_connect_and_lb"
 )
 
 const (
@@ -51,6 +54,9 @@ const (
 	networkIPv4      = "ipv4-only"
 	networkIPv6      = "ipv6-only"
 	networkDualStack = "ipv4-ipv6-dual-stack"
+
+	advConnNetEncIPSec     = "ipsec"
+	advConnNetEncWireGuard = "wireguard"
 )
 
 var (
@@ -103,6 +109,11 @@ var (
 	defaultCIDRPolicies = []string{
 		string(api.EntityWorld),
 		string(api.EntityRemoteNode),
+	}
+
+	defaultEncryptionModes = []string{
+		advConnNetEncIPSec,
+		advConnNetEncWireGuard,
 	}
 )
 
@@ -270,6 +281,35 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		ACLBTransparentEncryption: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Encryption mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "transparent_encryption",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultEncryptionModes...,
+					)
+				}(),
+			},
+			{
+				Name: "node2node_enabled", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						"true",
+						"false",
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -334,5 +374,20 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	for _, mode := range config.PolicyCIDRMatchMode {
 		m.NPCIDRPoliciesToNodes.WithLabelValues(mode).Add(1)
+	}
+
+	if config.EnableIPSec {
+		if config.EncryptNode {
+			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncIPSec, "true").Add(1)
+		} else {
+			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncIPSec, "false").Add(1)
+		}
+	}
+	if config.EnableWireguard {
+		if config.EncryptNode {
+			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, "true").Add(1)
+		} else {
+			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, "false").Add(1)
+		}
 	}
 }
