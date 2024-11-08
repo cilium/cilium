@@ -338,14 +338,23 @@ func ipSecNewPolicy() *netlink.XfrmPolicy {
 	return &policy
 }
 
-func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool, optional int) {
+func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool, optional bool) {
 	tmpl := netlink.XfrmPolicyTmpl{
-		Proto:    netlink.XFRM_PROTO_ESP,
-		Mode:     netlink.XFRM_MODE_TUNNEL,
-		Reqid:    keys.ReqID,
-		Dst:      dstIP,
-		Src:      srcIP,
-		Optional: optional,
+		Proto: netlink.XFRM_PROTO_ESP,
+		Mode:  netlink.XFRM_MODE_TUNNEL,
+		Dst:   dstIP,
+		Src:   srcIP,
+		Reqid: keys.ReqID,
+	}
+
+	if optional {
+		tmpl.Optional = 1
+		// If the template is optional, we might as well make it accept
+		// everything it can.
+		tmpl.Reqid = 0
+		tmpl.Src = nil
+		tmpl.Dst = nil
+		spi = false
 	}
 
 	if spi {
@@ -588,7 +597,7 @@ func ipSecReplaceStateOut(log *slog.Logger, params *IPSecParameters) (uint8, err
 }
 
 func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.Dir) error {
-	optional := int(0)
+	optional := false
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
 	key := getGlobalIPsecKey(params.DestSubnet.IP)
@@ -597,13 +606,6 @@ func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.
 	}
 	key.ReqID = params.ReqID
 
-	wildcardIP := wildcardIPv4
-	if params.SourceTunnelIP.To4() == nil {
-		wildcardIP = wildcardIPv6
-	}
-
-	tmplSrc := params.SourceTunnelIP
-	tmplDst := params.DestTunnelIP
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
 	if dir == netlink.XFRM_DIR_IN {
@@ -620,15 +622,12 @@ func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.
 			policy.Mark.Value = linux_defaults.RouteMarkToProxy
 			// We must mark the IN policy for the proxy optional simply because it
 			// is lacking a corresponding state.
-			optional = 1
-			// We set the source tmpl address to 0/0 to explicit that it
-			// doesn't matter.
-			tmplSrc = &wildcardIP
+			optional = true
 		} else {
 			policy.Mark.Value = linux_defaults.RouteMarkDecrypt
 		}
 	}
-	ipSecAttachPolicyTempl(policy, key, *tmplSrc, *tmplDst, false, optional)
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -657,7 +656,7 @@ func IpSecReplacePolicyFwd(params *IPSecParameters) error {
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, 1)
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, true)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -773,7 +772,7 @@ func ipSecReplacePolicyOut(params *IPSecParameters) error {
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, 0)
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, false)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
