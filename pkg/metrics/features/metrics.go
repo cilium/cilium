@@ -30,13 +30,14 @@ type Metrics struct {
 	NPNonDefaultDenyEnabled      metric.Gauge
 	NPCIDRPoliciesToNodes        metric.Vec[metric.Gauge]
 
-	ACLBTransparentEncryption       metric.Vec[metric.Gauge]
-	ACLBKubeProxyReplacementEnabled metric.Gauge
-	ACLBNodePortConfig              metric.Vec[metric.Gauge]
-	ACLBBGPEnabled                  metric.Gauge
-	ACLBEgressGatewayEnabled        metric.Gauge
-	ACLBBandwidthManagerEnabled     metric.Gauge
-	ACLBSCTPEnabled                 metric.Gauge
+	ACLBTransparentEncryption        metric.Vec[metric.Gauge]
+	ACLBKubeProxyReplacementEnabled  metric.Gauge
+	ACLBNodePortConfig               metric.Vec[metric.Gauge]
+	ACLBBGPEnabled                   metric.Gauge
+	ACLBEgressGatewayEnabled         metric.Gauge
+	ACLBBandwidthManagerEnabled      metric.Gauge
+	ACLBSCTPEnabled                  metric.Gauge
+	ACLBInternalTrafficPolicyEnabled metric.Gauge
 }
 
 const (
@@ -408,6 +409,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "sctp_enabled",
 		}),
+
+		ACLBInternalTrafficPolicyEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "K8s Internal Traffic Policy enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "k8s_internal_traffic_policy_enabled",
+		}),
 	}
 }
 
@@ -509,5 +517,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.EnableSCTP {
 		m.ACLBSCTPEnabled.Add(1)
+	}
+
+	if config.EnableInternalTrafficPolicy {
+		m.ACLBInternalTrafficPolicyEnabled.Add(1)
 	}
 }
