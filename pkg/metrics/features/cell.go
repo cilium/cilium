@@ -50,6 +50,7 @@ type featuresParams struct {
 	CNIConfigManager cni.CNIConfigManager
 	MutualAuth       auth.MeshAuthConfig
 	BandwidthManager types.BandwidthManager
+	BigTCP           types.BigTCPConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.Protocol {
@@ -68,9 +69,14 @@ func (fp *featuresParams) IsBandwidthManagerEnabled() bool {
 	return fp.BandwidthManager.Enabled()
 }
 
+func (fp *featuresParams) BigTCPConfig() types.BigTCPConfig {
+	return fp.BigTCP
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.Protocol
 	GetChainingMode() string
 	IsMutualAuthEnabled() bool
 	IsBandwidthManagerEnabled() bool
+	BigTCPConfig() types.BigTCPConfig
 }
