@@ -405,6 +405,7 @@ Name                                       Labels                               
 ``policy_change_total``                                                                       Enabled    Number of policy changes by outcome
 ``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
 ``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
+``policy_selector_match_count_max``        ``class``                                          Enabled    The maximum number of identities selected by a network policy selector
 ========================================== ================================================== ========== ========================================================
 
 Policy L7 (HTTP/Kafka/FQDN)

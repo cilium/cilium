@@ -155,6 +155,8 @@ type selectorSource interface {
 	matches(scIdentity) bool
 
 	remove(identityNotifier)
+
+	metricsClass() string
 }
 
 // fqdnSelector implements the selectorSource for a FQDNSelector. A fqdnSelector
@@ -174,6 +176,10 @@ func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
 // that matches the FQDNSelector's IdentityLabel string
 func (f *fqdnSelector) matches(identity scIdentity) bool {
 	return identity.lbls.Intersects(labels.LabelArray{f.selector.IdentityLabel()})
+}
+
+func (f *fqdnSelector) metricsClass() string {
+	return LabelValueSCFQDN
 }
 
 type labelIdentitySelector struct {
@@ -209,6 +215,19 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 
 func (l *labelIdentitySelector) remove(_ identityNotifier) {
 	// only useful for fqdn selectors
+}
+
+func (l *labelIdentitySelector) metricsClass() string {
+	if l.selector.DeepEqual(&api.EntitySelectorMapping[api.EntityCluster][0]) {
+		return LabelValueSCCluster
+	}
+	for _, entity := range api.EntitySelectorMapping[api.EntityWorld] {
+		if l.selector.DeepEqual(&entity) {
+			return LabelValueSCWorld
+		}
+	}
+
+	return LabelValueSCOther
 }
 
 // lock must be held
