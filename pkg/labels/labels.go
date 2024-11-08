@@ -105,6 +105,11 @@ var (
 	// on IDNameKubeAPIServer.
 	LabelKubeAPIServer = Labels{IDNameKubeAPIServer: NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved)}
 
+	LabelKubeAPIServerExt = Labels{
+		IDNameKubeAPIServer: NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved),
+		IDNameWorld:         NewLabel(IDNameWorld, "", LabelSourceReserved),
+	}
+
 	// LabelIngress is the label used for Ingress proxies. See comment
 	// on IDNameIngress.
 	LabelIngress = Labels{IDNameIngress: NewLabel(IDNameIngress, "", LabelSourceReserved)}

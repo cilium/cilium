@@ -478,6 +478,26 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Nil(t, id)
 }
 
+func TestRemoveAPIServerIdentityExternal(t *testing.T) {
+	cancel := setupTestExternalAPIServer(t)
+	defer cancel()
+	ctx := context.Background()
+
+	assert.Len(t, IPIdentityCache.metadata.m, 1)
+	remaining, err := IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Empty(t, remaining)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
+
+	IPIdentityCache.RemoveLabelsExcluded(
+		labels.LabelKubeAPIServer, map[netip.Prefix]struct{}{},
+		"kube-uid")
+	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Empty(t, IPIdentityCache.metadata.m)
+	assert.Empty(t, remaining)
+}
+
 func TestOverrideIdentity(t *testing.T) {
 	allocator := testidentity.NewMockIdentityAllocator(nil)
 
@@ -906,6 +926,27 @@ func setupTest(t *testing.T) (cleanup func()) {
 
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServer)
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.Local, "host-uid", labels.LabelHost)
+
+	return func() {
+		cancel()
+		IPIdentityCache.Shutdown()
+	}
+}
+
+func setupTestExternalAPIServer(t *testing.T) (cleanup func()) {
+	t.Helper()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	Allocator = testidentity.NewMockIdentityAllocator(nil)
+	PolicyHandler = newMockUpdater()
+	IPIdentityCache = NewIPCache(&Configuration{
+		Context:           ctx,
+		IdentityAllocator: Allocator,
+		PolicyHandler:     PolicyHandler,
+		DatapathHandler:   &mockTriggerer{},
+	})
+
+	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServerExt)
 
 	return func() {
 		cancel()

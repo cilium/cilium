@@ -773,6 +773,15 @@ func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.La
 	return identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, newLabels)
 }
 
+// appendAPIServerLabelsForDeletion inspects labels and performs special handling for corner cases like API server entities
+// deployed external to the cluster.
+func appendAPIServerLabelsForDeletion(lbls labels.Labels, currentLabels labels.Labels) labels.Labels {
+	if currentLabels.HasKubeAPIServerLabel() && currentLabels.HasWorldLabel() && len(currentLabels) == 2 {
+		lbls.MergeLabels(labels.LabelWorld)
+	}
+	return lbls
+}
+
 // RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD
 // except for the IPs / prefixes inside the given excluded set.
 //
@@ -790,7 +799,9 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 	oldSet := ipc.metadata.filterByLabels(lbls)
 	for _, ip := range oldSet {
 		if _, ok := toExclude[ip]; !ok {
-			affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(ip, rid, lbls)...)
+			prefixLabels := ipc.metadata.getLocked(ip).ToLabels()
+			lblsToRemove := appendAPIServerLabelsForDeletion(lbls, prefixLabels)
+			affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(ip, rid, lblsToRemove)...)
 		}
 	}
 	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)
