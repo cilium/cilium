@@ -15,11 +15,12 @@ import (
 )
 
 type mockFeaturesParams struct {
-	TunnelConfig     string
-	CNIChainingMode  string
-	MutualAuth       bool
-	BandwidthManager bool
-	bigTCPMock       bigTCPMock
+	TunnelConfig      string
+	CNIChainingMode   string
+	MutualAuth        bool
+	BandwidthManager  bool
+	bigTCPMock        bigTCPMock
+	L2PodAnnouncement bool
 }
 
 func (m mockFeaturesParams) TunnelProtocol() string {
@@ -40,6 +41,10 @@ func (m mockFeaturesParams) IsBandwidthManagerEnabled() bool {
 
 func (m mockFeaturesParams) BigTCPConfig() types.BigTCPConfig {
 	return m.bigTCPMock
+}
+
+func (m mockFeaturesParams) IsL2PodAnnouncementEnabled() bool {
+	return m.L2PodAnnouncement
 }
 
 type bigTCPMock struct {
@@ -1097,6 +1102,94 @@ func TestUpdateBigTCPProtocol(t *testing.T) {
 					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
 				}
 			}
+		})
+	}
+}
+
+func TestUpdateL2Announcements(t *testing.T) {
+	tests := []struct {
+		name                  string
+		enableL2Announcements bool
+		expected              float64
+	}{
+		{
+			name:                  "L2Announcements enabled",
+			enableL2Announcements: true,
+			expected:              1,
+		},
+		{
+			name:                  "L2Announcements disabled",
+			enableL2Announcements: false,
+			expected:              0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				EnableL2Announcements:  tt.enableL2Announcements,
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAlg:            defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBL2LBEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableL2Announcements, counterValue)
+		})
+	}
+}
+
+func TestUpdateL2PodAnnouncements(t *testing.T) {
+	tests := []struct {
+		name                     string
+		enableL2PodAnnouncements bool
+		expected                 float64
+	}{
+		{
+			name:                     "L2Announcements enabled",
+			enableL2PodAnnouncements: true,
+			expected:                 1,
+		},
+		{
+			name:                     "L2Announcements disabled",
+			enableL2PodAnnouncements: false,
+			expected:                 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAlg:            defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode:   defaultChainingModes[0],
+				L2PodAnnouncement: tt.enableL2PodAnnouncements,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBL2PodAnnouncementEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableL2PodAnnouncements, counterValue)
 		})
 	}
 }

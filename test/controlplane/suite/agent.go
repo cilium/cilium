@@ -15,6 +15,7 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -88,6 +89,8 @@ func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset, extraCell cel
 			func() egressmap.PolicyMap { return nil },
 
 			func() datapath.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
+
+			func() garp.L2PodAnnouncementConfig { return &fakeTypes.GarpConfig{} },
 		),
 		monitorAgent.Cell,
 		tables.Cell,
