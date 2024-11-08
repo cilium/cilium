@@ -37,7 +37,10 @@ var Cell = cell.Module(
 
 	// The auth manager is the main entry point which gets registered to signal map and receives auth requests.
 	// In addition, it handles re-authentication and auth map garbage collection.
-	cell.Provide(registerAuthManager),
+	cell.Provide(
+		registerAuthManager,
+		func(c config) MeshAuthConfig { return c },
+	),
 	cell.ProvidePrivate(
 		// Null auth handler provides support for auth type "null" - which always succeeds.
 		newMutualAuthHandler,
@@ -66,6 +69,14 @@ func (r config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("mesh-auth-gc-interval", r.MeshAuthGCInterval, "Interval in which auth entries are attempted to be garbage collected")
 	flags.Duration("mesh-auth-signal-backoff-duration", r.MeshAuthSignalBackoffDuration, "Time to wait betweeen two authentication required signals in case of a cache mismatch")
 	flags.MarkHidden("mesh-auth-signal-backoff-duration")
+}
+
+func (r config) IsEnabled() bool {
+	return r.MeshAuthEnabled
+}
+
+type MeshAuthConfig interface {
+	IsEnabled() bool
 }
 
 type authManagerParams struct {
