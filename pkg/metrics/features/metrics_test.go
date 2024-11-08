@@ -550,3 +550,84 @@ func TestUpdateCIDRPolicyModeToNode(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateEncryptionMode(t *testing.T) {
+	tests := []struct {
+		name                      string
+		enableIPSec               bool
+		enableWireguard           bool
+		enableNode2NodeEncryption bool
+
+		expectEncryptionMode      string
+		expectNode2NodeEncryption string
+	}{
+		{
+			name:                      "IPSec enabled",
+			enableIPSec:               true,
+			expectEncryptionMode:      advConnNetEncIPSec,
+			expectNode2NodeEncryption: "false",
+		},
+		{
+			name:                      "IPSec disabled",
+			enableIPSec:               false,
+			expectEncryptionMode:      "",
+			expectNode2NodeEncryption: "",
+		},
+		{
+			name:                      "IPSec enabled w/ node2node",
+			enableIPSec:               true,
+			enableNode2NodeEncryption: true,
+			expectEncryptionMode:      advConnNetEncIPSec,
+			expectNode2NodeEncryption: "true",
+		},
+		{
+			name:                      "Wireguard enabled",
+			enableWireguard:           true,
+			expectEncryptionMode:      advConnNetEncWireGuard,
+			expectNode2NodeEncryption: "false",
+		},
+		{
+			name:                      "Wireguard enabled w/ node2node",
+			enableWireguard:           true,
+			enableNode2NodeEncryption: true,
+			expectEncryptionMode:      advConnNetEncWireGuard,
+			expectNode2NodeEncryption: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				EnableIPSec:            tt.enableIPSec,
+				EnableWireguard:        tt.enableWireguard,
+				EncryptNode:            tt.enableNode2NodeEncryption,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			// Check that only the expected mode's counter is incremented
+			for _, encMode := range defaultEncryptionModes {
+				for _, node2node := range []string{"true", "false"} {
+					counter, err := metrics.ACLBTransparentEncryption.GetMetricWithLabelValues(encMode, node2node)
+					assert.NoError(t, err)
+
+					counterValue := counter.Get()
+					if encMode == tt.expectEncryptionMode && node2node == tt.expectNode2NodeEncryption {
+						assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", encMode)
+					} else {
+						assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", encMode)
+					}
+				}
+			}
+		})
+	}
+}
