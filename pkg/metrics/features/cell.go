@@ -54,8 +54,13 @@ func (fp *featuresParams) IsMutualAuthEnabled() bool {
 	return fp.MutualAuth.IsEnabled()
 }
 
+func (fp *featuresParams) IsBandwidthManagerEnabled() bool {
+	return option.Config.EnableBandwidthManager
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() string
 	GetChainingMode() string
 	IsMutualAuthEnabled() bool
+	IsBandwidthManagerEnabled() bool
 }
