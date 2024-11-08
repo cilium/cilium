@@ -35,6 +35,7 @@ type Metrics struct {
 	ACLBBGPEnabled                  metric.Gauge
 	ACLBEgressGatewayEnabled        metric.Gauge
 	ACLBBandwidthManagerEnabled     metric.Gauge
+	ACLBSCTPEnabled                 metric.Gauge
 }
 
 const (
@@ -387,6 +388,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "bandwidth_manager_enabled",
 		}),
+
+		ACLBSCTPEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "SCTP enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "sctp_enabled",
+		}),
 	}
 }
 
@@ -480,5 +488,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if params.IsBandwidthManagerEnabled() {
 		m.ACLBBandwidthManagerEnabled.Add(1)
+	}
+
+	if config.EnableSCTP {
+		m.ACLBSCTPEnabled.Add(1)
 	}
 }
