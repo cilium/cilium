@@ -444,3 +444,154 @@ func TestWriter_Initializers(t *testing.T) {
 	require.NotEmpty(t, p.BackendTable.PendingInitializers(firstTxn), "expected backends to be uninitialized")
 	require.NotEmpty(t, p.ServiceTable.PendingInitializers(firstTxn), "expected services to be uninitialized")
 }
+
+func TestSetBackends(t *testing.T) {
+	p := fixture(t)
+
+	name1 := loadbalancer.ServiceName{Namespace: "test", Name: "test1"}
+	name2 := loadbalancer.ServiceName{Namespace: "test", Name: "test2"}
+
+	feAddr1 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1231), 1231, loadbalancer.ScopeExternal)
+	feAddr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1232), 1232, loadbalancer.ScopeExternal)
+
+	beAddr1 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(121), 4241, loadbalancer.ScopeExternal)
+	beAddr2 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(122), 4242, loadbalancer.ScopeExternal)
+	beAddr3 := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(123), 4243, loadbalancer.ScopeExternal)
+
+	backend1 := experimental.BackendParams{L3n4Addr: beAddr1}
+	backend2 := experimental.BackendParams{L3n4Addr: beAddr2}
+	backend3 := experimental.BackendParams{L3n4Addr: beAddr3}
+
+	type testCase struct {
+		desc       string
+		action     func(*testing.T, *experimental.Writer, experimental.WriteTxn)
+		references map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool
+		existence  map[loadbalancer.L3n4Addr]bool
+	}
+	tcs := []testCase{
+		{
+			desc: "create two services and frontends",
+			action: func(t *testing.T, w *experimental.Writer, wtxn experimental.WriteTxn) {
+				_, err := w.UpsertService(wtxn, &experimental.Service{Name: name1})
+				require.NoError(t, err)
+				_, err = w.UpsertService(wtxn, &experimental.Service{Name: name2})
+				require.NoError(t, err)
+				_, err = w.UpsertFrontend(wtxn, experimental.FrontendParams{Address: *feAddr1, ServiceName: name1})
+				require.NoError(t, err)
+				_, err = w.UpsertFrontend(wtxn, experimental.FrontendParams{Address: *feAddr2, ServiceName: name2})
+				require.NoError(t, err)
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: false, beAddr2: false, beAddr3: false},
+				name2: {beAddr1: false, beAddr2: false, beAddr3: false},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: false, beAddr2: false, beAddr3: false},
+		},
+		{
+			desc: "add all backends to first service",
+			action: func(t *testing.T, w *experimental.Writer, wtxn experimental.WriteTxn) {
+				require.NoError(t, w.SetBackends(wtxn, name1, source.Kubernetes, backend1, backend2, backend3))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: true, beAddr2: true, beAddr3: true},
+				name2: {beAddr1: false, beAddr2: false, beAddr3: false},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: true, beAddr3: true},
+		},
+		{
+			desc: "add all backends to second service",
+			action: func(t *testing.T, w *experimental.Writer, wtxn experimental.WriteTxn) {
+				require.NoError(t, w.SetBackends(wtxn, name2, source.Kubernetes, backend1, backend2, backend3))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: true, beAddr2: true, beAddr3: true},
+				name2: {beAddr1: true, beAddr2: true, beAddr3: true},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: true, beAddr3: true},
+		},
+		{
+			desc: "delete third backend from first service",
+			action: func(t *testing.T, w *experimental.Writer, wtxn experimental.WriteTxn) {
+				require.NoError(t, w.SetBackends(wtxn, name1, source.Kubernetes, backend1, backend2))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: true, beAddr2: true, beAddr3: false},
+				name2: {beAddr1: true, beAddr2: true, beAddr3: true},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: true, beAddr2: true, beAddr3: true},
+		},
+		{
+			desc: "delete first backend from both services",
+			action: func(t *testing.T, w *experimental.Writer, wtxn experimental.WriteTxn) {
+				require.NoError(t, w.SetBackends(wtxn, name1, source.Kubernetes, backend2))
+				require.NoError(t, w.SetBackends(wtxn, name2, source.Kubernetes, backend2, backend3))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: false, beAddr2: true, beAddr3: false},
+				name2: {beAddr1: false, beAddr2: true, beAddr3: true},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: false, beAddr2: true, beAddr3: true},
+		},
+		{
+			desc: "delete remaining two backends from second service",
+			action: func(t *testing.T, w *experimental.Writer, wtxn experimental.WriteTxn) {
+				require.NoError(t, w.SetBackends(wtxn, name2, source.Kubernetes))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: false, beAddr2: true, beAddr3: false},
+				name2: {beAddr1: false, beAddr2: false, beAddr3: false},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: false, beAddr2: true, beAddr3: false},
+		},
+		{
+			desc: "delete remaining backend from first service",
+			action: func(t *testing.T, w *experimental.Writer, wtxn experimental.WriteTxn) {
+				require.NoError(t, w.SetBackends(wtxn, name1, source.Kubernetes))
+				require.NoError(t, w.SetBackends(wtxn, name2, source.Kubernetes))
+			},
+			references: map[loadbalancer.ServiceName]map[loadbalancer.L3n4Addr]bool{
+				name1: {beAddr1: false, beAddr2: false, beAddr3: false},
+				name2: {beAddr1: false, beAddr2: false, beAddr3: false},
+			},
+			existence: map[loadbalancer.L3n4Addr]bool{beAddr1: false, beAddr2: false, beAddr3: false},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			wtxn := p.Writer.WriteTxn()
+			tc.action(t, p.Writer, wtxn)
+			txn := wtxn.Commit()
+			for name, innerMap := range tc.references {
+				for addr, present := range innerMap {
+					fe, _, ok := p.Writer.Frontends().Get(txn, experimental.FrontendByServiceName(name)) // We assume only one frontend per service
+					require.True(t, ok)
+					if !present {
+						be, _, found := p.Writer.Backends().Get(txn, experimental.BackendByAddress(addr))
+						if found { // Backend should not exist...
+							_, foundForService := be.Instances.Get(name)
+							require.False(t, foundForService) // ...or not be associated with the service.
+						}
+						for _, b := range fe.Backends {
+							require.NotEqual(t, addr, b.L3n4Addr)
+						}
+					} else {
+						be, _, found := p.Writer.Backends().Get(txn, experimental.BackendByAddress(addr))
+						require.True(t, found)
+						_, foundForService := be.Instances.Get(name)
+						require.True(t, foundForService)
+						foundInFrontend := false
+						for _, b := range fe.Backends {
+							foundInFrontend = foundInFrontend || b.Backend.L3n4Addr == addr
+						}
+						require.True(t, foundInFrontend)
+					}
+				}
+			}
+			for addr, shouldExist := range tc.existence {
+				_, _, found := p.Writer.Backends().Get(txn, experimental.BackendByAddress(addr))
+				require.Equal(t, shouldExist, found, addr)
+			}
+		})
+	}
+}

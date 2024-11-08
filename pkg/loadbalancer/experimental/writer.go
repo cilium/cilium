@@ -334,6 +334,7 @@ func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source
 	if err != nil {
 		return err
 	}
+	refs = refs.Insert(name) // Even for empty bes, we need to refresh this service.
 
 	// Release orphaned backends, e.g. all backends from this source referencing this
 	// service.
