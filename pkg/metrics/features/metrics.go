@@ -34,6 +34,7 @@ type Metrics struct {
 	ACLBKubeProxyReplacementEnabled metric.Gauge
 	ACLBStandaloneNSLB              metric.Vec[metric.Gauge]
 	ACLBBGPAdvertisementEnabled     metric.Gauge
+	ACLBEgressGatewayEnabled        metric.Gauge
 }
 
 const (
@@ -383,6 +384,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "bgp_advertisement_enabled",
 		}),
+
+		ACLBEgressGatewayEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Egress Gateway enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "egress_gateway_enabled",
+		}),
 	}
 }
 
@@ -474,5 +482,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.BGPAnnouncePodCIDR || config.BGPAnnounceLBIP {
 		m.ACLBBGPAdvertisementEnabled.Add(1)
+	}
+
+	if config.EnableIPv4EgressGateway {
+		m.ACLBEgressGatewayEnabled.Add(1)
 	}
 }
