@@ -6,6 +6,7 @@ package features
 import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/option"
@@ -58,9 +59,17 @@ func (fp *featuresParams) IsBandwidthManagerEnabled() bool {
 	return option.Config.EnableBandwidthManager
 }
 
+func (fp *featuresParams) BigTCPConfig() types.BigTCPConfig {
+	return types.BigTCPUserConfig{
+		EnableIPv4BIGTCP: option.Config.EnableIPv4BIGTCP,
+		EnableIPv6BIGTCP: option.Config.EnableIPv6BIGTCP,
+	}
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() string
 	GetChainingMode() string
 	IsMutualAuthEnabled() bool
 	IsBandwidthManagerEnabled() bool
+	BigTCPConfig() types.BigTCPConfig
 }
