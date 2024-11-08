@@ -159,7 +159,12 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					if backend != nil {
 						backend.Close()
 					}
-					rc.logger.WithError(err).Warning("Unable to establish etcd connection to remote cluster")
+
+					select {
+					case <-ctx.Done():
+					default:
+						rc.logger.WithError(err).Warning("Unable to establish etcd connection to remote cluster")
+					}
 					return err
 				}
 
@@ -182,6 +187,16 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				config, err := rc.getClusterConfig(ctx, backend)
 				if err != nil {
+					// Return immediately if the context has been canceled, to
+					// avoid emitting a spurious warning in case the failure is
+					// expected, and has already been logged elsewhere (or we
+					// are terminating).
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					default:
+					}
+
 					lgr := rc.logger
 					if errors.Is(err, cmutils.ErrClusterConfigNotFound) {
 						lgr = lgr.WithField(logfields.Hint,
@@ -209,7 +224,13 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				}()
 
 				if err := <-ready; err != nil {
-					rc.logger.WithError(err).Warning("Connection to remote cluster failed")
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					default:
+						rc.logger.WithError(err).Warning("Connection to remote cluster failed")
+					}
+
 					return err
 				}
 
