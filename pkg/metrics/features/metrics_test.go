@@ -14,9 +14,10 @@ import (
 )
 
 type mockFeaturesParams struct {
-	TunnelConfig    tunnel.Protocol
-	CNIChainingMode string
-	MutualAuth      bool
+	TunnelConfig     tunnel.Protocol
+	CNIChainingMode  string
+	MutualAuth       bool
+	BandwidthManager bool
 }
 
 func (m mockFeaturesParams) TunnelProtocol() tunnel.Protocol {
@@ -29,6 +30,10 @@ func (m mockFeaturesParams) GetChainingMode() string {
 
 func (m mockFeaturesParams) IsMutualAuthEnabled() bool {
 	return m.MutualAuth
+}
+
+func (m mockFeaturesParams) IsBandwidthManagerEnabled() bool {
+	return m.BandwidthManager
 }
 
 func TestUpdateNetworkMode(t *testing.T) {
@@ -888,6 +893,50 @@ func TestUpdateIPv4EgressGateway(t *testing.T) {
 			counterValue := metrics.ACLBEgressGatewayEnabled.Get()
 
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEGW, counterValue)
+		})
+	}
+}
+
+func TestUpdateBandwidthManager(t *testing.T) {
+	tests := []struct {
+		name                   string
+		enableBandwidthManager bool
+		expected               float64
+	}{
+		{
+			name:                   "BandwidthManager enabled",
+			enableBandwidthManager: true,
+			expected:               1,
+		},
+		{
+			name:                   "BandwidthManager disabled",
+			enableBandwidthManager: false,
+			expected:               0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAlg:            defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode:  defaultChainingModes[0],
+				BandwidthManager: tt.enableBandwidthManager,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBBandwidthManagerEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableBandwidthManager, counterValue)
 		})
 	}
 }
