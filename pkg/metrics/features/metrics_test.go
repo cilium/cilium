@@ -414,3 +414,44 @@ func TestUpdateHostFirewall(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateLocalRedirectPolicies(t *testing.T) {
+	tests := []struct {
+		name      string
+		enableLRP bool
+		expected  float64
+	}{
+		{
+			name:      "LRP enabled",
+			enableLRP: true,
+			expected:  1,
+		},
+		{
+			name:      "LRP disabled",
+			enableLRP: false,
+			expected:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                      defaultIPAMModes[0],
+				EnableIPv4:                true,
+				IdentityAllocationMode:    defaultIdentityAllocationModes[0],
+				DatapathMode:              defaultDeviceModes[0],
+				EnableLocalRedirectPolicy: tt.enableLRP,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.NPLocalRedirectPolicyEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableLRP, counterValue)
+		})
+	}
+}
