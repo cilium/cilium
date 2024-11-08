@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/time"
 
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 )
@@ -52,8 +53,9 @@ var Cell = cell.Module(
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		tables.NewRouteTable, statedb.RWTable[*tables.Route].ToTable,
-	),
 
+		func() types.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
+	),
 	tables.NodeAddressCell,
 	tables.NodeAddressingCell,
 
