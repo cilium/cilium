@@ -82,6 +82,7 @@ func (d *dynamicExporterGaugeCollector) Describe(ch chan<- *prometheus.Desc) {
 func (d *dynamicExporterGaugeCollector) Collect(ch chan<- prometheus.Metric) {
 	var activeExporters, inactiveExporters float64
 
+	d.exporter.mutex.RLock()
 	for name, me := range d.exporter.managedExporters {
 		var value float64
 		if me.config.End == nil || me.config.End.After(time.Now()) {
@@ -94,6 +95,7 @@ func (d *dynamicExporterGaugeCollector) Collect(ch chan<- prometheus.Metric) {
 			individualExportersDesc, prometheus.GaugeValue, value, name,
 		)
 	}
+	d.exporter.mutex.RUnlock()
 
 	ch <- prometheus.MustNewConstMetric(
 		exportersDesc, prometheus.GaugeValue, activeExporters, "active",
