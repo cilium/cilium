@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -46,6 +47,7 @@ type featuresParams struct {
 
 	TunnelConfig     tunnel.Config
 	CNIConfigManager cni.CNIConfigManager
+	MutualAuth       auth.MeshAuthConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.Protocol {
@@ -56,7 +58,12 @@ func (fp *featuresParams) GetChainingMode() string {
 	return fp.CNIConfigManager.GetChainingMode()
 }
 
+func (fp *featuresParams) IsMutualAuthEnabled() bool {
+	return fp.MutualAuth.IsEnabled()
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.Protocol
 	GetChainingMode() string
+	IsMutualAuthEnabled() bool
 }
