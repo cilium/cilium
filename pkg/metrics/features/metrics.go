@@ -34,6 +34,7 @@ type Metrics struct {
 	ACLBNodePortConfig              metric.Vec[metric.Gauge]
 	ACLBBGPEnabled                  metric.Gauge
 	ACLBEgressGatewayEnabled        metric.Gauge
+	ACLBBandwidthManagerEnabled     metric.Gauge
 }
 
 const (
@@ -379,6 +380,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "egress_gateway_enabled",
 		}),
+
+		ACLBBandwidthManagerEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Bandwidth Manager enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "bandwidth_manager_enabled",
+		}),
 	}
 }
 
@@ -468,5 +476,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.EnableIPv4EgressGateway {
 		m.ACLBEgressGatewayEnabled.Add(1)
+	}
+
+	if params.IsBandwidthManagerEnabled() {
+		m.ACLBBandwidthManagerEnabled.Add(1)
 	}
 }

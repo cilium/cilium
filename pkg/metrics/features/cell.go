@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/option"
@@ -44,6 +45,7 @@ type featuresParams struct {
 	TunnelConfig     tunnel.Config
 	CNIConfigManager cni.CNIConfigManager
 	MutualAuth       auth.MeshAuthConfig
+	BandwidthManager types.BandwidthManager
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.Protocol {
@@ -58,8 +60,13 @@ func (fp *featuresParams) IsMutualAuthEnabled() bool {
 	return fp.MutualAuth.IsEnabled()
 }
 
+func (fp *featuresParams) IsBandwidthManagerEnabled() bool {
+	return fp.BandwidthManager.Enabled()
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.Protocol
 	GetChainingMode() string
 	IsMutualAuthEnabled() bool
+	IsBandwidthManagerEnabled() bool
 }
