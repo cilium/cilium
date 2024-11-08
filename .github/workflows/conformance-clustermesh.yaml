@@ -279,6 +279,7 @@ jobs:
             --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.kind=Issuer \
             --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.name=cilium \
             --helm-set=ciliumEndpointSlice.enabled=${{ matrix.ciliumEndpointSlice == 'enabled'}} \
+            --helm-set=extraConfig.clustermesh-sync-timeout=5m \
             "
 
           CILIUM_INSTALL_TUNNEL="--helm-set=tunnelProtocol=${{ matrix.tunnel }}"
