@@ -6,6 +6,7 @@ package garp
 import (
 	"github.com/spf13/pflag"
 
+	garpTypes "github.com/cilium/cilium/pkg/datapath/garp/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -22,6 +23,10 @@ type Config struct {
 	EnableL2PodAnnouncements    bool
 }
 
+func (def Config) Enabled() bool {
+	return def.EnableL2PodAnnouncements
+}
+
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String(L2PodAnnouncementsInterface, def.L2PodAnnouncementsInterface, "Interface used for sending gratuitous arp messages")
 	flags.Bool(EnableL2PodAnnouncements, def.EnableL2PodAnnouncements, "Enable announcing Pod IPs with Gratuitous ARP")
@@ -33,7 +38,11 @@ var Cell = cell.Module(
 	"l2-pod-announcements-garp",
 	"GARP processor sends gratuitous ARP packets for local pods",
 
-	cell.Provide(newGARPSender),
+	cell.Provide(
+		newGARPSender,
+		func(c Config) garpTypes.L2PodAnnouncementConfig {
+			return c
+		}),
 
 	// This cell can't have a default config, it's entirely env dependent.
 	cell.Config(Config{}),

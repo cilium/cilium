@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	garpTypes "github.com/cilium/cilium/pkg/datapath/garp/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -55,6 +56,8 @@ var Cell = cell.Module(
 		tables.NewRouteTable, statedb.RWTable[*tables.Route].ToTable,
 
 		func() types.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
+
+		func() garpTypes.L2PodAnnouncementConfig { return &fakeTypes.GarpConfig{} },
 	),
 	tables.NodeAddressCell,
 	tables.NodeAddressingCell,
