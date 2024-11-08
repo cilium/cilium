@@ -21,13 +21,14 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 var (
 	hostSelector = api.ReservedEndpointSelectors[labels.IDNameHost]
 	toFoo        = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
-	dummySelectorCacheUser = &DummySelectorCacheUser{}
+	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 	fooSelector            = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	bazSelector            = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 

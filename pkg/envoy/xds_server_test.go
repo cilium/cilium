@@ -25,15 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/endpoint/test"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
-
-type DummySelectorCacheUser struct{}
-
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
-}
-
-func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
-}
 
 var (
 	IPv4Addr = "10.1.1.1"
@@ -185,7 +178,7 @@ var ExpectedHeaders3 = []*envoy_config_route.HeaderMatcher{
 }
 
 var (
-	dummySelectorCacheUser = &DummySelectorCacheUser{}
+	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 
 	IdentityCache = identity.IdentityMap{
 		1001: labels.LabelArray{
