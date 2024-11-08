@@ -39,6 +39,7 @@ type Metrics struct {
 	ACLBSCTPEnabled                  metric.Gauge
 	ACLBInternalTrafficPolicyEnabled metric.Gauge
 	ACLBVTEPEnabled                  metric.Gauge
+	ACLBCiliumEnvoyConfigEnabled     metric.Gauge
 }
 
 const (
@@ -423,6 +424,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "vtep_enabled",
 		}),
+
+		ACLBCiliumEnvoyConfigEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Cilium Envoy Config enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "cilium_envoy_config_enabled",
+		}),
 	}
 }
 
@@ -534,5 +542,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.EnableVTEP {
 		m.ACLBVTEPEnabled.Add(1)
+	}
+
+	if config.EnableEnvoyConfig {
+		m.ACLBCiliumEnvoyConfigEnabled.Add(1)
 	}
 }
