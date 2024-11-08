@@ -29,7 +29,8 @@ type Metrics struct {
 	NPMutualAuthEnabled          metric.Gauge
 	NPCIDRPoliciesToNodes        metric.Vec[metric.Gauge]
 
-	ACLBTransparentEncryption metric.Vec[metric.Gauge]
+	ACLBTransparentEncryption       metric.Vec[metric.Gauge]
+	ACLBKubeProxyReplacementEnabled metric.Gauge
 }
 
 const (
@@ -298,6 +299,13 @@ func NewMetrics(withDefaults bool) Metrics {
 				}(),
 			},
 		}),
+
+		ACLBKubeProxyReplacementEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "KubeProxyReplacement enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "kube_proxy_replacement_enabled",
+		}),
 	}
 }
 
@@ -373,5 +381,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 		} else {
 			m.ACLBTransparentEncryption.WithLabelValues(advConnNetEncWireGuard, "false").Add(1)
 		}
+	}
+
+	if config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
+		m.ACLBKubeProxyReplacementEnabled.Add(1)
 	}
 }
