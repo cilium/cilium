@@ -1065,3 +1065,47 @@ func TestUpdateInternalTrafficPolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateVTEP(t *testing.T) {
+	tests := []struct {
+		name       string
+		enableVTEP bool
+		expected   float64
+	}{
+		{
+			name:       "VTEP enabled",
+			enableVTEP: true,
+			expected:   1,
+		},
+		{
+			name:       "VTEP disabled",
+			enableVTEP: false,
+			expected:   0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				EnableVTEP:             tt.enableVTEP,
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAlg:            defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBVTEPEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableVTEP, counterValue)
+		})
+	}
+}
