@@ -5,6 +5,7 @@ package kafka
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -83,7 +84,7 @@ func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error
 		reporter = "server"
 	}
 
-	h.requests.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, string(kafka.ErrorCode), reporter)...).Inc()
+	h.requests.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, strconv.Itoa(int(kafka.ErrorCode)), reporter)...).Inc()
 	h.duration.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, reporter)...).Observe(float64(l7.LatencyNs) / float64(time.Second))
 	return nil
 }
