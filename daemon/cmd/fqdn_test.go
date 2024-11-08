@@ -15,7 +15,6 @@ import (
 	ciliumdns "github.com/cilium/dns"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -34,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 type DaemonFQDNSuite struct {
@@ -89,14 +89,6 @@ type dummyInfoRegistry struct{}
 func (*dummyInfoRegistry) FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr) {
 }
 
-type dummySelectorCacheUser struct{}
-
-func (d *dummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
-}
-
-func (d *dummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
-}
-
 // BenchmarkNotifyOnDNSMsg stresses the main callback function for the DNS
 // proxy path, which is called on every DNS request and response.
 func BenchmarkNotifyOnDNSMsg(b *testing.B) {
@@ -111,7 +103,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	)
 
 	// Register rules (simulates applied policies).
-	dscu := &dummySelectorCacheUser{}
+	dscu := &testpolicy.DummySelectorCacheUser{}
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
 	for _, sel := range selectorsToAdd {
 		ds.d.policy.GetSelectorCache().AddFQDNSelector(dscu, nil, sel)

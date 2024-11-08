@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 // scIdentity is the information we need about a an identity that rules can select
@@ -313,8 +314,8 @@ type identityNotifier interface {
 
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
 // an identical EndpointSelector has already been cached, the corresponding
-// CachedSelector is returned, otherwise one is created and added to the cache.
-func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.LabelArray, fqdnSelec api.FQDNSelector) (cachedSelector CachedSelector, added bool) {
+// types.CachedSelector is returned, otherwise one is created and added to the cache.
+func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.LabelArray, fqdnSelec api.FQDNSelector) (cachedSelector types.CachedSelector, added bool) {
 	key := fqdnSelec.String()
 
 	sc.mutex.Lock()
@@ -337,7 +338,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 }
 
 // must hold lock for writing
-func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls labels.LabelArray, key string, source selectorSource) (CachedSelector, bool) {
+func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls labels.LabelArray, key string, source selectorSource) (types.CachedSelector, bool) {
 	idSel := &identitySelector{
 		key:              key,
 		users:            make(map[CachedSelectionUser]struct{}),
@@ -373,7 +374,7 @@ func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls labels
 
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
 // selector cache, returning nil if one can not be found.
-func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) CachedSelector {
+func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) types.CachedSelector {
 	key := selector.CachedString()
 	sc.mutex.RLock()
 	idSel := sc.selectors[key]
@@ -383,9 +384,9 @@ func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelecto
 
 // AddIdentitySelector adds the given api.EndpointSelector in to the
 // selector cache. If an identical EndpointSelector has already been
-// cached, the corresponding CachedSelector is returned, otherwise one
+// cached, the corresponding types.CachedSelector is returned, otherwise one
 // is created and added to the cache.
-func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, lbls labels.LabelArray, selector api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
+func (sc *SelectorCache) AddIdentitySelector(user types.CachedSelectionUser, lbls labels.LabelArray, selector api.EndpointSelector) (cachedSelector types.CachedSelector, added bool) {
 	// The key returned here may be different for equivalent
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking
@@ -412,7 +413,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, lbls labe
 }
 
 // lock must be held
-func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
+func (sc *SelectorCache) removeSelectorLocked(selector types.CachedSelector, user CachedSelectionUser) {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
@@ -423,16 +424,16 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	}
 }
 
-// RemoveSelector removes CachedSelector for the user.
-func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
+// RemoveSelector removes types.CachedSelector for the user.
+func (sc *SelectorCache) RemoveSelector(selector types.CachedSelector, user CachedSelectionUser) {
 	sc.mutex.Lock()
 	sc.removeSelectorLocked(selector, user)
 	sc.mutex.Unlock()
 
 }
 
-// RemoveSelectors removes CachedSelectorSlice for the user.
-func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
+// RemoveSelectors removes types.CachedSelectorSlice for the user.
+func (sc *SelectorCache) RemoveSelectors(selectors types.CachedSelectorSlice, user CachedSelectionUser) {
 	sc.mutex.Lock()
 	for _, selector := range selectors {
 		sc.removeSelectorLocked(selector, user)
@@ -442,7 +443,7 @@ func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user Cac
 
 // ChangeUser changes the CachedSelectionUser that gets updates on the
 // updates on the cached selector.
-func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSelectionUser) {
+func (sc *SelectorCache) ChangeUser(selector types.CachedSelector, from, to CachedSelectionUser) {
 	key := selector.String()
 	sc.mutex.Lock()
 	idSel, exists := sc.selectors[key]

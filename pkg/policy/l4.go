@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -323,7 +324,7 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 
 	/* First, create a sorted slice of the selectors so we can get
 	 * consistent JSON output */
-	selectors := make(CachedSelectorSlice, 0, len(l7))
+	selectors := make(policytypes.CachedSelectorSlice, 0, len(l7))
 	for cs := range l7 {
 		selectors = append(selectors, cs)
 	}
@@ -706,7 +707,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (l4 *L4Filter) IdentitySelectionUpdated(cs CachedSelector, added, deleted []identity.NumericIdentity) {
+func (l4 *L4Filter) IdentitySelectionUpdated(cs policytypes.CachedSelector, added, deleted []identity.NumericIdentity) {
 	log.WithFields(logrus.Fields{
 		logfields.EndpointSelector: cs,
 		logfields.AddedPolicyID:    added,
@@ -763,7 +764,7 @@ func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, lbls lab
 	}
 }
 
-func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls labels.LabelArray, selectorCache *SelectorCache) CachedSelector {
+func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls labels.LabelArray, selectorCache *SelectorCache) policytypes.CachedSelector {
 	cs, added := selectorCache.AddFQDNSelector(l4, lbls, sel)
 	if added {
 		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
@@ -965,7 +966,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 }
 
 func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
-	selectors := make(CachedSelectorSlice, 0, len(l4.PerSelectorPolicies))
+	selectors := make(policytypes.CachedSelectorSlice, 0, len(l4.PerSelectorPolicies))
 	for cs := range l4.PerSelectorPolicies {
 		selectors = append(selectors, cs)
 	}
