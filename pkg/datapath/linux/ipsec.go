@@ -220,38 +220,39 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 		if err != nil {
 			statesUpdated = false
 		}
-
-		// insert fwd rule
-		params = ipsec.NewIPSecParamaters(template)
-		params.Dir = ipsec.IPSecDirFwd
-		params.SourceSubnet = wildcardCIDR
-		params.DestSubnet = wildcardCIDR
-		params.SourceTunnelIP = &net.IP{}
-		params.DestTunnelIP = &localIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-
-		params = ipsec.NewIPSecParamaters(template)
-		params.Dir = ipsec.IPSecDirIn
-		params.SourceSubnet = wildcardCIDR
-		params.DestSubnet = wildcardCIDR
-		params.SourceTunnelIP = &remoteCiliumInternalIP
-		params.DestTunnelIP = &localCiliumInternalIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-		if err != nil {
-			statesUpdated = false
-		}
-
-		// we just need to update the tunnel ips here...
-		params.SourceTunnelIP = &remoteNodeInternalIP
-		params.DestTunnelIP = &localNodeInternalIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in NodeInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-		if err != nil {
-			statesUpdated = false
-		}
 	}
+
+	// insert fwd rule
+	params := ipsec.NewIPSecParamaters(template)
+	params.Dir = ipsec.IPSecDirFwd
+	params.SourceSubnet = wildcardCIDR
+	params.DestSubnet = wildcardCIDR
+	params.SourceTunnelIP = &net.IP{}
+	params.DestTunnelIP = &localIP
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+
+	params = ipsec.NewIPSecParamaters(template)
+	params.Dir = ipsec.IPSecDirIn
+	params.SourceSubnet = wildcardCIDR
+	params.DestSubnet = wildcardCIDR
+	params.SourceTunnelIP = &remoteCiliumInternalIP
+	params.DestTunnelIP = &localCiliumInternalIP
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	if err != nil {
+		statesUpdated = false
+	}
+
+	// we just need to update the tunnel ips here...
+	params.SourceTunnelIP = &remoteNodeInternalIP
+	params.DestTunnelIP = &localNodeInternalIP
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in NodeInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	if err != nil {
+		statesUpdated = false
+	}
+
 	return statesUpdated, errs
 }
 
@@ -467,39 +468,39 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		if err != nil {
 			statesUpdated = false
 		}
+	}
 
-		params = ipsec.NewIPSecParamaters(template)
-		params.Dir = ipsec.IPSecDirFwd
-		params.SourceSubnet = wildcardCIDR6
-		params.DestSubnet = wildcardCIDR6
-		params.SourceTunnelIP = &net.IP{}
-		params.DestTunnelIP = &localIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-		if err != nil {
-			statesUpdated = false
-		}
+	params := ipsec.NewIPSecParamaters(template)
+	params.Dir = ipsec.IPSecDirFwd
+	params.SourceSubnet = wildcardCIDR6
+	params.DestSubnet = wildcardCIDR6
+	params.SourceTunnelIP = &net.IP{}
+	params.DestTunnelIP = &localIP
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	if err != nil {
+		statesUpdated = false
+	}
 
-		params = ipsec.NewIPSecParamaters(template)
-		params.Dir = ipsec.IPSecDirIn
-		params.SourceSubnet = wildcardCIDR6
-		params.DestSubnet = wildcardCIDR6
-		params.SourceTunnelIP = &remoteCiliumInternalIP
-		params.DestTunnelIP = &localCiliumInternalIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-		if err != nil {
-			statesUpdated = false
-		}
+	params = ipsec.NewIPSecParamaters(template)
+	params.Dir = ipsec.IPSecDirIn
+	params.SourceSubnet = wildcardCIDR6
+	params.DestSubnet = wildcardCIDR6
+	params.SourceTunnelIP = &remoteCiliumInternalIP
+	params.DestTunnelIP = &localCiliumInternalIP
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	if err != nil {
+		statesUpdated = false
+	}
 
-		// we just need to update the tunnel ips here...
-		params.SourceTunnelIP = &remoteNodeInternalIP
-		params.DestTunnelIP = &localNodeInternalIP
-		spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
-		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in NodeInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
-		if err != nil {
-			statesUpdated = false
-		}
+	// we just need to update the tunnel ips here...
+	params.SourceTunnelIP = &remoteNodeInternalIP
+	params.DestTunnelIP = &localNodeInternalIP
+	spi, err = ipsec.UpsertIPsecEndpoint(n.log, params)
+	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in NodeInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
+	if err != nil {
+		statesUpdated = false
 	}
 
 	return statesUpdated, errs
