@@ -63,9 +63,9 @@ func TestUpdateNetworkMode(t *testing.T) {
 			config := &option.DaemonConfig{
 				DatapathMode:           defaults.DatapathMode,
 				IPAM:                   defaultIPAMModes[0],
-				RoutingMode:            tt.tunnelMode,
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				RoutingMode:            tt.tunnelMode,
 			}
 
 			params := mockFeaturesParams{
@@ -111,9 +111,9 @@ func TestUpdateIPAMMode(t *testing.T) {
 			metrics := NewMetrics(true)
 			config := &option.DaemonConfig{
 				DatapathMode:           defaults.DatapathMode,
-				IPAM:                   tt.IPAMMode,
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				IPAM:                   tt.IPAMMode,
 			}
 
 			params := mockFeaturesParams{
@@ -216,9 +216,9 @@ func TestUpdateInternetProtocol(t *testing.T) {
 			config := &option.DaemonConfig{
 				DatapathMode:           defaults.DatapathMode,
 				IPAM:                   defaultIPAMModes[0],
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 				EnableIPv4:             tt.enableIPv4,
 				EnableIPv6:             tt.enableIPv6,
-				IdentityAllocationMode: defaultIdentityAllocationModes[0],
 			}
 
 			params := mockFeaturesParams{
@@ -579,6 +579,47 @@ func TestUpdateEncryptionMode(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
+
+func TestUpdateKubeProxyReplacement(t *testing.T) {
+	tests := []struct {
+		name                       string
+		enableKubeProxyReplacement string
+		expected                   float64
+	}{
+		{
+			name:                       "KubeProxyReplacement enabled",
+			enableKubeProxyReplacement: "true",
+			expected:                   1,
+		},
+		{
+			name:                       "KubeProxyReplacement disabled",
+			enableKubeProxyReplacement: "false",
+			expected:                   0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				KubeProxyReplacement:   tt.enableKubeProxyReplacement,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBKubeProxyReplacementEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableKubeProxyReplacement, counterValue)
 		})
 	}
 }
