@@ -501,3 +501,51 @@ func TestUpdateMutualAuth(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateCIDRPolicyModeToNode(t *testing.T) {
+	type testCase struct {
+		name         string
+		policyMode   string
+		expectedMode string
+	}
+	var tests []testCase
+	for _, mode := range defaultCIDRPolicies {
+		tests = append(tests, testCase{
+			name:         fmt.Sprintf("CIDR policy %s mode", mode),
+			policyMode:   mode,
+			expectedMode: mode,
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				PolicyCIDRMatchMode:    []string{tt.policyMode},
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultCIDRPolicies {
+				counter, err := metrics.NPCIDRPoliciesToNodes.GetMetricWithLabelValues(mode)
+				assert.NoError(t, err)
+
+				counterValue := counter.Get()
+				if mode == tt.expectedMode {
+					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
+				} else {
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+				}
+			}
+		})
+	}
+}
