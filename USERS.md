@@ -72,7 +72,12 @@ Users (Alphabetically)
       D: AirQo uses Cilium as the CNI plugin
       U: CNI, Networking, NetworkPolicy, Cluster Mesh, Hubble, Kubernetes services
       L: @airqo-platform
-
+      
+    * N: Alauda
+      D: Alauda uses Cilium in the Alauda Container Platform product to provide high performance network,observability and security.
+      U: Networking, NetworkPolicy, Services, Observability
+      Q：@oilbeater
+      
     * N: Alibaba Cloud
       D: Alibaba Cloud is using Cilium together with Terway CNI as the high-performance ENI dataplane
       U: Networking, NetworkPolicy, Services, IPVLAN
