@@ -46,6 +46,10 @@ func (r *rule) IdentitySelectionUpdated(_ policytypes.CachedSelector, _, _ []ide
 func (d *rule) IdentitySelectionCommit(*versioned.Tx) {
 }
 
+func (r *rule) IsPeerSelector() bool {
+	return false
+}
+
 func (r *rule) String() string {
 	return r.EndpointSelector.String()
 }

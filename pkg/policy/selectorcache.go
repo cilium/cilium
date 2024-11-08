@@ -148,6 +148,13 @@ func (sc *SelectorCache) Stats() selectorStats {
 	defer version.Close()
 
 	for _, idSel := range sc.selectors {
+		if !idSel.MaySelectPeers() {
+			// Peer selectors impact policymap cardinality, but
+			// subject selectors do not. Do not count cardinality
+			// if the selector is only used for policy subjects.
+			continue
+		}
+
 		selections := idSel.GetSelections(version)
 		class := idSel.source.metricsClass()
 		if result.maxCardinalityByClass[class] < len(selections) {

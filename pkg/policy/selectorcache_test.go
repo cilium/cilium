@@ -147,6 +147,10 @@ func (csu *cachedSelectionUser) IdentitySelectionCommit(*versioned.Tx) {
 	csu.updateCond.Signal()
 }
 
+func (csu *cachedSelectionUser) IsPeerSelector() bool {
+	return true
+}
+
 // Mock CachedSelector for unit testing.
 //
 // testCachedSelector is used in isolation so there is no point to implement versioning for it.

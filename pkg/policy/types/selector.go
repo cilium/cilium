@@ -95,4 +95,9 @@ type CachedSelectionUser interface {
 	// IdentitySelectionCommit tells the user that all IdentitySelectionUpdated calls relating
 	// to a specific added or removed identity have been made.
 	IdentitySelectionCommit(*versioned.Tx)
+
+	// IsPeerSelector returns true if the selector is used by the policy
+	// engine for selecting traffic for remote peers. False if used for
+	// selecting policy subjects.
+	IsPeerSelector() bool
 }

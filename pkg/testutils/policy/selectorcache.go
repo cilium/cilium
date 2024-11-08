@@ -16,3 +16,7 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector types.CachedS
 
 func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
 }
+
+func (d *DummySelectorCacheUser) IsPeerSelector() bool {
+	return true
+}

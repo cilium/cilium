@@ -31,7 +31,7 @@ const (
 var (
 	selectorCacheMetricsDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(metrics.CiliumAgentNamespace, "policy_selector", "match_count_max"),
-		"The maximum number of identities selected by a network policy selector",
+		"The maximum number of identities selected by a network policy peer selector",
 		[]string{LabelSelectorClass},
 		nil,
 	)

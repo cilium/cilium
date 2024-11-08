@@ -744,6 +744,10 @@ func (l4 *L4Filter) IdentitySelectionCommit(txn *versioned.Tx) {
 	}
 }
 
+func (l4 *L4Filter) IsPeerSelector() bool {
+	return true
+}
+
 func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls labels.LabelArray, selectorCache *SelectorCache) CachedSelector {
 	cs, added := selectorCache.AddIdentitySelector(l4, lbls, sel)
 	if added {
