@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // Metrics represents a collection of metrics related to a specific feature.
@@ -27,6 +28,7 @@ type Metrics struct {
 	NPLocalRedirectPolicyEnabled metric.Gauge
 	NPMutualAuthEnabled          metric.Gauge
 	NPNonDefaultDenyEnabled      metric.Gauge
+	NPCIDRPoliciesToNodes        metric.Vec[metric.Gauge]
 }
 
 const (
@@ -96,6 +98,11 @@ var (
 		datapathOption.DatapathModeNetkit,
 		datapathOption.DatapathModeNetkitL2,
 		datapathOption.DatapathModeLBOnly,
+	}
+
+	defaultCIDRPolicies = []string{
+		string(api.EntityWorld),
+		string(api.EntityRemoteNode),
 	}
 )
 
@@ -245,6 +252,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemNP,
 			Name:      "non_defaultdeny_policies_enabled",
 		}),
+
+		NPCIDRPoliciesToNodes: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Mode to apply CIDR Policies to Nodes",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "cidr_policies",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultCIDRPolicies...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -305,5 +330,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.EnableNonDefaultDenyPolicies {
 		m.NPNonDefaultDenyEnabled.Add(1)
+	}
+
+	for _, mode := range config.PolicyCIDRMatchMode {
+		m.NPCIDRPoliciesToNodes.WithLabelValues(mode).Add(1)
 	}
 }
