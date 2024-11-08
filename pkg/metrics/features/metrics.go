@@ -35,6 +35,7 @@ type Metrics struct {
 	ACLBSCTPEnabled                 metric.Gauge
 	ACLBVTEPEnabled                 metric.Gauge
 	ACLBCiliumEnvoyConfigEnabled    metric.Gauge
+	ACLBBigTCPEnabled               metric.Vec[metric.Gauge]
 }
 
 const (
@@ -61,6 +62,10 @@ const (
 
 	advConnNetEncIPSec     = "ipsec"
 	advConnNetEncWireGuard = "wireguard"
+
+	advConnBigTCPIPv4      = "ipv4-only"
+	advConnBigTCPIPv6      = "ipv6-only"
+	advConnBigTCPDualStack = "ipv4-ipv6-dual-stack"
 )
 
 var (
@@ -126,6 +131,12 @@ var (
 		option.NodePortAccelerationDisabled,
 		option.NodePortAccelerationGeneric,
 		option.NodePortAccelerationNative,
+	}
+
+	defaultBigTCPAddressFamilies = []string{
+		advConnBigTCPIPv4,
+		advConnBigTCPIPv6,
+		advConnBigTCPDualStack,
 	}
 )
 
@@ -384,6 +395,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemACLB,
 			Name:      "cilium_envoy_config_enabled",
 		}),
+
+		ACLBBigTCPEnabled: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Big TCP enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "big_tcp_enabled",
+		}, metric.Labels{
+			{
+				Name: "address_family", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultBigTCPAddressFamilies...,
+					)
+				}(),
+			},
+		}),
 	}
 }
 
@@ -485,5 +514,19 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 
 	if config.EnableEnvoyConfig {
 		m.ACLBCiliumEnvoyConfigEnabled.Add(1)
+	}
+
+	var bigTCPProto string
+	switch {
+	case params.BigTCPConfig().IsIPv4Enabled() && params.BigTCPConfig().IsIPv6Enabled():
+		bigTCPProto = advConnBigTCPDualStack
+	case params.BigTCPConfig().IsIPv4Enabled():
+		bigTCPProto = advConnBigTCPIPv4
+	case params.BigTCPConfig().IsIPv6Enabled():
+		bigTCPProto = advConnBigTCPIPv6
+	}
+
+	if bigTCPProto != "" {
+		m.ACLBBigTCPEnabled.WithLabelValues(bigTCPProto).Add(1)
 	}
 }

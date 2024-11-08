@@ -14,6 +14,7 @@ import (
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -85,6 +86,8 @@ func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset, extraCell cel
 			func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 			func() egressmap.PolicyMap { return nil },
+
+			func() datapath.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
 		),
 		monitorAgent.Cell,
 		tables.Cell,
