@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,7 @@ type mockFeaturesParams struct {
 	CNIChainingMode  string
 	MutualAuth       bool
 	BandwidthManager bool
+	bigTCPMock       bigTCPMock
 }
 
 func (m mockFeaturesParams) TunnelProtocol() tunnel.Protocol {
@@ -34,6 +36,23 @@ func (m mockFeaturesParams) IsMutualAuthEnabled() bool {
 
 func (m mockFeaturesParams) IsBandwidthManagerEnabled() bool {
 	return m.BandwidthManager
+}
+
+func (m mockFeaturesParams) BigTCPConfig() types.BigTCPConfig {
+	return m.bigTCPMock
+}
+
+type bigTCPMock struct {
+	ipv4Enabled bool
+	ipv6Enabled bool
+}
+
+func (b bigTCPMock) IsIPv4Enabled() bool {
+	return b.ipv4Enabled
+}
+
+func (b bigTCPMock) IsIPv6Enabled() bool {
+	return b.ipv6Enabled
 }
 
 func TestUpdateNetworkMode(t *testing.T) {
@@ -1157,6 +1176,70 @@ func TestUpdateEnvoyConfig(t *testing.T) {
 
 			counterValue := metrics.ACLBCiliumEnvoyConfigEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableEnvoyConfig, counterValue)
+		})
+	}
+}
+
+func TestUpdateBigTCPProtocol(t *testing.T) {
+	tests := []struct {
+		name             string
+		enableIPv4       bool
+		enableIPv6       bool
+		expectedProtocol string
+	}{
+		{
+			name:             "IPv4-only",
+			enableIPv4:       true,
+			expectedProtocol: advConnBigTCPIPv4,
+		},
+		{
+			name:             "IPv6-only",
+			enableIPv6:       true,
+			expectedProtocol: advConnBigTCPIPv6,
+		},
+		{
+			name:             "IPv4-IPv6-dual-stack",
+			enableIPv4:       true,
+			enableIPv6:       true,
+			expectedProtocol: advConnBigTCPDualStack,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				NodePortMode:           defaultNodePortModes[0],
+				NodePortAlg:            defaultNodePortModeAlgorithms[0],
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+				EnableIPv4:             true,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+				bigTCPMock: bigTCPMock{
+					ipv4Enabled: tt.enableIPv4,
+					ipv6Enabled: tt.enableIPv6,
+				},
+			}
+
+			metrics.update(params, config)
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultBigTCPAddressFamilies {
+				counter, err := metrics.ACLBBigTCPEnabled.GetMetricWithLabelValues(mode)
+				assert.NoError(t, err)
+
+				counterValue := counter.Get()
+				if mode == tt.expectedProtocol {
+					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
+				} else {
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+				}
+			}
 		})
 	}
 }

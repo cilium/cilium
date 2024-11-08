@@ -77,6 +77,8 @@ var Cell = cell.Module(
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		tables.NewRouteTable, statedb.RWTable[*tables.Route].ToTable,
+
+		func() types.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
 	),
 
 	tables.NodeAddressCell,
