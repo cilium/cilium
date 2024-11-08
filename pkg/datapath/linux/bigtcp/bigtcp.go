@@ -6,11 +6,11 @@ package bigtcp
 import (
 	"errors"
 
-	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
@@ -25,28 +25,11 @@ const (
 	bigTCPGSOMaxSize = 196608
 
 	probeDevice = "lo"
-
-	EnableIPv4BIGTCPFlag = "enable-ipv4-big-tcp"
-	EnableIPv6BIGTCPFlag = "enable-ipv6-big-tcp"
 )
 
-// UserConfig are the configuration flags that the user can modify.
-type UserConfig struct {
-	// EnableIPv6BIGTCP enables IPv6 BIG TCP (larger GSO/GRO limits) for the node including pods.
-	EnableIPv6BIGTCP bool
-
-	// EnableIPv4BIGTCP enables IPv4 BIG TCP (larger GSO/GRO limits) for the node including pods.
-	EnableIPv4BIGTCP bool
-}
-
-var defaultUserConfig = UserConfig{
+var defaultUserConfig = types.BigTCPUserConfig{
 	EnableIPv6BIGTCP: false,
 	EnableIPv4BIGTCP: false,
-}
-
-func (def UserConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(EnableIPv4BIGTCPFlag, def.EnableIPv4BIGTCP, "Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4")
-	flags.Bool(EnableIPv6BIGTCPFlag, def.EnableIPv6BIGTCP, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6")
 }
 
 var Cell = cell.Module(
@@ -54,24 +37,25 @@ var Cell = cell.Module(
 	"BIG TCP support",
 
 	cell.Config(defaultUserConfig),
-	cell.Provide(newBIGTCP),
+	cell.Provide(newBIGTCP,
+		func(c types.BigTCPUserConfig) types.BigTCPConfig { return c }),
 	cell.Invoke(func(*Configuration) {}),
 )
 
-func newDefaultConfiguration(userConfig UserConfig) *Configuration {
+func newDefaultConfiguration(userConfig types.BigTCPUserConfig) *Configuration {
 	return &Configuration{
-		UserConfig:     userConfig,
-		groIPv4MaxSize: defaultGROMaxSize,
-		gsoIPv4MaxSize: defaultGSOMaxSize,
-		groIPv6MaxSize: defaultGROMaxSize,
-		gsoIPv6MaxSize: defaultGSOMaxSize,
+		BigTCPUserConfig: userConfig,
+		groIPv4MaxSize:   defaultGROMaxSize,
+		gsoIPv4MaxSize:   defaultGSOMaxSize,
+		groIPv6MaxSize:   defaultGROMaxSize,
+		gsoIPv6MaxSize:   defaultGSOMaxSize,
 	}
 }
 
 // Configuration is the BIG TCP configuration. The values are finalized after
 // BIG TCP has started and must not be read before that.
 type Configuration struct {
-	UserConfig
+	types.BigTCPUserConfig
 
 	// gsoIPv{4,6}MaxSize is the GSO maximum size used when configuring
 	// devices.
@@ -112,7 +96,7 @@ func (c *Configuration) GetGSOIPv4MaxSize() int {
 
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
-func setGROGSOIPv6MaxSize(userConfig UserConfig, device string, GROMaxSize, GSOMaxSize int) error {
+func setGROGSOIPv6MaxSize(userConfig types.BigTCPUserConfig, device string, GROMaxSize, GSOMaxSize int) error {
 	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.WithError(err).WithField("device", device).Warn("Link does not exist")
@@ -140,7 +124,7 @@ func setGROGSOIPv6MaxSize(userConfig UserConfig, device string, GROMaxSize, GSOM
 
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
-func setGROGSOIPv4MaxSize(userConfig UserConfig, device string, GROMaxSize, GSOMaxSize int) error {
+func setGROGSOIPv4MaxSize(userConfig types.BigTCPUserConfig, device string, GROMaxSize, GSOMaxSize int) error {
 	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.WithError(err).WithField("device", device).Warn("Link does not exist")
@@ -208,12 +192,12 @@ type params struct {
 	cell.In
 
 	DaemonConfig *option.DaemonConfig
-	UserConfig   UserConfig
+	UserConfig   types.BigTCPUserConfig
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig) error {
+func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		if daemonCfg.DatapathMode != datapathOption.DatapathModeVeth {
 			return errors.New("BIG TCP is supported only in veth datapath mode")
@@ -266,14 +250,14 @@ func startBIGTCP(p params, cfg *Configuration) error {
 	if !haveIPv4 {
 		if p.UserConfig.EnableIPv4BIGTCP {
 			log.Warnf("Cannot enable --%s, needs kernel 6.3 or newer",
-				EnableIPv4BIGTCPFlag)
+				types.EnableIPv4BIGTCPFlag)
 		}
 		p.UserConfig.EnableIPv4BIGTCP = false
 	}
 	if !haveIPv6 {
 		if p.UserConfig.EnableIPv6BIGTCP {
 			log.Warnf("Cannot enable --%s, needs kernel 5.19 or newer",
-				EnableIPv6BIGTCPFlag)
+				types.EnableIPv6BIGTCPFlag)
 		}
 		p.UserConfig.EnableIPv6BIGTCP = false
 	}
