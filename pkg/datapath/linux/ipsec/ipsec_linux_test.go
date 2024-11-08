@@ -421,11 +421,11 @@ func TestUpsertIPSecEndpointFwd(t *testing.T) {
 	if !policyTmpl.Src.Equal(wildcardIPv4) {
 		t.Fatalf("Expected Src to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Src.String())
 	}
-	if !policyTmpl.Dst.Equal(local.IP) {
-		t.Fatalf("Expected Dst to be %s, but got %s", local.IP.String(), policyTmpl.Dst.String())
+	if !policyTmpl.Dst.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Dst to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Dst.String())
 	}
 	require.Equal(t, netlink.XFRM_PROTO_ESP, policyTmpl.Proto)
-	require.Equal(t, params.ReqID, policyTmpl.Reqid)
+	require.Equal(t, 0, policyTmpl.Reqid)
 	require.Equal(t, netlink.XFRM_MODE_TUNNEL, policyTmpl.Mode)
 	require.Equal(t, 1, policyTmpl.Optional)
 }
@@ -511,10 +511,10 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 
 	tmpls := []netlink.XfrmPolicyTmpl{
 		{
-			Src:   remote.IP,
-			Dst:   local.IP,
+			Src:   wildcardIPv4,
+			Dst:   wildcardIPv4,
 			Proto: netlink.XFRM_PROTO_ESP,
-			Reqid: params.ReqID,
+			Reqid: 0,
 			Mode:  netlink.XFRM_MODE_TUNNEL,
 		},
 	}
@@ -594,13 +594,13 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 	policyTmpl = policy.Tmpls[0]
 	// l7 proxy policy has a wildcard source
 	if !policyTmpl.Src.Equal(wildcardIPv4) {
-		t.Fatalf("Expected Src to be %s, but got %s", remote.IP.String(), policyTmpl.Src.String())
+		t.Fatalf("Expected Src to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Src.String())
 	}
-	if !policyTmpl.Dst.Equal(local.IP) {
-		t.Fatalf("Expected Dst to be %s, but got %s", local.IP.String(), policyTmpl.Dst.String())
+	if !policyTmpl.Dst.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Dst to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Dst.String())
 	}
 	require.Equal(t, netlink.XFRM_PROTO_ESP, policyTmpl.Proto)
-	require.Equal(t, params.ReqID, policyTmpl.Reqid)
+	require.Equal(t, 0, policyTmpl.Reqid)
 	require.Equal(t, netlink.XFRM_MODE_TUNNEL, policyTmpl.Mode)
 }
 
