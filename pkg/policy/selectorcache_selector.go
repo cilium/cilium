@@ -66,6 +66,16 @@ type identitySelector struct {
 	metadataLbls     labels.LabelArray
 }
 
+func (i *identitySelector) MaySelectPeers() bool {
+	for user := range i.users {
+		if user.IsPeerSelector() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // identitySelector implements CachedSelector
 var _ types.CachedSelector = (*identitySelector)(nil)
 
