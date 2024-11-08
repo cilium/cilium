@@ -140,6 +140,11 @@ func (b *Exponential) Reset() {
 	b.attempt = 0
 }
 
+// Attempt returns the number of attempts since the last reset.
+func (b *Exponential) Attempt() int {
+	return b.attempt
+}
+
 // Wait waits for the required time using an exponential backoff
 func (b *Exponential) Wait(ctx context.Context) error {
 	if resetDuration := b.ResetAfter; resetDuration != time.Duration(0) && resetDuration > b.Max {
