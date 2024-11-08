@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -46,11 +47,12 @@ type featuresParams struct {
 	ConfigPromise promise.Promise[*option.DaemonConfig]
 	Metrics       featureMetrics
 
-	TunnelConfig     tunnel.Config
-	CNIConfigManager cni.CNIConfigManager
-	MutualAuth       auth.MeshAuthConfig
-	BandwidthManager types.BandwidthManager
-	BigTCP           types.BigTCPConfig
+	TunnelConfig      tunnel.Config
+	CNIConfigManager  cni.CNIConfigManager
+	MutualAuth        auth.MeshAuthConfig
+	BandwidthManager  types.BandwidthManager
+	BigTCP            types.BigTCPConfig
+	L2PodAnnouncement garp.L2PodAnnouncementConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.Protocol {
@@ -73,10 +75,15 @@ func (fp *featuresParams) BigTCPConfig() types.BigTCPConfig {
 	return fp.BigTCP
 }
 
+func (fp *featuresParams) IsL2PodAnnouncementEnabled() bool {
+	return fp.L2PodAnnouncement.Enabled()
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.Protocol
 	GetChainingMode() string
 	IsMutualAuthEnabled() bool
 	IsBandwidthManagerEnabled() bool
 	BigTCPConfig() types.BigTCPConfig
+	IsL2PodAnnouncementEnabled() bool
 }
