@@ -22,7 +22,13 @@ var Cell = cell.Module(
 	"l7-proxy",
 	"L7 Proxy provides support for L7 network policies",
 
-	cell.Provide(func() ProxyConfig { return DefaultProxyConfig }),
+	cell.Provide(func() ProxyConfig {
+		ret := DefaultProxyConfig
+		if option.Config.RestoredProxyPortsAgeLimit != 0 {
+			ret.RestoredProxyPortsAgeLimit = option.Config.RestoredProxyPortsAgeLimit
+		}
+		return ret
+	}),
 
 	cell.Provide(newProxy),
 	cell.Provide(newEnvoyProxyIntegration),
@@ -31,8 +37,9 @@ var Cell = cell.Module(
 )
 
 type ProxyConfig struct {
-	MinPort, MaxPort uint16
-	DNSProxyPort     uint16
+	MinPort, MaxPort           uint16
+	DNSProxyPort               uint16
+	RestoredProxyPortsAgeLimit uint
 }
 
 var DefaultProxyConfig = ProxyConfig{
@@ -40,7 +47,8 @@ var DefaultProxyConfig = ProxyConfig{
 	MaxPort: 20000,
 	// The default value for the DNS proxy port is set to 0 to allocate a random
 	// port.
-	DNSProxyPort: 0,
+	DNSProxyPort:               0,
+	RestoredProxyPortsAgeLimit: 15,
 }
 
 type proxyParams struct {
@@ -72,6 +80,10 @@ func newProxy(params proxyParams, cfg ProxyConfig) *Proxy {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) (err error) {
+			// Restore all proxy ports before we create the trigger to overwrite the
+			// file below
+			p.RestoreProxyPorts(cfg.RestoredProxyPortsAgeLimit)
+
 			p.proxyPortsTrigger, err = trigger.NewTrigger(trigger.Parameters{
 				MinInterval:  10 * time.Second,
 				TriggerFunc:  p.storeProxyPorts,
