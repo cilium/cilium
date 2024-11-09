@@ -122,7 +122,7 @@ spec:
                                 family:
                                   default: IPv4
                                   description: |-
-                                    Family is a IP address version.
+                                    Family is an IP address version.
                                     Currently, we support `IPv4` and `IPv6`.
                                     `IPv4` is set as default.
                                   enum:
@@ -373,7 +373,7 @@ spec:
                               A trailing "." is automatically added when missing.
 
                               Examples:
-                              `*.cilium.io` matches subomains of cilium at that level
+                              `*.cilium.io` matches subdomains of cilium at that level
                                 www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
                               `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                 except those containing "." separator, subcilium.io and sub-cilium.io match,
@@ -685,7 +685,7 @@ spec:
                                         A trailing "." is automatically added when missing.
 
                                         Examples:
-                                        `*.cilium.io` matches subomains of cilium at that level
+                                        `*.cilium.io` matches subdomains of cilium at that level
                                           www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
                                         `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                           except those containing "." separator, subcilium.io and sub-cilium.io match,
@@ -964,7 +964,7 @@ spec:
                         ToRequires is a list of additional constraints which must be met
                         in order for the selected endpoints to be able to connect to other
                         endpoints. These additional constraints do no by itself grant access
-                        privileges and must always be accompanied with at least one matching
+                        privileges and must always be accompanied by at least one matching
                         ToEndpoints.
 
                         Example:
@@ -1161,7 +1161,7 @@ spec:
                                 family:
                                   default: IPv4
                                   description: |-
-                                    Family is a IP address version.
+                                    Family is an IP address version.
                                     Currently, we support `IPv4` and `IPv6`.
                                     `IPv4` is set as default.
                                   enum:
@@ -1526,7 +1526,7 @@ spec:
                         ToRequires is a list of additional constraints which must be met
                         in order for the selected endpoints to be able to connect to other
                         endpoints. These additional constraints do no by itself grant access
-                        privileges and must always be accompanied with at least one matching
+                        privileges and must always be accompanied by at least one matching
                         ToEndpoints.
 
                         Example:
@@ -2075,7 +2075,7 @@ spec:
                         FromRequires is a list of additional constraints which must be met
                         in order for the selected endpoints to be reachable. These
                         additional constraints do no by itself grant access privileges and
-                        must always be accompanied with at least one matching FromEndpoints.
+                        must always be accompanied by at least one matching FromEndpoints.
 
                         Example:
                         Any Endpoint with the label "team=A" requires consuming endpoint
@@ -2156,7 +2156,7 @@ spec:
                                 family:
                                   default: IPv4
                                   description: |-
-                                    Family is a IP address version.
+                                    Family is an IP address version.
                                     Currently, we support `IPv4` and `IPv6`.
                                     `IPv4` is set as default.
                                   enum:
@@ -2399,7 +2399,7 @@ spec:
                                         A trailing "." is automatically added when missing.
 
                                         Examples:
-                                        `*.cilium.io` matches subomains of cilium at that level
+                                        `*.cilium.io` matches subdomains of cilium at that level
                                           www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
                                         `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                           except those containing "." separator, subcilium.io and sub-cilium.io match,
@@ -2970,7 +2970,7 @@ spec:
                         FromRequires is a list of additional constraints which must be met
                         in order for the selected endpoints to be reachable. These
                         additional constraints do no by itself grant access privileges and
-                        must always be accompanied with at least one matching FromEndpoints.
+                        must always be accompanied by at least one matching FromEndpoints.
 
                         Example:
                         Any Endpoint with the label "team=A" requires consuming endpoint
@@ -3051,7 +3051,7 @@ spec:
                                 family:
                                   default: IPv4
                                   description: |-
-                                    Family is a IP address version.
+                                    Family is an IP address version.
                                     Currently, we support `IPv4` and `IPv6`.
                                     `IPv4` is set as default.
                                   enum:
@@ -3315,7 +3315,7 @@ spec:
                                   family:
                                     default: IPv4
                                     description: |-
-                                      Family is a IP address version.
+                                      Family is an IP address version.
                                       Currently, we support `IPv4` and `IPv6`.
                                       `IPv4` is set as default.
                                     enum:
@@ -3567,7 +3567,7 @@ spec:
                                 A trailing "." is automatically added when missing.
 
                                 Examples:
-                                `*.cilium.io` matches subomains of cilium at that level
+                                `*.cilium.io` matches subdomains of cilium at that level
                                   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
                                 `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                   except those containing "." separator, subcilium.io and sub-cilium.io match,
@@ -3879,7 +3879,7 @@ spec:
                                           A trailing "." is automatically added when missing.
 
                                           Examples:
-                                          `*.cilium.io` matches subomains of cilium at that level
+                                          `*.cilium.io` matches subdomains of cilium at that level
                                             www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
                                           `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                             except those containing "." separator, subcilium.io and sub-cilium.io match,
@@ -4158,7 +4158,7 @@ spec:
                           ToRequires is a list of additional constraints which must be met
                           in order for the selected endpoints to be able to connect to other
                           endpoints. These additional constraints do no by itself grant access
-                          privileges and must always be accompanied with at least one matching
+                          privileges and must always be accompanied by at least one matching
                           ToEndpoints.
 
                           Example:
@@ -4355,7 +4355,7 @@ spec:
                                   family:
                                     default: IPv4
                                     description: |-
-                                      Family is a IP address version.
+                                      Family is an IP address version.
                                       Currently, we support `IPv4` and `IPv6`.
                                       `IPv4` is set as default.
                                     enum:
@@ -4721,7 +4721,7 @@ spec:
                           ToRequires is a list of additional constraints which must be met
                           in order for the selected endpoints to be able to connect to other
                           endpoints. These additional constraints do no by itself grant access
-                          privileges and must always be accompanied with at least one matching
+                          privileges and must always be accompanied by at least one matching
                           ToEndpoints.
 
                           Example:
@@ -5270,7 +5270,7 @@ spec:
                           FromRequires is a list of additional constraints which must be met
                           in order for the selected endpoints to be reachable. These
                           additional constraints do no by itself grant access privileges and
-                          must always be accompanied with at least one matching FromEndpoints.
+                          must always be accompanied by at least one matching FromEndpoints.
 
                           Example:
                           Any Endpoint with the label "team=A" requires consuming endpoint
@@ -5351,7 +5351,7 @@ spec:
                                   family:
                                     default: IPv4
                                     description: |-
-                                      Family is a IP address version.
+                                      Family is an IP address version.
                                       Currently, we support `IPv4` and `IPv6`.
                                       `IPv4` is set as default.
                                     enum:
@@ -5595,7 +5595,7 @@ spec:
                                           A trailing "." is automatically added when missing.
 
                                           Examples:
-                                          `*.cilium.io` matches subomains of cilium at that level
+                                          `*.cilium.io` matches subdomains of cilium at that level
                                             www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
                                           `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
                                             except those containing "." separator, subcilium.io and sub-cilium.io match,
@@ -6166,7 +6166,7 @@ spec:
                           FromRequires is a list of additional constraints which must be met
                           in order for the selected endpoints to be reachable. These
                           additional constraints do no by itself grant access privileges and
-                          must always be accompanied with at least one matching FromEndpoints.
+                          must always be accompanied by at least one matching FromEndpoints.
 
                           Example:
                           Any Endpoint with the label "team=A" requires consuming endpoint
@@ -6247,7 +6247,7 @@ spec:
                                   family:
                                     default: IPv4
                                     description: |-
-                                      Family is a IP address version.
+                                      Family is an IP address version.
                                       Currently, we support `IPv4` and `IPv6`.
                                       `IPv4` is set as default.
                                     enum:

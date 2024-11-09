@@ -7020,7 +7020,7 @@ struct bpf_fib_lookup {
 			__be16	h_vlan_proto;
 			__be16	h_vlan_TCI;
 		};
-		/* input: when accompanied with the
+		/* input: when accompanied by the
 		 * 'BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID` flags, a
 		 * specific routing table to use for the fib lookup.
 		 */

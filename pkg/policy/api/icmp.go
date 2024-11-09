@@ -78,7 +78,7 @@ type ICMPRule struct {
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type ICMPField struct {
-	// Family is a IP address version.
+	// Family is an IP address version.
 	// Currently, we support `IPv4` and `IPv6`.
 	// `IPv4` is set as default.
 	//

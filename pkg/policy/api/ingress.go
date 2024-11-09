@@ -30,7 +30,7 @@ type IngressCommonRule struct {
 	// FromRequires is a list of additional constraints which must be met
 	// in order for the selected endpoints to be reachable. These
 	// additional constraints do no by itself grant access privileges and
-	// must always be accompanied with at least one matching FromEndpoints.
+	// must always be accompanied by at least one matching FromEndpoints.
 	//
 	// Example:
 	// Any Endpoint with the label "team=A" requires consuming endpoint

@@ -59,7 +59,7 @@ First, some high-level rules:
   to.
 - If you are writing a new feature or extending an existing one, make sure to
   write some documentation.
-- Bug fixes need to be accompanied with regression tests.
+- Bug fixes need to be accompanied by regression tests.
 - New code needs to be tested.
 - Your commit messages need to explain why the change is needed, even if already
   included in the PR description.
