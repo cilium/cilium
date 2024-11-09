@@ -32,13 +32,15 @@ var Cell = cell.Module(
 )
 
 type ProxyConfig struct {
-	ProxyPortrangeMin uint16
-	ProxyPortrangeMax uint16
+	ProxyPortrangeMin          uint16
+	ProxyPortrangeMax          uint16
+	RestoredProxyPortsAgeLimit uint
 }
 
 func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint16("proxy-portrange-min", 10000, "Start of port range that is used to allocate ports for L7 proxies.")
 	flags.Uint16("proxy-portrange-max", 20000, "End of port range that is used to allocate ports for L7 proxies.")
+	flags.Uint("restored-proxy-ports-age-limit", 15, "Time after which a restored proxy ports file is considered stale (in minutes)")
 }
 
 type proxyParams struct {
@@ -70,6 +72,10 @@ func newProxy(params proxyParams) *Proxy {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) (err error) {
+			// Restore all proxy ports before we create the trigger to overwrite the
+			// file below
+			p.RestoreProxyPorts(params.Config.RestoredProxyPortsAgeLimit)
+
 			p.proxyPortsTrigger, err = trigger.NewTrigger(trigger.Parameters{
 				MinInterval:  10 * time.Second,
 				TriggerFunc:  p.storeProxyPorts,

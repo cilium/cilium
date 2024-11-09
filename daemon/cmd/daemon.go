@@ -534,12 +534,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err != nil {
 		log.WithError(err).Error("Unable to read existing endpoints")
 	}
-	// Restore all proxy ports from datapath, if possible
-	// Must be run before d.bootstrapFQDN(), which depends
-	// on the ports having been restored.
-	if d.l7Proxy != nil {
-		d.l7Proxy.RestoreProxyPorts()
-	}
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
