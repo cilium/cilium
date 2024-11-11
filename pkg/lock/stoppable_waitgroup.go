@@ -78,12 +78,6 @@ func (l *StoppableWaitGroup) Add() DoneFunc {
 	}
 }
 
-// TEMP: For cleaner git commits, this keeps done() exported until the next commit that
-// removes this and reworks the tree to not use it.
-func (l *StoppableWaitGroup) Done() {
-	l.done()
-}
-
 // done will decrement the number of goroutines the Wait() will have to wait
 // before it returns.
 // This function is a no-op once all goroutines that have called 'Add()' have

@@ -755,7 +755,7 @@ func TestRemoteClusterSync(t *testing.T) {
 				readyTimeout: tt.config.PerClusterReadyTimeout,
 				logger:       km.logger.WithField(logfields.ClusterName, "foo"),
 			}
-			rc.synced.resources.Add()
+			swgDone := rc.synced.resources.Add()
 			rc.synced.resources.Stop()
 
 			mockClusterMesh.clusters[rc.name] = rc
@@ -778,7 +778,7 @@ func TestRemoteClusterSync(t *testing.T) {
 
 			if tt.connect {
 				require.False(t, clusterSyncComplete(), "Cluster sync should not be complete until all resources are done")
-				rc.synced.resources.Done()
+				swgDone()
 			}
 
 			require.NoError(t, rc.synced.Resources(ctx), "Still waiting for remote cluster resources")

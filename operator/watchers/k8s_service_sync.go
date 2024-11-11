@@ -30,7 +30,7 @@ var (
 
 func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool, logger *slog.Logger) {
 	serviceHandler := func(event k8s.ServiceEvent) {
-		defer event.SWG.Done()
+		defer event.SWGDone()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
 		svc.Cluster = cinfo.Name

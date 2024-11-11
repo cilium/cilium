@@ -124,7 +124,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	})
 
 	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
-		rc.remoteIdentityCache.Watch(ctx, func(context.Context) { rc.synced.identities.Done() })
+		rc.remoteIdentityCache.Watch(ctx, func(context.Context) { rc.synced.identitiesDone() })
 	})
 
 	close(ready)
@@ -224,10 +224,11 @@ func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig)
 
 type synced struct {
 	wait.SyncedCommon
-	services   *lock.StoppableWaitGroup
-	nodes      chan struct{}
-	ipcache    chan struct{}
-	identities *lock.StoppableWaitGroup
+	services       *lock.StoppableWaitGroup
+	nodes          chan struct{}
+	ipcache        chan struct{}
+	identities     *lock.StoppableWaitGroup
+	identitiesDone lock.DoneFunc
 }
 
 func newSynced() synced {
@@ -236,15 +237,16 @@ func newSynced() synced {
 	// synced (as the callback is executed every time the etcd connection
 	// is restarted, differently from the other resource types).
 	idswg := lock.NewStoppableWaitGroup()
-	idswg.Add()
+	done := idswg.Add()
 	idswg.Stop()
 
 	return synced{
-		SyncedCommon: wait.NewSyncedCommon(),
-		services:     lock.NewStoppableWaitGroup(),
-		nodes:        make(chan struct{}),
-		ipcache:      make(chan struct{}),
-		identities:   idswg,
+		SyncedCommon:   wait.NewSyncedCommon(),
+		services:       lock.NewStoppableWaitGroup(),
+		nodes:          make(chan struct{}),
+		ipcache:        make(chan struct{}),
+		identities:     idswg,
+		identitiesDone: done,
 	}
 }
 

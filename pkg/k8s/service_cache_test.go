@@ -249,7 +249,7 @@ func testServiceCache(t *testing.T,
 	// imported
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -276,7 +276,7 @@ func testServiceCache(t *testing.T,
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
 
@@ -291,7 +291,7 @@ func testServiceCache(t *testing.T,
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 
@@ -306,7 +306,7 @@ func testServiceCache(t *testing.T,
 	deleteEndpointsCB(svcCache, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 
@@ -332,7 +332,7 @@ func testServiceCache(t *testing.T,
 	updateEndpointsCB(svcCache, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -346,7 +346,7 @@ func testServiceCache(t *testing.T,
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -450,7 +450,7 @@ func TestForEachService(t *testing.T) {
 	svcID1, eps1 := svcCache.UpdateEndpoints(k8sEndpoints1, swg)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID1, event.ID)
 		require.Equal(t, eps1, event.Endpoints)
@@ -461,7 +461,7 @@ func TestForEachService(t *testing.T) {
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		println("waiting for events2")
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID2, event.ID)
 		require.Equal(t, eps2, event.Endpoints)
@@ -563,7 +563,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// imported
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -616,7 +616,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// IncludeExternal is set (i.e., the service is marked as a global one in the remote cluster).
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 
@@ -652,7 +652,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// IncludeExternal is set (i.e., the service is marked as a global one in the remote cluster).
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 
@@ -692,7 +692,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// is set (i.e., the service is marked as a global one in the remote cluster).
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		require.EqualValues(t, &Backend{
@@ -763,7 +763,7 @@ func TestExternalServiceMerging(t *testing.T) {
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID2, event.ID)
 		return true
@@ -789,7 +789,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	svcCache.MergeExternalServiceUpdate(cluster2svc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.EqualValues(t, &Backend{
 			Ports: serviceStore.PortConfiguration{
@@ -803,7 +803,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	svcCache.MergeExternalServiceDelete(cluster2svc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Nil(t, event.Endpoints.Backends[cmtypes.MustParseAddrCluster("4.4.4.4")])
 		return true
@@ -813,7 +813,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -823,7 +823,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		require.EqualValues(t, &Backend{
@@ -886,7 +886,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, id1, event.ID)
 		return true
@@ -906,7 +906,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, id1, event.ID)
 		return true
@@ -924,7 +924,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, id2, event.ID)
 		return true
@@ -980,7 +980,7 @@ func TestClusterServiceMerging(t *testing.T) {
 	// regardless of whether it is marked as global or shared (since the cluster name matches).
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		require.EqualValues(t, &Backend{
@@ -1165,7 +1165,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// imported for k8sEndpointSlice1
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1175,7 +1175,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// imported for k8sEndpointSlice2
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1203,7 +1203,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1213,7 +1213,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1223,7 +1223,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	svcCache.DeleteEndpoints(k8sEndpointSlice2.EndpointSliceID, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1236,7 +1236,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1250,7 +1250,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1264,7 +1264,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1383,7 +1383,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// imported for k8sEndpointSlice1
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1393,7 +1393,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// imported for k8sEndpointSlice2
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1421,7 +1421,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1431,7 +1431,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1441,7 +1441,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	svcCache.DeleteEndpoints(k8sEndpointSlice2.EndpointSliceID, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1454,7 +1454,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1468,7 +1468,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true
@@ -1482,7 +1482,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		defer event.SWG.Done()
+		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
 		return true

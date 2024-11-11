@@ -53,9 +53,9 @@ func (ss SyncState) Complete() bool {
 // WaitForResource adds a resource to the SyncState and returns a callback function that should be
 // called when the resource has been synchronized.
 func (ss SyncState) WaitForResource() func(context.Context) {
-	ss.Add()
+	done := ss.Add()
 	return func(_ context.Context) {
-		ss.Done()
+		done()
 	}
 }
 
