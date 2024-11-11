@@ -78,6 +78,9 @@ type config struct {
 	// Hubble metrics server. The files must contain PEM encoded data.
 	MetricsServerTLSClientCAFiles []string `mapstructure:"hubble-metrics-server-tls-client-ca-files"`
 
+	// DynamicMetricConfigFilePath specifies the filepath with configuration of hubble metrics.
+	DynamicMetricConfigFilePath string `mapstructure:"hubble-dynamic-metrics-config-path"`
+
 	// EnableRecorderAPI specifies if the Hubble Recorder API should be served.
 	EnableRecorderAPI bool `mapstructure:"enable-hubble-recorder-api"`
 	// RecorderStoragePath specifies the directory in which pcap files created
@@ -137,6 +140,8 @@ var defaultConfig = config{
 	MetricsServerTLSCertFile:      "",
 	MetricsServerTLSKeyFile:       "",
 	MetricsServerTLSClientCAFiles: []string{},
+	// Hubble metrics dynamic config CM path
+	DynamicMetricConfigFilePath: "",
 	// Hubble recorder configuration
 	EnableRecorderAPI:     true,
 	RecorderStoragePath:   hubbleDefaults.RecorderStoragePath,
@@ -183,6 +188,8 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.String("hubble-metrics-server-tls-cert-file", def.MetricsServerTLSCertFile, "Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.")
 	flags.String("hubble-metrics-server-tls-key-file", def.MetricsServerTLSKeyFile, "Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.")
 	flags.StringSlice("hubble-metrics-server-tls-client-ca-files", def.MetricsServerTLSClientCAFiles, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
+	// Hubble metrics dynamic config CM path
+	flags.String("hubble-dynamic-metrics-config-path", def.DynamicMetricConfigFilePath, "Filepath with dynamic configuration of hubble metrics")
 	// Hubble recorder configuration
 	flags.Bool("enable-hubble-recorder-api", def.EnableRecorderAPI, "Enable the Hubble recorder API")
 	flags.String("hubble-recorder-storage-path", def.RecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
