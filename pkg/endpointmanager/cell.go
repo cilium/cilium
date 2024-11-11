@@ -227,6 +227,7 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 		p.Lifecycle.Append(cell.Hook{
 			OnStart: func(cell.HookContext) error {
 				mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
+				mgr.WithPeriodicEndpointRegeneration(ctx, p.Config.EndpointRegenInterval)
 				return nil
 			},
 			OnStop: func(cell.HookContext) error {
