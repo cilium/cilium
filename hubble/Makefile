@@ -20,7 +20,7 @@ include ../Makefile.defs
 all: hubble
 
 hubble:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) -ldflags "-w -s -X 'github.com/cilium/cilium/hubble/pkg.GitBranch=${GIT_BRANCH}' -X 'github.com/cilium/cilium/hubble/pkg.GitHash=$(GIT_HASH)' -X 'github.com/cilium/cilium/hubble/pkg.Version=${VERSION}'" -o $(TARGET_DIR)/$(TARGET)$(EXT) $(SUBDIRS_HUBBLE_CLI)
+	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) -ldflags "-w -s -X 'github.com/cilium/cilium/hubble/pkg.GitBranch=${GIT_BRANCH}' -X 'github.com/cilium/cilium/hubble/pkg.GitHash=$(GIT_HASH)' -X 'github.com/cilium/cilium/hubble/pkg.Version=v${VERSION}'" -o $(TARGET_DIR)/$(TARGET)$(EXT) $(SUBDIRS_HUBBLE_CLI)
 
 release:
 	cd ../ && \
