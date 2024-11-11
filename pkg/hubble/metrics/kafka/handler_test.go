@@ -21,14 +21,16 @@ func Test_kafkaHandler_Status(t *testing.T) {
 	plugin := kafkaPlugin{}
 	handler := plugin.NewHandler()
 	assert.Equal(t, "", handler.Status())
-	options := []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"namespace"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"identity"},
+	options := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"identity"},
+			},
 		},
 	}
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
@@ -39,34 +41,36 @@ func Test_kafkaHandler_ProcessFlow(t *testing.T) {
 	ctx := context.Background()
 	plugin := kafkaPlugin{}
 	handler := plugin.NewHandler()
-	options := []*api.ContextOptionConfig{
-		{
-			Name:   "destinationContext",
-			Values: []string{"invalid"},
+	options := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"invalid"},
+			},
 		},
 	}
 	require.Error(t, handler.Init(prometheus.NewRegistry(), options))
-	options = []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"pod"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"pod"},
-		},
-		{
-			Name:   "labelsContext",
-			Values: []string{"source_pod", "destination_pod"},
+	options = &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "labelsContext",
+				Values: []string{"source_pod", "destination_pod"},
+			},
 		},
 	}
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
-	fp, ok := handler.(api.FlowProcessor)
-	require.True(t, ok)
 	// shouldn't count
-	fp.ProcessFlow(ctx, &pb.Flow{})
+	handler.ProcessFlow(ctx, &pb.Flow{})
 	// shouldn't count
-	fp.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
+	handler.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
 		Type:   pb.L7FlowType_RESPONSE,
 		Record: &pb.Layer7_Dns{},
 	}})
@@ -93,7 +97,7 @@ func Test_kafkaHandler_ProcessFlow(t *testing.T) {
 		},
 	}
 	// should count for request
-	fp.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		Source:           sourceEndpoint,
 		Destination:      destinationEndpoint,
@@ -137,7 +141,7 @@ func Test_kafkaHandler_ProcessFlow(t *testing.T) {
 func Test_kafkaHandler_ListMetricVec(t *testing.T) {
 	plugin := kafkaPlugin{}
 	handler := plugin.NewHandler()
-	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
+	require.NoError(t, handler.Init(prometheus.NewRegistry(), &api.MetricConfig{}))
 	assert.Len(t, handler.ListMetricVec(), 2, "expecting 2 metrics, requests and duration")
 	for _, vec := range handler.ListMetricVec() {
 		require.NotNil(t, vec, "ListMetricVec should not nil metrics vectors")
