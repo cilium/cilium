@@ -176,7 +176,7 @@ jobs:
   post-push:
     name: Post-push steps
     runs-on: ubuntu-24.04
-    needs: 
+    needs:
       - setup-charts
       - push-charts
     steps:
