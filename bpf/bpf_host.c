@@ -1498,7 +1498,7 @@ skip_host_firewall:
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
 	 */
-	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) != MARK_MAGIC_WG_ENCRYPTED) {
+	if (!ctx_mark_is_wireguard(ctx)) {
 		ret = wg_maybe_redirect_to_encrypt(ctx, proto);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
