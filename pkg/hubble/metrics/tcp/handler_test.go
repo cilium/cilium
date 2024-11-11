@@ -18,14 +18,16 @@ import (
 
 func TestTcpHandler_Init(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	opts := []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"namespace"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"namespace"},
+	opts := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"namespace"},
+			},
 		},
 	}
 
@@ -56,14 +58,16 @@ func TestTcpHandler(t *testing.T) {
 
 	for _, tc := range supportedFlags {
 		registry := prometheus.NewRegistry()
-		opts := []*api.ContextOptionConfig{
-			{
-				Name:   "sourceContext",
-				Values: []string{"namespace"},
-			},
-			{
-				Name:   "destinationContext",
-				Values: []string{"namespace"},
+		opts := &api.MetricConfig{
+			ContextOptionConfigs: []*api.ContextOptionConfig{
+				{
+					Name:   "sourceContext",
+					Values: []string{"namespace"},
+				},
+				{
+					Name:   "destinationContext",
+					Values: []string{"namespace"},
+				},
 			},
 		}
 
@@ -118,14 +122,16 @@ func TestTcpHandler(t *testing.T) {
 
 	for _, tc := range unsupportedFlags {
 		registry := prometheus.NewRegistry()
-		opts := []*api.ContextOptionConfig{
-			{
-				Name:   "sourceContext",
-				Values: []string{"namespace"},
-			},
-			{
-				Name:   "destinationContext",
-				Values: []string{"namespace"},
+		opts := &api.MetricConfig{
+			ContextOptionConfigs: []*api.ContextOptionConfig{
+				{
+					Name:   "sourceContext",
+					Values: []string{"namespace"},
+				},
+				{
+					Name:   "destinationContext",
+					Values: []string{"namespace"},
+				},
 			},
 		}
 

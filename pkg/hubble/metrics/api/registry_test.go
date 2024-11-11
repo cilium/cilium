@@ -39,7 +39,7 @@ type testHandler struct {
 	ListMetricCalled int
 }
 
-func (t *testHandler) Init(registry *prometheus.Registry, options []*ContextOptionConfig) error {
+func (t *testHandler) Init(registry *prometheus.Registry, options *MetricConfig) error {
 	t.InitCalled++
 	return nil
 }

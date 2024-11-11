@@ -54,7 +54,7 @@ type Handler interface {
 	// Init must initialize the metric handler by validating and parsing
 	// the options and then registering all required metrics with the
 	// specifies Prometheus registry
-	Init(registry *prometheus.Registry, options []*ContextOptionConfig) error
+	Init(registry *prometheus.Registry, options *MetricConfig) error
 
 	// ListMetricVec returns an array of MetricVec used by a handler
 	ListMetricVec() []*prometheus.MetricVec
@@ -91,7 +91,7 @@ func NewHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in []Nam
 			handlers.flowProcessors = append(handlers.flowProcessors, fp)
 		}
 
-		if err := item.Handler.Init(registry, item.MetricConfig.ContextOptionConfigs); err != nil {
+		if err := item.Handler.Init(registry, item.MetricConfig); err != nil {
 			return nil, fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
 		}
 
