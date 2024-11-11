@@ -149,6 +149,10 @@ type EndpointManager interface {
 	// regenerated.
 	RegenerateAllEndpoints(regenMetadata *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup
 
+	// TriggerRegenerateAlEndpoints triggers a batched regeneration of all endpoints.
+	// Returns immediately.
+	TriggerRegenerateAllEndpoints()
+
 	// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
 	// this function is called to be at a given policy revision.
 	// New endpoints appearing while waiting are ignored.

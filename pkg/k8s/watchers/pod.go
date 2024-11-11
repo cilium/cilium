@@ -914,7 +914,7 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 
 		// This happens at most once due to k8sMeta being the same for all podIPs in this loop
 		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
+			k.policyManager.TriggerPolicyUpdates("Named ports added or updated")
 		}
 	}()
 
