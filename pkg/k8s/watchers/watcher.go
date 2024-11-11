@@ -75,7 +75,7 @@ type nodeManager interface {
 }
 
 type policyManager interface {
-	TriggerPolicyUpdates(force bool, reason string)
+	TriggerPolicyUpdates(reason string)
 }
 
 type svcManager interface {

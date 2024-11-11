@@ -112,7 +112,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 		// the bpf maps are not updated with the new proxy ports either. Move from the
 		// simple boolean to an enum that can more selectively skip regeneration steps (like
 		// we do for the datapath recompilations already?)
-		r.policyUpdater.TriggerPolicyUpdates(true, "Envoy Listeners added")
+		r.policyUpdater.TriggerPolicyUpdates("Envoy Listeners added")
 	}
 
 	return err
@@ -386,7 +386,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 	}
 
 	if oldResources.ListenersAddedOrDeleted(&newResources) {
-		r.policyUpdater.TriggerPolicyUpdates(true, "Envoy Listeners added or deleted")
+		r.policyUpdater.TriggerPolicyUpdates("Envoy Listeners added or deleted")
 	}
 
 	return nil
@@ -485,7 +485,7 @@ func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, ce
 	}
 
 	if len(resources.Listeners) > 0 {
-		r.policyUpdater.TriggerPolicyUpdates(true, "Envoy Listeners deleted")
+		r.policyUpdater.TriggerPolicyUpdates("Envoy Listeners deleted")
 	}
 
 	return nil

@@ -44,6 +44,8 @@ var (
 	endpointGCControllerGroup = controller.NewGroup("endpoint-gc")
 )
 
+const regenEndpointControllerName = "endpoint-periodic-regeneration"
+
 // endpointManager is a structure designed for containing state about the
 // collection of locally running endpoints.
 type endpointManager struct {
@@ -136,7 +138,7 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 // WithPeriodicEndpointRegeneration configures the EndpointManager to regenerate all (policy and configuration) state
 // of endpoints periodically.
 func (mgr *endpointManager) WithPeriodicEndpointRegeneration(ctx context.Context, interval time.Duration) *endpointManager {
-	mgr.controllers.UpdateController("endpoint-periodic-regeneration",
+	mgr.controllers.UpdateController(regenEndpointControllerName,
 		controller.ControllerParams{
 			Group: endpointGCControllerGroup,
 			DoFunc: func(ctx context.Context) error {
@@ -588,6 +590,12 @@ func (mgr *endpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.E
 	}
 
 	return &wg
+}
+
+// TriggerRegenerateAllEndpoints triggers a batched, asynchronous regeneration of all endpoints
+// at the WithoutDatapath level.
+func (mgr *endpointManager) TriggerRegenerateAllEndpoints() {
+	mgr.controllers.TriggerController(regenEndpointControllerName)
 }
 
 // OverrideEndpointOpts applies the given options to all endpoints.
