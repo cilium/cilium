@@ -29,9 +29,9 @@ func TestDone(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
 	l.i.Store(4)
-	l.Done()
+	l.done()
 	require.Equal(t, int64(3), l.i.Load())
-	l.Done()
+	l.done()
 	require.Equal(t, int64(2), l.i.Load())
 	close(l.noopAdd)
 	select {
@@ -41,7 +41,7 @@ func TestDone(t *testing.T) {
 	default:
 	}
 
-	l.Done()
+	l.done()
 	require.Equal(t, int64(1), l.i.Load())
 	select {
 	case _, ok := <-l.noopDone:
@@ -50,7 +50,7 @@ func TestDone(t *testing.T) {
 	default:
 	}
 
-	l.Done()
+	l.done()
 	require.Equal(t, int64(0), l.i.Load())
 	select {
 	case _, ok := <-l.noopDone:
@@ -60,7 +60,7 @@ func TestDone(t *testing.T) {
 		require.True(t, false)
 	}
 
-	l.Done()
+	l.done()
 	require.Equal(t, int64(0), l.i.Load())
 }
 
@@ -93,7 +93,7 @@ func TestWait(t *testing.T) {
 	l.Add()
 	require.Equal(t, int64(2), l.i.Load())
 
-	l.Done()
+	l.done()
 	require.Equal(t, int64(1), l.i.Load())
 	select {
 	case _, ok := <-waitClosed:
@@ -102,7 +102,7 @@ func TestWait(t *testing.T) {
 	default:
 	}
 
-	l.Done()
+	l.done()
 	require.Equal(t, int64(0), l.i.Load())
 	select {
 	case _, ok := <-waitClosed:
@@ -111,22 +111,22 @@ func TestWait(t *testing.T) {
 	default:
 	}
 
-	l.Done()
+	l.done()
 	require.Equal(t, int64(0), l.i.Load())
 }
 
 func TestWaitChannel(t *testing.T) {
 	l := NewStoppableWaitGroup()
 
-	l.Add()
+	done1 := l.Add()
 	require.Equal(t, int64(1), l.i.Load())
-	l.Add()
+	done2 := l.Add()
 	require.Equal(t, int64(2), l.i.Load())
 	l.Stop()
-	l.Add()
+	done3 := l.Add()
 	require.Equal(t, int64(2), l.i.Load())
 
-	l.Done()
+	done1()
 	require.Equal(t, int64(1), l.i.Load())
 	select {
 	case _, ok := <-l.WaitChannel():
@@ -135,7 +135,17 @@ func TestWaitChannel(t *testing.T) {
 	default:
 	}
 
-	l.Done()
+	// since add for done3 was done after stopping, this is a no-op
+	done3()
+	require.Equal(t, int64(1), l.i.Load())
+	select {
+	case _, ok := <-l.WaitChannel():
+		// channel should not have been closed
+		require.True(t, ok)
+	default:
+	}
+
+	done2()
 	require.Equal(t, int64(0), l.i.Load())
 	select {
 	case _, ok := <-l.WaitChannel():
@@ -143,9 +153,6 @@ func TestWaitChannel(t *testing.T) {
 		require.False(t, ok)
 	default:
 	}
-
-	l.Done()
-	require.Equal(t, int64(0), l.i.Load())
 }
 
 func TestParallelism(t *testing.T) {
@@ -174,7 +181,7 @@ func TestParallelism(t *testing.T) {
 					adds.Add(1)
 					l.Add()
 				} else {
-					l.Done()
+					l.done()
 					adds.Add(-1)
 				}
 			}
@@ -190,7 +197,7 @@ func TestParallelism(t *testing.T) {
 			adds.Add(1)
 			l.Add()
 		case add > 0:
-			l.Done()
+			l.done()
 			adds.Add(-1)
 		}
 	}
