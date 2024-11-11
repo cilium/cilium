@@ -225,12 +225,10 @@ func (o *fakeObserver) NodeDeleted(_ nodeTypes.Node) { o.deletes.Add(1) }
 
 func (o *fakeObserver) MergeExternalServiceUpdate(_ *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	o.updates.Add(1)
-	swg.Done()
 }
 
 func (o *fakeObserver) MergeExternalServiceDelete(_ *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	o.deletes.Add(1)
-	swg.Done()
 }
 
 func (o *fakeObserver) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcache.Identity) (bool, error) {

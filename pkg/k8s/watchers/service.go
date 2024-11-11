@@ -158,7 +158,7 @@ func (k *K8sServiceWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lo
 func (k *K8sServiceWatcher) k8sServiceHandler() {
 	eventHandler := func(event k8s.ServiceEvent) {
 		defer func(startTime time.Time) {
-			event.SWG.Done()
+			event.SWGDone()
 			k.k8sServiceEventProcessed(event.Action.String(), startTime)
 		}(time.Now())
 
