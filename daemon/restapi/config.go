@@ -121,14 +121,10 @@ func newConfigModifyEventHandler(params configModifyEventHandlerParams) *ConfigM
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
-			// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
-			// this is only triggered by agent configuration changes for now and
-			// should be counted in pol.TriggerMetrics.
 			rt, err := trigger.NewTrigger(trigger.Parameters{
-				Name:            "datapath-regeneration",
-				MetricsObserver: &policy.TriggerMetrics{},
-				MinInterval:     option.Config.PolicyTriggerInterval,
-				TriggerFunc:     eventHandler.datapathRegen,
+				Name:        "datapath-regeneration",
+				MinInterval: option.Config.PolicyTriggerInterval,
+				TriggerFunc: eventHandler.datapathRegen,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create datapath regeneration trigger: %w", err)
