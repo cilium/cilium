@@ -256,7 +256,7 @@ spec:
           protocol: TCP
         {{- end }}
         {{- end }}
-        {{- if .Values.hubble.metrics.enabled }}
+        {{- if or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled }}
         - name: hubble-metrics
           containerPort: {{ .Values.hubble.metrics.port }}
           hostPort: {{ .Values.hubble.metrics.port }}
@@ -388,6 +388,11 @@ spec:
           {{- if .mountPropagation }}
           mountPropagation: {{ .mountPropagation }}
           {{- end }}
+        {{- end }}
+        {{- if .Values.hubble.metrics.dynamic.enabled }}
+        - name: hubble-dynamic-metrics-config
+          mountPath: /dynamic-metrics-config
+          readOnly: true
         {{- end }}
         {{- if .Values.hubble.export.dynamic.enabled }}
         - name: hubble-flowlog-config
@@ -1042,6 +1047,12 @@ spec:
           {{- end }}
           {{- end }}
 
+      {{- end }}
+      {{- if .Values.hubble.metrics.dynamic.enabled }}
+      - name: hubble-dynamic-metrics-config
+        configMap:
+          name: {{ .Values.hubble.metrics.dynamic.config.configMapName }}
+          optional: true
       {{- end }}
       {{- if .Values.hubble.export.dynamic.enabled }}
       - name: hubble-flowlog-config
