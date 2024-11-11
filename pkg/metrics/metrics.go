@@ -543,18 +543,6 @@ var (
 	// BPFMapCapacity is the max capacity of bpf maps, labelled by map group classification.
 	BPFMapCapacity = NoOpGaugeVec
 
-	// TriggerPolicyUpdateTotal is the metric to count total number of
-	// policy update triggers
-	TriggerPolicyUpdateTotal = NoOpCounterVec
-
-	// TriggerPolicyUpdateFolds is the current level folding that is
-	// happening when running policy update triggers
-	TriggerPolicyUpdateFolds = NoOpGauge
-
-	// TriggerPolicyUpdateCallDuration measures the latency and call
-	// duration of policy update triggers
-	TriggerPolicyUpdateCallDuration = NoOpObserverVec
-
 	// VersionMetric labelled by Cilium version
 	VersionMetric = NoOpGaugeVec
 
@@ -726,9 +714,6 @@ type LegacyMetrics struct {
 	BPFSyscallDuration               metric.Vec[metric.Observer]
 	BPFMapOps                        metric.Vec[metric.Counter]
 	BPFMapCapacity                   metric.Vec[metric.Gauge]
-	TriggerPolicyUpdateTotal         metric.Vec[metric.Counter]
-	TriggerPolicyUpdateFolds         metric.Gauge
-	TriggerPolicyUpdateCallDuration  metric.Vec[metric.Observer]
 	VersionMetric                    metric.Vec[metric.Gauge]
 	APILimiterWaitHistoryDuration    metric.Vec[metric.Observer]
 	APILimiterWaitDuration           metric.Vec[metric.Gauge]
@@ -1226,30 +1211,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Capacity of map, tagged by map group. All maps with a capacity of 65536 are grouped under 'default'",
 		}, []string{LabelMapGroup}),
 
-		TriggerPolicyUpdateTotal: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_" + SubsystemTriggers + "_policy_update_total",
-			Namespace:  Namespace,
-			Subsystem:  SubsystemTriggers,
-			Name:       "policy_update_total",
-			Help:       "Total number of policy update trigger invocations labeled by reason",
-		}, []string{"reason"}),
-
-		TriggerPolicyUpdateFolds: metric.NewGauge(metric.GaugeOpts{
-			ConfigName: Namespace + "_" + SubsystemTriggers + "_policy_update_folds",
-			Namespace:  Namespace,
-			Subsystem:  SubsystemTriggers,
-			Name:       "policy_update_folds",
-			Help:       "Current number of folds",
-		}),
-
-		TriggerPolicyUpdateCallDuration: metric.NewHistogramVec(metric.HistogramOpts{
-			ConfigName: Namespace + "_" + SubsystemTriggers + "_policy_update_call_duration_seconds",
-			Namespace:  Namespace,
-			Subsystem:  SubsystemTriggers,
-			Name:       "policy_update_call_duration_seconds",
-			Help:       "Duration of policy update trigger",
-		}, []string{LabelType}),
-
 		VersionMetric: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_version",
 			Namespace:  Namespace,
@@ -1465,9 +1426,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	BPFSyscallDuration = lm.BPFSyscallDuration
 	BPFMapOps = lm.BPFMapOps
 	BPFMapCapacity = lm.BPFMapCapacity
-	TriggerPolicyUpdateTotal = lm.TriggerPolicyUpdateTotal
-	TriggerPolicyUpdateFolds = lm.TriggerPolicyUpdateFolds
-	TriggerPolicyUpdateCallDuration = lm.TriggerPolicyUpdateCallDuration
 	VersionMetric = lm.VersionMetric
 	APILimiterWaitHistoryDuration = lm.APILimiterWaitHistoryDuration
 	APILimiterWaitDuration = lm.APILimiterWaitDuration
