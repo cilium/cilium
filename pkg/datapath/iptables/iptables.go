@@ -265,6 +265,8 @@ type Manager struct {
 	cfg       Config
 	sharedCfg SharedConfig
 
+	argsInit *lock.StoppableWaitGroup
+
 	// anything that can trigger a reconciliation
 	reconcilerParams reconcilerParams
 
@@ -310,6 +312,7 @@ func newIptablesManager(p params) *Manager {
 		sysctl:     p.Sysctl,
 		cfg:        p.Cfg,
 		sharedCfg:  p.SharedCfg,
+		argsInit:   lock.NewStoppableWaitGroup(),
 		reconcilerParams: reconcilerParams{
 			localNodeStore: p.LocalNodeStore,
 			db:             p.DB,
@@ -322,12 +325,11 @@ func newIptablesManager(p params) *Manager {
 		cniConfigManager: p.CNIConfigManager,
 	}
 
-	argsInit := make(chan struct{})
-
 	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
+	iptMgr.argsInit.Add()
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			defer close(argsInit)
+			defer iptMgr.argsInit.Done()
 			ip4tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
 			if p.SharedCfg.EnableIPv6 {
 				ip6tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
@@ -336,13 +338,20 @@ func newIptablesManager(p params) *Manager {
 		},
 	})
 
+	// init haveIp6tables argument before using it in a reconciliation loop
+	iptMgr.argsInit.Add()
 	p.Lifecycle.Append(iptMgr)
 
 	p.JobGroup.Add(
 		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.Health) error {
-			// each job runs in an independent goroutine, so we need to explicitly wait for
-			// iptables arguments initialization before starting the reconciler.
-			<-argsInit
+			// each job runs in an independent goroutine, so we need to explicitly wait for both
+			// ip{4,6}tables and haveIp6tables initialization before starting the reconciler.
+			iptMgr.argsInit.Stop()
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-iptMgr.argsInit.WaitChannel():
+			}
 			return reconciliationLoop(
 				ctx, p.Logger, health,
 				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
@@ -359,6 +368,8 @@ func newIptablesManager(p params) *Manager {
 
 // Start initializes the iptables manager and checks for iptables kernel modules availability.
 func (m *Manager) Start(ctx cell.HookContext) error {
+	defer m.argsInit.Done()
+
 	if os.Getenv("CILIUM_PREPEND_IPTABLES_CHAIN") != "" {
 		m.logger.Warning("CILIUM_PREPEND_IPTABLES_CHAIN env var has been deprecated. Please use 'CILIUM_PREPEND_IPTABLES_CHAINS' " +
 			"env var or '--prepend-iptables-chains' command line flag instead")
