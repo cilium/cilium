@@ -1051,9 +1051,17 @@ func (m *manager) pruneNodes(includeMeshed bool) {
 	}
 
 	if len(m.restoredNodes) > 0 {
-		log.WithFields(logrus.Fields{
-			"stale-nodes": m.restoredNodes,
-		}).Info("Deleting stale nodes")
+		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+			printableNodes := make([]string, 0, len(m.restoredNodes))
+			for ni := range m.restoredNodes {
+				printableNodes = append(printableNodes, ni.String())
+			}
+			log.WithFields(logrus.Fields{
+				"stale-nodes": printableNodes,
+			}).Debugf("Deleting %v stale nodes", len(m.restoredNodes))
+		} else {
+			log.Infof("Deleting %v stale nodes", len(m.restoredNodes))
+		}
 	}
 	m.mutex.Unlock()
 
