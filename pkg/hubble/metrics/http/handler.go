@@ -196,3 +196,11 @@ func observerObserve(o prometheus.Observer, value float64, traceID string) {
 		o.Observe(value)
 	}
 }
+
+func (h *httpHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *httpHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}

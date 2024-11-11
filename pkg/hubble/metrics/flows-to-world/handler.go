@@ -139,3 +139,11 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 	h.flowsToWorld.WithLabelValues(labels...).Inc()
 	return nil
 }
+
+func (h *flowsToWorldHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *flowsToWorldHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}

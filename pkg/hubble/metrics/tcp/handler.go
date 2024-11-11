@@ -88,3 +88,11 @@ func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 
 	return nil
 }
+
+func (h *tcpHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *tcpHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}

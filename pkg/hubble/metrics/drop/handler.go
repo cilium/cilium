@@ -65,3 +65,11 @@ func (d *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 	d.drops.WithLabelValues(labels...).Inc()
 	return nil
 }
+
+func (h *dropHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *dropHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}

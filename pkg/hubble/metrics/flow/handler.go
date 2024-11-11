@@ -92,3 +92,11 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 	h.flows.WithLabelValues(labels...).Inc()
 	return nil
 }
+
+func (h *flowHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *flowHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}
