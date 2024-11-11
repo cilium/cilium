@@ -4,7 +4,6 @@
 package sysdump
 
 import (
-	"runtime"
 	"time"
 )
 
@@ -52,8 +51,8 @@ const (
 )
 
 var (
-	// DefaultWorkerCount is initialized to the machine's available CPUs.
-	DefaultWorkerCount = runtime.NumCPU()
+	// DefaultWorkerCount is the default number of parallel workers for sysdump collection.
+	DefaultWorkerCount = 20
 
 	// DefaultCopyRetryLimit limits retries done while copying files from pods
 	DefaultCopyRetryLimit = 100
