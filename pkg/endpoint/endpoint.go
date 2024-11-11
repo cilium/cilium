@@ -943,8 +943,6 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 		return nil, fmt.Errorf("failed to parse restored endpoint: %w", err)
 	}
 
-	ep.initDNSHistoryTrigger()
-
 	// Validate the options that were parsed
 	ep.SetDefaultOpts(ep.Options)
 
