@@ -154,7 +154,7 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(t *testing.T, action k8s.Cach
 		case <-time.After(defaults.NodeDeleteDelay + timeout):
 			c.Errorf("Timeout while waiting for event to be received")
 		}
-		defer event.SWG.Done()
+		defer event.SWGDone()
 
 		require.Equal(t, action, event.Action)
 		require.Equal(t, id, event.ID)
