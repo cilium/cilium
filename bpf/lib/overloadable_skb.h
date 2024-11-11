@@ -244,6 +244,14 @@ static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY;
 }
 
+static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
+{
+	if (!is_defined(ENABLE_WIREGUARD))
+		return false;
+
+	return (ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED;
+}
+
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 static __always_inline void ctx_egw_done_set(struct __sk_buff *ctx)
 {
