@@ -90,7 +90,6 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 type policyUpdaterParams struct {
 	cell.In
 
-	Lifecycle        cell.Lifecycle
 	PolicyRepository policy.PolicyRepository
 	EndpointManager  endpointmanager.EndpointManager
 }
@@ -100,13 +99,6 @@ func newPolicyUpdater(params policyUpdaterParams) *policy.Updater {
 	// Called for various events, such as named port changes
 	// or certain identity updates.
 	policyUpdater := policy.NewUpdater(params.PolicyRepository, params.EndpointManager)
-
-	params.Lifecycle.Append(cell.Hook{
-		OnStop: func(hc cell.HookContext) error {
-			policyUpdater.Shutdown()
-			return nil
-		},
-	})
 
 	return policyUpdater
 }
