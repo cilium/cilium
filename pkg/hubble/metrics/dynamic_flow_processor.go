@@ -65,7 +65,7 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 	defer d.mutex.Unlock()
 
 	var newHandlers []api.NamedHandler
-	configuredMetricNames := make(map[string]*api.MetricConfig)
+	metricNames := config.GetMetricNames()
 
 	curHandlerMap := make(map[string]*api.NamedHandler)
 	if d.Metrics != nil {
@@ -73,13 +73,10 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 			curHandlerMap[m.Name] = &m
 		}
 
-		for _, cm := range config.Metrics {
-			configuredMetricNames[cm.Name] = cm
-		}
 		// Unregister handlers not present in the new config.
 		// This needs to happen first to properly check for conflicting plugins later during registration.
 		for _, m := range d.Metrics {
-			if _, ok := configuredMetricNames[m.Name]; !ok {
+			if _, ok := metricNames[m.Name]; !ok {
 				h := curHandlerMap[m.Name]
 				err := h.Handler.Deinit(d.registry)
 				if err != nil {
@@ -108,7 +105,7 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 			}
 		} else {
 			// New handler found in config.
-			d.addNewMetric(d.registry, cm, configuredMetricNames, &newHandlers)
+			d.addNewMetric(d.registry, cm, metricNames, &newHandlers)
 		}
 	}
 

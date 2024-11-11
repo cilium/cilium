@@ -4,7 +4,6 @@
 package metrics
 
 import (
-	"context"
 	"crypto/tls"
 	"net/http"
 
@@ -15,7 +14,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/dns"               // invoke init
@@ -39,7 +37,7 @@ type CiliumEndpointDeletionHandler struct {
 }
 
 var (
-	enabledMetrics          *api.Handlers
+	EnabledMetrics          []api.NamedHandler
 	Registry                = prometheus.NewPedanticRegistry()
 	endpointDeletionHandler *CiliumEndpointDeletionHandler
 )
@@ -69,16 +67,8 @@ var (
 	}, []string{"code"})
 )
 
-// ProcessFlow processes a flow and updates metrics
-func ProcessFlow(ctx context.Context, flow *pb.Flow) error {
-	if enabledMetrics != nil {
-		return enabledMetrics.ProcessFlow(ctx, flow)
-	}
-	return nil
-}
-
 func ProcessCiliumEndpointDeletion(pod *types.CiliumEndpoint) error {
-	if endpointDeletionHandler != nil && enabledMetrics != nil {
+	if endpointDeletionHandler != nil && EnabledMetrics != nil {
 		endpointDeletionHandler.queue.AddAfter(pod, endpointDeletionHandler.gracefulPeriod)
 	}
 	return nil
@@ -96,7 +86,7 @@ func initEndpointDeletionHandler() {
 			if quit {
 				return
 			}
-			enabledMetrics.ProcessCiliumEndpointDeletion(endpoint.(*types.CiliumEndpoint))
+			ProcessCiliumEndpointDeletion(endpoint.(*types.CiliumEndpoint))
 			endpointDeletionHandler.queue.Done(endpoint)
 		}
 	}()
@@ -104,11 +94,11 @@ func initEndpointDeletionHandler() {
 
 // InitMetrics initializes the metrics system
 func InitMetrics(reg *prometheus.Registry, enabled *api.Config, grpcMetrics *grpc_prometheus.ServerMetrics) error {
-	e, err := initMetricHandlers(reg, enabled)
+	e, err := InitMetricHandlers(reg, enabled)
 	if err != nil {
 		return err
 	}
-	enabledMetrics = e
+	EnabledMetrics = *e
 
 	reg.MustRegister(grpcMetrics)
 	reg.MustRegister(LostEvents)
@@ -120,7 +110,18 @@ func InitMetrics(reg *prometheus.Registry, enabled *api.Config, grpcMetrics *grp
 	return nil
 }
 
-func initMetricHandlers(reg *prometheus.Registry, enabled *api.Config) (*api.Handlers, error) {
+func InitHubbleInternalMetrics(reg *prometheus.Registry, grpcMetrics *grpc_prometheus.ServerMetrics) error {
+	reg.MustRegister(grpcMetrics)
+	reg.MustRegister(LostEvents)
+	reg.MustRegister(RequestsTotal)
+	reg.MustRegister(RequestDuration)
+
+	initEndpointDeletionHandler()
+
+	return nil
+}
+
+func InitMetricHandlers(reg *prometheus.Registry, enabled *api.Config) (*[]api.NamedHandler, error) {
 	return api.DefaultRegistry().ConfigureHandlers(reg, enabled)
 }
 
