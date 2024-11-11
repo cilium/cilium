@@ -4,12 +4,14 @@
 package maglev
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -51,6 +53,71 @@ func TestPermutations(t *testing.T) {
 			}
 		}
 	}
+}
+
+func mkAddr(i int32) loadbalancer.L3n4Addr {
+	intToAddr := func(i int32) cmtypes.AddrCluster {
+		var addr [4]byte
+		binary.BigEndian.PutUint32(addr[:], uint32(i))
+		addrCluster, _ := cmtypes.AddrClusterFromIP(addr[:])
+		return addrCluster
+	}
+	a := *loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		intToAddr(i),
+		uint16(i%65535),
+		0)
+	return a
+}
+
+func runLengthEncodeIDs(ids []int) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	count := 1
+	current := ids[0]
+	var runs string
+	for _, id := range ids[1:] {
+		if id == current {
+			count++
+		} else {
+			runs += fmt.Sprintf("%d(%d),", current, count)
+			count = 1
+			current = id
+		}
+	}
+	runs += fmt.Sprintf("%d(%d)", current, count)
+	return runs
+}
+
+func TestReproducible(t *testing.T) {
+	setupMaglevTestSuite(t)
+
+	// Run-length-encoded expected maglev table in format <id>(<count>),...
+	expected := "2(5),3(1),2(3),1(1),2(2),0(1),2(1),3(1),2(1),3(1),2(1),1(1),2(7),1(1),2(14),3(1),2(1)," +
+		"1(2),2(12),3(1),2(3),1(1),2(4),3(1),2(8),3(1),2(2),1(1),2(16),1(2),2(3),3(1),2(11),1(2),2(4),3(1),2(3)," +
+		"1(1),2(4),3(1),2(1),0(1),1(1),2(8),1(1),2(7),1(1),2(4),3(1),2(1),3(1),2(9),1(2),2(5),1(1),2(7),3(1),2(1)," +
+		"3(1),1(1),2(8),1(1),2(4),0(1),2(1),1(1),2(5),3(1),2(3),1(1),2(4),3(1),2(3),1(1),2(12),0(1),3(1),2(3),3(1)," +
+		"2(4),3(1),2(2),1(1),2(7)"
+
+	// Use the smallest table size to keep the expected output
+	// small.
+	m := uint64(251)
+
+	backends := []*loadbalancer.Backend{
+		{L3n4Addr: mkAddr(1), Weight: 2, ID: 0},
+		{L3n4Addr: mkAddr(3), Weight: 13, ID: 1},
+		{L3n4Addr: mkAddr(4), Weight: 111, ID: 2},
+		{L3n4Addr: mkAddr(5), Weight: 10, ID: 3},
+	}
+	backendsMap := map[string]*loadbalancer.Backend{}
+	for _, be := range backends {
+		backendsMap[be.String()] = be
+	}
+
+	actual := runLengthEncodeIDs(GetLookupTable(backendsMap, m))
+
+	require.Equal(t, expected, actual)
 }
 
 func TestBackendRemoval(t *testing.T) {
