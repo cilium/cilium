@@ -607,11 +607,12 @@ func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.
 		wildcardIP = wildcardIPv6
 	}
 
-	tmplSrc := params.SourceTunnelIP
+	// Dir IN policies can be merged into a single policy by wildcarding the source IP
+	tmplSrc := &net.IP{}
 	tmplDst := params.DestTunnelIP
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
-	policy.Src = params.SourceSubnet
+	policy.Src = wildcardCIDRv4
 	policy.Dst = params.DestSubnet
 	policy.Mark = &netlink.XfrmMark{
 		Mask: linux_defaults.IPsecMarkBitMask,
