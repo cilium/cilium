@@ -88,3 +88,11 @@ func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error
 	h.duration.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, reporter)...).Observe(float64(l7.LatencyNs) / float64(time.Second))
 	return nil
 }
+
+func (h *kafkaHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *kafkaHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}

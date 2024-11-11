@@ -90,3 +90,11 @@ func (h *portDistributionHandler) ProcessFlow(ctx context.Context, flow *flowpb.
 	}
 	return nil
 }
+
+func (h *portDistributionHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *portDistributionHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}

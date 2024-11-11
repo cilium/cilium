@@ -77,3 +77,7 @@ func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled *Con
 
 	return NewHandlers(r.log, registry, enabledHandlers)
 }
+
+func (r *Registry) ValidateAndCreateHandler(registry *prometheus.Registry, metricsConfig *MetricConfig, metricNames *map[string]*MetricConfig) (*NamedHandler, error) {
+	return nil, nil
+}

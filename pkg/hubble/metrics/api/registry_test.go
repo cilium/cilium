@@ -57,6 +57,15 @@ func (t *testHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{t.counter.MetricVec}
 }
 
+func (t *testHandler) Deinit(registry *prometheus.Registry) error {
+	t.InitCalled--
+	return nil
+}
+
+func (h *testHandler) HandleConfigurationUpdate(cfg *MetricConfig) error {
+	return nil
+}
+
 func (t *testHandler) ProcessFlow(ctx context.Context, p *pb.Flow) error {
 	labels, _ := t.ContextOptions.GetLabelValues(p)
 	t.counter.WithLabelValues(labels...).Inc()
