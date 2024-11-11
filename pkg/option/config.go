@@ -855,6 +855,9 @@ const (
 	// endpoints that are no longer alive and healthy.
 	EndpointGCInterval = "endpoint-gc-interval"
 
+	// EndpointRegenInterval is the interval of the periodic endpoint regeneration loop.
+	EndpointRegenInterval = "endpoint-regen-interval"
+
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 = "ipv4-service-loopback-address"
 

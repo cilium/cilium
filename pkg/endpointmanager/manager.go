@@ -133,6 +133,36 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 	return mgr
 }
 
+// WithPeriodicEndpointRegeneration configures the EndpointManager to regenerate all (policy and configuration) state
+// of endpoints periodically.
+func (mgr *endpointManager) WithPeriodicEndpointRegeneration(ctx context.Context, interval time.Duration) *endpointManager {
+	mgr.controllers.UpdateController("endpoint-periodic-regeneration",
+		controller.ControllerParams{
+			Group: endpointGCControllerGroup,
+			DoFunc: func(ctx context.Context) error {
+				wg := mgr.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
+					Reason:            "periodic endpoint regeneration",
+					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+				})
+
+				// Wait for wg to be done, unless ctx is cancelled.
+				dc := make(chan struct{})
+				go func() {
+					wg.Wait()
+					close(dc)
+				}()
+				select {
+				case <-dc:
+				case <-ctx.Done():
+				}
+				return ctx.Err()
+			},
+			RunInterval: interval,
+			Context:     ctx,
+		})
+	return mgr
+}
+
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	err := proxyWaitGroup.Context().Err()
