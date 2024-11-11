@@ -51,18 +51,16 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	}
 	require.Error(t, handler.Init(prometheus.NewRegistry(), options))
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), &api.MetricConfig{}))
-	fp, ok := handler.(api.FlowProcessor)
-	require.True(t, ok)
 
 	// shouldn't count
-	fp.ProcessFlow(ctx, &pb.Flow{})
+	handler.ProcessFlow(ctx, &pb.Flow{})
 	// shouldn't count
-	fp.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
+	handler.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
 		Type:   pb.L7FlowType_RESPONSE,
 		Record: &pb.Layer7_Dns{},
 	}})
 	// should count for request
-	fp.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type: pb.L7FlowType_REQUEST,
@@ -72,7 +70,7 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 		},
 	})
 	// should count for response
-	fp.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type:      pb.L7FlowType_RESPONSE,
@@ -147,20 +145,18 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 		},
 	}
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
-	fp, ok := handler.(api.FlowProcessor)
-	require.True(t, ok)
 
 	// shouldn't count
-	fp.ProcessFlow(ctx, &pb.Flow{})
+	handler.ProcessFlow(ctx, &pb.Flow{})
 	// shouldn't count
-	fp.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type:   pb.L7FlowType_RESPONSE,
 			Record: &pb.Layer7_Dns{},
 		}})
 	// shouldn't count for request, we use responses in v2
-	fp.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type: pb.L7FlowType_REQUEST,
@@ -193,7 +189,7 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 		},
 	}
 	// should count for request
-	fp.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		// Responses have the source and destination inverted, because it's the
 		// other side of the flow. Our tests are asserting that the HTTPv2 handler
