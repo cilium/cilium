@@ -25,7 +25,7 @@ spec:
             http:
               - method: "GET"
                 path: "/"
-    # Allow GET / requests, only towards one.one.one.one.
+    # Allow GET / requests, only towards one.one.one.one
     - toFQDNs:
         - matchName: "one.one.one.one"
       toPorts:

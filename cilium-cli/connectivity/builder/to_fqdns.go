@@ -15,7 +15,7 @@ import (
 type toFqdns struct{}
 
 func (t toFqdns) build(ct *check.ConnectivityTest, templates map[string]string) {
-	// This policy only allows port 80 to domain-name, default one.one.one.one., DNS proxy enabled.
+	// This policy only allows port 80 to domain-name, default one.one.one.one, DNS proxy enabled.
 	newTest("to-fqdns", ct).
 		WithCiliumPolicy(templates["clientEgressToFQDNsPolicyYAML"]).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).

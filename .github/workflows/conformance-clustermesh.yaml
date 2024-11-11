@@ -331,7 +331,7 @@ jobs:
             --flow-validation=disabled \
             --test-concurrency=5 \
             --multi-cluster=${{ env.contextName2 }} \
-            --external-target=google.com. \
+            --external-target=google.com \
             --include-unsafe-tests \
             --collect-sysdump-on-failure \
             --sysdump-output-filename 'cilium-sysdump-${{ matrix.name }}-<ts>'" \
