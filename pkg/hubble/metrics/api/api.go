@@ -64,6 +64,13 @@ type Handler interface {
 
 	// Status returns the configuration status of the metric handler
 	Status() string
+
+	// HandleConfigurationUpdate updates the metric handler configuration
+	HandleConfigurationUpdate(cfg *MetricConfig) error
+
+	// Deinit deregisters the metrics from the Prometheus registry
+	// and cleans up internal handler state
+	Deinit(registry *prometheus.Registry) error
 }
 
 // FlowProcessor is a metric handler which requires flows to perform metrics
@@ -96,6 +103,10 @@ func NewHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in []Nam
 	return &handlers, nil
 }
 
+func InitHandler(log logrus.FieldLogger, registry *prometheus.Registry, item *NamedHandler, handlers *[]NamedHandler) error {
+	return nil
+}
+
 // ProcessFlow processes a flow by calling ProcessFlow it on to all enabled
 // metric handlers
 func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) error {
@@ -106,6 +117,10 @@ func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) error {
 		errs = errors.Join(errs, fp.ProcessFlow(ctx, flow))
 	}
 	return errs
+}
+
+func ExecuteAllProcessFlow(ctx context.Context, flow *pb.Flow, handlers *[]NamedHandler) error {
+	return nil
 }
 
 // ProcessCiliumEndpointDeletion queries all handlers for a list of MetricVec and removes

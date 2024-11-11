@@ -151,3 +151,11 @@ func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 
 	return nil
 }
+
+func (h *dnsHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *dnsHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}

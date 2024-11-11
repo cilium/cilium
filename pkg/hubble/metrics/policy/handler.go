@@ -111,3 +111,11 @@ func (d *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) er
 	d.verdicts.WithLabelValues(labels...).Inc()
 	return nil
 }
+
+func (h *policyHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *policyHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}

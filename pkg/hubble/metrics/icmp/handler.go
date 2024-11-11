@@ -75,3 +75,11 @@ func (h *icmpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 
 	return nil
 }
+
+func (h *icmpHandler) Deinit(registry *prometheus.Registry) error {
+	return nil
+}
+
+func (h *icmpHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return nil
+}
