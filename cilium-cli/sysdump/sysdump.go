@@ -1683,7 +1683,7 @@ func (c *Collector) Run() error {
 
 		// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
 		// This is necessary because 'Submit' is blocking.
-		wc := 1
+		wc := max(1, c.Options.WorkerCount)
 		if t.CreatesSubtasks {
 			wc++
 		}
