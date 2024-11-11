@@ -529,7 +529,7 @@ jobs:
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
               --junit-property github_job_step="Run tests upgrade 2 (${{ join(matrix.*, ', ') }})" \
-              "${EXTRA[@]}"
+              "\${EXTRA[@]}"
 
             # --flush-ct interrupts the flows, so we need to set up again.
             ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
@@ -579,7 +579,7 @@ jobs:
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
               --junit-property github_job_step="Run tests upgrade 3 (${{ join(matrix.*, ', ') }})" \
-              "${EXTRA[@]}"
+              "\${EXTRA[@]}"
 
       - name: Fetch artifacts
         if: ${{ !success() }}
