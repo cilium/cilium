@@ -4,12 +4,18 @@
 package logging
 
 import (
+	"bytes"
+	"flag"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/klog/v2"
 )
 
 func TestGetLogLevel(t *testing.T) {
@@ -72,6 +78,49 @@ func TestSetDefaultLogFormat(t *testing.T) {
 
 	SetDefaultLogFormat()
 	require.Equal(t, "*logrus.TextFormatter", reflect.TypeOf(DefaultLogger.Formatter).String())
+}
+
+func TestSetupLogging2(t *testing.T) {
+	out := &bytes.Buffer{}
+	logger := initializeDefaultLogger()
+	logger.SetOutput(out)
+	log := logger.WithField("subsys", "logging-test")
+	overrides := []logLevelOverride{
+		{
+			matcher:     regexp.MustCompile("^please override (this|foo)!$"),
+			targetLevel: logrus.InfoLevel,
+		},
+	}
+	errWriter, err := severityOverrideWriter(logrus.ErrorLevel, log, overrides)
+	assert.NoError(t, err)
+
+	klogFlags := flag.NewFlagSet("cilium", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	klogFlags.Set("logtostderr", "false")
+	klogFlags.Set("skip_headers", "true")
+	klogFlags.Set("one_output", "true")
+
+	klog.SetOutputBySeverity("ERROR", errWriter)
+	klog.SetOutputBySeverity("INFO", log.WriterLevel(logrus.InfoLevel))
+	klog.Error("please do not override this!")
+	klog.Error("please override this!")
+	klog.Error("please override foo!")
+	klog.Error("final log")
+	klog.Flush()
+	var lines []string
+	assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+		logout := strings.Trim(out.String(), "\n")
+		lines = strings.Split(logout, "\n")
+		assert.Len(collect, lines, 4)
+	}, time.Second, time.Millisecond*50)
+	for _, line := range lines {
+		if strings.Contains(line, "please override this!") || strings.Contains(line, "please override foo!") {
+			assert.Contains(t, line, "level=info")
+		} else {
+			assert.Contains(t, line, "level=error")
+		}
+	}
+
 }
 
 func TestSetupLogging(t *testing.T) {
