@@ -5,6 +5,7 @@ package features
 
 import (
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 )
@@ -37,7 +38,14 @@ type featuresParams struct {
 	Metrics     featureMetrics
 
 	OperatorConfig *operatorOption.OperatorConfig
+
+	IngressController ingress.IngressConfig
+}
+
+func (p featuresParams) IsIngressControllerEnabled() bool {
+	return p.IngressController.IsEnabled()
 }
 
 type enabledFeatures interface {
+	IsIngressControllerEnabled() bool
 }
