@@ -190,48 +190,28 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	e.unlock()
 
 	e.getLogger().Debug("Starting policy recalculation...")
-
-	stats.waitingForPolicyRepository.Start()
-	repo := e.policyGetter.GetPolicyRepository()
-	repo.RLock() // Be sure to release this lock!
-	stats.waitingForPolicyRepository.End(true)
-
-	result.policyRevision = repo.GetRevision()
-
-	// Recompute policy for this endpoint only if not already done for this revision
-	// and identity.
-	if e.nextPolicyRevision >= result.policyRevision && e.desiredPolicy != nil {
-
-		if !forcePolicyCompute {
-			if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
-				e.getLogger().WithFields(logrus.Fields{
-					"policyRevision.next": e.nextPolicyRevision,
-					"policyRevision.repo": result.policyRevision,
-					"policyChanged":       e.nextPolicyRevision > e.policyRevision,
-				}).Debug("Skipping unnecessary endpoint policy recalculation")
-			}
-			repo.RUnlock()
-			return result, nil
-		} else {
-			e.getLogger().Debug("Forced policy recalculation")
-		}
+	skipPolicyRevision := e.nextPolicyRevision
+	if forcePolicyCompute || e.desiredPolicy == nil {
+		e.getLogger().Debug("Forced policy recalculation")
+		skipPolicyRevision = 0
 	}
 
-	stats.policyCalculation.Start()
-	defer func() { stats.policyCalculation.End(err == nil) }()
-
-	// UpdatePolicy ensures the SelectorPolicy is fully resolved.
-	// Endpoint lock must not be held!
-	// TODO: GH-7515: Consider ways to compute policy outside of the
-	// endpoint regeneration process, ideally as part of the policy change
-	// handler.
-	selectorPolicy, err := repo.GetPolicyCache().UpdatePolicy(securityIdentity)
+	var selectorPolicy policy.SelectorPolicy
+	selectorPolicy, result.policyRevision, err = e.policyGetter.GetPolicyRepository().GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats)
 	if err != nil {
-		e.getLogger().WithError(err).Warning("Failed to update policy")
-		repo.RUnlock()
+		e.getLogger().WithError(err).Warning("Failed to calculate SelectorPolicy")
 		return nil, err
 	}
-	repo.RUnlock() // Done with policy repository; release this now as Consume() can be slow
+
+	// selectorPolicy is nil if skipRevision was matched.
+	if selectorPolicy == nil {
+		e.getLogger().WithFields(logrus.Fields{
+			"policyRevision.next": e.nextPolicyRevision,
+			"policyRevision.repo": result.policyRevision,
+			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
+		}).Debug("Skipping unnecessary endpoint policy recalculation")
+		return result, err
+	}
 
 	// Add new redirects before Consume() so that all required proxy ports are available for it.
 	var desiredRedirects map[string]uint16

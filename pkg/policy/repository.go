@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 // PolicyContext is an interface policy resolution functions use to access the Repository.
@@ -125,6 +126,15 @@ type PolicyRepository interface {
 	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
 	GetPolicyCache() *PolicyCache
+
+	// GetSelectorPolicy computes the SelectorPolicy for a given identity.
+	//
+	// It returns nil if skipRevision is >= than the already calculated version.
+	// This is used to skip policy calculation when a certain revision delta is
+	// known to not affect the given identity. Pass a skipRevision of 0 to force
+	// calculation.
+	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error)
+
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
@@ -136,6 +146,11 @@ type PolicyRepository interface {
 	SearchRLocked(lbls labels.LabelArray) api.Rules
 	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool))
 	Start()
+}
+
+type GetPolicyStatistics interface {
+	WaitingForPolicyRepository() *spanstat.SpanStat
+	PolicyCalculation() *spanstat.SpanStat
 }
 
 // Repository is a list of policy rules which in combination form the security
@@ -929,4 +944,38 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 	_ = r.Sanitize()
 
 	return r
+}
+
+// GetSelectorPolicy computes the SelectorPolicy for a given identity.
+//
+// It returns nil if skipRevision is >= than the already calculated version.
+// This is used to skip policy calculation when a certain revision delta is
+// known to not affect the given identity. Pass a skipRevision of 0 to force
+// calculation.
+func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error) {
+	stats.WaitingForPolicyRepository().Start()
+	r.RLock()
+	defer r.RUnlock()
+	stats.WaitingForPolicyRepository().End(true)
+
+	rev := r.GetRevision()
+
+	// Do we already have a given revision?
+	// If so, skip calculation.
+	if skipRevision >= rev {
+		return nil, rev, nil
+	}
+
+	stats.PolicyCalculation().Start()
+	// This may call back in to the (locked) repository to generate the
+	// selector policy
+	sp, updated, err := r.policyCache.updateSelectorPolicy(id)
+	stats.PolicyCalculation().EndError(err)
+
+	// If we hit cache, reset the statistics.
+	if !updated {
+		stats.PolicyCalculation().Reset()
+	}
+
+	return sp, rev, nil
 }
