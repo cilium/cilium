@@ -4,7 +4,6 @@
 package policy
 
 import (
-	"fmt"
 	"iter"
 	"sync/atomic"
 
@@ -53,24 +52,15 @@ func NewPolicyCache(repo *Repository, idmgr identitymanager.IDManager) *PolicyCa
 
 // lookupOrCreate adds the specified Identity to the policy cache, with a reference
 // from the specified Endpoint, then returns the threadsafe copy of the policy.
-func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create bool) SelectorPolicy {
+func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity) *cachedSelectorPolicy {
 	cache.Lock()
 	defer cache.Unlock()
 	cip, ok := cache.policies[identity.ID]
 	if !ok {
-		if !create {
-			return nil
-		}
-		cip = newCachedSelectorPolicy(identity, cache.repo.GetSelectorCache())
+		cip = newCachedSelectorPolicy(identity)
 		cache.policies[identity.ID] = cip
 	}
 	return cip
-}
-
-// insert adds the specified Identity to the policy cache, with a reference
-// from the specified Endpoint, then returns the threadsafe copy of the policy.
-func (cache *PolicyCache) insert(identity *identityPkg.Identity) SelectorPolicy {
-	return cache.lookupOrCreate(identity, true)
 }
 
 // delete forgets about any cached SelectorPolicy that this endpoint uses.
@@ -94,13 +84,8 @@ func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (bool, error) {
-	cache.Lock()
-	cip, ok := cache.policies[identity.ID]
-	cache.Unlock()
-	if !ok {
-		return false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
-	}
+func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (*cachedSelectorPolicy, bool, error) {
+	cip := cache.lookupOrCreate(identity)
 
 	// As long as UpdatePolicy() is triggered from endpoint
 	// regeneration, it's possible for two endpoints with the
@@ -115,25 +100,24 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	defer cip.Unlock()
 
 	// Don't resolve policy if it was already done for this or later revision.
-	if cip.getPolicy().Revision >= cache.repo.GetRevision() {
-		return false, nil
+	if policy := cip.getPolicy(); policy != nil && policy.Revision >= cache.repo.GetRevision() {
+		return cip, false, nil
 	}
 
 	// Resolve the policies, which could fail
 	selPolicy, err := cache.repo.resolvePolicyLocked(identity)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 
 	cip.setPolicy(selPolicy)
 
-	return true, nil
+	return cip, true, nil
 }
 
-// LocalEndpointIdentityAdded creates a SelectorPolicy cache entry for the
-// specified Identity, without calculating any policy for it.
+// LocalEndpointIdentityAdded is not needed; we only care about local endpoint
+// deletion
 func (cache *PolicyCache) LocalEndpointIdentityAdded(identity *identityPkg.Identity) {
-	cache.insert(identity)
 }
 
 // LocalEndpointIdentityRemoved deletes the cached SelectorPolicy for the
@@ -142,20 +126,14 @@ func (cache *PolicyCache) LocalEndpointIdentityRemoved(identity *identityPkg.Ide
 	cache.delete(identity)
 }
 
-// Lookup attempts to locate the SelectorPolicy corresponding to the specified
-// identity. If policy is not cached for the identity, it returns nil.
-func (cache *PolicyCache) Lookup(identity *identityPkg.Identity) SelectorPolicy {
-	return cache.lookupOrCreate(identity, false)
-}
-
 // UpdatePolicy resolves the policy for the security identity of the specified
 // endpoint and caches it for future use.
 //
 // The caller must provide threadsafety for iteration over the policy
 // repository.
-func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) error {
-	_, err := cache.updateSelectorPolicy(identity)
-	return err
+func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) (SelectorPolicy, error) {
+	cip, _, err := cache.updateSelectorPolicy(identity)
+	return cip, err
 }
 
 // GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID, if
@@ -204,11 +182,10 @@ type cachedSelectorPolicy struct {
 	policy   atomic.Pointer[selectorPolicy]
 }
 
-func newCachedSelectorPolicy(identity *identityPkg.Identity, selectorCache *SelectorCache) *cachedSelectorPolicy {
+func newCachedSelectorPolicy(identity *identityPkg.Identity) *cachedSelectorPolicy {
 	cip := &cachedSelectorPolicy{
 		identity: identity,
 	}
-	cip.setPolicy(newSelectorPolicy(selectorCache))
 	return cip
 }
 

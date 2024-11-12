@@ -220,25 +220,12 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	stats.policyCalculation.Start()
 	defer func() { stats.policyCalculation.End(err == nil) }()
 
-	// Upon initial insertion or restore, there's currently no good
-	// trigger point to ensure that the security Identity is
-	// assigned after the endpoint is added to the endpointmanager
-	// (and hence also the identitymanager). In that case, detect
-	// that the selectorPolicy is not set and find it.
-	selectorPolicy := repo.GetPolicyCache().Lookup(securityIdentity)
-	if selectorPolicy == nil {
-		err := fmt.Errorf("no cached selectorPolicy found")
-		e.getLogger().WithError(err).Warning("Failed to regenerate from cached policy")
-		repo.RUnlock()
-		return result, err
-	}
-
 	// UpdatePolicy ensures the SelectorPolicy is fully resolved.
 	// Endpoint lock must not be held!
 	// TODO: GH-7515: Consider ways to compute policy outside of the
 	// endpoint regeneration process, ideally as part of the policy change
 	// handler.
-	err = repo.GetPolicyCache().UpdatePolicy(securityIdentity)
+	selectorPolicy, err := repo.GetPolicyCache().UpdatePolicy(securityIdentity)
 	if err != nil {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		repo.RUnlock()
