@@ -14,7 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/models" // Import the BGP manager
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -33,6 +33,8 @@ func (d *Daemon) startAgentHealthHTTPService() {
 	}
 
 	mux := http.NewServeMux()
+
+	// Health check endpoint for general liveness
 	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requireK8sConnectivity := true
 		if v := r.Header.Get("require-k8s-connectivity"); v != "" {
@@ -55,12 +57,39 @@ func (d *Daemon) startAgentHealthHTTPService() {
 		if isUnhealthy(&sr) {
 			log.WithError(errors.New(sr.Cilium.Msg)).WithFields(logrus.Fields{
 				logfields.State: sr.Cilium.State,
-			},
-			).Warn("/healthz returning unhealthy")
+			}).Warn("/healthz returning unhealthy")
 			statusCode = http.StatusServiceUnavailable
 		}
 
 		w.WriteHeader(statusCode)
+	}))
+
+	// Health check endpoint for BGP status
+	mux.Handle("/healthz/bgp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !option.Config.BGPControlPlaneEnabled() {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("BGP control plane is not enabled\n"))
+			return
+		}
+
+		statuses, err := d.bgpManager.GetPeerStatuses()
+		if err != nil {
+			log.WithError(err).Error("Failed to get BGP peer statuses")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Error retrieving BGP peer statuses\n"))
+			return
+		}
+
+		for _, status := range statuses {
+			if status.SessionState != "Established" { // Replace "Established" with the correct state string
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("One or more BGP peers are not established\n"))
+				return
+			}
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("All BGP peers are established and ready\n"))
 	}))
 
 	available := len(hosts)

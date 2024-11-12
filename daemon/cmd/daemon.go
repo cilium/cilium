@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"net/http"
 	"net/netip"
 	"runtime"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -182,7 +184,52 @@ type Daemon struct {
 	orchestrator    datapath.Orchestrator
 	iptablesManager datapath.IptablesManager
 	hubble          hubblecell.HubbleIntegration
+	bgpManager      *manager.Manager
 }
+
+// BGPHealthCheck checks the status of BGP peers and returns a health status.
+func (d *Daemon) BGPHealthCheck(w http.ResponseWriter, r *http.Request) {
+	if !option.Config.BGPControlPlaneEnabled() {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("BGP control plane is not enabled\n"))
+		return
+	}
+
+	statuses, err := d.bgpManager.GetPeerStatuses()
+	if err != nil {
+		log.WithError(err).Error("Failed to get BGP peer statuses")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Error retrieving BGP peer statuses\n"))
+		return
+	}
+
+	for _, status := range statuses {
+		if status.SessionState != "Established" { // Ensure this matches the actual state string
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("One or more BGP peers are not established\n"))
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("All BGP peers are established\n"))
+}
+
+// Update the HTTP service to include the BGP health endpoint
+func (d *Daemon) startAgentHealthHTTPService() {
+	mux := http.NewServeMux()
+
+	// Register the BGP health check endpoint
+	mux.Handle("/healthz/bgp", http.HandlerFunc(d.BGPHealthCheck))
+
+	// Other existing health check registrations
+	// Example:
+	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Cilium agent is healthy"))
+	}))
+
+	// Start the HTTP server (existing logic remains unchanged)
 
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
@@ -889,8 +936,10 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 		return nil
 	}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
+	
 }
 
 type endpointMetadataFetcher interface {
 	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
+}
 }
