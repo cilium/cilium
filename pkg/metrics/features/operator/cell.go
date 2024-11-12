@@ -8,6 +8,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ingress"
+	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -43,12 +44,18 @@ type featuresParams struct {
 	OperatorConfig *operatorOption.OperatorConfig
 
 	IngressController ingress.IngressConfig
+	LBIPAM            lbipam.Config
 }
 
 func (p featuresParams) IsIngressControllerEnabled() bool {
 	return p.IngressController.IsEnabled()
 }
 
+func (p featuresParams) IsLBIPAMEnabled() bool {
+	return p.LBIPAM.IsEnabled()
+}
+
 type enabledFeatures interface {
 	IsIngressControllerEnabled() bool
+	IsLBIPAMEnabled() bool
 }
