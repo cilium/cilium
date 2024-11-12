@@ -4,12 +4,29 @@
 package source
 
 import (
+	"context"
+	"log/slog"
 	"testing"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAllowOverwrite(t *testing.T) {
+	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+	h := hive.New(
+		cell.Invoke(NewSources),
+	)
+	require.NoError(t, h.Start(log, context.TODO()))
+	t.Cleanup(func() {
+		h.Stop(log, context.TODO())
+	})
+	testAllowOverwrite(t)
+}
+
+func testAllowOverwrite(t *testing.T) {
 	require.True(t, AllowOverwrite(Kubernetes, Kubernetes))
 	require.True(t, AllowOverwrite(Kubernetes, CustomResource))
 	require.True(t, AllowOverwrite(Kubernetes, KVStore))
