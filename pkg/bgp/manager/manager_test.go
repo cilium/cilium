@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/google/go-cmp/cmp"
 	metallbk8s "go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
@@ -29,6 +31,27 @@ var (
 		Type: metallbk8s.Eps,
 	}
 )
+
+type mockSessionManager struct{}
+
+func (m *mockSessionManager) ListPeers() []Peer {
+	return []Peer{
+		{PeerIP: "192.168.1.1", SessionState: "Established"},
+		{PeerIP: "192.168.1.2", SessionState: "Idle"},
+	}
+}
+
+func TestGetPeerStatuses(t *testing.T) {
+	mgr := &Manager{
+		sessionManager: &mockSessionManager{},
+	}
+
+	statuses, err := mgr.GetPeerStatuses()
+	assert.NoError(t, err)
+	assert.Len(t, statuses, 2)
+	assert.Equal(t, "Established", statuses[0].SessionState)
+	assert.Equal(t, "Idle", statuses[1].SessionState)
+}
 
 // TestManagerEventNoService confirms when the
 // manager is provided a service which does not exist
