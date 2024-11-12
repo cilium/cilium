@@ -12,6 +12,7 @@ import (
 type Metrics struct {
 	ACLBGatewayAPIEnabled        metric.Gauge
 	ACLBIngressControllerEnabled metric.Gauge
+	ACLBIPAMEnabled              metric.Gauge
 }
 
 const (
@@ -35,6 +36,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Help:      "IngressController enabled on the operator",
 			Name:      "ingress_controller_enabled",
 		}),
+
+		ACLBIPAMEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Help:      "LB IPAM enabled on the operator",
+			Name:      "lb_ipam_enabled",
+		}),
 	}
 }
 
@@ -48,5 +56,8 @@ func (m Metrics) update(params enabledFeatures, config *option.OperatorConfig) {
 	}
 	if params.IsIngressControllerEnabled() {
 		m.ACLBIngressControllerEnabled.Add(1)
+	}
+	if params.IsLBIPAMEnabled() {
+		m.ACLBIPAMEnabled.Add(1)
 	}
 }

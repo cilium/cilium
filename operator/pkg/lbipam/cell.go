@@ -23,7 +23,10 @@ var Cell = cell.Module(
 	"lbipam",
 	"LB-IPAM",
 	// Provide LBIPAM so instances of it can be used while testing
-	cell.Provide(newLBIPAMCell),
+	cell.Provide(
+		newLBIPAMCell,
+		func(c lbipamConfig) Config { return c },
+	),
 	// Invoke an empty function which takes an LBIPAM to force its construction.
 	cell.Invoke(func(*LBIPAM) {}),
 	// Provide LB-IPAM related metrics
@@ -43,6 +46,14 @@ type lbipamConfig struct {
 
 func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
 	flags.BoolVar(&lc.EnableLBIPAM, "enable-lb-ipam", lc.EnableLBIPAM, "Enable LB IPAM")
+}
+
+func (lc lbipamConfig) IsEnabled() bool {
+	return lc.EnableLBIPAM
+}
+
+type Config interface {
+	IsEnabled() bool
 }
 
 type lbipamCellParams struct {
