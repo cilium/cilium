@@ -75,6 +75,7 @@ var defaultSources Sources = []Source{
 	CustomResource,
 	Kubernetes,
 	ClusterMesh,
+	Directory,
 	LocalAPI,
 	Generated,
 	Restored,
