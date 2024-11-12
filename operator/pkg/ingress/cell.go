@@ -23,7 +23,7 @@ var Cell = cell.Module(
 	"ingress",
 	"Manages the Kubernetes Ingress controllers",
 
-	cell.Config(ingressConfig{
+	cell.Config(IngressConfig{
 		EnableIngressController:     false,
 		EnforceIngressHTTPS:         true,
 		EnableIngressProxyProtocol:  false,
@@ -37,7 +37,7 @@ var Cell = cell.Module(
 	cell.Provide(registerSecretSync),
 )
 
-type ingressConfig struct {
+type IngressConfig struct {
 	EnableIngressController       bool
 	EnforceIngressHTTPS           bool
 	EnableIngressProxyProtocol    bool
@@ -50,7 +50,7 @@ type ingressConfig struct {
 	IngressDefaultSecretName      string
 }
 
-func (r ingressConfig) Flags(flags *pflag.FlagSet) {
+func (r IngressConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-ingress-controller", r.EnableIngressController, "Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.")
 	flags.Bool("enforce-ingress-https", r.EnforceIngressHTTPS, "Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header.")
 	flags.Bool("enable-ingress-proxy-protocol", r.EnableIngressProxyProtocol, "Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
@@ -63,12 +63,17 @@ func (r ingressConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("ingress-default-secret-name", r.IngressDefaultSecretName, "Default secret name for Ingress.")
 }
 
+// IsEnabled returns true if the Ingress Controller is enabled.
+func (r IngressConfig) IsEnabled() bool {
+	return r.EnableIngressController
+}
+
 type ingressParams struct {
 	cell.In
 
 	Logger             logrus.FieldLogger
 	CtrlRuntimeManager ctrlRuntime.Manager
-	Config             ingressConfig
+	Config             IngressConfig
 }
 
 func registerReconciler(params ingressParams) error {
