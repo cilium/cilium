@@ -618,6 +618,18 @@ func (s *xdsServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
 				},
 			}},
+			InternalAddressConfig: &envoy_config_http.HttpConnectionManager_InternalAddressConfig{
+				UnixSockets: false,
+				// only RFC1918 IP addresses will be considered internal
+				// https://datatracker.ietf.org/doc/html/rfc1918
+				CidrRanges: []*envoy_config_core.CidrRange{
+					{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
+					{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
+					{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
+					{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
+					{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
+				},
+			},
 			StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 				RouteConfig: &envoy_config_route.RouteConfiguration{
