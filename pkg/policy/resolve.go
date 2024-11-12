@@ -16,6 +16,19 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// SelectorPolicy represents a selectorPolicy, previously resolved from
+// the policy repository and ready to be distilled against a set of identities
+// to compute datapath-level policy configuration.
+type SelectorPolicy interface {
+	// CreateRedirects is used to ensure the endpoint has created all the needed redirects
+	// before a new EndpointPolicy is created.
+	RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy]
+
+	// DistillPolicy returns the policy in terms of connectivity to peer
+	// Identities.
+	DistillPolicy(owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
+}
+
 // selectorPolicy is a structure which contains the resolved policy for a
 // particular Identity across all layers (L3, L4, and L7), with the policy
 // still determined in terms of EndpointSelectors.
@@ -95,6 +108,7 @@ type PolicyOwner interface {
 	GetID() uint64
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
+	IsHost() bool
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
@@ -132,7 +146,7 @@ func (p *selectorPolicy) Detach() {
 // Called without holding the Selector cache or Repository locks.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[string]uint16, isHost bool) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[string]uint16) *EndpointPolicy {
 	var calculatedPolicy *EndpointPolicy
 
 	// EndpointPolicy is initialized while 'GetCurrentVersionHandleFunc' keeps the selector
@@ -172,7 +186,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[st
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
 	calculatedPolicy.toMapState()
-	if !isHost {
+	if !policyOwner.IsHost() {
 		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
 	}
 

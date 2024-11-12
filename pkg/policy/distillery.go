@@ -4,7 +4,6 @@
 package policy
 
 import (
-	"iter"
 	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -12,19 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
 )
-
-// SelectorPolicy represents a cached selectorPolicy, previously resolved from
-// the policy repository and ready to be distilled against a set of identities
-// to compute datapath-level policy configuration.
-type SelectorPolicy interface {
-	// CreateRedirects is used to ensure the endpoint has created all the needed redirects
-	// before a new EndpointPolicy is created.
-	RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy]
-
-	// Consume returns the policy in terms of connectivity to peer
-	// Identities.
-	Consume(owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
-}
 
 // PolicyCache represents a cache of resolved policies for identities.
 type PolicyCache struct {
@@ -84,7 +70,7 @@ func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (*cachedSelectorPolicy, bool, error) {
+func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (*selectorPolicy, bool, error) {
 	cip := cache.lookupOrCreate(identity)
 
 	// As long as UpdatePolicy() is triggered from endpoint
@@ -100,8 +86,8 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	defer cip.Unlock()
 
 	// Don't resolve policy if it was already done for this or later revision.
-	if policy := cip.getPolicy(); policy != nil && policy.Revision >= cache.repo.GetRevision() {
-		return cip, false, nil
+	if selPolicy := cip.getPolicy(); selPolicy != nil && selPolicy.Revision >= cache.repo.GetRevision() {
+		return selPolicy, false, nil
 	}
 
 	// Resolve the policies, which could fail
@@ -112,7 +98,7 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 
 	cip.setPolicy(selPolicy)
 
-	return cip, true, nil
+	return selPolicy, true, nil
 }
 
 // LocalEndpointIdentityAdded is not needed; we only care about local endpoint
@@ -132,8 +118,8 @@ func (cache *PolicyCache) LocalEndpointIdentityRemoved(identity *identityPkg.Ide
 // The caller must provide threadsafety for iteration over the policy
 // repository.
 func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) (SelectorPolicy, error) {
-	cip, _, err := cache.updateSelectorPolicy(identity)
-	return cip, err
+	sp, _, err := cache.updateSelectorPolicy(identity)
+	return sp, err
 }
 
 // GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID, if
@@ -204,21 +190,4 @@ func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
 		// Release the references the previous policy holds on the selector cache.
 		oldPolicy.Detach()
 	}
-}
-
-// Consume returns the EndpointPolicy that defines connectivity policy to
-// Identities in the specified cache.
-//
-// This denotes that a particular endpoint is 'consuming' the policy from the
-// selector policy cache.
-func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy {
-	// TODO: This currently computes the EndpointPolicy from SelectorPolicy
-	// on-demand, however in future the cip is intended to cache the
-	// EndpointPolicy for this Identity and emit datapath deltas instead.
-	isHost := cip.identity.ID == identityPkg.ReservedIdentityHost
-	return cip.getPolicy().DistillPolicy(owner, redirects, isHost)
-}
-
-func (cip *cachedSelectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, *PerSelectorPolicy] {
-	return cip.getPolicy().RedirectFilters()
 }

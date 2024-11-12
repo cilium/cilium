@@ -171,6 +171,10 @@ func (d DummyOwner) GetID() uint64 {
 	return 1234
 }
 
+func (d DummyOwner) IsHost() bool {
+	return false
+}
+
 func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
 	log.WithFields(fields).Info(msg)
 }
@@ -216,7 +220,7 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	n := 0
 	for i := 0; i < b.N; i++ {
-		epPolicy := ip.DistillPolicy(DummyOwner{}, nil, false)
+		epPolicy := ip.DistillPolicy(DummyOwner{}, nil)
 		epPolicy.Ready()
 		n += epPolicy.policyMapState.Len()
 	}
@@ -230,7 +234,7 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(DummyOwner{}, nil, false)
+		policy := ip.DistillPolicy(DummyOwner{}, nil)
 		policy.Ready()
 		ip.Detach()
 	}
@@ -242,7 +246,7 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(DummyOwner{}, nil, false)
+		policy := ip.DistillPolicy(DummyOwner{}, nil)
 		policy.Ready()
 		ip.Detach()
 	}
@@ -292,7 +296,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, redirectTypeEnvoy, selPolicy.L4Policy.redirectTypes)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -399,7 +403,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
 	policy.Ready()
 
 	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
@@ -504,7 +508,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
 	policy.Ready()
 
 	rule1MapStateEntry := newMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, 0, false, DefaultAuthType, AuthTypeDisabled)
@@ -632,7 +636,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
 	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges

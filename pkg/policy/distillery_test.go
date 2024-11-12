@@ -97,14 +97,12 @@ func TestCachePopulation(t *testing.T) {
 	require.False(t, updated)
 	policy2, _, _ := cache.updateSelectorPolicy(identity1)
 	require.NotNil(t, policy2)
-	idp1 := policy1.getPolicy()
-	idp2 := policy2.getPolicy()
-	require.Equal(t, idp2, idp1)
+	require.Same(t, policy1, policy2)
 
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	_, updated, err = cache.updateSelectorPolicy(identity1)
+	_, updated, _ = cache.updateSelectorPolicy(identity1)
 	require.True(t, updated)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
@@ -116,8 +114,7 @@ func TestCachePopulation(t *testing.T) {
 
 	// policy3 must be different from ep1, ep2
 	require.NoError(t, err)
-	idp3 := policy3.getPolicy()
-	require.NotEqual(t, idp1, idp3)
+	require.NotEqual(t, policy1, policy3)
 }
 
 // Distillery integration tests
@@ -397,11 +394,11 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (*mapState, error) {
-	sp, err := d.Repository.GetPolicyCache().UpdatePolicy(identity)
+	sp, _, err := d.Repository.GetPolicyCache().updateSelectorPolicy(identity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate policy: %w", err)
 	}
-	epp := sp.Consume(owner, testRedirects)
+	epp := sp.DistillPolicy(owner, testRedirects)
 	if epp == nil {
 		return nil, errors.New("policy distillation failure")
 	}
