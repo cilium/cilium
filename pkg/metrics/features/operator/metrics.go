@@ -10,7 +10,8 @@ import (
 )
 
 type Metrics struct {
-	ACLBGatewayAPIEnabled metric.Gauge
+	ACLBGatewayAPIEnabled        metric.Gauge
+	ACLBIngressControllerEnabled metric.Gauge
 }
 
 const (
@@ -27,6 +28,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Help:      "GatewayAPI enabled on the operator",
 			Name:      "gateway_api_enabled",
 		}),
+
+		ACLBIngressControllerEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Help:      "IngressController enabled on the operator",
+			Name:      "ingress_controller_enabled",
+		}),
 	}
 }
 
@@ -37,5 +45,8 @@ type featureMetrics interface {
 func (m Metrics) update(params enabledFeatures, config *option.OperatorConfig) {
 	if config.EnableGatewayAPI {
 		m.ACLBGatewayAPIEnabled.Add(1)
+	}
+	if params.IsIngressControllerEnabled() {
+		m.ACLBIngressControllerEnabled.Add(1)
 	}
 }
