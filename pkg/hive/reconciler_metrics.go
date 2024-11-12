@@ -45,6 +45,8 @@ func NewStateDBReconcilerMetrics() ReconcilerMetrics {
 			Subsystem: "reconciler",
 			Name:      "duration_seconds",
 			Help:      "Histogram of per-operation duration during reconciliation",
+			// Use buckets in the 0.5ms-1s range.
+			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
 		}, []string{labelModuleId, labelOperation}),
 
 		ReconciliationTotalErrors: metric.NewCounterVec(metric.CounterOpts{
@@ -100,41 +102,29 @@ type reconcilerMetricsImpl struct {
 
 // PruneDuration implements reconciler.Metrics.
 func (m *reconcilerMetricsImpl) PruneDuration(moduleID cell.FullModuleID, duration time.Duration) {
-	if m.m.PruneDuration.IsEnabled() {
-		m.m.PruneDuration.WithLabelValues(moduleID.String()).
-			Observe(duration.Seconds())
-	}
+	m.m.PruneDuration.WithLabelValues(moduleID.String()).
+		Observe(duration.Seconds())
 }
 
 // FullReconciliationErrors implements reconciler.Metrics.
 func (m *reconcilerMetricsImpl) PruneError(moduleID cell.FullModuleID, err error) {
-	if m.m.PruneCount.IsEnabled() {
-		m.m.PruneCount.WithLabelValues(moduleID.String()).Inc()
-	}
-	if err != nil && m.m.PruneTotalErrors.IsEnabled() {
+	m.m.PruneCount.WithLabelValues(moduleID.String()).Inc()
+	if err != nil {
 		m.m.PruneTotalErrors.WithLabelValues(moduleID.String()).Add(1)
 	}
 }
 
 // ReconciliationDuration implements reconciler.Metrics.
 func (m *reconcilerMetricsImpl) ReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
-	if m.m.ReconciliationCount.IsEnabled() {
-		m.m.ReconciliationCount.WithLabelValues(moduleID.String()).Inc()
-	}
-	if m.m.ReconciliationDuration.IsEnabled() {
-		m.m.ReconciliationDuration.WithLabelValues(moduleID.String(), operation).
-			Observe(duration.Seconds())
-	}
+	m.m.ReconciliationCount.WithLabelValues(moduleID.String()).Inc()
+	m.m.ReconciliationDuration.WithLabelValues(moduleID.String(), operation).
+		Observe(duration.Seconds())
 }
 
 // ReconciliationErrors implements reconciler.Metrics.
 func (m *reconcilerMetricsImpl) ReconciliationErrors(moduleID cell.FullModuleID, new, current int) {
-	if m.m.ReconciliationCurrentErrors.IsEnabled() {
-		m.m.ReconciliationCurrentErrors.WithLabelValues(moduleID.String()).Set(float64(current))
-	}
-	if m.m.ReconciliationTotalErrors.IsEnabled() {
-		m.m.ReconciliationCurrentErrors.WithLabelValues(moduleID.String()).Add(float64(new))
-	}
+	m.m.ReconciliationCurrentErrors.WithLabelValues(moduleID.String()).Set(float64(current))
+	m.m.ReconciliationCurrentErrors.WithLabelValues(moduleID.String()).Add(float64(new))
 }
 
 var _ reconciler.Metrics = &reconcilerMetricsImpl{}

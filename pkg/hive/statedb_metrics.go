@@ -4,7 +4,6 @@
 package hive
 
 import (
-	"strings"
 	"time"
 
 	"github.com/cilium/statedb"
@@ -16,10 +15,8 @@ import (
 type StateDBMetrics struct {
 	// How long a read transaction was held.
 	WriteTxnDuration metric.Vec[metric.Observer]
-	// How long it took to acquire a write transaction for all tables.
-	WriteTxnAcquisition metric.Vec[metric.Observer]
 	// How long writers were blocked while waiting to acquire a write transaction for a specific table.
-	TableContention metric.Vec[metric.Gauge]
+	TableContention metric.Vec[metric.Observer]
 	// The amount of objects in a given table.
 	TableObjectCount metric.Vec[metric.Gauge]
 	// The current revision of a given table.
@@ -36,7 +33,6 @@ type StateDBMetrics struct {
 
 const (
 	labelTable  = "table"
-	labelTables = "tables"
 	labelHandle = "handle"
 )
 
@@ -46,69 +42,48 @@ type stateDBMetricsImpl struct {
 
 // DeleteTrackerCount implements statedb.Metrics.
 func (i stateDBMetricsImpl) DeleteTrackerCount(tableName string, numTrackers int) {
-	if i.m.TableDeleteTrackerCount.IsEnabled() {
-		i.m.TableDeleteTrackerCount.WithLabelValues(tableName).Set(float64(numTrackers))
-	}
+	i.m.TableDeleteTrackerCount.WithLabelValues(tableName).Set(float64(numTrackers))
 }
 
 // GraveyardCleaningDuration implements statedb.Metrics.
 func (i stateDBMetricsImpl) GraveyardCleaningDuration(tableName string, duration time.Duration) {
-	if i.m.TableGraveyardCleaningDuration.IsEnabled() {
-		i.m.TableGraveyardCleaningDuration.WithLabelValues(tableName).Observe(float64(duration.Seconds()))
-	}
+	i.m.TableGraveyardCleaningDuration.WithLabelValues(tableName).Observe(float64(duration.Seconds()))
 }
 
 // GraveyardLowWatermark implements statedb.Metrics.
 func (i stateDBMetricsImpl) GraveyardLowWatermark(tableName string, lowWatermark uint64) {
-	if i.m.TableGraveyardLowWatermark.IsEnabled() {
-		i.m.TableGraveyardLowWatermark.WithLabelValues(tableName).Set(float64(lowWatermark))
-	}
+	i.m.TableGraveyardLowWatermark.WithLabelValues(tableName).Set(float64(lowWatermark))
 }
 
 // GraveyardObjectCount implements statedb.Metrics.
 func (i stateDBMetricsImpl) GraveyardObjectCount(tableName string, numDeletedObjects int) {
-	if i.m.TableGraveyardObjectCount.IsEnabled() {
-		i.m.TableGraveyardObjectCount.WithLabelValues(tableName).Set(float64(numDeletedObjects))
-	}
+	i.m.TableGraveyardObjectCount.WithLabelValues(tableName).Set(float64(numDeletedObjects))
 }
 
 // ObjectCount implements statedb.Metrics.
 func (i stateDBMetricsImpl) ObjectCount(tableName string, numObjects int) {
-	if i.m.TableObjectCount.IsEnabled() {
-		i.m.TableObjectCount.WithLabelValues(tableName).Set(float64(numObjects))
-	}
+	i.m.TableObjectCount.WithLabelValues(tableName).Set(float64(numObjects))
 }
 
 // Revision implements statedb.Metrics.
 func (i stateDBMetricsImpl) Revision(tableName string, revision uint64) {
-	if i.m.TableRevision.IsEnabled() {
-		i.m.TableRevision.WithLabelValues(tableName).Set(float64(revision))
-	}
+	i.m.TableRevision.WithLabelValues(tableName).Set(float64(revision))
 }
 
 // WriteTxnDuration implements statedb.Metrics.
 func (i stateDBMetricsImpl) WriteTxnDuration(handle string, tables []string, acquire time.Duration) {
-	if i.m.WriteTxnDuration.IsEnabled() {
-		i.m.WriteTxnDuration.WithLabelValues(
-			handle, strings.Join(tables, ","),
-		).Observe(acquire.Seconds())
-	}
+	// Not using 'tables' as 'handle' is enough detail.
+	i.m.WriteTxnDuration.WithLabelValues(handle).Observe(acquire.Seconds())
 }
 
 // WriteTxnTableAcquisition implements statedb.Metrics.
 func (i stateDBMetricsImpl) WriteTxnTableAcquisition(handle string, tableName string, acquire time.Duration) {
-	if i.m.TableContention.IsEnabled() {
-		i.m.TableContention.WithLabelValues(handle, tableName)
-	}
+	i.m.TableContention.WithLabelValues(handle, tableName)
 }
 
 // WriteTxnTotalAcquisition implements statedb.Metrics.
 func (i stateDBMetricsImpl) WriteTxnTotalAcquisition(handle string, tables []string, acquire time.Duration) {
-	if i.m.WriteTxnAcquisition.IsEnabled() {
-		i.m.WriteTxnAcquisition.WithLabelValues(
-			handle, strings.Join(tables, ","),
-		)
-	}
+	// Not gathering this metric as it's covered well by the per-table acquisition duration.
 }
 
 var _ statedb.Metrics = stateDBMetricsImpl{}
@@ -121,20 +96,17 @@ func NewStateDBMetrics() StateDBMetrics {
 			Name:      "write_txn_duration_seconds",
 			Help:      "How long a write transaction was held.",
 			Disabled:  true,
-		}, []string{labelHandle, labelTables}),
-		WriteTxnAcquisition: metric.NewHistogramVec(metric.HistogramOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: "statedb",
-			Name:      "write_txn_acquisition_seconds",
-			Help:      "How long it took to acquire a write transaction for all tables.",
-			Disabled:  true,
-		}, []string{labelHandle, labelTables}),
-		TableContention: metric.NewGaugeVec(metric.GaugeOpts{
+			// Use buckets in the 0.5ms-1.0s range.
+			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
+		}, []string{labelHandle}),
+		TableContention: metric.NewHistogramVec(metric.HistogramOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: "statedb",
 			Name:      "table_contention_seconds",
 			Help:      "How long writers were blocked while waiting to acquire a write transaction for a specific table.",
-			Disabled:  true,
+			// Use buckets in the 0.5ms-1.0s range.
+			Buckets:  []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
+			Disabled: true,
 		}, []string{labelHandle, labelTable}),
 		TableObjectCount: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
@@ -176,7 +148,9 @@ func NewStateDBMetrics() StateDBMetrics {
 			Subsystem: "statedb",
 			Name:      "table_graveyard_cleaning_duration_seconds",
 			Help:      "The time it took to clean the graveyard for a given table.",
-			Disabled:  true,
+			// Use buckets in the 0.5ms-1.0s range.
+			Buckets:  []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
+			Disabled: true,
 		}, []string{labelTable}),
 	}
 	return m
