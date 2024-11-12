@@ -233,7 +233,7 @@ func (d *Daemon) startAgentHealthHTTPService() {
 
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
-	return d.policy
+    return d.policy // Ensure no extra keywords are here
 }
 
 // GetCompilationLock returns the mutex responsible for synchronizing compilation
@@ -940,6 +940,5 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 }
 
 type endpointMetadataFetcher interface {
-	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
-}
+    Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
 }
