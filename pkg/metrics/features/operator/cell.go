@@ -38,5 +38,10 @@ type featuresParams struct {
 	OperatorConfig *operatorOption.OperatorConfig
 }
 
+func (p featuresParams) IsIngressControllerEnabled() bool {
+	return operatorOption.Config.EnableIngressController
+}
+
 type enabledFeatures interface {
+	IsIngressControllerEnabled() bool
 }
