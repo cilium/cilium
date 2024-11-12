@@ -19,6 +19,7 @@ var Cell = cell.Module(
 	"nodeipam",
 	"Node-IPAM",
 
+	cell.Provide(func(r nodeIpamConfig) NodeIPAMConfig { return r }),
 	cell.Config(nodeIpamConfig{}),
 	cell.Invoke(registerNodeSvcLBReconciler),
 )
@@ -35,6 +36,14 @@ type nodeipamCellParams struct {
 
 type nodeIpamConfig struct {
 	EnableNodeIPAM bool
+}
+
+func (r nodeIpamConfig) IsEnabled() bool {
+	return r.EnableNodeIPAM
+}
+
+type NodeIPAMConfig interface {
+	IsEnabled() bool
 }
 
 func (r nodeIpamConfig) Flags(flags *pflag.FlagSet) {
