@@ -112,16 +112,6 @@ func (cache *PolicyCache) LocalEndpointIdentityRemoved(identity *identityPkg.Ide
 	cache.delete(identity)
 }
 
-// UpdatePolicy resolves the policy for the security identity of the specified
-// endpoint and caches it for future use.
-//
-// The caller must provide threadsafety for iteration over the policy
-// repository.
-func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) (SelectorPolicy, error) {
-	sp, _, err := cache.updateSelectorPolicy(identity)
-	return sp, err
-}
-
 // GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID, if
 // any, otherwise returns nil.
 func (cache *PolicyCache) GetAuthTypes(localID, remoteID identityPkg.NumericIdentity) AuthTypes {

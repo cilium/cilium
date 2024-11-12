@@ -90,6 +90,16 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 	return result
 }
 
+// used by PolicyRepository.GetSelectorPolicy
+func (s *regenerationStatistics) WaitingForPolicyRepository() *spanstat.SpanStat {
+	return &s.waitingForPolicyRepository
+}
+
+// used by PolicyRepository.GetSelectorPolicy
+func (s *regenerationStatistics) PolicyCalculation() *spanstat.SpanStat {
+	return &s.policyCalculation
+}
+
 // endpointPolicyStatusMap is a map to store the endpoint id and the policy
 // enforcement status. It is used only to send metrics to prometheus.
 type endpointPolicyStatusMap struct {
