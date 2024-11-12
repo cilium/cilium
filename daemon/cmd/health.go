@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
@@ -69,22 +68,18 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 
 				if client != nil {
 					err = client.PingEndpoint()
+					if err == nil {
+						lastSuccessfulPing = time.Now()
+					}
 				}
 
-				// Reset lastSuccessfulPing if err is nil, which happens
-				// a) if we successfully pinged the endpoint above
-				// b) on first initialization, i.e. we have not attempted to ping yet
-				if err == nil {
-					lastSuccessfulPing = time.Now()
-				}
-
-				// On the first initialization (client == nil), or if we have not
-				// successfully pinged it since successfulPingTimeout, restart the health EP.
-				if client == nil || time.Since(lastSuccessfulPing) > successfulPingTimeout {
-					var launchErr error
+				// Restart the health EP if too much time has gone since the
+				// lastSuccessfulPing time, which is also true for a non-existent
+				// client
+				if time.Since(lastSuccessfulPing) > successfulPingTimeout {
 					d.cleanupHealthEndpoint()
 
-					client, launchErr = health.LaunchAsEndpoint(
+					client, err = health.LaunchAsEndpoint(
 						ctx,
 						d,
 						d,
@@ -96,17 +91,11 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 						d.healthEndpointRouting,
 						sysctl,
 					)
-					if launchErr != nil {
-						if err != nil {
-							return fmt.Errorf("failed to restart endpoint (check failed: %w): %w", err, launchErr)
-						}
-						return launchErr
-					} else {
-						// Now that we relaunched, retry so that the cleanup and time
-						// to bring up the health endpoint does not skew the probing
-						if pingErr := client.PingEndpoint(); pingErr == nil {
-							lastSuccessfulPing = time.Now()
-						}
+					if err == nil {
+						// Reset lastSuccessfulPing after the new endpoint
+						// is launched to give it time to come up before
+						// killing it again
+						lastSuccessfulPing = time.Now()
 					}
 				}
 				return err
