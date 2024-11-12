@@ -373,3 +373,44 @@ func TestUpdateDeviceMode(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateHostFirewall(t *testing.T) {
+	tests := []struct {
+		name               string
+		enableHostFirewall bool
+		expected           float64
+	}{
+		{
+			name:               "Host firewall enabled",
+			enableHostFirewall: true,
+			expected:           1,
+		},
+		{
+			name:               "Host firewall disabled",
+			enableHostFirewall: false,
+			expected:           0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultDeviceModes[0],
+				EnableHostFirewall:     tt.enableHostFirewall,
+			}
+
+			params := mockFeaturesParams{
+				CNIChainingMode: defaultChainingModes[0],
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.NPHostFirewallEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableHostFirewall, counterValue)
+		})
+	}
+}
