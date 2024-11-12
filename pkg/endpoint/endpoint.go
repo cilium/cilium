@@ -370,10 +370,6 @@ type Endpoint struct {
 
 	hasBPFProgram chan struct{}
 
-	// selectorPolicy represents a reference to the shared SelectorPolicy
-	// for all endpoints that have the same Identity.
-	selectorPolicy policy.SelectorPolicy
-
 	// desiredPolicy is the policy calculated during regeneration. After
 	// successful regeneration, it is copied to realizedPolicy
 	// To write, both ep.mutex and ep.buildMutex must be held.
@@ -582,6 +578,8 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		logLimiter:       logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		noTrackPort:      0,
 		properties:       map[string]interface{}{},
+
+		forcePolicyCompute: true,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -925,6 +923,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	ep.hasBPFProgram = make(chan struct{})
 	ep.desiredPolicy = policy.NewEndpointPolicy(policyGetter.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
+	ep.forcePolicyCompute = true
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
 
