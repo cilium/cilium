@@ -69,6 +69,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
@@ -272,6 +273,11 @@ var (
 			// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
 			// and clustermesh.
 			dial.ServiceResolverCell,
+
+			// The feature Cell will retrieve information from all other cells /
+			// configuration to describe, in form of prometheus metrics, which
+			// features are enabled on the operator.
+			features.Cell,
 		),
 	)
 
