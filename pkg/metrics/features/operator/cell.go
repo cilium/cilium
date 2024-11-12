@@ -48,7 +48,12 @@ func (p featuresParams) IsLBIPAMEnabled() bool {
 	return p.LBIPAM.IsEnabled()
 }
 
+func (p featuresParams) GetLoadBalancerL7() string {
+	return operatorOption.Config.LoadBalancerL7
+}
+
 type enabledFeatures interface {
 	IsIngressControllerEnabled() bool
 	IsLBIPAMEnabled() bool
+	GetLoadBalancerL7() string
 }
