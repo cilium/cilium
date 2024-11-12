@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -394,7 +395,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (*mapState, error) {
-	sp, _, err := d.Repository.GetPolicyCache().updateSelectorPolicy(identity)
+	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate policy: %w", err)
 	}
@@ -2069,4 +2070,17 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 
 		})
 	}
+}
+
+type dummyPolicyStats struct {
+	waitingForPolicyRepository spanstat.SpanStat
+	policyCalculation          spanstat.SpanStat
+}
+
+func (s *dummyPolicyStats) WaitingForPolicyRepository() *spanstat.SpanStat {
+	return &s.waitingForPolicyRepository
+}
+
+func (s *dummyPolicyStats) PolicyCalculation() *spanstat.SpanStat {
+	return &s.policyCalculation
 }
