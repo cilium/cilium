@@ -52,6 +52,30 @@
                       }
                     }
                   ],
+                  "internal_address_config": {
+                    "cidr_ranges": [
+                      {
+                        "address_prefix": "10.0.0.0",
+                        "prefix_len": 8
+                      },
+                      {
+                        "address_prefix": "172.16.0.0",
+                        "prefix_len": 12
+                      },
+                      {
+                        "address_prefix": "192.168.0.0",
+                        "prefix_len": 16
+                      },
+                      {
+                        "address_prefix": "127.0.0.1",
+                        "prefix_len": 32
+                      },
+                      {
+                        "address_prefix": "::1",
+                        "prefix_len": 128
+                      }
+                    ]
+                  },
                   "stream_idle_timeout": "0s"
                 }
               }
@@ -119,6 +143,30 @@
                       }
                     }
                   ],
+                  "internal_address_config": {
+                    "cidr_ranges": [
+                      {
+                        "address_prefix": "10.0.0.0",
+                        "prefix_len": 8
+                      },
+                      {
+                        "address_prefix": "172.16.0.0",
+                        "prefix_len": 12
+                      },
+                      {
+                        "address_prefix": "192.168.0.0",
+                        "prefix_len": 16
+                      },
+                      {
+                        "address_prefix": "127.0.0.1",
+                        "prefix_len": 32
+                      },
+                      {
+                        "address_prefix": "::1",
+                        "prefix_len": 128
+                      }
+                    ]
+                  },
                   "stream_idle_timeout": "0s"
                 }
               }
@@ -185,6 +233,30 @@
                       }
                     }
                   ],
+                  "internal_address_config": {
+                    "cidr_ranges": [
+                      {
+                        "address_prefix": "10.0.0.0",
+                        "prefix_len": 8
+                      },
+                      {
+                        "address_prefix": "172.16.0.0",
+                        "prefix_len": 12
+                      },
+                      {
+                        "address_prefix": "192.168.0.0",
+                        "prefix_len": 16
+                      },
+                      {
+                        "address_prefix": "127.0.0.1",
+                        "prefix_len": 32
+                      },
+                      {
+                        "address_prefix": "::1",
+                        "prefix_len": 128
+                      }
+                    ]
+                  },
                   "stream_idle_timeout": "0s"
                 }
               }
