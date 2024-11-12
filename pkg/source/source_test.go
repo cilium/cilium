@@ -10,6 +10,8 @@ import (
 )
 
 func TestAllowOverwrite(t *testing.T) {
+	var dummySource Source = "unspecified-in-advance"
+
 	require.True(t, AllowOverwrite(Kubernetes, Kubernetes))
 	require.True(t, AllowOverwrite(Kubernetes, CustomResource))
 	require.True(t, AllowOverwrite(Kubernetes, KVStore))
@@ -20,6 +22,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.False(t, AllowOverwrite(Kubernetes, Generated))
 	require.False(t, AllowOverwrite(Kubernetes, Restored))
 	require.False(t, AllowOverwrite(Kubernetes, Unspec))
+	require.True(t, AllowOverwrite(Kubernetes, dummySource))
 
 	require.True(t, AllowOverwrite(CustomResource, CustomResource))
 	require.True(t, AllowOverwrite(CustomResource, KVStore))
@@ -31,6 +34,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.False(t, AllowOverwrite(CustomResource, Generated))
 	require.False(t, AllowOverwrite(CustomResource, Restored))
 	require.False(t, AllowOverwrite(CustomResource, Unspec))
+	require.False(t, AllowOverwrite(CustomResource, dummySource))
 
 	require.False(t, AllowOverwrite(KVStore, Kubernetes))
 	require.False(t, AllowOverwrite(KVStore, CustomResource))
@@ -42,6 +46,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.False(t, AllowOverwrite(KVStore, Generated))
 	require.False(t, AllowOverwrite(KVStore, Restored))
 	require.False(t, AllowOverwrite(KVStore, Unspec))
+	require.False(t, AllowOverwrite(KVStore, dummySource))
 
 	require.False(t, AllowOverwrite(Local, Kubernetes))
 	require.False(t, AllowOverwrite(Local, CustomResource))
@@ -53,6 +58,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.False(t, AllowOverwrite(Local, LocalAPI))
 	require.False(t, AllowOverwrite(Local, Restored))
 	require.False(t, AllowOverwrite(Local, Unspec))
+	require.False(t, AllowOverwrite(Local, dummySource))
 
 	require.False(t, AllowOverwrite(KubeAPIServer, Kubernetes))
 	require.False(t, AllowOverwrite(KubeAPIServer, CustomResource))
@@ -64,6 +70,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.False(t, AllowOverwrite(KubeAPIServer, LocalAPI))
 	require.False(t, AllowOverwrite(KubeAPIServer, Restored))
 	require.False(t, AllowOverwrite(KubeAPIServer, Unspec))
+	require.False(t, AllowOverwrite(KubeAPIServer, dummySource))
 
 	require.True(t, AllowOverwrite(LocalAPI, Kubernetes))
 	require.True(t, AllowOverwrite(LocalAPI, CustomResource))
@@ -75,6 +82,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.False(t, AllowOverwrite(LocalAPI, Generated))
 	require.False(t, AllowOverwrite(LocalAPI, Restored))
 	require.False(t, AllowOverwrite(LocalAPI, Unspec))
+	require.True(t, AllowOverwrite(LocalAPI, dummySource))
 
 	require.True(t, AllowOverwrite(Generated, Kubernetes))
 	require.True(t, AllowOverwrite(Generated, CustomResource))
@@ -86,6 +94,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.True(t, AllowOverwrite(Generated, Generated))
 	require.False(t, AllowOverwrite(Generated, Restored))
 	require.False(t, AllowOverwrite(Generated, Unspec))
+	require.True(t, AllowOverwrite(Generated, dummySource))
 
 	require.True(t, AllowOverwrite(Restored, Kubernetes))
 	require.True(t, AllowOverwrite(Restored, CustomResource))
@@ -97,6 +106,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.True(t, AllowOverwrite(Restored, Generated))
 	require.True(t, AllowOverwrite(Restored, Restored))
 	require.False(t, AllowOverwrite(Restored, Unspec))
+	require.True(t, AllowOverwrite(Restored, dummySource))
 
 	require.True(t, AllowOverwrite(Unspec, Kubernetes))
 	require.True(t, AllowOverwrite(Unspec, CustomResource))
@@ -108,6 +118,7 @@ func TestAllowOverwrite(t *testing.T) {
 	require.True(t, AllowOverwrite(Unspec, Generated))
 	require.True(t, AllowOverwrite(Unspec, Restored))
 	require.True(t, AllowOverwrite(Unspec, Unspec))
+	require.True(t, AllowOverwrite(Unspec, dummySource))
 
 	require.True(t, AllowOverwrite(ClusterMesh, Kubernetes))
 	require.True(t, AllowOverwrite(ClusterMesh, CustomResource))
@@ -119,4 +130,22 @@ func TestAllowOverwrite(t *testing.T) {
 	require.False(t, AllowOverwrite(ClusterMesh, Generated))
 	require.False(t, AllowOverwrite(ClusterMesh, Restored))
 	require.False(t, AllowOverwrite(ClusterMesh, Unspec))
+	require.True(t, AllowOverwrite(ClusterMesh, dummySource))
+
+	/* The following seems off:
+	   ClusterMesh cannot be overwritten by Unspec, but it can be overwritten dummySource, which in turn can be overwritten by Unspec.
+	   The same for many other cases, because dummySource can overwrite Kubernetes, LocalAPI, Generated, Restored, and Unspec,
+	   and it can be overwritten by everything.
+	*/
+	require.True(t, AllowOverwrite(dummySource, Kubernetes))
+	require.True(t, AllowOverwrite(dummySource, CustomResource))
+	require.True(t, AllowOverwrite(dummySource, KVStore))
+	require.True(t, AllowOverwrite(dummySource, Local))
+	require.True(t, AllowOverwrite(dummySource, KubeAPIServer))
+	require.True(t, AllowOverwrite(dummySource, ClusterMesh))
+	require.True(t, AllowOverwrite(dummySource, LocalAPI))
+	require.True(t, AllowOverwrite(dummySource, Generated))
+	require.True(t, AllowOverwrite(dummySource, Restored))
+	require.True(t, AllowOverwrite(dummySource, Unspec))
+	require.True(t, AllowOverwrite(dummySource, dummySource))
 }
