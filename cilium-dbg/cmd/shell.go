@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -75,15 +74,26 @@ func shellExchange(w io.Writer, format string, args ...any) error {
 	}
 	bio := bufio.NewReader(conn)
 	for {
-		line, _, err := bio.ReadLine()
+		lineBytes, isPrefix, err := bio.ReadLine()
 		if err != nil {
 			return nil
 		}
-		line, ended := bytes.CutSuffix(line, endMarker)
-		if string(line) != "[stdout]" {
-			if _, err := w.Write(append(line, '\n')); err != nil {
-				return err
-			}
+		line := string(lineBytes)
+		if line == "[stdout]" || line == "[stderr]" {
+			// Commands that write to "stdout" instead of the log show the [stdout] as
+			// the first line. This is useful information in tests, but not useful in
+			// the shell, so just skip this.
+			continue
+		}
+		line, ended := strings.CutSuffix(line, endMarker)
+		if isPrefix {
+			// Partial line, don't print \n yet.
+			_, err = fmt.Fprint(w, line)
+		} else {
+			_, err = fmt.Fprintln(w, line)
+		}
+		if err != nil {
+			return err
 		}
 		if ended {
 			return nil
@@ -102,7 +112,7 @@ func shell(_ *cobra.Command, args []string) {
 	}
 }
 
-var endMarker = []byte("<<end>>")
+var endMarker = "<<end>>"
 
 func interactiveShell() {
 	// Try to set the terminal to raw mode (so that cursor keys work etc.)
@@ -164,14 +174,27 @@ func interactiveShell() {
 			// Pipe the response to the console until a line ends with the end
 			// marker (<<end>>).
 			for {
-				line, _, err := bio.ReadLine()
+				lineBytes, isPrefix, err := bio.ReadLine()
 				if err != nil {
 					// Connection closed!
 					closed = true
 					break
 				}
-				line, ended := bytes.CutSuffix(line, endMarker)
-				console.Write(append(line, '\n'))
+				line := string(lineBytes)
+
+				if line == "[stdout]" || line == "[stderr]" {
+					// Commands that write to "stdout" instead of the log show the [stdout] as
+					// the first line. This is useful information in tests, but not useful in
+					// the shell, so just skip this.
+					continue
+				}
+
+				line, ended := strings.CutSuffix(line, endMarker)
+				if isPrefix {
+					fmt.Fprint(console, line)
+				} else {
+					fmt.Fprintln(console, line)
+				}
 				if ended {
 					break
 				}
