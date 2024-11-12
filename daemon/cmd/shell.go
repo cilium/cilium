@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 
 	upstreamHive "github.com/cilium/hive"
@@ -83,6 +84,7 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 }
 
 func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
+	const endMarker = "<<end>>"
 	ctx, cancel := context.WithCancel(ctx)
 
 	// Wait for context cancellation in the background and close
@@ -97,6 +99,18 @@ func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
 	}()
 	defer wg.Wait()
 	defer cancel()
+
+	// Catch panics to make sure the script commands can't bring the agent down.
+	defer func() {
+		if err := recover(); err != nil {
+			// Log the panic and also write it to cilium-dbg. We keep processing
+			// more commands after this.
+			stack := make([]byte, 1024)
+			stack = stack[:runtime.Stack(stack, false)]
+			sh.log.Error("Panic in the shell handler", "error", err, "stack", stack)
+			fmt.Fprintf(conn, "PANIC: %s\n%s\n%s\n", err, stack, endMarker)
+		}
+	}()
 
 	s, err := script.NewState(ctx, "/tmp", nil)
 	if err != nil {
@@ -123,7 +137,7 @@ func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
 			}
 		}
 		// Send the "end of command output" marker
-		_, err = fmt.Fprintln(conn, "<<end>>")
+		_, err = fmt.Fprintln(conn, endMarker)
 		if err != nil {
 			break
 		}
