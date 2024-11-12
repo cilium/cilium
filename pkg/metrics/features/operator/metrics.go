@@ -10,9 +10,10 @@ import (
 )
 
 type Metrics struct {
-	ACLBGatewayAPIEnabled        metric.Gauge
-	ACLBIngressControllerEnabled metric.Gauge
-	ACLBIPAMEnabled              metric.Gauge
+	ACLBGatewayAPIEnabled               metric.Gauge
+	ACLBIngressControllerEnabled        metric.Gauge
+	ACLBIPAMEnabled                     metric.Gauge
+	ACLBL7AwareTrafficManagementEnabled metric.Gauge
 }
 
 const (
@@ -43,6 +44,13 @@ func NewMetrics(withDefaults bool) Metrics {
 			Help:      "LB IPAM enabled on the operator",
 			Name:      "lb_ipam_enabled",
 		}),
+
+		ACLBL7AwareTrafficManagementEnabled: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Help:      "L7 Aware Traffic Management enabled on the operator",
+			Name:      "l7_aware_traffic_management_enabled",
+		}),
 	}
 }
 
@@ -59,5 +67,8 @@ func (m Metrics) update(params enabledFeatures, config *option.OperatorConfig) {
 	}
 	if params.IsLBIPAMEnabled() {
 		m.ACLBIPAMEnabled.Add(1)
+	}
+	if params.GetLoadBalancerL7() != "" {
+		m.ACLBL7AwareTrafficManagementEnabled.Add(1)
 	}
 }
