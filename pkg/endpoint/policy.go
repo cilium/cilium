@@ -117,7 +117,6 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 
 type policyGenerateResult struct {
 	policyRevision   uint64
-	selectorPolicy   policy.SelectorPolicy
 	endpointPolicy   *policy.EndpointPolicy
 	identityRevision int
 }
@@ -185,7 +184,6 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	e.forcePolicyCompute = false
 
 	result := &policyGenerateResult{
-		selectorPolicy:   e.selectorPolicy,
 		endpointPolicy:   e.desiredPolicy,
 		identityRevision: e.identityRevision,
 	}
@@ -202,8 +200,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	// Recompute policy for this endpoint only if not already done for this revision
 	// and identity.
-	if e.nextPolicyRevision >= result.policyRevision &&
-		e.desiredPolicy != nil && result.selectorPolicy != nil {
+	if e.nextPolicyRevision >= result.policyRevision && e.desiredPolicy != nil {
 
 		if !forcePolicyCompute {
 			if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
@@ -222,19 +219,18 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	stats.policyCalculation.Start()
 	defer func() { stats.policyCalculation.End(err == nil) }()
-	if result.selectorPolicy == nil {
-		// Upon initial insertion or restore, there's currently no good
-		// trigger point to ensure that the security Identity is
-		// assigned after the endpoint is added to the endpointmanager
-		// (and hence also the identitymanager). In that case, detect
-		// that the selectorPolicy is not set and find it.
-		result.selectorPolicy = repo.GetPolicyCache().Lookup(securityIdentity)
-		if result.selectorPolicy == nil {
-			err := fmt.Errorf("no cached selectorPolicy found")
-			e.getLogger().WithError(err).Warning("Failed to regenerate from cached policy")
-			repo.RUnlock()
-			return result, err
-		}
+
+	// Upon initial insertion or restore, there's currently no good
+	// trigger point to ensure that the security Identity is
+	// assigned after the endpoint is added to the endpointmanager
+	// (and hence also the identitymanager). In that case, detect
+	// that the selectorPolicy is not set and find it.
+	selectorPolicy := repo.GetPolicyCache().Lookup(securityIdentity)
+	if selectorPolicy == nil {
+		err := fmt.Errorf("no cached selectorPolicy found")
+		e.getLogger().WithError(err).Warning("Failed to regenerate from cached policy")
+		repo.RUnlock()
+		return result, err
 	}
 
 	// UpdatePolicy ensures the SelectorPolicy is fully resolved.
@@ -259,7 +255,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	// Ingress endpoint needs no redirects
 	if !e.isProperty(PropertySkipBPFPolicy) {
 		stats.proxyConfiguration.Start()
-		desiredRedirects, ff, rf = e.addNewRedirects(result.selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
+		desiredRedirects, ff, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyConfiguration.End(true)
 		datapathRegenCtxt.finalizeList.Append(ff)
 		datapathRegenCtxt.revertStack.Push(rf)
@@ -281,7 +277,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	e.runlock()
 
 	// Consume converts a SelectorPolicy in to an EndpointPolicy
-	result.endpointPolicy = result.selectorPolicy.Consume(e, desiredRedirects)
+	result.endpointPolicy = selectorPolicy.Consume(e, desiredRedirects)
 
 	return result, nil
 }
@@ -331,10 +327,6 @@ func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult, datapathRegenCtxt
 	// Set the revision of this endpoint to the current revision of the policy
 	// repository.
 	e.setNextPolicyRevision(res.policyRevision)
-
-	// Move the newly computed policies to the endpoint's desired state
-	e.selectorPolicy = res.selectorPolicy
-	res.selectorPolicy = nil
 
 	if res.endpointPolicy != e.desiredPolicy {
 		if e.desiredPolicy != e.realizedPolicy {
@@ -903,9 +895,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	}
 	e.SecurityIdentity = identity
 	e.replaceIdentityLabels(labels.LabelSourceAny, identity.Labels)
-
-	// Clear selectorPolicy. It will be determined at next regeneration.
-	e.selectorPolicy = nil
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.getState() == StateWaitingForIdentity {
