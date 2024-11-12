@@ -27,7 +27,7 @@ var Cell = cell.Module(
 	"ingress",
 	"Manages the Kubernetes Ingress controllers",
 
-	cell.Config(ingressConfig{
+	cell.Config(IngressConfig{
 		EnableIngressController:      false,
 		EnforceIngressHTTPS:          true,
 		EnableIngressProxyProtocol:   false,
@@ -46,7 +46,7 @@ var Cell = cell.Module(
 	cell.Provide(registerSecretSync),
 )
 
-type ingressConfig struct {
+type IngressConfig struct {
 	KubeProxyReplacement                 string
 	EnableNodePort                       bool
 	EnableIngressController              bool
@@ -66,7 +66,7 @@ type ingressConfig struct {
 	IngressDefaultXffNumTrustedHops      uint32
 }
 
-func (r ingressConfig) Flags(flags *pflag.FlagSet) {
+func (r IngressConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("kube-proxy-replacement", r.KubeProxyReplacement, "Enable only selected features (will panic if any selected feature cannot be enabled) (\"false\"), or enable all features (will panic if any feature cannot be enabled) (\"true\") (default \"false\")")
 	flags.Bool("enable-node-port", r.EnableNodePort, "Enable NodePort type services by Cilium")
 	flags.Bool("enable-ingress-controller", r.EnableIngressController, "Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.")
@@ -86,6 +86,11 @@ func (r ingressConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint32("ingress-default-xff-num-trusted-hops", r.IngressDefaultXffNumTrustedHops, "The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 }
 
+// IsEnabled returns true if the Ingress Controller is enabled.
+func (r IngressConfig) IsEnabled() bool {
+	return r.EnableIngressController
+}
+
 type ingressParams struct {
 	cell.In
 
@@ -93,7 +98,7 @@ type ingressParams struct {
 	CtrlRuntimeManager ctrlRuntime.Manager
 	AgentConfig        *option.DaemonConfig
 	OperatorConfig     *operatorOption.OperatorConfig
-	IngressConfig      ingressConfig
+	IngressConfig      IngressConfig
 }
 
 func registerReconciler(params ingressParams) error {
