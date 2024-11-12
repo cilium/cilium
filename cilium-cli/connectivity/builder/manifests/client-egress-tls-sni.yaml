@@ -1,0 +1,29 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l7-policy-tls-sni"
+specs:
+- description: "L7 policy with TLS SNI"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  # Allow DNS 
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+      rules:
+        dns:
+          - matchPattern: "*"
+  # Allow HTTPS when X-Very-Secret-Token is set
+  - toFQDNs:
+    - matchName: "{{.ExternalTarget}}"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      serverNames:
+      - "{{trimSuffix .ExternalTarget "."}}"
