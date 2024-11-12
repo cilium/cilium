@@ -162,7 +162,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	)
 
 	// lock the endpoint, read our values, then unlock
-	err = e.rlockAlive()
+	err = e.lockAlive()
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	// No point in calculating policy if endpoint does not have an identity yet.
 	if e.SecurityIdentity == nil {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
-		e.runlock()
+		e.unlock()
 		return nil, nil
 	}
 
@@ -189,7 +189,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		endpointPolicy:   e.desiredPolicy,
 		identityRevision: e.identityRevision,
 	}
-	e.runlock()
+	e.unlock()
 
 	e.getLogger().Debug("Starting policy recalculation...")
 
