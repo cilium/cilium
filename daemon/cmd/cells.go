@@ -67,6 +67,7 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 var (
@@ -306,6 +307,9 @@ var (
 		// configuration to describe, in form of prometheus metrics, which
 		// features are enabled on the agent.
 		features.Cell,
+
+		// Determines priorities of data sources.
+		source.Cell,
 	)
 )
 
