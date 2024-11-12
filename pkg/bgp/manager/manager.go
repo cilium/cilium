@@ -8,6 +8,8 @@ package manager
 
 import (
 	"context"
+	"errors"
+	"sync"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -57,9 +59,47 @@ type Manager struct {
 	// indexer is the store containing all the slim_corev1.Service objects seen
 	// by the watcher. This is used in order to handle delete events. See
 	// comment inside (*Manager).run().
-	indexer cache.Store
+	indexer        cache.Store
+	sessionManager SessionManager // Added session manager for managing BGP peers
+	mutex          sync.Mutex     // Mutex for thread-safe operations
+}
+
+// PeerStatus represents the status of a BGP peer.
+type PeerStatus struct {
+	PeerIP       string
+	SessionState string
+}
+
+// SessionManager interface represents the BGP session manager.
+type SessionManager interface {
+	ListPeers() []Peer
+}
+
+// Peer represents an individual BGP peer.
+type Peer struct {
+	PeerIP       string
+	SessionState string
 }
 
 func (m *Manager) MarkSynced() {
 	m.controller.MarkSynced()
+}
+
+// GetPeerStatuses retrieves the status of all BGP peers.
+func (m *Manager) GetPeerStatuses() ([]PeerStatus, error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.sessionManager == nil {
+		return nil, errors.New("no BGP session manager initialized")
+	}
+
+	var statuses []PeerStatus
+	for _, peer := range m.sessionManager.ListPeers() {
+		statuses = append(statuses, PeerStatus{
+			PeerIP:       peer.PeerIP,
+			SessionState: peer.SessionState,
+		})
+	}
+	return statuses, nil
 }
