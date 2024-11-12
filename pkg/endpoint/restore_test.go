@@ -57,9 +57,6 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 	}
 	identity.Sanitize()
 
-	repo := s.GetPolicyRepository()
-	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
-
 	ep := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID

@@ -74,7 +74,6 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	}
 
 	podID := addIdentity("pod")
-	repo.GetPolicyCache().LocalEndpointIdentityAdded(podID)
 
 	ep := Endpoint{
 		SecurityIdentity: podID,

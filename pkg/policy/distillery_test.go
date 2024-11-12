@@ -35,8 +35,8 @@ var (
 
 func localIdentity(n uint32) identity.NumericIdentity {
 	return identity.NumericIdentity(n) | identity.IdentityScopeLocal
-
 }
+
 func TestCacheManagement(t *testing.T) {
 	repo := NewStoppedPolicyRepository(nil, nil, nil, nil)
 	cache := repo.policyCache
@@ -48,9 +48,14 @@ func TestCacheManagement(t *testing.T) {
 	require.False(t, deleted)
 
 	// Insert identity twice. Should be the same policy.
-	policy1 := cache.insert(identity)
-	policy2 := cache.insert(identity)
-	require.Equal(t, policy2, policy1)
+	policy1, updated, err := cache.updateSelectorPolicy(identity)
+	require.NoError(t, err)
+	require.True(t, updated)
+	policy2, updated, err := cache.updateSelectorPolicy(identity)
+	require.NoError(t, err)
+	require.False(t, updated)
+	// must be same pointer
+	require.Same(t, policy2, policy1)
 
 	// Despite two insert calls, there is no reference tracking; any delete
 	// will clear the cache.
@@ -65,12 +70,14 @@ func TestCacheManagement(t *testing.T) {
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
 	require.NotEqual(t, identity, identity3)
-	policy1 = cache.insert(identity)
-	policy3 := cache.insert(identity3)
-	require.NotEqual(t, policy3, policy1)
-	_ = cache.delete(identity)
-	policy3 = cache.lookupOrCreate(identity3, false)
+	policy1, _, _ = cache.updateSelectorPolicy(identity)
+	require.NotNil(t, policy1)
+	policy3, _, _ := cache.updateSelectorPolicy(identity3)
 	require.NotNil(t, policy3)
+	require.NotSame(t, policy3, policy1)
+	_ = cache.delete(identity)
+	_, updated, _ = cache.updateSelectorPolicy(identity3)
+	require.False(t, updated)
 }
 
 func TestCachePopulation(t *testing.T) {
@@ -80,52 +87,37 @@ func TestCachePopulation(t *testing.T) {
 
 	identity1 := ep1.GetSecurityIdentity()
 	require.Equal(t, identity1, ep2.GetSecurityIdentity())
-	policy1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
-	updated, err := cache.updateSelectorPolicy(identity1)
+	policy1, updated, err := cache.updateSelectorPolicy(identity1)
 	require.NoError(t, err)
 	require.True(t, updated)
-	updated, err = cache.updateSelectorPolicy(identity1)
+	_, updated, err = cache.updateSelectorPolicy(identity1)
 	require.NoError(t, err)
 	require.False(t, updated)
-	policy2 := cache.insert(identity1)
-	idp1 := policy1.(*cachedSelectorPolicy).getPolicy()
-	idp2 := policy2.(*cachedSelectorPolicy).getPolicy()
+	policy2, _, _ := cache.updateSelectorPolicy(identity1)
+	require.NotNil(t, policy2)
+	idp1 := policy1.getPolicy()
+	idp2 := policy2.getPolicy()
 	require.Equal(t, idp2, idp1)
 
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	updated, err = cache.updateSelectorPolicy(identity1)
-	require.Error(t, err)
+	_, updated, err = cache.updateSelectorPolicy(identity1)
+	require.True(t, updated)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
-	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
-	require.Error(t, err)
-	require.False(t, updated)
-
-	// Insert endpoint with different identity and observe that the cache
-	// is different from ep1, ep2
-	policy1 = cache.insert(identity1)
-	idp1 = policy1.(*cachedSelectorPolicy).getPolicy()
-	require.NotNil(t, idp1)
-	identity3 := ep3.GetSecurityIdentity()
-	policy3 := cache.insert(identity3)
-	require.NotEqual(t, policy1, policy3)
-	updated, err = cache.updateSelectorPolicy(identity3)
+	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
 	require.NoError(t, err)
 	require.True(t, updated)
-	idp3 := policy3.(*cachedSelectorPolicy).getPolicy()
-	require.NotEqual(t, idp1, idp3)
 
-	// If there's an error during policy resolution, update should fail
-	//repo.err = fmt.Errorf("not implemented!")
-	//repo.revision++
-	//_, err = cache.updateSelectorPolicy(identity3)
-	//require.Error(t, err)
+	// policy3 must be different from ep1, ep2
+	require.NoError(t, err)
+	idp3 := policy3.getPolicy()
+	require.NotEqual(t, idp1, idp3)
 }
 
 // Distillery integration tests
@@ -405,9 +397,11 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (*mapState, error) {
-	sp := d.Repository.GetPolicyCache().insert(identity)
-	d.Repository.GetPolicyCache().UpdatePolicy(identity)
-	epp := sp.Consume(DummyOwner{}, testRedirects)
+	sp, err := d.Repository.GetPolicyCache().UpdatePolicy(identity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate policy: %w", err)
+	}
+	epp := sp.Consume(owner, testRedirects)
 	if epp == nil {
 		return nil, errors.New("policy distillation failure")
 	}
