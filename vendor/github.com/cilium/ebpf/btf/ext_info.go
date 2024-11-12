@@ -16,7 +16,7 @@ import (
 // ExtInfos contains ELF section metadata.
 type ExtInfos struct {
 	// The slices are sorted by offset in ascending order.
-	funcInfos       map[string]FuncInfos
+	funcInfos       map[string]FuncOffsets
 	lineInfos       map[string]LineInfos
 	relocationInfos map[string]CORERelocationInfos
 }
@@ -58,9 +58,9 @@ func loadExtInfos(r io.ReaderAt, bo binary.ByteOrder, spec *Spec) (*ExtInfos, er
 		return nil, fmt.Errorf("parsing BTF function info: %w", err)
 	}
 
-	funcInfos := make(map[string]FuncInfos, len(btfFuncInfos))
+	funcInfos := make(map[string]FuncOffsets, len(btfFuncInfos))
 	for section, bfis := range btfFuncInfos {
-		funcInfos[section], err = newFuncInfos(bfis, spec)
+		funcInfos[section], err = newFuncOffsets(bfis, spec)
 		if err != nil {
 			return nil, fmt.Errorf("section %s: func infos: %w", section, err)
 		}
@@ -117,15 +117,15 @@ func (ei *ExtInfos) Assign(insns asm.Instructions, section string) {
 // Assign per-instruction metadata to the instructions in insns.
 func AssignMetadataToInstructions(
 	insns asm.Instructions,
-	funcInfos FuncInfos,
+	funcInfos FuncOffsets,
 	lineInfos LineInfos,
 	reloInfos CORERelocationInfos,
 ) {
 	iter := insns.Iterate()
 	for iter.Next() {
-		if len(funcInfos.infos) > 0 && funcInfos.infos[0].offset == iter.Offset {
-			*iter.Ins = WithFuncMetadata(*iter.Ins, funcInfos.infos[0].fn)
-			funcInfos.infos = funcInfos.infos[1:]
+		if len(funcInfos) > 0 && funcInfos[0].Offset == iter.Offset {
+			*iter.Ins = WithFuncMetadata(*iter.Ins, funcInfos[0].Func)
+			funcInfos = funcInfos[1:]
 		}
 
 		if len(lineInfos.infos) > 0 && lineInfos.infos[0].offset == iter.Offset {
@@ -159,9 +159,9 @@ marshal:
 	var fiBuf, liBuf bytes.Buffer
 	for {
 		if fn := FuncMetadata(iter.Ins); fn != nil {
-			fi := &funcInfo{
-				fn:     fn,
-				offset: iter.Offset,
+			fi := &FuncOffset{
+				Func:   fn,
+				Offset: iter.Offset,
 			}
 			if err := fi.marshal(&fiBuf, b); err != nil {
 				return nil, nil, fmt.Errorf("write func info: %w", err)
@@ -333,17 +333,17 @@ func parseExtInfoRecordSize(r io.Reader, bo binary.ByteOrder) (uint32, error) {
 	return recordSize, nil
 }
 
-// FuncInfos contains a sorted list of func infos.
-type FuncInfos struct {
-	infos []funcInfo
-}
+// FuncOffsets is a sorted slice of FuncOffset.
+type FuncOffsets []FuncOffset
 
 // The size of a FuncInfo in BTF wire format.
 var FuncInfoSize = uint32(binary.Size(bpfFuncInfo{}))
 
-type funcInfo struct {
-	fn     *Func
-	offset asm.RawInstructionOffset
+// FuncOffset represents a [btf.Func] and its raw instruction offset within a
+// BPF program.
+type FuncOffset struct {
+	Offset asm.RawInstructionOffset
+	Func   *Func
 }
 
 type bpfFuncInfo struct {
@@ -352,7 +352,7 @@ type bpfFuncInfo struct {
 	TypeID  TypeID
 }
 
-func newFuncInfo(fi bpfFuncInfo, spec *Spec) (*funcInfo, error) {
+func newFuncOffset(fi bpfFuncInfo, spec *Spec) (*FuncOffset, error) {
 	typ, err := spec.TypeByID(fi.TypeID)
 	if err != nil {
 		return nil, err
@@ -368,31 +368,32 @@ func newFuncInfo(fi bpfFuncInfo, spec *Spec) (*funcInfo, error) {
 		return nil, fmt.Errorf("func with type ID %d doesn't have a name", fi.TypeID)
 	}
 
-	return &funcInfo{
-		fn,
+	return &FuncOffset{
 		asm.RawInstructionOffset(fi.InsnOff),
+		fn,
 	}, nil
 }
 
-func newFuncInfos(bfis []bpfFuncInfo, spec *Spec) (FuncInfos, error) {
-	fis := FuncInfos{
-		infos: make([]funcInfo, 0, len(bfis)),
-	}
+func newFuncOffsets(bfis []bpfFuncInfo, spec *Spec) (FuncOffsets, error) {
+	fos := make(FuncOffsets, 0, len(bfis))
+
 	for _, bfi := range bfis {
-		fi, err := newFuncInfo(bfi, spec)
+		fi, err := newFuncOffset(bfi, spec)
 		if err != nil {
-			return FuncInfos{}, fmt.Errorf("offset %d: %w", bfi.InsnOff, err)
+			return FuncOffsets{}, fmt.Errorf("offset %d: %w", bfi.InsnOff, err)
 		}
-		fis.infos = append(fis.infos, *fi)
+		fos = append(fos, *fi)
 	}
-	sort.Slice(fis.infos, func(i, j int) bool {
-		return fis.infos[i].offset <= fis.infos[j].offset
+	sort.Slice(fos, func(i, j int) bool {
+		return fos[i].Offset <= fos[j].Offset
 	})
-	return fis, nil
+	return fos, nil
 }
 
-// LoadFuncInfos parses BTF func info in kernel wire format.
-func LoadFuncInfos(reader io.Reader, bo binary.ByteOrder, recordNum uint32, spec *Spec) (FuncInfos, error) {
+// LoadFuncInfos parses BTF func info from kernel wire format into a
+// [FuncOffsets], a sorted slice of [btf.Func]s of (sub)programs within a BPF
+// program with their corresponding raw instruction offsets.
+func LoadFuncInfos(reader io.Reader, bo binary.ByteOrder, recordNum uint32, spec *Spec) (FuncOffsets, error) {
 	fis, err := parseFuncInfoRecords(
 		reader,
 		bo,
@@ -401,20 +402,20 @@ func LoadFuncInfos(reader io.Reader, bo binary.ByteOrder, recordNum uint32, spec
 		false,
 	)
 	if err != nil {
-		return FuncInfos{}, fmt.Errorf("parsing BTF func info: %w", err)
+		return FuncOffsets{}, fmt.Errorf("parsing BTF func info: %w", err)
 	}
 
-	return newFuncInfos(fis, spec)
+	return newFuncOffsets(fis, spec)
 }
 
 // marshal into the BTF wire format.
-func (fi *funcInfo) marshal(w *bytes.Buffer, b *Builder) error {
-	id, err := b.Add(fi.fn)
+func (fi *FuncOffset) marshal(w *bytes.Buffer, b *Builder) error {
+	id, err := b.Add(fi.Func)
 	if err != nil {
 		return err
 	}
 	bfi := bpfFuncInfo{
-		InsnOff: uint32(fi.offset),
+		InsnOff: uint32(fi.Offset),
 		TypeID:  id,
 	}
 	buf := make([]byte, FuncInfoSize)
@@ -799,7 +800,7 @@ func parseCORERelos(r io.Reader, bo binary.ByteOrder, strings *stringTable) (map
 			return nil, err
 		}
 
-		records, err := parseCOREReloRecords(r, bo, recordSize, infoHeader.NumInfo)
+		records, err := parseCOREReloRecords(r, bo, infoHeader.NumInfo)
 		if err != nil {
 			return nil, fmt.Errorf("section %v: %w", secName, err)
 		}
@@ -811,7 +812,7 @@ func parseCORERelos(r io.Reader, bo binary.ByteOrder, strings *stringTable) (map
 // parseCOREReloRecords parses a stream of CO-RE relocation entries into a
 // coreRelos. These records appear after a btf_ext_info_sec header in the
 // core_relos sub-section of .BTF.ext.
-func parseCOREReloRecords(r io.Reader, bo binary.ByteOrder, recordSize uint32, recordNum uint32) ([]bpfCORERelo, error) {
+func parseCOREReloRecords(r io.Reader, bo binary.ByteOrder, recordNum uint32) ([]bpfCORERelo, error) {
 	var out []bpfCORERelo
 
 	var relo bpfCORERelo

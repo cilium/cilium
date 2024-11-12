@@ -40,7 +40,7 @@ func probeStorageMap(mt sys.MapType) error {
 		KeySize:        4,
 		ValueSize:      4,
 		MaxEntries:     0,
-		MapFlags:       unix.BPF_F_NO_PREALLOC,
+		MapFlags:       sys.BPF_F_NO_PREALLOC,
 		BtfKeyTypeId:   1,
 		BtfValueTypeId: 1,
 		BtfFd:          ^uint32(0),
@@ -123,7 +123,7 @@ var haveMapTypeMatrix = internal.FeatureMatrix[ebpf.MapType]{
 				MapType:   sys.BPF_MAP_TYPE_LPM_TRIE,
 				KeySize:   8,
 				ValueSize: 8,
-				MapFlags:  unix.BPF_F_NO_PREALLOC,
+				MapFlags:  sys.BPF_F_NO_PREALLOC,
 			})
 		},
 	},
@@ -227,7 +227,7 @@ func init() {
 }
 
 // MapFlags document which flags may be feature probed.
-type MapFlags = sys.MapFlags
+type MapFlags uint32
 
 // Flags which may be feature probed.
 const (

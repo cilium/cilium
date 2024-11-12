@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/cilium/ebpf/internal/testutils/fdtrace"
 	"github.com/cilium/ebpf/internal/unix"
 )
 
@@ -17,15 +18,7 @@ type FD struct {
 }
 
 func newFD(value int) *FD {
-	if onLeakFD != nil {
-		// Attempt to store the caller's stack for the given fd value.
-		// Panic if fds contains an existing stack for the fd.
-		old, exist := fds.LoadOrStore(value, callersFrames())
-		if exist {
-			f := old.(*runtime.Frames)
-			panic(fmt.Sprintf("found existing stack for fd %d:\n%s", value, FormatFrames(f)))
-		}
-	}
+	fdtrace.TraceFD(value, 1)
 
 	fd := &FD{value}
 	runtime.SetFinalizer(fd, (*FD).finalize)
@@ -39,13 +32,7 @@ func (fd *FD) finalize() {
 		return
 	}
 
-	// Invoke the fd leak callback. Calls LoadAndDelete to guarantee the callback
-	// is invoked at most once for one sys.FD allocation, runtime.Frames can only
-	// be unwound once.
-	f, ok := fds.LoadAndDelete(fd.Int())
-	if ok && onLeakFD != nil {
-		onLeakFD(f.(*runtime.Frames))
-	}
+	fdtrace.LeakFD(fd.raw)
 
 	_ = fd.Close()
 }
@@ -96,8 +83,8 @@ func (fd *FD) Close() error {
 }
 
 func (fd *FD) disown() int {
-	value := int(fd.raw)
-	fds.Delete(int(value))
+	value := fd.raw
+	fdtrace.ForgetFD(value)
 	fd.raw = -1
 
 	runtime.SetFinalizer(fd, nil)

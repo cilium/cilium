@@ -16,7 +16,7 @@ func HaveLargeInstructions() error {
 	return haveLargeInstructions()
 }
 
-var haveLargeInstructions = internal.NewFeatureTest(">4096 instructions", "5.2", func() error {
+var haveLargeInstructions = internal.NewFeatureTest(">4096 instructions", func() error {
 	const maxInsns = 4096
 
 	insns := make(asm.Instructions, maxInsns, maxInsns+1)
@@ -29,7 +29,7 @@ var haveLargeInstructions = internal.NewFeatureTest(">4096 instructions", "5.2",
 		Type:         ebpf.SocketFilter,
 		Instructions: insns,
 	})
-})
+}, "5.2")
 
 // HaveBoundedLoops probes the running kernel if bounded loops are supported.
 //
@@ -40,7 +40,7 @@ func HaveBoundedLoops() error {
 	return haveBoundedLoops()
 }
 
-var haveBoundedLoops = internal.NewFeatureTest("bounded loops", "5.3", func() error {
+var haveBoundedLoops = internal.NewFeatureTest("bounded loops", func() error {
 	return probeProgram(&ebpf.ProgramSpec{
 		Type: ebpf.SocketFilter,
 		Instructions: asm.Instructions{
@@ -50,7 +50,7 @@ var haveBoundedLoops = internal.NewFeatureTest("bounded loops", "5.3", func() er
 			asm.Return(),
 		},
 	})
-})
+}, "5.3")
 
 // HaveV2ISA probes the running kernel if instructions of the v2 ISA are supported.
 //
@@ -61,7 +61,7 @@ func HaveV2ISA() error {
 	return haveV2ISA()
 }
 
-var haveV2ISA = internal.NewFeatureTest("v2 ISA", "4.14", func() error {
+var haveV2ISA = internal.NewFeatureTest("v2 ISA", func() error {
 	return probeProgram(&ebpf.ProgramSpec{
 		Type: ebpf.SocketFilter,
 		Instructions: asm.Instructions{
@@ -71,7 +71,7 @@ var haveV2ISA = internal.NewFeatureTest("v2 ISA", "4.14", func() error {
 			asm.Return().WithSymbol("exit"),
 		},
 	})
-})
+}, "4.14")
 
 // HaveV3ISA probes the running kernel if instructions of the v3 ISA are supported.
 //
@@ -82,7 +82,7 @@ func HaveV3ISA() error {
 	return haveV3ISA()
 }
 
-var haveV3ISA = internal.NewFeatureTest("v3 ISA", "5.1", func() error {
+var haveV3ISA = internal.NewFeatureTest("v3 ISA", func() error {
 	return probeProgram(&ebpf.ProgramSpec{
 		Type: ebpf.SocketFilter,
 		Instructions: asm.Instructions{
@@ -92,4 +92,4 @@ var haveV3ISA = internal.NewFeatureTest("v3 ISA", "5.1", func() error {
 			asm.Return().WithSymbol("exit"),
 		},
 	})
-})
+}, "5.1")
