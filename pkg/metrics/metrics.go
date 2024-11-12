@@ -17,7 +17,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
@@ -1589,19 +1588,6 @@ func Unregister(c prometheus.Collector) bool {
 	}
 
 	return false
-}
-
-// dumpMetrics gets the current Cilium metrics and dumps all into a
-// models.Metrics structure.If metrics cannot be retrieved, returns an error
-func dumpMetrics() ([]*models.Metric, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	reg, err := registry.Await(ctx)
-	if err == nil {
-		return reg.DumpMetrics()
-	}
-
-	return nil, nil
 }
 
 // withRegistry waits up to 1 second for the registry promise to resolve, if it does not then

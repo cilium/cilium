@@ -70,7 +70,6 @@ GetLRP                -
 GetMap                -
 GetMapName            -
 GetMapNameEvents      -
-GetMetrics            -
 GetNodeIds            Retrieves a list of node IDs allocated by the agent and
                       their associated node IP addresses.
 GetPolicy             Returns the entire policy tree with all children.
