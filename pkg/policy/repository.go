@@ -125,7 +125,6 @@ type PolicyRepository interface {
 	DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSlice, uint64)
 	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
-	GetPolicyCache() *PolicyCache
 
 	// GetSelectorPolicy computes the SelectorPolicy for a given identity.
 	//
@@ -188,7 +187,7 @@ type Repository struct {
 	selectorCache *SelectorCache
 
 	// PolicyCache tracks the selector policies created from this repo
-	policyCache *PolicyCache
+	policyCache *policyCache
 
 	certManager   certificatemanager.CertificateManager
 	secretManager certificatemanager.SecretManager
@@ -231,7 +230,7 @@ func (p *Repository) GetRuleReactionQueue() *eventqueue.EventQueue {
 
 // GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID
 func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) AuthTypes {
-	return p.policyCache.GetAuthTypes(localID, remoteID)
+	return p.policyCache.getAuthTypes(localID, remoteID)
 }
 
 func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)) {
@@ -243,11 +242,6 @@ func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium
 		return nil, true
 	}
 	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns, p.secretManager.GetSecretSyncNamespace())
-}
-
-// GetPolicyCache() returns the policy cache used by the Repository
-func (p *Repository) GetPolicyCache() *PolicyCache {
-	return p.policyCache
 }
 
 // NewPolicyRepository creates a new policy repository.
@@ -284,7 +278,7 @@ func NewStoppedPolicyRepository(
 		secretManager:    secretManager,
 	}
 	repo.revision.Store(1)
-	repo.policyCache = NewPolicyCache(repo, idmgr)
+	repo.policyCache = newPolicyCache(repo, idmgr)
 	return repo
 }
 
