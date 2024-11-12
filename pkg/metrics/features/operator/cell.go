@@ -13,6 +13,7 @@ import (
 	ciliumenvoyconfig2 "github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
+	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -48,6 +49,7 @@ type featuresParams struct {
 	IngressController ingress.IngressConfig
 	LBIPAM            lbipam.Config
 	LBConfig          ciliumenvoyconfig2.LoadBalancerConfig
+	NodeIPAM          nodeipam.NodeIPAMConfig
 }
 
 func (p featuresParams) IsIngressControllerEnabled() bool {
@@ -62,8 +64,13 @@ func (p featuresParams) GetLoadBalancerL7() string {
 	return p.LBConfig.GetLoadBalancerL7()
 }
 
+func (p featuresParams) IsNodeIPAMEnabled() bool {
+	return p.NodeIPAM.IsEnabled()
+}
+
 type enabledFeatures interface {
 	IsIngressControllerEnabled() bool
 	IsLBIPAMEnabled() bool
 	GetLoadBalancerL7() string
+	IsNodeIPAMEnabled() bool
 }

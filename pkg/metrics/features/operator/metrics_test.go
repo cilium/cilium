@@ -15,6 +15,7 @@ type mockFeaturesParams struct {
 	IngressControllerEnabled bool
 	LBIPAMEnabled            bool
 	LoadBalancerL7           string
+	NodeIPAMEnabled          bool
 }
 
 func (p mockFeaturesParams) IsIngressControllerEnabled() bool {
@@ -27,6 +28,10 @@ func (p mockFeaturesParams) IsLBIPAMEnabled() bool {
 
 func (p mockFeaturesParams) GetLoadBalancerL7() string {
 	return p.LoadBalancerL7
+}
+
+func (p mockFeaturesParams) IsNodeIPAMEnabled() bool {
+	return p.NodeIPAMEnabled
 }
 
 func TestUpdateGatewayAPI(t *testing.T) {
@@ -165,6 +170,41 @@ func TestUpdateLoadBalancerL7(t *testing.T) {
 
 			counterValue := metrics.ACLBL7AwareTrafficManagementEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.loadBalancerL7, counterValue)
+		})
+	}
+}
+
+func TestUpdateNodeIPAMEnabled(t *testing.T) {
+	tests := []struct {
+		name                  string
+		enableNodeIPAMEnabled bool
+		expected              float64
+	}{
+		{
+			name:                  "NodeIPAM enabled",
+			enableNodeIPAMEnabled: true,
+			expected:              1,
+		},
+		{
+			name:                  "NodeIPAM disabled",
+			enableNodeIPAMEnabled: false,
+			expected:              0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true)
+			config := &option.OperatorConfig{}
+
+			params := mockFeaturesParams{
+				NodeIPAMEnabled: tt.enableNodeIPAMEnabled,
+			}
+
+			metrics.update(params, config)
+
+			counterValue := metrics.ACLBNodeIPAMEnabled.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableNodeIPAMEnabled, counterValue)
 		})
 	}
 }
