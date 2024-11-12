@@ -1,0 +1,21 @@
+hive start
+
+# Test output to log, with and without regexp
+metrics
+metrics ^test
+
+# Test output to file and validate
+metrics -o=m.actual ^test
+cmp m.all m.actual
+
+# Test showing only enabled metrics
+metrics -e -o=m.actual ^test
+cmp m.enabled m.actual
+
+-- m.all --
+Metric   Labels   Value
+test_A            1.000000
+test_B            2.000000
+-- m.enabled --
+Metric   Labels   Value
+test_A            1.000000
