@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -22,12 +23,31 @@ var Cell = cell.Module(
 	"lbipam",
 	"LB-IPAM",
 	// Provide LBIPAM so instances of it can be used while testing
-	cell.Provide(newLBIPAMCell),
+	cell.Provide(
+		newLBIPAMCell,
+		func(c lbipamConfig) Config { return c },
+	),
 	// Invoke an empty function which takes an LBIPAM to force its construction.
 	cell.Invoke(func(*LBIPAM) {}),
 	// Provide LB-IPAM related metrics
 	metrics.Metric(newMetrics),
+	// Register configuration flags
+	cell.Config(lbipamConfig{}),
 )
+
+type lbipamConfig struct {
+}
+
+func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
+}
+
+func (lc lbipamConfig) IsEnabled() bool {
+	return true
+}
+
+type Config interface {
+	IsEnabled() bool
+}
 
 type lbipamCellParams struct {
 	cell.In
@@ -45,6 +65,8 @@ type lbipamCellParams struct {
 	DaemonConfig *option.DaemonConfig
 
 	Metrics *ipamMetrics
+
+	Config lbipamConfig
 }
 
 func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
