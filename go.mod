@@ -20,7 +20,7 @@ require (
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.16.0
+	github.com/cilium/ebpf v0.16.1-0.20241119131019-e2607b570f29
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
 	github.com/cilium/fake v0.6.1
 	github.com/cilium/hive v0.0.0-20241122120553-e90d0875ae01

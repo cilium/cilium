@@ -81,15 +81,16 @@ const (
 	SO_DETACH_BPF             = linux.SO_DETACH_BPF
 	SOL_SOCKET                = linux.SOL_SOCKET
 	SIGPROF                   = linux.SIGPROF
+	SIGUSR1                   = linux.SIGUSR1
 	SIG_BLOCK                 = linux.SIG_BLOCK
 	SIG_UNBLOCK               = linux.SIG_UNBLOCK
-	EM_NONE                   = linux.EM_NONE
-	EM_BPF                    = linux.EM_BPF
 	BPF_FS_MAGIC              = linux.BPF_FS_MAGIC
 	TRACEFS_MAGIC             = linux.TRACEFS_MAGIC
 	DEBUGFS_MAGIC             = linux.DEBUGFS_MAGIC
 	BPF_RB_NO_WAKEUP          = linux.BPF_RB_NO_WAKEUP
 	BPF_RB_FORCE_WAKEUP       = linux.BPF_RB_FORCE_WAKEUP
+	AF_UNSPEC                 = linux.AF_UNSPEC
+	IFF_UP                    = linux.IFF_UP
 )
 
 type Statfs_t = linux.Statfs_t

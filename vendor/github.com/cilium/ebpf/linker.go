@@ -9,10 +9,12 @@ import (
 	"io/fs"
 	"math"
 	"slices"
+	"strings"
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
+	"github.com/cilium/ebpf/internal/kallsyms"
 )
 
 // handles stores handle objects to avoid gc cleanup
@@ -456,4 +458,43 @@ func resolveKconfigReferences(insns asm.Instructions) (_ *Map, err error) {
 	}
 
 	return kconfig, nil
+}
+
+func resolveKsymReferences(insns asm.Instructions) error {
+	var missing []string
+
+	iter := insns.Iterate()
+	for iter.Next() {
+		ins := iter.Ins
+		meta, _ := ins.Metadata.Get(ksymMetaKey{}).(*ksymMeta)
+		if meta == nil {
+			continue
+		}
+
+		addr, err := kallsyms.Address(meta.Name)
+		if err != nil {
+			return fmt.Errorf("resolve ksym %s: %w", meta.Name, err)
+		}
+		if addr != 0 {
+			ins.Constant = int64(addr)
+			continue
+		}
+
+		if meta.Binding == elf.STB_WEAK {
+			// A weak ksym variable in eBPF C means its resolution is optional.
+			// Set a zero constant explicitly for clarity.
+			ins.Constant = 0
+			continue
+		}
+
+		if !slices.Contains(missing, meta.Name) {
+			missing = append(missing, meta.Name)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("kernel is missing symbol: %s", strings.Join(missing, ","))
+	}
+
+	return nil
 }
