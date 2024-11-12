@@ -263,8 +263,8 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 	e.runlock()
 
-	// Consume converts a SelectorPolicy in to an EndpointPolicy
-	result.endpointPolicy = selectorPolicy.Consume(e, desiredRedirects)
+	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
+	result.endpointPolicy = selectorPolicy.DistillPolicy(e, desiredRedirects)
 
 	return result, nil
 }
