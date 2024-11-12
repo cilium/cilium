@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
-	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
@@ -175,11 +174,6 @@ func configureAPI(api *restapi.CiliumAPIAPI) http.Handler {
 	if api.DaemonGetMapNameHandler == nil {
 		api.DaemonGetMapNameHandler = daemon.GetMapNameHandlerFunc(func(params daemon.GetMapNameParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetMapName has not yet been implemented")
-		})
-	}
-	if api.MetricsGetMetricsHandler == nil {
-		api.MetricsGetMetricsHandler = metrics.GetMetricsHandlerFunc(func(params metrics.GetMetricsParams) middleware.Responder {
-			return middleware.NotImplemented("operation metrics.GetMetrics has not yet been implemented")
 		})
 	}
 	if api.PolicyGetPolicyHandler == nil {

@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
-	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
@@ -153,9 +152,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		}),
 		DaemonGetMapNameEventsHandler: daemon.GetMapNameEventsHandlerFunc(func(params daemon.GetMapNameEventsParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetMapNameEvents has not yet been implemented")
-		}),
-		MetricsGetMetricsHandler: metrics.GetMetricsHandlerFunc(func(params metrics.GetMetricsParams) middleware.Responder {
-			return middleware.NotImplemented("operation metrics.GetMetrics has not yet been implemented")
 		}),
 		DaemonGetNodeIdsHandler: daemon.GetNodeIdsHandlerFunc(func(params daemon.GetNodeIdsParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetNodeIds has not yet been implemented")
@@ -319,8 +315,6 @@ type CiliumAPIAPI struct {
 	DaemonGetMapNameHandler daemon.GetMapNameHandler
 	// DaemonGetMapNameEventsHandler sets the operation handler for the get map name events operation
 	DaemonGetMapNameEventsHandler daemon.GetMapNameEventsHandler
-	// MetricsGetMetricsHandler sets the operation handler for the get metrics operation
-	MetricsGetMetricsHandler metrics.GetMetricsHandler
 	// DaemonGetNodeIdsHandler sets the operation handler for the get node ids operation
 	DaemonGetNodeIdsHandler daemon.GetNodeIdsHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
@@ -536,9 +530,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.DaemonGetMapNameEventsHandler == nil {
 		unregistered = append(unregistered, "daemon.GetMapNameEventsHandler")
-	}
-	if o.MetricsGetMetricsHandler == nil {
-		unregistered = append(unregistered, "metrics.GetMetricsHandler")
 	}
 	if o.DaemonGetNodeIdsHandler == nil {
 		unregistered = append(unregistered, "daemon.GetNodeIdsHandler")
@@ -820,10 +811,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/map/{name}/events"] = daemon.NewGetMapNameEvents(o.context, o.DaemonGetMapNameEventsHandler)
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/metrics"] = metrics.NewGetMetrics(o.context, o.MetricsGetMetricsHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
