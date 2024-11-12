@@ -24,7 +24,6 @@ var Cell = cell.Module("metrics", "Metrics",
 		FlushLoggingMetrics()
 	}),
 	cell.Provide(
-		newMetricsRestApiHandler,
 		newMetricsCommand,
 	),
 )
