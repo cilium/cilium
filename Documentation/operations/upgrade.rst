@@ -329,10 +329,11 @@ communicating via the proxy must reconnect to re-establish connections.
 * The built-in WireGuard userspace-mode fallback (Helm ``wireguard.userspaceFallback``) has been
   deprecated and will be removed in a future version of Cilium. Users of WireGuard transparent
   encryption are required to use a Linux kernel with WireGuard support going forward.
-* Local Redirect Policy, when enabled with socket-based load-balancing, redirects traffic
-  from policy-selected node-local backends destined to the policy's frontend, back to the
-  node-local backends. To override this behavior, which is enabled by default, create
-  local redirect policies with the ``skipRedirectFromBackend`` flag set to ``true``.
+* Local Redirect Policy redirects traffic from policy-selected node-local backends destined to
+  the policy's frontend, back to the node-local backends. To override this behavior, which is enabled
+  by default, create local redirect policies with the ``skipRedirectFromBackend`` flag set to ``true``.
+  Note that the backend pods selected by the policy must be re-created after upgrading Cilium for this
+  configuration to take effect; otherwise, the policy application will fail.
 * Detection and reconfiguration on changes to native network devices and their addresses is now
   the default. Cilium will now load the native device BPF program onto devices that appear after
   Cilium has started. NodePort services are now available on addresses assigned after Cilium has
