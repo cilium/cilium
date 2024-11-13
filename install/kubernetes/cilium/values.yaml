@@ -458,6 +458,12 @@ bgpControlPlane:
     create: false
     # -- The name of the secret namespace to which Cilium agents are given read access
     name: kube-system
+  # -- Status reporting settings (BGPv2 only)
+  statusReport:
+    # -- Enable/Disable BGPv2 status reporting
+    # It is recommended to enable status reporting in general, but if you have any issue
+    # such as high API server load, you can disable it by setting this to false.
+    enabled: true
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
