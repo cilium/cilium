@@ -255,7 +255,7 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
-            secondary-network: 'true'
+            secondary-network: 'false'
             tunnel: 'vxlan'
             lb-mode: 'snat'
             egress-gateway: 'true'
