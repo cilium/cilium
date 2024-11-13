@@ -16,7 +16,7 @@ The following resources are used to manage the BGP Control Plane:
 
 * ``CiliumBGPClusterConfig``: Defines BGP instances and peer configurations that are applied to multiple nodes.
 * ``CiliumBGPPeerConfig``: A common set of BGP peering setting. It can be used across multiple peers.
-* ``CiliumBGPAdvertisements``: Defines prefixes that are injected into the BGP routing table.
+* ``CiliumBGPAdvertisement``: Defines prefixes that are injected into the BGP routing table.
 * ``CiliumBGPNodeConfigOverride``: Defines node-specific BGP configuration to provide a finer control.
 
 The relationship between various resources is shown in the below diagram:
