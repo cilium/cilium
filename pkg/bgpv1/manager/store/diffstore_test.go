@@ -110,6 +110,15 @@ func TestDiffSignal(t *testing.T) {
 	fixture.diffStore.InitDiff(testCallerID1)
 	fixture.diffStore.InitDiff(testCallerID2)
 
+	// wait for initial sync signal
+	timer := time.NewTimer(5 * time.Second)
+	select {
+	case <-fixture.signaler.Sig:
+		timer.Stop()
+	case <-timer.C:
+		t.Fatal("No signal sent by diffstore")
+	}
+
 	// Add an initial object.
 	err = tracker.Add(&slimv1.Service{
 		ObjectMeta: v1.ObjectMeta{
@@ -120,7 +129,7 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	timer := time.NewTimer(5 * time.Second)
+	timer = time.NewTimer(5 * time.Second)
 	select {
 	case <-fixture.signaler.Sig:
 		timer.Stop()
