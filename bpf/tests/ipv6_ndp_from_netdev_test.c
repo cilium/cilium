@@ -108,11 +108,8 @@ int ipv6_from_netdev_ns_for_pod_check(const struct __ctx_buff *ctx)
 	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	union v6addr router_ip;
-
-	BPF_V6(router_ip, ROUTER_IP);
-	if (memcmp((__u8 *)&l3->saddr, (__u8 *)&router_ip, 16) != 0)
-		test_fatal("src IP hasn't been set to router IP");
+	if (memcmp((__u8 *)&l3->saddr, (__u8 *)v6_pod_three, 16) != 0)
+		test_fatal("src IP hasn't been set to target IP");
 
 	if (memcmp((__u8 *)&l3->daddr, (__u8 *)v6_pod_one, 16) != 0)
 		test_fatal("dest IP hasn't been set to source IP");
