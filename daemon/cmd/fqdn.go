@@ -166,6 +166,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		// Try reuse previous DNS proxy port number
 		if oldPort, isStatic, err := d.l7Proxy.GetProxyPort(proxytypes.DNSProxyName); err == nil {
 			if isStatic {
+				log.WithField(logfields.Port, oldPort).Info("Using statically set port even if it is open!!")
 				port = oldPort
 			} else {
 				openLocalPorts := proxy.OpenLocalPorts()
