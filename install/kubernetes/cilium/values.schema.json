@@ -2056,6 +2056,9 @@
           },
           "type": "object"
         },
+        "maxConcurrentRetries": {
+          "type": "integer"
+        },
         "maxConnectionDurationSeconds": {
           "type": "integer"
         },

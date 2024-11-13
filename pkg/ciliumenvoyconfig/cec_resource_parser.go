@@ -56,6 +56,8 @@ type cecResourceParser struct {
 
 	ingressIPv4 net.IP
 	ingressIPv6 net.IP
+
+	defaultMaxConcurrentRetries uint32
 }
 
 type parserParams struct {
@@ -66,12 +68,15 @@ type parserParams struct {
 
 	PortAllocator  PortAllocator
 	LocalNodeStore *node.LocalNodeStore
+
+	CecConfig cecConfig
 }
 
 func newCECResourceParser(params parserParams) *cecResourceParser {
 	parser := &cecResourceParser{
-		logger:        params.Logger,
-		portAllocator: params.PortAllocator,
+		logger:                      params.Logger,
+		portAllocator:               params.PortAllocator,
+		defaultMaxConcurrentRetries: params.CecConfig.ProxyMaxConcurrentRetries,
 	}
 
 	// Retrieve Ingress IPs from local Node.
@@ -312,6 +317,8 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 
 			fillInTransportSocketXDS(cecNamespace, cecName, cluster.TransportSocket)
+
+			fillInCircuitBreakers(cluster, r.defaultMaxConcurrentRetries)
 
 			// Fill in EDS config source if unset
 			if enum := cluster.GetType(); enum == envoy_config_cluster.Cluster_EDS {
@@ -902,6 +909,16 @@ func fillInTransportSocketXDS(cecNamespace string, cecName string, ts *envoy_con
 					TypedConfig: updated,
 				}
 			}
+		}
+	}
+}
+
+func fillInCircuitBreakers(cluster *envoy_config_cluster.Cluster, defaultConcurrentRetries uint32) {
+	if cluster.CircuitBreakers == nil {
+		cluster.CircuitBreakers = &envoy_config_cluster.CircuitBreakers{
+			Thresholds: []*envoy_config_cluster.CircuitBreakers_Thresholds{{
+				MaxRetries: &wrapperspb.UInt32Value{Value: defaultConcurrentRetries},
+			}},
 		}
 	}
 }

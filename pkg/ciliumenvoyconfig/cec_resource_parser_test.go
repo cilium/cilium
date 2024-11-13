@@ -604,8 +604,9 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
-		portAllocator: NewMockPortAllocator(),
+		logger:                      logger,
+		portAllocator:               NewMockPortAllocator(),
+		defaultMaxConcurrentRetries: 128,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
@@ -672,6 +673,13 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	assert.Equal(t, int32(250000000), resources.Clusters[0].ConnectTimeout.Nanos)
 	assert.Equal(t, envoy_config_cluster.Cluster_ROUND_ROBIN, resources.Clusters[0].LbPolicy)
 	assert.Equal(t, envoy_config_cluster.Cluster_EDS, resources.Clusters[0].GetType())
+	//
+	// Check that missing CircuitBreakers is automatically filled in
+	//
+	cb := resources.Clusters[0].CircuitBreakers
+	assert.NotNil(t, cb)
+	assert.Len(t, cb.Thresholds, 1)
+	assert.Equal(t, uint32(128), cb.Thresholds[0].MaxRetries.Value)
 	//
 	// Check that missing EDS config source is automatically filled in
 	//
@@ -1102,6 +1110,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 func checkCiliumXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
 	require.NotNil(t, cs)
 	assert.Equal(t, envoy_config_core.ApiVersion_V3, cs.ResourceApiVersion)
+	assert.Equal(t, int64(30), cs.InitialFetchTimeout.Seconds)
 	acs := cs.GetApiConfigSource()
 	assert.NotNil(t, acs)
 	assert.Equal(t, envoy_config_core.ApiConfigSource_GRPC, acs.ApiType)
