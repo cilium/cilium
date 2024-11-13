@@ -60,7 +60,6 @@ jobs:
         mkdir -p ../cilium-default-branch/contrib/scripts
         if [[ -f ./contrib/scripts/print-chart-version.sh ]]; then
           cp ./contrib/scripts/print-chart-version.sh ../cilium-default-branch/contrib/scripts
-          cp VERSION ../cilium-default-branch
         else
           echo "./contrib/scripts/print-chart-version.sh missing. Perhaps it needs to be backported to your target branch?"
           exit 1
@@ -100,6 +99,8 @@ jobs:
       run: |
         set -o pipefail
         set -e
+        # print-chart-version.sh expects the VERSION file in a specific location, so copy it there
+        cp VERSION ../cilium-default-branch
         echo "chart_version=$(../cilium-default-branch/contrib/scripts/print-chart-version.sh)" | tee -a $GITHUB_OUTPUT
 
   push-charts:
