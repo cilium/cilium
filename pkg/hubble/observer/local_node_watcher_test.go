@@ -54,10 +54,11 @@ func Test_LocalNodeWatcher(t *testing.T) {
 	}
 
 	var watcher *LocalNodeWatcher
+	store := node.NewTestLocalNodeStore(localNode)
 
 	t.Run("NewLocalNodeWatcher", func(t *testing.T) {
 		var err error
-		watcher, err = NewLocalNodeWatcher(ctx, node.NewTestLocalNodeStore(localNode))
+		watcher, err = NewLocalNodeWatcher(ctx, store)
 		require.NoError(t, err)
 		require.NotNil(t, watcher)
 	})
@@ -71,7 +72,9 @@ func Test_LocalNodeWatcher(t *testing.T) {
 	})
 
 	t.Run("update", func(t *testing.T) {
-		watcher.update(updatedNode)
+		store.Update(func(ln *node.LocalNode) {
+			*ln = updatedNode
+		})
 		var flow flowpb.Flow
 		stop, err := watcher.OnDecodedFlow(ctx, &flow)
 		require.False(t, stop)
