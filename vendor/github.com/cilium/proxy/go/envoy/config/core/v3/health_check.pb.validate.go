@@ -1650,6 +1650,35 @@ func (m *HealthCheck_TcpHealthCheck) validate(all bool) error {
 
 	}
 
+	if all {
+		switch v := interface{}(m.GetProxyProtocolConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HealthCheck_TcpHealthCheckValidationError{
+					field:  "ProxyProtocolConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HealthCheck_TcpHealthCheckValidationError{
+					field:  "ProxyProtocolConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProxyProtocolConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HealthCheck_TcpHealthCheckValidationError{
+				field:  "ProxyProtocolConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return HealthCheck_TcpHealthCheckMultiError(errors)
 	}
