@@ -28,13 +28,13 @@ func TestGetLogFormat(t *testing.T) {
 
 	// case doesn't matter with log options
 	opts[FormatOpt] = "JsOn"
-	require.Equal(t, LogFormatJSON, opts.GetLogFormat())
+	require.Equal(t, LogFormatJSON, opts.GetLogFormat()) //nolint: testifylint
 
 	opts[FormatOpt] = "Invalid"
 	require.Equal(t, DefaultLogFormatTimestamp, opts.GetLogFormat())
 
 	opts[FormatOpt] = "JSON-TS"
-	require.Equal(t, LogFormatJSONTimestamp, opts.GetLogFormat())
+	require.Equal(t, LogFormatJSONTimestamp, opts.GetLogFormat()) //nolint: testifylint
 }
 
 func TestSetLogLevel(t *testing.T) {

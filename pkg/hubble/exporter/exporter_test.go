@@ -65,7 +65,7 @@ func TestExporter(t *testing.T) {
 {"agent_event":{},"node_name":"my-node","time":"1970-01-01T00:00:02Z"}
 {"debug_event":{},"node_name":"my-node","time":"1970-01-01T00:00:03Z"}
 {"lost_events":{},"node_name":"my-node","time":"1970-01-01T00:00:04Z"}
-`, buf.String())
+`, buf.String()) //nolint: testifylint
 }
 
 func TestExporterWithFilters(t *testing.T) {
@@ -142,7 +142,7 @@ func TestExporterWithFilters(t *testing.T) {
 		assert.NoError(t, err)
 
 	}
-	assert.Equal(t,
+	assert.JSONEq(t,
 		`{"flow":{"time":"1970-01-01T00:00:13Z","source":{"namespace":"namespace-a","pod_name":"x"}},"time":"1970-01-01T00:00:13Z"}
 `, buf.String())
 }
@@ -260,7 +260,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 
 	assert.Equal(t, `{"flow":{"source":{"namespace":"nsA","pod_name":"podA"}}}
 {"flow":{}}
-`, buf.String())
+`, buf.String()) //nolint: testifylint
 }
 
 func BenchmarkExporter(b *testing.B) {

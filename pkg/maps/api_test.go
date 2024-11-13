@@ -78,7 +78,7 @@ func Test_getMapNameEvents(t *testing.T) {
 	resp.WriteResponse(mw, fp)
 	d, err := safeio.ReadAllLimit(w.Body, safeio.MB)
 	assert.NoError(err)
-	assert.Equal(`{"action":"update","desired-action":"sync","key":"\u003cnil\u003e","last-error":"\u003cnil\u003e","timestamp":"2006-01-02T15:04:05.000Z","value":"\u003cnil\u003e"}`+"\n", string(d))
+	assert.JSONEq(`{"action":"update","desired-action":"sync","key":"\u003cnil\u003e","last-error":"\u003cnil\u003e","timestamp":"2006-01-02T15:04:05.000Z","value":"\u003cnil\u003e"}`+"\n", string(d))
 }
 
 func Test_getMapNameEventsMapErrors(t *testing.T) {
