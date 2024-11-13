@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/hubble/exporter"
+	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -39,8 +39,11 @@ var Cell = cell.Module(
 	cell.Provide(newHubbleIntegration),
 	cell.Config(defaultConfig),
 
-	// Provides Hubble file exporters.
-	exporter.Cell,
+	// Provide Hubble flow log exporters as observer options
+	cell.ProvidePrivate(exportercell.NewValidatedConfig),
+	cell.ProvidePrivate(exportercell.NewHubbleStaticExporter),
+	cell.ProvidePrivate(exportercell.NewHubbleDynamicExporter),
+	cell.Config(exportercell.DefaultConfig),
 )
 
 type hubbleParams struct {
