@@ -12,12 +12,9 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/cilium/ebpf/btf"
 
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 )
-
-const globalDataMap = ".rodata.config"
 
 // LoadCollectionSpec loads the eBPF ELF at the given path and parses it into
 // a CollectionSpec. This spec is only a blueprint of the contents of the ELF
@@ -304,8 +301,8 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 		return nil, nil, err
 	}
 
-	if err := inlineGlobalData(spec, opts.Constants); err != nil {
-		return nil, nil, fmt.Errorf("inlining global data: %w", err)
+	if err := applyConstants(spec, opts.Constants); err != nil {
+		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
 	}
 
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
@@ -420,136 +417,44 @@ func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
 
 // Must match the prefix used by the CONFIG macro in static_data.h.
 const constantPrefix = "__config_"
+const configSection = ".rodata.config"
 
-// inlineGlobalData replaces all map loads from a global data section with
-// immediate dword loads, effectively performing those map lookups in the
-// loader. This is done for compatibility with kernels that don't support
-// global data maps yet.
-//
-// overrides allow changing the value of the inlined global data.
-//
-// This code interacts with the DECLARE_CONFIG macro in the BPF C code base.
-func inlineGlobalData(spec *ebpf.CollectionSpec, overrides map[string]uint64) error {
-	offsets, values, err := globalData(spec)
-	if err != nil {
-		return err
-	}
-	if offsets == nil {
-		// Most likely all references to global data have been compiled
-		// out.
-		return nil
-	}
-
-	for name, value := range overrides {
+// applyConstants sets the values of BPF C runtime configurables defined using
+// the DECLARE_CONFIG macro.
+func applyConstants(spec *ebpf.CollectionSpec, constants map[string]uint64) error {
+	for name, value := range constants {
 		constName := constantPrefix + name
 
-		if _, ok := values[constName]; !ok {
-			return fmt.Errorf("can't override non-existent constant %q", name)
+		v, ok := spec.Variables[constName]
+		if !ok {
+			return fmt.Errorf("can't set non-existent Variable %s", name)
 		}
 
-		values[constName] = value
-	}
+		if v.MapName() != configSection {
+			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", configSection, v.MapName(), name)
+		}
 
-	for _, prog := range spec.Programs {
-		for i, ins := range prog.Instructions {
-			if !ins.IsLoadFromMap() || ins.Src != asm.PseudoMapValue {
-				continue
-			}
-
-			if ins.Reference() != globalDataMap {
-				return fmt.Errorf("global constants must be in %s, but found reference to %s", globalDataMap, ins.Reference())
-			}
-
-			// Get the offset of the read within the target map,
-			// stored in the 32 most-significant bits of Constant.
-			// Equivalent to Instruction.mapOffset().
-			off := uint32(uint64(ins.Constant) >> 32)
-
-			// Look up the value of the variable stored at the Datasec offset pointed
-			// at by the instruction.
-			v, ok := offsets[off]
-			if !ok {
-				return fmt.Errorf("no global constant found in %s at offset %d", globalDataMap, off)
-			}
-
-			// Replace the map load with an immediate load. Must be a dword load
-			// to match the instruction width of a map load.
-			r := asm.LoadImm(ins.Dst, int64(values[v]), asm.DWord)
-
-			// Preserve metadata of the original instruction. Otherwise, a program's
-			// first instruction could be stripped of its func_info or Symbol
-			// (function start) annotations.
-			r.Metadata = ins.Metadata
-
-			prog.Instructions[i] = r
+		if err := setVariable(v, value); err != nil {
+			return fmt.Errorf("setting Variable %s: %w", name, err)
 		}
 	}
 
 	return nil
 }
 
-// globalData gets the contents of the first entry in the global data map
-// and removes it from the spec to prevent it from being created in the kernel.
-func globalData(spec *ebpf.CollectionSpec) (offsets map[uint32]string, values map[string]uint64, _ error) {
-	dm := spec.Maps[globalDataMap]
-	if dm == nil {
-		return nil, nil, nil
+// setVariable writes the given value to the VariableSpec, truncating it
+// depending on the width of the VariableSpec.
+func setVariable(v *ebpf.VariableSpec, value uint64) error {
+	switch v.Size() {
+	case 8:
+		return v.Set(value)
+	case 4:
+		return v.Set(uint32(value))
+	case 2:
+		return v.Set(uint16(value))
+	case 1:
+		return v.Set(uint8(value))
 	}
 
-	if dl := len(dm.Contents); dl != 1 {
-		return nil, nil, fmt.Errorf("expected one key in %s, found %d", globalDataMap, dl)
-	}
-
-	ds, ok := dm.Value.(*btf.Datasec)
-	if !ok {
-		return nil, nil, fmt.Errorf("no BTF datasec found for %s", globalDataMap)
-	}
-
-	data, ok := (dm.Contents[0].Value).([]byte)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected %s value to be a byte slice, got: %T",
-			globalDataMap, dm.Contents[0].Value)
-	}
-
-	// Slice up the binary contents of the global data map according to the
-	// variables described in its Datasec.
-	values = make(map[string]uint64)
-	offsets = make(map[uint32]string)
-	buf := make([]byte, 8)
-	for _, vsi := range ds.Vars {
-		v, ok := vsi.Type.(*btf.Var)
-		if !ok {
-			// VarSecInfo.Type can be a Func.
-			continue
-		}
-
-		if _, ok := offsets[vsi.Offset]; ok {
-			return nil, nil, fmt.Errorf("duplicate VarSecInfo for offset %d", vsi.Offset)
-		}
-
-		copy(buf, data[vsi.Offset:vsi.Offset+vsi.Size])
-
-		var value uint64
-		switch vsi.Size {
-		case 8:
-			value = spec.ByteOrder.Uint64(buf)
-		case 4:
-			value = uint64(spec.ByteOrder.Uint32(buf))
-		case 2:
-			value = uint64(spec.ByteOrder.Uint16(buf))
-		case 1:
-			value = uint64(buf[0])
-		default:
-			return nil, nil, fmt.Errorf("invalid variable size %d", vsi.Size)
-		}
-
-		// Emit the variable's value by its offset in the datasec.
-		offsets[vsi.Offset] = v.Name
-		values[v.Name] = value
-	}
-
-	// Remove the map definition to skip loading it into the kernel.
-	delete(spec.Maps, globalDataMap)
-
-	return offsets, values, nil
+	return fmt.Errorf("unsupported size %d", v.Size())
 }
