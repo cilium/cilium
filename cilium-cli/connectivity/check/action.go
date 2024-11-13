@@ -302,6 +302,12 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
 			continue
+		} else if err != nil {
+			exitCode, _ := a.extractExitCode(err)
+			if exitCode == ExitInvalidCode {
+				a.Debugf("retrying command %s to to command execution error", cmdStr)
+				continue
+			}
 		}
 		break
 	}
