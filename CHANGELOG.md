@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.14.17
+
+Summary of Changes
+------------------
+
+**CI Changes:**
+* .github/conformance-ginkgo: replace deprecated jq flag (Backport PR #35470, Upstream PR #35399, @aanm)
+* [v1.14] gha: fix incorrect go version in lint-build-commits workflow (cilium/cilium#35313, @giorio94)
+* Additionally test KVStore mode in E2E/IPSec workflows (Backport PR #35913, Upstream PR #35679, @giorio94)
+* ci: conformance-kind: re-enable flaky Aggregator test (Backport PR #35588, Upstream PR #35286, @julianwiedmann)
+* gha: Correct number of connect retry param in LVH (Backport PR #35777, Upstream PR #32598, @sayboras)
+* gha: Update chmod command (Backport PR #35470, Upstream PR #35400, @sayboras)
+* Refactor and set a default for GH_RUNNER_EXTRA_POWER (Backport PR #35332, Upstream PR #35267, @aanm)
+
+**Misc Changes:**
+* .github/build-images-base: checkout base branch to get scripts (Backport PR #35332, Upstream PR #35236, @aanm)
+* .github: remove retention days for image digests (Backport PR #35470, Upstream PR #35457, @aanm)
+* Accurately manage the teardown sequence of an Endpoint's BPF resources (Backport PR #35888, Upstream PR #32167, @ti-mo)
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#35447, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#35717, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.14) (cilium/cilium#35445, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.16.3 (v1.14) (cilium/cilium#35665, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.8 docker digest to 0ca97f4 (v1.14) (cilium/cilium#35446, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.9 (v1.14) (cilium/cilium#35829, @cilium-renovate[bot])
+* chore(deps): update module github.com/golang-jwt/jwt/v4 to v4.5.1 [security] (v1.14) (cilium/cilium#35754, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1729635771-fa4efeff33a344a45e14a4068c61dc438b3d2270 (v1.14) (cilium/cilium#35493, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1729775735-a37f7d6081718666dab500533cfda5cecb4febf5 (v1.14) (cilium/cilium#35548, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.7-1730450803-0a83534f8c57b4d24405b213ed4b65e4e4987d8d (v1.14) (cilium/cilium#35716, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.7-1730965050-cd22d9ffa21eb4f214bf059bcc5d2f40f0c47882 (v1.14) (cilium/cilium#35837, @cilium-renovate[bot])
+* cilium: Small health cleanup improvements (Backport PR #35640, Upstream PR #33700, @borkmann)
+* contrib/kind: custom kind values (Backport PR #35913, Upstream PR #28155, @mhofstetter)
+* dnsproxy: fix error when sessionUDPFactory fails (Backport PR #35588, Upstream PR #33998, @marseel)
+* docs: Change invalid Helm option --agent.enabled with --agent=false in upgrade documentation (Backport PR #35332, Upstream PR #35288, @oneumyvakin)
+* docs: tuning: XDP LB also supports tunnel routing (Backport PR #35588, Upstream PR #35574, @julianwiedmann)
+* Envoy simplify listener setup (Backport PR #35769, Upstream PR #35642, @jrajahalme)
+* envoy: Configure internal_address_config to avoid warning log (Backport PR #35473, Upstream PR #35090, @sayboras)
+* fqdn: Skip "open ports" check for statically configured ports (Backport PR #35886, Upstream PR #33230, @gandro)
+* ipam: lower loglevel from error to warn if eni link list can't be listed (Backport PR #35470, Upstream PR #32602, @mhofstetter)
+* makefile: add target to install Cilium in kvstore mode (Backport PR #35913, Upstream PR #35646, @giorio94)
+* Makefile: Refactor hubble-relay target (Backport PR #35332, Upstream PR #29867, @chancez)
+* Proxy persist proxy ports (Backport PR #35686, Upstream PR #32973, @jrajahalme)
+* proxy: Ensure proxy ports are written on shutdown (Backport PR #35940, Upstream PR #35839, @jrajahalme)
+
+**Other Changes:**
+* [v1.14] envoy: Bump envoy version from 1.29.x to 1.30.x (cilium/cilium#35565, @sayboras)
+* chore(deps): update all-dependencies (v1.14) (cilium/cilium#35912, @cilium-renovate[bot])
+* install: Update image digests for v1.14.16 (cilium/cilium#35358, @cilium-release-bot[bot])
+
 ## v1.14.16
 
 Summary of Changes
