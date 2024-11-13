@@ -26,7 +26,7 @@ require (
 	github.com/cilium/hive v0.0.0-20241107100319-bedf51d6e63b
 	github.com/cilium/linters v0.1.0
 	github.com/cilium/lumberjack/v2 v2.4.0
-	github.com/cilium/proxy v0.0.0-20240909042906-ae435a5bef38
+	github.com/cilium/proxy v0.0.0-20241115112946-fb67566cbd95
 	github.com/cilium/statedb v0.3.3
 	github.com/cilium/stream v0.0.0-20240816054136-71321e385273
 	github.com/cilium/workerpool v1.2.0
@@ -312,7 +312,7 @@ require (
 	golang.org/x/text v0.20.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20241104194629-dd2ea8efbc28 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect

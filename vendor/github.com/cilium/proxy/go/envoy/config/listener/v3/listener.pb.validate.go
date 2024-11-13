@@ -1051,6 +1051,8 @@ func (m *Listener) validate(all bool) error {
 
 	// no validation rules for IgnoreGlobalConnLimit
 
+	// no validation rules for BypassOverloadManager
+
 	switch v := m.ListenerSpecifier.(type) {
 	case *Listener_InternalListener:
 		if v == nil {
