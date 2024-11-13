@@ -57,17 +57,6 @@ func (m *GcpAuthnFilterConfig) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetHttpUri() == nil {
-		err := GcpAuthnFilterConfigValidationError{
-			field:  "HttpUri",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetHttpUri()).(type) {
 		case interface{ ValidateAll() error }:
@@ -181,6 +170,39 @@ func (m *GcpAuthnFilterConfig) validate(all bool) error {
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
+		}
+	}
+
+	// no validation rules for Cluster
+
+	if d := m.GetTimeout(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = GcpAuthnFilterConfigValidationError{
+				field:  "Timeout",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lt := time.Duration(4294967296*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur >= lt {
+				err := GcpAuthnFilterConfigValidationError{
+					field:  "Timeout",
+					reason: "value must be inside range [0s, 1193046h28m16s)",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
 		}
 	}
 

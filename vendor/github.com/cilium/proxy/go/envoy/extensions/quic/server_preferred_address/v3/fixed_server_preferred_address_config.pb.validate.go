@@ -58,37 +58,66 @@ func (m *FixedServerPreferredAddressConfig) validate(all bool) error {
 
 	var errors []error
 
-	switch v := m.Ipv4Type.(type) {
-	case *FixedServerPreferredAddressConfig_Ipv4Address:
-		if v == nil {
-			err := FixedServerPreferredAddressConfigValidationError{
-				field:  "Ipv4Type",
-				reason: "oneof value cannot be a typed-nil",
+	// no validation rules for Ipv4Address
+
+	if all {
+		switch v := interface{}(m.GetIpv4Config()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FixedServerPreferredAddressConfigValidationError{
+					field:  "Ipv4Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
 			}
-			if !all {
-				return err
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FixedServerPreferredAddressConfigValidationError{
+					field:  "Ipv4Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
 			}
-			errors = append(errors, err)
 		}
-		// no validation rules for Ipv4Address
-	default:
-		_ = v // ensures v is used
+	} else if v, ok := interface{}(m.GetIpv4Config()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FixedServerPreferredAddressConfigValidationError{
+				field:  "Ipv4Config",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
 	}
-	switch v := m.Ipv6Type.(type) {
-	case *FixedServerPreferredAddressConfig_Ipv6Address:
-		if v == nil {
-			err := FixedServerPreferredAddressConfigValidationError{
-				field:  "Ipv6Type",
-				reason: "oneof value cannot be a typed-nil",
+
+	// no validation rules for Ipv6Address
+
+	if all {
+		switch v := interface{}(m.GetIpv6Config()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FixedServerPreferredAddressConfigValidationError{
+					field:  "Ipv6Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
 			}
-			if !all {
-				return err
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FixedServerPreferredAddressConfigValidationError{
+					field:  "Ipv6Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
 			}
-			errors = append(errors, err)
 		}
-		// no validation rules for Ipv6Address
-	default:
-		_ = v // ensures v is used
+	} else if v, ok := interface{}(m.GetIpv6Config()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FixedServerPreferredAddressConfigValidationError{
+				field:  "Ipv6Config",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
 	}
 
 	if len(errors) > 0 {
@@ -172,3 +201,179 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = FixedServerPreferredAddressConfigValidationError{}
+
+// Validate checks the field values on
+// FixedServerPreferredAddressConfig_AddressFamilyConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *FixedServerPreferredAddressConfig_AddressFamilyConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// FixedServerPreferredAddressConfig_AddressFamilyConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// FixedServerPreferredAddressConfig_AddressFamilyConfigMultiError, or nil if
+// none found.
+func (m *FixedServerPreferredAddressConfig_AddressFamilyConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FixedServerPreferredAddressConfig_AddressFamilyConfig) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError{
+					field:  "Address",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError{
+				field:  "Address",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetDnatAddress()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError{
+					field:  "DnatAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError{
+					field:  "DnatAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDnatAddress()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError{
+				field:  "DnatAddress",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return FixedServerPreferredAddressConfig_AddressFamilyConfigMultiError(errors)
+	}
+
+	return nil
+}
+
+// FixedServerPreferredAddressConfig_AddressFamilyConfigMultiError is an error
+// wrapping multiple validation errors returned by
+// FixedServerPreferredAddressConfig_AddressFamilyConfig.ValidateAll() if the
+// designated constraints aren't met.
+type FixedServerPreferredAddressConfig_AddressFamilyConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FixedServerPreferredAddressConfig_AddressFamilyConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FixedServerPreferredAddressConfig_AddressFamilyConfigMultiError) AllErrors() []error {
+	return m
+}
+
+// FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError is the
+// validation error returned by
+// FixedServerPreferredAddressConfig_AddressFamilyConfig.Validate if the
+// designated constraints aren't met.
+type FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError) Field() string {
+	return e.field
+}
+
+// Reason function returns reason value.
+func (e FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError) Reason() string {
+	return e.reason
+}
+
+// Cause function returns cause value.
+func (e FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError) Cause() error {
+	return e.cause
+}
+
+// Key function returns key value.
+func (e FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError) Key() bool {
+	return e.key
+}
+
+// ErrorName returns error name.
+func (e FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError) ErrorName() string {
+	return "FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sFixedServerPreferredAddressConfig_AddressFamilyConfig.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = FixedServerPreferredAddressConfig_AddressFamilyConfigValidationError{}

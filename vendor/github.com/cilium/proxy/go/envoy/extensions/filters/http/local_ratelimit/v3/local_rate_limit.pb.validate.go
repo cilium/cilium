@@ -325,6 +325,35 @@ func (m *LocalRateLimit) validate(all bool) error {
 
 	// no validation rules for LocalRateLimitPerDownstreamConnection
 
+	if all {
+		switch v := interface{}(m.GetLocalClusterRateLimit()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, LocalRateLimitValidationError{
+					field:  "LocalClusterRateLimit",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, LocalRateLimitValidationError{
+					field:  "LocalClusterRateLimit",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLocalClusterRateLimit()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return LocalRateLimitValidationError{
+				field:  "LocalClusterRateLimit",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if _, ok := v3.XRateLimitHeadersRFCVersion_name[int32(m.GetEnableXRatelimitHeaders())]; !ok {
 		err := LocalRateLimitValidationError{
 			field:  "EnableXRatelimitHeaders",

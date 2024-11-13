@@ -608,6 +608,35 @@ func (m *OutlierDetection) validate(all bool) error {
 
 	}
 
+	if all {
+		switch v := interface{}(m.GetAlwaysEjectOneHost()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OutlierDetectionValidationError{
+					field:  "AlwaysEjectOneHost",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OutlierDetectionValidationError{
+					field:  "AlwaysEjectOneHost",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAlwaysEjectOneHost()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OutlierDetectionValidationError{
+				field:  "AlwaysEjectOneHost",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return OutlierDetectionMultiError(errors)
 	}
