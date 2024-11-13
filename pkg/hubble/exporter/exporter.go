@@ -7,9 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 
-	"github.com/cilium/lumberjack/v2"
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -42,23 +40,15 @@ func NewExporter(logger logrus.FieldLogger, options ...exporteroption.Option) (*
 		}
 	}
 	logger.WithField("options", opts).Info("Configuring Hubble event exporter")
-	var writer io.WriteCloser
-	// If hubble-export-file-path is set to "stdout", use os.Stdout as the writer.
-	if opts.Path == "stdout" {
-		writer = &noopWriteCloser{w: os.Stdout}
-	} else {
-		writer = &lumberjack.Logger{
-			Filename:   opts.Path,
-			MaxSize:    opts.MaxSizeMB,
-			MaxBackups: opts.MaxBackups,
-			Compress:   opts.Compress,
-		}
-	}
-	return newExporter(logger, writer, opts)
+	return newExporter(logger, opts)
 }
 
 // newExporter let's you supply your own WriteCloser for tests.
-func newExporter(logger logrus.FieldLogger, writer io.WriteCloser, opts exporteroption.Options) (*exporter, error) {
+func newExporter(logger logrus.FieldLogger, opts exporteroption.Options) (*exporter, error) {
+	writer, err := opts.NewWriterFunc()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create writer: %w", err)
+	}
 	encoder, err := opts.NewEncoderFunc(writer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create encoder: %w", err)
@@ -165,20 +155,4 @@ func (e *exporter) OnDecodedEvent(ctx context.Context, ev *v1.Event) (bool, erro
 		return false, nil
 	}
 	return false, e.encoder.Encode(res)
-}
-
-var _ io.WriteCloser = (*noopWriteCloser)(nil)
-
-// nopWriteCloser returns a io.ReadWrite with a no-op Close method wrapping
-// the provided io.Writer w.
-type noopWriteCloser struct {
-	w io.Writer
-}
-
-func (nwc *noopWriteCloser) Write(p []byte) (int, error) {
-	return nwc.w.Write(p)
-}
-
-func (nwc *noopWriteCloser) Close() error {
-	return nil
 }

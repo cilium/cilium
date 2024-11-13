@@ -43,10 +43,10 @@ type config struct {
 
 var DefaultConfig = config{
 	FlowlogsConfigFilePath: "",
-	ExportFilePath:         exporteroption.Default.Path,
-	ExportFileMaxSizeMB:    exporteroption.Default.MaxSizeMB,
-	ExportFileMaxBackups:   exporteroption.Default.MaxBackups,
-	ExportFileCompress:     exporteroption.Default.Compress,
+	ExportFilePath:         "",
+	ExportFileMaxSizeMB:    10,
+	ExportFileMaxBackups:   5,
+	ExportFileCompress:     false,
 	ExportAllowlist:        []*flowpb.FlowFilter{},
 	ExportDenylist:         []*flowpb.FlowFilter{},
 	ExportFieldmask:        []string{},
@@ -107,15 +107,17 @@ func NewHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 	}
 
 	exporterOpts := []exporteroption.Option{
-		exporteroption.WithPath(params.Config.ExportFilePath),
-		exporteroption.WithMaxSizeMB(params.Config.ExportFileMaxSizeMB),
-		exporteroption.WithMaxBackups(params.Config.ExportFileMaxBackups),
 		exporteroption.WithAllowList(params.Logger, params.Config.ExportAllowlist),
 		exporteroption.WithDenyList(params.Logger, params.Config.ExportDenylist),
 		exporteroption.WithFieldMask(params.Config.ExportFieldmask),
 	}
-	if params.Config.ExportFileCompress {
-		exporterOpts = append(exporterOpts, exporteroption.WithCompress())
+	if params.Config.ExportFilePath != "stdout" {
+		exporterOpts = append(exporterOpts, exporteroption.WithNewWriterFunc(exporteroption.FileWriter(exporteroption.FileWriterConfig{
+			Filename:   params.Config.ExportFilePath,
+			MaxSize:    params.Config.ExportFileMaxSizeMB,
+			MaxBackups: params.Config.ExportFileMaxBackups,
+			Compress:   params.Config.ExportFileCompress,
+		})))
 	}
 	exporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
 	if err != nil {

@@ -126,12 +126,16 @@ func (d *DynamicExporter) onConfigReload(hash uint64, config DynamicExportersCon
 
 func (d *DynamicExporter) newExporter(flowlog *FlowLogConfig) (*exporter, error) {
 	exporterOpts := []exporteroption.Option{
-		exporteroption.WithPath(flowlog.FilePath),
-		exporteroption.WithMaxSizeMB(d.maxFileSizeMB),
-		exporteroption.WithMaxBackups(d.maxBackups),
 		exporteroption.WithAllowList(d.logger, flowlog.IncludeFilters),
 		exporteroption.WithDenyList(d.logger, flowlog.ExcludeFilters),
 		exporteroption.WithFieldMask(flowlog.FieldMask),
+	}
+	if flowlog.FilePath != "stdout" {
+		exporterOpts = append(exporterOpts, exporteroption.WithNewWriterFunc(exporteroption.FileWriter(exporteroption.FileWriterConfig{
+			Filename:   flowlog.FilePath,
+			MaxSize:    d.maxFileSizeMB,
+			MaxBackups: d.maxBackups,
+		})))
 	}
 
 	return NewExporter(d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
