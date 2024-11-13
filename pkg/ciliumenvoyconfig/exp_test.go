@@ -47,6 +47,7 @@ func TestScript(t *testing.T) {
 		h := hive.New(
 			client.FakeClientCell,
 			daemonk8s.ResourcesCell,
+			cell.Config(cecConfig{}),
 			experimental.Cell,
 			cell.Provide(
 				tables.NewNodeAddressTable,

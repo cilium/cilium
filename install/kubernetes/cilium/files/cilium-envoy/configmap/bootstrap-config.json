@@ -270,6 +270,7 @@
         "name": "ingress-cluster",
         "type": "ORIGINAL_DST",
         "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "circuitBreakers": { "thresholds": [ { "maxRetries": {{ .Values.envoy.maxConcurrentRetries }} } ] },
         "lbPolicy": "CLUSTER_PROVIDED",
         "typedExtensionProtocolOptions": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -288,6 +289,7 @@
         "name": "egress-cluster-tls",
         "type": "ORIGINAL_DST",
         "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "circuitBreakers": { "thresholds": [ { "maxRetries": {{ .Values.envoy.maxConcurrentRetries }} } ] },
         "lbPolicy": "CLUSTER_PROVIDED",
         "typedExtensionProtocolOptions": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -313,6 +315,7 @@
         "name": "egress-cluster",
         "type": "ORIGINAL_DST",
         "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "circuitBreakers": { "thresholds": [ { "maxRetries": {{ .Values.envoy.maxConcurrentRetries }} } ] },
         "lbPolicy": "CLUSTER_PROVIDED",
         "typedExtensionProtocolOptions": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -331,6 +334,7 @@
         "name": "ingress-cluster-tls",
         "type": "ORIGINAL_DST",
         "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "circuitBreakers": { "thresholds": [ { "maxRetries": {{ .Values.envoy.maxConcurrentRetries }} } ] },
         "lbPolicy": "CLUSTER_PROVIDED",
         "typedExtensionProtocolOptions": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {

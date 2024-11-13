@@ -41,6 +41,7 @@ var Cell = cell.Module(
 	"ciliumenvoyconfig",
 	"CiliumEnvoyConfig",
 
+	cell.Config(cecConfig{}),
 	cell.Invoke(registerCECK8sReconciler),
 	cell.ProvidePrivate(newCECManager),
 	cell.ProvidePrivate(newCECResourceParser),
@@ -54,19 +55,20 @@ var Cell = cell.Module(
 		},
 	),
 	cell.ProvidePrivate(newPortAllocator),
-	cell.Config(cecConfig{}),
 
 	experimentalCell,
 )
 
 type cecConfig struct {
-	EnvoyConfigRetryInterval time.Duration
-	EnvoyConfigTimeout       time.Duration
+	EnvoyConfigRetryInterval  time.Duration
+	EnvoyConfigTimeout        time.Duration
+	ProxyMaxConcurrentRetries uint32
 }
 
 func (r cecConfig) Flags(flags *pflag.FlagSet) {
 	flags.Duration("envoy-config-retry-interval", 15*time.Second, "Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated.")
 	flags.Duration("envoy-config-timeout", 2*time.Minute, "Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources")
+	flags.Uint32("proxy-max-concurrent-retries", 128, "Maximum number of concurrent retries on Envoy clusters")
 }
 
 type reconcilerParams struct {
@@ -176,7 +178,7 @@ type managerParams struct {
 
 func newCECManager(params managerParams) ciliumEnvoyConfigManager {
 	return newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer,
-		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.Services, params.Endpoints, params.MetricsManager)
+		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.Config.ProxyMaxConcurrentRetries, params.Services, params.Endpoints, params.MetricsManager)
 }
 
 func newPortAllocator(proxy *proxy.Proxy) PortAllocator {

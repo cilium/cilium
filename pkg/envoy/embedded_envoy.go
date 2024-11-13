@@ -114,6 +114,7 @@ type embeddedEnvoyConfig struct {
 	maxRequestsPerConnection uint32
 	maxConnectionDuration    time.Duration
 	idleTimeout              time.Duration
+	maxConcurrentRetries     uint32
 }
 
 // startEmbeddedEnvoy starts an Envoy proxy instance.
@@ -146,6 +147,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 		maxRequestsPerConnection: config.maxRequestsPerConnection,
 		maxConnectionDuration:    config.maxConnectionDuration,
 		idleTimeout:              config.idleTimeout,
+		maxConcurrentRetries:     config.maxConcurrentRetries,
 	})
 
 	log.Debugf("Envoy: Starting: %v", *envoy)
@@ -350,6 +352,7 @@ type bootstrapConfig struct {
 	maxRequestsPerConnection uint32
 	maxConnectionDuration    time.Duration
 	idleTimeout              time.Duration
+	maxConcurrentRetries     uint32
 }
 
 func writeBootstrapConfigFile(config bootstrapConfig) {
@@ -394,6 +397,12 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 		}),
 	}
 
+	clusterRetryLimits := &envoy_config_cluster.CircuitBreakers{
+		Thresholds: []*envoy_config_cluster.CircuitBreakers_Thresholds{{
+			MaxRetries: &wrapperspb.UInt32Value{Value: config.maxConcurrentRetries},
+		}},
+	}
+
 	bs := &envoy_config_bootstrap.Bootstrap{
 		Node: &envoy_config_core.Node{Id: config.nodeId, Cluster: config.cluster},
 		StaticResources: &envoy_config_bootstrap.Bootstrap_StaticResources{
@@ -405,6 +414,7 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 					CleanupInterval:               &durationpb.Duration{Seconds: config.connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocol,
+					CircuitBreakers:               clusterRetryLimits,
 				},
 				{
 					Name:                          egressTLSClusterName,
