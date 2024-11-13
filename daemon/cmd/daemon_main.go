@@ -440,6 +440,9 @@ func initializeFlags() {
 	flags.Int64(option.ProxyIdleTimeout, 60, "Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s")
 	option.BindEnv(Vp, option.ProxyIdleTimeout)
 
+	flags.Uint(option.RestoredProxyPortsAgeLimit, 15, "Time after which a restored proxy ports file is considered stale (in minutes)")
+	option.BindEnv(Vp, option.RestoredProxyPortsAgeLimit)
+
 	flags.Bool(option.DisableEnvoyVersionCheck, false, "Do not perform Envoy binary version check on startup")
 	flags.MarkHidden(option.DisableEnvoyVersionCheck)
 	// Disable version check if Envoy build is disabled
