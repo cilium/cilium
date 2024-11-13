@@ -249,7 +249,9 @@ func TestNodeLifecycle(t *testing.T) {
 			Type: addressing.NodeInternalIP,
 			IP:   net.ParseIP("10.0.0.1"),
 		},
-	}}
+	},
+		Source: source.Unspec,
+	}
 	mngr.NodeUpdated(n1)
 
 	select {
@@ -268,7 +270,9 @@ func TestNodeLifecycle(t *testing.T) {
 			Type: addressing.NodeInternalIP,
 			IP:   net.ParseIP("10.0.0.2"),
 		},
-	}}
+	},
+		Source: source.Unspec,
+	}
 	mngr.NodeUpdated(n2)
 
 	select {
