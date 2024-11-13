@@ -54,6 +54,8 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
+const getLogsRetries = 3
+
 func init() {
 	// Register the Cilium types in the default scheme.
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
@@ -946,7 +948,17 @@ func (c *Client) ListCiliumPodIPPools(ctx context.Context, opts metav1.ListOptio
 func (c *Client) GetLogs(ctx context.Context, namespace, name, container string, opts corev1.PodLogOptions) (string, error) {
 	opts.Container = container
 	r := c.Clientset.CoreV1().Pods(namespace).GetLogs(name, &opts)
-	s, err := r.Stream(ctx)
+	var s io.ReadCloser
+	var err error
+	// rety request upon EOF to work around transient (?) failures on Azure, see
+	// https://github.com/cilium/cilium/issues/29845
+	for range getLogsRetries {
+		s, err = r.Stream(ctx)
+		if errors.Is(err, io.EOF) {
+			continue
+		}
+		break
+	}
 	if err != nil {
 		return "", err
 	}
