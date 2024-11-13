@@ -57,6 +57,10 @@ func newProxy(params proxyParams) (*Proxy, error) {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(startContext cell.HookContext) (err error) {
+			// Restore all proxy ports before we create the trigger to overwrite the
+			// file below
+			p.RestoreProxyPorts(option.Config.RestoredProxyPortsAgeLimit)
+
 			p.proxyPortsTrigger, err = trigger.NewTrigger(trigger.Parameters{
 				MinInterval:  10 * time.Second,
 				TriggerFunc:  p.storeProxyPorts,
