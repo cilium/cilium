@@ -6,7 +6,6 @@ package exporter
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"testing"
 
@@ -266,7 +265,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 
 type boolOnExportEvent bool
 
-func (e *boolOnExportEvent) OnExportEvent(ctx context.Context, ev *v1.Event, encoder *json.Encoder) (stop bool, err error) {
+func (e *boolOnExportEvent) OnExportEvent(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
 	*e = true
 	return false, nil
 }
@@ -300,11 +299,11 @@ func TestExporterOnExportEvent(t *testing.T) {
 	opts := exporteroption.Default
 	for _, opt := range []exporteroption.Option{
 		exporteroption.WithOnExportEvent(&hookStruct),
-		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder *json.Encoder) (stop bool, err error) {
+		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
 			hookNoOpFuncCalled = true
 			return false, nil
 		}),
-		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder *json.Encoder) (stop bool, err error) {
+		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
 			if agentEventExported {
 				abortRequested = true
 				return true, nil
@@ -313,7 +312,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 			agentEvent := &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 3}, Event: &observerpb.AgentEvent{}}
 			return false, encoder.Encode(agentEvent)
 		}),
-		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder *json.Encoder) (stop bool, err error) {
+		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
 			if abortRequested {
 				// not reachable
 				hookNoOpFuncCalledAfterAbort = true

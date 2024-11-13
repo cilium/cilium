@@ -5,7 +5,7 @@ package exporteroption
 
 import (
 	"context"
-	"encoding/json"
+	"io"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -16,19 +16,27 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
 )
 
+// NewEncoderFunc is an Encoder constructor.
+type NewEncoderFunc func(writer io.Writer) (Encoder, error)
+
+// Encoder provides encoding capabilities for arbitrary data.
+type Encoder interface {
+	Encode(v any) error
+}
+
 // OnExportEvent is a hook that can be registered on an exporter and is invoked for each event.
 //
 // Returning false will stop the export pipeline for the current event, meaning the default export
 // logic as well as the following hooks will not run.
 type OnExportEvent interface {
-	OnExportEvent(ctx context.Context, ev *v1.Event, encoder *json.Encoder) (stop bool, err error)
+	OnExportEvent(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error)
 }
 
 // OnExportEventFunc implements OnExportEvent for a single function.
-type OnExportEventFunc func(ctx context.Context, ev *v1.Event, encoder *json.Encoder) (stop bool, err error)
+type OnExportEventFunc func(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error)
 
 // OnExportEventFunc implements OnExportEvent.
-func (f OnExportEventFunc) OnExportEvent(ctx context.Context, ev *v1.Event, encoder *json.Encoder) (bool, error) {
+func (f OnExportEventFunc) OnExportEvent(ctx context.Context, ev *v1.Event, encoder Encoder) (bool, error) {
 	return f(ctx, ev, encoder)
 }
 
@@ -39,12 +47,12 @@ type Options struct {
 	MaxBackups int
 	Compress   bool
 
+	NewEncoderFunc      NewEncoderFunc
 	AllowList, DenyList []*flowpb.FlowFilter
 	FieldMask           fieldmask.FieldMask
+	OnExportEvent       []OnExportEvent
 
 	allowFilters, denyFilters filters.FilterFuncs
-
-	OnExportEvent []OnExportEvent
 }
 
 // Option customizes the configuration of the hubble server.
@@ -79,6 +87,14 @@ func WithMaxBackups(backups int) Option {
 func WithCompress() Option {
 	return func(o *Options) error {
 		o.Compress = true
+		return nil
+	}
+}
+
+// WithNewEncoderFunc sets the constructor function for the exporter encoder.
+func WithNewEncoderFunc(newEncoderFunc NewEncoderFunc) Option {
+	return func(o *Options) error {
+		o.NewEncoderFunc = newEncoderFunc
 		return nil
 	}
 }
