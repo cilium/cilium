@@ -68,7 +68,9 @@ func NewBGPCPResourceStore[T k8sRuntime.Object](params bgpCPResourceStoreParams[
 
 	jobGroup.Add(
 		job.OneShot("bgpcp-resource-store-events", func(ctx context.Context, health cell.HealthReporter) (err error) {
+			s.mu.Lock()
 			s.store, err = s.resource.Store(ctx)
+			s.mu.Unlock()
 			if err != nil {
 				return fmt.Errorf("error creating resource store: %w", err)
 			}
