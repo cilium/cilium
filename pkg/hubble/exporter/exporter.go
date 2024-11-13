@@ -5,7 +5,6 @@ package exporter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -26,7 +25,7 @@ type exporter struct {
 	FlowLogExporter
 
 	logger  logrus.FieldLogger
-	encoder *json.Encoder
+	encoder exporteroption.Encoder
 	writer  io.WriteCloser
 	flow    *flowpb.Flow
 
@@ -60,7 +59,10 @@ func NewExporter(logger logrus.FieldLogger, options ...exporteroption.Option) (*
 
 // newExporter let's you supply your own WriteCloser for tests.
 func newExporter(logger logrus.FieldLogger, writer io.WriteCloser, opts exporteroption.Options) (*exporter, error) {
-	encoder := json.NewEncoder(writer)
+	encoder, err := opts.NewEncoderFunc(writer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create encoder: %w", err)
+	}
 	var flow *flowpb.Flow
 	if opts.FieldMask.Active() {
 		flow = new(flowpb.Flow)
