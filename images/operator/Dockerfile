@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
-ARG GOLANG_IMAGE=docker.io/library/golang:1.23.3@sha256:d56c3e08fe5b27729ee3834854ae8f7015af48fd651cd25d1e3bcf3c19830174
+ARG GOLANG_IMAGE=docker.io/library/golang:1.23.3@sha256:26602182e32576fca9ad5397fd74b87ae68f7ee727436a85dd19a1c3766ad685
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.20.3@sha256:1e42bbe2508154c9126d48c2b8a75420c3544343bf86fd041fb7527e017a4b4a
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:69630b57f192ca12010aeab50beb8661ddbb32b6@sha256:b6b4a13dd486d49e93ceb130130d92568bd830890a48bbcaa9b4b87a1e14f617
 
