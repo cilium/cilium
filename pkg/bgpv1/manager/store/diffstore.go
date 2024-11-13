@@ -95,7 +95,9 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 
 	jobGroup.Add(
 		job.OneShot("diffstore-events", func(ctx context.Context, health cell.HealthReporter) (err error) {
+			ds.mu.Lock()
 			ds.store, err = ds.resource.Store(ctx)
+			ds.mu.Unlock()
 			if err != nil {
 				return fmt.Errorf("error creating resource store: %w", err)
 			}
