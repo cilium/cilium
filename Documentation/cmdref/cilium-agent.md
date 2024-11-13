@@ -107,6 +107,7 @@ cilium-agent [flags]
       --enable-bandwidth-manager                                  Enable BPF bandwidth manager
       --enable-bbr                                                Enable BBR for the bandwidth manager
       --enable-bgp-control-plane                                  Enable the BGP control plane.
+      --enable-bgp-control-plane-status-report                    Enable the BGP control plane status reporting (default true)
       --enable-bpf-clock-probe                                    Enable BPF clock source probing for more efficient tick retrieval
       --enable-bpf-masquerade                                     Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-bpf-tproxy                                         Enable BPF-based proxy redirection (beta), if support available
