@@ -2205,7 +2205,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	// continue even if the parent has given up. Enforce a timeout of two
 	// minutes to avoid blocking forever but give plenty of time to release
 	// the identity.
-	releaseCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
+	releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
