@@ -114,6 +114,7 @@ type Parameters struct {
 	ConnectTimeout time.Duration
 	RequestTimeout time.Duration
 	CurlInsecure   bool
+	CurlParallel   uint
 
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options

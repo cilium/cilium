@@ -948,11 +948,21 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, 
 		cmd = append(cmd, "-H", fmt.Sprintf("Host: %s", strings.TrimSuffix(host, ".")))
 	}
 
+	numTargets := 1
+	if ct.params.CurlParallel > 0 {
+		numTargets = int(ct.params.CurlParallel)
+		cmd = append(cmd, "--parallel", "--parallel-immediate")
+	}
+
 	cmd = append(cmd, opts...)
-	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
-		peer.Scheme(),
-		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
-		peer.Path()))
+
+	for range numTargets {
+		cmd = append(cmd, fmt.Sprintf("%s://%s%s",
+			peer.Scheme(),
+			net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
+			peer.Path()))
+	}
+
 	return cmd
 }
 
