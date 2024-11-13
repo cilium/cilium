@@ -16,6 +16,9 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
 )
 
+// NewWriterFunc is a io.WriteCloser constructor.
+type NewWriterFunc func() (io.WriteCloser, error)
+
 // NewEncoderFunc is an Encoder constructor.
 type NewEncoderFunc func(writer io.Writer) (Encoder, error)
 
@@ -42,11 +45,7 @@ func (f OnExportEventFunc) OnExportEvent(ctx context.Context, ev *v1.Event, enco
 
 // Options stores all the configurations values for Hubble exporter.
 type Options struct {
-	Path       string
-	MaxSizeMB  int
-	MaxBackups int
-	Compress   bool
-
+	NewWriterFunc       NewWriterFunc
 	NewEncoderFunc      NewEncoderFunc
 	AllowList, DenyList []*flowpb.FlowFilter
 	FieldMask           fieldmask.FieldMask
@@ -58,35 +57,10 @@ type Options struct {
 // Option customizes the configuration of the hubble server.
 type Option func(o *Options) error
 
-// WithPath sets the Hubble export filepath. It's set to an empty string by default,
-// which disables Hubble export.
-func WithPath(path string) Option {
+// WithNewWriterFunc sets the constructor function for the export event writer.
+func WithNewWriterFunc(newWriterFunc NewWriterFunc) Option {
 	return func(o *Options) error {
-		o.Path = path
-		return nil
-	}
-}
-
-// WithMaxSizeMB sets the size in MB at which to rotate the Hubble export file.
-func WithMaxSizeMB(size int) Option {
-	return func(o *Options) error {
-		o.MaxSizeMB = size
-		return nil
-	}
-}
-
-// WithMaxSizeMB sets the number of rotated Hubble export files to keep.
-func WithMaxBackups(backups int) Option {
-	return func(o *Options) error {
-		o.MaxBackups = backups
-		return nil
-	}
-}
-
-// WithCompress specifies whether rotated files are compressed.
-func WithCompress() Option {
-	return func(o *Options) error {
-		o.Compress = true
+		o.NewWriterFunc = newWriterFunc
 		return nil
 	}
 }

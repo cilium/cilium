@@ -51,7 +51,13 @@ func TestExporter(t *testing.T) {
 	buf := &bytesWriteCloser{bytes.Buffer{}}
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	exporter, err := newExporter(log, buf, exporteroption.Default)
+
+	opts := exporteroption.Default
+	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+		return buf, nil
+	}
+
+	exporter, err := newExporter(log, opts)
 	assert.NoError(t, err)
 
 	ctx := context.Background()
@@ -119,6 +125,10 @@ func TestExporterWithFilters(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	opts := exporteroption.Default
+	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+		return buf, nil
+	}
+
 	for _, opt := range []exporteroption.Option{
 		exporteroption.WithAllowList(log, []*flowpb.FlowFilter{allowFilterPod}),
 		exporteroption.WithDenyList(log, []*flowpb.FlowFilter{denyFilterPod, denyFilterNamespace}),
@@ -127,7 +137,7 @@ func TestExporterWithFilters(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	exporter, err := newExporter(log, buf, opts)
+	exporter, err := newExporter(log, opts)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -160,7 +170,13 @@ func TestEventToExportEvent(t *testing.T) {
 	buf := &bytesWriteCloser{bytes.Buffer{}}
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	exporter, err := newExporter(log, buf, exporteroption.Default)
+
+	opts := exporteroption.Default
+	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+		return buf, nil
+	}
+
+	exporter, err := newExporter(log, opts)
 	assert.NoError(t, err)
 
 	// flow
@@ -239,6 +255,9 @@ func TestExporterWithFieldMask(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	opts := exporteroption.Default
+	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+		return buf, nil
+	}
 	for _, opt := range []exporteroption.Option{
 		exporteroption.WithFieldMask([]string{"source"}),
 	} {
@@ -246,7 +265,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	exporter, err := newExporter(log, buf, opts)
+	exporter, err := newExporter(log, opts)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -296,7 +315,14 @@ func TestExporterOnExportEvent(t *testing.T) {
 	var agentEventExported bool
 	var abortRequested bool
 
+	buf := &bytesWriteCloser{bytes.Buffer{}}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+
 	opts := exporteroption.Default
+	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+		return buf, nil
+	}
 	for _, opt := range []exporteroption.Option{
 		exporteroption.WithOnExportEvent(&hookStruct),
 		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
@@ -324,10 +350,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	buf := &bytesWriteCloser{bytes.Buffer{}}
-	log := logrus.New()
-	log.SetOutput(io.Discard)
-	exporter, err := newExporter(log, buf, opts)
+	exporter, err := newExporter(log, opts)
 	assert.NoError(t, err)
 
 	ctx := context.Background()
@@ -418,6 +441,9 @@ func BenchmarkExporter(b *testing.B) {
 	log.SetOutput(io.Discard)
 
 	opts := exporteroption.Default
+	opts.NewWriterFunc = func() (io.WriteCloser, error) {
+		return buf, nil
+	}
 	for _, opt := range []exporteroption.Option{
 		exporteroption.WithFieldMask([]string{"time", "node_name", "source"}),
 		exporteroption.WithAllowList(log, []*flowpb.FlowFilter{
@@ -433,7 +459,7 @@ func BenchmarkExporter(b *testing.B) {
 		assert.NoError(b, err)
 	}
 
-	exporter, err := newExporter(log, buf, opts)
+	exporter, err := newExporter(log, opts)
 	assert.NoError(b, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
