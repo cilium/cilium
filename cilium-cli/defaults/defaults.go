@@ -95,6 +95,8 @@ const (
 	ConnectRetry      = 3
 	ConnectRetryDelay = 3 * time.Second
 
+	CurlParallel = 0
+
 	ConnectTimeout = 2 * time.Second
 	RequestTimeout = 10 * time.Second
 
