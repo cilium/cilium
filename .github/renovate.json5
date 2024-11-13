@@ -566,7 +566,8 @@
     },
     {
       matchPackageNames: [
-        "protocolbuffers/protobuf"
+        "protocolbuffers/protobuf",
+        "quay.io/goswagger/swagger"
       ],
       "postUpgradeTasks": {
         "commands": [
