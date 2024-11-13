@@ -4,12 +4,10 @@
 package bpf
 
 import (
-	"encoding/binary"
 	"testing"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/cilium/ebpf/btf"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -57,79 +55,6 @@ func TestLoadCollectionResizeLogBuffer(t *testing.T) {
 	log := coll.Programs["test"].VerifierLog
 	if len(log) == 0 {
 		t.Fatal("Received empty verifier log")
-	}
-}
-
-func TestInlineGlobalData(t *testing.T) {
-	orig := &ebpf.CollectionSpec{
-		ByteOrder: binary.LittleEndian,
-		Maps: map[string]*ebpf.MapSpec{
-			globalDataMap: {
-				Value: &btf.Datasec{
-					Vars: []btf.VarSecinfo{
-						{Offset: 0, Size: 4, Type: &btf.Var{Name: constantPrefix + "a"}},
-						{Offset: 4, Size: 2, Type: &btf.Var{Name: constantPrefix + "b"}},
-						{Offset: 8, Size: 8, Type: &btf.Var{Name: constantPrefix + "c"}},
-					},
-				},
-				Contents: []ebpf.MapKV{{Value: []byte{
-					// var a
-					0x0, 0x0, 0x0, 0x80,
-					// var b has padding since var c aligns to 64 bits. Fill the padding
-					// with garbage to test if it gets masked correctly by the inliner.
-					0x1, 0x0, 0xff, 0xff,
-					// var c
-					0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7f,
-				}}},
-			},
-		},
-		Programs: map[string]*ebpf.ProgramSpec{
-			"prog1": {
-				Instructions: asm.Instructions{
-					// Pseudo-load at offset 0. This Instruction would have func_info when
-					// read from an ELF, so validate Metadata preservation after inlining
-					// global data.
-					asm.LoadMapValue(asm.R0, 0, 0).WithReference(globalDataMap).WithSymbol("func1"),
-					// Pseudo-load at offset 4.
-					asm.LoadMapValue(asm.R0, 0, 4).WithReference(globalDataMap),
-					// Pseudo-load at offset 8, pointing at a u64.
-					asm.LoadMapValue(asm.R0, 0, 8).WithReference(globalDataMap),
-					asm.Return(),
-				},
-			},
-		},
-	}
-
-	spec := orig.Copy()
-	if err := inlineGlobalData(spec, map[string]uint64{"c": 42}); err != nil {
-		t.Fatal(err)
-	}
-
-	insns := spec.Programs["prog1"].Instructions
-	if want, got := 0x80000000, int(insns[0].Constant); want != got {
-		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
-	}
-
-	if want, got := "func1", insns[0].Symbol(); want != got {
-		t.Errorf("unexpected Symbol value of Instruction: want: %s, got: %s", want, got)
-	}
-
-	if want, got := 0x1, int(insns[1].Constant); want != got {
-		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
-	}
-
-	if want, got := 42, int(insns[2].Constant); want != got {
-		t.Errorf("unexpected Instruction constant: want: 0x%x, got: 0x%x", want, got)
-	}
-
-	spec = orig.Copy()
-	if err := inlineGlobalData(spec, map[string]uint64{"bogus": 42}); err == nil {
-		t.Fatal("Expected error when trying to replace bogus constant")
-	}
-
-	delete(spec.Maps, globalDataMap)
-	if err := inlineGlobalData(spec, nil); err != nil {
-		t.Fatal("Unexpected error when no global data section is present")
 	}
 }
 
