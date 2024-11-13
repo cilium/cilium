@@ -66,7 +66,7 @@ func TestKafkaLogNoTopic(t *testing.T) {
 		})
 
 		require.Len(t, notifier.kafka, 1)
-		require.Equal(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{}}`, notifier.kafka[0])
+		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{}}`, notifier.kafka[0])
 	})
 }
 
@@ -85,7 +85,7 @@ func TestKafkaLogSingleTopic(t *testing.T) {
 		})
 
 		require.Len(t, notifier.kafka, 1)
-		require.Equal(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
+		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
 	})
 }
 
@@ -106,7 +106,7 @@ func TestKafkaLogMultipleTopics(t *testing.T) {
 		})
 
 		require.Len(t, notifier.kafka, 2)
-		require.Equal(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
-		require.Equal(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 2"}}`, notifier.kafka[1])
+		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
+		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 2"}}`, notifier.kafka[1])
 	})
 }

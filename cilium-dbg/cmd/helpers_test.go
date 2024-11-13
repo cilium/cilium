@@ -41,7 +41,7 @@ func TestExpandNestedJSON(t *testing.T) {
 	buf = bytes.NewBufferString(`{"foo": ["{\n  \"port\": 8080,\n  \"protocol\": \"TCP\"\n}"]}`)
 	res, err = expandNestedJSON(*buf)
 	require.NoError(t, err)
-	require.EqualValues(t, `{"foo": [{
+	require.JSONEq(t, `{"foo": [{
   "port": 8080,
   "protocol": "TCP"
 }]}`, res.String())
@@ -286,7 +286,7 @@ func TestExpandNestedJSON(t *testing.T) {
 ]`)
 	res, err = expandNestedJSON(*buf)
 	require.NoError(t, err)
-	require.EqualValues(t, `[
+	require.JSONEq(t, `[
   {
     "id": 2669,
     "spec": {
