@@ -65,8 +65,8 @@ repository in the Cilium project:
   will be forward-compatible for upgrade and follow best practices for
   deployment (for example, being GitOps-friendly).
 - `@cilium/sig-hubble-api <https://github.com/orgs/cilium/teams/sig-hubble-api>`__:
-  Review all Hubble API related changes. The Hubble API covers gRPC and
-  metrics endpoints. The team ensures that API changes are backward
+  Review Hubble API changes related to gRPC endpoints.
+  The team ensures that API changes are backward
   compatible or that a new API version is created for backward incompatible
   changes.
 - `@cilium/metrics <https://github.com/orgs/cilium/teams/metrics>`__:
@@ -93,6 +93,9 @@ contributions to specific repositories:
   Review all Cilium and Hubble code related to observing system events,
   exporting those via gRPC protocols outside the node and outside the
   cluster. those event channels, for example via TLS.
+- `@cilium/hubble-metrics <https://github.com/orgs/cilium/teams/hubble-metrics>`__:
+  Review code related to Hubble metrics, ensure changes in exposed metrics are
+  consistent and not breaking without careful consideration.
 - `@cilium/hubble-ui <https://github.com/orgs/cilium/teams/hubble-ui>`__:
   Maintain the Hubble UI graphical interface.
 - `@cilium/tetragon <https://github.com/orgs/cilium/teams/tetragon>`__:
