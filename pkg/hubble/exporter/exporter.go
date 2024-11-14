@@ -13,27 +13,42 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
+
+// OnExportEvent is a hook that can be registered on an exporter and is invoked for each event.
+//
+// Returning false will stop the export pipeline for the current event, meaning the default export
+// logic as well as the following hooks will not run.
+type OnExportEvent interface {
+	OnExportEvent(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error)
+}
+
+// OnExportEventFunc implements OnExportEvent for a single function.
+type OnExportEventFunc func(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error)
+
+// OnExportEventFunc implements OnExportEvent.
+func (f OnExportEventFunc) OnExportEvent(ctx context.Context, ev *v1.Event, encoder Encoder) (bool, error) {
+	return f(ctx, ev, encoder)
+}
 
 // exporter is an implementation of OnDecodedEvent interface that writes Hubble events to a file.
 type exporter struct {
 	FlowLogExporter
 
 	logger  logrus.FieldLogger
-	encoder exporteroption.Encoder
+	encoder Encoder
 	writer  io.WriteCloser
 	flow    *flowpb.Flow
 
-	opts exporteroption.Options
+	opts Options
 }
 
-// NewExporter initializes an exporter.
+// NewExporter initializes an
 // NOTE: Stopped instances cannot be restarted and should be re-created.
-func NewExporter(logger logrus.FieldLogger, options ...exporteroption.Option) (*exporter, error) {
-	opts := exporteroption.Default // start with defaults
+func NewExporter(logger logrus.FieldLogger, options ...Option) (*exporter, error) {
+	opts := DefaultOptions // start with defaults
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %w", err)
@@ -44,7 +59,7 @@ func NewExporter(logger logrus.FieldLogger, options ...exporteroption.Option) (*
 }
 
 // newExporter let's you supply your own WriteCloser for tests.
-func newExporter(logger logrus.FieldLogger, opts exporteroption.Options) (*exporter, error) {
+func newExporter(logger logrus.FieldLogger, opts Options) (*exporter, error) {
 	writer, err := opts.NewWriterFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create writer: %w", err)
