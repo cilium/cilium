@@ -109,15 +109,50 @@ func (g *GTPv1U) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 // SerializationBuffer, implementing gopacket.SerializableLayer.
 // See the docs for gopacket.SerializableLayer for more info.
 func (g *GTPv1U) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	var nextExtensionHeaderType byte
+	for i := len(g.GTPExtensionHeaders) - 1; i >= 0; i-- {
+		g.ExtensionHeaderFlag = true
+		eh := g.GTPExtensionHeaders[i]
+		lContent := len(eh.Content)
+		if lContent%4 != 2 {
+			return fmt.Errorf("GTP packet extension header %d has invalid length: %d bytes", i, lContent)
+		}
+
+		data, err := b.PrependBytes(lContent + 2) // two extra bytes for length and next extension header type
+		if err != nil {
+			return err
+		}
+
+		data[0] = byte((lContent + 2) / 4) // in 4-octet units
+		data[lContent+1] = nextExtensionHeaderType
+		copy(data[1:lContent+1], eh.Content)
+
+		nextExtensionHeaderType = eh.Type
+	}
+
+	if g.ExtensionHeaderFlag || g.SequenceNumberFlag || g.NPDUFlag {
+		data, err := b.PrependBytes(4)
+		if err != nil {
+			return err
+		}
+
+		binary.BigEndian.PutUint16(data[:2], g.SequenceNumber)
+		data[2] = g.NPDU
+		data[3] = nextExtensionHeaderType
+	}
+
+	if opts.FixLengths {
+		g.MessageLength = uint16(len(b.Bytes()))
+	}
+
 	data, err := b.PrependBytes(gtpMinimumSizeInBytes)
 	if err != nil {
 		return err
 	}
 	data[0] |= (g.Version << 5)
 	data[0] |= (1 << 4)
-	if len(g.GTPExtensionHeaders) > 0 {
+	if g.ExtensionHeaderFlag {
 		data[0] |= 0x04
-		g.ExtensionHeaderFlag = true
 	}
 	if g.SequenceNumberFlag {
 		data[0] |= 0x02
@@ -128,29 +163,7 @@ func (g *GTPv1U) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serialize
 	data[1] = g.MessageType
 	binary.BigEndian.PutUint16(data[2:4], g.MessageLength)
 	binary.BigEndian.PutUint32(data[4:8], g.TEID)
-	if g.ExtensionHeaderFlag || g.SequenceNumberFlag || g.NPDUFlag {
-		data, err := b.AppendBytes(4)
-		if err != nil {
-			return err
-		}
-		binary.BigEndian.PutUint16(data[:2], g.SequenceNumber)
-		data[2] = g.NPDU
-		for _, eh := range g.GTPExtensionHeaders {
-			data[len(data)-1] = eh.Type
-			lContent := len(eh.Content)
-			// extensionLength is in 4-octet units
-			extensionLength := (lContent + 2) / 4
-			// Get two extra byte for the next extension header type and length
-			data, err = b.AppendBytes(lContent + 2)
-			if err != nil {
-				return err
-			}
-			data[0] = byte(extensionLength)
-			copy(data[1:lContent+1], eh.Content)
-		}
-	}
 	return nil
-
 }
 
 // CanDecode returns a set of layers that GTP objects can decode.

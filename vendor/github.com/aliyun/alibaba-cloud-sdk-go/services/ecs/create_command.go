@@ -86,6 +86,7 @@ type CreateCommandRequest struct {
 	OwnerId              requests.Integer          `position:"Query" name:"OwnerId"`
 	Name                 string                    `position:"Query" name:"Name"`
 	EnableParameter      requests.Boolean          `position:"Query" name:"EnableParameter"`
+	Launcher             string                    `position:"Query" name:"Launcher"`
 }
 
 // CreateCommandSystemTag is a repeated param struct in CreateCommandRequest

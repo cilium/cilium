@@ -20,9 +20,6 @@ service DelegatedIdentity {
     // The lifetime of the subscription aligns to the lifetime of the stream.
     rpc SubscribeToX509SVIDs(SubscribeToX509SVIDsRequest) returns (stream SubscribeToX509SVIDsResponse);
 
-    // Subscribe to get X.509-SVIDs for workloads that match the given selectors.
-    // The lifetime of the subscription aligns to the lifetime of the stream.
-    //
     // Subscribe to get local and all federated bundles.
     // The lifetime of the subscription aligns to the lifetime of the stream.
     rpc SubscribeToX509Bundles(SubscribeToX509BundlesRequest) returns (stream SubscribeToX509BundlesResponse);

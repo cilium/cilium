@@ -249,6 +249,14 @@ func doCompare(s *State, env bool, args ...string) error {
 	}
 
 	if text1 != text2 {
+		if s.DoUpdate {
+			// Updates requested, store the file contents and
+			// ignore mismatches.
+			s.FileUpdates[name1] = text2
+			s.FileUpdates[name2] = text1
+			return nil
+		}
+
 		if !quiet {
 			diffText := diff.Diff(name1, []byte(text1), name2, []byte(text2))
 			s.Logf("%s\n", diffText)
@@ -653,7 +661,7 @@ func match(s *State, args []string, text, name string) error {
 	isGrep := name == "grep"
 
 	wantArgs := 1
-	if len(args) != wantArgs {
+	if !isGrep && len(args) != wantArgs {
 		return ErrUsage
 	}
 

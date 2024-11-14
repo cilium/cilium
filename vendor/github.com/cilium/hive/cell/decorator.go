@@ -38,14 +38,14 @@ type decorator struct {
 	cells     []Cell
 }
 
-func (d *decorator) Apply(c container) error {
+func (d *decorator) Apply(c container, rc rootContainer) error {
 	scope := c.Scope(fmt.Sprintf("(decorate %s)", internal.PrettyType(d.decorator)))
 	if err := scope.Decorate(d.decorator); err != nil {
 		return err
 	}
 
 	for _, cell := range d.cells {
-		if err := cell.Apply(scope); err != nil {
+		if err := cell.Apply(scope, rc); err != nil {
 			return err
 		}
 	}
@@ -58,5 +58,39 @@ func (d *decorator) Info(c container) Info {
 	for _, cell := range d.cells {
 		n.Add(cell.Info(c))
 	}
+	return n
+}
+
+// DecorateAll takes a decorator function and applies the decoration globally.
+//
+// Example:
+//
+//		cell.Module(
+//		  "my-app",
+//		  "My application",
+//		    foo.Cell, // provides foo.Foo
+//		    bar.Cell,
+//
+//	       // Wrap 'foo.Foo' everywhere, including inside foo.Cell.
+//		   cell.DecorateAll(
+//		     func(f foo.Foo) foo.Foo {
+//		       return myFooWrapper{f}
+//		     },
+//		   ),
+//		)
+func DecorateAll(dtor any) Cell {
+	return &allDecorator{dtor}
+}
+
+type allDecorator struct {
+	decorator any
+}
+
+func (d *allDecorator) Apply(_ container, rc rootContainer) error {
+	return rc.Decorate(d.decorator)
+}
+
+func (d *allDecorator) Info(_ container) Info {
+	n := NewInfoNode(fmt.Sprintf("🔀* %s: %s", internal.FuncNameAndLocation(d.decorator), internal.PrettyType(d.decorator)))
 	return n
 }

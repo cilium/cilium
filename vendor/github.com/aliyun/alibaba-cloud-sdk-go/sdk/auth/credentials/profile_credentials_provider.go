@@ -68,14 +68,17 @@ func (provider *ProfileCredentialsProvider) getCredentialsProvider(ini *ini.File
 			return
 		}
 
-		credentialsProvider = NewStaticAKCredentialsProvider(value1.String(), value2.String())
+		credentialsProvider, err = NewStaticAKCredentialsProviderBuilder().
+			WithAccessKeyId(value1.String()).
+			WithAccessKeySecret(value2.String()).
+			Build()
 	case "ecs_ram_role":
 		value1, err1 := section.GetKey("role_name")
 		if err1 != nil {
 			err = errors.New("ERROR: Failed to get value")
 			return
 		}
-		credentialsProvider = NewECSRAMRoleCredentialsProvider(value1.String())
+		credentialsProvider, err = NewECSRAMRoleCredentialsProviderBuilder().WithRoleName(value1.String()).Build()
 	case "ram_role_arn":
 		value1, err1 := section.GetKey("access_key_id")
 		value2, err2 := section.GetKey("access_key_secret")
@@ -89,8 +92,27 @@ func (provider *ProfileCredentialsProvider) getCredentialsProvider(ini *ini.File
 			err = errors.New("ERROR: Value can't be empty")
 			return
 		}
-		previous := NewStaticAKCredentialsProvider(value1.String(), value2.String())
-		credentialsProvider, err = NewRAMRoleARNCredentialsProvider(previous, value3.String(), value4.String(), 3600, "", "", "")
+		previous, err5 := NewStaticAKCredentialsProviderBuilder().
+			WithAccessKeyId(value1.String()).
+			WithAccessKeySecret(value2.String()).
+			Build()
+		if err5 != nil {
+			err = errors.New("get previous credentials provider failed")
+			return
+		}
+		rawPolicy, _ := section.GetKey("policy")
+		policy := ""
+		if rawPolicy != nil {
+			policy = rawPolicy.String()
+		}
+
+		credentialsProvider, err = NewRAMRoleARNCredentialsProviderBuilder().
+			WithCredentialsProvider(previous).
+			WithRoleArn(value3.String()).
+			WithRoleSessionName(value4.String()).
+			WithPolicy(policy).
+			WithDurationSeconds(3600).
+			Build()
 	default:
 		err = errors.New("ERROR: Failed to get credential")
 	}
@@ -132,12 +154,23 @@ func (provider *ProfileCredentialsProvider) GetCredentials() (cc *Credentials, e
 		}
 	}
 
-	cc, err = provider.innerProvider.GetCredentials()
+	innerCC, err := provider.innerProvider.GetCredentials()
 	if err != nil {
 		return
 	}
 
-	cc.ProviderName = fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.innerProvider.GetProviderName())
+	providerName := innerCC.ProviderName
+	if providerName == "" {
+		providerName = provider.innerProvider.GetProviderName()
+	}
+
+	cc = &Credentials{
+		AccessKeyId:     innerCC.AccessKeyId,
+		AccessKeySecret: innerCC.AccessKeySecret,
+		SecurityToken:   innerCC.SecurityToken,
+		ProviderName:    fmt.Sprintf("%s/%s", provider.GetProviderName(), providerName),
+	}
+
 	return
 }
 

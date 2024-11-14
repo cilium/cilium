@@ -604,20 +604,15 @@ func writeObjects(tbl *AnyTable, it iter.Seq2[any, Revision], w io.Writer, colum
 		return nil
 	case "json":
 		sep := []byte("\n")
-		first := true
 		for obj := range it {
-			if !first {
-				w.Write(sep)
-			}
-			first = false
-
-			out, err := json.Marshal(obj)
+			out, err := json.MarshalIndent(obj, "", "  ")
 			if err != nil {
 				return fmt.Errorf("json.Marshal: %w", err)
 			}
 			if _, err := w.Write(out); err != nil {
 				return err
 			}
+			w.Write(sep)
 		}
 		return nil
 	case "table":

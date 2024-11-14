@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/internal"
-	"gopkg.in/yaml.v3"
 )
 
 type Reconciler[Obj any] interface {
@@ -132,9 +131,9 @@ func (s StatusKind) Key() index.Key {
 // the reconciler. Object may have multiple reconcilers and
 // multiple reconciliation statuses.
 type Status struct {
-	Kind      StatusKind
-	UpdatedAt time.Time
-	Error     string
+	Kind      StatusKind `json:"kind" yaml:"kind"`
+	UpdatedAt time.Time  `json:"updated-at" yaml:"updated-at"`
+	Error     string     `json:"error,omitempty" yaml:"error,omitempty"`
 
 	// id is a unique identifier for a pending object.
 	// The reconciler uses this to compare whether the object
@@ -142,39 +141,6 @@ type Status struct {
 	// This allows multiple reconcilers to exist for a single
 	// object without repeating work when status is updated.
 	id uint64
-}
-
-// statusJSON defines the JSON/YAML format for [Status]. Separate to
-// [Status] to allow custom unmarshalling that fills in [id].
-type statusJSON struct {
-	Kind      string    `json:"kind" yaml:"kind"`
-	UpdatedAt time.Time `json:"updated-at" yaml:"updated-at"`
-	Error     string    `json:"error,omitempty" yaml:"error,omitempty"`
-}
-
-func (sj *statusJSON) fill(s *Status) {
-	s.Kind = StatusKind(sj.Kind)
-	s.UpdatedAt = sj.UpdatedAt
-	s.Error = sj.Error
-	s.id = nextID()
-}
-
-func (s *Status) UnmarshalYAML(value *yaml.Node) error {
-	var sj statusJSON
-	if err := value.Decode(&sj); err != nil {
-		return err
-	}
-	sj.fill(s)
-	return nil
-}
-
-func (s *Status) UnmarshalJSON(data []byte) error {
-	var sj statusJSON
-	if err := json.Unmarshal(data, &sj); err != nil {
-		return err
-	}
-	sj.fill(s)
-	return nil
 }
 
 func (s Status) IsPendingOrRefreshing() bool {

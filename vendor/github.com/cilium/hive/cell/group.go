@@ -11,9 +11,9 @@ func Group(cells ...Cell) Cell {
 	return group(cells)
 }
 
-func (g group) Apply(c container) error {
+func (g group) Apply(c container, rc rootContainer) error {
 	for _, cell := range g {
-		if err := cell.Apply(c); err != nil {
+		if err := cell.Apply(c, rc); err != nil {
 			return err
 		}
 	}

@@ -1608,11 +1608,13 @@ func (m *Dot11InformationElement) DecodeFromBytes(data []byte, df gopacket.Decod
 		df.SetTruncated()
 		return fmt.Errorf("Dot11InformationElement length %v too short, %v required", len(data), offset+int(m.Length))
 	}
-	if len(data) < offset+4 {
-		df.SetTruncated()
-		return fmt.Errorf("vendor extension size < %d", offset+int(m.Length))
-	}
+
 	if m.ID == 221 {
+		if len(data) < offset+4 {
+			df.SetTruncated()
+			return fmt.Errorf("vendor extension size < %d", offset+int(m.Length))
+		}
+
 		// Vendor extension
 		m.OUI = data[offset : offset+4]
 		m.Info = data[offset+4 : offset+int(m.Length)]
