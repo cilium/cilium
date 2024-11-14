@@ -264,23 +264,10 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 	nodeIP := ""
 	firstRequest := true
 
-	if s.restorerPromise != nil {
-		restorer, err := s.restorerPromise.Await(ctx)
-		if err != nil {
-			return err
-		}
-
-		if restorer != nil {
-			streamLog.Debug("Waiting for endpoint restoration before serving resources...")
-			restorer.WaitForEndpointRestore(ctx)
-			for typeURL, ackObserver := range s.ackObservers {
-				if typeURL == defaultTypeURL || defaultTypeURL == "" {
-					streamLog.WithField(logfields.XDSTypeURL, typeURL).
-						Debug("Endpoints restored, starting serving.")
-				}
-				ackObserver.MarkRestoreCompleted()
-			}
-		}
+	// We get here only if endpoints have been restored, tells the ackObservers that
+	// it is time to wait for acknowledgements.
+	for _, ackObserver := range s.ackObservers {
+		ackObserver.MarkRestoreCompleted()
 	}
 
 	for {
