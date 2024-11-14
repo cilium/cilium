@@ -78,6 +78,9 @@ type BGPResourceManager struct {
 	// internal state
 	reconcileCh      chan struct{}
 	bgpClusterSyncCh chan struct{}
+
+	// enable/disable status reporting
+	enableStatusReporting bool
 }
 
 // registerBGPResourceManager creates a new BGPResourceManager operator instance.
@@ -101,6 +104,8 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 		nodeConfig:         p.NodeConfigResource,
 		peerConfig:         p.PeerConfigResource,
 		ciliumNode:         p.NodeResource,
+
+		enableStatusReporting: p.DaemonConfig.EnableBGPControlPlaneStatusReport,
 	}
 
 	b.nodeConfigClient = b.clientset.CiliumV2alpha1().CiliumBGPNodeConfigs()
