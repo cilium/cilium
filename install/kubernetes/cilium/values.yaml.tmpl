@@ -2329,6 +2329,8 @@ envoy:
   initialFetchTimeoutSeconds: 30
   # -- Maximum number of concurrent retries on Envoy clusters
   maxConcurrentRetries: 128
+  # -- Maximum number of retries for each HTTP request
+  httpRetryCount: 3
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
