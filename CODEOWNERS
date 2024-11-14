@@ -90,6 +90,8 @@
 #   Review all Cilium and Hubble code related to observing system events,
 #   exporting those via gRPC protocols outside the node and outside the
 #   cluster. those event channels, for example via TLS.
+# - @cilium/sig-hubble-metrics:
+#   Review code related to Hubble metrics.
 # - @cilium/hubble-ui:
 #   Maintain the Hubble UI graphical interface.
 # - @cilium/tetragon:
@@ -529,7 +531,7 @@ Makefile* @cilium/build
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble
-/pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
+/pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api @cilium/sig-hubble-metrics
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
 /pkg/idpool/ @cilium/kvstore
