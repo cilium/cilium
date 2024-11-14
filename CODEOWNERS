@@ -62,8 +62,8 @@
 #   will be forward-compatible for upgrade and follow best practices for
 #   deployment (for example, being GitOps-friendly).
 # - @cilium/sig-hubble-api:
-#   Review all Hubble API related changes. The Hubble API covers gRPC and
-#   metrics endpoints. The team ensures that API changes are backward
+#   Review Hubble API changes related to gRPC endpoints.
+#   The team ensures that API changes are backward
 #   compatible or that a new API version is created for backward incompatible
 #   changes.
 # - @cilium/metrics:
@@ -90,6 +90,9 @@
 #   Review all Cilium and Hubble code related to observing system events,
 #   exporting those via gRPC protocols outside the node and outside the
 #   cluster. those event channels, for example via TLS.
+# - @cilium/hubble-metrics:
+#   Review code related to Hubble metrics, ensure changes in exposed metrics are
+#   consistent and not breaking without careful consideration.
 # - @cilium/hubble-ui:
 #   Maintain the Hubble UI graphical interface.
 # - @cilium/tetragon:
@@ -528,7 +531,7 @@ Makefile* @cilium/build
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble
-/pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
+/pkg/hubble/metrics @cilium/hubble-metrics
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
 /pkg/idpool/ @cilium/kvstore
