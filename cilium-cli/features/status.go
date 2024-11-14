@@ -22,6 +22,9 @@ var (
 	cmdMetricsList = []string{"cilium", "metrics", "list", "-p", "cilium_feature", "-o", "json"}
 )
 
+// perDeployNodeMetrics maps a deployment name to their node metrics
+type perDeployNodeMetrics map[string]perNodeMetrics
+
 // perNodeMetrics maps a node name to their metrics
 type perNodeMetrics map[string][]*models.Metric
 
@@ -35,7 +38,17 @@ func (s *Feature) PrintFeatureStatus(ctx context.Context) error {
 		return err
 	}
 
-	nodeMap, err := s.fetchStatusConcurrently(ctx, pods)
+	operatorPods, err := s.fetchCiliumOperator(ctx)
+	if err != nil {
+		return err
+	}
+
+	nodeMap, err := s.fetchStatusConcurrently(ctx, pods, s.fetchCiliumFeatureMetricsFromPod)
+	if err != nil {
+		return err
+	}
+
+	operatorNodeMap, err := s.fetchStatusConcurrently(ctx, operatorPods, s.fetchCiliumOperatorFeatureMetricsFromPod)
 	if err != nil {
 		return err
 	}
@@ -51,17 +64,33 @@ func (s *Feature) PrintFeatureStatus(ctx context.Context) error {
 
 	switch s.params.Output {
 	case "tab":
+		w.WriteString("Cilium Operators\n")
+		err := printPerNodeFeatureStatus(operatorNodeMap, newTabWriter(w))
+		if err != nil {
+			return err
+		}
+		w.WriteString("\nCilium Agents\n")
 		return printPerNodeFeatureStatus(nodeMap, newTabWriter(w))
 	case "markdown":
+		w.WriteString("# Cilium Operators\n")
+		err := printPerNodeFeatureStatus(operatorNodeMap, newMarkdownWriter(w))
+		if err != nil {
+			return err
+		}
+		w.WriteString("\n# Cilium Agents\n")
 		return printPerNodeFeatureStatus(nodeMap, newMarkdownWriter(w))
 	case "json":
-		return json.NewEncoder(w).Encode(nodeMap)
+		pdnm := perDeployNodeMetrics{
+			defaults.AgentDaemonSetName:     nodeMap,
+			defaults.OperatorDeploymentName: operatorNodeMap,
+		}
+		return json.NewEncoder(w).Encode(pdnm)
 	default:
 		return fmt.Errorf("output %s not recognized", s.params.Output)
 	}
 }
 
-func (s *Feature) fetchStatusConcurrently(ctx context.Context, pods []corev1.Pod) (perNodeMetrics, error) {
+func (s *Feature) fetchStatusConcurrently(ctx context.Context, pods []corev1.Pod, fetcher func(ctx context.Context, pod corev1.Pod) ([]*models.Metric, error)) (perNodeMetrics, error) {
 	// res contains data returned from cilium pod
 	type res struct {
 		nodeName string
@@ -74,7 +103,7 @@ func (s *Feature) fetchStatusConcurrently(ctx context.Context, pods []corev1.Pod
 	// concurrently fetch state from each cilium pod
 	for _, pod := range pods {
 		go func(ctx context.Context, pod corev1.Pod) {
-			st, err := s.fetchCiliumFeatureMetricsFromPod(ctx, pod)
+			st, err := fetcher(ctx, pod)
 			resCh <- res{
 				nodeName: pod.Spec.NodeName,
 				status:   st,
@@ -107,6 +136,39 @@ func (s *Feature) fetchCiliumFeatureMetricsFromPod(ctx context.Context, pod core
 		return nil, fmt.Errorf("failed to features status from %s: %w", pod.Name, err)
 	}
 	return encStatus, nil
+}
+
+func (s *Feature) fetchCiliumOperatorFeatureMetricsFromPod(ctx context.Context, pod corev1.Pod) ([]*models.Metric, error) {
+	operatorCmd := s.params.CiliumOperatorCommand
+	if operatorCmd == "" {
+		operatorCmd = ciliumOperatorBinary(pod)
+		if operatorCmd == "" {
+			return nil, fmt.Errorf("operator command not found in Cilium Operator pod. Use --operator-container-command to define it")
+		}
+	}
+	cmd := []string{operatorCmd, "metrics", "list", "-p", "cilium_operator_feature", "-o", "json"}
+	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.OperatorContainerName, cmd)
+	if err != nil && !strings.Contains(err.Error(), "level=debug") {
+		return []*models.Metric{}, fmt.Errorf("failed to get features status from %s: %w", pod.Name, err)
+	}
+	encStatus, err := nodeStatusFromOutput(output.String())
+	if err != nil {
+		return []*models.Metric{}, fmt.Errorf("failed to decode features status from %s: %w", pod.Name, err)
+	}
+	return encStatus, nil
+}
+
+func ciliumOperatorBinary(pod corev1.Pod) string {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == defaults.OperatorContainerName {
+			for _, cmd := range container.Command {
+				if strings.Contains(cmd, "cilium-operator") {
+					return cmd
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func nodeStatusFromOutput(output string) ([]*models.Metric, error) {

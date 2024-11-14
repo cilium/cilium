@@ -32,6 +32,7 @@ func newCmdFeaturesStatus() *cobra.Command {
 		Long:  "This command returns features enabled from all nodes in the cluster",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.CiliumNamespace = namespace
+			params.CiliumOperatorNamespace = namespace
 			s := features.NewFeatures(k8sClient, params)
 			if err := s.PrintFeatureStatus(context.Background()); err != nil {
 				fatalf("Unable to print features status: %s", err)
@@ -40,7 +41,10 @@ func newCmdFeaturesStatus() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&params.AgentPodSelector, "agent-pod-selector", defaults.AgentPodSelector, "Label on cilium-agent pods to select with")
+	cmd.Flags().StringVar(&params.OperatorPodSelector, "operator-pod-selector", defaults.OperatorPodSelector, "Label on cilium-operator pods to select with")
+	cmd.Flags().StringVar(&params.CiliumOperatorCommand, "operator-container-command", "", "Binary used to run Cilium Operator")
 	cmd.Flags().StringVar(&params.NodeName, "node", "", "Node from which features status will be fetched, omit to select all nodes")
+	cmd.Flags().StringVar(&params.OperatorNodeName, "operator-node", "", "Node from which features status will be fetched, omit to select all nodes")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 1*time.Minute, "Maximum time to wait for result, default 1 minute")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", "tab", "Output format. One of: tab, markdown, json")
 	cmd.Flags().StringVarP(&params.Outputfile, "output-file", "", "-", "Outputs into a file. Defaults to stdout")
