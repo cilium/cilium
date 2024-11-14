@@ -27,10 +27,18 @@ var shellCell = cell.Module(
 	cell.Invoke(registerShell),
 )
 
+// defaultCmdsToInclude specify which default script commands to include.
+// Most of them are for testing, so no need to clutter the shell
+// with them.
+var defaultCmdsToInclude = []string{
+	"cat", "exec", "help",
+}
+
 func registerShell(in upstreamHive.ScriptCmds, log *slog.Logger, jg job.Group) {
 	cmds := in.Map()
-	for k, cmd := range script.DefaultCmds() {
-		cmds[k] = cmd
+	defCmds := script.DefaultCmds()
+	for _, name := range defaultCmdsToInclude {
+		cmds[name] = defCmds[name]
 	}
 	e := script.Engine{
 		Cmds:  cmds,
