@@ -1,5 +1,68 @@
 # Changelog
 
+## v1.15.11
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* hubble-relay: Return underlying connection errors when connecting to peer manager (Backport PR #35778, Upstream PR #35632, @chancez)
+
+**Bugfixes:**
+* config: Remove superfluous warning on native routing CIDR (Backport PR #35778, Upstream PR #35738, @gandro)
+* Fix packet drops for pod-to-pod connections that pass through ingress & egress proxy when using IPsec, caused by MTU misconfiguration. (Backport PR #35586, Upstream PR #35173, @smagnani96)
+* Fix redirect from L3 device to remote endpoint via overlay network. (Backport PR #35586, Upstream PR #35165, @julianwiedmann)
+* Fixed bug which prevented IP surge allocation from working (Backport PR #35419, Upstream PR #34090, @dlapcevic)
+* ipam: Validate CiliumNode resource in ENI mode (Backport PR #35793, Upstream PR #35784, @sayboras)
+* l7lb: fix registration of flag loadbalancer-l7 (Backport PR #35778, Upstream PR #35623, @mhofstetter)
+
+**CI Changes:**
+* .github/conformance-ginkgo: replace deprecated jq flag (Backport PR #35469, Upstream PR #35399, @aanm)
+* Additionally test KVStore mode in E2E/IPSec workflows (Backport PR #35909, Upstream PR #35679, @giorio94)
+* ci: conformance-kind: re-enable flaky Aggregator test (Backport PR #35586, Upstream PR #35286, @julianwiedmann)
+* gha: Correct number of connect retry param in LVH (Backport PR #35778, Upstream PR #32598, @sayboras)
+* gha: Update chmod command (Backport PR #35469, Upstream PR #35400, @sayboras)
+* Refactor and set a default for GH_RUNNER_EXTRA_POWER (Backport PR #35320, Upstream PR #35267, @aanm)
+
+**Misc Changes:**
+* .github/build-images-base: checkout base branch to get scripts (Backport PR #35320, Upstream PR #35236, @aanm)
+* .github: remove retention days for image digests (Backport PR #35469, Upstream PR #35457, @aanm)
+* Accurately manage the teardown sequence of an Endpoint's BPF resources (Backport PR #35786, Upstream PR #32167, @ti-mo)
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#35387, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#35444, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#35576, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#35711, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#35442, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#35663, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#35914, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.16.3 (v1.15) (cilium/cilium#35664, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.8 docker digest to 0ca97f4 (v1.15) (cilium/cilium#35443, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.8 docker digest to b274ff1 (v1.15) (cilium/cilium#35383, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.9 (v1.15) (cilium/cilium#35846, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1729635771-fa4efeff33a344a45e14a4068c61dc438b3d2270 (v1.15) (cilium/cilium#35492, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1729775735-a37f7d6081718666dab500533cfda5cecb4febf5 (v1.15) (cilium/cilium#35547, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.7-1730450803-0a83534f8c57b4d24405b213ed4b65e4e4987d8d (v1.15) (cilium/cilium#35715, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.7-1730965050-cd22d9ffa21eb4f214bf059bcc5d2f40f0c47882 (v1.15) (cilium/cilium#35836, @cilium-renovate[bot])
+* cilium: Small health cleanup improvements (Backport PR #35639, Upstream PR #33700, @borkmann)
+* dnsproxy: fix error when sessionUDPFactory fails (Backport PR #35586, Upstream PR #33998, @marseel)
+* docs: Change invalid Helm option --agent.enabled with --agent=false in upgrade documentation (Backport PR #35320, Upstream PR #35288, @oneumyvakin)
+* docs: tuning: XDP LB also supports tunnel routing (Backport PR #35586, Upstream PR #35574, @julianwiedmann)
+* Envoy simplify listener setup (Backport PR #35766, Upstream PR #35642, @jrajahalme)
+* envoy: Configure internal_address_config to avoid warning log (Backport PR #35472, Upstream PR #35090, @sayboras)
+* fqdn: Skip "open ports" check for statically configured ports (Backport PR #35948, Upstream PR #33230, @gandro)
+* image: Use cilium-builder instead of golang as operator builder image (Backport PR #35586, Upstream PR #35351, @learnitall)
+* ipam: lower loglevel from error to warn if eni link list can't be listed (Backport PR #35469, Upstream PR #32602, @mhofstetter)
+* makefile: add target to install Cilium in kvstore mode (Backport PR #35909, Upstream PR #35646, @giorio94)
+* Makefile: Refactor hubble-relay target (Backport PR #35320, Upstream PR #29867, @chancez)
+* Proxy persist proxy ports (Backport PR #35684, Upstream PR #32973, @jrajahalme)
+* proxy: Ensure proxy ports are written on shutdown (Backport PR #35939, Upstream PR #35839, @jrajahalme)
+
+**Other Changes:**
+* [v1.15]  tests-e2e-upgrade: No longer use secondary network for test 14 (cilium/cilium#35969, @gandro)
+* [v1.15] .github: Fix missing variable escaping in LVH command (cilium/cilium#35893, @gandro)
+* [v1.15] envoy: Bump envoy version from 1.29.x to 1.30.x (cilium/cilium#35564, @sayboras)
+* install: Update image digests for v1.15.10 (cilium/cilium#35360, @cilium-release-bot[bot])
+
 ## v1.15.10
 
 Summary of Changes
