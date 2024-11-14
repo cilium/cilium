@@ -108,11 +108,16 @@ type CiliumBGPPeerConfigStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// Conditions for CiliumBGPPeerConfig
+// Conditions for CiliumBGPPeerConfig. When you add a new condition, don't
+// forget to to update the below AllBGPPeerConfigConditions list as well.
 const (
 	// Referenced auth secret is missing
 	BGPPeerConfigConditionMissingAuthSecret = "cilium.io/MissingAuthSecret"
 )
+
+var AllBGPPeerConfigConditions = []string{
+	BGPPeerConfigConditionMissingAuthSecret,
+}
 
 // CiliumBGPFamily represents a AFI/SAFI address family pair.
 type CiliumBGPFamily struct {
