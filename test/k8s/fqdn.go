@@ -63,7 +63,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+			"dnsProxy.idleConnectionGracePeriod": "5m",  // do not GC connections while we are restarting
+			"dnsProxy.minTtl":                    "300", // force long TTLs for names
+		})
 
 		By("Applying demo manifest")
 		res := kubectl.ApplyDefault(demoManifest)
