@@ -10,10 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/stream"
+
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/internal"
-	"github.com/cilium/stream"
 )
 
 // Observer jobs invoke the given `fn` for each item observed on `observable`.
@@ -75,9 +76,7 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, health 
 
 	done := make(chan struct{})
 
-	var (
-		err error
-	)
+	var err error
 	jo.observable.Observe(ctx, func(t T) {
 		start := time.Now()
 		err := jo.fn(ctx, t)
@@ -122,7 +121,7 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, health 
 	<-done
 
 	jo.health.Stopped("observer job done")
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		l.Error("Observer job stopped with an error", "error", err)
 	} else {
 		l.Debug("Observer job stopped")

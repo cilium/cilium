@@ -9,7 +9,11 @@ import (
 var osChown = os.Chown
 
 func chown(name string, info os.FileInfo) error {
-	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	return chownWithMode(name, info, info.Mode())
+}
+
+func chownWithMode(name string, info os.FileInfo, mode os.FileMode) error {
+	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return err
 	}

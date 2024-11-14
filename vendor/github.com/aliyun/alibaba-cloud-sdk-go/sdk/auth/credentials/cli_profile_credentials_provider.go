@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/internal"
 )
 
@@ -52,10 +54,13 @@ type profile struct {
 	RoleSessionName string `json:"ram_session_name"`
 	DurationSeconds int    `json:"expired_seconds"`
 	StsRegion       string `json:"sts_region"`
+	EnableVpc       bool   `json:"enable_vpc"`
 	SourceProfile   string `json:"source_profile"`
 	RoleName        string `json:"ram_role_name"`
 	OIDCTokenFile   string `json:"oidc_token_file"`
 	OIDCProviderARN string `json:"oidc_provider_arn"`
+	Policy          string `json:"policy"`
+	ExternalId      string `json:"external_id"`
 }
 
 type configuration struct {
@@ -106,29 +111,59 @@ func (provider *CLIProfileCredentialsProvider) getCredentialsProvider(conf *conf
 
 	switch p.Mode {
 	case "AK":
-		credentialsProvider = NewStaticAKCredentialsProvider(p.AccessKeyID, p.AccessKeySecret)
+		credentialsProvider, err = NewStaticAKCredentialsProviderBuilder().
+			WithAccessKeyId(p.AccessKeyID).
+			WithAccessKeySecret(p.AccessKeySecret).
+			Build()
 	case "RamRoleArn":
-		previousProvider := NewStaticAKCredentialsProvider(p.AccessKeyID, p.AccessKeySecret)
-		credentialsProvider, err = NewRAMRoleARNCredentialsProvider(previousProvider, p.RoleArn, p.RoleSessionName, p.DurationSeconds, "", p.StsRegion, "")
+		previousProvider, err1 := NewStaticAKCredentialsProviderBuilder().
+			WithAccessKeyId(p.AccessKeyID).
+			WithAccessKeySecret(p.AccessKeySecret).
+			Build()
+		if err1 != nil {
+			return nil, err1
+		}
+
+		credentialsProvider, err = NewRAMRoleARNCredentialsProviderBuilder().
+			WithCredentialsProvider(previousProvider).
+			WithRoleArn(p.RoleArn).
+			WithRoleSessionName(p.RoleSessionName).
+			WithDurationSeconds(p.DurationSeconds).
+			WithStsRegion(p.StsRegion).
+			WithEnableVpc(p.EnableVpc).
+			WithPolicy(p.Policy).
+			WithExternalId(p.ExternalId).
+			Build()
 	case "EcsRamRole":
-		credentialsProvider = NewECSRAMRoleCredentialsProvider(p.RoleName)
+		credentialsProvider, err = NewECSRAMRoleCredentialsProviderBuilder().WithRoleName(p.RoleName).Build()
 	case "OIDC":
 		credentialsProvider, err = NewOIDCCredentialsProviderBuilder().
 			WithOIDCTokenFilePath(p.OIDCTokenFile).
 			WithOIDCProviderARN(p.OIDCProviderARN).
 			WithRoleArn(p.RoleArn).
 			WithStsRegion(p.StsRegion).
+			WithEnableVpc(p.EnableVpc).
 			WithDurationSeconds(p.DurationSeconds).
 			WithRoleSessionName(p.RoleSessionName).
+			WithPolicy(p.Policy).
 			Build()
 	case "ChainableRamRoleArn":
 		var previousProvider CredentialsProvider
-		previousProvider, err = provider.getCredentialsProvider(conf, p.SourceProfile)
-		if err != nil {
-			err = fmt.Errorf("get source profile failed: %s", err.Error())
+		previousProvider, err1 := provider.getCredentialsProvider(conf, p.SourceProfile)
+		if err1 != nil {
+			err = fmt.Errorf("get source profile failed: %s", err1.Error())
 			return
 		}
-		credentialsProvider, err = NewRAMRoleARNCredentialsProvider(previousProvider, p.RoleArn, p.RoleSessionName, p.DurationSeconds, "", p.StsRegion, "")
+		credentialsProvider, err = NewRAMRoleARNCredentialsProviderBuilder().
+			WithCredentialsProvider(previousProvider).
+			WithRoleArn(p.RoleArn).
+			WithRoleSessionName(p.RoleSessionName).
+			WithDurationSeconds(p.DurationSeconds).
+			WithStsRegion(p.StsRegion).
+			WithEnableVpc(p.EnableVpc).
+			WithPolicy(p.Policy).
+			WithExternalId(p.ExternalId).
+			Build()
 	default:
 		err = fmt.Errorf("unsupported profile mode '%s'", p.Mode)
 	}
@@ -140,6 +175,10 @@ func (provider *CLIProfileCredentialsProvider) getCredentialsProvider(conf *conf
 var getHomePath = internal.GetHomePath
 
 func (provider *CLIProfileCredentialsProvider) GetCredentials() (cc *Credentials, err error) {
+	if strings.ToLower(os.Getenv("ALIBABA_CLOUD_CLI_PROFILE_DISABLED")) == "true" {
+		err = errors.NewClientError(errors.InvalidParamErrorCode, "The CLI profile is disabled", nil)
+		return
+	}
 	if provider.innerProvider == nil {
 		homedir := getHomePath()
 		if homedir == "" {
@@ -164,15 +203,26 @@ func (provider *CLIProfileCredentialsProvider) GetCredentials() (cc *Credentials
 		}
 	}
 
-	cc, err = provider.innerProvider.GetCredentials()
+	innerCC, err := provider.innerProvider.GetCredentials()
 	if err != nil {
 		return
 	}
 
-	cc.ProviderName = fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.innerProvider.GetProviderName())
+	providerName := innerCC.ProviderName
+	if providerName == "" {
+		providerName = provider.innerProvider.GetProviderName()
+	}
+
+	cc = &Credentials{
+		AccessKeyId:     innerCC.AccessKeyId,
+		AccessKeySecret: innerCC.AccessKeySecret,
+		SecurityToken:   innerCC.SecurityToken,
+		ProviderName:    fmt.Sprintf("%s/%s", provider.GetProviderName(), providerName),
+	}
+
 	return
 }
 
 func (provider *CLIProfileCredentialsProvider) GetProviderName() string {
-	return "cli_provider"
+	return "cli_profile"
 }
