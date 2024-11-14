@@ -221,6 +221,7 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 			},
 			OnStop: func(cell.HookContext) error {
 				cancel()
+				mgr.OnShutdown()
 				mgr.controllers.RemoveAllAndWait()
 				return nil
 			},

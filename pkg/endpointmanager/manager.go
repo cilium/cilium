@@ -802,3 +802,10 @@ func (mgr *endpointManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, e
 
 	return ep.NetNsCookie, nil
 }
+
+func (mgr *endpointManager) OnShutdown() {
+	eps := mgr.GetEndpoints()
+	for _, ep := range eps {
+		ep.OnShutdown()
+	}
+}

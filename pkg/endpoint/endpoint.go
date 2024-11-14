@@ -1264,6 +1264,11 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	return errs
 }
 
+// OnShutdown is called when the daemon is shutting down, but the endpoint itself will be preserved
+func (e *Endpoint) OnShutdown() {
+	e.syncEndpointHeaderFile([]string{"agent shutting down"})
+}
+
 // GetK8sNamespace returns the name of the pod if the endpoint represents a
 // Kubernetes pod
 func (e *Endpoint) GetK8sNamespace() string {
