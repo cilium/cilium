@@ -27,12 +27,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/containerd/log"
+	"github.com/sirupsen/logrus"
+
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/filters"
-	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/pkg/randutil"
-	"github.com/sirupsen/logrus"
 
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"

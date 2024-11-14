@@ -22,7 +22,7 @@ type provider struct {
 	export  bool
 }
 
-func (p *provider) Apply(c container) error {
+func (p *provider) Apply(c container, rc rootContainer) error {
 	// Since the same Provide cell may be used multiple times
 	// in different hives we use a mutex to protect it and we
 	// fill the provide info only the first time.

@@ -162,7 +162,7 @@ func (m *module) modulePrivateProviders(scope *dig.Scope) error {
 	return scope.Invoke(provide)
 }
 
-func (m *module) Apply(c container) error {
+func (m *module) Apply(c container, rc rootContainer) error {
 	scope := c.Scope(m.id)
 
 	// Provide ModuleID and FullModuleID in the module's scope.
@@ -190,7 +190,7 @@ func (m *module) Apply(c container) error {
 	}
 
 	for _, cell := range m.cells {
-		if err := cell.Apply(scope); err != nil {
+		if err := cell.Apply(scope, rc); err != nil {
 			return err
 		}
 	}

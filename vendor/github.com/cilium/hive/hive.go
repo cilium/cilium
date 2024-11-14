@@ -145,7 +145,7 @@ func NewWithOptions(opts Options, cells ...cell.Cell) *Hive {
 	// and adds all config flags. Invokes are delayed until Start() is
 	// called.
 	for _, cell := range cells {
-		if err := cell.Apply(h.container); err != nil {
+		if err := cell.Apply(h.container, h.container); err != nil {
 			panic(fmt.Sprintf("Failed to apply cell: %s", err))
 		}
 	}

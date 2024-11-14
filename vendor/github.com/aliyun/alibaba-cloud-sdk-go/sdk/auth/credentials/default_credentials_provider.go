@@ -31,12 +31,18 @@ func NewDefaultCredentialsProvider() (provider *DefaultCredentialsProvider) {
 	providers = append(providers, NewProfileCredentialsProviderBuilder().Build())
 
 	// Add IMDS
-	if os.Getenv("ALIBABA_CLOUD_ECS_METADATA") != "" {
-		ecsRamRoleProvider := NewECSRAMRoleCredentialsProvider(os.Getenv("ALIBABA_CLOUD_ECS_METADATA"))
+	ecsRamRoleProvider, err := NewECSRAMRoleCredentialsProviderBuilder().Build()
+	if err == nil {
 		providers = append(providers, ecsRamRoleProvider)
 	}
 
-	// TODO: ALIBABA_CLOUD_CREDENTIALS_URI check
+	// credentials uri
+	if os.Getenv("ALIBABA_CLOUD_CREDENTIALS_URI") != "" {
+		credentialsUriProvider, err := NewURLCredentialsProviderBuilderBuilder().Build()
+		if err == nil {
+			providers = append(providers, credentialsUriProvider)
+		}
+	}
 
 	return &DefaultCredentialsProvider{
 		providerChain: providers,
@@ -45,27 +51,47 @@ func NewDefaultCredentialsProvider() (provider *DefaultCredentialsProvider) {
 
 func (provider *DefaultCredentialsProvider) GetCredentials() (cc *Credentials, err error) {
 	if provider.lastUsedProvider != nil {
-		cc, err = provider.lastUsedProvider.GetCredentials()
-		if err != nil {
+		inner, err1 := provider.lastUsedProvider.GetCredentials()
+		if err1 != nil {
 			return
 		}
-		cc.ProviderName = fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.lastUsedProvider.GetProviderName())
+
+		providerName := inner.ProviderName
+		if providerName == "" {
+			providerName = provider.lastUsedProvider.GetProviderName()
+		}
+
+		cc = &Credentials{
+			AccessKeyId:     inner.AccessKeyId,
+			AccessKeySecret: inner.AccessKeySecret,
+			SecurityToken:   inner.SecurityToken,
+			ProviderName:    fmt.Sprintf("%s/%s", provider.GetProviderName(), providerName),
+		}
 		return
 	}
 
 	errors := []string{}
 	for _, p := range provider.providerChain {
 		provider.lastUsedProvider = p
-		cc, err = p.GetCredentials()
+		inner, errInLoop := p.GetCredentials()
 
-		if err != nil {
-			errors = append(errors, err.Error())
+		if errInLoop != nil {
+			errors = append(errors, errInLoop.Error())
 			// 如果有错误，进入下一个获取过程
 			continue
 		}
 
-		if cc != nil {
-			cc.ProviderName = fmt.Sprintf("%s/%s", provider.GetProviderName(), p.GetProviderName())
+		if inner != nil {
+			providerName := inner.ProviderName
+			if providerName == "" {
+				providerName = p.GetProviderName()
+			}
+			cc = &Credentials{
+				AccessKeyId:     inner.AccessKeyId,
+				AccessKeySecret: inner.AccessKeySecret,
+				SecurityToken:   inner.SecurityToken,
+				ProviderName:    fmt.Sprintf("%s/%s", provider.GetProviderName(), providerName),
+			}
 			return
 		}
 	}

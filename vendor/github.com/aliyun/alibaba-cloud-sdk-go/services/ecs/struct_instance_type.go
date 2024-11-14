@@ -61,5 +61,6 @@ type InstanceType struct {
 	PhysicalProcessorModel      string             `json:"PhysicalProcessorModel" xml:"PhysicalProcessorModel"`
 	SupportedBootModes          SupportedBootModes `json:"SupportedBootModes" xml:"SupportedBootModes"`
 	EnhancedNetwork             EnhancedNetwork    `json:"EnhancedNetwork" xml:"EnhancedNetwork"`
+	CpuOptions                  CpuOptions         `json:"CpuOptions" xml:"CpuOptions"`
 	NetworkCards                NetworkCards       `json:"NetworkCards" xml:"NetworkCards"`
 }

@@ -17,5 +17,6 @@ package ecs
 
 // ImageOptions is a nested struct in ecs response
 type ImageOptions struct {
-	LoginAsNonRoot bool `json:"LoginAsNonRoot" xml:"LoginAsNonRoot"`
+	LoginAsNonRoot         bool `json:"LoginAsNonRoot" xml:"LoginAsNonRoot"`
+	CurrentOSNVMeSupported bool `json:"CurrentOSNVMeSupported" xml:"CurrentOSNVMeSupported"`
 }

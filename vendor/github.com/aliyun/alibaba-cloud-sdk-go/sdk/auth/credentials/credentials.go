@@ -1,10 +1,12 @@
 package credentials
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -79,6 +81,13 @@ var hookNewRequest = func(fn newReuqest) newReuqest {
 	return fn
 }
 
+type HttpOptions struct {
+	// Connection timeout
+	ConnectTimeout time.Duration
+	// Read timeout
+	ReadTimeout time.Duration
+}
+
 type CredentialsProvider interface {
 	GetCredentials() (cc *Credentials, err error)
 	GetProviderName() string
@@ -87,6 +96,49 @@ type CredentialsProvider interface {
 type StaticAKCredentialsProvider struct {
 	accessKeyId     string
 	accessKeySecret string
+}
+
+type StaticAKCredentialsProviderBuilder struct {
+	provider *StaticAKCredentialsProvider
+}
+
+func NewStaticAKCredentialsProviderBuilder() *StaticAKCredentialsProviderBuilder {
+	return &StaticAKCredentialsProviderBuilder{
+		provider: &StaticAKCredentialsProvider{},
+	}
+}
+
+func (builder *StaticAKCredentialsProviderBuilder) WithAccessKeyId(accessKeyId string) *StaticAKCredentialsProviderBuilder {
+	builder.provider.accessKeyId = accessKeyId
+	return builder
+}
+
+func (builder *StaticAKCredentialsProviderBuilder) WithAccessKeySecret(accessKeySecret string) *StaticAKCredentialsProviderBuilder {
+	builder.provider.accessKeySecret = accessKeySecret
+	return builder
+}
+
+func (builder *StaticAKCredentialsProviderBuilder) Build() (provider *StaticAKCredentialsProvider, err error) {
+	if builder.provider.accessKeyId == "" {
+		builder.provider.accessKeyId = os.Getenv("ALIBABA_CLOUD_ACCESS_KEY_ID")
+	}
+
+	if builder.provider.accessKeyId == "" {
+		err = errors.NewClientError(errors.InvalidParamErrorCode, "The access key id is empty", nil)
+		return
+	}
+
+	if builder.provider.accessKeySecret == "" {
+		builder.provider.accessKeySecret = os.Getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
+	}
+
+	if builder.provider.accessKeySecret == "" {
+		err = errors.NewClientError(errors.InvalidParamErrorCode, "The access key secret is empty", nil)
+		return
+	}
+
+	provider = builder.provider
+	return
 }
 
 func NewStaticAKCredentialsProvider(accessKeyId, accessKeySecret string) *StaticAKCredentialsProvider {
@@ -113,6 +165,63 @@ type StaticSTSCredentialsProvider struct {
 	accessKeyId     string
 	accessKeySecret string
 	securityToken   string
+}
+
+type StaticSTSCredentialsProviderBuilder struct {
+	provider *StaticSTSCredentialsProvider
+}
+
+func NewStaticSTSCredentialsProviderBuilder() *StaticSTSCredentialsProviderBuilder {
+	return &StaticSTSCredentialsProviderBuilder{
+		provider: &StaticSTSCredentialsProvider{},
+	}
+}
+
+func (builder *StaticSTSCredentialsProviderBuilder) WithAccessKeyId(accessKeyId string) *StaticSTSCredentialsProviderBuilder {
+	builder.provider.accessKeyId = accessKeyId
+	return builder
+}
+
+func (builder *StaticSTSCredentialsProviderBuilder) WithAccessKeySecret(accessKeySecret string) *StaticSTSCredentialsProviderBuilder {
+	builder.provider.accessKeySecret = accessKeySecret
+	return builder
+}
+
+func (builder *StaticSTSCredentialsProviderBuilder) WithSecurityToken(securityToken string) *StaticSTSCredentialsProviderBuilder {
+	builder.provider.securityToken = securityToken
+	return builder
+}
+
+func (builder *StaticSTSCredentialsProviderBuilder) Build() (provider *StaticSTSCredentialsProvider, err error) {
+	if builder.provider.accessKeyId == "" {
+		builder.provider.accessKeyId = os.Getenv("ALIBABA_CLOUD_ACCESS_KEY_ID")
+	}
+
+	if builder.provider.accessKeyId == "" {
+		err = errors.NewClientError(errors.InvalidParamErrorCode, "The access key id is empty", nil)
+		return
+	}
+
+	if builder.provider.accessKeySecret == "" {
+		builder.provider.accessKeySecret = os.Getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
+	}
+
+	if builder.provider.accessKeySecret == "" {
+		err = errors.NewClientError(errors.InvalidParamErrorCode, "The access key secret is empty", nil)
+		return
+	}
+
+	if builder.provider.securityToken == "" {
+		builder.provider.securityToken = os.Getenv("ALIBABA_CLOUD_SECURITY_TOKEN")
+	}
+
+	if builder.provider.securityToken == "" {
+		err = errors.NewClientError(errors.InvalidParamErrorCode, "The security token is empty", nil)
+		return
+	}
+
+	provider = builder.provider
+	return
 }
 
 func NewStaticSTSCredentialsProvider(accessKeyId, accessKeySecret, securityToken string) *StaticSTSCredentialsProvider {
@@ -319,16 +428,181 @@ func (provider *RSAKeyPairCredentialsProvider) GetProviderName() string {
 }
 
 type RAMRoleARNCredentialsProvider struct {
+	// for previous credentials
+	accessKeyId         string
+	accessKeySecret     string
+	securityToken       string
 	credentialsProvider CredentialsProvider
-	roleArn             string
-	roleSessionName     string
-	durationSeconds     int
-	policy              string
-	stsRegion           string
-	externalId          string
-	expirationTimestamp int64
-	lastUpdateTimestamp int64
-	sessionCredentials  *SessionCredentials
+
+	roleArn         string
+	roleSessionName string
+	durationSeconds int
+	policy          string
+	externalId      string
+
+	// for sts endpoint
+	stsRegion   string
+	enableVpc   bool
+	stsEndpoint string
+
+	// for http options
+	httpOptions *HttpOptions
+
+	// inner
+	expirationTimestamp  int64
+	lastUpdateTimestamp  int64
+	previousProviderName string
+	sessionCredentials   *SessionCredentials
+}
+
+type RAMRoleARNCredentialsProviderBuilder struct {
+	provider *RAMRoleARNCredentialsProvider
+}
+
+func NewRAMRoleARNCredentialsProviderBuilder() *RAMRoleARNCredentialsProviderBuilder {
+	return &RAMRoleARNCredentialsProviderBuilder{
+		provider: &RAMRoleARNCredentialsProvider{},
+	}
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithAccessKeyId(accessKeyId string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.accessKeyId = accessKeyId
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithAccessKeySecret(accessKeySecret string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.accessKeySecret = accessKeySecret
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithSecurityToken(securityToken string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.securityToken = securityToken
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithCredentialsProvider(credentialsProvider CredentialsProvider) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.credentialsProvider = credentialsProvider
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithRoleArn(roleArn string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.roleArn = roleArn
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithStsRegion(region string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.stsRegion = region
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithEnableVpc(enableVpc bool) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.enableVpc = enableVpc
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithStsEndpoint(endpoint string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.stsEndpoint = endpoint
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithRoleSessionName(roleSessionName string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.roleSessionName = roleSessionName
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithPolicy(policy string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.policy = policy
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithExternalId(externalId string) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.externalId = externalId
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithDurationSeconds(durationSeconds int) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.durationSeconds = durationSeconds
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) WithHttpOptions(httpOptions *HttpOptions) *RAMRoleARNCredentialsProviderBuilder {
+	builder.provider.httpOptions = httpOptions
+	return builder
+}
+
+func (builder *RAMRoleARNCredentialsProviderBuilder) Build() (provider *RAMRoleARNCredentialsProvider, err error) {
+	if builder.provider.credentialsProvider == nil {
+		if builder.provider.accessKeyId != "" && builder.provider.accessKeySecret != "" && builder.provider.securityToken != "" {
+			builder.provider.credentialsProvider, err = NewStaticSTSCredentialsProviderBuilder().
+				WithAccessKeyId(builder.provider.accessKeyId).
+				WithAccessKeySecret(builder.provider.accessKeySecret).
+				WithSecurityToken(builder.provider.securityToken).
+				Build()
+			if err != nil {
+				return
+			}
+		} else if builder.provider.accessKeyId != "" && builder.provider.accessKeySecret != "" {
+			builder.provider.credentialsProvider, err = NewStaticAKCredentialsProviderBuilder().
+				WithAccessKeyId(builder.provider.accessKeyId).
+				WithAccessKeySecret(builder.provider.accessKeySecret).
+				Build()
+			if err != nil {
+				return
+			}
+		} else {
+			err = errors.NewClientError(errors.InvalidParamErrorCode, "Must specify a previous credentials provider to assume role", nil)
+			return
+		}
+	}
+
+	if builder.provider.roleArn == "" {
+		if roleArn := os.Getenv("ALIBABA_CLOUD_ROLE_ARN"); roleArn != "" {
+			builder.provider.roleArn = roleArn
+		} else {
+			err = errors.NewClientError(errors.InvalidParamErrorCode, "The RoleArn is empty", nil)
+			return
+		}
+	}
+
+	if builder.provider.roleSessionName == "" {
+		if roleSessionName := os.Getenv("ALIBABA_CLOUD_ROLE_SESSION_NAME"); roleSessionName != "" {
+			builder.provider.roleSessionName = roleSessionName
+		} else {
+			builder.provider.roleSessionName = "aliyun-go-sdk-" + strconv.FormatInt(time.Now().UnixNano()/1000, 10)
+		}
+	}
+
+	// duration seconds
+	if builder.provider.durationSeconds == 0 {
+		// default to 3600
+		builder.provider.durationSeconds = 3600
+	}
+
+	if builder.provider.durationSeconds < 900 {
+		err = errors.NewClientError(errors.InvalidParamErrorCode, "Session duration should be in the range of 900s - max session duration", nil)
+		return
+	}
+
+	// sts endpoint
+	if builder.provider.stsEndpoint == "" {
+		if !builder.provider.enableVpc {
+			builder.provider.enableVpc = strings.ToLower(os.Getenv("ALIBABA_CLOUD_VPC_ENDPOINT_ENABLED")) == "true"
+		}
+		prefix := "sts"
+		if builder.provider.enableVpc {
+			prefix = "sts-vpc"
+		}
+		if builder.provider.stsRegion != "" {
+			builder.provider.stsEndpoint = fmt.Sprintf("%s.%s.aliyuncs.com", prefix, builder.provider.stsRegion)
+		} else if region := os.Getenv("ALIBABA_CLOUD_STS_REGION"); region != "" {
+			builder.provider.stsEndpoint = fmt.Sprintf("%s.%s.aliyuncs.com", prefix, region)
+		} else {
+			builder.provider.stsEndpoint = "sts.aliyuncs.com"
+		}
+	}
+
+	provider = builder.provider
+	return
 }
 
 func NewRAMRoleARNCredentialsProvider(credentialsProvider CredentialsProvider, roleArn, roleSessionName string, durationSeconds int, policy, stsRegion, externalId string) (provider *RAMRoleARNCredentialsProvider, err error) {
@@ -364,7 +638,9 @@ func NewRAMRoleARNCredentialsProvider(credentialsProvider CredentialsProvider, r
 func (provider *RAMRoleARNCredentialsProvider) getCredentials(cc *Credentials) (sessionCredentials *SessionCredentials, err error) {
 	method := "POST"
 	var host string
-	if provider.stsRegion != "" {
+	if provider.stsEndpoint != "" {
+		host = provider.stsEndpoint
+	} else if provider.stsRegion != "" {
 		host = fmt.Sprintf("sts.%s.aliyuncs.com", provider.stsRegion)
 	} else {
 		host = "sts.aliyuncs.com"
@@ -426,7 +702,27 @@ func (provider *RAMRoleARNCredentialsProvider) getCredentials(cc *Credentials) (
 	// set headers
 	httpRequest.Header["Accept-Encoding"] = []string{"identity"}
 	httpRequest.Header["Content-Type"] = []string{"application/x-www-form-urlencoded"}
-	httpClient := &http.Client{}
+
+	connectTimeout := 5 * time.Second
+	readTimeout := 10 * time.Second
+	if provider.httpOptions != nil && provider.httpOptions.ConnectTimeout > 0 {
+		connectTimeout = provider.httpOptions.ConnectTimeout
+	}
+	if provider.httpOptions != nil && provider.httpOptions.ReadTimeout > 0 {
+		readTimeout = provider.httpOptions.ReadTimeout
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		return (&net.Dialer{
+			Timeout:   connectTimeout,
+			DualStack: true,
+		}).DialContext(ctx, network, address)
+	}
+
+	httpClient := &http.Client{
+		Timeout:   connectTimeout + readTimeout,
+		Transport: transport,
+	}
 
 	httpResponse, err := hookDo(httpClient.Do)(httpRequest)
 	if err != nil {
@@ -497,14 +793,18 @@ func (provider *RAMRoleARNCredentialsProvider) GetCredentials() (cc *Credentials
 
 		provider.expirationTimestamp = expirationTime.Unix()
 		provider.lastUpdateTimestamp = time.Now().Unix()
+		provider.previousProviderName = previousCredentials.ProviderName
 		provider.sessionCredentials = sessionCredentials
+	}
+	if provider.previousProviderName == "" {
+		provider.previousProviderName = provider.credentialsProvider.GetProviderName()
 	}
 
 	cc = &Credentials{
 		AccessKeyId:     provider.sessionCredentials.AccessKeyId,
 		AccessKeySecret: provider.sessionCredentials.AccessKeySecret,
 		SecurityToken:   provider.sessionCredentials.SecurityToken,
-		ProviderName:    fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.credentialsProvider.GetProviderName()),
+		ProviderName:    fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.previousProviderName),
 	}
 	return
 }
@@ -514,9 +814,61 @@ func (provider *RAMRoleARNCredentialsProvider) GetProviderName() string {
 }
 
 type ECSRAMRoleCredentialsProvider struct {
-	roleName            string
+	roleName      string
+	disableIMDSv1 bool
+
+	// for http options
+	httpOptions *HttpOptions
+
 	sessionCredentials  *SessionCredentials
 	expirationTimestamp int64
+}
+
+type ECSRAMRoleCredentialsProviderBuilder struct {
+	provider *ECSRAMRoleCredentialsProvider
+}
+
+func NewECSRAMRoleCredentialsProviderBuilder() *ECSRAMRoleCredentialsProviderBuilder {
+	return &ECSRAMRoleCredentialsProviderBuilder{
+		provider: &ECSRAMRoleCredentialsProvider{},
+	}
+}
+
+func (builder *ECSRAMRoleCredentialsProviderBuilder) WithRoleName(roleName string) *ECSRAMRoleCredentialsProviderBuilder {
+	builder.provider.roleName = roleName
+	return builder
+}
+
+func (builder *ECSRAMRoleCredentialsProviderBuilder) WithDisableIMDSv1(disableIMDSv1 bool) *ECSRAMRoleCredentialsProviderBuilder {
+	builder.provider.disableIMDSv1 = disableIMDSv1
+	return builder
+}
+
+func (builder *ECSRAMRoleCredentialsProviderBuilder) WithHttpOptions(httpOptions *HttpOptions) *ECSRAMRoleCredentialsProviderBuilder {
+	builder.provider.httpOptions = httpOptions
+	return builder
+}
+
+const defaultMetadataTokenDuration = 21600 // 6 hours
+
+func (builder *ECSRAMRoleCredentialsProviderBuilder) Build() (provider *ECSRAMRoleCredentialsProvider, err error) {
+
+	if strings.ToLower(os.Getenv("ALIBABA_CLOUD_ECS_METADATA_DISABLED")) == "true" {
+		err = fmt.Errorf("IMDS credentials is disabled")
+		return
+	}
+
+	// 设置 roleName 默认值
+	if builder.provider.roleName == "" {
+		builder.provider.roleName = os.Getenv("ALIBABA_CLOUD_ECS_METADATA")
+	}
+
+	if !builder.provider.disableIMDSv1 {
+		builder.provider.disableIMDSv1 = strings.ToLower(os.Getenv("ALIBABA_CLOUD_IMDSV1_DISABLED")) == "true"
+	}
+
+	provider = builder.provider
+	return
 }
 
 func NewECSRAMRoleCredentialsProvider(roleName string) *ECSRAMRoleCredentialsProvider {
@@ -533,16 +885,107 @@ func (provider *ECSRAMRoleCredentialsProvider) needUpdateCredential() bool {
 	return provider.expirationTimestamp-time.Now().Unix() <= 180
 }
 
+func (provider *ECSRAMRoleCredentialsProvider) getMetadataToken() (metadataToken string, err error) {
+	// PUT http://100.100.100.200/latest/api/token
+	var requestUrl = "http://100.100.100.200/latest/api/token"
+	httpRequest, _err := hookNewRequest(http.NewRequest)("PUT", requestUrl, strings.NewReader(""))
+	if _err != nil {
+		if provider.disableIMDSv1 {
+			err = fmt.Errorf("get metadata token failed: %s", _err.Error())
+		}
+		return
+	}
+	httpRequest.Header.Set("X-aliyun-ecs-metadata-token-ttl-seconds", strconv.Itoa(defaultMetadataTokenDuration))
+
+	connectTimeout := 1 * time.Second
+	readTimeout := 1 * time.Second
+
+	if provider.httpOptions != nil && provider.httpOptions.ConnectTimeout > 0 {
+		connectTimeout = provider.httpOptions.ConnectTimeout
+	}
+	if provider.httpOptions != nil && provider.httpOptions.ReadTimeout > 0 {
+		readTimeout = provider.httpOptions.ReadTimeout
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		return (&net.Dialer{
+			Timeout:   connectTimeout,
+			DualStack: true,
+		}).DialContext(ctx, network, address)
+	}
+
+	httpClient := &http.Client{
+		Timeout:   connectTimeout + readTimeout,
+		Transport: transport,
+	}
+
+	httpResponse, _err := hookDo(httpClient.Do)(httpRequest)
+	if _err != nil {
+		if provider.disableIMDSv1 {
+			err = fmt.Errorf("get metadata token failed: %s", _err.Error())
+		}
+		return
+	}
+
+	defer httpResponse.Body.Close()
+
+	responseBody, _err := ioutil.ReadAll(httpResponse.Body)
+	if _err != nil {
+		if provider.disableIMDSv1 {
+			err = fmt.Errorf("get metadata token failed: %s", _err.Error())
+		}
+		return
+	}
+
+	if httpResponse.StatusCode != http.StatusOK {
+		if provider.disableIMDSv1 {
+			err = errors.NewServerError(httpResponse.StatusCode, string(responseBody), "refresh Ecs sts token err")
+		}
+		return
+	}
+
+	metadataToken = strings.TrimSpace(string(responseBody))
+	return
+}
+
 func (provider *ECSRAMRoleCredentialsProvider) getRoleName() (roleName string, err error) {
+	connectTimeout := 1 * time.Second
+	readTimeout := 1 * time.Second
+
+	if provider.httpOptions != nil && provider.httpOptions.ConnectTimeout > 0 {
+		connectTimeout = provider.httpOptions.ConnectTimeout
+	}
+	if provider.httpOptions != nil && provider.httpOptions.ReadTimeout > 0 {
+		readTimeout = provider.httpOptions.ReadTimeout
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		return (&net.Dialer{
+			Timeout:   connectTimeout,
+			DualStack: true,
+		}).DialContext(ctx, network, address)
+	}
+
+	httpClient := &http.Client{
+		Timeout:   connectTimeout + readTimeout,
+		Transport: transport,
+	}
+
 	var securityCredURL = "http://100.100.100.200/latest/meta-data/ram/security-credentials/"
 	httpRequest, err := hookNewRequest(http.NewRequest)("GET", securityCredURL, strings.NewReader(""))
 	if err != nil {
 		err = fmt.Errorf("get role name failed: %s", err.Error())
 		return
 	}
-	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
+
+	metadataToken, err := provider.getMetadataToken()
+	if err != nil {
+		return
 	}
+	if metadataToken != "" {
+		httpRequest.Header.Set("X-aliyun-ecs-metadata-token", metadataToken)
+	}
+
 	httpResponse, err := hookDo(httpClient.Do)(httpRequest)
 	if err != nil {
 		err = fmt.Errorf("get role name failed: %s", err.Error())
@@ -574,15 +1017,43 @@ func (provider *ECSRAMRoleCredentialsProvider) getCredentials() (sessionCredenti
 		}
 	}
 
+	connectTimeout := 1 * time.Second
+	readTimeout := 1 * time.Second
+
+	if provider.httpOptions != nil && provider.httpOptions.ConnectTimeout > 0 {
+		connectTimeout = provider.httpOptions.ConnectTimeout
+	}
+	if provider.httpOptions != nil && provider.httpOptions.ReadTimeout > 0 {
+		readTimeout = provider.httpOptions.ReadTimeout
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		return (&net.Dialer{
+			Timeout:   connectTimeout,
+			DualStack: true,
+		}).DialContext(ctx, network, address)
+	}
+
+	httpClient := &http.Client{
+		Timeout:   connectTimeout + readTimeout,
+		Transport: transport,
+	}
+
 	var requestUrl = "http://100.100.100.200/latest/meta-data/ram/security-credentials/" + roleName
 	httpRequest, err := hookNewRequest(http.NewRequest)("GET", requestUrl, strings.NewReader(""))
 	if err != nil {
 		err = fmt.Errorf("refresh Ecs sts token err: %s", err.Error())
 		return
 	}
-	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
+
+	metadataToken, err := provider.getMetadataToken()
+	if err != nil {
+		return
 	}
+	if metadataToken != "" {
+		httpRequest.Header.Set("X-aliyun-ecs-metadata-token", metadataToken)
+	}
+
 	httpResponse, err := hookDo(httpClient.Do)(httpRequest)
 	if err != nil {
 		err = fmt.Errorf("refresh Ecs sts token err: %s", err.Error())
@@ -656,16 +1127,21 @@ func (provider *ECSRAMRoleCredentialsProvider) GetProviderName() string {
 }
 
 type OIDCCredentialsProvider struct {
-	oidcProviderARN     string
-	oidcTokenFilePath   string
-	roleArn             string
-	roleSessionName     string
-	durationSeconds     int
-	policy              string
+	oidcProviderARN   string
+	oidcTokenFilePath string
+	roleArn           string
+	roleSessionName   string
+	durationSeconds   int
+	policy            string
+	// for sts endpoint
 	stsRegion           string
+	enableVpc           bool
+	stsEndpoint         string
 	lastUpdateTimestamp int64
 	expirationTimestamp int64
 	sessionCredentials  *SessionCredentials
+	// for http options
+	httpOptions *HttpOptions
 }
 
 type OIDCCredentialsProviderBuilder struct {
@@ -708,8 +1184,23 @@ func (b *OIDCCredentialsProviderBuilder) WithStsRegion(region string) *OIDCCrede
 	return b
 }
 
+func (b *OIDCCredentialsProviderBuilder) WithEnableVpc(enableVpc bool) *OIDCCredentialsProviderBuilder {
+	b.provider.enableVpc = enableVpc
+	return b
+}
+
+func (b *OIDCCredentialsProviderBuilder) WithSTSEndpoint(stsEndpoint string) *OIDCCredentialsProviderBuilder {
+	b.provider.stsEndpoint = stsEndpoint
+	return b
+}
+
 func (b *OIDCCredentialsProviderBuilder) WithPolicy(policy string) *OIDCCredentialsProviderBuilder {
 	b.provider.policy = policy
+	return b
+}
+
+func (b *OIDCCredentialsProviderBuilder) WithHttpOptions(httpOptions *HttpOptions) *OIDCCredentialsProviderBuilder {
+	b.provider.httpOptions = httpOptions
 	return b
 }
 
@@ -755,13 +1246,33 @@ func (b *OIDCCredentialsProviderBuilder) Build() (provider *OIDCCredentialsProvi
 		err = errors.NewClientError(errors.InvalidParamErrorCode, "Assume Role session duration should be in the range of 15min - 1hr", nil)
 	}
 
+	// sts endpoint
+	if provider.stsEndpoint == "" {
+		if !provider.enableVpc {
+			provider.enableVpc = strings.ToLower(os.Getenv("ALIBABA_CLOUD_VPC_ENDPOINT_ENABLED")) == "true"
+		}
+		prefix := "sts"
+		if provider.enableVpc {
+			prefix = "sts-vpc"
+		}
+		if provider.stsRegion != "" {
+			provider.stsEndpoint = fmt.Sprintf("%s.%s.aliyuncs.com", prefix, provider.stsRegion)
+		} else if region := os.Getenv("ALIBABA_CLOUD_STS_REGION"); region != "" {
+			provider.stsEndpoint = fmt.Sprintf("%s.%s.aliyuncs.com", prefix, region)
+		} else {
+			provider.stsEndpoint = "sts.aliyuncs.com"
+		}
+	}
+
 	return
 }
 
 func (provider *OIDCCredentialsProvider) getCredentials() (sessionCredentials *SessionCredentials, err error) {
 	method := "POST"
 	var host string
-	if provider.stsRegion != "" {
+	if provider.stsEndpoint != "" {
+		host = provider.stsEndpoint
+	} else if provider.stsRegion != "" {
 		host = fmt.Sprintf("sts.%s.aliyuncs.com", provider.stsRegion)
 	} else {
 		host = "sts.aliyuncs.com"
@@ -812,7 +1323,27 @@ func (provider *OIDCCredentialsProvider) getCredentials() (sessionCredentials *S
 	// set headers
 	httpRequest.Header["Accept-Encoding"] = []string{"identity"}
 	httpRequest.Header["Content-Type"] = []string{"application/x-www-form-urlencoded"}
-	httpClient := &http.Client{}
+
+	connectTimeout := 5 * time.Second
+	readTimeout := 10 * time.Second
+	if provider.httpOptions != nil && provider.httpOptions.ConnectTimeout > 0 {
+		connectTimeout = provider.httpOptions.ConnectTimeout
+	}
+	if provider.httpOptions != nil && provider.httpOptions.ReadTimeout > 0 {
+		readTimeout = provider.httpOptions.ReadTimeout
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		return (&net.Dialer{
+			Timeout:   connectTimeout,
+			DualStack: true,
+		}).DialContext(ctx, network, address)
+	}
+
+	httpClient := &http.Client{
+		Timeout:   connectTimeout + readTimeout,
+		Transport: transport,
+	}
 
 	httpResponse, err := hookDo(httpClient.Do)(httpRequest)
 	if err != nil {

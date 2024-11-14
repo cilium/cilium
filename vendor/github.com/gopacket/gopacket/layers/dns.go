@@ -52,28 +52,30 @@ type DNSType uint16
 
 // DNSType known values.
 const (
-	DNSTypeA     DNSType = 1   // a host address
-	DNSTypeNS    DNSType = 2   // an authoritative name server
-	DNSTypeMD    DNSType = 3   // a mail destination (Obsolete - use MX)
-	DNSTypeMF    DNSType = 4   // a mail forwarder (Obsolete - use MX)
-	DNSTypeCNAME DNSType = 5   // the canonical name for an alias
-	DNSTypeSOA   DNSType = 6   // marks the start of a zone of authority
-	DNSTypeMB    DNSType = 7   // a mailbox domain name (EXPERIMENTAL)
-	DNSTypeMG    DNSType = 8   // a mail group member (EXPERIMENTAL)
-	DNSTypeMR    DNSType = 9   // a mail rename domain name (EXPERIMENTAL)
-	DNSTypeNULL  DNSType = 10  // a null RR (EXPERIMENTAL)
-	DNSTypeWKS   DNSType = 11  // a well known service description
-	DNSTypePTR   DNSType = 12  // a domain name pointer
-	DNSTypeHINFO DNSType = 13  // host information
-	DNSTypeMINFO DNSType = 14  // mailbox or mail list information
-	DNSTypeMX    DNSType = 15  // mail exchange
-	DNSTypeTXT   DNSType = 16  // text strings
-	DNSTypeAAAA  DNSType = 28  // a IPv6 host address [RFC3596]
-	DNSTypeSRV   DNSType = 33  // server discovery [RFC2782] [RFC6195]
-	DNSTypeOPT   DNSType = 41  // OPT Pseudo-RR [RFC6891]
-	DNSTypeSVCB  DNSType = 64  // SVCB DNS RR [RFC9460]
-	DNSTypeHTTPS DNSType = 65  // HTTPS RR [RFC9460]
-	DNSTypeURI   DNSType = 256 // URI RR [RFC7553]
+	DNSTypeA      DNSType = 1   // a host address
+	DNSTypeNS     DNSType = 2   // an authoritative name server
+	DNSTypeMD     DNSType = 3   // a mail destination (Obsolete - use MX)
+	DNSTypeMF     DNSType = 4   // a mail forwarder (Obsolete - use MX)
+	DNSTypeCNAME  DNSType = 5   // the canonical name for an alias
+	DNSTypeSOA    DNSType = 6   // marks the start of a zone of authority
+	DNSTypeMB     DNSType = 7   // a mailbox domain name (EXPERIMENTAL)
+	DNSTypeMG     DNSType = 8   // a mail group member (EXPERIMENTAL)
+	DNSTypeMR     DNSType = 9   // a mail rename domain name (EXPERIMENTAL)
+	DNSTypeNULL   DNSType = 10  // a null RR (EXPERIMENTAL)
+	DNSTypeWKS    DNSType = 11  // a well known service description
+	DNSTypePTR    DNSType = 12  // a domain name pointer
+	DNSTypeHINFO  DNSType = 13  // host information
+	DNSTypeMINFO  DNSType = 14  // mailbox or mail list information
+	DNSTypeMX     DNSType = 15  // mail exchange
+	DNSTypeTXT    DNSType = 16  // text strings
+	DNSTypeAAAA   DNSType = 28  // a IPv6 host address [RFC3596]
+	DNSTypeSRV    DNSType = 33  // server discovery [RFC2782] [RFC6195]
+	DNSTypeOPT    DNSType = 41  // OPT Pseudo-RR [RFC6891]
+	DNSTypeRRSIG  DNSType = 46  // RRSIG RR [RFC4034][RFC3755]
+	DNSTypeDNSKEY DNSType = 48  // DNSKEY RR [RFC4034][RFC3755]
+	DNSTypeSVCB   DNSType = 64  // SVCB DNS RR [RFC9460]
+	DNSTypeHTTPS  DNSType = 65  // HTTPS RR [RFC9460]
+	DNSTypeURI    DNSType = 256 // URI RR [RFC7553]
 )
 
 func (dt DNSType) String() string {
@@ -118,6 +120,10 @@ func (dt DNSType) String() string {
 		return "SRV"
 	case DNSTypeOPT:
 		return "OPT"
+	case DNSTypeRRSIG:
+		return "RRSIG"
+	case DNSTypeDNSKEY:
+		return "DNSKEY"
 	case DNSTypeSVCB:
 		return "SVCB"
 	case DNSTypeHTTPS:
@@ -451,6 +457,10 @@ func recSize(rr *DNSResourceRecord) int {
 			l += len(opt.Data)
 		}
 		return l
+	case DNSTypeRRSIG:
+		return rr.RRSIG.size()
+	case DNSTypeDNSKEY:
+		return rr.DNSKEY.size()
 	case DNSTypeSVCB, DNSTypeHTTPS:
 		return rr.SVCB.size()
 	}
@@ -708,6 +718,8 @@ type DNSResourceRecord struct {
 	SRV            DNSSRV
 	MX             DNSMX
 	OPT            []DNSOPT // See RFC 6891, section 6.1.2
+	RRSIG          DNSRRSIG // See RFC 4034, section 3.1
+	DNSKEY         DNSKEY   // See RFC 4034, section 2.1
 	SVCB           DNSSVCB  // See RFC 9460, this contains both SVCB and HTTPS
 	URI            DNSURI
 
@@ -825,6 +837,10 @@ func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.Seria
 			copy(data[noff2+4:], opt.Data)
 			noff2 += 4 + len(opt.Data)
 		}
+	case DNSTypeRRSIG:
+		rr.RRSIG.encode(data, noff+10)
+	case DNSTypeDNSKEY:
+		rr.DNSKEY.encode(data, noff+10)
 	case DNSTypeSVCB, DNSTypeHTTPS:
 		rr.SVCB.encode(data, noff+10)
 	default:
@@ -1040,6 +1056,16 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 			return err
 		}
 		rr.OPT = allOPT
+	case DNSTypeRRSIG:
+		err := rr.RRSIG.decode(data, offset)
+		if err != nil {
+			return err
+		}
+	case DNSTypeDNSKEY:
+		err := rr.DNSKEY.decode(data, offset)
+		if err != nil {
+			return err
+		}
 	case DNSTypeSVCB, DNSTypeHTTPS:
 		svcb, err := decodeSVCB(data, offset, buffer)
 		if err != nil {
@@ -1183,6 +1209,164 @@ func (param DNSSvcParam) encode(data []byte, offset int) int {
 func (param DNSSvcParam) String() string {
 	return fmt.Sprintf("%s=%x", param.Key, param.Value)
 }
+
+// DNSRRSIG is a DNS RRSIG record, see RFC 4034, section 3.1
+type DNSRRSIG struct {
+	TypeCovered                        DNSType
+	Algorithm                          DNSSECAlgorithm
+	Labels                             uint8
+	OriginalTTL, Expiration, Inception uint32
+	KeyTag                             uint16
+	SignerName, Signature              []byte
+}
+
+func (rrsig DNSRRSIG) size() int {
+	// 18 bytes for the fixed fields, 2 bytes for the first Label Length, and ending 0x00 byte.
+	return 18 + len(rrsig.SignerName) + 2 + len(rrsig.Signature)
+}
+
+func (rrsig DNSRRSIG) String() string {
+	return fmt.Sprintf("RRSIG %d %d %d %d %d %d %d %v %v",
+		rrsig.TypeCovered, rrsig.Algorithm, rrsig.Labels, rrsig.OriginalTTL,
+		rrsig.Expiration, rrsig.Inception, rrsig.KeyTag, rrsig.SignerName, rrsig.Signature)
+}
+
+// RRSIG RDATA Wire Format
+// 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |          Type Covered        |   Algorithm   |     Labels     |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |                          Original TTL                         |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |                      Signature Expiration                     |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |                      Signature Inception                      |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |            Key Tag           |                                /
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+          Signer’s Name        /
+// /                                                               /
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// /                                         						/
+// /                            Signature                          /
+// / 																/
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+func (rrsig *DNSRRSIG) decode(data []byte, offset int) error {
+	if len(data) < offset+18 {
+		return errors.New("RRSIG too small")
+	}
+	var err error
+	rrsig.TypeCovered = DNSType(binary.BigEndian.Uint16(data[offset:]))
+	rrsig.Algorithm = DNSSECAlgorithm(data[offset+2])
+	rrsig.Labels = data[offset+3]
+	rrsig.OriginalTTL = binary.BigEndian.Uint32(data[offset+4:])
+	rrsig.Expiration = binary.BigEndian.Uint32(data[offset+8:])
+	rrsig.Inception = binary.BigEndian.Uint32(data[offset+12:])
+	rrsig.KeyTag = binary.BigEndian.Uint16(data[offset+16:])
+	_, offset, err = decodeName(data, offset+18, &rrsig.SignerName, 1)
+	rrsig.SignerName = rrsig.SignerName[1:] // remove the first '.'
+	if err != nil {
+		return err
+	}
+	rrsig.Signature = data[offset:]
+	return nil
+}
+
+func (rrsig DNSRRSIG) encode(data []byte, offset int) {
+	binary.BigEndian.PutUint16(data[offset:], uint16(rrsig.TypeCovered))
+	data[offset+2] = uint8(rrsig.Algorithm)
+	data[offset+3] = rrsig.Labels
+	binary.BigEndian.PutUint32(data[offset+4:], rrsig.OriginalTTL)
+	binary.BigEndian.PutUint32(data[offset+8:], rrsig.Expiration)
+	binary.BigEndian.PutUint32(data[offset+12:], rrsig.Inception)
+	binary.BigEndian.PutUint16(data[offset+16:], rrsig.KeyTag)
+	offset += encodeName(rrsig.SignerName, data[offset+18:], 0) + 18
+	copy(data[offset:], rrsig.Signature)
+}
+
+// DNSSECAlgorithm common values
+const (
+	DNSSECAlgorithmRSAMD5          DNSSECAlgorithm = 1
+	DNSSECAlgorithmDH              DNSSECAlgorithm = 3
+	DNSSECAlgorithmDSASHA1         DNSSECAlgorithm = 3
+	DNSSECAlgorithmECC             DNSSECAlgorithm = 4
+	DNSSECAlgorithmRSASHA1         DNSSECAlgorithm = 5
+	DNSSECAlgorithmDSASHA1NSEC3    DNSSECAlgorithm = 6
+	DNSSECAlgorithmRSASHA1NSEC3    DNSSECAlgorithm = 7
+	DNSSECAlgorithmRSASHA256       DNSSECAlgorithm = 8
+	DNSSECAlgorithmRSASHA512       DNSSECAlgorithm = 10
+	DNSSECAlgorithmECCGOST         DNSSECAlgorithm = 12
+	DNSSECAlgorithmECDSAP256SHA256 DNSSECAlgorithm = 13
+	DNSSECAlgorithmECDSAP384SHA384 DNSSECAlgorithm = 14
+	DNSSECAlgorithmED25519         DNSSECAlgorithm = 15
+	DNSSECAlgorithmED448           DNSSECAlgorithm = 16
+)
+
+// DNSSECAlgorithm represents the algorithm used in a DNSSEC record, see RFC 4034, section 5.1
+type DNSSECAlgorithm uint8
+
+// DNSKEY is a DNSKEY record, see RFC 4034, section 2.1
+type DNSKEY struct {
+	Flags     DNSKEYFlag
+	Protocol  DNSKEYProtocol
+	Algorithm DNSSECAlgorithm
+	PublicKey []byte
+}
+
+func (dnskey DNSKEY) size() int {
+	return 4 + len(dnskey.PublicKey)
+}
+
+func (dnskey DNSKEY) String() string {
+	return fmt.Sprintf("DNSKEY %d %d %d %v",
+		dnskey.Flags, dnskey.Protocol, dnskey.Algorithm, dnskey.PublicKey)
+}
+
+// DNSKEY RDATA Wire Format
+// 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |             Flags            |    Protocol   |    Algorithm   |                      |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// /                                                               /
+// /                           Public Key                          /
+// /                                                               /
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+func (dnskey *DNSKEY) decode(data []byte, offset int) error {
+	if len(data) < offset+4 {
+		return errors.New("DNSKEY too small")
+	}
+	dnskey.Flags = DNSKEYFlag(binary.BigEndian.Uint16(data[offset:]))
+	dnskey.Protocol = DNSKEYProtocol(data[offset+2])
+	dnskey.Algorithm = DNSSECAlgorithm(data[offset+3])
+	dnskey.PublicKey = data[offset+4:]
+	return nil
+}
+
+func (dnskey DNSKEY) encode(data []byte, offset int) {
+	binary.BigEndian.PutUint16(data[offset:], uint16(dnskey.Flags))
+	data[offset+2] = uint8(dnskey.Protocol)
+	data[offset+3] = uint8(dnskey.Algorithm)
+	copy(data[offset+4:], dnskey.PublicKey)
+}
+
+// DNSKEYFlag common values
+const (
+	DNSKEYFlagOtherKey         DNSKEYFlag = 0
+	DNSKEYFlagZoneKey          DNSKEYFlag = 256
+	DNSKEYFlagSecureEntryPoint DNSKEYFlag = 257
+)
+
+// DNSKEYFlag represents the key type of a DNSKEY record, see RFC 4034, section 2.1.1
+type DNSKEYFlag uint16
+
+// DNSKEYProtocol common values, see RFC 4034, section 2.1.2
+const (
+	DNSKEYProtocolReserved DNSKEYProtocol = 0
+	DNSKEYProtocolValue    DNSKEYProtocol = 3
+)
+
+type DNSKEYProtocol uint8
 
 // DNSURI is a URI record, defining a target (URI) of a server/service
 type DNSURI struct {

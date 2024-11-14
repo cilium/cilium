@@ -62,7 +62,7 @@ func (inv *invoker) invoke(log *slog.Logger, cont container, logThreshold time.D
 	return nil
 }
 
-func (inv *invoker) Apply(c container) error {
+func (inv *invoker) Apply(c container, _ rootContainer) error {
 	// Remember the scope in which we need to invoke.
 	invoker := func(log *slog.Logger, logThreshold time.Duration) error { return inv.invoke(log, c, logThreshold) }
 

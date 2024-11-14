@@ -143,7 +143,7 @@ func decoderConfig(target any, extraHooks DecodeHooks) *mapstructure.DecoderConf
 	}
 }
 
-func (c *config[Cfg]) Apply(cont container) error {
+func (c *config[Cfg]) Apply(cont container, _ rootContainer) error {
 	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 	c.defaultConfig.Flags(flags)
 

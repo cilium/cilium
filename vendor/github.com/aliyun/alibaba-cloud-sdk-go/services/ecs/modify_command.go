@@ -81,6 +81,7 @@ type ModifyCommandRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	Name                 string           `position:"Query" name:"Name"`
+	Launcher             string           `position:"Query" name:"Launcher"`
 }
 
 // ModifyCommandResponse is the response struct for api ModifyCommand

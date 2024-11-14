@@ -31,12 +31,14 @@ type TCP struct {
 	Options                                    []TCPOption
 	Padding                                    []byte
 	opts                                       [4]TCPOption
+	Multipath                                  bool
 	tcpipchecksum
 }
 
 // TCPOptionKind represents a TCP option code.
 type TCPOptionKind uint8
 
+// TCP Option Kind constonts from https://www.iana.org/assignments/tcp-parameters/tcp-parameters.xml#tcp-parameters-1
 const (
 	TCPOptionKindEndList                         = 0
 	TCPOptionKindNop                             = 1
@@ -54,6 +56,7 @@ const (
 	TCPOptionKindCCEcho                          = 13 // obsolete
 	TCPOptionKindAltChecksum                     = 14 // len = 3, obsolete
 	TCPOptionKindAltChecksumData                 = 15 // len = n, obsolete
+	TCPOptionKindMultipathTCP                    = 30
 )
 
 func (k TCPOptionKind) String() string {
@@ -90,15 +93,28 @@ func (k TCPOptionKind) String() string {
 		return "AltChecksum"
 	case TCPOptionKindAltChecksumData:
 		return "AltChecksumData"
+	case TCPOptionKindMultipathTCP:
+		return "MultipathTCP"
 	default:
 		return fmt.Sprintf("Unknown(%d)", k)
 	}
 }
 
+// TCPOption are the possible TCP and MPTCP Options
 type TCPOption struct {
-	OptionType   TCPOptionKind
-	OptionLength uint8
-	OptionData   []byte
+	OptionType            TCPOptionKind
+	OptionLength          uint8
+	OptionData            []byte
+	OptionMultipath       MPTCPSubtype
+	OptionMPTCPMpCapable  *MPCapable
+	OptionMPTCPDss        *Dss
+	OptionMPTCPMpJoin     *MPJoin
+	OptionMPTCPMpPrio     *MPPrio
+	OptionMPTCPAddAddr    *AddAddr
+	OptionMTCPRemAddr     *RemAddr
+	OptionMTCPMPFastClose *MPFClose
+	OptionMPTCPMPTcpRst   *MPTcpRst
+	OptionMTCPMPFail      *MPFail
 }
 
 func (t TCPOption) String() string {
@@ -122,6 +138,48 @@ func (t TCPOption) String() string {
 				binary.BigEndian.Uint32(t.OptionData[:4]),
 				binary.BigEndian.Uint32(t.OptionData[4:8]),
 				hd)
+		}
+
+	case TCPOptionKindMultipathTCP:
+		switch t.OptionMultipath {
+		case MPTCPSubtypeMPCAPABLE:
+			return fmt.Sprintf("MPTCPOption(%s Version %v)",
+				t.OptionMultipath,
+				t.OptionMPTCPMpCapable.Version)
+		case MPTCPSubtypeMPJOIN:
+			return fmt.Sprintf("MPTCPOption(%s Backup %v;Address ID %v)",
+				t.OptionMultipath,
+				t.OptionMPTCPMpJoin.Backup,
+				t.OptionMPTCPMpJoin.AddrID)
+		case MPTCPSubtypeDSS:
+			return fmt.Sprintf("MPTCPOption(%s)",
+				t.OptionMultipath)
+		case MPTCPSubtypeMPPRIO:
+			return fmt.Sprintf("MPTCPOption(%s Backup %v;Address ID %v)",
+				t.OptionMultipath,
+				t.OptionMPTCPMpPrio.Backup,
+				t.OptionMPTCPMpPrio.AddrID)
+		case MPTCPSubtypeADDADDR:
+			return fmt.Sprintf("MPTCPOption(%s Address ID %v;Address %v;Port %v)",
+				t.OptionMultipath,
+				t.OptionMPTCPAddAddr.AddrID,
+				t.OptionMPTCPAddAddr.Address,
+				t.OptionMPTCPAddAddr.Port)
+		case MPTCPSubtypeREMOVEADDR:
+			return fmt.Sprintf("MPTCPOption(%s Address ID %v)",
+				t.OptionMultipath,
+				t.OptionMTCPRemAddr.AddrIDs)
+		case MPTCPSubtypeMPFASTCLOSE:
+			return fmt.Sprintf("MPTCPOption(%s)",
+				t.OptionMultipath)
+		case MPTCPSubtypeMPTCPRST:
+			return fmt.Sprintf("MPTCPOption(%s Transient %v; Reason %v)",
+				t.OptionMultipath,
+				t.OptionMPTCPMPTcpRst.T,
+				t.OptionMPTCPMPTcpRst.Reason)
+		case MPTCPSubtypeMPFAIL:
+			return fmt.Sprintf("MPTCPOption(%s)",
+				t.OptionMultipath)
 		}
 	}
 	return fmt.Sprintf("TCPOption(%s:%s)", t.OptionType, hd)
@@ -286,6 +344,190 @@ OPTIONS:
 			break OPTIONS
 		case TCPOptionKindNop: // 1 byte padding
 			opt.OptionLength = 1
+		case TCPOptionKindMultipathTCP:
+			tcp.Multipath = true
+			opt.OptionLength = data[1]
+			opt.OptionMultipath = MPTCPSubtype(data[2] >> 4)
+			switch opt.OptionMultipath {
+			case MPTCPSubtypeMPCAPABLE:
+				if opt.OptionLength != OptionLenMpCapableSyn && opt.OptionLength != OptionLenMpCapableSynAck && opt.OptionLength != OptionLenMpCapableAck && opt.OptionLength != OptionLenMpCapableAckData && opt.OptionLength != OptionLenMpCapableAckDataCSum {
+					return fmt.Errorf("MP_CAPABLE bad option length %d", opt.OptionLength)
+				}
+				opt.OptionMPTCPMpCapable = &MPCapable{
+					Version: data[2] & 0x0F,
+					A:       data[3]&0x80 != 0,
+					B:       data[3]&0x40 != 0,
+					C:       data[3]&0x20 != 0,
+					D:       data[3]&0x10 != 0,
+					E:       data[3]&0x08 != 0,
+					F:       data[3]&0x04 != 0,
+					G:       data[3]&0x02 != 0,
+					H:       data[3]&0x01 != 0,
+				}
+				if opt.OptionLength >= OptionLenMpCapableSynAck {
+					opt.OptionMPTCPMpCapable.SendKey = data[4:12]
+				}
+				if opt.OptionLength >= OptionLenMpCapableAck {
+					opt.OptionMPTCPMpCapable.ReceivKey = data[12:20]
+				}
+				if opt.OptionLength >= OptionLenMpCapableAckData {
+					opt.OptionMPTCPMpCapable.DataLength = binary.BigEndian.Uint16(data[20:22])
+				}
+				if opt.OptionLength == OptionLenMpCapableAckDataCSum {
+					opt.OptionMPTCPMpCapable.Checksum = binary.BigEndian.Uint16(data[22:24])
+				}
+			case MPTCPSubtypeMPJOIN:
+				if opt.OptionLength != OptionLenMpJoinSyn && opt.OptionLength != OptionLenMpJoinSynAck && opt.OptionLength != OptionLenMpJoinAck {
+					return fmt.Errorf("MP_JOIN bad option length %d", opt.OptionLength)
+				}
+				switch opt.OptionLength {
+				case OptionLenMpJoinSyn:
+					opt.OptionMPTCPMpJoin = &MPJoin{
+						Backup:      data[2]&0x01 != 0,
+						AddrID:      data[3],
+						ReceivToken: binary.BigEndian.Uint32(data[4:8]),
+						SendRandNum: binary.BigEndian.Uint32(data[8:12]),
+					}
+				case OptionLenMpJoinSynAck:
+					opt.OptionMPTCPMpJoin = &MPJoin{
+						Backup:      data[2]&0x01 != 0,
+						AddrID:      data[3],
+						SendHMAC:    data[4:12],
+						SendRandNum: binary.BigEndian.Uint32(data[12:16]),
+					}
+				case OptionLenMpJoinAck:
+					opt.OptionMPTCPMpJoin = &MPJoin{
+						SendHMAC: data[4:24],
+					}
+				}
+			case MPTCPSubtypeDSS:
+				opt.OptionMPTCPDss = &Dss{
+					F: data[3]&0x10 != 0,
+					m: data[3]&0x08 != 0,
+					M: data[3]&0x04 != 0,
+					a: data[3]&0x02 != 0,
+					A: data[3]&0x01 != 0,
+				}
+				if opt.OptionLength != optionMptcpDsslen(opt.OptionMPTCPDss, false) && opt.OptionLength != optionMptcpDsslen(opt.OptionMPTCPDss, true) {
+					return fmt.Errorf("DSS bad option length %d", opt.OptionLength)
+				}
+				var lenOpt uint8 = 4
+				if opt.OptionMPTCPDss.A { // Data ACK present
+					if opt.OptionMPTCPDss.a { // Data ACK is 8 octets
+						opt.OptionMPTCPDss.DataAck = data[lenOpt : lenOpt+OptionLenDssAck64]
+						lenOpt += OptionLenDssAck64
+					} else {
+						opt.OptionMPTCPDss.DataAck = data[lenOpt : lenOpt+OptionLenDssAck]
+						lenOpt += OptionLenDssAck
+					}
+				}
+				if opt.OptionMPTCPDss.M { // Data Sequence Number (DSN), Subflow Sequence Number (SSN), Data-Level Length, and Checksum (if negotiated) present
+					if opt.OptionMPTCPDss.m { // Data Sequence Number is 8 octets
+						opt.OptionMPTCPDss.DSN = data[lenOpt : lenOpt+OptionLenDssDSN64]
+						lenOpt += OptionLenDssDSN64
+					} else {
+						opt.OptionMPTCPDss.DSN = data[lenOpt : lenOpt+OptionLenDssDSN]
+						lenOpt += OptionLenDssDSN
+					}
+					opt.OptionMPTCPDss.SSN = binary.BigEndian.Uint32(data[lenOpt : lenOpt+OptionLenDssSSN])
+					lenOpt += OptionLenDssSSN
+					opt.OptionMPTCPDss.DataLength = binary.BigEndian.Uint16(data[lenOpt : lenOpt+OptionLenDssDataLen])
+					lenOpt += OptionLenDssDataLen
+					if opt.OptionLength-lenOpt == 2 { // Checksum present
+						opt.OptionMPTCPDss.Checksum = binary.BigEndian.Uint16(data[lenOpt : lenOpt+OptionLenDssCSum])
+					}
+				}
+			case MPTCPSubtypeADDADDR:
+				var mptcpVer uint8
+				var bitE bool
+				lenOpt := opt.OptionLength
+
+				if data[2]&0x0F > 1 {
+					mptcpVer = MptcpVersion0
+				} else {
+					mptcpVer = MptcpVersion1
+					bitE = data[2]&0x01 != 0
+				}
+				if !isValidOptionMptcpAddAddrlen(opt.OptionLength, mptcpVer, bitE) {
+					return fmt.Errorf("ADD_ADDR bad option length %d", opt.OptionLength)
+				}
+				switch mptcpVer {
+				case MptcpVersion0:
+					opt.OptionMPTCPAddAddr = &AddAddr{
+						IPVer:  data[2] & 0x0F,
+						AddrID: data[3],
+					}
+				case MptcpVersion1:
+					opt.OptionMPTCPAddAddr = &AddAddr{
+						E:      data[2]&0x01 != 0,
+						AddrID: data[3],
+					}
+					if !opt.OptionMPTCPAddAddr.E {
+						opt.OptionMPTCPAddAddr.SendHMAC = data[opt.OptionLength-8:]
+						lenOpt -= OptionLenAddAddrHmac
+					}
+				}
+				switch lenOpt {
+				case OptionLenAddAddrv4:
+					opt.OptionMPTCPAddAddr.Address = data[4:8]
+				case OptionLenAddAddrv4 + OptionLenAddAddrPort:
+					opt.OptionMPTCPAddAddr.Address = data[4:8]
+					opt.OptionMPTCPAddAddr.Port = binary.BigEndian.Uint16(data[8:10])
+				case OptionLenAddAddrv6:
+					opt.OptionMPTCPAddAddr.Address = data[4:20]
+				case OptionLenAddAddrv6 + OptionLenAddAddrPort:
+					opt.OptionMPTCPAddAddr.Address = data[4:20]
+					opt.OptionMPTCPAddAddr.Port = binary.BigEndian.Uint16(data[20:22])
+				}
+			case MPTCPSubtypeREMOVEADDR:
+				if opt.OptionLength < OptionLenRemAddr {
+					return fmt.Errorf("Rem_ADDR bad option length %d", opt.OptionLength)
+				}
+				var addrIds []uint8
+				var n uint8
+				for n = 0; n < opt.OptionLength-3; n++ {
+					addrIds = append(addrIds, data[3+n])
+				}
+				opt.OptionMTCPRemAddr = &RemAddr{
+					AddrIDs: addrIds,
+				}
+			case MPTCPSubtypeMPPRIO:
+				if opt.OptionLength != OptionLenMpPrio && opt.OptionLength != OptionLenMpPrioAddr {
+					return fmt.Errorf("MP_PRIO bad option length %d", opt.OptionLength)
+				}
+				opt.OptionMPTCPMpPrio = &MPPrio{
+					Backup: data[2]&0x01 != 0,
+				}
+				if opt.OptionLength == OptionLenMpPrioAddr {
+					opt.OptionMPTCPMpPrio.AddrID = data[3]
+				}
+			case MPTCPSubtypeMPFAIL:
+				if opt.OptionLength != OptionLenMpFail {
+					return fmt.Errorf("MP_FAIL bad option length %d", opt.OptionLength)
+				}
+				opt.OptionMTCPMPFail = &MPFail{
+					DSN: binary.BigEndian.Uint64(data[4:OptionLenMpFail]),
+				}
+
+			case MPTCPSubtypeMPFASTCLOSE:
+				if opt.OptionLength != OptionLenMpFClose {
+					return fmt.Errorf("MP_FASTCLOSE bad option length %d", opt.OptionLength)
+				}
+				opt.OptionMTCPMPFastClose = &MPFClose{
+					ReceivKey: data[4:OptionLenMpFClose],
+				}
+			case MPTCPSubtypeMPTCPRST:
+				if opt.OptionLength != OptionLenMpTcpRst {
+					return fmt.Errorf("MP_TCPRST bad option length %d", opt.OptionLength)
+				}
+				opt.OptionMPTCPMPTcpRst = &MPTcpRst{
+					U:      data[2]&0x08 != 0,
+					V:      data[2]&0x04 != 0,
+					W:      data[2]&0x02 != 0,
+					T:      data[2]&0x01 != 0,
+					Reason: data[3],
+				}
+			}
 		default:
 			if len(data) < 2 {
 				df.SetTruncated()
@@ -303,6 +545,40 @@ OPTIONS:
 		data = data[opt.OptionLength:]
 	}
 	return nil
+}
+
+func optionMptcpDsslen(OptionMPTCPDss *Dss, csum bool) uint8 {
+	var len uint8 = 4
+	if OptionMPTCPDss.A { // Data ACK
+		len += 4
+		if OptionMPTCPDss.a {
+			len += 4
+		} // Data ACK 8 octets
+	}
+	if OptionMPTCPDss.M { // DSN (4)+ SSN (4) + Data-Level Length (2) = 10
+		len += 10
+		if OptionMPTCPDss.m {
+			len += 4
+		} // DSN 8 octets
+		if csum {
+			len += 2
+		}
+	}
+	return len
+}
+
+func isValidOptionMptcpAddAddrlen(length uint8, mptcpVer uint8, hmac bool) bool {
+	var ret bool
+	switch mptcpVer {
+	case MptcpVersion0:
+		ret = length == OptionLenAddAddrv4 || length == OptionLenAddAddrv4+OptionLenAddAddrPort || length == OptionLenAddAddrv6 || length == OptionLenAddAddrv6+OptionLenAddAddrPort
+	case MptcpVersion1:
+		if !hmac {
+			length -= OptionLenAddAddrHmac
+		}
+		ret = length == OptionLenAddAddrv4 || length == OptionLenAddAddrv4+OptionLenAddAddrPort || length == OptionLenAddAddrv6 || length == OptionLenAddAddrv6+OptionLenAddAddrPort
+	}
+	return ret
 }
 
 func (t *TCP) CanDecode() gopacket.LayerClass {

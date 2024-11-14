@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"flag"
 	"io"
 	"os"
 	"os/exec"
@@ -20,8 +21,11 @@ import (
 	"time"
 
 	"github.com/cilium/hive/script"
+	"golang.org/x/exp/slices"
 	"golang.org/x/tools/txtar"
 )
+
+var updateFlag = flag.Bool("scripttest.update", false, "Update scripttest files")
 
 // DefaultCmds returns a set of broadly useful script commands.
 //
@@ -150,7 +154,7 @@ func CachedExec() script.Cond {
 		})
 }
 
-func Test(t *testing.T, ctx context.Context, newEngine func(testing.TB) *script.Engine, env []string, pattern string) {
+func Test(t *testing.T, ctx context.Context, newEngine func(tb testing.TB, args []string) *script.Engine, env []string, pattern string) {
 	gracePeriod := 100 * time.Millisecond
 	if deadline, ok := t.Deadline(); ok {
 		timeout := time.Until(deadline)
@@ -181,6 +185,8 @@ func Test(t *testing.T, ctx context.Context, newEngine func(testing.TB) *script.
 	}
 	for _, file := range files {
 		file := file
+		wd, _ := os.Getwd()
+		absFile := filepath.Join(wd, file)
 		name := strings.TrimSuffix(filepath.Base(file), ".txt")
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -190,12 +196,24 @@ func Test(t *testing.T, ctx context.Context, newEngine func(testing.TB) *script.
 			if err != nil {
 				t.Fatal(err)
 			}
+			s.DoUpdate = *updateFlag
 
 			// Unpack archive.
 			a, err := txtar.ParseFile(file)
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			// Extract args from a shebang line, e.g.:
+			// #! -foo=1 -bar=true
+			// => ["-foo=1", "-bar=true"]
+			var args []string
+			if shebang, found := strings.CutPrefix(string(a.Comment), "#!"); found {
+				shebang, _, _ = strings.Cut(shebang, "\n")
+				shebang = strings.TrimSpace(shebang)
+				args = strings.Split(shebang, " ")
+			}
+
 			initScriptDirs(t, s)
 			if err := s.ExtractFiles(a); err != nil {
 				t.Fatal(err)
@@ -209,7 +227,27 @@ func Test(t *testing.T, ctx context.Context, newEngine func(testing.TB) *script.
 			// editors that can jump to file:line references in the output
 			// will work better seeing the full path relative to cmd/go
 			// (where the "go test" command is usually run).
-			Run(t, newEngine(t), s, file, bytes.NewReader(a.Comment))
+			Run(t, newEngine(t, args), s, file, bytes.NewReader(a.Comment))
+
+			if *updateFlag {
+				updated := false
+				for name, contents := range s.FileUpdates {
+					idx := slices.IndexFunc(a.Files, func(f txtar.File) bool { return f.Name == name })
+					if idx < 0 {
+						continue
+					}
+					a.Files[idx].Data = []byte(contents)
+					t.Logf("Updated %q", name)
+					updated = true
+				}
+				if updated {
+					err := os.WriteFile(absFile, txtar.Format(a), 0644)
+					if err != nil {
+						t.Fatal(err)
+					}
+					t.Logf("Wrote %q", absFile)
+				}
+			}
 		})
 	}
 }

@@ -9,7 +9,41 @@ package layers
 import (
 	"encoding/binary"
 	"errors"
+
 	"github.com/gopacket/gopacket"
+)
+
+// TLS Extensions http://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
+type TLSExtension uint16
+
+const (
+	TLSExtServerName           TLSExtension = 0
+	TLSExtMaxFragLen           TLSExtension = 1
+	TLSExtClientCertURL        TLSExtension = 2
+	TLSExtTrustedCAKeys        TLSExtension = 3
+	TLSExtTruncatedHMAC        TLSExtension = 4
+	TLSExtStatusRequest        TLSExtension = 5
+	TLSExtUserMapping          TLSExtension = 6
+	TLSExtClientAuthz          TLSExtension = 7
+	TLSExtServerAuthz          TLSExtension = 8
+	TLSExtCertType             TLSExtension = 9
+	TLSExtSupportedGroups      TLSExtension = 10
+	TLSExtECPointFormats       TLSExtension = 11
+	TLSExtSRP                  TLSExtension = 12
+	TLSExtSignatureAlgs        TLSExtension = 13
+	TLSxtUseSRTP               TLSExtension = 14
+	TLSExtHeartbeat            TLSExtension = 15
+	TLSExtALPN                 TLSExtension = 16
+	TLSExtStatusRequestV2      TLSExtension = 17
+	TLSExtSignedCertTS         TLSExtension = 18
+	TLSExtClientCertType       TLSExtension = 19
+	TLSExtServerCertType       TLSExtension = 20
+	TLSExtPadding              TLSExtension = 21
+	TLSExtEncryptThenMAC       TLSExtension = 22
+	TLSExtExtendedMasterSecret TLSExtension = 23
+	TLSExtSessionTicket        TLSExtension = 35
+	TLSExtNPN                  TLSExtension = 13172
+	TLSExtRenegotiationInfo    TLSExtension = 65281
 )
 
 /*refer to https://datatracker.ietf.org/doc/html/rfc5246#appendix-A.4*/
@@ -54,6 +88,7 @@ type TLSHandshakeRecordClientHello struct {
 	CompressionMethods       []uint8
 	ExtensionsLength         uint16
 	Extensions               []uint8
+	SNI                      []uint8
 }
 
 type TLSHandshakeRecordClientKeyChange struct {
@@ -82,7 +117,35 @@ func (t *TLSHandshakeRecordClientHello) decodeFromBytes(data []byte, df gopacket
 	t.CompressionMethodsLength = data[(39 + uint16(t.SessionIDLength) + 2 + t.CipherSuitsLength)]
 	t.CompressionMethods = data[(39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1 : (39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength)]
 	t.ExtensionsLength = binary.BigEndian.Uint16(data[(39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength) : (39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength)+2])
-	t.Extensions = data[((39 + uint16(t.SessionIDLength) + 2 + t.CipherSuitsLength) + 1 + uint16(t.CompressionMethodsLength) + 2) : ((39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength)+2)+t.ExtensionsLength]
+
+	// extract extension data
+	data = data[((39 + uint16(t.SessionIDLength) + 2 + t.CipherSuitsLength) + 1 + uint16(t.CompressionMethodsLength) + 2) : ((39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength)+2)+t.ExtensionsLength]
+	t.Extensions = data
+	for len(data) > 0 {
+		if len(data) < 4 {
+			break
+		}
+		extensionType := binary.BigEndian.Uint16(data[:2])
+		length := binary.BigEndian.Uint16(data[2:4])
+		if len(data) < 4+int(length) {
+			break
+		}
+		switch TLSExtension(extensionType) {
+		case TLSExtServerName:
+			if len(data) > 6 {
+				serverNameExtensionLength := binary.BigEndian.Uint16(data[4:6])
+				entryType := data[6]
+				if serverNameExtensionLength > 0 && entryType == 0 && len(data) > 8 { // 0 = DNS hostname
+					hostnameLength := binary.BigEndian.Uint16(data[7:9])
+					if len(data) > int(8+hostnameLength) {
+						t.SNI = data[9 : 9+hostnameLength]
+					}
+				}
+			}
+		}
+		data = data[4+length:]
+	}
+
 	return nil
 }
 func (t *TLSHandshakeRecordClientKeyChange) decodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {

@@ -43,7 +43,7 @@ func TestScript(t *testing.T) {
 	log := hivetest.Logger(t)
 	scripttest.Test(t,
 		context.Background(),
-		func(t testing.TB) *script.Engine {
+		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,

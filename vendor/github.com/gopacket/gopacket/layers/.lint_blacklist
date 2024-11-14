@@ -15,6 +15,7 @@ linux_sll.go
 llc.go
 lldp.go
 mpls.go
+multipathtcp.go
 ndp.go
 ntp.go
 ospf.go
