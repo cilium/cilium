@@ -259,7 +259,7 @@ func Test_NodeLabels(t *testing.T) {
 		t.Run(tt.description, func(t *testing.T) {
 			req := require.New(t)
 
-			f, watcherReady := newFixture(ctx, req)
+			f, watcherReady := newFixture(ctx, req, true)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -528,7 +528,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	f, watchersReady := newFixture(ctx, require.New(t))
+	f, watchersReady := newFixture(ctx, require.New(t), true)
 
 	tlog := hivetest.Logger(t)
 	f.hive.Start(tlog, ctx)
@@ -751,7 +751,7 @@ func TestClusterConfigConditions(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(ctx, require.New(t))
+			f, watchersReady := newFixture(ctx, require.New(t), true)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -989,7 +989,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
 
-			f, watchersReady := newFixture(ctx, require.New(t))
+			f, watchersReady := newFixture(ctx, require.New(t), true)
 
 			tlog := hivetest.Logger(t)
 			f.hive.Start(tlog, ctx)
@@ -1089,6 +1089,52 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 			}, time.Second*3, time.Millisecond*100)
 		})
 	}
+}
+
+func TestDisableClusterConfigStatusReport(t *testing.T) {
+	req := require.New(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	f, watchersReady := newFixture(ctx, require.New(t), false)
+
+	tlog := hivetest.Logger(t)
+	f.hive.Start(tlog, ctx)
+	defer f.hive.Stop(tlog, ctx)
+
+	watchersReady()
+
+	clusterConfig := &cilium_api_v2alpha1.CiliumBGPClusterConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "config0",
+		},
+		Spec: cilium_api_v2alpha1.CiliumBGPClusterConfigSpec{},
+		Status: cilium_api_v2alpha1.CiliumBGPClusterConfigStatus{
+			Conditions: []meta_v1.Condition{},
+		},
+	}
+
+	// Fill with all known conditions
+	for _, cond := range cilium_api_v2alpha1.AllBGPClusterConfigConditions {
+		clusterConfig.Status.Conditions = append(clusterConfig.Status.Conditions, meta_v1.Condition{
+			Type: cond,
+		})
+	}
+
+	// Setup resourses with status
+	upsertBGPCC(req, ctx, f, clusterConfig)
+
+	// Wait for status to be cleared
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		// Check conditions
+		cc, err := f.bgpcClient.Get(ctx, clusterConfig.Name, meta_v1.GetOptions{})
+		if !assert.NoError(ct, err, "Cannot get cluster config") {
+			return
+		}
+
+		assert.Empty(ct, cc.Status.Conditions, "Conditions are not cleared")
+	}, time.Second*3, time.Millisecond*100)
 }
 
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *cilium_api_v2.CiliumNode) {

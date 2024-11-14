@@ -157,7 +157,8 @@ type CiliumBGPClusterConfigStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// Conditions for CiliumBGPClusterConfig
+// Conditions for CiliumBGPClusterConfig. When you add a new condition, don't
+// forget to update the AllBGPClusterConfigConditions list as well.
 const (
 	// Node selector selects nothing
 	BGPClusterConfigConditionNoMatchingNode = "cilium.io/NoMatchingNode"
@@ -166,3 +167,9 @@ const (
 	// ClusterConfig with conflicting nodeSelector present
 	BGPClusterConfigConditionConflictingClusterConfigs = "cilium.io/ConflictingClusterConfig"
 )
+
+var AllBGPClusterConfigConditions = []string{
+	BGPClusterConfigConditionNoMatchingNode,
+	BGPClusterConfigConditionMissingPeerConfigs,
+	BGPClusterConfigConditionConflictingClusterConfigs,
+}

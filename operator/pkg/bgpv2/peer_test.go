@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,15 +37,20 @@ type peerConfigTestFixture struct {
 	peerConfigResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
 }
 
-func newPeerConfigTestFixture(t *testing.T, ctx context.Context) (*peerConfigTestFixture, func()) {
+func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusReport bool) (*peerConfigTestFixture, func()) {
 	f := &peerConfigTestFixture{}
 
-	rws := map[string]*struct {
+	type watchSync struct {
 		once    sync.Once
 		watchCh chan any
-	}{
-		"secrets":              {watchCh: make(chan any)},
+	}
+
+	rws := map[string]*watchSync{
 		"ciliumbgppeerconfigs": {watchCh: make(chan any)},
+	}
+
+	if enableStatusReport {
+		rws["secrets"] = &watchSync{watchCh: make(chan any)}
 	}
 
 	reactorFn := func(tracker k8sTesting.ObjectTracker) func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
@@ -86,7 +92,7 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context) (*peerConfigTes
 					return &option.DaemonConfig{
 						EnableBGPControlPlane:             true,
 						BGPSecretsNamespace:               "kube-system",
-						EnableBGPControlPlaneStatusReport: true,
+						EnableBGPControlPlaneStatusReport: enableStatusReport,
 					}
 				},
 			),
@@ -175,7 +181,7 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				cancel()
 			})
 
-			f, ready := newPeerConfigTestFixture(t, ctx)
+			f, ready := newPeerConfigTestFixture(t, ctx, true)
 
 			f.hive.Start(slog.Default(), ctx)
 			t.Cleanup(func() {
@@ -218,4 +224,62 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 			}, time.Second*3, time.Millisecond*100)
 		})
 	}
+}
+
+func TestDisablePeerConfigStatusReport(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	t.Cleanup(func() {
+		cancel()
+	})
+
+	f, ready := newPeerConfigTestFixture(t, ctx, false)
+
+	logger := hivetest.Logger(t)
+
+	f.hive.Start(logger, ctx)
+	t.Cleanup(func() {
+		f.hive.Stop(logger, ctx)
+	})
+
+	ready()
+
+	peerConfig := &cilium_api_v2alpha1.CiliumBGPPeerConfig{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: "config0",
+		},
+		Spec: cilium_api_v2alpha1.CiliumBGPPeerConfigSpec{
+			AuthSecretRef: ptr.To("secret0"),
+		},
+		Status: cilium_api_v2alpha1.CiliumBGPPeerConfigStatus{
+			Conditions: []meta_v1.Condition{},
+		},
+	}
+
+	// Fill with all known conditions
+	for _, cond := range cilium_api_v2alpha1.AllBGPPeerConfigConditions {
+		peerConfig.Status.Conditions = append(peerConfig.Status.Conditions, meta_v1.Condition{
+			Type: cond,
+		})
+	}
+
+	_, err := f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeerConfigs().Create(
+		ctx, peerConfig, meta_v1.CreateOptions{},
+	)
+	require.NoError(t, err)
+
+	peerConfigStore, err := f.peerConfigResource.Store(ctx)
+	require.NoError(t, err)
+
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		pc, exists, err := peerConfigStore.GetByKey(resource.Key{
+			Name: peerConfig.Name,
+		})
+		if !assert.NoError(ct, err, "Failed to get peer config") {
+			return
+		}
+		if !assert.True(ct, exists, "Peer config not found") {
+			return
+		}
+		assert.Empty(ct, pc.Status.Conditions, "Conditions are not cleared")
+	}, time.Second*3, time.Millisecond*100)
 }
