@@ -84,8 +84,9 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context) (*peerConfigTes
 				k8s.CiliumBGPPeerConfigResource,
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
-						EnableBGPControlPlane: true,
-						BGPSecretsNamespace:   "kube-system",
+						EnableBGPControlPlane:             true,
+						BGPSecretsNamespace:               "kube-system",
+						EnableBGPControlPlaneStatusReport: true,
 					}
 				},
 			),

@@ -68,7 +68,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 		return StatusReconcilerOut{}
 	}
 	// CRD Status reconciler is disabled if there is no kubernetes support
-	if !in.ClientSet.IsEnabled() {
+	if !in.ClientSet.IsEnabled() || !in.DaemonConfig.EnableBGPControlPlaneStatusReport {
 		return StatusReconcilerOut{}
 	}
 

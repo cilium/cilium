@@ -40,7 +40,7 @@ type peerConfigStatusReconcilerIn struct {
 }
 
 func registerPeerConfigStatusReconciler(in peerConfigStatusReconcilerIn) {
-	if !in.DaemonConfig.BGPControlPlaneEnabled() {
+	if !in.DaemonConfig.BGPControlPlaneEnabled() || !in.DaemonConfig.EnableBGPControlPlaneStatusReport {
 		return
 	}
 

@@ -133,9 +133,10 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
-				EnableBGPControlPlane: true,
-				Debug:                 true,
-				BGPSecretsNamespace:   "kube-system",
+				EnableBGPControlPlane:             true,
+				Debug:                             true,
+				BGPSecretsNamespace:               "kube-system",
+				EnableBGPControlPlaneStatusReport: true,
 			}
 		}),
 
