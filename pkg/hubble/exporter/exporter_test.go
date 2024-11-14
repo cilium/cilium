@@ -17,7 +17,6 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -52,7 +51,7 @@ func TestExporter(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	opts := exporteroption.Default
+	opts := DefaultOptions
 	opts.NewWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
@@ -124,14 +123,14 @@ func TestExporterWithFilters(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	opts := exporteroption.Default
+	opts := DefaultOptions
 	opts.NewWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
 
-	for _, opt := range []exporteroption.Option{
-		exporteroption.WithAllowList(log, []*flowpb.FlowFilter{allowFilterPod}),
-		exporteroption.WithDenyList(log, []*flowpb.FlowFilter{denyFilterPod, denyFilterNamespace}),
+	for _, opt := range []Option{
+		WithAllowList(log, []*flowpb.FlowFilter{allowFilterPod}),
+		WithDenyList(log, []*flowpb.FlowFilter{denyFilterPod, denyFilterNamespace}),
 	} {
 		err := opt(&opts)
 		assert.NoError(t, err)
@@ -171,7 +170,7 @@ func TestEventToExportEvent(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	opts := exporteroption.Default
+	opts := DefaultOptions
 	opts.NewWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
@@ -254,12 +253,12 @@ func TestExporterWithFieldMask(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	opts := exporteroption.Default
+	opts := DefaultOptions
 	opts.NewWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
-	for _, opt := range []exporteroption.Option{
-		exporteroption.WithFieldMask([]string{"source"}),
+	for _, opt := range []Option{
+		WithFieldMask([]string{"source"}),
 	} {
 		err := opt(&opts)
 		assert.NoError(t, err)
@@ -284,7 +283,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 
 type boolOnExportEvent bool
 
-func (e *boolOnExportEvent) OnExportEvent(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
+func (e *boolOnExportEvent) OnExportEvent(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error) {
 	*e = true
 	return false, nil
 }
@@ -319,17 +318,17 @@ func TestExporterOnExportEvent(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	opts := exporteroption.Default
+	opts := DefaultOptions
 	opts.NewWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
-	for _, opt := range []exporteroption.Option{
-		exporteroption.WithOnExportEvent(&hookStruct),
-		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
+	for _, opt := range []Option{
+		WithOnExportEvent(&hookStruct),
+		WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error) {
 			hookNoOpFuncCalled = true
 			return false, nil
 		}),
-		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
+		WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error) {
 			if agentEventExported {
 				abortRequested = true
 				return true, nil
@@ -338,7 +337,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 			agentEvent := &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 3}, Event: &observerpb.AgentEvent{}}
 			return false, encoder.Encode(agentEvent)
 		}),
-		exporteroption.WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder exporteroption.Encoder) (stop bool, err error) {
+		WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error) {
 			if abortRequested {
 				// not reachable
 				hookNoOpFuncCalledAfterAbort = true
@@ -440,17 +439,17 @@ func BenchmarkExporter(b *testing.B) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	opts := exporteroption.Default
+	opts := DefaultOptions
 	opts.NewWriterFunc = func() (io.WriteCloser, error) {
 		return buf, nil
 	}
-	for _, opt := range []exporteroption.Option{
-		exporteroption.WithFieldMask([]string{"time", "node_name", "source"}),
-		exporteroption.WithAllowList(log, []*flowpb.FlowFilter{
+	for _, opt := range []Option{
+		WithFieldMask([]string{"time", "node_name", "source"}),
+		WithAllowList(log, []*flowpb.FlowFilter{
 			{SourcePod: []string{"no-matches-for-this-one"}},
 			{SourcePod: []string{allowNS + "/"}},
 		}),
-		exporteroption.WithDenyList(log, []*flowpb.FlowFilter{
+		WithDenyList(log, []*flowpb.FlowFilter{
 			{DestinationPod: []string{"no-matches-for-this-one"}},
 			{DestinationPod: []string{denyNS + "/"}},
 		}),

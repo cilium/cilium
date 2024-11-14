@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package exporteroption
+package exporter
 
 import (
 	"io"
@@ -10,6 +10,9 @@ import (
 
 	"github.com/cilium/lumberjack/v2"
 )
+
+// NewWriterFunc is a io.WriteCloser constructor.
+type NewWriterFunc func() (io.WriteCloser, error)
 
 // FileWriterConfig is the configuration for creating a FileWriter.
 type FileWriterConfig struct {
@@ -48,9 +51,9 @@ type FileWriterConfig struct {
 	FileMode fs.FileMode
 }
 
-// FileWriter returns an io.WriteCloser for a file with advanced capabilities such as automatic file
-// roration and compression.
-func FileWriter(config FileWriterConfig) NewWriterFunc {
+// FileWriter is a NewWriterFunc that returns an io.WriteCloser for a file with advanced
+// capabilities such as automatic file rotation and compression.
+func FileWriter(config FileWriterConfig) func() (io.WriteCloser, error) {
 	return func() (io.WriteCloser, error) {
 		return &lumberjack.Logger{
 			Filename:   config.Filename,
