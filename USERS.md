@@ -509,6 +509,11 @@ Users (Alphabetically)
       U: bpf2go to compile a C source file into eBPF bytecode and then to Go
       L: https://netbird.io/knowledge-hub/using-xdp-ebpf-to-share-default-dns-port-between-resolvers
       Q: @braginini
+
+    * N: Netcloud AG
+      D: As a Swiss ICT company we are using Cilium as their CNI for mission critical, on premise k8s clusters.
+      U: Overlay Networking, CNI, Network Policy, Kube-Proxy Replacement, Service load-balancing
+      L: https://www.netcloud.ch
       
     * N: NETWAYS Web Services
       D: NETWAYS Web Services offers Cilium to their clients as CNI option for their Managed Kubernetes clusters.
