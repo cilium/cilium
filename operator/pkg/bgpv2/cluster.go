@@ -45,12 +45,12 @@ func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, conf
 		errs = errors.Join(err)
 	}
 
+	updateStatus := false
 	if b.enableStatusReporting {
 		// Collect the missing peerConfig references
 		missingPCs := b.missingPeerConfigs(config)
 
 		// Update ClusterConfig conditions
-		updateStatus := false
 		if changed := b.updateNoMatchingNodeCondition(config, len(matchingNodes) == 0); changed {
 			updateStatus = true
 		}
@@ -60,18 +60,27 @@ func (b *BGPResourceManager) reconcileBGPClusterConfig(ctx context.Context, conf
 		if changed := b.updateConflictingClusterConfigsCondition(config, conflictingClusterConfigs); changed {
 			updateStatus = true
 		}
+	} else {
+		// If the status reporting is disabled, we need to ensure all
+		// conditions managed by this controller are removed.
+		// Otherwise, users may see the stale conditions which were
+		// reported previously.
+		for _, cond := range v2alpha1.AllBGPClusterConfigConditions {
+			if removed := meta.RemoveStatusCondition(&config.Status.Conditions, cond); removed {
+				updateStatus = true
+			}
+		}
+	}
 
+	// Call API only when there's a condition change
+	if updateStatus {
 		// Sort conditions to the stable order
 		slices.SortStableFunc(config.Status.Conditions, func(a, b meta_v1.Condition) int {
 			return strings.Compare(a.Type, b.Type)
 		})
-
-		// Call API only when there's a condition change
-		if updateStatus {
-			_, err := b.clientset.CiliumV2alpha1().CiliumBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
-			if err != nil {
-				errs = errors.Join(errs, err)
-			}
+		_, err := b.clientset.CiliumV2alpha1().CiliumBGPClusterConfigs().UpdateStatus(ctx, config, meta_v1.UpdateOptions{})
+		if err != nil {
+			errs = errors.Join(errs, err)
 		}
 	}
 
