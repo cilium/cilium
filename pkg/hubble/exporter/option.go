@@ -1,46 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package exporteroption
+package exporter
 
 import (
 	"context"
-	"io"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
 )
 
-// NewWriterFunc is a io.WriteCloser constructor.
-type NewWriterFunc func() (io.WriteCloser, error)
-
-// NewEncoderFunc is an Encoder constructor.
-type NewEncoderFunc func(writer io.Writer) (Encoder, error)
-
-// Encoder provides encoding capabilities for arbitrary data.
-type Encoder interface {
-	Encode(v any) error
-}
-
-// OnExportEvent is a hook that can be registered on an exporter and is invoked for each event.
-//
-// Returning false will stop the export pipeline for the current event, meaning the default export
-// logic as well as the following hooks will not run.
-type OnExportEvent interface {
-	OnExportEvent(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error)
-}
-
-// OnExportEventFunc implements OnExportEvent for a single function.
-type OnExportEventFunc func(ctx context.Context, ev *v1.Event, encoder Encoder) (stop bool, err error)
-
-// OnExportEventFunc implements OnExportEvent.
-func (f OnExportEventFunc) OnExportEvent(ctx context.Context, ev *v1.Event, encoder Encoder) (bool, error) {
-	return f(ctx, ev, encoder)
+// DefaultOptions specifies default values for Hubble exporter options.
+var DefaultOptions = Options{
+	NewWriterFunc:  StdoutNoOpWriter,
+	NewEncoderFunc: JsonEncoder,
 }
 
 // Options stores all the configurations values for Hubble exporter.

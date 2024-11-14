@@ -15,7 +15,6 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 )
 
@@ -106,13 +105,13 @@ func NewHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 		return hubbleExportersOut{}, nil
 	}
 
-	exporterOpts := []exporteroption.Option{
-		exporteroption.WithAllowList(params.Logger, params.Config.ExportAllowlist),
-		exporteroption.WithDenyList(params.Logger, params.Config.ExportDenylist),
-		exporteroption.WithFieldMask(params.Config.ExportFieldmask),
+	exporterOpts := []exporter.Option{
+		exporter.WithAllowList(params.Logger, params.Config.ExportAllowlist),
+		exporter.WithDenyList(params.Logger, params.Config.ExportDenylist),
+		exporter.WithFieldMask(params.Config.ExportFieldmask),
 	}
 	if params.Config.ExportFilePath != "stdout" {
-		exporterOpts = append(exporterOpts, exporteroption.WithNewWriterFunc(exporteroption.FileWriter(exporteroption.FileWriterConfig{
+		exporterOpts = append(exporterOpts, exporter.WithNewWriterFunc(exporter.FileWriter(exporter.FileWriterConfig{
 			Filename:   params.Config.ExportFilePath,
 			MaxSize:    params.Config.ExportFileMaxSizeMB,
 			MaxBackups: params.Config.ExportFileMaxBackups,

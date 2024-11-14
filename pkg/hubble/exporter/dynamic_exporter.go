@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -125,13 +124,13 @@ func (d *DynamicExporter) onConfigReload(hash uint64, config DynamicExportersCon
 }
 
 func (d *DynamicExporter) newExporter(flowlog *FlowLogConfig) (*exporter, error) {
-	exporterOpts := []exporteroption.Option{
-		exporteroption.WithAllowList(d.logger, flowlog.IncludeFilters),
-		exporteroption.WithDenyList(d.logger, flowlog.ExcludeFilters),
-		exporteroption.WithFieldMask(flowlog.FieldMask),
+	exporterOpts := []Option{
+		WithAllowList(d.logger, flowlog.IncludeFilters),
+		WithDenyList(d.logger, flowlog.ExcludeFilters),
+		WithFieldMask(flowlog.FieldMask),
 	}
 	if flowlog.FilePath != "stdout" {
-		exporterOpts = append(exporterOpts, exporteroption.WithNewWriterFunc(exporteroption.FileWriter(exporteroption.FileWriterConfig{
+		exporterOpts = append(exporterOpts, WithNewWriterFunc(FileWriter(FileWriterConfig{
 			Filename:   flowlog.FilePath,
 			MaxSize:    d.maxFileSizeMB,
 			MaxBackups: d.maxBackups,
