@@ -22,7 +22,8 @@ var Cell = cell.Module(
 )
 
 func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
-	if !c.IsEnabled() || !dc.BGPControlPlaneEnabled() {
+	// Secret is only used for status reporting (MissingAuthSecret condition)
+	if !c.IsEnabled() || !dc.BGPControlPlaneEnabled() || !dc.EnableBGPControlPlaneStatusReport {
 		return nil
 	}
 	if dc.BGPSecretsNamespace == "" {

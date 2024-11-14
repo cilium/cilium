@@ -1087,6 +1087,9 @@ const (
 	// Flag to enable BGP control plane features
 	EnableBGPControlPlane = "enable-bgp-control-plane"
 
+	// EnableBGPControlPlaneStatusReport enables BGP Control Plane CRD status reporting
+	EnableBGPControlPlaneStatusReport = "enable-bgp-control-plane-status-report"
+
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -2176,6 +2179,9 @@ type DaemonConfig struct {
 
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
+
+	// Enables BGP control plane status reporting.
+	EnableBGPControlPlaneStatusReport bool
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
@@ -3272,6 +3278,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
+
+	// Enable BGP control plane status reporting
+	c.EnableBGPControlPlaneStatusReport = vp.GetBool(EnableBGPControlPlaneStatusReport)
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
