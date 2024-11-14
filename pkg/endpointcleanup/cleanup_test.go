@@ -277,5 +277,6 @@ func (r *fakeRestorer) Await(context.Context) (endpointstate.Restorer, error) {
 	return r, nil
 }
 
-func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) {
+func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {
+	return nil
 }

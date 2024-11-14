@@ -33,15 +33,17 @@ import (
 
 var syncLBMapsControllerGroup = controller.NewGroup("sync-lb-maps-with-k8s-services")
 
-func (d *Daemon) WaitForEndpointRestore(ctx context.Context) {
+func (d *Daemon) WaitForEndpointRestore(ctx context.Context) error {
 	if !option.Config.RestoreState {
-		return
+		return nil
 	}
 
 	select {
 	case <-ctx.Done():
+		return ctx.Err()
 	case <-d.endpointRestoreComplete:
 	}
+	return nil
 }
 
 type endpointRestoreState struct {
