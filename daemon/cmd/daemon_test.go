@@ -157,7 +157,6 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	ds.d, err = daemonPromise.Await(ctx)
 	require.NoError(tb, err)
 
-	kvstore.Client().DeletePrefix(ctx, kvstore.OperationalPath)
 	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
