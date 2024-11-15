@@ -89,6 +89,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 						d.endpointManager,
 						d.identityAllocator,
 						d.healthEndpointRouting,
+						d.ctMapGC,
 						sysctl,
 					)
 					if err == nil {

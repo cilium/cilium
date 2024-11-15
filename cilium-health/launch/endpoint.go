@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
@@ -227,6 +228,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	epMgr EndpointAdder,
 	allocator cache.IdentityAllocator,
 	routingConfig routingConfigurer,
+	ctMapGC ctmap.GCRunner,
 	sysctl sysctl.Sysctl,
 ) (*Client, error) {
 
@@ -317,7 +319,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, nil, allocator, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, nil, allocator, ctMapGC, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}

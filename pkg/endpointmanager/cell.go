@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -99,6 +100,7 @@ type EndpointsModify interface {
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
+		ctMapGC ctmap.GCRunner,
 	) error
 
 	AddHostEndpoint(
@@ -108,6 +110,7 @@ type EndpointsModify interface {
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
+		ctMapGC ctmap.GCRunner,
 	) error
 
 	// RestoreEndpoint exposes the specified endpoint to other subsystems via the

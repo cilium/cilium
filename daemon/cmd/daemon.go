@@ -185,6 +185,8 @@ type Daemon struct {
 	hubble          hubblecell.HubbleIntegration
 
 	lrpManager *redirectpolicy.Manager
+
+	ctMapGC ctmap.GCRunner
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -398,6 +400,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		iptablesManager:   params.IPTablesManager,
 		hubble:            params.Hubble,
 		lrpManager:        params.LRPManager,
+		ctMapGC:           params.CTNATMapGC,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems

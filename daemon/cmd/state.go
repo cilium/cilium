@@ -223,6 +223,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 		// kvstore because the local node's IP is used as a suffix for the key
 		// in the key-value store.
 		ep.SetAllocator(d.identityAllocator)
+		ep.SetCtMapGC(d.ctMapGC)
 
 		restore, err := d.validateEndpoint(ep)
 		if err != nil {
