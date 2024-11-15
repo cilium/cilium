@@ -475,11 +475,9 @@ func (es *EndpointSlices) GetEndpoints() *Endpoints {
 			if !ok {
 				allEps.Backends[backend] = ep.DeepCopy()
 			} else {
-				clone := b.DeepCopy()
 				for k, v := range ep.Ports {
-					clone.Ports[k] = v
+					b.Ports[k] = v.DeepCopy()
 				}
-				allEps.Backends[backend] = clone
 			}
 		}
 	}
