@@ -115,3 +115,23 @@ func (Generator) Help() *markers.DefinitionHelp {
 		},
 	}
 }
+
+func (WebhookConfig) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "",
+			Details: "",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"Mutating": {
+				Summary: "marks this as a mutating webhook (it's validating only if false)",
+				Details: "Mutating webhooks are allowed to change the object in their response,\nand are called *before* all validating webhooks.  Mutating webhooks may\nchoose to reject an object, similarly to a validating webhook.",
+			},
+			"Name": {
+				Summary: "indicates the name of the K8s MutatingWebhookConfiguration or ValidatingWebhookConfiguration object.",
+				Details: "",
+			},
+		},
+	}
+}
