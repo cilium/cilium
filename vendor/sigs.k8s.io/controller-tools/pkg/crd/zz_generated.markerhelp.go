@@ -38,7 +38,7 @@ func (Generator) Help() *markers.DefinitionHelp {
 			},
 			"AllowDangerousTypes": {
 				Summary: "allows types which are usually omitted from CRD generation",
-				Details: "because they are not recommended.\n\n\nCurrently the following additional types are allowed when this is true:\nfloat32\nfloat64\n\n\nLeft unspecified, the default is false",
+				Details: "because they are not recommended.\n\nCurrently the following additional types are allowed when this is true:\nfloat32\nfloat64\n\nLeft unspecified, the default is false",
 			},
 			"MaxDescLen": {
 				Summary: "specifies the maximum description length for fields in CRD's OpenAPI schema.",
@@ -46,7 +46,7 @@ func (Generator) Help() *markers.DefinitionHelp {
 			},
 			"CRDVersions": {
 				Summary: "specifies the target API versions of the CRD type itself to",
-				Details: "generate. Defaults to v1.\n\n\nCurrently, the only supported value is v1.\n\n\nThe first version listed will be assumed to be the \"default\" version and\nwill not get a version suffix in the output filename.\n\n\nYou'll need to use \"v1\" to get support for features like defaulting,\nalong with an API server that supports it (Kubernetes 1.16+).",
+				Details: "generate. Defaults to v1.\n\nCurrently, the only supported value is v1.\n\nThe first version listed will be assumed to be the \"default\" version and\nwill not get a version suffix in the output filename.\n\nYou'll need to use \"v1\" to get support for features like defaulting,\nalong with an API server that supports it (Kubernetes 1.16+).",
 			},
 			"GenerateEmbeddedObjectMeta": {
 				Summary: "specifies if any embedded ObjectMeta in the CRD should be generated",
@@ -62,7 +62,7 @@ func (Generator) Help() *markers.DefinitionHelp {
 			},
 			"DeprecatedV1beta1CompatibilityPreserveUnknownFields": {
 				Summary: "indicates whether",
-				Details: "or not we should turn off field pruning for this resource.\n\n\nSpecifies spec.preserveUnknownFields value that is false and omitted by default.\nThis value can only be specified for CustomResourceDefinitions that were created with\n`apiextensions.k8s.io/v1beta1`.\n\n\nThe field can be set for compatiblity reasons, although strongly discouraged, resource\nauthors should move to a structural OpenAPI schema instead.\n\n\nSee https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#field-pruning\nfor more information about field pruning and v1beta1 resources compatibility.",
+				Details: "or not we should turn off field pruning for this resource.\n\nSpecifies spec.preserveUnknownFields value that is false and omitted by default.\nThis value can only be specified for CustomResourceDefinitions that were created with\n`apiextensions.k8s.io/v1beta1`.\n\nThe field can be set for compatiblity reasons, although strongly discouraged, resource\nauthors should move to a structural OpenAPI schema instead.\n\nSee https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#field-pruning\nfor more information about field pruning and v1beta1 resources compatibility.",
 			},
 		},
 	}
