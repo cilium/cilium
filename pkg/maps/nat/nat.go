@@ -244,7 +244,11 @@ func (m *Map) Flush() int {
 	return int(doFlush6(m).deleted)
 }
 
-func DeleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
+func DeleteMapping4(m *Map, tk tuple.TupleKey) error {
+	ctKey, ok := tk.(*tuple.TupleKey4Global)
+	if !ok {
+		return fmt.Errorf("wrong type %T for key", tk)
+	}
 	key := NatKey4{
 		TupleKey4Global: *ctKey,
 	}
@@ -268,7 +272,11 @@ func DeleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 	return nil
 }
 
-func DeleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
+func DeleteMapping6(m *Map, tk tuple.TupleKey) error {
+	ctKey, ok := tk.(*tuple.TupleKey6Global)
+	if !ok {
+		return fmt.Errorf("wrong type %T for key", tk)
+	}
 	key := NatKey6{
 		TupleKey6Global: *ctKey,
 	}
@@ -293,7 +301,11 @@ func DeleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 }
 
 // Expects ingress tuple
-func DeleteSwappedMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
+func DeleteSwappedMapping4(m *Map, tk tuple.TupleKey) error {
+	ctKey, ok := tk.(*tuple.TupleKey4Global)
+	if !ok {
+		return fmt.Errorf("wrong type %T for key", tk)
+	}
 	key := NatKey4{TupleKey4Global: *ctKey}
 	// Because of #5848, we need to reverse only ports
 	port := key.SourcePort
@@ -306,7 +318,11 @@ func DeleteSwappedMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 }
 
 // Expects ingress tuple
-func DeleteSwappedMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
+func DeleteSwappedMapping6(m *Map, tk tuple.TupleKey) error {
+	ctKey, ok := tk.(*tuple.TupleKey6Global)
+	if !ok {
+		return fmt.Errorf("wrong type %T for key", tk)
+	}
 	key := NatKey6{TupleKey6Global: *ctKey}
 	// Because of #5848, we need to reverse only ports
 	port := key.SourcePort
