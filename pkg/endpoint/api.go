@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -55,12 +56,12 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
 
-	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, uint16(base.ID), base.InterfaceName)
+	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, uint16(base.ID), base.InterfaceName)
 	ep.ifIndex = int(base.InterfaceIndex)
 	ep.containerIfName = base.ContainerInterfaceName
 	ep.parentIfIndex = int(base.ParentInterfaceIndex)
