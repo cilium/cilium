@@ -191,6 +191,48 @@ type PurgeHook interface {
 
 var ACT PurgeHook
 
+type GCEvent struct {
+	Key    CtKey
+	Entry  *CtEntry
+	NatMap *nat.Map
+}
+
+type natDeleteFunc func(natMap *nat.Map, key tuple.TupleKey) error
+
+func NatMapNext4(event GCEvent) {
+	natMapNext(
+		event,
+		nat.DeleteMapping4,
+		nat.DeleteSwappedMapping4,
+	)
+}
+
+func NatMapNext6(event GCEvent) {
+	natMapNext(
+		event,
+		nat.DeleteMapping6,
+		nat.DeleteSwappedMapping6,
+	)
+}
+
+func natMapNext(event GCEvent, deleteMapping natDeleteFunc, deleteSwappedMapping natDeleteFunc) {
+	if event.NatMap == nil {
+		return
+	}
+
+	t := event.Key.GetTupleKey()
+	tupleType := t.GetFlags()
+
+	if tupleType == tuple.TUPLE_F_OUT {
+		// Check if the entry is for DSR and call the appropriate delete function
+		if event.Entry.isDsrInternalEntry() {
+			deleteSwappedMapping(event.NatMap, t)
+		} else {
+			deleteMapping(event.NatMap, t)
+		}
+	}
+}
+
 // DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
 // ct entries in m to a string. If clockSource is not nil, it uses it to
 // compute the time difference of each entry from now and prints that too.
@@ -336,7 +378,7 @@ func newMap(mapName string, m mapType) *Map {
 	return result
 }
 
-func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
+func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(GCEvent)) error {
 	err := m.Delete(key)
 	if err != nil {
 		return err
@@ -349,27 +391,18 @@ func purgeCtEntry6(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 		ACT.CountFailed6(entry.RevNAT, uint32(entry.BackendID))
 	}
 
-	if natMap == nil {
-		return nil
-	}
-
-	if tupleType == tuple.TUPLE_F_OUT {
-		if entry.isDsrInternalEntry() {
-			// To delete NAT entries created by DSR
-			nat.DeleteSwappedMapping6(natMap, t.(*tuple.TupleKey6Global))
-		} else {
-			// To delete NAT entries created for SNAT
-			nat.DeleteMapping6(natMap, t.(*tuple.TupleKey6Global))
-
-		}
-	}
+	next(GCEvent{
+		Key:    key,
+		Entry:  entry,
+		NatMap: natMap,
+	})
 
 	return nil
 }
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGC6(m *Map, filter GCFilter) gcStats {
+func doGC6(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 	var natMap *nat.Map
 
 	if m.clusterID == 0 {
@@ -417,7 +450,7 @@ func doGC6(m *Map, filter GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6Global, entry, natMap)
+				err := purgeCtEntry6(m, currentKey6Global, entry, natMap, next)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6Global.String()).Error("Unable to delete CT entry")
 				} else {
@@ -437,7 +470,7 @@ func doGC6(m *Map, filter GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6, entry, natMap)
+				err := purgeCtEntry6(m, currentKey6, entry, natMap, next)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6.String()).Error("Unable to delete CT entry")
 				} else {
@@ -458,7 +491,7 @@ func doGC6(m *Map, filter GCFilter) gcStats {
 	return stats
 }
 
-func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
+func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent)) error {
 	err := m.Delete(key)
 	if err != nil {
 		return err
@@ -471,26 +504,18 @@ func purgeCtEntry4(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map) error {
 		ACT.CountFailed4(entry.RevNAT, uint32(entry.BackendID))
 	}
 
-	if natMap == nil {
-		return nil
-	}
-
-	if tupleType == tuple.TUPLE_F_OUT {
-		if entry.isDsrInternalEntry() {
-			// To delete NAT entries created by DSR
-			nat.DeleteSwappedMapping4(natMap, t.(*tuple.TupleKey4Global))
-		} else {
-			// To delete NAT entries created for SNAT
-			nat.DeleteMapping4(natMap, t.(*tuple.TupleKey4Global))
-		}
-	}
+	next(GCEvent{
+		Key:    key,
+		Entry:  entry,
+		NatMap: natMap,
+	})
 
 	return nil
 }
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
-func doGC4(m *Map, filter GCFilter) gcStats {
+func doGC4(m *Map, filter GCFilter, next func(GCEvent)) gcStats {
 	var natMap *nat.Map
 
 	if m.clusterID == 0 {
@@ -537,7 +562,7 @@ func doGC4(m *Map, filter GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry4(m, currentKey4Global, entry, natMap)
+				err := purgeCtEntry4(m, currentKey4Global, entry, natMap, next)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey4Global.String()).Error("Unable to delete CT entry")
 				} else {
@@ -557,7 +582,7 @@ func doGC4(m *Map, filter GCFilter) gcStats {
 
 			switch action {
 			case deleteEntry:
-				err := purgeCtEntry4(m, currentKey4, entry, natMap)
+				err := purgeCtEntry4(m, currentKey4, entry, natMap, next)
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey4.String()).Error("Unable to delete CT entry")
 				} else {
@@ -599,12 +624,12 @@ func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, 
 	return noAction
 }
 
-func doGC(m *Map, filter GCFilter) (int, error) {
+func doGC(m *Map, filter GCFilter, next4 func(GCEvent), next6 func(GCEvent)) (int, error) {
 	if m.mapType.isIPv6() {
-		stats := doGC6(m, filter)
+		stats := doGC6(m, filter, next6)
 		return int(stats.deleted), stats.dumpError
 	} else if m.mapType.isIPv4() {
-		stats := doGC4(m, filter)
+		stats := doGC4(m, filter, next4)
 		return int(stats.deleted), stats.dumpError
 	}
 	log.Fatalf("Unsupported ct map type: %s", m.mapType.String())
@@ -613,13 +638,13 @@ func doGC(m *Map, filter GCFilter) (int, error) {
 
 // GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
-func GC(m *Map, filter GCFilter) (int, error) {
+func GC(m *Map, filter GCFilter, next4 func(GCEvent), next6 func(GCEvent)) (int, error) {
 	if filter.RemoveExpired {
 		t, _ := timestamp.GetCTCurTime(timestamp.GetClockSourceFromOptions())
 		filter.Time = uint32(t)
 	}
 
-	return doGC(m, filter)
+	return doGC(m, filter, next4, next6)
 }
 
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
@@ -718,11 +743,12 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 
 // Flush runs garbage collection for map m with the name mapType, deleting all
 // entries. The specified map must be already opened using bpf.OpenMap().
-func (m *Map) Flush() int {
+func (m *Map) Flush(next4 func(GCEvent), next6 func(GCEvent)) int {
 	d, _ := doGC(m, GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
-	})
+	}, next4, next6)
+
 	return d
 }
 

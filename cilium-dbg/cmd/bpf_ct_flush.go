@@ -4,10 +4,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
 
+	"github.com/cilium/stream"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/common"
@@ -45,6 +47,12 @@ func flushCt(eID string) {
 		id, _ := strconv.Atoi(eID)
 		maps = ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
 	}
+
+	observable4, next4, complete4 := stream.Multicast[ctmap.GCEvent]()
+	observable6, next6, complete6 := stream.Multicast[ctmap.GCEvent]()
+	observable4.Observe(context.Background(), ctmap.NatMapNext4, func(error) {})
+	observable6.Observe(context.Background(), ctmap.NatMapNext6, func(error) {})
+
 	for _, m := range maps {
 		path, err := ctmap.OpenCTMap(m)
 		if err != nil {
@@ -59,7 +67,10 @@ func flushCt(eID string) {
 			Fatalf("Unable to open %s: %s", path, err)
 		}
 		defer m.Close()
-		entries := m.Flush()
+		entries := m.Flush(next4, next6)
 		fmt.Printf("Flushed %d entries from %s\n", entries, path)
 	}
+
+	complete4(nil)
+	complete6(nil)
 }
