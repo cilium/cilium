@@ -120,6 +120,7 @@ func (e *exporter) eventToExportEvent(event *v1.Event) *observerpb.ExportEvent {
 }
 
 func (e *exporter) Stop() error {
+	e.logger.Debug("hubble flow exporter stopping")
 	if e.writer == nil {
 		// Already stoppped
 		return nil
@@ -143,6 +144,20 @@ func (e *exporter) OnDecodedEvent(ctx context.Context, ev *v1.Event) (bool, erro
 	if !filters.Apply(e.opts.AllowFilters(), e.opts.DenyFilters(), ev) {
 		return false, nil
 	}
+
+	// Process OnExportEvent hooks
+	for _, f := range e.opts.OnExportEvent {
+		stop, err := f.OnExportEvent(ctx, ev, e.encoder)
+		if err != nil {
+			e.logger.WithError(err).Warn("OnExportEvent failed")
+		}
+		if stop {
+			// abort exporter pipeline by returning early but do not prevent
+			// other OnDecodedEvent hooks from firing
+			return false, nil
+		}
+	}
+
 	res := e.eventToExportEvent(ev)
 	if res == nil {
 		return false, nil
