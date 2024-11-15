@@ -821,7 +821,7 @@ github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.24.0
 ## explicit; go 1.20
 github.com/go-openapi/validate
-# github.com/gobuffalo/flect v1.0.2
+# github.com/gobuffalo/flect v1.0.3
 ## explicit; go 1.16
 github.com/gobuffalo/flect
 # github.com/gobwas/glob v0.2.3
@@ -1210,8 +1210,8 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/gomega v1.34.1
-## explicit; go 1.20
+# github.com/onsi/gomega v1.34.2
+## explicit; go 1.22
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/internal
@@ -2627,7 +2627,7 @@ sigs.k8s.io/controller-runtime/pkg/webhook/admission
 sigs.k8s.io/controller-runtime/pkg/webhook/admission/metrics
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
-# sigs.k8s.io/controller-tools v0.16.3 => github.com/cilium/controller-tools v0.16.1-1
+# sigs.k8s.io/controller-tools v0.16.5 => github.com/cilium/controller-tools v0.16.5-1
 ## explicit; go 1.22.0
 sigs.k8s.io/controller-tools/cmd/controller-gen
 sigs.k8s.io/controller-tools/pkg/crd
@@ -2773,4 +2773,4 @@ sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 sigs.k8s.io/yaml/goyaml.v3
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
-# sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.1-1
+# sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.5-1

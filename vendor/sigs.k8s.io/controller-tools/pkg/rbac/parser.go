@@ -105,6 +105,12 @@ func (r *Rule) keyWithResourcesResourceNamesURLsVerbs() string {
 	return fmt.Sprintf("%s + %s + %s + %s", key.Resources, key.ResourceNames, key.URLs, verbs)
 }
 
+func (r *Rule) keyWitGroupResourcesResourceNamesVerbs() string {
+	key := r.key()
+	verbs := strings.Join(r.Verbs, "&")
+	return fmt.Sprintf("%s + %s + %s + %s", key.Groups, key.Resources, key.ResourceNames, verbs)
+}
+
 // addVerbs adds new verbs into a Rule.
 // The duplicates in `r.Verbs` will be removed, and then `r.Verbs` will be sorted.
 func (r *Rule) addVerbs(verbs []string) {
@@ -140,12 +146,6 @@ func removeDupAndSort(strs []string) []string {
 
 // ToRule converts this rule to its Kubernetes API form.
 func (r *Rule) ToRule() rbacv1.PolicyRule {
-	// fix the group names first, since letting people type "core" is nice
-	for i, group := range r.Groups {
-		if group == "core" {
-			r.Groups[i] = ""
-		}
-	}
 	return rbacv1.PolicyRule{
 		APIGroups:       r.Groups,
 		Verbs:           r.Verbs,
@@ -190,6 +190,20 @@ func GenerateRoles(ctx *genall.GenerationContext, roleName string) ([]interface{
 		// group RBAC markers by namespace and separate by resource
 		for _, markerValue := range markerSet[RuleDefinition.Name] {
 			rule := markerValue.(Rule)
+			if len(rule.Resources) == 0 {
+				// Add a rule without any resource if Resources is empty.
+				r := Rule{
+					Groups:        rule.Groups,
+					Resources:     []string{},
+					ResourceNames: rule.ResourceNames,
+					URLs:          rule.URLs,
+					Namespace:     rule.Namespace,
+					Verbs:         rule.Verbs,
+				}
+				namespace := r.Namespace
+				rulesByNSResource[namespace] = append(rulesByNSResource[namespace], &r)
+				continue
+			}
 			for _, resource := range rule.Resources {
 				r := Rule{
 					Groups:        rule.Groups,
@@ -210,6 +224,13 @@ func GenerateRoles(ctx *genall.GenerationContext, roleName string) ([]interface{
 		ruleMap := make(map[ruleKey]*Rule)
 		// all the Rules having the same ruleKey will be merged into the first Rule
 		for _, rule := range rules {
+			// fix the group name first, since letting people type "core" is nice
+			for i, name := range rule.Groups {
+				if name == "core" {
+					rule.Groups[i] = ""
+				}
+			}
+
 			key := rule.key()
 			if _, ok := ruleMap[key]; !ok {
 				ruleMap[key] = rule
@@ -252,6 +273,25 @@ func GenerateRoles(ctx *genall.GenerationContext, roleName string) ([]interface{
 			rule := rules[0]
 			for _, mergeRule := range rules[1:] {
 				rule.Groups = append(rule.Groups, mergeRule.Groups...)
+			}
+			key := rule.key()
+			ruleMap[key] = rule
+		}
+
+		// deduplicate URLs
+		// 1. create map based on key without URLs
+		ruleMapWithoutURLs := make(map[string][]*Rule)
+		for _, rule := range ruleMap {
+			// get key without Group
+			key := rule.keyWitGroupResourcesResourceNamesVerbs()
+			ruleMapWithoutURLs[key] = append(ruleMapWithoutURLs[key], rule)
+		}
+		// 2. merge to ruleMap
+		ruleMap = make(map[ruleKey]*Rule)
+		for _, rules := range ruleMapWithoutURLs {
+			rule := rules[0]
+			for _, mergeRule := range rules[1:] {
+				rule.URLs = append(rule.URLs, mergeRule.URLs...)
 			}
 			key := rule.key()
 			ruleMap[key] = rule

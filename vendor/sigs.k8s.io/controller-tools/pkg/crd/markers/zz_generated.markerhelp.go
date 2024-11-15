@@ -148,7 +148,7 @@ func (ListType) Help() *markers.DefinitionHelp {
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the type of data-structure that the list",
-			Details: "represents (map, set, atomic).\n\n\nPossible data-structure types of a list are:\n\n\n  - \"map\": it needs to have a key field, which will be used to build an\n    associative list. A typical example is a the pod container list,\n    which is indexed by the container name.\n\n\n  - \"set\": Fields need to be \"scalar\", and there can be only one\n    occurrence of each.\n\n\n  - \"atomic\": All the fields in the list are treated as a single value,\n    are typically manipulated together by the same actor.",
+			Details: "represents (map, set, atomic).\n\nPossible data-structure types of a list are:\n\n  - \"map\": it needs to have a key field, which will be used to build an\n    associative list. A typical example is a the pod container list,\n    which is indexed by the container name.\n\n  - \"set\": Fields need to be \"scalar\", and there can be only one\n    occurrence of each.\n\n  - \"atomic\": All the fields in the list are treated as a single value,\n    are typically manipulated together by the same actor.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -159,7 +159,7 @@ func (MapType) Help() *markers.DefinitionHelp {
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the level of atomicity of the map;",
-			Details: "i.e. whether each item in the map is independent of the others,\nor all fields are treated as a single unit.\n\n\nPossible values:\n\n\n  - \"granular\": items in the map are independent of each other,\n    and can be manipulated by different actors.\n    This is the default behavior.\n\n\n  - \"atomic\": all fields are treated as one unit.\n    Any changes have to replace the entire map.",
+			Details: "i.e. whether each item in the map is independent of the others,\nor all fields are treated as a single unit.\n\nPossible values:\n\n  - \"granular\": items in the map are independent of each other,\n    and can be manipulated by different actors.\n    This is the default behavior.\n\n  - \"atomic\": all fields are treated as one unit.\n    Any changes have to replace the entire map.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -385,6 +385,22 @@ func (Schemaless) Help() *markers.DefinitionHelp {
 	}
 }
 
+func (SelectableField) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "adds a field that may be used with field selectors.",
+			Details: "",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"JSONPath": {
+				Summary: "specifies the jsonpath expression which is used to produce a field selector value.",
+				Details: "",
+			},
+		},
+	}
+}
+
 func (SkipVersion) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD",
@@ -412,7 +428,7 @@ func (StructType) Help() *markers.DefinitionHelp {
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "specifies the level of atomicity of the struct;",
-			Details: "i.e. whether each field in the struct is independent of the others,\nor all fields are treated as a single unit.\n\n\nPossible values:\n\n\n  - \"granular\": fields in the struct are independent of each other,\n    and can be manipulated by different actors.\n    This is the default behavior.\n\n\n  - \"atomic\": all fields are treated as one unit.\n    Any changes have to replace the entire struct.",
+			Details: "i.e. whether each field in the struct is independent of the others,\nor all fields are treated as a single unit.\n\nPossible values:\n\n  - \"granular\": fields in the struct are independent of each other,\n    and can be manipulated by different actors.\n    This is the default behavior.\n\n  - \"atomic\": all fields are treated as one unit.\n    Any changes have to replace the entire struct.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -502,7 +518,7 @@ func (XIntOrString) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "IntOrString marks a fields as an IntOrString.",
-			Details: "This is required when applying patterns or other validations to an IntOrString\nfield. Knwon information about the type is applied during the collapse phase\nand as such is not normally available during marker application.",
+			Details: "This is required when applying patterns or other validations to an IntOrString\nfield. Known information about the type is applied during the collapse phase\nand as such is not normally available during marker application.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -513,7 +529,7 @@ func (XPreserveUnknownFields) Help() *markers.DefinitionHelp {
 		Category: "CRD processing",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "PreserveUnknownFields stops the apiserver from pruning fields which are not specified.",
-			Details: "By default the apiserver drops unknown fields from the request payload\nduring the decoding step. This marker stops the API server from doing so.\nIt affects fields recursively, but switches back to normal pruning behaviour\nif nested  properties or additionalProperties are specified in the schema.\nThis can either be true or undefined. False\nis forbidden.\n\n\nNB: The kubebuilder:validation:XPreserveUnknownFields variant is deprecated\nin favor of the kubebuilder:pruning:PreserveUnknownFields variant.  They function\nidentically.",
+			Details: "By default the apiserver drops unknown fields from the request payload\nduring the decoding step. This marker stops the API server from doing so.\nIt affects fields recursively, but switches back to normal pruning behaviour\nif nested  properties or additionalProperties are specified in the schema.\nThis can either be true or undefined. False\nis forbidden.\n\nNB: The kubebuilder:validation:XPreserveUnknownFields variant is deprecated\nin favor of the kubebuilder:pruning:PreserveUnknownFields variant.  They function\nidentically.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
 	}
@@ -524,7 +540,7 @@ func (XValidation) Help() *markers.DefinitionHelp {
 		Category: "CRD validation",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "marks a field as requiring a value for which a given",
-			Details: "expression evaluates to true.\n\n\nThis marker may be repeated to specify multiple expressions, all of\nwhich must evaluate to true.",
+			Details: "expression evaluates to true.\n\nThis marker may be repeated to specify multiple expressions, all of\nwhich must evaluate to true.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Rule": {

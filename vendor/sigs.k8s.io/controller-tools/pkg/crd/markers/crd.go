@@ -55,6 +55,9 @@ var CRDMarkers = []*definitionWithHelp{
 
 	must(markers.MakeDefinition("kubebuilder:metadata", markers.DescribesType, Metadata{})).
 		WithHelp(Metadata{}.Help()),
+
+	must(markers.MakeDefinition("kubebuilder:selectablefield", markers.DescribesType, SelectableField{})).
+		WithHelp(SelectableField{}.Help()),
 }
 
 // TODO: categories and singular used to be annotations types
@@ -385,6 +388,35 @@ func (s Metadata) ApplyToCRD(crd *apiext.CustomResourceDefinition, _ string) err
 			crd.Labels[kv[0]] = kv[1]
 		}
 	}
+
+	return nil
+}
+
+// +controllertools:marker:generateHelp:category=CRD
+
+// SelectableField adds a field that may be used with field selectors.
+type SelectableField struct {
+	// JSONPath specifies the jsonpath expression which is used to produce a field selector value.
+	JSONPath string `marker:"JSONPath"`
+}
+
+func (s SelectableField) ApplyToCRD(crd *apiext.CustomResourceDefinitionSpec, version string) error {
+	var selectableFields *[]apiext.SelectableField
+	for i := range crd.Versions {
+		ver := &crd.Versions[i]
+		if ver.Name != version {
+			continue
+		}
+		selectableFields = &ver.SelectableFields
+		break
+	}
+	if selectableFields == nil {
+		return fmt.Errorf("selectable field applied to version %q not in CRD", version)
+	}
+
+	*selectableFields = append(*selectableFields, apiext.SelectableField{
+		JSONPath: s.JSONPath,
+	})
 
 	return nil
 }

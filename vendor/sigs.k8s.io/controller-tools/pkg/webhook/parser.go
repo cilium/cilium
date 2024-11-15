@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-tools/pkg/genall"
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
@@ -42,14 +43,29 @@ const (
 )
 
 var (
-	// ConfigDefinition s a marker for defining Webhook manifests.
+	// ConfigDefinition is a marker for defining Webhook manifests.
 	// Call ToWebhook on the value to get a Kubernetes Webhook.
 	ConfigDefinition = markers.Must(markers.MakeDefinition("kubebuilder:webhook", markers.DescribesPackage, Config{}))
+	// WebhookConfigDefinition is a marker for defining MutatingWebhookConfiguration or ValidatingWebhookConfiguration manifests.
+	WebhookConfigDefinition = markers.Must(markers.MakeDefinition("kubebuilder:webhookconfiguration", markers.DescribesPackage, WebhookConfig{}))
 )
 
 // supportedWebhookVersions returns currently supported API version of {Mutating,Validating}WebhookConfiguration.
 func supportedWebhookVersions() []string {
 	return []string{defaultWebhookVersion}
+}
+
+// +controllertools:marker:generateHelp
+
+type WebhookConfig struct {
+	// Mutating marks this as a mutating webhook (it's validating only if false)
+	//
+	// Mutating webhooks are allowed to change the object in their response,
+	// and are called *before* all validating webhooks.  Mutating webhooks may
+	// choose to reject an object, similarly to a validating webhook.
+	Mutating bool
+	// Name indicates the name of the K8s MutatingWebhookConfiguration or ValidatingWebhookConfiguration object.
+	Name string `marker:"name,optional"`
 }
 
 // +controllertools:marker:generateHelp:category=Webhook
@@ -152,6 +168,32 @@ func verbToAPIVariant(verbRaw string) admissionregv1.OperationType {
 	default:
 		return admissionregv1.OperationType(verbRaw)
 	}
+}
+
+// ToMutatingWebhookConfiguration converts this WebhookConfig to its Kubernetes API form.
+func (c WebhookConfig) ToMutatingWebhookConfiguration() (admissionregv1.MutatingWebhookConfiguration, error) {
+	if !c.Mutating {
+		return admissionregv1.MutatingWebhookConfiguration{}, fmt.Errorf("%s is a validating webhook", c.Name)
+	}
+
+	return admissionregv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: c.Name,
+		},
+	}, nil
+}
+
+// ToValidatingWebhookConfiguration converts this WebhookConfig to its Kubernetes API form.
+func (c WebhookConfig) ToValidatingWebhookConfiguration() (admissionregv1.ValidatingWebhookConfiguration, error) {
+	if c.Mutating {
+		return admissionregv1.ValidatingWebhookConfiguration{}, fmt.Errorf("%s is a mutating webhook", c.Name)
+	}
+
+	return admissionregv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: c.Name,
+		},
+	}, nil
 }
 
 // ToMutatingWebhook converts this rule to its Kubernetes API form.
@@ -362,7 +404,11 @@ func (Generator) RegisterMarkers(into *markers.Registry) error {
 	if err := into.Register(ConfigDefinition); err != nil {
 		return err
 	}
+	if err := into.Register(WebhookConfigDefinition); err != nil {
+		return err
+	}
 	into.AddHelp(ConfigDefinition, Config{}.Help())
+	into.AddHelp(WebhookConfigDefinition, Config{}.Help())
 	return nil
 }
 
@@ -370,10 +416,41 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 	supportedWebhookVersions := supportedWebhookVersions()
 	mutatingCfgs := make(map[string][]admissionregv1.MutatingWebhook, len(supportedWebhookVersions))
 	validatingCfgs := make(map[string][]admissionregv1.ValidatingWebhook, len(supportedWebhookVersions))
+	var mutatingWebhookCfgs admissionregv1.MutatingWebhookConfiguration
+	var validatingWebhookCfgs admissionregv1.ValidatingWebhookConfiguration
+
 	for _, root := range ctx.Roots {
 		markerSet, err := markers.PackageMarkers(ctx.Collector, root)
 		if err != nil {
 			root.AddError(err)
+		}
+
+		webhookCfgs := markerSet[WebhookConfigDefinition.Name]
+		var hasValidatingWebhookConfig, hasMutatingWebhookConfig bool = false, false
+		for _, webhookCfg := range webhookCfgs {
+			webhookCfg := webhookCfg.(WebhookConfig)
+
+			if webhookCfg.Mutating {
+				if hasMutatingWebhookConfig {
+					return fmt.Errorf("duplicate mutating %s with name %s", WebhookConfigDefinition.Name, webhookCfg.Name)
+				}
+
+				if mutatingWebhookCfgs, err = webhookCfg.ToMutatingWebhookConfiguration(); err != nil {
+					return err
+				}
+
+				hasMutatingWebhookConfig = true
+			} else {
+				if hasValidatingWebhookConfig {
+					return fmt.Errorf("duplicate validating %s with name %s", WebhookConfigDefinition.Name, webhookCfg.Name)
+				}
+
+				if validatingWebhookCfgs, err = webhookCfg.ToValidatingWebhookConfiguration(); err != nil {
+					return err
+				}
+
+				hasValidatingWebhookConfig = true
+			}
 		}
 
 		cfgs := markerSet[ConfigDefinition.Name]
@@ -410,16 +487,22 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 	versionedWebhooks := make(map[string][]interface{}, len(supportedWebhookVersions))
 	for _, version := range supportedWebhookVersions {
 		if cfgs, ok := mutatingCfgs[version]; ok {
-			// The only possible version in supportedWebhookVersions is v1,
-			// so use it for all versioned types in this context.
-			objRaw := &admissionregv1.MutatingWebhookConfiguration{}
+			var objRaw *admissionregv1.MutatingWebhookConfiguration
+			if mutatingWebhookCfgs.Name != "" {
+				objRaw = &mutatingWebhookCfgs
+			} else {
+				// The only possible version in supportedWebhookVersions is v1,
+				// so use it for all versioned types in this context.
+				objRaw = &admissionregv1.MutatingWebhookConfiguration{}
+				objRaw.SetName("mutating-webhook-configuration")
+			}
 			objRaw.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   admissionregv1.SchemeGroupVersion.Group,
 				Version: version,
 				Kind:    "MutatingWebhookConfiguration",
 			})
-			objRaw.SetName("mutating-webhook-configuration")
 			objRaw.Webhooks = cfgs
+
 			for i := range objRaw.Webhooks {
 				// SideEffects is required in admissionregistration/v1, if this is not set or set to `Some` or `Known`,
 				// return an error
@@ -441,16 +524,22 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		}
 
 		if cfgs, ok := validatingCfgs[version]; ok {
-			// The only possible version in supportedWebhookVersions is v1,
-			// so use it for all versioned types in this context.
-			objRaw := &admissionregv1.ValidatingWebhookConfiguration{}
+			var objRaw *admissionregv1.ValidatingWebhookConfiguration
+			if validatingWebhookCfgs.Name != "" {
+				objRaw = &validatingWebhookCfgs
+			} else {
+				// The only possible version in supportedWebhookVersions is v1,
+				// so use it for all versioned types in this context.
+				objRaw = &admissionregv1.ValidatingWebhookConfiguration{}
+				objRaw.SetName("validating-webhook-configuration")
+			}
 			objRaw.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   admissionregv1.SchemeGroupVersion.Group,
 				Version: version,
 				Kind:    "ValidatingWebhookConfiguration",
 			})
-			objRaw.SetName("validating-webhook-configuration")
 			objRaw.Webhooks = cfgs
+
 			for i := range objRaw.Webhooks {
 				// SideEffects is required in admissionregistration/v1, if this is not set or set to `Some` or `Known`,
 				// return an error

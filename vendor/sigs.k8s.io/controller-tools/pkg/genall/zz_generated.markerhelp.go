@@ -40,7 +40,7 @@ func (OutputArtifacts) Help() *markers.DefinitionHelp {
 		Category: "",
 		DetailedHelp: markers.DetailedHelp{
 			Summary: "outputs artifacts to different locations, depending on",
-			Details: "whether they're package-associated or not.\n\n\nNon-package associated artifacts\nare output to the Config directory, while package-associated ones are output\nto their package's source files' directory, unless an alternate path is\nspecified in Code.",
+			Details: "whether they're package-associated or not.\n\nNon-package associated artifacts\nare output to the Config directory, while package-associated ones are output\nto their package's source files' directory, unless an alternate path is\nspecified in Code.",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
 			"Config": {
