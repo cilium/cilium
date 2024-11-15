@@ -31,6 +31,7 @@
 #define mac_five_addr {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D}
 #define mac_six_addr {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E}
 #define mac_zero_addr {0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+#define mac_v6mcast_base_addr {0x33, 0x33, 0x00, 0x00, 0x00, 0x00}
 
 volatile const __u8 mac_one[] = mac_one_addr;
 volatile const __u8 mac_two[] = mac_two_addr;
@@ -39,6 +40,7 @@ volatile const __u8 mac_four[] = mac_four_addr;
 volatile const __u8 mac_five[] = mac_five_addr;
 volatile const __u8 mac_six[] = mac_six_addr;
 volatile const __u8 mac_zero[] = mac_zero_addr;
+volatile const __u8 mac_v6mcast_base[] = mac_v6mcast_base_addr;
 
 /* A collection of pre-defined IP addresses, so tests can reuse them without
  *  having to come up with custom ips.
@@ -67,6 +69,10 @@ volatile const __u8 mac_zero[] = mac_zero_addr;
 #define v4_pod_three	IPV4(192, 168, 0, 3)
 
 #define v4_all	IPV4(0, 0, 0, 0)
+
+/* IPv6 mcast base address */
+#define v6_mcast_base_addr {0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xFF, 0, 0, 0};
+volatile const __u8 v6_mcast_base[] = v6_mcast_base_addr;
 
 /* IPv6 addresses for pods in the cluster */
 #define v6_pod_one_addr {0xfd, 0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
