@@ -712,11 +712,13 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 		return err
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.ServiceKey:   key,
-		logfields.ServiceValue: value,
-		logfields.BackendSlot:  key.GetBackendSlot(),
-	}).Debug("Upserted service entry")
+	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+		log.WithFields(logrus.Fields{
+			logfields.ServiceKey:   key,
+			logfields.ServiceValue: value,
+			logfields.BackendSlot:  key.GetBackendSlot(),
+		}).Debug("Upserted service entry")
+	}
 
 	return nil
 }
