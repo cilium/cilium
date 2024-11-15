@@ -268,8 +268,6 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 }
 
 func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
-	d.endpointRestoreComplete = make(chan struct{})
-
 	log.WithField("numRestored", len(state.restored)).Info("Regenerating restored endpoints")
 
 	// Before regenerating, check whether the CT map has properties that
