@@ -791,6 +791,14 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 		return
 	}
 
+	// Neither the health nor the ingress endpoints should be propagated into the
+	// kvstore, given that they are already listed inside the node representation,
+	// and to mimic the corresponding CiliumEndpoint which is not created as well.
+	// We don't use e.HasLabels because we are already holding the lock here.
+	if e.hasLabelsRLocked(labels.LabelHealth) || e.hasLabelsRLocked(labels.LabelIngress) {
+		return
+	}
+
 	addressFamily := "IPv4"
 	if endpointIP.Is6() {
 		addressFamily = "IPv6"
