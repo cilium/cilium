@@ -150,17 +150,19 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 	synced := newSynced()
 	defer synced.resources.Stop()
 
+	identityCacheSuffix := "id"
+
 	rc := &remoteCluster{
 		name:         name,
 		localBackend: km.backend,
 
 		cancel: cancel,
 
-		nodes:          newReflector(km.backend, name, nodeStore.NodeStorePrefix, km.storeFactory, synced.resources),
-		services:       newReflector(km.backend, name, serviceStore.ServiceStorePrefix, km.storeFactory, synced.resources),
-		serviceExports: newReflector(km.backend, name, mcsapitypes.ServiceExportStorePrefix, km.storeFactory, synced.resources),
-		identities:     newReflector(km.backend, name, identityCache.IdentitiesPath, km.storeFactory, synced.resources),
-		ipcache:        newReflector(km.backend, name, ipcache.IPIdentitiesPath, km.storeFactory, synced.resources),
+		nodes:          newReflector(km.backend, name, nodeStore.NodeStorePrefix, "", km.storeFactory, synced.resources),
+		services:       newReflector(km.backend, name, serviceStore.ServiceStorePrefix, "", km.storeFactory, synced.resources),
+		serviceExports: newReflector(km.backend, name, mcsapitypes.ServiceExportStorePrefix, "", km.storeFactory, synced.resources),
+		identities:     newReflector(km.backend, name, identityCache.IdentitiesPath, identityCacheSuffix, km.storeFactory, synced.resources),
+		ipcache:        newReflector(km.backend, name, ipcache.IPIdentitiesPath, "", km.storeFactory, synced.resources),
 		status:         status,
 		storeFactory:   km.storeFactory,
 		synced:         synced,

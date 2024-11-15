@@ -139,8 +139,9 @@ func TestRemoteClusterRun(t *testing.T) {
 				"cilium/state/nodes/v1/foo/bar":          "qux1",
 				"cilium/state/services/v1/foo/bar":       "qux2",
 				"cilium/state/serviceexports/v1/foo/bar": "qux3",
-				"cilium/state/identities/v1/bar":         "qux4",
-				"cilium/state/ip/v1/default/bar":         "qux5",
+				"cilium/state/identities/v1/id/bar":      "qux4",
+				"cilium/state/identities/v1/value/bar":   "qux5",
+				"cilium/state/ip/v1/default/bar":         "qux6",
 			},
 		},
 		{
@@ -162,8 +163,9 @@ func TestRemoteClusterRun(t *testing.T) {
 				"cilium/state/nodes/v1/foo/bar":          "qux1",
 				"cilium/state/services/v1/foo/bar":       "qux2",
 				"cilium/state/serviceexports/v1/foo/bar": "qux3",
-				"cilium/state/identities/v1/bar":         "qux4",
-				"cilium/state/ip/v1/default/bar":         "qux5",
+				"cilium/state/identities/v1/id/bar":      "qux4",
+				"cilium/state/identities/v1/value/bar":   "qux5",
+				"cilium/state/ip/v1/default/bar":         "qux6",
 			},
 		},
 		{
@@ -184,11 +186,12 @@ func TestRemoteClusterRun(t *testing.T) {
 				},
 			},
 			kvs: map[string]string{
-				"cilium/cache/nodes/v1/foo/bar":          "qux1",
-				"cilium/cache/services/v1/foo/bar":       "qux2",
-				"cilium/cache/serviceexports/v1/foo/bar": "qux3",
-				"cilium/cache/identities/v1/foo/bar":     "qux4",
-				"cilium/cache/ip/v1/foo/bar":             "qux5",
+				"cilium/cache/nodes/v1/foo/bar":            "qux1",
+				"cilium/cache/services/v1/foo/bar":         "qux2",
+				"cilium/cache/serviceexports/v1/foo/bar":   "qux3",
+				"cilium/cache/identities/v1/foo/id/bar":    "qux4",
+				"cilium/cache/identities/v1/foo/value/bar": "qux5",
+				"cilium/cache/ip/v1/foo/bar":               "qux6",
 			},
 		},
 		{
@@ -210,11 +213,12 @@ func TestRemoteClusterRun(t *testing.T) {
 				},
 			},
 			kvs: map[string]string{
-				"cilium/cache/nodes/v1/foo/bar":          "qux1",
-				"cilium/cache/services/v1/foo/bar":       "qux2",
-				"cilium/cache/serviceexports/v1/foo/bar": "qux3",
-				"cilium/cache/identities/v1/foo/bar":     "qux4",
-				"cilium/cache/ip/v1/foo/bar":             "qux5",
+				"cilium/cache/nodes/v1/foo/bar":            "qux1",
+				"cilium/cache/services/v1/foo/bar":         "qux2",
+				"cilium/cache/serviceexports/v1/foo/bar":   "qux3",
+				"cilium/cache/identities/v1/foo/id/bar":    "qux4",
+				"cilium/cache/identities/v1/foo/value/bar": "qux5",
+				"cilium/cache/ip/v1/foo/bar":               "qux6",
 			},
 		},
 	}
@@ -262,10 +266,10 @@ func TestRemoteClusterRun(t *testing.T) {
 			}, timeout, tick, "Failed to retrieve the cluster config")
 
 			expectedReflected := map[string]string{
-				"cilium/cache/nodes/v1/foo/bar":      "qux1",
-				"cilium/cache/services/v1/foo/bar":   "qux2",
-				"cilium/cache/identities/v1/foo/bar": "qux4",
-				"cilium/cache/ip/v1/foo/bar":         "qux5",
+				"cilium/cache/nodes/v1/foo/bar":         "qux1",
+				"cilium/cache/services/v1/foo/bar":      "qux2",
+				"cilium/cache/identities/v1/foo/id/bar": "qux4",
+				"cilium/cache/ip/v1/foo/bar":            "qux6",
 			}
 			if tt.srccfg.Capabilities.ServiceExportsEnabled != nil {
 				expectedReflected["cilium/cache/serviceexports/v1/foo/bar"] = "qux3"
@@ -278,6 +282,11 @@ func TestRemoteClusterRun(t *testing.T) {
 					assert.Equal(c, value, string(v))
 				}, timeout, tick, "Expected key %q does not seem to have the correct value %q", key, value)
 			}
+
+			// Assert that other keys have not been reflected
+			values, err := kvstore.Client().ListPrefix(ctx, "cilium/cache/identities/v1/")
+			require.NoError(t, err)
+			require.Len(t, values, 1)
 
 			expectedSyncedCanaries := []string{
 				"cilium/synced/foo/cilium/cache/nodes/v1",
@@ -604,7 +613,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 			"cilium/state/services/v1/foo/baz":       "qux3",
 			"cilium/state/services/v1/foo/qux":       "qux4",
 			"cilium/state/serviceexports/v1/foo/qux": "qux5",
-			"cilium/state/identities/v1/bar":         "qux6",
+			"cilium/state/identities/v1/id/bar":      "qux6",
 			"cilium/state/ip/v1/default/fred":        "qux7",
 			"cilium/state/ip/v1/default/bar":         "qux8",
 			"cilium/state/ip/v1/default/baz":         "qux9",
