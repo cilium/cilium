@@ -433,6 +433,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		lrpManager:        params.LRPManager,
 	}
 
+	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
+	// can wait on it to get closed and not block forever if they happen so start
+	// waiting when it is not yet initialized (which causes them to block forever).
+	if option.Config.RestoreState {
+		d.endpointRestoreComplete = make(chan struct{})
+	}
+
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
 	d.configModifyQueue.Run()
 
