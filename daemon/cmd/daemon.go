@@ -396,6 +396,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		hubble:            params.Hubble,
 	}
 
+	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
+	// can wait on it to get closed and not block forever if they happen so start
+	// waiting when it is not yet initialized (which causes them to block forever).
+	if option.Config.RestoreState {
+		d.endpointRestoreComplete = make(chan struct{})
+	}
+
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
 	// in to the metadata layer.
 	if option.Config.RestoreState && !option.Config.DryMode {
