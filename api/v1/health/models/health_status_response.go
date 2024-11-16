@@ -28,6 +28,9 @@ type HealthStatusResponse struct {
 	// Connectivity status to each other node
 	Nodes []*NodeStatus `json:"nodes"`
 
+	// Interval in seconds between probes
+	ProbeInterval string `json:"probeInterval,omitempty"`
+
 	// timestamp
 	Timestamp string `json:"timestamp,omitempty"`
 }
