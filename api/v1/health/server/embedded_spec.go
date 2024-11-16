@@ -163,6 +163,10 @@ func init() {
             "$ref": "#/definitions/NodeStatus"
           }
         },
+        "probeInterval": {
+          "description": "Interval in seconds between probes",
+          "type": "string"
+        },
         "timestamp": {
           "type": "string"
         }
@@ -412,6 +416,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/NodeStatus"
           }
+        },
+        "probeInterval": {
+          "description": "Interval in seconds between probes",
+          "type": "string"
         },
         "timestamp": {
           "type": "string"
