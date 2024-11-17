@@ -32,6 +32,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -468,6 +469,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			ep.SetPod(pod)
+			if workload, ok := utils.GetWorkloadFromPod(pod); ok {
+				ep.SetWorkload(workload)
+			}
 			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
 			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
 			infoLabels.MergeLabels(k8sMetadata.InfoLabels)

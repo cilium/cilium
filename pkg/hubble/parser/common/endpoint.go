@@ -149,9 +149,8 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				PodName:     ep.GetK8sPodName(),
 			}
 			if pod := ep.GetPod(); pod != nil {
-				workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
-				if ok {
-					e.Workloads = []*pb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
+				if workload, ok := utils.GetWorkloadFromPod(pod); ok {
+					e.Workloads = []*pb.Workload{{Kind: workload.Kind, Name: workload.Name}}
 				}
 			}
 			return e

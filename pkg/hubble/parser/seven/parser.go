@@ -226,9 +226,8 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 func (p *Parser) updateEndpointWorkloads(ip netip.Addr, endpoint *flowpb.Endpoint) {
 	if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
 		if pod := ep.GetPod(); pod != nil {
-			workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
-			if ok {
-				endpoint.Workloads = []*flowpb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
+			if workload, ok := utils.GetWorkloadFromPod(pod); ok {
+				endpoint.Workloads = []*flowpb.Workload{{Kind: workload.Kind, Name: workload.Name}}
 			}
 		}
 	}

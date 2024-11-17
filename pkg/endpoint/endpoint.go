@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
@@ -300,6 +301,9 @@ type Endpoint struct {
 
 	// pod
 	pod atomic.Pointer[slim_corev1.Pod]
+
+	// workload is the Kubernetes pod’s workload info for this endpoint.
+	workload atomic.Pointer[models.Workload]
 
 	// k8sPorts contains container ports associated in the pod.
 	// It is used to enforce k8s network policies with port names.
@@ -1289,6 +1293,16 @@ func (e *Endpoint) GetPod() *slim_corev1.Pod {
 	return e.pod.Load()
 }
 
+// SetWorkload sets the workload related to this endpoint.
+func (e *Endpoint) SetWorkload(workload *models.Workload) {
+	e.workload.Store(workload)
+}
+
+// GetWorkload retrieves the workload related to this endpoint.
+func (e *Endpoint) GetWorkload() *models.Workload {
+	return e.workload.Load()
+}
+
 // CEPOwnerInterface contains the interface of an endpoint owner.
 type CEPOwnerInterface interface {
 	// IsNil returns true or false if the object is nil.
@@ -1772,6 +1786,9 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	controllerBaseLabels.MergeLabels(k8sMetadata.IdentityLabels)
 
 	e.SetPod(pod)
+	if workload, ok := utils.GetWorkloadFromPod(pod); ok {
+		e.SetWorkload(workload)
+	}
 	e.SetK8sMetadata(k8sMetadata.ContainerPorts)
 	e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
 		po, _, err := resolveMetadata(ns, podName)

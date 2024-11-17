@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/cilium/api/v1/models"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -21,39 +22,26 @@ import (
 func TestDeploymentMetadata(t *testing.T) {
 	controller := true
 	tests := []struct {
-		name               string
-		pod                *slim_corev1.Pod
-		wantTypeMetadata   slim_metav1.TypeMeta
-		wantObjectMetadata slim_metav1.ObjectMeta
-		expectOK           bool
+		name     string
+		pod      *slim_corev1.Pod
+		want     *models.Workload
+		expectOK bool
 	}{
 		{
 			name: "deployment-name-deploy",
 			pod:  podForDeployment("deploy", "12345"),
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			want: &models.Workload{
 				Kind: "Deployment",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "deploy",
-				GenerateName: "deploy-12345-",
-				Labels: map[string]string{
-					"pod-template-hash": "12345",
-				},
+				Name: "deploy",
 			},
 			expectOK: true,
 		},
 		{
 			name: "deployment-name-deploy2",
 			pod:  podForDeployment("deploy2", "45678"),
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			want: &models.Workload{
 				Kind: "Deployment",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "deploy2",
-				GenerateName: "deploy2-45678-",
-				Labels: map[string]string{
-					"pod-template-hash": "45678",
-				},
+				Name: "deploy2",
 			},
 			expectOK: true,
 		},
@@ -70,12 +58,9 @@ func TestDeploymentMetadata(t *testing.T) {
 					}},
 				},
 			},
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			want: &models.Workload{
 				Kind: "ReplicaSet",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "replicaset0",
-				GenerateName: "replicaset0-",
+				Name: "replicaset0",
 			},
 			expectOK: true,
 		},
@@ -92,16 +77,13 @@ func TestDeploymentMetadata(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotObjectMeta, gotTypeMeta, ok := GetWorkloadMetaFromPod(tt.pod)
+			got, ok := GetWorkloadFromPod(tt.pod)
 			if tt.expectOK != ok {
 				t.Fatalf("expected ok=%t, got ok=%t", tt.expectOK, ok)
 			}
 			if ok {
-				if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-					t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-				}
-				if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-					t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("Object metadata got %+v want %+v", got, tt.want)
 				}
 			}
 		})
@@ -132,40 +114,31 @@ func TestCronJobMetadata(t *testing.T) {
 	tests := []struct {
 		name               string
 		jobName            string
-		wantTypeMetadata   slim_metav1.TypeMeta
+		workload           *models.Workload
 		wantObjectMetadata slim_metav1.ObjectMeta
 	}{
 		{
 			name:    "cron-job-name-sec",
 			jobName: "sec-1234567890",
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			workload: &models.Workload{
 				Kind: "CronJob",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "sec",
-				GenerateName: "sec-1234567890-pod",
+				Name: "sec",
 			},
 		},
 		{
 			name:    "cron-job-name-min",
 			jobName: "min-12345678",
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			workload: &models.Workload{
 				Kind: "CronJob",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "min",
-				GenerateName: "min-12345678-pod",
+				Name: "min",
 			},
 		},
 		{
 			name:    "non-cron-job-name",
 			jobName: "job-123",
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			workload: &models.Workload{
 				Kind: "Job",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "job-123",
-				GenerateName: "job-123-pod",
+				Name: "job-123",
 			},
 		},
 	}
@@ -173,7 +146,7 @@ func TestCronJobMetadata(t *testing.T) {
 	for _, tt := range tests {
 		controller := true
 		t.Run(tt.name, func(t *testing.T) {
-			gotObjectMeta, gotTypeMeta, ok := GetWorkloadMetaFromPod(
+			got, ok := GetWorkloadFromPod(
 				&slim_corev1.Pod{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						GenerateName: tt.jobName + "-pod",
@@ -189,11 +162,8 @@ func TestCronJobMetadata(t *testing.T) {
 				t.Fatalf("expected ok=true, got ok=%t", ok)
 			}
 			if ok {
-				if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-					t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-				}
-				if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-					t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
+				if !reflect.DeepEqual(got, tt.workload) {
+					t.Errorf("Object metadata got %+v want %+v", got, tt.workload)
 				}
 			}
 		})
@@ -202,60 +172,44 @@ func TestCronJobMetadata(t *testing.T) {
 
 func TestDeploymentConfigMetadata(t *testing.T) {
 	tests := []struct {
-		name               string
-		pod                *slim_corev1.Pod
-		wantTypeMetadata   slim_metav1.TypeMeta
-		wantObjectMetadata slim_metav1.ObjectMeta
+		name string
+		pod  *slim_corev1.Pod
+		want *models.Workload
 	}{
 		{
 			name: "deployconfig-name-deploy",
 			pod:  podForDeploymentConfig("deploy", true),
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			want: &models.Workload{
 				Kind: "DeploymentConfig",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "deploy",
-				GenerateName: "deploy-rc-pod",
-				Labels:       map[string]string{},
+				Name: "deploy",
 			},
 		},
 		{
 			name: "deployconfig-name-deploy2",
 			pod:  podForDeploymentConfig("deploy2", true),
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			want: &models.Workload{
 				Kind: "DeploymentConfig",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "deploy2",
-				GenerateName: "deploy2-rc-pod",
-				Labels:       map[string]string{},
+				Name: "deploy2",
 			},
 		},
 		{
 			name: "non-deployconfig-label",
 			pod:  podForDeploymentConfig("dep", false),
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			want: &models.Workload{
 				Kind: "ReplicationController",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "dep-rc",
-				GenerateName: "dep-rc-pod",
-				Labels:       map[string]string{},
+				Name: "dep-rc",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotObjectMeta, gotTypeMeta, ok := GetWorkloadMetaFromPod(tt.pod)
+			got, ok := GetWorkloadFromPod(tt.pod)
 			if !ok {
 				t.Fatalf("expected ok=true, got ok=%t", ok)
 			}
-			if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-			}
-			if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-				t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Object metadata got %+v want %+v", got, tt.want)
 			}
 		})
 	}
@@ -282,20 +236,16 @@ func podForDeploymentConfig(deployConfigName string, hasDeployConfigLabel bool) 
 
 func TestStatefulSetMetadata(t *testing.T) {
 	tests := []struct {
-		name               string
-		statefulsetName    string
-		wantTypeMetadata   slim_metav1.TypeMeta
-		wantObjectMetadata slim_metav1.ObjectMeta
+		name            string
+		statefulsetName string
+		want            *models.Workload
 	}{
 		{
 			name:            "statefulset-name-foo",
 			statefulsetName: "foo",
-			wantTypeMetadata: slim_metav1.TypeMeta{
+			want: &models.Workload{
 				Kind: "StatefulSet",
-			},
-			wantObjectMetadata: slim_metav1.ObjectMeta{
-				Name:         "foo",
-				GenerateName: "foo-",
+				Name: "foo",
 			},
 		},
 	}
@@ -303,7 +253,7 @@ func TestStatefulSetMetadata(t *testing.T) {
 	for _, tt := range tests {
 		controller := true
 		t.Run(tt.name, func(t *testing.T) {
-			gotObjectMeta, gotTypeMeta, ok := GetWorkloadMetaFromPod(
+			got, ok := GetWorkloadFromPod(
 				&slim_corev1.Pod{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						GenerateName: tt.statefulsetName + "-",
@@ -319,11 +269,8 @@ func TestStatefulSetMetadata(t *testing.T) {
 				t.Fatalf("expected ok=true, got ok=%t", ok)
 			}
 			if ok {
-				if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-					t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-				}
-				if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-					t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("Object metadata got %+v want %+v", got, tt.want)
 				}
 			}
 		})
