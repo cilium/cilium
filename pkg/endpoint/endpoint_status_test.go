@@ -54,4 +54,5 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 	require.Equal(t, &v2.EndpointNetworking{Addressing: []*v2.AddressPair{{IPV4: "192.168.1.100", IPV6: "f00d::a10:0:0:abcd"}}, NodeIP: "<nil>"}, status.Networking)
 	require.Equal(t, v2.EncryptionSpec{Key: 0}, status.Encryption)
 	require.Equal(t, models.NamedPorts{}, status.NamedPorts)
+	require.Nil(t, status.Workload)
 }

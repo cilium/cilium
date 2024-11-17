@@ -46,6 +46,14 @@ func (in *CiliumEndpoint) deepEqual(other *CiliumEndpoint) bool {
 		}
 	}
 
+	if (in.Workload == nil) != (other.Workload == nil) {
+		return false
+	} else if in.Workload != nil {
+		if !in.Workload.DeepEqual(other.Workload) {
+			return false
+		}
+	}
+
 	return true
 }
 

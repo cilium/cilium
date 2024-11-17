@@ -72,6 +72,7 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
 		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex())},
 		NamedPorts:          e.getNamedPortsModel(),
+		Workload:            e.GetWorkload(),
 	}
 
 	return status

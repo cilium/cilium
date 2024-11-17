@@ -480,6 +480,21 @@ spec:
                 - disconnected
                 - invalid
                 type: string
+              workload:
+                description: Workload is the workload information of the pod associated
+                  with this endpoint
+                properties:
+                  kind:
+                    description: Kind of the workload (Deployment, Statefulset, Daemonset,
+                      etc.)
+                    type: string
+                  name:
+                    description: Name of the workload
+                    type: string
+                  namespace:
+                    description: Namespace of the workload
+                    type: string
+                type: object
             type: object
         required:
         - metadata

@@ -101,6 +101,7 @@ func transformToCiliumEndpoint(obj interface{}) (interface{}, error) {
 				Networking: concreteObj.Status.Networking,
 				NamedPorts: concreteObj.Status.NamedPorts,
 				Encryption: concreteObj.Status.Encryption,
+				Workload:   concreteObj.Status.Workload,
 			},
 		}
 		*concreteObj = cilium_api_v2.CiliumEndpoint{}
@@ -126,6 +127,7 @@ func transformToCiliumEndpoint(obj interface{}) (interface{}, error) {
 					Networking: ciliumEndpoint.Status.Networking,
 					NamedPorts: ciliumEndpoint.Status.NamedPorts,
 					Encryption: ciliumEndpoint.Status.Encryption,
+					Workload:   ciliumEndpoint.Status.Workload,
 				},
 			},
 		}
