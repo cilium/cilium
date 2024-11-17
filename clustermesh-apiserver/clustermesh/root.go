@@ -271,6 +271,7 @@ func (es *endpointSynchronizer) upsert(ctx context.Context, key resource.Key, ob
 					HostIP:       net.ParseIP(n.NodeIP),
 					K8sNamespace: endpoint.Namespace,
 					K8sPodName:   endpoint.Name,
+					Workload:     endpoint.Workload,
 				}
 
 				if endpoint.Identity != nil {

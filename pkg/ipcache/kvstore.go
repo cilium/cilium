@@ -15,6 +15,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -98,7 +99,7 @@ func newKVReferenceCounter(s store) *kvReferenceCounter {
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
 func UpsertIPToKVStore(ctx context.Context, IP, hostIP netip.Addr, ID identity.NumericIdentity, key uint8,
-	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
+	metadata, k8sNamespace, k8sPodName string, workload *models.Workload, npm types.NamedPortMap) error {
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(npm))
 	for name, value := range npm {
@@ -122,6 +123,7 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP netip.Addr, ID identity.N
 		K8sNamespace: k8sNamespace,
 		K8sPodName:   k8sPodName,
 		NamedPorts:   namedPorts,
+		Workload:     workload,
 	}
 
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
@@ -340,11 +342,12 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 	}
 
 	var k8sMeta *K8sMetadata
-	if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || len(ipIDPair.NamedPorts) > 0 {
+	if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || len(ipIDPair.NamedPorts) > 0 || ipIDPair.Workload != nil {
 		k8sMeta = &K8sMetadata{
 			Namespace:  ipIDPair.K8sNamespace,
 			PodName:    ipIDPair.K8sPodName,
 			NamedPorts: make(types.NamedPortMap, len(ipIDPair.NamedPorts)),
+			Workload:   ipIDPair.Workload,
 		}
 		for _, np := range ipIDPair.NamedPorts {
 			err := k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)

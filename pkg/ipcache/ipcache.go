@@ -12,6 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
@@ -98,6 +99,8 @@ type K8sMetadata struct {
 	PodName string
 	// NamedPorts is the set of named ports for the pod
 	NamedPorts types.NamedPortMap
+	// Workload is the workload info for the pod
+	Workload *models.Workload
 }
 
 // Configuration is init-time configuration for the IPCache.
@@ -960,6 +963,9 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
 			return false
 		}
+	}
+	if m.Workload != nil && !m.Workload.DeepEqual(o.Workload) {
+		return false
 	}
 	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }

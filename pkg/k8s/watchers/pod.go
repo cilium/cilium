@@ -921,9 +921,34 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 	specEqual := oldPod != nil && newPod.Spec.DeepEqual(&oldPod.Spec)
 	hostIPEqual := oldPod != nil && newPod.Status.HostIP != oldPod.Status.HostIP
 
-	// is spec and hostIPs are the same there no need to perform the remaining
-	// operations
-	if specEqual && hostIPEqual {
+	ownerReferenceEqual := false
+	if oldPod != nil {
+		var (
+			oldOwnerReferences *slim_metav1.OwnerReference
+			newOwnerReferences *slim_metav1.OwnerReference
+		)
+		for _, ref := range oldPod.OwnerReferences {
+			if ref.Controller != nil && *ref.Controller {
+				oldOwnerReferences = &ref
+				break
+			}
+		}
+		for _, ref := range newPod.OwnerReferences {
+			if ref.Controller != nil && *ref.Controller {
+				newOwnerReferences = &ref
+				break
+			}
+		}
+		if newOwnerReferences != nil {
+			ownerReferenceEqual = newOwnerReferences.DeepEqual(oldOwnerReferences)
+		} else {
+			ownerReferenceEqual = oldOwnerReferences == nil
+		}
+	}
+
+	// if spec, hostIPs and ownerReferences are the same
+	// there is need to perform the remaining operations
+	if specEqual && hostIPEqual && ownerReferenceEqual {
 		return nil
 	}
 
@@ -937,6 +962,10 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
 		PodName:   newPod.Name,
+	}
+
+	if workload, ok := k8sUtils.GetWorkloadFromPod(newPod); ok {
+		k8sMeta.Workload = workload
 	}
 
 	// Store Named ports, if any.

@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -114,6 +115,11 @@ func TestIPCache(t *testing.T) {
 	k8sMeta := &K8sMetadata{
 		Namespace: "default",
 		PodName:   "podname",
+		Workload: &models.Workload{
+			Kind:      "Deployment",
+			Name:      "deploymentname",
+			Namespace: "default",
+		},
 	}
 
 	IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
@@ -141,6 +147,18 @@ func TestIPCache(t *testing.T) {
 	for _, cachedIP := range cachedIPs {
 		require.Equal(t, endpointIP, cachedIP)
 	}
+
+	// Ensure workload is correctly updated on upsert
+	k8sMeta.Workload = &models.Workload{
+		Kind:      "ReplicaSet",
+		Name:      "replicasetname",
+		Namespace: "kube-system",
+	}
+	IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
+		ID:     newIdentity,
+		Source: source.KVStore,
+	})
+	require.EqualValues(t, k8sMeta, IPIdentityCache.GetK8sMetadata(netip.MustParseAddr(endpointIP)))
 
 	IPIdentityCache.Delete(endpointIP, source.KVStore)
 
@@ -527,6 +545,11 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 		NamedPorts: types.NamedPortMap{
 			"http": types.PortProto{Port: 80, Proto: u8proto.TCP},
 			"dns":  types.PortProto{Port: 53},
+		},
+		Workload: &models.Workload{
+			Kind:      "Deployment",
+			Name:      "deploymentname",
+			Namespace: "default",
 		},
 	}
 
