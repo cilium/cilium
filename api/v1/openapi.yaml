@@ -1536,6 +1536,9 @@ definitions:
       namedPorts:
         description: List of named ports that can be used in Network Policy
         "$ref": "#/definitions/NamedPorts"
+      workload:
+        description: The workload information of the pod associated with this endpoint.
+        "$ref": "#/definitions/Workload"
   EndpointState:
     description: State of endpoint
     type: string
@@ -3791,6 +3794,22 @@ definitions:
     type: array
     items:
       "$ref": "#/definitions/Port"
+  Workload:
+    description: |-
+      An application running on Kubernetes.
+
+      +deepequal-gen=true
+      +k8s:deepcopy-gen=true
+    properties:
+      name:
+        description: Name of the workload
+        type: string
+      namespace:
+        description: Namespace of the workload
+        type: string
+      kind:
+        description: Kind of the workload (Deployment, Statefulset, Daemonset, etc.)
+        type: string
   EncryptionStatus:
     description: |-
       Status of transparent encryption
