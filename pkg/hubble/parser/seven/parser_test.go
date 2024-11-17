@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -104,6 +105,11 @@ func Test_decodeVerdict(t *testing.T) {
 }
 
 func Test_decodeEndpoint(t *testing.T) {
+	workload := &models.Workload{
+		Kind:      "Deployment",
+		Name:      "hubble-ui",
+		Namespace: "kube-system",
+	}
 	epi := accesslog.EndpointInfo{
 		ID:       1234,
 		Identity: 9876,
@@ -129,8 +135,9 @@ func Test_decodeEndpoint(t *testing.T) {
 			"k8s:io.kubernetes.pod.namespace=kube-system",
 			"k8s:k8s-app=hubble-ui",
 		},
-		PodName: "hubble-ui",
+		PodName:   "hubble-ui",
+		Workloads: []*flowpb.Workload{{Kind: workload.Kind, Name: workload.Name}},
 	}
-	ep := decodeEndpoint(epi, "kube-system", "hubble-ui")
+	ep := decodeEndpoint(epi, "kube-system", "hubble-ui", workload)
 	assert.Equal(t, expected, ep)
 }

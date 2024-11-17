@@ -14,16 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 )
-
-func boolPtr(b bool) *bool { return &b }
 
 func TestEndpointResolverResolveEndpoint(t *testing.T) {
 	const (
@@ -37,7 +34,7 @@ func TestEndpointResolverResolveEndpoint(t *testing.T) {
 		xwingPodName      = "xwing-aaa11"
 		xwingPodNamespace = "default"
 
-		// deathstart is on a remote node
+		// deathstar is on a remote node
 		deathstarIdentity     = 2222
 		deathstarEndpoint     = 220
 		deathstarIPv4         = "192.168.20.20"
@@ -46,13 +43,11 @@ func TestEndpointResolverResolveEndpoint(t *testing.T) {
 		deathstarPodNamespace = "default"
 	)
 	var (
-		clusterNameLabel = "k8s:io.cilium.k8s.policy.cluster=" + clusterName
-		xwingWorkload    = &flowpb.Workload{Kind: "Deployment", Name: "xwing"}
-		xwingLabels      = []string{clusterNameLabel, "k8s:org=alliance"}
-		// TODO: fix missing workload for remote node endpoints
-		// https://github.com/cilium/cilium/issues/25676
-		// deathstarWorkload = &flowpb.Workload{Kind: "Statefulset", Name: "deathstar"}
-		deathstarLabels = []string{clusterNameLabel, "k8s:org=empire"}
+		clusterNameLabel  = "k8s:io.cilium.k8s.policy.cluster=" + clusterName
+		xwingWorkload     = &flowpb.Workload{Kind: "Deployment", Name: "xwing"}
+		xwingLabels       = []string{clusterNameLabel, "k8s:org=alliance"}
+		deathstarWorkload = &flowpb.Workload{Kind: "Statefulset", Name: "deathstar"}
+		deathstarLabels   = []string{clusterNameLabel, "k8s:org=empire"}
 	)
 
 	endpointGetter := &testutils.FakeEndpointGetter{
@@ -67,15 +62,9 @@ func TestEndpointResolverResolveEndpoint(t *testing.T) {
 					Labels:       xwingLabels,
 					PodName:      xwingPodName,
 					PodNamespace: xwingPodNamespace,
-					Pod: &v1.Pod{
-						ObjectMeta: slim_metav1.ObjectMeta{
-							GenerateName: xwingPodName,
-							OwnerReferences: []slim_metav1.OwnerReference{{
-								Name:       xwingWorkload.Name,
-								Kind:       xwingWorkload.Kind,
-								Controller: boolPtr(true),
-							}},
-						},
+					Workload: &models.Workload{
+						Name: xwingWorkload.Name,
+						Kind: xwingWorkload.Kind,
 					},
 				}, true
 			}
@@ -111,6 +100,10 @@ func TestEndpointResolverResolveEndpoint(t *testing.T) {
 				return &ipcache.K8sMetadata{
 					PodName:   deathstarPodName,
 					Namespace: deathstarPodNamespace,
+					Workload: &models.Workload{
+						Name: deathstarWorkload.Name,
+						Kind: deathstarWorkload.Kind,
+					},
 				}
 			}
 			return nil
@@ -153,7 +146,7 @@ func TestEndpointResolverResolveEndpoint(t *testing.T) {
 				Namespace:   xwingPodNamespace,
 				PodName:     xwingPodName,
 				Labels:      xwingLabels,
-				Workloads:   []*flowpb.Workload{{Kind: xwingWorkload.Kind, Name: xwingWorkload.Name}},
+				Workloads:   []*flowpb.Workload{xwingWorkload},
 			},
 		},
 		{
@@ -167,7 +160,7 @@ func TestEndpointResolverResolveEndpoint(t *testing.T) {
 				Namespace:   xwingPodNamespace,
 				PodName:     xwingPodName,
 				Labels:      xwingLabels,
-				Workloads:   []*flowpb.Workload{{Kind: xwingWorkload.Kind, Name: xwingWorkload.Name}},
+				Workloads:   []*flowpb.Workload{xwingWorkload},
 			},
 		},
 		{
@@ -181,9 +174,7 @@ func TestEndpointResolverResolveEndpoint(t *testing.T) {
 				Namespace:   deathstarPodNamespace,
 				PodName:     deathstarPodName,
 				Labels:      deathstarLabels,
-				// TODO: fix missing workload for remote node endpoints
-				// https://github.com/cilium/cilium/issues/25676
-				// Workloads: []*flowpb.Workload{{Kind: deathstarWorkload.Kind, Name: deathstarWorkload.Name}},
+				Workloads:   []*flowpb.Workload{deathstarWorkload},
 			},
 		},
 		{
@@ -197,9 +188,7 @@ func TestEndpointResolverResolveEndpoint(t *testing.T) {
 				Namespace:   deathstarPodNamespace,
 				PodName:     deathstarPodName,
 				Labels:      deathstarLabels,
-				// TODO: fix missing workload for remote node endpoints
-				// https://github.com/cilium/cilium/issues/25676
-				// Workloads: []*flowpb.Workload{{Kind: deathstarWorkload.Kind, Name: deathstarWorkload.Name}},
+				Workloads:   []*flowpb.Workload{deathstarWorkload},
 			},
 		},
 	}

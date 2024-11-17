@@ -7,6 +7,7 @@ import (
 	"net/netip"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/models"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -76,6 +77,7 @@ type EndpointInfo interface {
 	GetIdentity() identity.NumericIdentity
 	GetK8sPodName() string
 	GetK8sNamespace() string
+	GetWorkload() *models.Workload
 	GetLabels() labels.Labels
 	GetPod() *slim_corev1.Pod
 	GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (derivedFrom labels.LabelArrayList, revision uint64, ok bool)

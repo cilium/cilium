@@ -14,11 +14,11 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/source"
@@ -110,6 +110,7 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	destinationIP, _ := netip.ParseAddr(ip.Destination)
 	var sourceNames, destinationNames []string
 	var sourceNamespace, sourcePod, destinationNamespace, destinationPod string
+	var sourceWorkload, destinationWorkload *models.Workload
 	if p.dnsGetter != nil {
 		sourceNames = p.dnsGetter.GetNamesOf(uint32(r.DestinationEndpoint.ID), sourceIP)
 		destinationNames = p.dnsGetter.GetNamesOf(uint32(r.SourceEndpoint.ID), destinationIP)
@@ -117,18 +118,28 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	if p.ipGetter != nil {
 		if meta := p.ipGetter.GetK8sMetadata(sourceIP); meta != nil {
 			sourceNamespace, sourcePod = meta.Namespace, meta.PodName
+			sourceWorkload = meta.Workload
 		}
 		if meta := p.ipGetter.GetK8sMetadata(destinationIP); meta != nil {
 			destinationNamespace, destinationPod = meta.Namespace, meta.PodName
+			destinationWorkload = meta.Workload
 		}
 	}
-	srcEndpoint := decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod)
-	dstEndpoint := decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod)
-
 	if p.endpointGetter != nil {
-		p.updateEndpointWorkloads(sourceIP, srcEndpoint)
-		p.updateEndpointWorkloads(destinationIP, dstEndpoint)
+		if ep, ok := p.endpointGetter.GetEndpointInfo(sourceIP); ok {
+			if workload := ep.GetWorkload(); workload != nil {
+				sourceWorkload = workload
+			}
+		}
+		if ep, ok := p.endpointGetter.GetEndpointInfo(destinationIP); ok {
+			if workload := ep.GetWorkload(); workload != nil {
+				destinationWorkload = workload
+			}
+		}
 	}
+
+	srcEndpoint := decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod, sourceWorkload)
+	dstEndpoint := decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod, destinationWorkload)
 
 	l4, sourcePort, destinationPort := decodeLayer4(r.TransportProtocol, r.SourceEndpoint, r.DestinationEndpoint)
 	var sourceService, destinationService *flowpb.Service
@@ -223,16 +234,6 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 	return 0
 }
 
-func (p *Parser) updateEndpointWorkloads(ip netip.Addr, endpoint *flowpb.Endpoint) {
-	if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
-		if pod := ep.GetPod(); pod != nil {
-			if workload, ok := utils.GetWorkloadFromPod(pod); ok {
-				endpoint.Workloads = []*flowpb.Workload{{Kind: workload.Kind, Name: workload.Name}}
-			}
-		}
-	}
-}
-
 func decodeTime(timestamp string) (goTime time.Time, pbTime *timestamppb.Timestamp, err error) {
 	goTime, err = time.Parse(time.RFC3339Nano, timestamp)
 	if err != nil {
@@ -323,9 +324,14 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 	}
 }
 
-func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) *flowpb.Endpoint {
+func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string, workload *models.Workload) *flowpb.Endpoint {
 	labels := endpoint.Labels.GetModel()
 	slices.Sort(labels)
+
+	var workloads []*flowpb.Workload
+	if workload != nil {
+		workloads = []*flowpb.Workload{{Kind: workload.Kind, Name: workload.Name}}
+	}
 	return &flowpb.Endpoint{
 		ID:          uint32(endpoint.ID),
 		Identity:    uint32(endpoint.Identity),
@@ -333,6 +339,7 @@ func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) 
 		Namespace:   namespace,
 		Labels:      labels,
 		PodName:     podName,
+		Workloads:   workloads,
 	}
 }
 
