@@ -96,6 +96,7 @@ cilium-operator-alibabacloud [flags]
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kube-proxy-replacement string                        Enable only selected features (will panic if any selected feature cannot be enabled) ("false"), or enable all features (will panic if any feature cannot be enabled) ("true") (default "false")
       --kvstore string                                       Key-value store type
+      --kvstore-max-consecutive-quorum-errors uint           Max acceptable kvstore consecutive quorum errors before the operator assumes permanent failure (default 2)
       --kvstore-opt map                                      Key-value store options e.g. etcd.address=127.0.0.1:4001
       --leader-election-lease-duration duration              Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)
       --leader-election-renew-deadline duration              Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
