@@ -5,10 +5,11 @@ package install
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,41 +31,23 @@ const (
 	AwsNodeImageFamilyWindows         = "Windows"
 )
 
-type awsClusterInfo struct {
-	ImageID string `json:"ImageID"`
-}
-
 func (k *K8sInstaller) awsRetrieveNodeImageFamily() error {
 	// setting default fallback value
 	k.params.AWS.AwsNodeImageFamily = AwsNodeImageFamilyCustom
 
-	bytes, err := k.eksctlExec("get", "nodegroup", "--cluster", k.client.ClusterName())
+	nodes, err := k.client.ListNodes(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		k.Log("❌ Could not list cluster nodes, defaulted to fallback node image family value: %s", k.params.AWS.AwsNodeImageFamily)
+		return err
+	}
+
+	ami, err := getNodeImage(nodes.Items)
 	if err != nil {
 		k.Log("❌ Could not detect AWS node image family, defaulted to fallback value: %s", k.params.AWS.AwsNodeImageFamily)
 		return err
 	}
 
-	clusterInfo := awsClusterInfo{}
-	if err := json.Unmarshal(bytes, &clusterInfo); err != nil {
-		return fmt.Errorf("unable to unmarshal eksctl output: %w", err)
-	}
-
-	ami := clusterInfo.ImageID
-	switch {
-	case strings.Contains("AL2_", ami):
-		k.params.AWS.AwsNodeImageFamily = AwsNodeImageFamilyAmazonLinux2
-	case strings.Contains("AL2023", ami):
-		k.params.AWS.AwsNodeImageFamily = AwsNodeImageFamilyAmazonLinux2023
-	case strings.Contains("BOTTLEROCKET", ami):
-		k.params.AWS.AwsNodeImageFamily = AwsNodeImageFamilyBottlerocket
-	case strings.Contains("UBUNTU", ami):
-		k.params.AWS.AwsNodeImageFamily = AwsNodeImageFamilyUbuntu
-	case strings.Contains("WINDOWS", ami):
-		k.params.AWS.AwsNodeImageFamily = AwsNodeImageFamilyWindows
-	default:
-		k.params.AWS.AwsNodeImageFamily = AwsNodeImageFamilyCustom
-	}
-
+	k.params.AWS.AwsNodeImageFamily = ami
 	k.Log("✅ Detected AWS node image family: %s", k.params.AWS.AwsNodeImageFamily)
 
 	return nil
@@ -94,8 +77,33 @@ func (k *K8sInstaller) awsSetupChainingMode(ctx context.Context, values map[stri
 	return nil
 }
 
-// Wrapper function forcing `eksctl` output to be in JSON for unmarshalling purposes
-func (k *K8sInstaller) eksctlExec(args ...string) ([]byte, error) {
-	args = append(args, "--output", "json")
-	return k.Exec("eksctl", args...)
+func getNodeImage(nodes []corev1.Node) (string, error) {
+	if len(nodes) == 0 {
+		return "", errors.New("unable to detect node OS, cluster has no nodes")
+	}
+
+	ami := nodes[0].Status.NodeInfo.OSImage
+	// verify that all cluster nodes use the same OS image
+	// because currently mixed nodes setup is not supported
+	for i := 1; i < len(nodes); i++ {
+		if ami != nodes[i].Status.NodeInfo.OSImage {
+			return "", errors.New("cluster has nodes with different OS images")
+		}
+	}
+
+	ami = strings.ToUpper(ami)
+	switch {
+	case strings.Contains(ami, "AMAZON LINUX 2023"):
+		return AwsNodeImageFamilyAmazonLinux2023, nil
+	case strings.Contains(ami, "AMAZON LINUX 2"):
+		return AwsNodeImageFamilyAmazonLinux2, nil
+	case strings.Contains(ami, "BOTTLEROCKET"):
+		return AwsNodeImageFamilyBottlerocket, nil
+	case strings.Contains(ami, "UBUNTU"):
+		return AwsNodeImageFamilyUbuntu, nil
+	case strings.Contains(ami, "WINDOWS"):
+		return AwsNodeImageFamilyWindows, nil
+	default:
+		return AwsNodeImageFamilyCustom, nil
+	}
 }
