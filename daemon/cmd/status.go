@@ -573,18 +573,6 @@ func (d *Daemon) getIdentityRange() *models.IdentityRange {
 func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	probes := []status.Probe{
 		{
-			Name: "check-locks",
-			Probe: func(ctx context.Context) (interface{}, error) {
-				// nothing to do any more.
-				return nil, nil
-			},
-			OnStatusUpdate: func(status status.Status) {
-				d.statusCollectMutex.Lock()
-				defer d.statusCollectMutex.Unlock()
-				// FIXME we have no field for the lock status
-			},
-		},
-		{
 			Name: "kvstore",
 			Probe: func(ctx context.Context) (interface{}, error) {
 				if option.Config.KVStore == "" {
