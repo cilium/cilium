@@ -66,7 +66,7 @@ for IPAM matches the PodCIDR announced in the Kubernetes node:
     cilium-lv4xd                       1/1     Running   0          3h8m   10.164.0.112   gke-cluster4-default-pool-b195a3f3-k431   <none>           <none>
 
     $ kubectl -n kube-system exec -ti cilium-lv4xd -- cilium-dbg status
-    KVStore:                Ok   Disabled
+    KVStore:                Disabled
     Kubernetes:             Ok   1.14+ (v1.14.10-gke.27) [linux/amd64]
     Kubernetes APIs:        ["CustomResourceDefinition", "cilium/v2::CiliumClusterwideNetworkPolicy", "cilium/v2::CiliumEndpoint", "cilium/v2::CiliumNetworkPolicy", "cilium/v2::CiliumNode", "core/v1::Endpoint", "core/v1::Namespace", "core/v1::Pods", "core/v1::Service", "networking.k8s.io/v1::NetworkPolicy"]
     KubeProxyReplacement:   Probe   []
