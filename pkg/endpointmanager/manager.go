@@ -15,10 +15,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -804,4 +806,23 @@ func (mgr *endpointManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, e
 	}
 
 	return ep.NetNsCookie, nil
+}
+
+// UpdatePolicy triggers policy updates for all live endpoints.
+// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
+// policy revision will be bumped to toRev.
+func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
+	eps := mgr.GetEndpoints()
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(eps))
+
+	for _, ep := range eps {
+		go func(ep *endpoint.Endpoint) {
+			ep.UpdatePolicy(idsToRegen, fromRev, toRev)
+			wg.Done()
+		}(ep)
+	}
+
+	wg.Wait()
 }
