@@ -9,6 +9,7 @@ package cluster
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -82,11 +83,13 @@ func (o *GetClusterOK) Code() int {
 }
 
 func (o *GetClusterOK) Error() string {
-	return fmt.Sprintf("[GET /cluster][%d] getClusterOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /cluster][%d] getClusterOK %s", 200, payload)
 }
 
 func (o *GetClusterOK) String() string {
-	return fmt.Sprintf("[GET /cluster][%d] getClusterOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /cluster][%d] getClusterOK %s", 200, payload)
 }
 
 func (o *GetClusterOK) GetPayload() []*common.RemoteCluster {

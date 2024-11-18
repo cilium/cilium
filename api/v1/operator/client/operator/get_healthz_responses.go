@@ -9,6 +9,7 @@ package operator
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -92,11 +93,13 @@ func (o *GetHealthzOK) Code() int {
 }
 
 func (o *GetHealthzOK) Error() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK %s", 200, payload)
 }
 
 func (o *GetHealthzOK) String() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK %s", 200, payload)
 }
 
 func (o *GetHealthzOK) GetPayload() string {
@@ -158,11 +161,13 @@ func (o *GetHealthzInternalServerError) Code() int {
 }
 
 func (o *GetHealthzInternalServerError) Error() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzInternalServerError  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzInternalServerError %s", 500, payload)
 }
 
 func (o *GetHealthzInternalServerError) String() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzInternalServerError  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzInternalServerError %s", 500, payload)
 }
 
 func (o *GetHealthzInternalServerError) GetPayload() string {
@@ -224,11 +229,13 @@ func (o *GetHealthzNotImplemented) Code() int {
 }
 
 func (o *GetHealthzNotImplemented) Error() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzNotImplemented  %+v", 501, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzNotImplemented %s", 501, payload)
 }
 
 func (o *GetHealthzNotImplemented) String() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzNotImplemented  %+v", 501, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzNotImplemented %s", 501, payload)
 }
 
 func (o *GetHealthzNotImplemented) GetPayload() string {

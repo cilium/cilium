@@ -90,11 +90,11 @@ func (o *GetMapNameEventsOK) Code() int {
 }
 
 func (o *GetMapNameEventsOK) Error() string {
-	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsOK  %+v", 200, o.Payload)
+	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsOK", 200)
 }
 
 func (o *GetMapNameEventsOK) String() string {
-	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsOK  %+v", 200, o.Payload)
+	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsOK", 200)
 }
 
 func (o *GetMapNameEventsOK) GetPayload() io.Writer {
@@ -155,11 +155,11 @@ func (o *GetMapNameEventsNotFound) Code() int {
 }
 
 func (o *GetMapNameEventsNotFound) Error() string {
-	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsNotFound ", 404)
+	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsNotFound", 404)
 }
 
 func (o *GetMapNameEventsNotFound) String() string {
-	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsNotFound ", 404)
+	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsNotFound", 404)
 }
 
 func (o *GetMapNameEventsNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

@@ -9,6 +9,7 @@ package recorder
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -82,11 +83,13 @@ func (o *GetRecorderOK) Code() int {
 }
 
 func (o *GetRecorderOK) Error() string {
-	return fmt.Sprintf("[GET /recorder][%d] getRecorderOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /recorder][%d] getRecorderOK %s", 200, payload)
 }
 
 func (o *GetRecorderOK) String() string {
-	return fmt.Sprintf("[GET /recorder][%d] getRecorderOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /recorder][%d] getRecorderOK %s", 200, payload)
 }
 
 func (o *GetRecorderOK) GetPayload() []*models.Recorder {

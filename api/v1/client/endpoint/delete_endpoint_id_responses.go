@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -111,11 +112,11 @@ func (o *DeleteEndpointIDOK) Code() int {
 }
 
 func (o *DeleteEndpointIDOK) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdOK ", 200)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdOK", 200)
 }
 
 func (o *DeleteEndpointIDOK) String() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdOK ", 200)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdOK", 200)
 }
 
 func (o *DeleteEndpointIDOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -168,11 +169,13 @@ func (o *DeleteEndpointIDErrors) Code() int {
 }
 
 func (o *DeleteEndpointIDErrors) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdErrors  %+v", 206, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdErrors %s", 206, payload)
 }
 
 func (o *DeleteEndpointIDErrors) String() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdErrors  %+v", 206, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdErrors %s", 206, payload)
 }
 
 func (o *DeleteEndpointIDErrors) GetPayload() int64 {
@@ -236,11 +239,13 @@ func (o *DeleteEndpointIDInvalid) Code() int {
 }
 
 func (o *DeleteEndpointIDInvalid) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdInvalid %s", 400, payload)
 }
 
 func (o *DeleteEndpointIDInvalid) String() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdInvalid %s", 400, payload)
 }
 
 func (o *DeleteEndpointIDInvalid) GetPayload() models.Error {
@@ -301,11 +306,11 @@ func (o *DeleteEndpointIDForbidden) Code() int {
 }
 
 func (o *DeleteEndpointIDForbidden) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdForbidden ", 403)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdForbidden", 403)
 }
 
 func (o *DeleteEndpointIDForbidden) String() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdForbidden ", 403)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdForbidden", 403)
 }
 
 func (o *DeleteEndpointIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -357,11 +362,11 @@ func (o *DeleteEndpointIDNotFound) Code() int {
 }
 
 func (o *DeleteEndpointIDNotFound) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdNotFound ", 404)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdNotFound", 404)
 }
 
 func (o *DeleteEndpointIDNotFound) String() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdNotFound ", 404)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdNotFound", 404)
 }
 
 func (o *DeleteEndpointIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -413,11 +418,11 @@ func (o *DeleteEndpointIDTooManyRequests) Code() int {
 }
 
 func (o *DeleteEndpointIDTooManyRequests) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdTooManyRequests ", 429)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdTooManyRequests", 429)
 }
 
 func (o *DeleteEndpointIDTooManyRequests) String() string {
-	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdTooManyRequests ", 429)
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdTooManyRequests", 429)
 }
 
 func (o *DeleteEndpointIDTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

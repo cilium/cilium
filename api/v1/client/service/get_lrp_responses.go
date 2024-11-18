@@ -9,6 +9,7 @@ package service
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -82,11 +83,13 @@ func (o *GetLrpOK) Code() int {
 }
 
 func (o *GetLrpOK) Error() string {
-	return fmt.Sprintf("[GET /lrp][%d] getLrpOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /lrp][%d] getLrpOK %s", 200, payload)
 }
 
 func (o *GetLrpOK) String() string {
-	return fmt.Sprintf("[GET /lrp][%d] getLrpOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /lrp][%d] getLrpOK %s", 200, payload)
 }
 
 func (o *GetLrpOK) GetPayload() []*models.LRPSpec {

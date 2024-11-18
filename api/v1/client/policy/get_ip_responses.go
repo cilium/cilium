@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *GetIPOK) Code() int {
 }
 
 func (o *GetIPOK) Error() string {
-	return fmt.Sprintf("[GET /ip][%d] getIpOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ip][%d] getIpOK %s", 200, payload)
 }
 
 func (o *GetIPOK) String() string {
-	return fmt.Sprintf("[GET /ip][%d] getIpOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ip][%d] getIpOK %s", 200, payload)
 }
 
 func (o *GetIPOK) GetPayload() []*models.IPListEntry {
@@ -160,11 +163,13 @@ func (o *GetIPBadRequest) Code() int {
 }
 
 func (o *GetIPBadRequest) Error() string {
-	return fmt.Sprintf("[GET /ip][%d] getIpBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ip][%d] getIpBadRequest %s", 400, payload)
 }
 
 func (o *GetIPBadRequest) String() string {
-	return fmt.Sprintf("[GET /ip][%d] getIpBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ip][%d] getIpBadRequest %s", 400, payload)
 }
 
 func (o *GetIPBadRequest) GetPayload() models.Error {
@@ -225,11 +230,11 @@ func (o *GetIPNotFound) Code() int {
 }
 
 func (o *GetIPNotFound) Error() string {
-	return fmt.Sprintf("[GET /ip][%d] getIpNotFound ", 404)
+	return fmt.Sprintf("[GET /ip][%d] getIpNotFound", 404)
 }
 
 func (o *GetIPNotFound) String() string {
-	return fmt.Sprintf("[GET /ip][%d] getIpNotFound ", 404)
+	return fmt.Sprintf("[GET /ip][%d] getIpNotFound", 404)
 }
 
 func (o *GetIPNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

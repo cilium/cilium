@@ -9,6 +9,7 @@ package recorder
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -99,11 +100,11 @@ func (o *PutRecorderIDOK) Code() int {
 }
 
 func (o *PutRecorderIDOK) Error() string {
-	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdOK ", 200)
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdOK", 200)
 }
 
 func (o *PutRecorderIDOK) String() string {
-	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdOK ", 200)
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdOK", 200)
 }
 
 func (o *PutRecorderIDOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -155,11 +156,11 @@ func (o *PutRecorderIDCreated) Code() int {
 }
 
 func (o *PutRecorderIDCreated) Error() string {
-	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdCreated ", 201)
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdCreated", 201)
 }
 
 func (o *PutRecorderIDCreated) String() string {
-	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdCreated ", 201)
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdCreated", 201)
 }
 
 func (o *PutRecorderIDCreated) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -211,11 +212,11 @@ func (o *PutRecorderIDForbidden) Code() int {
 }
 
 func (o *PutRecorderIDForbidden) Error() string {
-	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdForbidden ", 403)
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdForbidden", 403)
 }
 
 func (o *PutRecorderIDForbidden) String() string {
-	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdForbidden ", 403)
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdForbidden", 403)
 }
 
 func (o *PutRecorderIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -268,11 +269,13 @@ func (o *PutRecorderIDFailure) Code() int {
 }
 
 func (o *PutRecorderIDFailure) Error() string {
-	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdFailure %s", 500, payload)
 }
 
 func (o *PutRecorderIDFailure) String() string {
-	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdFailure %s", 500, payload)
 }
 
 func (o *PutRecorderIDFailure) GetPayload() models.Error {

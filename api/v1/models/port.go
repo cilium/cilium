@@ -32,7 +32,7 @@ type Port struct {
 	Port uint16 `json:"port,omitempty"`
 
 	// Layer 4 protocol
-	// Enum: [TCP UDP SCTP ICMP ICMPV6 ANY]
+	// Enum: ["TCP","UDP","SCTP","ICMP","ICMPV6","ANY"]
 	Protocol string `json:"protocol,omitempty"`
 }
 

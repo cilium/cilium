@@ -35,7 +35,7 @@ type HubbleStatus struct {
 	Observer *HubbleStatusObserver `json:"observer,omitempty"`
 
 	// State the component is in
-	// Enum: [Ok Warning Failure Disabled]
+	// Enum: ["Ok","Warning","Failure","Disabled"]
 	State string `json:"state,omitempty"`
 }
 
@@ -231,7 +231,7 @@ func (m *HubbleStatus) UnmarshalBinary(b []byte) error {
 type HubbleStatusMetrics struct {
 
 	// State of the Hubble metrics
-	// Enum: [Ok Warning Failure Disabled]
+	// Enum: ["Ok","Warning","Failure","Disabled"]
 	State string `json:"state,omitempty"`
 }
 

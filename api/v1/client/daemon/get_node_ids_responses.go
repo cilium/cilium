@@ -9,6 +9,7 @@ package daemon
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -82,11 +83,13 @@ func (o *GetNodeIdsOK) Code() int {
 }
 
 func (o *GetNodeIdsOK) Error() string {
-	return fmt.Sprintf("[GET /node/ids][%d] getNodeIdsOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /node/ids][%d] getNodeIdsOK %s", 200, payload)
 }
 
 func (o *GetNodeIdsOK) String() string {
-	return fmt.Sprintf("[GET /node/ids][%d] getNodeIdsOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /node/ids][%d] getNodeIdsOK %s", 200, payload)
 }
 
 func (o *GetNodeIdsOK) GetPayload() []*models.NodeID {

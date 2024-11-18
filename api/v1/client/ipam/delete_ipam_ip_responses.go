@@ -9,6 +9,7 @@ package ipam
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -111,11 +112,11 @@ func (o *DeleteIpamIPOK) Code() int {
 }
 
 func (o *DeleteIpamIPOK) Error() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpOK ", 200)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpOK", 200)
 }
 
 func (o *DeleteIpamIPOK) String() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpOK ", 200)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpOK", 200)
 }
 
 func (o *DeleteIpamIPOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -167,11 +168,11 @@ func (o *DeleteIpamIPInvalid) Code() int {
 }
 
 func (o *DeleteIpamIPInvalid) Error() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpInvalid ", 400)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpInvalid", 400)
 }
 
 func (o *DeleteIpamIPInvalid) String() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpInvalid ", 400)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpInvalid", 400)
 }
 
 func (o *DeleteIpamIPInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -223,11 +224,11 @@ func (o *DeleteIpamIPForbidden) Code() int {
 }
 
 func (o *DeleteIpamIPForbidden) Error() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpForbidden ", 403)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpForbidden", 403)
 }
 
 func (o *DeleteIpamIPForbidden) String() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpForbidden ", 403)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpForbidden", 403)
 }
 
 func (o *DeleteIpamIPForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -279,11 +280,11 @@ func (o *DeleteIpamIPNotFound) Code() int {
 }
 
 func (o *DeleteIpamIPNotFound) Error() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpNotFound ", 404)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpNotFound", 404)
 }
 
 func (o *DeleteIpamIPNotFound) String() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpNotFound ", 404)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpNotFound", 404)
 }
 
 func (o *DeleteIpamIPNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -336,11 +337,13 @@ func (o *DeleteIpamIPFailure) Code() int {
 }
 
 func (o *DeleteIpamIPFailure) Error() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpFailure %s", 500, payload)
 }
 
 func (o *DeleteIpamIPFailure) String() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpFailure %s", 500, payload)
 }
 
 func (o *DeleteIpamIPFailure) GetPayload() models.Error {
@@ -401,11 +404,11 @@ func (o *DeleteIpamIPDisabled) Code() int {
 }
 
 func (o *DeleteIpamIPDisabled) Error() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpDisabled ", 501)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpDisabled", 501)
 }
 
 func (o *DeleteIpamIPDisabled) String() string {
-	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpDisabled ", 501)
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpDisabled", 501)
 }
 
 func (o *DeleteIpamIPDisabled) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

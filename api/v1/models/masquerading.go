@@ -35,7 +35,7 @@ type Masquerading struct {
 	IPMasqAgent bool `json:"ip-masq-agent,omitempty"`
 
 	// mode
-	// Enum: [BPF iptables]
+	// Enum: ["BPF","iptables"]
 	Mode string `json:"mode,omitempty"`
 
 	// This field is obsolete, please use snat-exclusion-cidr-v4 or snat-exclusion-cidr-v6.

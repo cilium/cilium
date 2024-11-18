@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -112,11 +113,13 @@ func (o *PutEndpointIDCreated) Code() int {
 }
 
 func (o *PutEndpointIDCreated) Error() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdCreated  %+v", 201, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdCreated %s", 201, payload)
 }
 
 func (o *PutEndpointIDCreated) String() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdCreated  %+v", 201, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdCreated %s", 201, payload)
 }
 
 func (o *PutEndpointIDCreated) GetPayload() *models.Endpoint {
@@ -180,11 +183,13 @@ func (o *PutEndpointIDInvalid) Code() int {
 }
 
 func (o *PutEndpointIDInvalid) Error() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdInvalid %s", 400, payload)
 }
 
 func (o *PutEndpointIDInvalid) String() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdInvalid %s", 400, payload)
 }
 
 func (o *PutEndpointIDInvalid) GetPayload() models.Error {
@@ -245,11 +250,11 @@ func (o *PutEndpointIDForbidden) Code() int {
 }
 
 func (o *PutEndpointIDForbidden) Error() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdForbidden ", 403)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdForbidden", 403)
 }
 
 func (o *PutEndpointIDForbidden) String() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdForbidden ", 403)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdForbidden", 403)
 }
 
 func (o *PutEndpointIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -301,11 +306,11 @@ func (o *PutEndpointIDExists) Code() int {
 }
 
 func (o *PutEndpointIDExists) Error() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdExists ", 409)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdExists", 409)
 }
 
 func (o *PutEndpointIDExists) String() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdExists ", 409)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdExists", 409)
 }
 
 func (o *PutEndpointIDExists) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -357,11 +362,11 @@ func (o *PutEndpointIDTooManyRequests) Code() int {
 }
 
 func (o *PutEndpointIDTooManyRequests) Error() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdTooManyRequests ", 429)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdTooManyRequests", 429)
 }
 
 func (o *PutEndpointIDTooManyRequests) String() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdTooManyRequests ", 429)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdTooManyRequests", 429)
 }
 
 func (o *PutEndpointIDTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -414,11 +419,13 @@ func (o *PutEndpointIDFailed) Code() int {
 }
 
 func (o *PutEndpointIDFailed) Error() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdFailed %s", 500, payload)
 }
 
 func (o *PutEndpointIDFailed) String() string {
-	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdFailed %s", 500, payload)
 }
 
 func (o *PutEndpointIDFailed) GetPayload() models.Error {

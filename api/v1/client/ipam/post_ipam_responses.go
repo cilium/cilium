@@ -9,6 +9,7 @@ package ipam
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *PostIpamCreated) Code() int {
 }
 
 func (o *PostIpamCreated) Error() string {
-	return fmt.Sprintf("[POST /ipam][%d] postIpamCreated  %+v", 201, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /ipam][%d] postIpamCreated %s", 201, payload)
 }
 
 func (o *PostIpamCreated) String() string {
-	return fmt.Sprintf("[POST /ipam][%d] postIpamCreated  %+v", 201, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /ipam][%d] postIpamCreated %s", 201, payload)
 }
 
 func (o *PostIpamCreated) GetPayload() *models.IPAMResponse {
@@ -161,11 +164,11 @@ func (o *PostIpamForbidden) Code() int {
 }
 
 func (o *PostIpamForbidden) Error() string {
-	return fmt.Sprintf("[POST /ipam][%d] postIpamForbidden ", 403)
+	return fmt.Sprintf("[POST /ipam][%d] postIpamForbidden", 403)
 }
 
 func (o *PostIpamForbidden) String() string {
-	return fmt.Sprintf("[POST /ipam][%d] postIpamForbidden ", 403)
+	return fmt.Sprintf("[POST /ipam][%d] postIpamForbidden", 403)
 }
 
 func (o *PostIpamForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -218,11 +221,13 @@ func (o *PostIpamFailure) Code() int {
 }
 
 func (o *PostIpamFailure) Error() string {
-	return fmt.Sprintf("[POST /ipam][%d] postIpamFailure  %+v", 502, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /ipam][%d] postIpamFailure %s", 502, payload)
 }
 
 func (o *PostIpamFailure) String() string {
-	return fmt.Sprintf("[POST /ipam][%d] postIpamFailure  %+v", 502, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /ipam][%d] postIpamFailure %s", 502, payload)
 }
 
 func (o *PostIpamFailure) GetPayload() models.Error {

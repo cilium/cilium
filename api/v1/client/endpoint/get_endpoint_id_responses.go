@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -100,11 +101,13 @@ func (o *GetEndpointIDOK) Code() int {
 }
 
 func (o *GetEndpointIDOK) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdOK %s", 200, payload)
 }
 
 func (o *GetEndpointIDOK) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdOK %s", 200, payload)
 }
 
 func (o *GetEndpointIDOK) GetPayload() *models.Endpoint {
@@ -168,11 +171,13 @@ func (o *GetEndpointIDInvalid) Code() int {
 }
 
 func (o *GetEndpointIDInvalid) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdInvalid %s", 400, payload)
 }
 
 func (o *GetEndpointIDInvalid) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdInvalid %s", 400, payload)
 }
 
 func (o *GetEndpointIDInvalid) GetPayload() models.Error {
@@ -233,11 +238,11 @@ func (o *GetEndpointIDNotFound) Code() int {
 }
 
 func (o *GetEndpointIDNotFound) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdNotFound", 404)
 }
 
 func (o *GetEndpointIDNotFound) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdNotFound", 404)
 }
 
 func (o *GetEndpointIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -289,11 +294,11 @@ func (o *GetEndpointIDTooManyRequests) Code() int {
 }
 
 func (o *GetEndpointIDTooManyRequests) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdTooManyRequests", 429)
 }
 
 func (o *GetEndpointIDTooManyRequests) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdTooManyRequests", 429)
 }
 
 func (o *GetEndpointIDTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

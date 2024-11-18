@@ -30,7 +30,7 @@ type RecorderFilter struct {
 	DstPrefix string `json:"dst-prefix,omitempty"`
 
 	// Layer 4 protocol
-	// Enum: [TCP UDP SCTP ANY]
+	// Enum: ["TCP","UDP","SCTP","ANY"]
 	Protocol string `json:"protocol,omitempty"`
 
 	// Layer 4 source port, zero (or in future range)

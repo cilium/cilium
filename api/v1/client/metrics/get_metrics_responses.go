@@ -9,6 +9,7 @@ package metrics
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetMetricsOK) Code() int {
 }
 
 func (o *GetMetricsOK) Error() string {
-	return fmt.Sprintf("[GET /metrics/][%d] getMetricsOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /metrics/][%d] getMetricsOK %s", 200, payload)
 }
 
 func (o *GetMetricsOK) String() string {
-	return fmt.Sprintf("[GET /metrics/][%d] getMetricsOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /metrics/][%d] getMetricsOK %s", 200, payload)
 }
 
 func (o *GetMetricsOK) GetPayload() []*models.Metric {
@@ -153,11 +156,11 @@ func (o *GetMetricsInternalServerError) Code() int {
 }
 
 func (o *GetMetricsInternalServerError) Error() string {
-	return fmt.Sprintf("[GET /metrics/][%d] getMetricsInternalServerError ", 500)
+	return fmt.Sprintf("[GET /metrics/][%d] getMetricsInternalServerError", 500)
 }
 
 func (o *GetMetricsInternalServerError) String() string {
-	return fmt.Sprintf("[GET /metrics/][%d] getMetricsInternalServerError ", 500)
+	return fmt.Sprintf("[GET /metrics/][%d] getMetricsInternalServerError", 500)
 }
 
 func (o *GetMetricsInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

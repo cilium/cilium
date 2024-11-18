@@ -32,11 +32,11 @@ type FrontendAddress struct {
 	Port uint16 `json:"port,omitempty"`
 
 	// Layer 4 protocol
-	// Enum: [tcp udp any]
+	// Enum: ["tcp","udp","any"]
 	Protocol string `json:"protocol,omitempty"`
 
 	// Load balancing scope for frontend address
-	// Enum: [external internal]
+	// Enum: ["external","internal"]
 	Scope string `json:"scope,omitempty"`
 }
 

@@ -26,11 +26,11 @@ import (
 type Routing struct {
 
 	// Datapath routing mode for cross-cluster connectivity
-	// Enum: [Native Tunnel]
+	// Enum: ["Native","Tunnel"]
 	InterHostRoutingMode string `json:"inter-host-routing-mode,omitempty"`
 
 	// Datapath routing mode for connectivity within the host
-	// Enum: [BPF Legacy]
+	// Enum: ["BPF","Legacy"]
 	IntraHostRoutingMode string `json:"intra-host-routing-mode,omitempty"`
 
 	// Tunnel protocol in use for cross-cluster connectivity

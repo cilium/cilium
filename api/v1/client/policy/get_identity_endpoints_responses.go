@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetIdentityEndpointsOK) Code() int {
 }
 
 func (o *GetIdentityEndpointsOK) Error() string {
-	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsOK %s", 200, payload)
 }
 
 func (o *GetIdentityEndpointsOK) String() string {
-	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsOK %s", 200, payload)
 }
 
 func (o *GetIdentityEndpointsOK) GetPayload() []*models.IdentityEndpoints {
@@ -153,11 +156,11 @@ func (o *GetIdentityEndpointsNotFound) Code() int {
 }
 
 func (o *GetIdentityEndpointsNotFound) Error() string {
-	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsNotFound ", 404)
+	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsNotFound", 404)
 }
 
 func (o *GetIdentityEndpointsNotFound) String() string {
-	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsNotFound ", 404)
+	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsNotFound", 404)
 }
 
 func (o *GetIdentityEndpointsNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

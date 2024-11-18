@@ -9,6 +9,7 @@ package bgp
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *GetBgpPeersOK) Code() int {
 }
 
 func (o *GetBgpPeersOK) Error() string {
-	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersOK %s", 200, payload)
 }
 
 func (o *GetBgpPeersOK) String() string {
-	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersOK %s", 200, payload)
 }
 
 func (o *GetBgpPeersOK) GetPayload() []*models.BgpPeer {
@@ -160,11 +163,13 @@ func (o *GetBgpPeersInternalServerError) Code() int {
 }
 
 func (o *GetBgpPeersInternalServerError) Error() string {
-	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersInternalServerError  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersInternalServerError %s", 500, payload)
 }
 
 func (o *GetBgpPeersInternalServerError) String() string {
-	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersInternalServerError  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersInternalServerError %s", 500, payload)
 }
 
 func (o *GetBgpPeersInternalServerError) GetPayload() models.Error {
@@ -226,11 +231,13 @@ func (o *GetBgpPeersDisabled) Code() int {
 }
 
 func (o *GetBgpPeersDisabled) Error() string {
-	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersDisabled  %+v", 501, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersDisabled %s", 501, payload)
 }
 
 func (o *GetBgpPeersDisabled) String() string {
-	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersDisabled  %+v", 501, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/peers][%d] getBgpPeersDisabled %s", 501, payload)
 }
 
 func (o *GetBgpPeersDisabled) GetPayload() models.Error {

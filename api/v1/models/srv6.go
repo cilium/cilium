@@ -29,7 +29,7 @@ type Srv6 struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// srv6 encap mode
-	// Enum: [SRH Reduced]
+	// Enum: ["SRH","Reduced"]
 	Srv6EncapMode string `json:"srv6EncapMode,omitempty"`
 }
 

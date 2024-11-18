@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -93,11 +94,11 @@ func (o *DeleteFqdnCacheOK) Code() int {
 }
 
 func (o *DeleteFqdnCacheOK) Error() string {
-	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheOK ", 200)
+	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheOK", 200)
 }
 
 func (o *DeleteFqdnCacheOK) String() string {
-	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheOK ", 200)
+	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheOK", 200)
 }
 
 func (o *DeleteFqdnCacheOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -150,11 +151,13 @@ func (o *DeleteFqdnCacheBadRequest) Code() int {
 }
 
 func (o *DeleteFqdnCacheBadRequest) Error() string {
-	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheBadRequest %s", 400, payload)
 }
 
 func (o *DeleteFqdnCacheBadRequest) String() string {
-	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheBadRequest %s", 400, payload)
 }
 
 func (o *DeleteFqdnCacheBadRequest) GetPayload() models.Error {
@@ -215,11 +218,11 @@ func (o *DeleteFqdnCacheForbidden) Code() int {
 }
 
 func (o *DeleteFqdnCacheForbidden) Error() string {
-	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheForbidden ", 403)
+	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheForbidden", 403)
 }
 
 func (o *DeleteFqdnCacheForbidden) String() string {
-	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheForbidden ", 403)
+	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheForbidden", 403)
 }
 
 func (o *DeleteFqdnCacheForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

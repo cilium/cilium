@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -105,11 +106,11 @@ func (o *PatchEndpointIDLabelsOK) Code() int {
 }
 
 func (o *PatchEndpointIDLabelsOK) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsOK ", 200)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsOK", 200)
 }
 
 func (o *PatchEndpointIDLabelsOK) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsOK ", 200)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsOK", 200)
 }
 
 func (o *PatchEndpointIDLabelsOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -161,11 +162,11 @@ func (o *PatchEndpointIDLabelsForbidden) Code() int {
 }
 
 func (o *PatchEndpointIDLabelsForbidden) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsForbidden ", 403)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsForbidden", 403)
 }
 
 func (o *PatchEndpointIDLabelsForbidden) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsForbidden ", 403)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsForbidden", 403)
 }
 
 func (o *PatchEndpointIDLabelsForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -217,11 +218,11 @@ func (o *PatchEndpointIDLabelsNotFound) Code() int {
 }
 
 func (o *PatchEndpointIDLabelsNotFound) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsNotFound ", 404)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsNotFound", 404)
 }
 
 func (o *PatchEndpointIDLabelsNotFound) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsNotFound ", 404)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsNotFound", 404)
 }
 
 func (o *PatchEndpointIDLabelsNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -273,11 +274,11 @@ func (o *PatchEndpointIDLabelsTooManyRequests) Code() int {
 }
 
 func (o *PatchEndpointIDLabelsTooManyRequests) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsTooManyRequests ", 429)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsTooManyRequests", 429)
 }
 
 func (o *PatchEndpointIDLabelsTooManyRequests) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsTooManyRequests ", 429)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsTooManyRequests", 429)
 }
 
 func (o *PatchEndpointIDLabelsTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -330,11 +331,13 @@ func (o *PatchEndpointIDLabelsUpdateFailed) Code() int {
 }
 
 func (o *PatchEndpointIDLabelsUpdateFailed) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsUpdateFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsUpdateFailed %s", 500, payload)
 }
 
 func (o *PatchEndpointIDLabelsUpdateFailed) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsUpdateFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsUpdateFailed %s", 500, payload)
 }
 
 func (o *PatchEndpointIDLabelsUpdateFailed) GetPayload() models.Error {

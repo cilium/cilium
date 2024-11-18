@@ -9,6 +9,7 @@ package ipam
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -111,11 +112,11 @@ func (o *PostIpamIPOK) Code() int {
 }
 
 func (o *PostIpamIPOK) Error() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpOK ", 200)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpOK", 200)
 }
 
 func (o *PostIpamIPOK) String() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpOK ", 200)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpOK", 200)
 }
 
 func (o *PostIpamIPOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -167,11 +168,11 @@ func (o *PostIpamIPInvalid) Code() int {
 }
 
 func (o *PostIpamIPInvalid) Error() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpInvalid ", 400)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpInvalid", 400)
 }
 
 func (o *PostIpamIPInvalid) String() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpInvalid ", 400)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpInvalid", 400)
 }
 
 func (o *PostIpamIPInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -223,11 +224,11 @@ func (o *PostIpamIPForbidden) Code() int {
 }
 
 func (o *PostIpamIPForbidden) Error() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpForbidden ", 403)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpForbidden", 403)
 }
 
 func (o *PostIpamIPForbidden) String() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpForbidden ", 403)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpForbidden", 403)
 }
 
 func (o *PostIpamIPForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -279,11 +280,11 @@ func (o *PostIpamIPExists) Code() int {
 }
 
 func (o *PostIpamIPExists) Error() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpExists ", 409)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpExists", 409)
 }
 
 func (o *PostIpamIPExists) String() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpExists ", 409)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpExists", 409)
 }
 
 func (o *PostIpamIPExists) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -336,11 +337,13 @@ func (o *PostIpamIPFailure) Code() int {
 }
 
 func (o *PostIpamIPFailure) Error() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpFailure %s", 500, payload)
 }
 
 func (o *PostIpamIPFailure) String() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpFailure %s", 500, payload)
 }
 
 func (o *PostIpamIPFailure) GetPayload() models.Error {
@@ -401,11 +404,11 @@ func (o *PostIpamIPDisabled) Code() int {
 }
 
 func (o *PostIpamIPDisabled) Error() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpDisabled ", 501)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpDisabled", 501)
 }
 
 func (o *PostIpamIPDisabled) String() string {
-	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpDisabled ", 501)
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpDisabled", 501)
 }
 
 func (o *PostIpamIPDisabled) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

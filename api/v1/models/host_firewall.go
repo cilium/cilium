@@ -29,7 +29,7 @@ type HostFirewall struct {
 	Devices []string `json:"devices"`
 
 	// mode
-	// Enum: [Disabled Enabled]
+	// Enum: ["Disabled","Enabled"]
 	Mode string `json:"mode,omitempty"`
 }
 

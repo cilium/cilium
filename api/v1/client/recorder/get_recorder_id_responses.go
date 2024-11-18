@@ -9,6 +9,7 @@ package recorder
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetRecorderIDOK) Code() int {
 }
 
 func (o *GetRecorderIDOK) Error() string {
-	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdOK %s", 200, payload)
 }
 
 func (o *GetRecorderIDOK) String() string {
-	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdOK %s", 200, payload)
 }
 
 func (o *GetRecorderIDOK) GetPayload() *models.Recorder {
@@ -155,11 +158,11 @@ func (o *GetRecorderIDNotFound) Code() int {
 }
 
 func (o *GetRecorderIDNotFound) Error() string {
-	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdNotFound ", 404)
+	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdNotFound", 404)
 }
 
 func (o *GetRecorderIDNotFound) String() string {
-	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdNotFound ", 404)
+	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdNotFound", 404)
 }
 
 func (o *GetRecorderIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

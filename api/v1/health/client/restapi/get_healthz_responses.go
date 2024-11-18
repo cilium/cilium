@@ -9,6 +9,7 @@ package restapi
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetHealthzOK) Code() int {
 }
 
 func (o *GetHealthzOK) Error() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK %s", 200, payload)
 }
 
 func (o *GetHealthzOK) String() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK %s", 200, payload)
 }
 
 func (o *GetHealthzOK) GetPayload() *models.HealthResponse {
@@ -156,11 +159,13 @@ func (o *GetHealthzFailed) Code() int {
 }
 
 func (o *GetHealthzFailed) Error() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzFailed %s", 500, payload)
 }
 
 func (o *GetHealthzFailed) String() string {
-	return fmt.Sprintf("[GET /healthz][%d] getHealthzFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzFailed %s", 500, payload)
 }
 
 func (o *GetHealthzFailed) GetPayload() models.Error {

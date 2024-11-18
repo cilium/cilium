@@ -9,6 +9,7 @@ package daemon
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetDebuginfoOK) Code() int {
 }
 
 func (o *GetDebuginfoOK) Error() string {
-	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoOK %s", 200, payload)
 }
 
 func (o *GetDebuginfoOK) String() string {
-	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoOK %s", 200, payload)
 }
 
 func (o *GetDebuginfoOK) GetPayload() *models.DebugInfo {
@@ -156,11 +159,13 @@ func (o *GetDebuginfoFailure) Code() int {
 }
 
 func (o *GetDebuginfoFailure) Error() string {
-	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoFailure %s", 500, payload)
 }
 
 func (o *GetDebuginfoFailure) String() string {
-	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoFailure %s", 500, payload)
 }
 
 func (o *GetDebuginfoFailure) GetPayload() models.Error {

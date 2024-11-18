@@ -9,6 +9,7 @@ package service
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetServiceIDOK) Code() int {
 }
 
 func (o *GetServiceIDOK) Error() string {
-	return fmt.Sprintf("[GET /service/{id}][%d] getServiceIdOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /service/{id}][%d] getServiceIdOK %s", 200, payload)
 }
 
 func (o *GetServiceIDOK) String() string {
-	return fmt.Sprintf("[GET /service/{id}][%d] getServiceIdOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /service/{id}][%d] getServiceIdOK %s", 200, payload)
 }
 
 func (o *GetServiceIDOK) GetPayload() *models.Service {
@@ -155,11 +158,11 @@ func (o *GetServiceIDNotFound) Code() int {
 }
 
 func (o *GetServiceIDNotFound) Error() string {
-	return fmt.Sprintf("[GET /service/{id}][%d] getServiceIdNotFound ", 404)
+	return fmt.Sprintf("[GET /service/{id}][%d] getServiceIdNotFound", 404)
 }
 
 func (o *GetServiceIDNotFound) String() string {
-	return fmt.Sprintf("[GET /service/{id}][%d] getServiceIdNotFound ", 404)
+	return fmt.Sprintf("[GET /service/{id}][%d] getServiceIdNotFound", 404)
 }
 
 func (o *GetServiceIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

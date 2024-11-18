@@ -9,6 +9,7 @@ package service
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -99,11 +100,11 @@ func (o *DeleteServiceIDOK) Code() int {
 }
 
 func (o *DeleteServiceIDOK) Error() string {
-	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdOK ", 200)
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdOK", 200)
 }
 
 func (o *DeleteServiceIDOK) String() string {
-	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdOK ", 200)
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdOK", 200)
 }
 
 func (o *DeleteServiceIDOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -155,11 +156,11 @@ func (o *DeleteServiceIDForbidden) Code() int {
 }
 
 func (o *DeleteServiceIDForbidden) Error() string {
-	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdForbidden ", 403)
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdForbidden", 403)
 }
 
 func (o *DeleteServiceIDForbidden) String() string {
-	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdForbidden ", 403)
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdForbidden", 403)
 }
 
 func (o *DeleteServiceIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -211,11 +212,11 @@ func (o *DeleteServiceIDNotFound) Code() int {
 }
 
 func (o *DeleteServiceIDNotFound) Error() string {
-	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdNotFound ", 404)
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdNotFound", 404)
 }
 
 func (o *DeleteServiceIDNotFound) String() string {
-	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdNotFound ", 404)
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdNotFound", 404)
 }
 
 func (o *DeleteServiceIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -268,11 +269,13 @@ func (o *DeleteServiceIDFailure) Code() int {
 }
 
 func (o *DeleteServiceIDFailure) Error() string {
-	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdFailure %s", 500, payload)
 }
 
 func (o *DeleteServiceIDFailure) String() string {
-	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdFailure %s", 500, payload)
 }
 
 func (o *DeleteServiceIDFailure) GetPayload() models.Error {

@@ -9,6 +9,7 @@ package connectivity
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -82,11 +83,13 @@ func (o *GetStatusOK) Code() int {
 }
 
 func (o *GetStatusOK) Error() string {
-	return fmt.Sprintf("[GET /status][%d] getStatusOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /status][%d] getStatusOK %s", 200, payload)
 }
 
 func (o *GetStatusOK) String() string {
-	return fmt.Sprintf("[GET /status][%d] getStatusOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /status][%d] getStatusOK %s", 200, payload)
 }
 
 func (o *GetStatusOK) GetPayload() *models.HealthStatusResponse {

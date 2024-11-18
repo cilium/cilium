@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -106,11 +107,13 @@ func (o *PutPolicyOK) Code() int {
 }
 
 func (o *PutPolicyOK) Error() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyOK %s", 200, payload)
 }
 
 func (o *PutPolicyOK) String() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyOK %s", 200, payload)
 }
 
 func (o *PutPolicyOK) GetPayload() *models.Policy {
@@ -174,11 +177,13 @@ func (o *PutPolicyInvalidPolicy) Code() int {
 }
 
 func (o *PutPolicyInvalidPolicy) Error() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPolicy  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPolicy %s", 400, payload)
 }
 
 func (o *PutPolicyInvalidPolicy) String() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPolicy  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPolicy %s", 400, payload)
 }
 
 func (o *PutPolicyInvalidPolicy) GetPayload() models.Error {
@@ -239,11 +244,11 @@ func (o *PutPolicyForbidden) Code() int {
 }
 
 func (o *PutPolicyForbidden) Error() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyForbidden ", 403)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyForbidden", 403)
 }
 
 func (o *PutPolicyForbidden) String() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyForbidden ", 403)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyForbidden", 403)
 }
 
 func (o *PutPolicyForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -296,11 +301,13 @@ func (o *PutPolicyInvalidPath) Code() int {
 }
 
 func (o *PutPolicyInvalidPath) Error() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPath  %+v", 460, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPath %s", 460, payload)
 }
 
 func (o *PutPolicyInvalidPath) String() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPath  %+v", 460, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPath %s", 460, payload)
 }
 
 func (o *PutPolicyInvalidPath) GetPayload() models.Error {
@@ -362,11 +369,13 @@ func (o *PutPolicyFailure) Code() int {
 }
 
 func (o *PutPolicyFailure) Error() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyFailure %s", 500, payload)
 }
 
 func (o *PutPolicyFailure) String() string {
-	return fmt.Sprintf("[PUT /policy][%d] putPolicyFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyFailure %s", 500, payload)
 }
 
 func (o *PutPolicyFailure) GetPayload() models.Error {
