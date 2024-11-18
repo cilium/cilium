@@ -14,13 +14,13 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+var _ FlowLogExporter = (*DynamicExporter)(nil)
+
 var reloadInterval = 5 * time.Second
 
 // DynamicExporter is a wrapper of the hubble exporter that supports dynamic configuration reload
 // for a set of exporters.
 type DynamicExporter struct {
-	FlowLogExporter
-
 	logger        logrus.FieldLogger
 	watcher       *configWatcher
 	maxFileSizeMB int
@@ -58,12 +58,13 @@ func (d *DynamicExporter) Watch(ctx context.Context) error {
 	return d.watcher.watch(ctx, reloadInterval)
 }
 
-// OnDecodedEvent implemebnts FlowLogExporter.
+// Export implements the FlowLogExporter interface.
+//
 // It distributes events across all managed exporters.
-func (d *DynamicExporter) OnDecodedEvent(ctx context.Context, event *v1.Event) (bool, error) {
+func (d *DynamicExporter) Export(ctx context.Context, event *v1.Event) error {
 	select {
 	case <-ctx.Done():
-		return false, nil
+		return ctx.Err()
 	default:
 	}
 
@@ -73,14 +74,15 @@ func (d *DynamicExporter) OnDecodedEvent(ctx context.Context, event *v1.Event) (
 	var errs error
 	for _, me := range d.managedExporters {
 		if me.config.End == nil || me.config.End.After(time.Now()) {
-			_, err := me.exporter.OnDecodedEvent(ctx, event)
+			err := me.exporter.Export(ctx, event)
 			errs = errors.Join(errs, err)
 		}
 	}
-	return false, errs
+	return errs
 }
 
-// Stop implements FlowLogExporter.
+// Stop implements the FlowLogExporter interface.
+//
 // It stops all managed flow log exporters.
 func (d *DynamicExporter) Stop() error {
 	d.mutex.Lock()

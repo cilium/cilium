@@ -17,6 +17,8 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
+var _ FlowLogExporter = (*exporter)(nil)
+
 // OnExportEvent is a hook that can be registered on an exporter and is invoked for each event.
 //
 // Returning false will stop the export pipeline for the current event, meaning the default export
@@ -35,8 +37,6 @@ func (f OnExportEventFunc) OnExportEvent(ctx context.Context, ev *v1.Event, enco
 
 // exporter is an implementation of OnDecodedEvent interface that writes Hubble events to a file.
 type exporter struct {
-	FlowLogExporter
-
 	logger  logrus.FieldLogger
 	encoder Encoder
 	writer  io.WriteCloser
@@ -82,6 +82,53 @@ func newExporter(logger logrus.FieldLogger, opts Options) (*exporter, error) {
 	}, nil
 }
 
+// Export implements the FlowLogExporter interface.
+//
+// It takes care of applying filters on the received event, and if allowed, proceeds to invoke the
+// registered OnExportEvent hooks. If none of the hooks return true (abort signal) the event is then
+// wrapped in observerpb.ExportEvent before being encoded and written to its underlying writer.
+func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if !filters.Apply(e.opts.AllowFilters(), e.opts.DenyFilters(), ev) {
+		return nil
+	}
+
+	// Process OnExportEvent hooks
+	for _, f := range e.opts.OnExportEvent {
+		stop, err := f.OnExportEvent(ctx, ev, e.encoder)
+		if err != nil {
+			e.logger.WithError(err).Warn("OnExportEvent failed")
+		}
+		if stop {
+			// abort exporter pipeline by returning early but do not prevent
+			// other OnDecodedEvent hooks from firing
+			return nil
+		}
+	}
+
+	res := e.eventToExportEvent(ev)
+	if res == nil {
+		return nil
+	}
+	return e.encoder.Encode(res)
+}
+
+// Stop implements the FlowLogExporter interface.
+func (e *exporter) Stop() error {
+	e.logger.Debug("hubble flow exporter stopping")
+	if e.writer == nil {
+		// Already stoppped
+		return nil
+	}
+	err := e.writer.Close()
+	e.writer = nil
+	return err
+}
+
 // eventToExportEvent converts Event to ExportEvent.
 func (e *exporter) eventToExportEvent(event *v1.Event) *observerpb.ExportEvent {
 	switch ev := event.Event.(type) {
@@ -124,50 +171,4 @@ func (e *exporter) eventToExportEvent(event *v1.Event) *observerpb.ExportEvent {
 	default:
 		return nil
 	}
-}
-
-func (e *exporter) Stop() error {
-	e.logger.Debug("hubble flow exporter stopping")
-	if e.writer == nil {
-		// Already stoppped
-		return nil
-	}
-	err := e.writer.Close()
-	e.writer = nil
-	return err
-}
-
-// OnDecodedEvent implements the observeroption.OnDecodedEvent interface.
-//
-// It takes care of applying filters on the received event, and if allowed, proceeds to invoke the
-// registered OnExportEvent hooks. If none of the hooks return true (abort signal) the event is then
-// wrapped in observerpb.ExportEvent before being json-encoded and written to its underlying writer.
-func (e *exporter) OnDecodedEvent(ctx context.Context, ev *v1.Event) (bool, error) {
-	select {
-	case <-ctx.Done():
-		return false, nil
-	default:
-	}
-	if !filters.Apply(e.opts.AllowFilters(), e.opts.DenyFilters(), ev) {
-		return false, nil
-	}
-
-	// Process OnExportEvent hooks
-	for _, f := range e.opts.OnExportEvent {
-		stop, err := f.OnExportEvent(ctx, ev, e.encoder)
-		if err != nil {
-			e.logger.WithError(err).Warn("OnExportEvent failed")
-		}
-		if stop {
-			// abort exporter pipeline by returning early but do not prevent
-			// other OnDecodedEvent hooks from firing
-			return false, nil
-		}
-	}
-
-	res := e.eventToExportEvent(ev)
-	if res == nil {
-		return false, nil
-	}
-	return false, e.encoder.Encode(res)
 }

@@ -4,17 +4,20 @@
 package exporter
 
 import (
+	"context"
 	"reflect"
 	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// FlowLogExporter exports hubble events to configured target file.
+// FlowLogExporter is an interface that defines exporters for hubble events.
 type FlowLogExporter interface {
-	observeroption.OnDecodedEvent
+	// Export exports the received event.
+	Export(ctx context.Context, ev *v1.Event) error
+
 	// Stop stops this exporter instance from further events processing.
 	Stop() error
 }
