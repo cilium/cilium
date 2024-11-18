@@ -162,7 +162,7 @@ func (sniffer *Sniffer) stopAndWait(ctx context.Context) error {
 		return err
 
 	default:
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
 		sniffer.cancel()
@@ -175,7 +175,7 @@ func (sniffer *Sniffer) stopAndWait(ctx context.Context) error {
 			return err
 
 		case <-ctx.Done():
-			return errors.New("failed to wait for tcpdump to terminate")
+			return errors.New("failed to wait for tcpdump to terminate within timeout")
 		}
 	}
 }
