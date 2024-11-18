@@ -10,8 +10,10 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -176,6 +178,11 @@ type EndpointManager interface {
 
 	// GetEndpointNetnsCookieByIP returns the netns cookie for the passed endpoint with ip address if found.
 	GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error)
+
+	// UpdatePolicy triggers policy updates for all live endpoints.
+	// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
+	// policy revision will be bumped to toRev.
+	UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64)
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
