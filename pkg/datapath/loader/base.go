@@ -271,7 +271,6 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 	}
 	if option.Config.EnableNodePort {
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
-		opts = append(opts, fmt.Sprintf("-DNATIVE_DEV_IFINDEX=%d", link.Attrs().Index))
 	}
 	if option.Config.IsDualStack() {
 		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorldIPv4))
@@ -306,7 +305,6 @@ func reinitializeWireguard(ctx context.Context) (err error) {
 	opts := []string{
 		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
 		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
-		fmt.Sprintf("-DNATIVE_DEV_IFINDEX=%d", link.Attrs().Index),
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
 	}
 

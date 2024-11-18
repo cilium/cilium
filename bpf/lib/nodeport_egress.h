@@ -29,7 +29,7 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 	__u32 dr_ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 
 	/* See comment in nodeport_has_nat_conflict_ipv4(). */
-	if (dr_ifindex == NATIVE_DEV_IFINDEX &&
+	if (dr_ifindex == THIS_INTERFACE_IFINDEX &&
 	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
 		ipv6_addr_copy(&target->addr, &dr_addr);
 		target->needs_ct = true;
@@ -123,7 +123,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 * redirected to another interface
 	 */
 	send_trace_notify6(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, &saddr,
-			   TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
+			   TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 			   trace.reason, trace.monitor);
 
 	return ret;
@@ -249,7 +249,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				  trace.reason, trace.monitor);
 
 	return ret;
@@ -273,11 +273,11 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 #if defined(IS_BPF_HOST)
 	__u32 dr_ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 
-	/* NATIVE_DEV_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
+	/* THIS_INTERFACE_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
 	 * preprocessor, as the former is known only during load time (templating).
 	 * This checks whether bpf_host is running on the direct routing device.
 	 */
-	if (dr_ifindex == NATIVE_DEV_IFINDEX &&
+	if (dr_ifindex == THIS_INTERFACE_IFINDEX &&
 	    ip4->saddr == IPV4_DIRECT_ROUTING) {
 		target->addr = IPV4_DIRECT_ROUTING;
 		target->needs_ct = true;
@@ -316,7 +316,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 	if (is_defined(IS_BPF_HOST)) {
 		ep = __lookup_ip4_endpoint(ip4->saddr);
-		if (ep && ep->parent_ifindex && ep->parent_ifindex != NATIVE_DEV_IFINDEX) {
+		if (ep && ep->parent_ifindex && ep->parent_ifindex != THIS_INTERFACE_IFINDEX) {
 			/* This packet came from an endpoint with a parent interface and
 			 * it is currently not egressing on its parent interface.
 			 * Check if its a reply packet, if it is, redirect it to the
@@ -354,7 +354,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway) {
 		/* Stay on the desired egress interface: */
-		if (target.ifindex && target.ifindex == NATIVE_DEV_IFINDEX)
+		if (target.ifindex && target.ifindex == THIS_INTERFACE_IFINDEX)
 			goto apply_snat;
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
@@ -425,7 +425,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify4(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, saddr,
-				   TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
+				   TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				   trace.reason, trace.monitor);
 
 	return ret;
@@ -591,7 +591,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, NATIVE_DEV_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				  trace.reason, trace.monitor);
 
 	return ret;

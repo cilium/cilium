@@ -151,7 +151,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 				 struct bpf_fib_lookup_padded *fib_params,
 				 __s8 *ext_err)
 {
-	int oif = NATIVE_DEV_IFINDEX;
+	int oif = THIS_INTERFACE_IFINDEX;
 	int ret;
 
 	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
@@ -1239,7 +1239,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
-				  NATIVE_DEV_IFINDEX, TRACE_REASON_POLICY, monitor);
+				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor);
 		return ctx_redirect_to_proxy_hairpin_ipv6(ctx,
 							  (__be16)svc->l7_lb_proxy_port);
 	}
@@ -1281,7 +1281,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			ct_state.src_sec_id = WORLD_IPV6_ID;
 			ct_state.node_port = 1;
 #ifndef HAVE_FIB_IFINDEX
-			ct_state.ifindex = (__u16)NATIVE_DEV_IFINDEX;
+			ct_state.ifindex = (__u16)THIS_INTERFACE_IFINDEX;
 #endif
 
 			ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
@@ -2530,7 +2530,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
-				  NATIVE_DEV_IFINDEX, TRACE_REASON_POLICY, monitor);
+				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor);
 		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4,
 							  (__be16)svc->l7_lb_proxy_port);
 	}
@@ -2598,7 +2598,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			ct_state.src_sec_id = src_sec_identity;
 			ct_state.node_port = 1;
 #ifndef HAVE_FIB_IFINDEX
-			ct_state.ifindex = (__u16)NATIVE_DEV_IFINDEX;
+			ct_state.ifindex = (__u16)THIS_INTERFACE_IFINDEX;
 #endif
 
 			ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
