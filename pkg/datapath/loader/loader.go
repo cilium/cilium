@@ -199,7 +199,9 @@ func hostRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, if
 		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
 	}
 
-	opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
+	// Overwrite the host endpoint ifindex assigned in ELFVariableSubstitutions
+	// with the external device's.
+	opts["interface_ifindex"] = uint64(ifIndex)
 
 	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
 		ipv4, ipv6 := bpfMasqAddrs(ifName, cfg)
@@ -581,6 +583,9 @@ func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		Constants: map[string]uint64{
+			"interface_ifindex": uint64(device.Attrs().Index),
+		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -619,6 +624,9 @@ func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlin
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		Constants: map[string]uint64{
+			"interface_ifindex": uint64(device.Attrs().Index),
+		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},

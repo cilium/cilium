@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/netip"
-	"strings"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
@@ -225,24 +224,12 @@ func TestWriteStaticData(t *testing.T) {
 	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg
 
-	varSub := loader.ELFVariableSubstitutions(ep)
 	mapSub := loader.ELFMapSubstitutions(ep)
 
 	var buf bytes.Buffer
 	cfg.writeStaticData(nil, &buf, ep)
 	b := buf.Bytes()
-	for k := range varSub {
-		for _, suffix := range []string{"_1", "_2"} {
-			// Variables with these suffixes are implemented via
-			// multiple 64-bit values. The header define doesn't
-			// include these numbers though, so strip them.
-			if strings.HasSuffix(k, suffix) {
-				k = strings.TrimSuffix(k, suffix)
-				break
-			}
-		}
-		require.True(t, bytes.Contains(b, []byte(k)))
-	}
+
 	for _, v := range mapSub {
 		t.Logf("Ensuring config has %s", v)
 		require.True(t, bytes.Contains(b, []byte(v)))
