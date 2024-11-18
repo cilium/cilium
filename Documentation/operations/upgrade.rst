@@ -332,6 +332,8 @@ communicating via the proxy must reconnect to re-establish connections.
 * The option to run a synchronous probe using ``cilium-health status --probe`` is no longer supported,
   and is now a hidden option that returns the results of the most recent cached probe. It will be 
   removed in a future release.
+* The Cilium status API now reports the KVStore subsystem with ``Disabled`` state when disabled,
+  instead of ``OK`` state and ``Disabled`` message.
 
 Removed Options
 ~~~~~~~~~~~~~~~
