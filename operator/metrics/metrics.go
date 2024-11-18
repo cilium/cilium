@@ -107,6 +107,21 @@ func registerMetricsManager(p params) {
 		Registry.MustRegister(metric.(prometheus.Collector))
 	}
 
+	// Constructing the legacy metrics and register them at the metrics global variable.
+	// This is a hack until we can unify this metrics manager with the metrics.Registry.
+	metrics.NewLegacyMetrics()
+	Registry.MustRegister(
+		metrics.VersionMetric,
+		metrics.KVStoreOperationsDuration,
+		metrics.KVStoreEventsQueueDuration,
+		metrics.KVStoreQuorumErrors,
+		metrics.APILimiterProcessingDuration,
+		metrics.APILimiterWaitDuration,
+		metrics.APILimiterRequestsInFlight,
+		metrics.APILimiterRateLimit,
+		metrics.APILimiterProcessedRequests,
+	)
+
 	metrics.InitOperatorMetrics()
 	Registry.MustRegister(metrics.ErrorsWarnings)
 	metrics.FlushLoggingMetrics()
