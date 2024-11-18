@@ -633,6 +633,14 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)
 }
 
+func (r *rule) getSubjects() []identity.NumericIdentity {
+	if r.NodeSelector.LabelSelector != nil {
+		return []identity.NumericIdentity{identity.ReservedIdentityHost}
+	}
+
+	return r.subjectSelector.GetSelections(versioned.Latest())
+}
+
 // ****************** EGRESS POLICY ******************
 
 func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, toPorts, icmp api.PortsIterator, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
