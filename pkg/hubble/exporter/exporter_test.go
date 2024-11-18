@@ -61,8 +61,7 @@ func TestExporter(t *testing.T) {
 
 	ctx := context.Background()
 	for _, ev := range events {
-		stop, err := exporter.OnDecodedEvent(ctx, ev)
-		assert.False(t, stop)
+		err := exporter.Export(ctx, ev)
 		assert.NoError(t, err)
 
 	}
@@ -142,15 +141,19 @@ func TestExporterWithFilters(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	cancelled := false
 	for i, ev := range events {
 		// Check if processing stops (shouldn't write the last event)
 		if i == len(events)-1 {
 			cancel()
+			cancelled = true
 		}
-		stop, err := exporter.OnDecodedEvent(ctx, ev)
-		assert.False(t, stop)
-		assert.NoError(t, err)
-
+		err := exporter.Export(ctx, ev)
+		if cancelled {
+			assert.ErrorIs(t, err, context.Canceled)
+		} else {
+			assert.NoError(t, err)
+		}
 	}
 	assert.Equal(t,
 		`{"flow":{"time":"1970-01-01T00:00:13Z","source":{"namespace":"namespace-a","pod_name":"x"}},"time":"1970-01-01T00:00:13Z"}
@@ -271,8 +274,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 	defer cancel()
 
 	for _, ev := range events {
-		stop, err := exporter.OnDecodedEvent(ctx, ev)
-		assert.False(t, stop)
+		err := exporter.Export(ctx, ev)
 		assert.NoError(t, err)
 	}
 
@@ -354,8 +356,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 
 	ctx := context.Background()
 	for _, ev := range events {
-		stop, err := exporter.OnDecodedEvent(ctx, ev)
-		assert.False(t, stop)
+		err := exporter.Export(ctx, ev)
 		assert.NoError(t, err)
 	}
 
@@ -473,8 +474,7 @@ func BenchmarkExporter(b *testing.B) {
 		if i%10 == 1 { // 10% matches deny filter
 			event = &denyEvent
 		}
-		stop, err := exporter.OnDecodedEvent(ctx, event)
-		assert.False(b, stop)
+		err := exporter.Export(ctx, event)
 		assert.NoError(b, err)
 	}
 }

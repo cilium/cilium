@@ -26,8 +26,10 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
+	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
@@ -77,6 +79,7 @@ type hubbleIntegration struct {
 	nodeLocalStore    *node.LocalNodeStore
 	monitorAgent      monitorAgent.Agent
 	recorder          *recorder.Recorder
+	exporters         []exporter.FlowLogExporter
 
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	agentConfig *option.DaemonConfig
@@ -100,6 +103,7 @@ func new(
 	monitorAgent monitorAgent.Agent,
 	recorder *recorder.Recorder,
 	observerOptions []observeroption.Option,
+	exporters []exporter.FlowLogExporter,
 	agentConfig *option.DaemonConfig,
 	config config,
 	log logrus.FieldLogger,
@@ -123,6 +127,7 @@ func new(
 		monitorAgent:      monitorAgent,
 		recorder:          recorder,
 		observerOptions:   observerOptions,
+		exporters:         exporters,
 		agentConfig:       agentConfig,
 		config:            config,
 		log:               log,
@@ -407,6 +412,13 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(h.config.EventQueueSize),
 	)
+
+	// register exporters
+	for _, exporter := range h.exporters {
+		observerOpts = append(observerOpts, observeroption.WithOnDecodedEventFunc(func(ctx context.Context, e *v1.Event) (bool, error) {
+			return false, exporter.Export(ctx, e)
+		}))
+	}
 
 	// register injected observer options last to allow
 	// for explicit ordering of known dependencies

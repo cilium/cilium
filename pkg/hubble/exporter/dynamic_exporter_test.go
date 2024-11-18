@@ -207,7 +207,7 @@ func TestEventPropagation(t *testing.T) {
 	}
 
 	// when
-	sut.OnDecodedEvent(context.TODO(), &v1.Event{})
+	sut.Export(context.TODO(), &v1.Event{})
 
 	// then
 	assert.Equal(t, 1, mockExporter0.events)
@@ -509,17 +509,19 @@ func createEmptyLogFile(t *testing.T) *os.File {
 	return file
 }
 
+var _ FlowLogExporter = (*mockExporter)(nil)
+
 type mockExporter struct {
 	events  int
 	stopped bool
 }
 
-func (m *mockExporter) Stop() error {
-	m.stopped = true
+func (m *mockExporter) Export(_ context.Context, _ *v1.Event) error {
+	m.events++
 	return nil
 }
 
-func (m *mockExporter) OnDecodedEvent(_ context.Context, _ *v1.Event) (bool, error) {
-	m.events++
-	return false, nil
+func (m *mockExporter) Stop() error {
+	m.stopped = true
+	return nil
 }
