@@ -15,7 +15,6 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
-	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 )
 
 type config struct {
@@ -72,12 +71,6 @@ func (cfg config) validate() error {
 	return nil
 }
 
-type hubbleExportersOut struct {
-	cell.Out
-
-	ObserverOptions []observeroption.Option `group:"hubble-observer-options,flatten"`
-}
-
 type hubbleExportersParams struct {
 	cell.In
 
@@ -87,6 +80,12 @@ type hubbleExportersParams struct {
 
 	// TODO: replace by slog
 	Logger logrus.FieldLogger
+}
+
+type hubbleExportersOut struct {
+	cell.Out
+
+	Exporters []exporter.FlowLogExporter `group:"hubble-flow-log-exporters,flatten"`
 }
 
 // validatedConfig is a config that is known to be valid.
@@ -118,7 +117,7 @@ func NewHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 			Compress:   params.Config.ExportFileCompress,
 		})))
 	}
-	exporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
+	staticExporter, err := exporter.NewExporter(params.Logger, exporterOpts...)
 	if err != nil {
 		// non-fatal failure, log and continue
 		params.Logger.WithError(err).Error("Failed to configure Hubble static exporter")
@@ -127,12 +126,10 @@ func NewHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStop: func(hc cell.HookContext) error {
-			return exporter.Stop()
+			return staticExporter.Stop()
 		},
 	})
-	return hubbleExportersOut{
-		ObserverOptions: []observeroption.Option{observeroption.WithOnDecodedEvent(exporter)},
-	}, nil
+	return hubbleExportersOut{Exporters: []exporter.FlowLogExporter{staticExporter}}, nil
 }
 
 func NewHubbleDynamicExporter(params hubbleExportersParams) (hubbleExportersOut, error) {
@@ -141,16 +138,14 @@ func NewHubbleDynamicExporter(params hubbleExportersParams) (hubbleExportersOut,
 		return hubbleExportersOut{}, nil
 	}
 
-	exporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath, params.Config.ExportFileMaxSizeMB, params.Config.ExportFileMaxBackups)
+	dynamicExporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath, params.Config.ExportFileMaxSizeMB, params.Config.ExportFileMaxBackups)
 	params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, health cell.Health) error {
-		return exporter.Watch(ctx)
+		return dynamicExporter.Watch(ctx)
 	}))
 	params.Lifecycle.Append(cell.Hook{
 		OnStop: func(hc cell.HookContext) error {
-			return exporter.Stop()
+			return dynamicExporter.Stop()
 		},
 	})
-	return hubbleExportersOut{
-		ObserverOptions: []observeroption.Option{observeroption.WithOnDecodedEvent(exporter)},
-	}, nil
+	return hubbleExportersOut{Exporters: []exporter.FlowLogExporter{dynamicExporter}}, nil
 }
