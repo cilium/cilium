@@ -24,4 +24,4 @@ spec:
   - toCIDRSet:
     - cidrGroupRef: cilium-test-external-cidr
       except:
-        - "{{.ExternalIP}}/32"
+        - "{{ .ExternalIP | ipToCIDR }}"
