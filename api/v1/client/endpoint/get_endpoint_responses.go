@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *GetEndpointOK) Code() int {
 }
 
 func (o *GetEndpointOK) Error() string {
-	return fmt.Sprintf("[GET /endpoint][%d] getEndpointOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointOK %s", 200, payload)
 }
 
 func (o *GetEndpointOK) String() string {
-	return fmt.Sprintf("[GET /endpoint][%d] getEndpointOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointOK %s", 200, payload)
 }
 
 func (o *GetEndpointOK) GetPayload() []*models.Endpoint {
@@ -159,11 +162,11 @@ func (o *GetEndpointNotFound) Code() int {
 }
 
 func (o *GetEndpointNotFound) Error() string {
-	return fmt.Sprintf("[GET /endpoint][%d] getEndpointNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointNotFound", 404)
 }
 
 func (o *GetEndpointNotFound) String() string {
-	return fmt.Sprintf("[GET /endpoint][%d] getEndpointNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointNotFound", 404)
 }
 
 func (o *GetEndpointNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -215,11 +218,11 @@ func (o *GetEndpointTooManyRequests) Code() int {
 }
 
 func (o *GetEndpointTooManyRequests) Error() string {
-	return fmt.Sprintf("[GET /endpoint][%d] getEndpointTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointTooManyRequests", 429)
 }
 
 func (o *GetEndpointTooManyRequests) String() string {
-	return fmt.Sprintf("[GET /endpoint][%d] getEndpointTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointTooManyRequests", 429)
 }
 
 func (o *GetEndpointTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

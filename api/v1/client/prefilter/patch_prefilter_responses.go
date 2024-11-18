@@ -9,6 +9,7 @@ package prefilter
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -100,11 +101,13 @@ func (o *PatchPrefilterOK) Code() int {
 }
 
 func (o *PatchPrefilterOK) Error() string {
-	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterOK %s", 200, payload)
 }
 
 func (o *PatchPrefilterOK) String() string {
-	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterOK %s", 200, payload)
 }
 
 func (o *PatchPrefilterOK) GetPayload() *models.Prefilter {
@@ -167,11 +170,11 @@ func (o *PatchPrefilterForbidden) Code() int {
 }
 
 func (o *PatchPrefilterForbidden) Error() string {
-	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterForbidden ", 403)
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterForbidden", 403)
 }
 
 func (o *PatchPrefilterForbidden) String() string {
-	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterForbidden ", 403)
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterForbidden", 403)
 }
 
 func (o *PatchPrefilterForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -224,11 +227,13 @@ func (o *PatchPrefilterInvalidCIDR) Code() int {
 }
 
 func (o *PatchPrefilterInvalidCIDR) Error() string {
-	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterInvalidCIdR  %+v", 461, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterInvalidCIdR %s", 461, payload)
 }
 
 func (o *PatchPrefilterInvalidCIDR) String() string {
-	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterInvalidCIdR  %+v", 461, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterInvalidCIdR %s", 461, payload)
 }
 
 func (o *PatchPrefilterInvalidCIDR) GetPayload() models.Error {
@@ -290,11 +295,13 @@ func (o *PatchPrefilterFailure) Code() int {
 }
 
 func (o *PatchPrefilterFailure) Error() string {
-	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterFailure %s", 500, payload)
 }
 
 func (o *PatchPrefilterFailure) String() string {
-	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterFailure %s", 500, payload)
 }
 
 func (o *PatchPrefilterFailure) GetPayload() models.Error {

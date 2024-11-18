@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetPolicyOK) Code() int {
 }
 
 func (o *GetPolicyOK) Error() string {
-	return fmt.Sprintf("[GET /policy][%d] getPolicyOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /policy][%d] getPolicyOK %s", 200, payload)
 }
 
 func (o *GetPolicyOK) String() string {
-	return fmt.Sprintf("[GET /policy][%d] getPolicyOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /policy][%d] getPolicyOK %s", 200, payload)
 }
 
 func (o *GetPolicyOK) GetPayload() *models.Policy {
@@ -155,11 +158,11 @@ func (o *GetPolicyNotFound) Code() int {
 }
 
 func (o *GetPolicyNotFound) Error() string {
-	return fmt.Sprintf("[GET /policy][%d] getPolicyNotFound ", 404)
+	return fmt.Sprintf("[GET /policy][%d] getPolicyNotFound", 404)
 }
 
 func (o *GetPolicyNotFound) String() string {
-	return fmt.Sprintf("[GET /policy][%d] getPolicyNotFound ", 404)
+	return fmt.Sprintf("[GET /policy][%d] getPolicyNotFound", 404)
 }
 
 func (o *GetPolicyNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

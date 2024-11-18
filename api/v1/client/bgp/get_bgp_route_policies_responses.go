@@ -9,6 +9,7 @@ package bgp
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *GetBgpRoutePoliciesOK) Code() int {
 }
 
 func (o *GetBgpRoutePoliciesOK) Error() string {
-	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesOK %s", 200, payload)
 }
 
 func (o *GetBgpRoutePoliciesOK) String() string {
-	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesOK %s", 200, payload)
 }
 
 func (o *GetBgpRoutePoliciesOK) GetPayload() []*models.BgpRoutePolicy {
@@ -160,11 +163,13 @@ func (o *GetBgpRoutePoliciesInternalServerError) Code() int {
 }
 
 func (o *GetBgpRoutePoliciesInternalServerError) Error() string {
-	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesInternalServerError  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesInternalServerError %s", 500, payload)
 }
 
 func (o *GetBgpRoutePoliciesInternalServerError) String() string {
-	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesInternalServerError  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesInternalServerError %s", 500, payload)
 }
 
 func (o *GetBgpRoutePoliciesInternalServerError) GetPayload() models.Error {
@@ -226,11 +231,13 @@ func (o *GetBgpRoutePoliciesDisabled) Code() int {
 }
 
 func (o *GetBgpRoutePoliciesDisabled) Error() string {
-	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesDisabled  %+v", 501, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesDisabled %s", 501, payload)
 }
 
 func (o *GetBgpRoutePoliciesDisabled) String() string {
-	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesDisabled  %+v", 501, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /bgp/route-policies][%d] getBgpRoutePoliciesDisabled %s", 501, payload)
 }
 
 func (o *GetBgpRoutePoliciesDisabled) GetPayload() models.Error {
