@@ -624,7 +624,3 @@ abort:
 	cancel()
 	watcher.Stop()
 }
-
-func (k *kvstoreBackend) Status() (string, error) {
-	return k.backend.Status()
-}
