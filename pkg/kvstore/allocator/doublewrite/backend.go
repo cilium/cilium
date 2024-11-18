@@ -252,10 +252,3 @@ func (d *doubleWriteBackend) ListAndWatch(ctx context.Context, handler allocator
 	}
 	d.crdBackend.ListAndWatch(ctx, handler, stopChan)
 }
-
-func (d *doubleWriteBackend) Status() (string, error) {
-	if d.readFromKVStore {
-		return d.kvstoreBackend.Status()
-	}
-	return d.crdBackend.Status()
-}

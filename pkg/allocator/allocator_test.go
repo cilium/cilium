@@ -227,10 +227,6 @@ func (d *dummyBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64, 
 	return nil, nil, nil
 }
 
-func (d *dummyBackend) Status() (string, error) {
-	return "", nil
-}
-
 type TestAllocatorKey string
 
 func (t TestAllocatorKey) GetKey() string { return string(t) }

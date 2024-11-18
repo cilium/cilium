@@ -426,7 +426,3 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 
 	identityInformer.Run(stopChan)
 }
-
-func (c *crdBackend) Status() (string, error) {
-	return "OK", nil
-}

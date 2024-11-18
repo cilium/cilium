@@ -289,9 +289,6 @@ type Backend interface {
 	// Note: not all Backend implementations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
 	RunLocksGC(ctx context.Context, staleKeysPrevRound map[string]kvstore.Value) (map[string]kvstore.Value, error)
-
-	// Status returns a human-readable status of the Backend.
-	Status() (string, error)
 }
 
 // NewAllocator creates a new Allocator. Any type can be used as key as long as
