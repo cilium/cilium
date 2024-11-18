@@ -204,6 +204,7 @@ cilium-agent [flags]
       --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
+      --health-check-icmp-failure-threshold int                   Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy. (default 3)
   -h, --help                                                      help for cilium-agent
       --http-idle-timeout uint                                    Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                                Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)

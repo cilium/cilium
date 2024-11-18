@@ -841,6 +841,9 @@ const (
 	// EnableHealthCheckLoadBalancerIP is the name of the EnableHealthCheckLoadBalancerIP option
 	EnableHealthCheckLoadBalancerIP = "enable-health-check-loadbalancer-ip"
 
+	// HealthCheckICMPFailureThreshold is the name of the HealthCheckICMPFailureThreshold option
+	HealthCheckICMPFailureThreshold = "health-check-icmp-failure-threshold"
+
 	// PolicyQueueSize is the size of the queues utilized by the policy
 	// repository.
 	PolicyQueueSize = "policy-queue-size"
@@ -1769,6 +1772,11 @@ type DaemonConfig struct {
 	// by cilium
 	EnableHealthCheckLoadBalancerIP bool
 
+	// HealthCheckICMPFailureThreshold is the number of ICMP packets sent for each health
+	// checking run. If at least an ICMP response is received, the node or endpoint
+	// is marked as healthy.
+	HealthCheckICMPFailureThreshold int
+
 	// KVstoreKeepAliveInterval is the interval in which the lease is being
 	// renewed. This must be set to a value lesser than the LeaseTTL ideally
 	// by a factor of 3.
@@ -2266,6 +2274,7 @@ var (
 		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
 		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
 		EnableHealthCheckNodePort:       defaults.EnableHealthCheckNodePort,
+		HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
 		EnableIPv4:                      defaults.EnableIPv4,
 		EnableIPv6:                      defaults.EnableIPv6,
 		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
@@ -2847,6 +2856,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
 	c.EnableHealthCheckNodePort = vp.GetBool(EnableHealthCheckNodePort)
 	c.EnableHealthCheckLoadBalancerIP = vp.GetBool(EnableHealthCheckLoadBalancerIP)
+	c.HealthCheckICMPFailureThreshold = vp.GetInt(HealthCheckICMPFailureThreshold)
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
 	c.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
