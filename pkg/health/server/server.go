@@ -37,6 +37,7 @@ type Config struct {
 	Debug         bool
 	CiliumURI     string
 	ProbeInterval time.Duration
+	ICMPReqsCount int
 	ProbeDeadline time.Duration
 	HTTPPathPort  int
 	HealthAPISpec *healthApi.Spec

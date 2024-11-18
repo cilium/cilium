@@ -272,6 +272,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableEndpointHealthChecking, defaults.EnableEndpointHealthChecking, "Enable connectivity health checking between virtual endpoints")
 	option.BindEnv(vp, option.EnableEndpointHealthChecking)
 
+	flags.Int(option.HealthCheckICMPFailureThreshold, defaults.HealthCheckICMPFailureThreshold, "Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy.")
+	option.BindEnv(vp, option.HealthCheckICMPFailureThreshold)
+
 	flags.Bool(option.EnableLocalNodeRoute, defaults.EnableLocalNodeRoute, "Enable installation of the route which points the allocation prefix of the local node")
 	option.BindEnv(vp, option.EnableLocalNodeRoute)
 

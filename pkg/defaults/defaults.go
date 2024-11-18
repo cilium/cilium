@@ -294,6 +294,9 @@ const (
 	// EnableHealthCheckLoadBalancerIP
 	EnableHealthCheckLoadBalancerIP = false
 
+	// HealthCheckICMPFailureThreshold is the default value for HealthCheckICMPFailureThreshold
+	HealthCheckICMPFailureThreshold = 3
+
 	// AlignCheckerName is the BPF object name for the alignchecker.
 	AlignCheckerName = "bpf_alignchecker.o"
 
