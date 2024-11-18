@@ -11,6 +11,6 @@ spec:
       kind: client
   egressDeny:
   - toCIDRSet:
-    - cidr: {{.ExternalCIDR}}
+    - cidr: "{{.ExternalCIDR}}"
       except:
-        - {{.ExternalIP}}/32
+        - "{{.ExternalIP | ipToCIDR }}"
