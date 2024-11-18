@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -141,9 +142,8 @@ type BackendOperations interface {
 	// client is not connected to the kvstore server. (Only implemented for etcd)
 	Disconnected() <-chan struct{}
 
-	// Status returns the status of the kvstore client including an
-	// eventual error
-	Status() (string, error)
+	// Status returns the status of the kvstore client
+	Status() *models.Status
 
 	// StatusCheckErrors returns a channel which receives status check
 	// errors

@@ -412,12 +412,7 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 	// for the first connection to succeed.
 	var backendStatus = "Waiting for initial connection to be established"
 	if rc.backend != nil {
-		var backendError error
-		backendStatus, backendError = rc.backend.Status()
-		if backendError != nil {
-			backendStatus = backendError.Error()
-		}
-
+		backendStatus = rc.backend.Status().Msg
 		if rc.etcdClusterID != "" {
 			backendStatus += ", ID: " + rc.etcdClusterID
 		}
