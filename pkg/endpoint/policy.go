@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/controller"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
@@ -616,6 +617,58 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 		regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
 	}
 	return regen
+}
+
+// UpdatePolicy updates the endpoint's policy.
+// If the endpoint's identity is in the set that needs regeneration, it will queue a regeneration
+// and wait for the result. If not, the endpoint's policy revision will be bumped to toRev without
+// a regeneration
+func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity], fromRev, toRev uint64) {
+	// no deferred unlocks here, as we must
+	// release locks before regenerating
+
+	e.buildMutex.Lock() // buildMutex is required to update policy revision
+	if err := e.lockAlive(); err != nil {
+		e.buildMutex.Unlock()
+		return
+	}
+
+	unlock := func() {
+		e.unlock()
+		e.buildMutex.Unlock()
+	}
+
+	secID := e.getIdentity()
+	if secID == identityPkg.InvalidIdentity {
+		unlock()
+		return
+	}
+
+	// If this endpoint's security ID has a policy update, we must regenerate. Otherwise,
+	// bump the policy revision directly (as long as we didn't miss an update somehow).
+	if !idsToRegen.Has(secID) {
+		if e.policyRevision < fromRev {
+			e.getLogger().Warn("Endpoint missed a policy revision; triggering regeneration")
+		} else {
+			e.getLogger().WithField(logfields.PolicyRevision, toRev).Debug("Policy update is a no-op, bumping policyRevision")
+			e.setPolicyRevision(toRev)
+
+			unlock()
+			return
+		}
+	}
+
+	// Policy change affected this endpoint's identity; queue regeneration
+	regenMetadata := &regeneration.ExternalRegenerationMetadata{
+		Reason:            "policy rules updated",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+	}
+	regen := e.setRegenerateStateLocked(regenMetadata)
+	unlock()
+
+	if regen {
+		<-e.Regenerate(regenMetadata)
+	}
 }
 
 // RegenerateIfAlive queue a regeneration of this endpoint into the build queue
