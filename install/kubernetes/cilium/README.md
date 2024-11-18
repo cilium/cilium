@@ -449,6 +449,7 @@ contributors across the globe, there is almost always someone available to help.
 | gatewayAPI.secretsNamespace.sync | bool | `true` | Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally. |
 | gatewayAPI.xffNumTrustedHops | int | `0` | The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address. |
 | gke.enabled | bool | `false` | Enable Google Kubernetes Engine integration |
+| healthCheckICMPFailureThreshold | int | `3` | Number of ICMP requests sent for each health check before marking a node or endpoint unreachable. |
 | healthChecking | bool | `true` | Enable connectivity health checking. |
 | healthPort | int | `9879` | TCP port for the agent health API. This is not the port for cilium-health. |
 | highScaleIPcache | object | `{"enabled":false}` | EnableHighScaleIPcache enables the special ipcache mode for high scale clusters. The ipcache content will be reduced to the strict minimum and traffic will be encapsulated to carry security identities. |

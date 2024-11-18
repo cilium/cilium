@@ -2450,6 +2450,9 @@
     "global": {
       "type": "object"
     },
+    "healthCheckICMPFailureThreshold": {
+      "type": "integer"
+    },
     "healthChecking": {
       "type": "boolean"
     },

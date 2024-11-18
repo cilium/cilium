@@ -894,6 +894,9 @@ data:
 {{- if hasKey .Values "healthChecking" }}
   enable-health-checking: {{ .Values.healthChecking | quote }}
 {{- end }}
+{{- if .Values.healthCheckICMPFailureThreshold }}
+  health-check-icmp-failure-threshold: {{ .Values.healthCheckICMPFailureThreshold | quote }}
+{{- end }}
 {{- if .Values.wellKnownIdentities.enabled }}
   enable-well-known-identities: "true"
 {{- else }}

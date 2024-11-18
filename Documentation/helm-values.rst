@@ -1596,6 +1596,10 @@
      - Enable Google Kubernetes Engine integration
      - bool
      - ``false``
+   * - :spelling:ignore:`healthCheckICMPFailureThreshold`
+     - Number of ICMP requests sent for each health check before marking a node or endpoint unreachable.
+     - int
+     - ``3``
    * - :spelling:ignore:`healthChecking`
      - Enable connectivity health checking.
      - bool
