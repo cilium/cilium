@@ -87,11 +87,11 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		// run the actual validators
 		for _, fn := range []routechecks.CheckGatewayFunc{
-			routechecks.CheckGatewayAllowedForNamespace,
 			routechecks.CheckGatewayRouteKindAllowed,
 			routechecks.CheckGatewayMatchingPorts,
 			routechecks.CheckGatewayMatchingHostnames,
 			routechecks.CheckGatewayMatchingSection,
+			routechecks.CheckGatewayAllowedForNamespace,
 		} {
 			continueCheck, err := fn(i, parent)
 			if err != nil {
