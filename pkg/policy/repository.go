@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
@@ -142,7 +144,10 @@ type PolicyRepository interface {
 	Iterate(f func(rule *api.Rule))
 	Release(rs ruleSlice)
 	ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64)
+	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int)
+	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int)
 	SearchRLocked(lbls labels.LabelArray) api.Rules
+	Search(lbls labels.LabelArray) (api.Rules, uint64)
 	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool))
 	Start()
 }
@@ -465,6 +470,12 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 	return verdict
 }
 
+func (p *Repository) Search(lbls labels.LabelArray) (api.Rules, uint64) {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	return p.SearchRLocked(lbls), p.GetRevision()
+}
+
 // SearchRLocked searches the policy repository for rules which match the
 // specified labels and will return an array of all rules which matched.
 func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
@@ -583,6 +594,13 @@ func (p *Repository) Release(rs ruleSlice) {
 		if r.subjectSelector != nil {
 			p.selectorCache.RemoveSelector(r.subjectSelector, r)
 		}
+	}
+}
+
+// releaseRule releases the cached selector for a given rul
+func (p *Repository) releaseRule(r *rule) {
+	if r.subjectSelector != nil {
+		p.selectorCache.RemoveSelector(r.subjectSelector, r)
 	}
 }
 
@@ -980,4 +998,90 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	}
 
 	return sp, rev, nil
+}
+
+// ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
+func (p *Repository) ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int) {
+	if len(resource) == 0 {
+		// This should never ever be hit, as the caller should have already validated the resource.
+		// Out of paranoia, do nothing.
+		log.Error("Attempt to replace rules by resource with an empty resource.")
+		return
+	}
+
+	p.Lock()
+	defer p.Unlock()
+
+	affectedIDs = &set.Set[identity.NumericIdentity]{}
+	oldRules := maps.Clone(p.rulesByResource[resource]) // need to clone as `p.del()` mutates this
+
+	for key, oldRule := range oldRules {
+		for _, subj := range oldRule.getSubjects() {
+			affectedIDs.Insert(subj)
+		}
+		p.del(key)
+	}
+
+	if len(rules) > 0 {
+		p.rulesByResource[resource] = make(map[ruleKey]*rule, len(rules))
+		for i, r := range rules {
+			newRule := p.newRule(*r, ruleKey{resource: resource, idx: uint(i)})
+			p.insert(newRule)
+
+			for _, subj := range newRule.getSubjects() {
+				affectedIDs.Insert(subj)
+			}
+		}
+	}
+
+	// Now that selectors have been allocated for new rules,
+	// we may release the old ones.
+	for _, r := range oldRules {
+		p.releaseRule(r)
+	}
+
+	return affectedIDs, p.BumpRevision(), len(oldRules)
+}
+
+// ReplaceByLabels implements the somewhat awkward REST local API for providing network policy,
+// where the "key" is a list of labels, possibly multiple, that should be removed before
+// installing the new rules.
+func (p *Repository) ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int) {
+	p.Lock()
+	defer p.Unlock()
+
+	var oldRules []*rule
+	affectedIDs = &set.Set[identity.NumericIdentity]{}
+
+	// determine outgoing rules
+	for ruleKey, rule := range p.rules {
+		for _, searchLabels := range searchLabelsList {
+			if rule.Labels.Contains(searchLabels) {
+				p.del(ruleKey)
+				oldRules = append(oldRules, rule)
+				break
+			}
+		}
+	}
+
+	// Insert new rules, allocating a subject selector
+	for _, r := range rules {
+		newRule := p.newRule(*r, ruleKey{idx: p.nextID})
+		p.insert(newRule)
+		p.nextID++
+
+		for _, nid := range newRule.getSubjects() {
+			affectedIDs.Insert(nid)
+		}
+	}
+
+	// Now that subject selectors have been allocated, release the old rules.
+	for _, oldRule := range oldRules {
+		for _, nid := range oldRule.getSubjects() {
+			affectedIDs.Insert(nid)
+		}
+		p.releaseRule(oldRule)
+	}
+
+	return affectedIDs, p.BumpRevision(), len(oldRules)
 }

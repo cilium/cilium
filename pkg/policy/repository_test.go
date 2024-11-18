@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	stdlog "log"
+	"sync"
 	"testing"
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
@@ -2506,7 +2507,7 @@ func TestDefaultAllow(t *testing.T) {
 	}
 }
 
-func TestReplaceByResource(t *testing.T) {
+func TestReplaceByResourceLocked(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
 	repo := NewStoppedPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
@@ -2641,4 +2642,270 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Empty(t, repo.rules)
 	assert.Empty(t, repo.rulesByResource)
 	assert.Empty(t, sc.selectors)
+}
+
+func TestReplaceByResource(t *testing.T) {
+	// don't use the full testdata() here, since we want to watch
+	// selectorcache changes carefully
+	repo := NewStoppedPolicyRepository(nil, nil, nil, nil)
+	sc := testNewSelectorCache(nil)
+	repo.selectorCache = sc
+	assert.Empty(t, sc.selectors)
+
+	// create 10 rules, each with a subject selector that selects one identity.
+
+	numRules := 10
+	rules := make(api.Rules, 0, numRules)
+	ids := identity.IdentityMap{}
+	// share the dest selector
+	destSelector := api.NewESFromLabels(labels.NewLabel("peer", "pod", "k8s"))
+	for i := range numRules {
+		it := fmt.Sprintf("num-%d", i)
+		ids[identity.NumericIdentity(i+100)] = labels.LabelArray{labels.Label{
+			Source: labels.LabelSourceK8s,
+			Key:    "subject-pod",
+			Value:  it,
+		}}
+		epSelector := api.NewESFromLabels(
+			labels.NewLabel(
+				"subject-pod",
+				it,
+				labels.LabelSourceK8s,
+			),
+		)
+		lbl := labels.NewLabel("policy-label", it, labels.LabelSourceK8s)
+		rule := &api.Rule{
+			EndpointSelector: epSelector,
+			Labels:           labels.LabelArray{lbl},
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{
+							destSelector,
+						},
+					},
+				},
+			},
+		}
+		require.NoError(t, rule.Sanitize())
+		rules = append(rules, rule)
+	}
+	sc.UpdateIdentities(ids, nil, &sync.WaitGroup{})
+
+	rulesMatch := func(s ruleSlice, rs api.Rules) {
+		t.Helper()
+		ss := make(api.Rules, 0, len(s))
+		for _, rule := range s {
+			ss = append(ss, &rule.Rule)
+		}
+		assert.ElementsMatch(t, ss, rs)
+	}
+	toSlice := func(m map[ruleKey]*rule) ruleSlice {
+		out := ruleSlice{}
+		for _, v := range m {
+			out = append(out, v)
+		}
+		return out
+	}
+
+	rID1 := ipcachetypes.ResourceID("res1")
+	rID2 := ipcachetypes.ResourceID("res2")
+
+	affectedIDs, rev, oldRuleCnt := repo.ReplaceByResource(rules[0:1], rID1)
+	assert.ElementsMatch(t, []identity.NumericIdentity{100}, affectedIDs.AsSlice())
+	assert.EqualValues(t, 2, rev)
+	assert.Equal(t, 0, oldRuleCnt)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 1)
+	assert.Len(t, repo.rulesByResource, 1)
+	assert.Len(t, repo.rulesByResource[rID1], 1)
+	rulesMatch(toSlice(repo.rulesByResource[rID1]), rules[0:1])
+
+	// Check that the selectorcache is sane
+	// It should have one selector: the subject pod for rule 0
+	assert.Len(t, sc.selectors, 1)
+
+	// add second resource with rules 1, 2
+	affectedIDs, rev, oldRuleCnt = repo.ReplaceByResource(rules[1:3], rID2)
+
+	assert.ElementsMatch(t, []identity.NumericIdentity{101, 102}, affectedIDs.AsSlice())
+	assert.EqualValues(t, 3, rev)
+	assert.Equal(t, 0, oldRuleCnt)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 3)
+	assert.Len(t, repo.rulesByResource, 2)
+	assert.Len(t, repo.rulesByResource[rID1], 1)
+	assert.Len(t, repo.rulesByResource[rID2], 2)
+	assert.Len(t, sc.selectors, 3)
+
+	// replace rid1 with rules 3, 4.
+	// affected IDs should be 100, 103, 104 (for outgoing)
+	affectedIDs, rev, oldRuleCnt = repo.ReplaceByResource(rules[3:5], rID1)
+
+	assert.ElementsMatch(t, []identity.NumericIdentity{100, 103, 104}, affectedIDs.AsSlice())
+	assert.EqualValues(t, 4, rev)
+	assert.Equal(t, 1, oldRuleCnt)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 4)
+	assert.Len(t, repo.rulesByResource, 2)
+	assert.Len(t, repo.rulesByResource[rID1], 2)
+	assert.Len(t, repo.rulesByResource[rID2], 2)
+	assert.Len(t, sc.selectors, 4)
+
+	rulesMatch(toSlice(repo.rulesByResource[rID1]), rules[3:5])
+
+	assert.Equal(t, repo.rules[ruleKey{
+		resource: rID1,
+		idx:      0,
+	}].Rule, *rules[3])
+
+	// delete rid1
+	affectedIDs, _, oldRuleCnt = repo.ReplaceByResource(nil, rID1)
+	assert.Len(t, repo.rules, 2)
+	assert.Len(t, repo.rulesByResource, 1)
+	assert.Len(t, repo.rulesByResource[rID2], 2)
+	assert.Len(t, sc.selectors, 2)
+	assert.Equal(t, 2, oldRuleCnt)
+
+	assert.ElementsMatch(t, []identity.NumericIdentity{103, 104}, affectedIDs.AsSlice())
+
+	// delete rid1 again (noop)
+	affectedIDs, _, oldRuleCnt = repo.ReplaceByResource(nil, rID1)
+	assert.Empty(t, affectedIDs.AsSlice())
+
+	assert.Len(t, repo.rules, 2)
+	assert.Len(t, repo.rulesByResource, 1)
+	assert.Len(t, repo.rulesByResource[rID2], 2)
+	assert.Len(t, sc.selectors, 2)
+	assert.Equal(t, 0, oldRuleCnt)
+
+	// delete rid2
+	affectedIDs, _, oldRuleCnt = repo.ReplaceByResource(nil, rID2)
+
+	assert.ElementsMatch(t, []identity.NumericIdentity{101, 102}, affectedIDs.AsSlice())
+	assert.Empty(t, repo.rules)
+	assert.Empty(t, repo.rulesByResource)
+	assert.Empty(t, sc.selectors)
+	assert.Equal(t, 2, oldRuleCnt)
+}
+
+func TestReplaceByLabels(t *testing.T) {
+	// don't use the full testdata() here, since we want to watch
+	// selectorcache changes carefully
+	repo := NewStoppedPolicyRepository(nil, nil, nil, nil)
+	sc := testNewSelectorCache(nil)
+	repo.selectorCache = sc
+	assert.Empty(t, sc.selectors)
+
+	// create 10 rules, each with a subject selector that selects one identity.
+
+	numRules := 10
+	rules := make(api.Rules, 0, numRules)
+	ids := identity.IdentityMap{}
+	ruleLabels := make([]labels.LabelArray, 0, numRules)
+	// share the dest selector
+	destSelector := api.NewESFromLabels(labels.NewLabel("peer", "pod", "k8s"))
+	for i := range numRules {
+		it := fmt.Sprintf("num-%d", i)
+		ids[identity.NumericIdentity(i+100)] = labels.LabelArray{labels.Label{
+			Source: labels.LabelSourceK8s,
+			Key:    "subject-pod",
+			Value:  it,
+		}}
+		epSelector := api.NewESFromLabels(
+			labels.NewLabel(
+				"subject-pod",
+				it,
+				labels.LabelSourceK8s,
+			),
+		)
+		lbl := labels.NewLabel("policy-label", it, labels.LabelSourceK8s)
+		rule := &api.Rule{
+			EndpointSelector: epSelector,
+			Labels:           labels.LabelArray{lbl},
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToEndpoints: []api.EndpointSelector{
+							destSelector,
+						},
+					},
+				},
+			},
+		}
+		require.NoError(t, rule.Sanitize())
+		rules = append(rules, rule)
+		ruleLabels = append(ruleLabels, rule.Labels)
+	}
+	sc.UpdateIdentities(ids, nil, &sync.WaitGroup{})
+
+	rulesMatch := func(s ruleSlice, rs api.Rules) {
+		t.Helper()
+		ss := make(api.Rules, 0, len(s))
+		for _, rule := range s {
+			ss = append(ss, &rule.Rule)
+		}
+		assert.ElementsMatch(t, ss, rs)
+	}
+	_ = rulesMatch
+	toSlice := func(m map[ruleKey]*rule) ruleSlice {
+		out := ruleSlice{}
+		for _, v := range m {
+			out = append(out, v)
+		}
+		return out
+	}
+	_ = toSlice
+
+	affectedIDs, rev, oldRuleCnt := repo.ReplaceByLabels(rules[0:1], ruleLabels[0:1])
+	assert.ElementsMatch(t, []identity.NumericIdentity{100}, affectedIDs.AsSlice())
+	assert.EqualValues(t, 2, rev)
+	assert.Equal(t, 0, oldRuleCnt)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 1)
+	assert.Len(t, sc.selectors, 1)
+
+	// Replace rule 0 with rule 1
+	affectedIDs, rev, oldRuleCnt = repo.ReplaceByLabels(rules[1:2], ruleLabels[0:1])
+	assert.ElementsMatch(t, []identity.NumericIdentity{100, 101}, affectedIDs.AsSlice())
+	assert.EqualValues(t, 3, rev)
+	assert.Equal(t, 1, oldRuleCnt)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 1)
+	assert.Len(t, sc.selectors, 1)
+
+	// Add rules 2, 3
+	affectedIDs, rev, oldRuleCnt = repo.ReplaceByLabels(rules[2:4], ruleLabels[2:4])
+	assert.ElementsMatch(t, []identity.NumericIdentity{102, 103}, affectedIDs.AsSlice())
+	assert.EqualValues(t, 4, rev)
+	assert.Equal(t, 0, oldRuleCnt)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 3)
+	assert.Len(t, sc.selectors, 3)
+
+	// Delete rules 2, 3
+	affectedIDs, rev, oldRuleCnt = repo.ReplaceByLabels(nil, ruleLabels[2:4])
+	assert.ElementsMatch(t, []identity.NumericIdentity{102, 103}, affectedIDs.AsSlice())
+	assert.EqualValues(t, 5, rev)
+	assert.Equal(t, 2, oldRuleCnt)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 1)
+	assert.Len(t, sc.selectors, 1)
+
+	// delete rules 2, 3 again
+	affectedIDs, _, oldRuleCnt = repo.ReplaceByLabels(nil, ruleLabels[2:4])
+	assert.ElementsMatch(t, []identity.NumericIdentity{}, affectedIDs.AsSlice())
+	assert.Equal(t, 0, oldRuleCnt)
+
+	// check basic bookkeeping
+	assert.Len(t, repo.rules, 1)
+	assert.Len(t, sc.selectors, 1)
+
 }
