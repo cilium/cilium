@@ -132,8 +132,9 @@ include:
   # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, direct routing
   # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, geneve tunneling
   # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, vxlan tunneling
+  # K8sDatapathQosTest Checks Bandwidth QoS Classes High to Low Ratio
   - focus: "f10-agent-hubble-bandwidth"
-    cliFocus: "K8sAgentHubbleTest|K8sDatapathBandwidthTest"
+    cliFocus: "K8sAgentHubbleTest|K8sDatapathBandwidthTest|K8sDatapathQosTest"
 
   ###
   # K8sDatapathServicesTest Checks N/S loadbalancing ClusterIP cannot be accessed externally when access is disabled

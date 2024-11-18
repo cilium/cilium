@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-server
+spec:
+  selector:
+    matchLabels:
+      run: netperf-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-server
+    spec:
+      containers:
+      - name: netperf-server
+        image: cilium/netperf:0.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-high-prio-client
+spec:
+  selector:
+    matchLabels:
+      run: netperf-high-prio-client
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-high-prio-client
+      annotations:
+        bandwidth.cilium.io/priority: "6"
+    spec:
+      containers:
+      - name: netperf-high-prio-client
+        image: cilium/netperf:0.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-low-prio-client
+spec:
+  selector:
+    matchLabels:
+      run: netperf-low-prio-client
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-low-prio-client
+      annotations:
+        bandwidth.cilium.io/priority: "5"
+    spec:
+      containers:
+      - name: netperf-client
+        image: cilium/netperf:0.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s2
+
