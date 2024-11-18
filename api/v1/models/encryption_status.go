@@ -29,7 +29,7 @@ type EncryptionStatus struct {
 	Ipsec *IPsecStatus `json:"ipsec,omitempty"`
 
 	// mode
-	// Enum: [Disabled IPsec Wireguard]
+	// Enum: ["Disabled","IPsec","Wireguard"]
 	Mode string `json:"mode,omitempty"`
 
 	// Human readable error/warning message

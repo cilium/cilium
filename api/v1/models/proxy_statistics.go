@@ -29,7 +29,7 @@ type ProxyStatistics struct {
 	AllocatedProxyPort int64 `json:"allocated-proxy-port,omitempty"`
 
 	// Location of where the redirect is installed
-	// Enum: [ingress egress]
+	// Enum: ["ingress","egress"]
 	Location string `json:"location,omitempty"`
 
 	// The port subject to the redirect

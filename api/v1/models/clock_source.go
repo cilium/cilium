@@ -29,7 +29,7 @@ type ClockSource struct {
 	Hertz int64 `json:"hertz,omitempty"`
 
 	// Datapath clock source
-	// Enum: [ktime jiffies]
+	// Enum: ["ktime","jiffies"]
 	Mode string `json:"mode,omitempty"`
 }
 

@@ -214,7 +214,7 @@ spec:
                     code:
                       description: |-
                         Code indicate type of status change
-                        Enum: [ok failed]
+                        Enum: ["ok","failed"]
                       type: string
                     message:
                       description: Status message
@@ -248,7 +248,7 @@ spec:
                     protocol:
                       description: |-
                         Layer 4 protocol
-                        Enum: [TCP UDP SCTP ICMP ICMPV6 ANY]
+                        Enum: ["TCP","UDP","SCTP","ICMP","ICMPV6","ANY"]
                       type: string
                   type: object
                 type: array

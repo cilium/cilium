@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *GetFqdnCacheIDOK) Code() int {
 }
 
 func (o *GetFqdnCacheIDOK) Error() string {
-	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdOK %s", 200, payload)
 }
 
 func (o *GetFqdnCacheIDOK) String() string {
-	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdOK %s", 200, payload)
 }
 
 func (o *GetFqdnCacheIDOK) GetPayload() []*models.DNSLookup {
@@ -160,11 +163,13 @@ func (o *GetFqdnCacheIDBadRequest) Code() int {
 }
 
 func (o *GetFqdnCacheIDBadRequest) Error() string {
-	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdBadRequest %s", 400, payload)
 }
 
 func (o *GetFqdnCacheIDBadRequest) String() string {
-	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdBadRequest %s", 400, payload)
 }
 
 func (o *GetFqdnCacheIDBadRequest) GetPayload() models.Error {
@@ -225,11 +230,11 @@ func (o *GetFqdnCacheIDNotFound) Code() int {
 }
 
 func (o *GetFqdnCacheIDNotFound) Error() string {
-	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdNotFound ", 404)
+	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdNotFound", 404)
 }
 
 func (o *GetFqdnCacheIDNotFound) String() string {
-	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdNotFound ", 404)
+	return fmt.Sprintf("[GET /fqdn/cache/{id}][%d] getFqdnCacheIdNotFound", 404)
 }
 
 func (o *GetFqdnCacheIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

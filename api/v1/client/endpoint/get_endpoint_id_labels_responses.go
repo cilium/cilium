@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *GetEndpointIDLabelsOK) Code() int {
 }
 
 func (o *GetEndpointIDLabelsOK) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsOK %s", 200, payload)
 }
 
 func (o *GetEndpointIDLabelsOK) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsOK %s", 200, payload)
 }
 
 func (o *GetEndpointIDLabelsOK) GetPayload() *models.LabelConfiguration {
@@ -161,11 +164,11 @@ func (o *GetEndpointIDLabelsNotFound) Code() int {
 }
 
 func (o *GetEndpointIDLabelsNotFound) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsNotFound", 404)
 }
 
 func (o *GetEndpointIDLabelsNotFound) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsNotFound", 404)
 }
 
 func (o *GetEndpointIDLabelsNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -217,11 +220,11 @@ func (o *GetEndpointIDLabelsTooManyRequests) Code() int {
 }
 
 func (o *GetEndpointIDLabelsTooManyRequests) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsTooManyRequests", 429)
 }
 
 func (o *GetEndpointIDLabelsTooManyRequests) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsTooManyRequests", 429)
 }
 
 func (o *GetEndpointIDLabelsTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
