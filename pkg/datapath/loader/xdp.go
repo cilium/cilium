@@ -111,7 +111,6 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 	if option.Config.EnableNodePort {
 		args = append(args, []string{
 			fmt.Sprintf("-DTHIS_MTU=%d", link.Attrs().MTU),
-			fmt.Sprintf("-DNATIVE_DEV_IFINDEX=%d", link.Attrs().Index),
 			"-DDISABLE_LOOPBACK_LB",
 		}...)
 	}
@@ -166,6 +165,9 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev string, xdpMode xdp.Mode,
 
 	var obj xdpObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		Constants: map[string]uint64{
+			"interface_ifindex": uint64(iface.Attrs().Index),
+		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},

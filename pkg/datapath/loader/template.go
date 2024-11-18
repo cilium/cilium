@@ -243,7 +243,6 @@ func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 	}
 
 	if ep.IsHost() {
-		result["NATIVE_DEV_IFINDEX"] = 0
 		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 			if option.Config.EnableIPv4 {
 				result["IPV4_MASQUERADE"] = 0
@@ -252,8 +251,9 @@ func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 		result["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
 	} else {
 		result["LXC_ID"] = uint64(ep.GetID())
-		result["THIS_INTERFACE_IFINDEX"] = uint64(ep.GetIfIndex())
 	}
+
+	result["interface_ifindex"] = uint64(ep.GetIfIndex())
 
 	// Contrary to IPV4_MASQUERADE, we cannot use a simple #define and
 	// avoid introducing a symbol in stubs.h for IPV6_MASQUERADE. So the

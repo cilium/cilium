@@ -16,22 +16,21 @@
 
 #define DISABLE_LOOPBACK_LB
 
-#define CLIENT_IP	   v4_ext_one
-#define CLIENT_PORT	   __bpf_htons(111)
-#define CLIENT_IP_2	   v4_ext_two
+#define CLIENT_IP	 v4_ext_one
+#define CLIENT_PORT	 __bpf_htons(111)
+#define CLIENT_IP_2	 v4_ext_two
 
-#define FRONTEND_IP	   v4_svc_one
-#define FRONTEND_PORT	   tcp_svc_one
+#define FRONTEND_IP	 v4_svc_one
+#define FRONTEND_PORT	 tcp_svc_one
 
-#define BACKEND_IP	   v4_pod_one
-#define BACKEND_PORT	   __bpf_htons(8080)
+#define BACKEND_IP	 v4_pod_one
+#define BACKEND_PORT	 __bpf_htons(8080)
 
-#define NATIVE_DEV_IFINDEX 24
-#define DEFAULT_IFACE	   NATIVE_DEV_IFINDEX
-#define BACKEND_IFACE	   25
-#define SVC_EGRESS_IFACE   26
+#define DEFAULT_IFACE	 24
+#define BACKEND_IFACE	 25
+#define SVC_EGRESS_IFACE 26
 
-#define BACKEND_EP_ID	   127
+#define BACKEND_EP_ID	 127
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *node_mac = mac_three;
@@ -115,6 +114,8 @@ static __always_inline __maybe_unused int mock_ctx_redirect(
 
 #define FROM_NETDEV 0
 #define TO_NETDEV   1
+
+ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);

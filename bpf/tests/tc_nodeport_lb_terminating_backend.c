@@ -20,8 +20,7 @@
 #define BACKEND_IP_LOCAL	v4_pod_one
 #define BACKEND_PORT		__bpf_htons(8080)
 
-#define NATIVE_DEV_IFINDEX	24
-#define DEFAULT_IFACE		NATIVE_DEV_IFINDEX
+#define DEFAULT_IFACE		24
 #define BACKEND_IFACE		25
 
 #define SVC_REV_NAT_ID		2
@@ -94,6 +93,8 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/lb.h"
 
 #define FROM_NETDEV	0
+
+ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);

@@ -28,8 +28,7 @@
 #define BACKEND_IP_REMOTE	v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
 
-#define NATIVE_DEV_IFINDEX	24
-#define DEFAULT_IFACE		NATIVE_DEV_IFINDEX
+#define DEFAULT_IFACE		24
 #define BACKEND_IFACE		25
 #define SVC_EGRESS_IFACE	26
 
@@ -159,6 +158,8 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
+
+ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);

@@ -20,8 +20,6 @@
 #define SECONDARY_IFACE 2
 #define BACKEND_IFACE 123
 
-#define NATIVE_DEV_IFINDEX PRIMARY_IFACE
-
 #define BACKEND_EP_ID 127
 
 #define DEFAULT_ROUTE_MAC mac_one
@@ -56,6 +54,8 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/ipcache.h"
 
 #define TO_NETDEV	0
+
+ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
