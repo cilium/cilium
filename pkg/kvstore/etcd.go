@@ -540,7 +540,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		configPath:   cfgPath,
 		firstSession: make(chan struct{}),
 		status: models.Status{
-			State: models.StatusStateOk,
+			State: models.StatusStateWarning,
 			Msg:   "Waiting for initial connection to be established",
 		},
 		stopStatusChecker: make(chan struct{}),
