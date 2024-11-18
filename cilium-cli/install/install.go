@@ -58,6 +58,8 @@ const (
 )
 
 type k8sInstallerImplementation interface {
+	ListNodes(ctx context.Context, o metav1.ListOptions) (*corev1.NodeList, error)
+
 	GetAPIServerHostAndPort() (string, string)
 	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
