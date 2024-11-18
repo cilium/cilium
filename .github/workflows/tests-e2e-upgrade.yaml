@@ -349,8 +349,7 @@ jobs:
             SHA="${{ github.sha }}"
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
-          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
-          echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
+          echo downgrade_version=050612b9362e5b37a5238be3471db26a7d70384e >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
         if: ${{ matrix.skip-upgrade != 'true' }}
