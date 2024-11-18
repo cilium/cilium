@@ -576,33 +576,25 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 			Name: "kvstore",
 			Probe: func(ctx context.Context) (interface{}, error) {
 				if option.Config.KVStore == "" {
-					return models.StatusStateDisabled, nil
+					return &models.Status{State: models.StatusStateOk, Msg: models.StatusStateDisabled}, nil
 				} else {
-					return kvstore.Client().Status()
+					return kvstore.Client().Status(), nil
 				}
 			},
 			OnStatusUpdate: func(status status.Status) {
-				var msg string
-				state := models.StatusStateOk
-				info, ok := status.Data.(string)
-
-				switch {
-				case ok && status.Err != nil:
-					state = models.StatusStateFailure
-					msg = fmt.Sprintf("Err: %s - %s", status.Err, info)
-				case status.Err != nil:
-					state = models.StatusStateFailure
-					msg = fmt.Sprintf("Err: %s", status.Err)
-				case ok:
-					msg = info
-				}
-
 				d.statusCollectMutex.Lock()
 				defer d.statusCollectMutex.Unlock()
 
-				d.statusResponse.Kvstore = &models.Status{
-					State: state,
-					Msg:   msg,
+				if status.Err != nil {
+					d.statusResponse.Kvstore = &models.Status{
+						State: models.StatusStateFailure,
+						Msg:   status.Err.Error(),
+					}
+					return
+				}
+
+				if kvstore, ok := status.Data.(*models.Status); ok {
+					d.statusResponse.Kvstore = kvstore
 				}
 			},
 		},

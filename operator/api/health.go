@@ -11,6 +11,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"k8s.io/client-go/discovery"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -83,8 +84,10 @@ func (h *healthHandler) checkStatus() error {
 		if client == nil {
 			return errors.New("kvstore client not configured")
 		}
-		if _, err := client.Status(); err != nil {
-			return err
+
+		status := client.Status()
+		if status.State != models.StatusStateOk {
+			return errors.New(status.Msg)
 		}
 	}
 	_, err := h.discovery.ServerVersion()
