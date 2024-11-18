@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"iter"
 	"maps"
+	"slices"
 )
 
 type empty struct{}
@@ -216,6 +217,11 @@ func (s Set[T]) Get() (m T, found bool) {
 		}
 	}
 	return m, length > 0
+}
+
+// AsSlice converts the set to a slice.
+func (s Set[T]) AsSlice() []T {
+	return slices.Collect(s.Members())
 }
 
 // Clone returns a copy of the set.
