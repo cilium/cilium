@@ -596,6 +596,14 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 				}
 
 				if kvstore, ok := status.Data.(*models.Status); ok {
+					if kvstore.State == models.StatusStateWarning && option.Config.KVstorePodNetworkSupport {
+						// Don't treat warnings as errors when the support for running
+						// etcd in pod network is enabled. This is necessary to allow
+						// Cilium turning ready even before connecting to the kvstore,
+						// and break the chicken-and-egg dependency during startup.
+						kvstore.State = models.StatusStateOk
+					}
+
 					d.statusResponse.Kvstore = kvstore
 				}
 			},
