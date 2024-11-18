@@ -5,6 +5,7 @@ package policycell
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -25,7 +26,22 @@ var Cell = cell.Module(
 
 	cell.Provide(newPolicyRepo),
 	cell.Provide(newPolicyUpdater),
+	cell.Provide(newPolicyImporter),
+	cell.Config(defaultConfig),
 )
+
+type Config struct {
+	// note: "2" will be dropped in a subsequent commit
+	PolicyQueueSize uint `mapstructure:"policy-queue-size-2"`
+}
+
+var defaultConfig = Config{
+	PolicyQueueSize: 100,
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Uint("policy-queue-size-2", def.PolicyQueueSize, "Size of queue for policy-related events")
+}
 
 type policyRepoParams struct {
 	cell.In
