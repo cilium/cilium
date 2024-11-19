@@ -124,6 +124,30 @@ jobs:
           title: "Summary of all features tested"
           json-filename: "${{ env.job_name }}"
 
+      - name: Install Cilium with secret sync disabled
+        id: install-cilium-secret-sync-disabled
+        run: |
+          helm upgrade cilium ./install/kubernetes/cilium \
+            --namespace kube-system \
+            --reuse-values \
+            --set=tls.secretSync.enabled=false
+
+          kubectl -n kube-system rollout restart ds/cilium deployment/cilium-operator
+          cilium status --wait --wait-duration=10m
+          kubectl -n kube-system get pods
+
+      - name: Run L7 related connectivity test
+        run: |
+          cilium connectivity test --test="l7|sni|check-log-errors" \
+            --junit-file "cilium-junits/${{ env.job_name }}-without-secret-sync.xml" \
+            --junit-property github_job_step="Run connectivity test with secret sync disabled"
+
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}-without-secret-sync"
+
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
