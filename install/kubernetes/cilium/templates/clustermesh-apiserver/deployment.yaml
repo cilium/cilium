@@ -15,6 +15,9 @@ metadata:
     k8s-app: clustermesh-apiserver
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: clustermesh-apiserver
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   replicas: {{ .Values.clustermesh.apiserver.replicas }}
   selector:
@@ -34,6 +37,9 @@ spec:
         app.kubernetes.io/part-of: cilium
         app.kubernetes.io/name: clustermesh-apiserver
         k8s-app: clustermesh-apiserver
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- with .Values.clustermesh.apiserver.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
