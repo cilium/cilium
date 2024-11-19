@@ -442,6 +442,9 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 								swg := lock.NewStoppableWaitGroup()
 								for _, svc := range stale {
 									d.k8sSvcCache.EnsureService(svc, swg)
+									if option.Config.EnableLocalRedirectPolicy {
+										d.lrpManager.EnsureService(svc)
+									}
 								}
 
 								swg.Stop()
