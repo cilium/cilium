@@ -680,10 +680,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
-	if params.DirectoryPolicyWatcher != nil {
-		params.DirectoryPolicyWatcher.WatchDirectoryPolicyResources(d.ctx, &d)
-	}
-
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
