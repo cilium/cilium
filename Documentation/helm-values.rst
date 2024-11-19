@@ -3239,7 +3239,7 @@
    * - :spelling:ignore:`tls`
      - Configure TLS configuration in the agent.
      - object
-     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false},"secretSync":{"enabled":true,"secretsNamespace":{"create":true,"enabled":true,"name":"cilium-secrets"}},"secretsBackend":"local"}``
+     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false},"secretSync":{"enabled":true,"secretsNamespace":{"create":true,"name":"cilium-secrets"}},"secretsBackend":"local"}``
    * - :spelling:ignore:`tls.ca`
      - Base64 encoded PEM values for the CA certificate and private key. This can be used as common CA to generate certificates used by hubble and clustermesh components. It is neither required nor used when cert-manager is used to generate the certificates.
      - object
@@ -3279,7 +3279,7 @@
    * - :spelling:ignore:`tls.secretSync`
      - Configures settings for synchronization of TLS Interception Secrets
      - object
-     - ``{"enabled":true,"secretsNamespace":{"create":true,"enabled":true,"name":"cilium-secrets"}}``
+     - ``{"enabled":true,"secretsNamespace":{"create":true,"name":"cilium-secrets"}}``
    * - :spelling:ignore:`tls.secretSync.enabled`
      - Enable synchronization of Secrets for TLS Interception. If disabled and tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
      - bool
@@ -3287,13 +3287,9 @@
    * - :spelling:ignore:`tls.secretSync.secretsNamespace`
      - This configures secret synchronization for secrets used in CiliumNetworkPolicies
      - object
-     - ``{"create":true,"enabled":true,"name":"cilium-secrets"}``
+     - ``{"create":true,"name":"cilium-secrets"}``
    * - :spelling:ignore:`tls.secretSync.secretsNamespace.create`
      - Create secrets namespace for TLS Interception secrets.
-     - bool
-     - ``true``
-   * - :spelling:ignore:`tls.secretSync.secretsNamespace.enabled`
-     - Enable secret sync, which will make sure all TLS secrets used by TLS Interception are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
      - bool
      - ``true``
    * - :spelling:ignore:`tls.secretSync.secretsNamespace.name`
