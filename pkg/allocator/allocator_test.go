@@ -382,7 +382,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 
 	// running the GC should not evict any entries
-	allocator.RunGC(rateLimiter, nil)
+	allocator.RunGC(context.Background(), rateLimiter, nil)
 
 	// release final reference of all IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
@@ -395,7 +395,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 	}
 
 	// running the GC should evict all entries
-	allocator.RunGC(rateLimiter, nil)
+	allocator.RunGC(context.Background(), rateLimiter, nil)
 
 	allocator.DeleteAllKeys()
 	allocator.Delete()
