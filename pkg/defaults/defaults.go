@@ -314,9 +314,6 @@ const (
 	// running the Cilium KVstore in pod network.
 	KVstorePodNetworkSupport = false
 
-	// PolicyQueueSize is the default queue size for policy-related events.
-	PolicyQueueSize = 100
-
 	// KVstoreQPS is default rate limit for kv store operations
 	KVstoreQPS = 20
 

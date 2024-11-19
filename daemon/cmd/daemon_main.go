@@ -94,7 +94,6 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
-	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
@@ -873,9 +872,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.DNSProxyInsecureSkipTransparentModeCheck)
 	option.BindEnv(vp, option.DNSProxyInsecureSkipTransparentModeCheck)
 
-	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "Size of queues for policy-related events")
-	option.BindEnv(vp, option.PolicyQueueSize)
-
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "Size of EventQueue per-endpoint")
 	option.BindEnv(vp, option.EndpointQueueSize)
 
@@ -1623,9 +1619,8 @@ type daemonParams struct {
 	LRPManager          *redirectpolicy.Manager
 }
 
-func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {
+func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
-	policyManagerResolver, policyManagerPromise := promise.New[policyK8s.PolicyManager]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
@@ -1640,7 +1635,6 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 				// Reject promises on error
 				if err != nil {
 					params.CfgResolver.Reject(err)
-					policyManagerResolver.Reject(err)
 					daemonResolver.Reject(err)
 				}
 			}()
@@ -1678,7 +1672,6 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			// 'option.Config' is assumed to be stable at this point, execpt for
 			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
 			params.CfgResolver.Resolve(option.Config)
-			policyManagerResolver.Resolve(daemon)
 
 			if option.Config.DryMode {
 				daemonResolver.Resolve(daemon)
@@ -1703,7 +1696,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			return nil
 		},
 	})
-	return daemonPromise, policyManagerPromise
+	return daemonPromise
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.

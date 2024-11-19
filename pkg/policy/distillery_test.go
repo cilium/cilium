@@ -44,7 +44,7 @@ func localIdentity(n uint32) identity.NumericIdentity {
 }
 
 func TestCacheManagement(t *testing.T) {
-	repo := NewStoppedPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
 	require.Equal(t, identity, ep2.GetSecurityIdentity())
@@ -87,7 +87,7 @@ func TestCacheManagement(t *testing.T) {
 }
 
 func TestCachePopulation(t *testing.T) {
-	repo := NewStoppedPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	repo.revision.Store(42)
 	cache := repo.policyCache
 
@@ -385,7 +385,7 @@ type policyDistillery struct {
 
 func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
 	ret := &policyDistillery{
-		Repository: NewStoppedPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
+		Repository: NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
 	}
 	ret.selectorCache = selectorCache
 	return ret

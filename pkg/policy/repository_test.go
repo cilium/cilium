@@ -2510,7 +2510,7 @@ func TestDefaultAllow(t *testing.T) {
 func TestReplaceByResourceLocked(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewStoppedPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)
@@ -2647,7 +2647,7 @@ func TestReplaceByResourceLocked(t *testing.T) {
 func TestReplaceByResource(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewStoppedPolicyRepository(nil, nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)
@@ -2795,7 +2795,7 @@ func TestReplaceByResource(t *testing.T) {
 func TestReplaceByLabels(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewStoppedPolicyRepository(nil, nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(nil)
 	repo.selectorCache = sc
 	assert.Empty(t, sc.selectors)
