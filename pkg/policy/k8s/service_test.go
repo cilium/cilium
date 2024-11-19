@@ -27,27 +27,20 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
-type fakePolicyManager struct {
-	OnPolicyAdd    func(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	OnPolicyDelete func(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
+type fakePolicyImporter struct {
+	OnUpdatePolicy func(upd *policytypes.PolicyUpdate)
 }
 
-func (f *fakePolicyManager) PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
-	if f.OnPolicyAdd != nil {
-		return f.OnPolicyAdd(rules, opts)
+func (f *fakePolicyImporter) UpdatePolicy(upd *policytypes.PolicyUpdate) {
+	if f.OnUpdatePolicy != nil {
+		f.OnUpdatePolicy(upd)
+	} else {
+		panic("OnUpdatePolicy(upd *policytypes.PolicyUpdate) was called but was not set")
 	}
-	panic("OnPolicyAdd(api.Rules, *policy.AddOptions) (uint64, error) was called and is not set!")
-}
-
-func (f *fakePolicyManager) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
-	if f.OnPolicyDelete != nil {
-		return f.OnPolicyDelete(labels, opts)
-	}
-	panic("OnPolicyDelete(labels.LabelArray, *policy.DeleteOptions) (uint64, error) was called and is not set!")
 }
 
 type fakeService struct {
@@ -83,10 +76,9 @@ func sortCIDRSet(s api.CIDRRuleSlice) api.CIDRRuleSlice {
 
 func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	policyAdd := make(chan api.Rules, 3)
-	policyManager := &fakePolicyManager{
-		OnPolicyAdd: func(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
-			policyAdd <- rules
-			return 0, nil
+	policyImporter := &fakePolicyImporter{
+		OnUpdatePolicy: func(upd *policytypes.PolicyUpdate) {
+			policyAdd <- upd.Rules
 		},
 	}
 
@@ -262,7 +254,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		config:             &option.DaemonConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
-		policyManager:      policyManager,
+		policyImporter:     policyImporter,
 		svcCache:           svcCache,
 		cnpCache:           map[resource.Key]*types.SlimCNP{},
 		toServicesPolicies: map[resource.Key]struct{}{},
@@ -271,7 +263,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	}
 
 	// Upsert policies. No services are known, so generated ToCIDRSet should be empty
-	err := p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID)
+	err := p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID, nil)
 	assert.NoError(t, err)
 	rules := <-policyAdd
 	assert.Len(t, rules, 2)
@@ -280,7 +272,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Len(t, rules[1].Egress, 1)
 	assert.Empty(t, rules[1].Egress[0].ToCIDRSet)
 
-	err = p.onUpsert(svcByLabelCNP, svcByLabelKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByLabelResourceID)
+	err = p.onUpsert(svcByLabelCNP, svcByLabelKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByLabelResourceID, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)
@@ -489,14 +481,13 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T) {
 	policyAdd := make(chan api.Rules, 1)
 	policyDelete := make(chan api.Rules, 1)
-	policyManager := &fakePolicyManager{
-		OnPolicyAdd: func(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
-			policyAdd <- rules
-			return 0, nil
-		},
-		OnPolicyDelete: func(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
-			policyDelete <- nil
-			return 0, nil
+	policyImporter := &fakePolicyImporter{
+		OnUpdatePolicy: func(upd *policytypes.PolicyUpdate) {
+			if upd.Rules == nil {
+				policyDelete <- nil
+			} else {
+				policyAdd <- upd.Rules
+			}
 		},
 	}
 
@@ -543,7 +534,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 		config:             &option.DaemonConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
-		policyManager:      policyManager,
+		policyImporter:     policyImporter,
 		svcCache:           svcCache,
 		cnpCache:           map[resource.Key]*types.SlimCNP{},
 		toServicesPolicies: map[resource.Key]struct{}{},
@@ -552,7 +543,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	}
 
 	// Upsert policies. No services are known, so generated ToEndpoints should be empty
-	err := p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID)
+	err := p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID, nil)
 	assert.NoError(t, err)
 	rules := <-policyAdd
 	assert.Len(t, rules, 1)
@@ -669,7 +660,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 		Selector: barSvcLabels,
 	}
 
-	err = p.onUpsert(svcByLabelCNP, svcByLabelKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByLabelResourceID)
+	err = p.onUpsert(svcByLabelCNP, svcByLabelKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByLabelResourceID, nil)
 	// Upsert policies. No services are known, so generated ToEndpoints should be empty
 	assert.NoError(t, err)
 	rules = <-policyAdd
@@ -723,8 +714,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	}, p.cnpByServiceID)
 
 	// Delete svc-by-name policy and check that the policy is removed
-	err = p.onDelete(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID)
-	assert.NoError(t, err)
+	p.onDelete(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID, nil)
 
 	// Expect policy to be deleted
 	<-policyDelete
@@ -734,7 +724,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 
 	// Add foo-svc again, which should re-add the policy
 	err = p.updateToServicesPolicies(fooSvcID, fooSvc, nil)
-	p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID)
+	p.onUpsert(svcByNameCNP, svcByNameKey, k8sAPIGroupCiliumNetworkPolicyV2, svcByNameResourceID, nil)
 	assert.NoError(t, err)
 	rules = <-policyAdd
 	assert.Len(t, rules, 1)

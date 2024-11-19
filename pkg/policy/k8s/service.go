@@ -87,7 +87,7 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 
 		resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
 
-		errs = append(errs, p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID))
+		errs = append(errs, p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID, nil))
 	}
 	return errors.Join(errs...)
 }
