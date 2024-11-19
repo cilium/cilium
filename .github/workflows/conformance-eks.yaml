@@ -366,6 +366,7 @@ jobs:
         with:
           key-algo: "gcm(aes)"
           nb-nodes: 3
+          tunnel: "disabled"
           ipv6: false
 
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
