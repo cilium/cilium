@@ -62,6 +62,8 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 				log.Debug("Envoy: xDS server stopped before started serving")
 				return
 			}
+			// Tell xdsServer it's time to start waiting for acknowledgements
+			xdsServer.RestoreCompleted()
 		}
 
 		log.Infof("Envoy: Starting xDS gRPC server listening on %s", listener.Addr())
