@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 	"testing"
 	"time"
 
@@ -19,25 +18,15 @@ import (
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sTypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
@@ -56,8 +45,6 @@ var (
 
 	testQAEndpointID   = uint16(1)
 	testProdEndpointID = uint16(2)
-
-	policyAddOptions = &policy.AddOptions{}
 
 	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
 		Reason:            "test",
@@ -306,8 +293,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
-	require.NoError(t, err3)
+	ds.policyImport(rules)
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
@@ -487,8 +473,7 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
-	require.NoError(t, err)
+	ds.policyImport(rules)
 
 	// Prepare endpoints
 	cleanup, err := prepareEndpointDirs()
@@ -578,8 +563,7 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
-	require.NoError(t, err)
+	ds.policyImport(rules)
 
 	// Prepare endpoints
 	cleanup, err := prepareEndpointDirs()
@@ -670,8 +654,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
-	require.NoError(t, err)
+	ds.policyImport(rules)
 
 	// Prepare endpoints
 	cleanup, err := prepareEndpointDirs()
@@ -751,11 +734,9 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	_, err := ds.d.PolicyAdd(rules, policyAddOptions)
-	require.NoError(t, err)
-	ds.d.policy.RLock()
-	require.Len(t, ds.d.policy.SearchRLocked(lbls), 2)
-	ds.d.policy.RUnlock()
+	ds.policyImport(rules)
+	foundRules, _ := ds.d.policy.Search(lbls)
+	require.Len(t, foundRules, 2)
 	rules[0].Egress = []api.EgressRule{
 		{
 			EgressCommonRule: api.EgressCommonRule{
@@ -766,12 +747,13 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 			},
 		},
 	}
-	_, err = ds.d.PolicyAdd(rules, &policy.AddOptions{Replace: true})
+	ds.updatePolicy(&policyTypes.PolicyUpdate{
+		Rules:           rules,
+		ReplaceByLabels: true,
+	})
 
-	require.NoError(t, err)
-	ds.d.policy.RLock()
-	require.Len(t, ds.d.policy.SearchRLocked(lbls), 2)
-	ds.d.policy.RUnlock()
+	foundRules, _ = ds.d.policy.Search(lbls)
+	require.Len(t, foundRules, 2)
 }
 
 func TestRemovePolicyEtcd(t *testing.T) {
@@ -842,8 +824,7 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
-	require.NoError(t, err3)
+	ds.policyImport(rules)
 
 	cleanup, err2 := prepareEndpointDirs()
 	require.NoError(t, err2)
@@ -935,8 +916,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
-	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
-	require.NoError(t, err3)
+	ds.policyImport(rules)
 
 	cleanup, err2 := prepareEndpointDirs()
 	require.NoError(t, err2)
@@ -1021,357 +1001,4 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(t, nil)
 	require.Empty(t, networkPolicies)
-}
-
-func TestAddCiliumNetworkPolicyV2Etcd(t *testing.T) {
-	ds := setupDaemonEtcdSuite(t)
-	ds.testAddCiliumNetworkPolicyV2(t)
-}
-
-func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
-	uuid := k8sTypes.UID("13bba160-ddca-13e8-b697-0800273b04ff")
-	type args struct {
-		ciliumV2Store cache.Store
-		cnp           *types.SlimCNP
-		repo          policy.PolicyRepository
-	}
-	type wanted struct {
-		err  error
-		repo policy.PolicyRepository
-	}
-	tests := []struct {
-		name        string
-		setupArgs   func() args
-		setupWanted func() wanted
-	}{
-		{
-			name: "simple policy added",
-			setupArgs: func() args {
-				return args{
-					ciliumV2Store: &cache.FakeCustomStore{},
-					cnp: &types.SlimCNP{
-						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "db",
-								Namespace: "production",
-								UID:       uuid,
-							},
-							Spec: &api.Rule{
-								EndpointSelector: api.EndpointSelector{
-									LabelSelector: &slim_metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"env": "cluster-1",
-										},
-									},
-								},
-							},
-						},
-					},
-					repo: policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
-				}
-			},
-			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-				r.MustAddList(api.Rules{
-					api.NewRule().
-						WithEndpointSelector(api.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
-							},
-						}).
-						WithIngressRules(nil).
-						WithEgressRules(nil).
-						WithLabels(utils.GetPolicyLabels(
-							"production",
-							"db",
-							uuid,
-							utils.ResourceTypeCiliumNetworkPolicy),
-						),
-				})
-				return wanted{
-					err:  nil,
-					repo: r,
-				}
-			},
-		},
-		{
-			name: "have a rule with user labels and update it without user labels, all other rules should be deleted",
-			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
-				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
-				r.MustAddList(api.Rules{
-					{
-						EndpointSelector: api.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
-							},
-						},
-						Ingress:     nil,
-						Egress:      nil,
-						Labels:      lbls,
-						Description: "",
-					},
-				})
-				return args{
-					ciliumV2Store: &cache.FakeCustomStore{},
-					cnp: &types.SlimCNP{
-						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "db",
-								Namespace: "production",
-								UID:       uuid,
-							},
-							Spec: &api.Rule{
-								EndpointSelector: api.EndpointSelector{
-									LabelSelector: &slim_metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"env": "cluster-1",
-										},
-									},
-								},
-							},
-						},
-					},
-					repo: r,
-				}
-			},
-			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-				r.MustAddList(api.Rules{
-					api.NewRule().
-						WithEndpointSelector(api.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
-							},
-						}).
-						WithIngressRules(nil).
-						WithEgressRules(nil).
-						WithLabels(utils.GetPolicyLabels(
-							"production",
-							"db",
-							uuid,
-							utils.ResourceTypeCiliumNetworkPolicy,
-						)),
-				})
-				return wanted{
-					err:  nil,
-					repo: r,
-				}
-			},
-		},
-		{
-			name: "have a rule without user labels and update it with user labels, all other rules should be deleted",
-			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-				r.MustAddList(api.Rules{
-					{
-						EndpointSelector: api.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
-							},
-						},
-						Ingress:     nil,
-						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
-						Description: "",
-					},
-				})
-				return args{
-					ciliumV2Store: &cache.FakeCustomStore{},
-					cnp: &types.SlimCNP{
-						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "db",
-								Namespace: "production",
-								UID:       uuid,
-							},
-							Spec: &api.Rule{
-								EndpointSelector: api.EndpointSelector{
-									LabelSelector: &slim_metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											"env": "cluster-1",
-										},
-									},
-								},
-								Labels: labels.ParseLabelArray("foo=bar"),
-							},
-						},
-					},
-					repo: r,
-				}
-			},
-			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
-				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
-				r.MustAddList(api.Rules{
-					api.NewRule().
-						WithEndpointSelector(api.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
-							},
-						}).
-						WithIngressRules(nil).
-						WithEgressRules(nil).
-						WithLabels(lbls),
-				})
-				return wanted{
-					err:  nil,
-					repo: r,
-				}
-			},
-		},
-		{
-			name: "have a rule policy installed with multiple rules and apply an empty spec should delete all rules installed",
-			setupArgs: func() args {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-				r.MustAddList(api.Rules{
-					{
-						EndpointSelector: api.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
-							},
-						},
-						Ingress: []api.IngressRule{
-							{
-								IngressCommonRule: api.IngressCommonRule{
-									FromEndpoints: []api.EndpointSelector{
-										{
-											LabelSelector: &slim_metav1.LabelSelector{
-												MatchLabels: map[string]string{
-													"env": "cluster-1",
-													labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
-						Description: "",
-					},
-				})
-				return args{
-					ciliumV2Store: &cache.FakeCustomStore{},
-					cnp: &types.SlimCNP{
-						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "db",
-								Namespace: "production",
-								UID:       uuid,
-							},
-						},
-					},
-					repo: r,
-				}
-			},
-			setupWanted: func() wanted {
-				r := policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-				r.MustAddList(api.Rules{
-					{
-						EndpointSelector: api.EndpointSelector{
-							LabelSelector: &slim_metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"env": "cluster-1",
-									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-								},
-							},
-						},
-						Ingress: []api.IngressRule{
-							{
-								IngressCommonRule: api.IngressCommonRule{
-									FromEndpoints: []api.EndpointSelector{
-										{
-											LabelSelector: &slim_metav1.LabelSelector{
-												MatchLabels: map[string]string{
-													"env": "cluster-1",
-													labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
-						Description: "",
-					},
-				})
-				return wanted{
-					err:  v2.ErrEmptyCNP,
-					repo: r,
-				}
-			},
-		},
-	}
-	for _, tt := range tests {
-		args := tt.setupArgs()
-		want := tt.setupWanted()
-
-		args.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-		want.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-
-		// Policy queues must be drained and shutdown completely. Otherwise,
-		// the following overwrite of policy will cause races between it and
-		// the goroutines its spun off in the background.
-		drainAndWaitForPolicyQueues(ds.d)
-		ds.d.policy = args.repo
-
-		rules, policyImportErr := args.cnp.Parse()
-		require.EqualValues(t, want.err, policyImportErr)
-
-		// Only add policies if we have successfully parsed them. Otherwise, if
-		// parsing fails, `rules` is nil, which would wipe out the repo.
-		if want.err == nil {
-			_, policyImportErr = ds.d.PolicyAdd(rules, &policy.AddOptions{
-				ReplaceWithLabels: args.cnp.GetIdentityLabels(),
-				Source:            metrics.LabelEventSourceK8s,
-			})
-			require.NoError(t, policyImportErr)
-		}
-		require.EqualValuesf(t, want.repo.GetRulesList().Policy, args.repo.GetRulesList().Policy, "Test name: %q", tt.name)
-	}
-}
-
-func drainAndWaitForPolicyQueues(d *Daemon) {
-	var wg sync.WaitGroup
-
-	repoChangeQueue := d.policy.GetRepositoryChangeQueue()
-	ruleReactionQueue := d.policy.GetRuleReactionQueue()
-
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		repoChangeQueue.Stop()
-		repoChangeQueue.WaitToBeDrained()
-	}()
-	go func() {
-		defer wg.Done()
-		ruleReactionQueue.Stop()
-		ruleReactionQueue.WaitToBeDrained()
-	}()
-
-	wg.Wait()
 }
