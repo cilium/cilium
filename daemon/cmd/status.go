@@ -572,7 +572,7 @@ func (d *Daemon) getIdentityRange() *models.IdentityRange {
 	return s
 }
 
-func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
+func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanup) error {
 	probes := []status.Probe{
 		{
 			Name: "kvstore",
@@ -931,6 +931,12 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 
 	d.statusCollector = status.NewCollector(probes, status.DefaultConfig)
 
+	// Block until all probes have been executed at least once, to make sure that
+	// the status has been fully initialized once we exit from this function.
+	if err := d.statusCollector.WaitForFirstRun(ctx); err != nil {
+		return fmt.Errorf("waiting for first run: %w", err)
+	}
+
 	// Set up a signal handler function which prints out logs related to daemon status.
 	cleaner.cleanupFuncs.Add(func() {
 		// If the KVstore state is not OK, print help for user.
@@ -949,4 +955,6 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 
 		d.statusCollector.Close()
 	})
+
+	return nil
 }
