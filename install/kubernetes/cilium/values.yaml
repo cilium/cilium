@@ -2537,9 +2537,6 @@ tls:
       create: true
       # -- Name of TLS Interception secret namespace.
       name: cilium-secrets
-      # -- Enable secret sync, which will make sure all TLS secrets used by TLS Interception are synced to secretsNamespace.name.
-      # If disabled, TLS secrets must be maintained externally.
-      enabled: true
   # -- Base64 encoded PEM values for the CA certificate and private key.
   # This can be used as common CA to generate certificates used by hubble and clustermesh components.
   # It is neither required nor used when cert-manager is used to generate the certificates.
