@@ -236,6 +236,7 @@ cnp
 codebase
 codeowner
 codeowners
+commonLabels
 compat
 config
 configMap

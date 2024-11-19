@@ -5,6 +5,11 @@ kind: ConfigMap
 metadata:
   name: hubble-ui-nginx
   namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
   {{- with .Values.hubble.ui.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

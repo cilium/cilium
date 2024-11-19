@@ -22,6 +22,11 @@ kind: ResourceQuota
 metadata:
   name: cilium-operator-resource-quota
   namespace: {{ include "cilium.namespace" . }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   hard:
     pods: {{ .Values.resourceQuotas.operator.hard.pods | quote }}

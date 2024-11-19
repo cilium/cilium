@@ -1491,6 +1491,12 @@
       },
       "type": "object"
     },
+    "commonLabels": {
+      "type": [
+        "null",
+        "object"
+      ]
+    },
     "conntrackGCInterval": {
       "type": "string"
     },

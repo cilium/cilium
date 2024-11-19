@@ -944,6 +944,10 @@
      - Remove the CNI configuration and binary files on agent shutdown. Enable this if you're removing Cilium from the cluster. Disable this to prevent the CNI configuration file from being removed during agent upgrade, which can cause nodes to go unmanageable.
      - bool
      - ``false``
+   * - :spelling:ignore:`commonLabels`
+     - commonLabels allows users to add common labels for all Cilium resources.
+     - object
+     - ``{}``
    * - :spelling:ignore:`conntrackGCInterval`
      - Configure how frequently garbage collection should occur for the datapath connection tracking table.
      - string

@@ -13,6 +13,9 @@ metadata:
     app: cilium-node-init
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-node-init
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -39,6 +42,9 @@ spec:
         app: cilium-node-init
         app.kubernetes.io/part-of: cilium
         app.kubernetes.io/name: cilium-node-init
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- with .Values.nodeinit.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

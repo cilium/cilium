@@ -25,6 +25,9 @@ metadata:
     k8s-app: cilium
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-agent
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     {{- if .Values.keepDeprecatedLabels }}
     kubernetes.io/cluster-service: "true"
     {{- if and .Values.gke.enabled (eq (include "cilium.namespace" .) "kube-system" ) }}
@@ -73,6 +76,9 @@ spec:
         k8s-app: cilium
         app.kubernetes.io/name: cilium-agent
         app.kubernetes.io/part-of: cilium
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- if .Values.keepDeprecatedLabels }}
         kubernetes.io/cluster-service: "true"
         {{- end }}

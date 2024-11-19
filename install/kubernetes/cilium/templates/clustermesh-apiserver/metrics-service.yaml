@@ -16,6 +16,10 @@ metadata:
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: clustermesh-apiserver
     app.kubernetes.io/component: metrics
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
 spec:
   clusterIP: None
   type: ClusterIP
