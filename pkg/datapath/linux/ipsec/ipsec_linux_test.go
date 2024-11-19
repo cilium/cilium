@@ -7,6 +7,7 @@ package ipsec
 
 import (
 	"bytes"
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -526,6 +527,7 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, policy)
+	require.NoError(t, fmt.Errorf("marseel error"))
 
 	// ensure XFRM policy is as we want it...
 	if !policy.Src.IP.Equal(wildcardIPv4) {
