@@ -377,10 +377,14 @@ type etcdClient struct {
 type etcdMutex struct {
 	mutex    *concurrency.Mutex
 	onUnlock func()
+	path     string
 }
 
-func (e *etcdMutex) Unlock(ctx context.Context) error {
+func (e *etcdMutex) Unlock(ctx context.Context) (err error) {
 	e.onUnlock()
+	defer func(duration *spanstat.SpanStat) {
+		increaseMetric(e.path, metricDelete, "Unlock", duration.EndError(err).Total(), err)
+	}(spanstat.Start())
 	return e.mutex.Unlock(ctx)
 }
 
@@ -712,7 +716,7 @@ func (e *etcdClient) sessionError() (err error) {
 	return
 }
 
-func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error) {
+func (e *etcdClient) LockPath(ctx context.Context, path string) (locker KVLocker, err error) {
 	// Create the context first, so that the timeout also accounts for the time
 	// possibly required to acquire a new session (if not already established).
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
@@ -723,6 +727,9 @@ func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error
 		return nil, Hint(err)
 	}
 
+	defer func(duration *spanstat.SpanStat) {
+		increaseMetric(path, metricSet, "Lock", duration.EndError(err).Total(), err)
+	}(spanstat.Start())
 	mu := concurrency.NewMutex(session, path)
 	err = mu.Lock(ctx)
 	if err != nil {
@@ -731,7 +738,7 @@ func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error
 	}
 
 	release := func() { e.lockLeaseManager.Release(path) }
-	return &etcdMutex{mutex: mu, onUnlock: release}, nil
+	return &etcdMutex{mutex: mu, onUnlock: release, path: path}, nil
 }
 
 func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) {
