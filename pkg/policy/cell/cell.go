@@ -31,8 +31,7 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	// note: "2" will be dropped in a subsequent commit
-	PolicyQueueSize uint `mapstructure:"policy-queue-size-2"`
+	PolicyQueueSize uint `mapstructure:"policy-queue-size"`
 }
 
 var defaultConfig = Config{
@@ -40,7 +39,7 @@ var defaultConfig = Config{
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Uint("policy-queue-size-2", def.PolicyQueueSize, "Size of queue for policy-related events")
+	flags.Uint("policy-queue-size", def.PolicyQueueSize, "Size of queue for policy-related events")
 }
 
 type policyRepoParams struct {
@@ -69,7 +68,7 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	// policy repository: maintains list of active Rules and their subject
 	// security identities. Also constructs the SelectorCache, a precomputed
 	// cache of label selector -> identities for policy peers.
-	policyRepo := policy.NewStoppedPolicyRepository(
+	policyRepo := policy.NewPolicyRepository(
 		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.SecretManager,
@@ -80,7 +79,7 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			policyRepo.Start()
+			policyRepo.GetSelectorCache().RegisterMetrics()
 			return nil
 		},
 	})
