@@ -890,6 +890,13 @@ func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
 			policy.Priority == linux_defaults.IPsecFwdPriority {
 			return true
 		}
+		// Check if its our catch-all IN policy.
+		if policy.Dir == netlink.XFRM_DIR_IN && len(policy.Tmpls) == 1 {
+			tmpl := policy.Tmpls[0]
+			if tmpl.Spi == 0 && tmpl.Reqid == 0 && tmpl.Optional == 1 {
+				return true
+			}
+		}
 		return false
 	}
 
