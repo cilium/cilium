@@ -4430,6 +4430,9 @@
             "enabled": {
               "type": "boolean"
             },
+            "metricsService": {
+              "type": "boolean"
+            },
             "port": {
               "type": "integer"
             },
