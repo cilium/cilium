@@ -4,7 +4,6 @@
 package policy
 
 import (
-	"github.com/cilium/cilium/pkg/identity"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
 )
@@ -112,18 +111,6 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 	ctx.rulesSelect = oldRulesSelect
 
 	return result, nil
-}
-
-// matchesSubject determines whether any rule in a set of rules selects the given
-// security identity as a subject (i.e. non-peer).
-func (rules ruleSlice) matchesSubject(securityIdentity *identity.Identity) bool {
-	for _, r := range rules {
-		if r.matchesSubject(securityIdentity) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // AsPolicyRules return the internal policyapi.Rule objects as a policyapi.Rules object

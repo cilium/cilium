@@ -33,24 +33,6 @@ var (
 	}
 )
 
-type dummyEndpoint struct {
-	ID               uint16
-	SecurityIdentity *identity.Identity
-	Endpoint         // Implement methods of the interface that need to mock out real behavior.
-}
-
-func (d *dummyEndpoint) GetID16() uint16 {
-	return d.ID
-}
-
-func (d *dummyEndpoint) IsHost() bool {
-	return false
-}
-
-func (d *dummyEndpoint) GetSecurityIdentity() (*identity.Identity, error) {
-	return d.SecurityIdentity, nil
-}
-
 var testRedirects = map[string]uint16{
 	"1234:ingress:TCP:80:": 1,
 }
@@ -194,22 +176,7 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 	apiRules, ids := ruleGenFunc(numRules)
 	td.sc.UpdateIdentities(ids, nil, wg)
 	wg.Wait()
-	rulez, _ := td.repo.MustAddList(apiRules)
-
-	epSet := NewEndpointSet(map[Endpoint]struct{}{
-		&dummyEndpoint{
-			ID:               9001,
-			SecurityIdentity: fooIdentity,
-		}: {},
-	})
-
-	epsToRegen := NewEndpointSet(nil)
-	wg = &sync.WaitGroup{}
-	rulez.FindSelectedEndpoints(epSet, epsToRegen, wg)
-	wg.Wait()
-
-	require.Equal(tb, 0, epSet.Len())
-	require.Equal(tb, 1, epsToRegen.Len())
+	td.repo.MustAddList(apiRules)
 }
 
 func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
