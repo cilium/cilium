@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"sync"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -109,21 +108,8 @@ func (p *policyContext) SetDeny(deny bool) bool {
 	return oldDeny
 }
 
-// RepositoryLock exposes methods to protect the whole policy tree.
-type RepositoryLock interface {
-	Lock()
-	Unlock()
-	RLock()
-	RUnlock()
-}
-
 type PolicyRepository interface {
-	RepositoryLock
-
-	AddListLocked(rules api.Rules) (ruleSlice, uint64)
 	BumpRevision() uint64
-	DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int)
-	DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSlice, uint64)
 	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
 
@@ -139,11 +125,8 @@ type PolicyRepository interface {
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
 	Iterate(f func(rule *api.Rule))
-	Release(rs ruleSlice)
-	ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64)
-	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int)
-	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int)
-	SearchRLocked(lbls labels.LabelArray) api.Rules
+	ReplaceByResource(rules api.Rules, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
+	ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	Search(lbls labels.LabelArray) (api.Rules, uint64)
 	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool))
 }
@@ -422,12 +405,12 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 func (p *Repository) Search(lbls labels.LabelArray) (api.Rules, uint64) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	return p.SearchRLocked(lbls), p.GetRevision()
+	return p.searchRLocked(lbls), p.GetRevision()
 }
 
-// SearchRLocked searches the policy repository for rules which match the
+// searchRLocked searches the policy repository for rules which match the
 // specified labels and will return an array of all rules which matched.
-func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
+func (p *Repository) searchRLocked(lbls labels.LabelArray) api.Rules {
 	result := api.Rules{}
 
 	for _, r := range p.rules {
@@ -439,9 +422,11 @@ func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 	return result
 }
 
-// AddListLocked inserts a rule into the policy repository with the repository already locked
+// addListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
+//
+// Only used by unit tests, but by multiple packages.
+func (p *Repository) addListLocked(rules api.Rules) (ruleSlice, uint64) {
 	newRules := make(ruleSlice, 0, len(rules))
 	for _, r := range rules {
 		newRule := p.newRule(*r, ruleKey{idx: p.nextID})
@@ -451,38 +436,6 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 	}
 
 	return newRules, p.BumpRevision()
-}
-
-// ReplaceByResourceLocked replaces all rules that belong to a given resource with a
-// new set. The set of rules added and removed is returned, along with the new revision number.
-// Resource must not be empty
-func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64) {
-	if len(resource) == 0 {
-		// This should never ever be hit, as the caller should have already validated the resource.
-		// However, if it does happen, it means something very wrong has happened and we are at risk
-		// of removing all network policies. So, we must panic rather than risk disabling network security.
-		panic("may not replace API rules with an empty resource")
-	}
-
-	if old, ok := p.rulesByResource[resource]; ok {
-		oldRules = make(ruleSlice, 0, len(old))
-		for key, oldRule := range old {
-			oldRules = append(oldRules, oldRule)
-			p.del(key)
-		}
-	}
-
-	newRules = make(ruleSlice, 0, len(rules))
-	if len(rules) > 0 {
-		p.rulesByResource[resource] = make(map[ruleKey]*rule, len(rules))
-		for i, r := range rules {
-			newRule := p.newRule(*r, ruleKey{resource: resource, idx: uint(i)})
-			newRules = append(newRules, newRule)
-			p.insert(newRule)
-		}
-	}
-
-	return newRules, oldRules, p.BumpRevision()
 }
 
 func (p *Repository) insert(r *rule) {
@@ -535,17 +488,6 @@ func (p *Repository) newRule(apiRule api.Rule, key ruleKey) *rule {
 	return r
 }
 
-// Release releases resources owned by a given rule slice.
-// This is needed because we need to evaluate deleted rules after they
-// are removed from the repository, so we must allow for a specific lifecycle
-func (p *Repository) Release(rs ruleSlice) {
-	for _, r := range rs {
-		if r.subjectSelector != nil {
-			p.selectorCache.RemoveSelector(r.subjectSelector, r)
-		}
-	}
-}
-
 // releaseRule releases the cached selector for a given rul
 func (p *Repository) releaseRule(r *rule) {
 	if r.subjectSelector != nil {
@@ -557,7 +499,6 @@ func (p *Repository) releaseRule(r *rule) {
 // unit-testing purposes only. Panics if the rule is invalid
 func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 	for i := range rules {
-		// FIXME(GH-31162): Many unit tests provide invalid rules
 		err := rules[i].Sanitize()
 		if err != nil {
 			panic(err)
@@ -565,7 +506,7 @@ func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 	}
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	return p.AddListLocked(rules)
+	return p.addListLocked(rules)
 }
 
 // Iterate iterates the policy repository, calling f for each rule. It is safe
@@ -578,30 +519,10 @@ func (p *Repository) Iterate(f func(rule *api.Rule)) {
 	}
 }
 
-// FindSelectedEndpoints finds all endpoints selected by a given ruleSlice.
-// All endpoints that are selected will be added to endpointsToRegenerate; all
-// endpoints that are *not* selected (but still valid) remain in endpointsToBumpRevision.
-// policySelectionWG is done when all endpoints have been considered.
-func (r ruleSlice) FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegenerate *EndpointSet, policySelectionWG *sync.WaitGroup) {
-	endpointsToBumpRevision.ForEachGo(policySelectionWG, func(epp Endpoint) {
-		securityIdentity, err := epp.GetSecurityIdentity()
-		if err != nil || securityIdentity == nil {
-			// The endpoint is no longer alive, or it does not have a security identity.
-			// We should remove it from the set of endpoints that will be bumped
-			endpointsToBumpRevision.Delete(epp)
-			return
-		}
-		if r.matchesSubject(securityIdentity) {
-			endpointsToRegenerate.Insert(epp)
-			endpointsToBumpRevision.Delete(epp)
-		}
-	})
-}
-
-// DeleteByLabelsLocked deletes all rules in the policy repository which
+// deleteByLabelsLocked deletes all rules in the policy repository which
 // contain the specified labels. Returns the revision of the policy repository
 // after deleting the rules, as well as now many rules were deleted.
-func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
+func (p *Repository) deleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
 	deletedRules := ruleSlice{}
 
 	for key, r := range p.rules {
@@ -619,28 +540,12 @@ func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, ui
 	return deletedRules, p.GetRevision(), l
 }
 
-func (p *Repository) DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSlice, uint64) {
-	rules := p.rulesByResource[rid]
-	if len(rules) == 0 {
-		delete(p.rulesByResource, rid)
-		return nil, p.GetRevision()
-	}
-
-	deletedRules := make(ruleSlice, 0, len(rules))
-	for key, rule := range rules {
-		p.del(key)
-		deletedRules = append(deletedRules, rule)
-	}
-
-	return deletedRules, p.BumpRevision()
-}
-
-// DeleteByLabels deletes all rules in the policy repository which contain the
+// deleteByLabels deletes all rules in the policy repository which contain the
 // specified labels
-func (p *Repository) DeleteByLabels(lbls labels.LabelArray) (uint64, int) {
+func (p *Repository) deleteByLabels(lbls labels.LabelArray) (uint64, int) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	_, rev, numDeleted := p.DeleteByLabelsLocked(lbls)
+	_, rev, numDeleted := p.deleteByLabelsLocked(lbls)
 	return rev, numDeleted
 }
 
@@ -702,7 +607,7 @@ func (p *Repository) GetRulesList() *models.Policy {
 	defer p.mutex.RUnlock()
 
 	lbls := labels.ParseSelectLabelArrayFromArray([]string{})
-	ruleList := p.SearchRLocked(lbls)
+	ruleList := p.searchRLocked(lbls)
 
 	return &models.Policy{
 		Revision: int64(p.GetRevision()),

@@ -38,7 +38,7 @@ func (p *Repository) mustAdd(r api.Rule) (uint64, map[uint16]struct{}, error) {
 
 	newList := make([]*api.Rule, 1)
 	newList[0] = &r
-	_, rev := p.AddListLocked(newList)
+	_, rev := p.addListLocked(newList)
 	return rev, map[uint16]struct{}{}, nil
 }
 
@@ -178,7 +178,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
 	require.ElementsMatch(t, matchingRules.AsPolicyRules(), api.Rules{&fooIngressRule1, &fooIngressRule2})
 
-	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
+	_, _, numDeleted := repo.deleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
 	require.Equal(t, 1, numDeleted)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
@@ -186,7 +186,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
 	require.EqualValues(t, fooIngressRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule2Label})
+	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooIngressRule2Label})
 	require.Equal(t, 1, numDeleted)
 
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
@@ -200,7 +200,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, ing, "ingress policy enforcement should not apply since no ingress rules select")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
 	require.EqualValues(t, fooEgressRule1, matchingRules[0].Rule, "returned matching rules did not match")
-	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
+	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
 	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.mustAdd(fooEgressRule2)
@@ -210,7 +210,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
 	require.EqualValues(t, fooEgressRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule2Label})
+	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooEgressRule2Label})
 	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.mustAdd(combinedRule)
@@ -219,7 +219,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules selects")
 	require.EqualValues(t, combinedRule, matchingRules[0].Rule, "returned matching rules did not match")
-	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{combinedLabel})
+	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{combinedLabel})
 	require.Equal(t, 1, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
@@ -303,7 +303,7 @@ func TestAddSearchDelete(t *testing.T) {
 
 	// rule3 should not be in there yet
 	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{}, repo.SearchRLocked(lbls2))
+	require.EqualValues(t, api.Rules{}, repo.searchRLocked(lbls2))
 	repo.mutex.RUnlock()
 
 	// add rule3
@@ -314,34 +314,34 @@ func TestAddSearchDelete(t *testing.T) {
 
 	// search rule1,rule2
 	repo.mutex.RLock()
-	require.ElementsMatch(t, api.Rules{&rule1, &rule2}, repo.SearchRLocked(lbls1))
-	require.ElementsMatch(t, api.Rules{&rule3}, repo.SearchRLocked(lbls2))
+	require.ElementsMatch(t, api.Rules{&rule1, &rule2}, repo.searchRLocked(lbls1))
+	require.ElementsMatch(t, api.Rules{&rule3}, repo.searchRLocked(lbls2))
 	repo.mutex.RUnlock()
 
 	// delete rule1, rule2
-	rev, n := repo.DeleteByLabels(lbls1)
+	rev, n := repo.deleteByLabels(lbls1)
 	require.Equal(t, 2, n)
 	require.Equal(t, nextRevision, rev)
 	nextRevision++
 
 	// delete rule1, rule2 again has no effect
-	rev, n = repo.DeleteByLabels(lbls1)
+	rev, n = repo.deleteByLabels(lbls1)
 	require.Equal(t, 0, n)
 	require.Equal(t, nextRevision-1, rev)
 
 	// rule3 can still be found
 	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{&rule3}, repo.SearchRLocked(lbls2))
+	require.EqualValues(t, api.Rules{&rule3}, repo.searchRLocked(lbls2))
 	repo.mutex.RUnlock()
 
 	// delete rule3
-	rev, n = repo.DeleteByLabels(lbls2)
+	rev, n = repo.deleteByLabels(lbls2)
 	require.Equal(t, 1, n)
 	require.Equal(t, nextRevision, rev)
 
 	// rule1 is gone
 	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{}, repo.SearchRLocked(lbls2))
+	require.EqualValues(t, api.Rules{}, repo.searchRLocked(lbls2))
 	repo.mutex.RUnlock()
 }
 
@@ -376,7 +376,7 @@ func BenchmarkParseLabel(b *testing.B) {
 
 		repo.mutex.RLock()
 		for j := 0; j < 100; j++ {
-			cntFound += len(repo.SearchRLocked(lbls[j]))
+			cntFound += len(repo.searchRLocked(lbls[j]))
 		}
 		repo.mutex.RUnlock()
 	}
@@ -2347,7 +2347,7 @@ func TestIterate(t *testing.T) {
 	require.Equal(t, numRules-numModified, numWithEgress)
 
 	repo.mutex.Lock()
-	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{lbls[0]})
+	_, _, numDeleted := repo.deleteByLabelsLocked(labels.LabelArray{lbls[0]})
 	repo.mutex.Unlock()
 	require.Equal(t, 1, numDeleted)
 
@@ -2505,143 +2505,6 @@ func TestDefaultAllow(t *testing.T) {
 			require.Len(t, matchingRules, itc.ruleC+etc.ruleC, "case ingress %d + egress %d: rule count should match", i, e)
 		}
 	}
-}
-
-func TestReplaceByResourceLocked(t *testing.T) {
-	// don't use the full testdata() here, since we want to watch
-	// selectorcache changes carefully
-	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-	sc := testNewSelectorCache(nil)
-	repo.selectorCache = sc
-	assert.Empty(t, sc.selectors)
-
-	numRules := 10
-	rules := make(api.Rules, 0, numRules)
-	// share the dest selector
-	destSelector := api.NewESFromLabels(labels.NewLabel("peer", "pod", "k8s"))
-	for i := 0; i < numRules; i++ {
-		it := fmt.Sprintf("num-%d", i)
-		epSelector := api.NewESFromLabels(
-			labels.NewLabel(
-				"subject-pod",
-				it,
-				labels.LabelSourceK8s,
-			),
-		)
-		lbl := labels.NewLabel("policy-label", it, labels.LabelSourceK8s)
-		rule := &api.Rule{
-			EndpointSelector: epSelector,
-			Labels:           labels.LabelArray{lbl},
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{
-							destSelector,
-						},
-					},
-				},
-			},
-		}
-		require.NoError(t, rule.Sanitize())
-		rules = append(rules, rule)
-	}
-
-	rulesMatch := func(s ruleSlice, rs api.Rules) {
-		t.Helper()
-		ss := make(api.Rules, 0, len(s))
-		for _, rule := range s {
-			ss = append(ss, &rule.Rule)
-		}
-		assert.ElementsMatch(t, ss, rs)
-	}
-	toSlice := func(m map[ruleKey]*rule) ruleSlice {
-		out := ruleSlice{}
-		for _, v := range m {
-			out = append(out, v)
-		}
-		return out
-	}
-
-	rID1 := ipcachetypes.ResourceID("res1")
-	rID2 := ipcachetypes.ResourceID("res2")
-
-	new, old, rev := repo.ReplaceByResourceLocked(rules[0:1], rID1)
-	assert.Len(t, new, 1)
-	assert.Empty(t, old)
-	assert.EqualValues(t, 2, rev)
-
-	// check basic bookkeeping
-	assert.Len(t, repo.rules, 1)
-	assert.Len(t, repo.rulesByResource, 1)
-	assert.Len(t, repo.rulesByResource[rID1], 1)
-	rulesMatch(toSlice(repo.rulesByResource[rID1]), rules[0:1])
-
-	// Check that the selectorcache is sane
-	// It should have one selector: the subject pod for rule 0
-	assert.Len(t, sc.selectors, 1)
-
-	// add second resource
-	new, old, rev = repo.ReplaceByResourceLocked(rules[1:3], rID2)
-
-	assert.Len(t, new, 2)
-	assert.Empty(t, old)
-	assert.EqualValues(t, 3, rev)
-
-	// check basic bookkeeping
-	assert.Len(t, repo.rules, 3)
-	assert.Len(t, repo.rulesByResource, 2)
-	assert.Len(t, repo.rulesByResource[rID1], 1)
-	assert.Len(t, repo.rulesByResource[rID2], 2)
-	assert.Len(t, sc.selectors, 3)
-
-	// replace rid1 with new rules
-	new, old, _ = repo.ReplaceByResourceLocked(rules[3:5], rID1)
-	assert.Len(t, new, 2)
-	assert.Len(t, old, 1)
-	repo.Release(old)
-
-	// check basic bookkeeping
-	assert.Len(t, repo.rules, 4)
-	assert.Len(t, repo.rulesByResource, 2)
-	assert.Len(t, repo.rulesByResource[rID1], 2)
-	assert.Len(t, repo.rulesByResource[rID2], 2)
-	assert.Len(t, sc.selectors, 4)
-
-	rulesMatch(old, rules[0:1])
-	rulesMatch(new, rules[3:5])
-	rulesMatch(toSlice(repo.rulesByResource[rID1]), rules[3:5])
-	assert.Equal(t, repo.rules[ruleKey{
-		resource: rID1,
-		idx:      0,
-	}].Rule, *rules[3])
-
-	// delete rid1
-	old, _ = repo.DeleteByResourceLocked(rID1)
-	assert.Len(t, old, 2)
-	repo.Release(old)
-
-	assert.Len(t, repo.rules, 2)
-	assert.Len(t, repo.rulesByResource, 1)
-	assert.Len(t, repo.rulesByResource[rID2], 2)
-	assert.Len(t, sc.selectors, 2)
-
-	// delete rid1 again (noop)
-	old, _ = repo.DeleteByResourceLocked(rID1)
-	assert.Empty(t, old)
-
-	assert.Len(t, repo.rules, 2)
-	assert.Len(t, repo.rulesByResource, 1)
-	assert.Len(t, repo.rulesByResource[rID2], 2)
-	assert.Len(t, sc.selectors, 2)
-
-	// delete rid2
-	old, _ = repo.DeleteByResourceLocked(rID2)
-	assert.Len(t, old, 2)
-	repo.Release(old)
-
-	assert.Empty(t, repo.rules)
-	assert.Empty(t, repo.rulesByResource)
-	assert.Empty(t, sc.selectors)
 }
 
 func TestReplaceByResource(t *testing.T) {
