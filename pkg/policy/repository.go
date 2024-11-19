@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -139,8 +138,6 @@ type PolicyRepository interface {
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
-	GetRepositoryChangeQueue() *eventqueue.EventQueue
-	GetRuleReactionQueue() *eventqueue.EventQueue
 	Iterate(f func(rule *api.Rule))
 	Release(rs ruleSlice)
 	ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64)
@@ -149,7 +146,6 @@ type PolicyRepository interface {
 	SearchRLocked(lbls labels.LabelArray) api.Rules
 	Search(lbls labels.LabelArray) (api.Rules, uint64)
 	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool))
-	Start()
 }
 
 type GetPolicyStatistics interface {
@@ -176,16 +172,6 @@ type Repository struct {
 	// incremented whenever the policy repository is changed.
 	// Always positive (>0).
 	revision atomic.Uint64
-
-	// repositoryChangeQueue is a queue which serializes changes to the policy
-	// repository.
-	repositoryChangeQueue *eventqueue.EventQueue
-
-	// ruleReactionQueue is a queue which serializes the resultant events that
-	// need to occur after updating the state of the policy repository. This
-	// can include queueing endpoint regenerations, policy revision increments
-	// for endpoints, etc.
-	ruleReactionQueue *eventqueue.EventQueue
 
 	// SelectorCache tracks the selectors used in the policies
 	// resolved from the repository.
@@ -227,14 +213,6 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
 }
 
-func (p *Repository) GetRepositoryChangeQueue() *eventqueue.EventQueue {
-	return p.repositoryChangeQueue
-}
-
-func (p *Repository) GetRuleReactionQueue() *eventqueue.EventQueue {
-	return p.ruleReactionQueue
-}
-
 // GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID
 func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) AuthTypes {
 	return p.policyCache.getAuthTypes(localID, remoteID)
@@ -252,25 +230,7 @@ func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium
 }
 
 // NewPolicyRepository creates a new policy repository.
-// Only used for unit tests.
 func NewPolicyRepository(
-	initialIDs identity.IdentityMap,
-	certManager certificatemanager.CertificateManager,
-	secretManager certificatemanager.SecretManager,
-	idmgr identitymanager.IDManager,
-	metricsManager api.PolicyMetrics,
-) *Repository {
-	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager, idmgr, metricsManager)
-	repo.Start()
-	return repo
-}
-
-// NewStoppedPolicyRepository creates a new policy repository without starting
-// queues.
-//
-// Qeues must be allocated via [Repository.Start]. The function serves to
-// satisfy hive invariants.
-func NewStoppedPolicyRepository(
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
@@ -328,17 +288,6 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 			ctx.PolicyTrace("Found no deny rule\n")
 		}
 	}
-}
-
-// Start allocates and starts various queues used by the Repository.
-//
-// Must only be called if using [NewStoppedPolicyRepository]
-func (p *Repository) Start() {
-	p.selectorCache.RegisterMetrics()
-	p.repositoryChangeQueue = eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
-	p.ruleReactionQueue = eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
-	p.repositoryChangeQueue.Run()
-	p.ruleReactionQueue.Run()
 }
 
 // ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints

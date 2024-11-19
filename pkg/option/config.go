@@ -848,10 +848,6 @@ const (
 	// HealthCheckICMPFailureThreshold is the name of the HealthCheckICMPFailureThreshold option
 	HealthCheckICMPFailureThreshold = "health-check-icmp-failure-threshold"
 
-	// PolicyQueueSize is the size of the queues utilized by the policy
-	// repository.
-	PolicyQueueSize = "policy-queue-size"
-
 	// EndpointQueueSize is the size of the EventQueue per-endpoint.
 	EndpointQueueSize = "endpoint-queue-size"
 
@@ -1809,10 +1805,6 @@ type DaemonConfig struct {
 	//
 	// The default is 30 seconds for k8s clusters, and 10 minutes for kvstore clusters
 	IdentityRestoreGracePeriod time.Duration
-
-	// PolicyQueueSize is the size of the queues for the policy repository.
-	// A larger queue means that more events related to policy can be buffered.
-	PolicyQueueSize int
 
 	// EndpointQueueSize is the size of the EventQueue per-endpoint. A larger
 	// queue means that more events can be buffered per-endpoint. This is useful
@@ -3273,7 +3265,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.K8sNamespace = vp.GetString(K8sNamespaceName)
 	c.AgentNotReadyNodeTaintKey = vp.GetString(AgentNotReadyNodeTaintKeyName)
 	c.MaxControllerInterval = vp.GetInt(MaxCtrlIntervalName)
-	c.PolicyQueueSize = sanitizeIntParam(vp, PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(vp, EndpointQueueSize, defaults.EndpointQueueSize)
 	c.EnableICMPRules = vp.GetBool(EnableICMPRules)
 	c.UseCiliumInternalIPForIPsec = vp.GetBool(UseCiliumInternalIPForIPsec)
