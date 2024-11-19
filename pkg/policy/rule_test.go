@@ -59,9 +59,9 @@ func TestL4Policy(t *testing.T) {
 	}
 	l7map := L7DataMap{
 		td.wildcardCachedSelector: &PerSelectorPolicy{
-			L7Parser: ParserTypeHTTP,
-			Priority: ListenerPriorityHTTP,
-			L7Rules:  l7rules,
+			L7Parser:         ParserTypeHTTP,
+			ListenerPriority: ListenerPriorityHTTP,
+			L7Rules:          l7rules,
 		},
 	}
 
@@ -150,8 +150,8 @@ func TestL4Policy(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -326,15 +326,15 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
 			},
 			td.cachedSelectorB: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -386,14 +386,14 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 	}
 	l7map := L7DataMap{
 		td.wildcardCachedSelector: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  l7rules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          l7rules,
 		},
 		td.cachedSelectorB: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  l7rules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          l7rules,
 		},
 	}
 
@@ -459,14 +459,14 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 	// The L3-dependent L7 rules are not merged together.
 	l7map = L7DataMap{
 		td.cachedSelectorB: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  fooRules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          fooRules,
 		},
 		td.wildcardCachedSelector: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  barRules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          barRules,
 		},
 	}
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
@@ -530,15 +530,15 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
 				},
 			},
 			td.cachedSelectorB: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
 				},
@@ -599,15 +599,15 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
-					L7Parser: ParserTypeHTTP,
-					Priority: ListenerPriorityHTTP,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
 					},
 				},
 				td.cachedSelectorB: &PerSelectorPolicy{
-					L7Parser: ParserTypeHTTP,
-					Priority: ListenerPriorityHTTP,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
 					},
@@ -624,15 +624,15 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
-					L7Parser: ParserTypeKafka,
-					Priority: ListenerPriorityKafka,
+					L7Parser:         ParserTypeKafka,
+					ListenerPriority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{{Topic: "foo"}, {}},
 					},
 				},
 				td.cachedSelectorB: &PerSelectorPolicy{
-					L7Parser: ParserTypeKafka,
-					Priority: ListenerPriorityKafka,
+					L7Parser:         ParserTypeKafka,
+					ListenerPriority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{{Topic: "foo"}},
 					},
@@ -692,14 +692,14 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 	// The l3-dependent l7 rules are not merged together.
 	l7map := L7DataMap{
 		td.cachedSelectorB: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  fooRules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          fooRules,
 		},
 		td.wildcardCachedSelector: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  barRules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          barRules,
 		},
 	}
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
@@ -1988,8 +1988,8 @@ func TestL4WildcardMerge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2005,8 +2005,8 @@ func TestL4WildcardMerge(t *testing.T) {
 			Port: 7000, Protocol: api.ProtoTCP, U8Proto: 6,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorC: &PerSelectorPolicy{
-					L7Parser: "testparser",
-					Priority: ListenerPriorityProxylib,
+					L7Parser:         "testparser",
+					ListenerPriority: ListenerPriorityProxylib,
 					L7Rules: api.L7Rules{
 						L7Proto: "testparser",
 						L7:      []api.PortRuleL7{{"Key": "Value"}, {}},
@@ -2118,8 +2118,8 @@ func TestL4WildcardMerge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2175,8 +2175,8 @@ func TestL4WildcardMerge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2238,8 +2238,8 @@ func TestL3L4L7Merge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorC: nil,
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2288,8 +2288,8 @@ func TestL3L4L7Merge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorC: nil,
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2437,8 +2437,8 @@ func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil,
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET"}, {Host: "foo"}},
 				},
@@ -2460,26 +2460,26 @@ func TestMergeListenerReference(t *testing.T) {
 	err := ps.mergeRedirect(ps)
 	require.NoError(t, err)
 	require.Empty(t, ps.Listener)
-	require.Equal(t, ListenerPriority(0), ps.Priority)
+	require.Equal(t, ListenerPriority(0), ps.ListenerPriority)
 
 	// Listener reference remains when the other has none
 	ps0 := &PerSelectorPolicy{Listener: "listener0"}
 	err = ps0.mergeRedirect(ps)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps0.Listener)
-	require.Equal(t, ListenerPriority(0), ps0.Priority)
+	require.Equal(t, ListenerPriority(0), ps0.ListenerPriority)
 
 	// Listener reference is propagated when there is none to begin with
 	err = ps.mergeRedirect(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps.Listener)
-	require.Equal(t, ListenerPriority(0), ps.Priority)
+	require.Equal(t, ListenerPriority(0), ps.ListenerPriority)
 
 	// A listener is not changed when there is no change
 	err = ps0.mergeRedirect(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps0.Listener)
-	require.Equal(t, ListenerPriority(0), ps0.Priority)
+	require.Equal(t, ListenerPriority(0), ps0.ListenerPriority)
 
 	// Cannot merge two different listeners with the default (zero) priority
 	ps0a := &PerSelectorPolicy{Listener: "listener0a"}
@@ -2491,46 +2491,46 @@ func TestMergeListenerReference(t *testing.T) {
 
 	// Listener with a defined (non-zero) priority takes precedence over
 	// a listener with an undefined (zero) priority
-	ps1 := &PerSelectorPolicy{Listener: "listener1", Priority: 1}
+	ps1 := &PerSelectorPolicy{Listener: "listener1", ListenerPriority: 1}
 	err = ps1.mergeRedirect(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps1.Listener)
-	require.Equal(t, ListenerPriority(1), ps1.Priority)
+	require.Equal(t, ListenerPriority(1), ps1.ListenerPriority)
 
 	err = ps0.mergeRedirect(ps1)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps0.Listener)
-	require.Equal(t, ListenerPriority(1), ps0.Priority)
+	require.Equal(t, ListenerPriority(1), ps0.ListenerPriority)
 
 	// Listener with the lower priority value takes precedence
-	ps2 := &PerSelectorPolicy{Listener: "listener2", Priority: 2}
+	ps2 := &PerSelectorPolicy{Listener: "listener2", ListenerPriority: 2}
 	err = ps1.mergeRedirect(ps2)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps1.Listener)
-	require.Equal(t, ListenerPriority(1), ps1.Priority)
+	require.Equal(t, ListenerPriority(1), ps1.ListenerPriority)
 
 	err = ps2.mergeRedirect(ps1)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps2.Listener)
-	require.Equal(t, ListenerPriority(1), ps2.Priority)
+	require.Equal(t, ListenerPriority(1), ps2.ListenerPriority)
 
 	// Cannot merge two different listeners with the same priority
-	ps12 := &PerSelectorPolicy{Listener: "listener1", Priority: 2}
-	ps2 = &PerSelectorPolicy{Listener: "listener2", Priority: 2}
+	ps12 := &PerSelectorPolicy{Listener: "listener1", ListenerPriority: 2}
+	ps2 = &PerSelectorPolicy{Listener: "listener2", ListenerPriority: 2}
 	err = ps12.mergeRedirect(ps2)
 	require.Error(t, err)
 	err = ps2.mergeRedirect(ps12)
 	require.Error(t, err)
 
 	// Lower priority is propagated also when the listeners are the same
-	ps23 := &PerSelectorPolicy{Listener: "listener2", Priority: 3}
+	ps23 := &PerSelectorPolicy{Listener: "listener2", ListenerPriority: 3}
 	err = ps2.mergeRedirect(ps23)
 	require.NoError(t, err)
 	require.Equal(t, "listener2", ps2.Listener)
-	require.Equal(t, ListenerPriority(2), ps2.Priority)
+	require.Equal(t, ListenerPriority(2), ps2.ListenerPriority)
 
 	err = ps23.mergeRedirect(ps2)
 	require.NoError(t, err)
 	require.Equal(t, "listener2", ps23.Listener)
-	require.Equal(t, ListenerPriority(2), ps23.Priority)
+	require.Equal(t, ListenerPriority(2), ps23.ListenerPriority)
 }

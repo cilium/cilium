@@ -403,8 +403,8 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -461,8 +461,8 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
