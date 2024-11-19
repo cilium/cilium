@@ -88,6 +88,7 @@ type redirectPolicyManager interface {
 	AddRedirectPolicy(config redirectpolicy.LRPConfig) (bool, error)
 	DeleteRedirectPolicy(config redirectpolicy.LRPConfig) error
 	OnAddService(svcID k8s.ServiceID)
+	EnsureService(svcID k8s.ServiceID) (bool, error)
 	OnDeleteService(svcID k8s.ServiceID)
 	OnUpdatePod(pod *slim_corev1.Pod, needsReassign bool, ready bool)
 	OnDeletePod(pod *slim_corev1.Pod)

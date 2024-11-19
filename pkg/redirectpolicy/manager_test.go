@@ -977,3 +977,39 @@ func TestManager_OnDeletePod(t *testing.T) {
 
 	wg.Wait()
 }
+
+// Tests if EnsureService only processes the LRP type service
+func TestManager_EnsureService(t *testing.T) {
+	m := setupManagerSuite(t)
+
+	configSvc := configSvcType
+	configSvc.serviceID = &k8s.ServiceID{
+		Name:      "foo",
+		Namespace: "ns1",
+	}
+	m.rpm.policyConfigs[configSvc.id] = &configSvc
+
+	processed, err := m.rpm.EnsureService(k8s.ServiceID{
+		Name:      "test-foo" + localRedirectSvcStr,
+		Namespace: "ns1",
+	})
+
+	require.True(t, processed)
+	require.NoError(t, err)
+
+	processed, err = m.rpm.EnsureService(k8s.ServiceID{
+		Name:      "test-foo",
+		Namespace: "ns1",
+	})
+
+	require.False(t, processed)
+	require.NoError(t, err)
+
+	processed, err = m.rpm.EnsureService(k8s.ServiceID{
+		Name:      "test-foo" + localRedirectSvcStr,
+		Namespace: "ns2",
+	})
+
+	require.False(t, processed)
+	require.NoError(t, err)
+}
