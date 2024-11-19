@@ -21,6 +21,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/option"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
 type policyWatcher struct {
@@ -30,12 +31,17 @@ type policyWatcher struct {
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
 
-	policyManager         PolicyManager
+	policyImporter        policycell.PolicyImporter
 	svcCache              serviceCache
 	svcCacheNotifications <-chan k8s.ServiceNotification
 	ipCache               ipc
 
-	knpSynced, cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
+	// Number of outstanding requests still pending in the PolicyImporter
+	// This is only used during initial sync; we will increment these
+	// as new work is learned and decrement them as the importer makes progress.
+	knpSyncPending, cnpSyncPending, ccnpSyncPending atomic.Int64
+
+	cidrGroupSynced atomic.Bool
 
 	ciliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	ciliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
@@ -68,6 +74,45 @@ type policyWatcher struct {
 }
 
 func (p *policyWatcher) watchResources(ctx context.Context) {
+	// Channels to receive results from the PolicyImporter
+	// Only used during initialization
+	var knpDone, cnpDone, ccnpDone chan uint64
+	if p.config.EnableK8sNetworkPolicy {
+		knpDone = make(chan uint64, 100)
+	}
+	if p.config.EnableCiliumNetworkPolicy {
+		cnpDone = make(chan uint64, 100)
+	}
+	if p.config.EnableCiliumClusterwideNetworkPolicy {
+		ccnpDone = make(chan uint64, 100)
+	}
+
+	// Consume result channels, decrement outstanding work counter.
+	go func() {
+		knpDone := knpDone
+		cnpDone := cnpDone
+		ccnpDone := ccnpDone
+		for {
+			select {
+			case <-knpDone:
+				if p.knpSyncPending.Add(-1) <= 0 {
+					knpDone = nil
+				}
+			case <-cnpDone:
+				if p.cnpSyncPending.Add(-1) <= 0 {
+					cnpDone = nil
+				}
+			case <-ccnpDone:
+				if p.ccnpSyncPending.Add(-1) <= 0 {
+					ccnpDone = nil
+				}
+			}
+			if knpDone == nil && cnpDone == nil && ccnpDone == nil {
+				break
+			}
+		}
+		p.log.Info("All policy resources synchronized!")
+	}()
 	go func() {
 		var (
 			knpEvents       <-chan resource.Event[*slim_networking_v1.NetworkPolicy]
@@ -76,6 +121,12 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 			cidrGroupEvents <-chan resource.Event[*cilium_api_v2alpha1.CiliumCIDRGroup]
 			serviceEvents   <-chan k8s.ServiceNotification
 		)
+		// copy the done-channels so we can nil them here and stop sending, without
+		// affecting the reader above
+		knpDone := knpDone
+		cnpDone := cnpDone
+		ccnpDone := ccnpDone
+
 		if p.config.EnableK8sNetworkPolicy {
 			knpEvents = p.networkPolicies.Events(ctx)
 		}
@@ -102,7 +153,8 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				if event.Kind == resource.Sync {
-					p.knpSynced.Store(true)
+					knpDone <- 0
+					knpDone = nil // stop tracking pending work
 					event.Done(nil)
 					continue
 				}
@@ -110,9 +162,9 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.addK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core)
+					err = p.addK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core, knpDone)
 				case resource.Delete:
-					err = p.deleteK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core)
+					err = p.deleteK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core, knpDone)
 				}
 				event.Done(err)
 			case event, ok := <-cnpEvents:
@@ -122,7 +174,8 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				if event.Kind == resource.Sync {
-					p.cnpSynced.Store(true)
+					cnpDone <- 0
+					cnpDone = nil
 					event.Done(nil)
 					continue
 				}
@@ -144,9 +197,9 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsert(slimCNP, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID)
+					err = p.onUpsert(slimCNP, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID, cnpDone)
 				case resource.Delete:
-					err = p.onDelete(slimCNP, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID)
+					p.onDelete(slimCNP, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID, cnpDone)
 				}
 				reportCNPChangeMetrics(err)
 				event.Done(err)
@@ -157,7 +210,8 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				if event.Kind == resource.Sync {
-					p.ccnpSynced.Store(true)
+					ccnpDone <- 0
+					ccnpDone = nil
 					event.Done(nil)
 					continue
 				}
@@ -179,9 +233,9 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsert(slimCNP, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resourceID)
+					err = p.onUpsert(slimCNP, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resourceID, ccnpDone)
 				case resource.Delete:
-					err = p.onDelete(slimCNP, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resourceID)
+					p.onDelete(slimCNP, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resourceID, ccnpDone)
 				}
 				reportCNPChangeMetrics(err)
 				event.Done(err)
