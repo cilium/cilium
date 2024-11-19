@@ -140,6 +140,7 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -153,6 +154,7 @@ jobs:
             endpoint-routes: 'true'
             egress-gateway: 'true'
             host-fw: 'false' # enabling breaks downgrading (missed tail calls)
+            ingress-controller: 'true'
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -207,6 +209,7 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -401,6 +404,7 @@ jobs:
             tunnel: 'disabled'
             ciliumendpointslice: 'true'
             endpoint-routes: 'true'
+            ingress-controller: 'true'
             skip-upgrade: 'true'
 
           - name: '25'
@@ -413,6 +417,7 @@ jobs:
             tunnel: 'disabled'
             ciliumendpointslice: 'true'
             endpoint-routes: 'true'
+            ingress-controller: 'true'
             skip-upgrade: 'true'
 
           # Example of a feature that is being introduced, and we want to test
