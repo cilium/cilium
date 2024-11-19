@@ -41,6 +41,9 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policyAPI "github.com/cilium/cilium/pkg/policy/api"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -65,6 +68,8 @@ type DaemonSuite struct {
 	OnGetCompilationLock   func() datapath.CompilationLock
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
+
+	PolicyImporter policycell.PolicyImporter
 }
 
 func setupTestDirectories() string {
@@ -139,6 +144,9 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		store.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
+		}),
+		cell.Invoke(func(pi policycell.PolicyImporter) {
+			ds.PolicyImporter = pi
 		}),
 	)
 
@@ -312,6 +320,20 @@ func (ds *DaemonSuite) RemoveIdentity(id *identity.Identity) {}
 
 func (ds *DaemonSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
+// convenience wrapper that adds a single policy
+func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
+	ds.updatePolicy(&policyTypes.PolicyUpdate{
+		Rules: rules,
+	})
+}
+
+// convenience wrapper that synchronously performs a policy update
+func (ds *DaemonSuite) updatePolicy(upd *policyTypes.PolicyUpdate) {
+	dc := make(chan uint64, 1)
+	upd.DoneChan = dc
+	ds.PolicyImporter.UpdatePolicy(upd)
+	<-dc
+}
 func TestMemoryMap(t *testing.T) {
 	pid := os.Getpid()
 	m := memoryMap(pid)
