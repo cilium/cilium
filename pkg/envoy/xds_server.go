@@ -229,14 +229,12 @@ func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCac
 
 // start configures and starts the xDS GRPC server.
 func (s *xdsServer) start() error {
-	socketListener, err := s.newSocketListener()
-	if err != nil {
-		return fmt.Errorf("failed to create socket listener: %w", err)
-	}
+	// Remove/Unlink the old unix domain socket, if any.
+	_ = os.Remove(s.socketPath)
 
 	resourceConfig := s.initializeXdsConfigs()
 
-	s.stopFunc = s.startXDSGRPCServer(socketListener, resourceConfig)
+	s.stopFunc = s.startXDSGRPCServer(resourceConfig)
 
 	return nil
 }
