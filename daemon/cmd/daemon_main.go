@@ -1556,48 +1556,47 @@ type daemonParams struct {
 
 	CfgResolver promise.Resolver[*option.DaemonConfig]
 
-	Lifecycle              cell.Lifecycle
-	Health                 cell.Health
-	Clientset              k8sClient.Clientset
-	Loader                 datapath.Loader
-	WGAgent                *wireguard.Agent
-	LocalNodeStore         *node.LocalNodeStore
-	Shutdowner             hive.Shutdowner
-	Resources              agentK8s.Resources
-	K8sWatcher             *watchers.K8sWatcher
-	K8sSvcCache            *k8s.ServiceCache
-	CacheStatus            k8sSynced.CacheStatus
-	K8sResourceSynced      *k8sSynced.Resources
-	K8sAPIGroups           *k8sSynced.APIGroups
-	NodeManager            nodeManager.NodeManager
-	NodeHandler            datapath.NodeHandler
-	NodeNeighbors          datapath.NodeNeighbors
-	NodeAddressing         datapath.NodeAddressing
-	EndpointManager        endpointmanager.EndpointManager
-	CertManager            certificatemanager.CertificateManager
-	SecretManager          certificatemanager.SecretManager
-	IdentityAllocator      identitycell.CachingIdentityAllocator
-	Policy                 policy.PolicyRepository
-	IPCache                *ipcache.IPCache
-	DirectoryPolicyWatcher policyDirectory.ResourcesWatcher
-	DirReadStatus          policyDirectory.DirectoryWatcherReadStatus
-	CNIConfigManager       cni.CNIConfigManager
-	SwaggerSpec            *server.Spec
-	HealthAPISpec          *healthApi.Spec
-	ServiceCache           *k8s.ServiceCache
-	ClusterMesh            *clustermesh.ClusterMesh
-	MonitorAgent           monitorAgent.Agent
-	L2Announcer            *l2announcer.L2Announcer
-	ServiceManager         service.ServiceManager
-	L7Proxy                *proxy.Proxy
-	EnvoyXdsServer         envoy.XDSServer
-	DB                     *statedb.DB
-	APILimiterSet          *rate.APILimiterSet
-	AuthManager            *auth.AuthManager
-	Settings               cellSettings
-	Devices                statedb.Table[*datapathTables.Device]
-	NodeAddrs              statedb.Table[datapathTables.NodeAddress]
-	DirectRoutingDevice    datapathTables.DirectRoutingDevice
+	Lifecycle           cell.Lifecycle
+	Health              cell.Health
+	Clientset           k8sClient.Clientset
+	Loader              datapath.Loader
+	WGAgent             *wireguard.Agent
+	LocalNodeStore      *node.LocalNodeStore
+	Shutdowner          hive.Shutdowner
+	Resources           agentK8s.Resources
+	K8sWatcher          *watchers.K8sWatcher
+	K8sSvcCache         *k8s.ServiceCache
+	CacheStatus         k8sSynced.CacheStatus
+	K8sResourceSynced   *k8sSynced.Resources
+	K8sAPIGroups        *k8sSynced.APIGroups
+	NodeManager         nodeManager.NodeManager
+	NodeHandler         datapath.NodeHandler
+	NodeNeighbors       datapath.NodeNeighbors
+	NodeAddressing      datapath.NodeAddressing
+	EndpointManager     endpointmanager.EndpointManager
+	CertManager         certificatemanager.CertificateManager
+	SecretManager       certificatemanager.SecretManager
+	IdentityAllocator   identitycell.CachingIdentityAllocator
+	Policy              policy.PolicyRepository
+	IPCache             *ipcache.IPCache
+	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
+	CNIConfigManager    cni.CNIConfigManager
+	SwaggerSpec         *server.Spec
+	HealthAPISpec       *healthApi.Spec
+	ServiceCache        *k8s.ServiceCache
+	ClusterMesh         *clustermesh.ClusterMesh
+	MonitorAgent        monitorAgent.Agent
+	L2Announcer         *l2announcer.L2Announcer
+	ServiceManager      service.ServiceManager
+	L7Proxy             *proxy.Proxy
+	EnvoyXdsServer      envoy.XDSServer
+	DB                  *statedb.DB
+	APILimiterSet       *rate.APILimiterSet
+	AuthManager         *auth.AuthManager
+	Settings            cellSettings
+	Devices             statedb.Table[*datapathTables.Device]
+	NodeAddrs           statedb.Table[datapathTables.NodeAddress]
+	DirectRoutingDevice datapathTables.DirectRoutingDevice
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
@@ -1723,7 +1722,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	// wait for directory watcher to ingest policy from files
-	<-params.DirReadStatus
+	params.DirReadStatus.Wait()
 
 	bootstrapStats.k8sInit.End(true)
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
@@ -22,15 +23,17 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/policy"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type policyWatcher struct {
-	log           logrus.FieldLogger
-	config        Config
-	policyManager PolicyManager
-	readStatus    DirectoryWatcherReadStatus
+	log            logrus.FieldLogger
+	config         Config
+	policyImporter policycell.PolicyImporter
+	synced         sync.WaitGroup
 	// maps cnp file name to cnp object. this is required to retrieve data during delete.
 	fileNameToCnpCache map[string]*cilium_v2.CiliumNetworkPolicy
 }
@@ -103,16 +106,18 @@ func (p *policyWatcher) addToPolicyEngine(cnp *cilium_v2.CiliumNetworkPolicy, cn
 		r.Labels = lbls
 	}
 
+	dc := make(chan uint64, 1)
 	// add to policy engine
-	_, err = p.policyManager.PolicyAdd(rules, &policy.AddOptions{
-		ReplaceByResource: true,
-		Source:            source.Directory,
-		Resource:          resourceID,
+	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
+		Rules:               rules,
+		Source:              source.Directory,
+		Resource:            resourceID,
+		ProcessingStartTime: time.Now(),
+		DoneChan:            dc,
 	})
+	<-dc // wait for policy to be applied
 
-	if err == nil {
-		p.fileNameToCnpCache[fileName] = cnp
-	}
+	p.fileNameToCnpCache[fileName] = cnp
 
 	return err
 }
@@ -129,13 +134,14 @@ func (p *policyWatcher) deleteFromPolicyEngine(cnpFilePath string) error {
 		p.config.StaticCNPPath,
 		fileName,
 	)
-	_, err := p.policyManager.PolicyDelete(getLabels(fileName, cnp), &policy.DeleteOptions{
-		Source:           source.Directory,
-		DeleteByResource: true,
-		Resource:         resourceID})
+	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
+		Rules:    nil, // delete policy
+		Source:   source.Directory,
+		Resource: resourceID,
+	})
 
 	delete(p.fileNameToCnpCache, fileName)
-	return err
+	return nil
 }
 
 func (p *policyWatcher) isValidCNPFileName(filePath string) bool {
@@ -150,6 +156,10 @@ func (p *policyWatcher) isValidCNPFileName(filePath string) bool {
 		return false
 	}
 	return true
+}
+
+func (p *policyWatcher) Wait() {
+	p.synced.Wait()
 }
 
 func (p *policyWatcher) watchDirectory(ctx context.Context) {
@@ -194,10 +204,12 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 			}
 			reportCNPChangeMetrics(err)
 		}
-		close(p.readStatus)
+		p.synced.Done()
 		// Listen for file add, update, rename and delete
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case event := <-watcher.Events:
 				if !p.isValidCNPFileName(event.Name) {
 					continue

@@ -5,15 +5,14 @@ package directory
 
 import (
 	"context"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
 // Cell provides the Directory policy watcher. The Directory policy watcher watches
@@ -25,34 +24,18 @@ var Cell = cell.Module(
 	"policy-directory-watcher",
 	"Watches Directory for cilium network policy file updates",
 	cell.Config(defaultConfig),
-	cell.Provide(newDirectoryPolicyResourcesWatcher,
-		func() DirectoryWatcherReadStatus {
-			return make(DirectoryWatcherReadStatus)
-		}),
+	cell.Provide(providePolicyWatcher),
 )
 
-type PolicyManager interface {
-	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
+type DirectoryWatcherReadStatus interface {
+	Wait()
 }
-
-type DirectoryWatcherReadStatus chan struct{}
-
 type PolicyWatcherParams struct {
 	cell.In
 
-	ReadStatus DirectoryWatcherReadStatus
-	Lifecycle  cell.Lifecycle
-	Logger     logrus.FieldLogger
-}
-
-type ResourcesWatcher interface {
-	WatchDirectoryPolicyResources(ctx context.Context, policyManager PolicyManager)
-}
-
-type PolicyResourcesWatcher struct {
-	params PolicyWatcherParams
-	cfg    Config
+	Lifecycle cell.Lifecycle
+	Logger    logrus.FieldLogger
+	Importer  policycell.PolicyImporter
 }
 
 type Config struct {
@@ -72,39 +55,36 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String(staticCNPPath, defaultConfig.StaticCNPPath, "Directory path to watch and load static cilium network policy yaml files.")
 }
 
-func newDirectoryPolicyResourcesWatcher(p PolicyWatcherParams, cfg Config) ResourcesWatcher {
+func providePolicyWatcher(p PolicyWatcherParams, cfg Config) DirectoryWatcherReadStatus {
 	if cfg.StaticCNPPath == "" {
-		close(p.ReadStatus)
-		return nil
+		return &sync.WaitGroup{}
 	}
+	pw := newPolicyWatcher(p, cfg)
 
-	return &PolicyResourcesWatcher{
-		params: p,
-		cfg:    cfg,
-	}
-}
+	ctx, cancel := context.WithCancel(context.Background())
 
-// WatchDirectoryPolicyResources starts watching Cilium Network policy files created under a directory.
-func (p *PolicyResourcesWatcher) WatchDirectoryPolicyResources(ctx context.Context, policyManager PolicyManager) {
-	w := newPolicyWatcher(ctx, policyManager, p)
-	w.watchDirectory(ctx)
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(_ cell.HookContext) error {
+			pw.watchDirectory(ctx)
+			return nil
+		},
+		OnStop: func(_ cell.HookContext) error {
+			cancel()
+			return nil
+		},
+	})
+
+	return pw
 }
 
 // newPolicyWatcher constructs a new policy watcher.
-// This constructor unfortunately cannot be started via the Hive lifecycle as
-// there exists a circular dependency between this watcher and the Daemon:
-// The constructor newDaemon cannot complete before all pre-existing
-// Cilium Network Policy defined as yaml under specific directory have been added via the PolicyManager
-// (i.e. watchDirectory has observed the CNP file addition).
-// Because the PolicyManager interface itself is implemented by the Daemon
-// struct, we have a circular dependency.
-func newPolicyWatcher(ctx context.Context, policyManager PolicyManager, p *PolicyResourcesWatcher) *policyWatcher {
+func newPolicyWatcher(p PolicyWatcherParams, cfg Config) *policyWatcher {
 	w := &policyWatcher{
-		log:                p.params.Logger,
-		policyManager:      policyManager,
-		readStatus:         p.params.ReadStatus,
-		config:             p.cfg,
+		log:                p.Logger,
+		policyImporter:     p.Importer,
+		config:             cfg,
 		fileNameToCnpCache: make(map[string]*cilium_v2.CiliumNetworkPolicy),
 	}
+	w.synced.Add(1)
 	return w
 }

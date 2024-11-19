@@ -4,15 +4,12 @@
 package directory
 
 import (
-	"context"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 var policy1 = `
@@ -65,17 +62,15 @@ func newPolicyManager() *policyMananger {
 	return &policyMananger{}
 }
 
-func (p *policyMananger) PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
-	return 1, nil
-}
-
-func (p *policyMananger) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
-	return 1, nil
+func (p *policyMananger) UpdatePolicy(u *policytypes.PolicyUpdate) {
+	if u.DoneChan != nil {
+		u.DoneChan <- 42
+	}
 }
 
 func TestTranslateToCNPObject(t *testing.T) {
 	policyMgr := newPolicyManager()
-	p := newPolicyWatcher(context.TODO(), policyMgr, &PolicyResourcesWatcher{params: PolicyWatcherParams{Logger: logrus.New()}})
+	p := newPolicyWatcher(PolicyWatcherParams{Logger: logrus.New(), Importer: policyMgr}, defaultConfig)
 
 	// valid yaml to cnp object
 	data := []byte(policy1)
@@ -92,7 +87,8 @@ func TestTranslateToCNPObject(t *testing.T) {
 
 func TestAddToPolicyEngine(t *testing.T) {
 	policyMgr := newPolicyManager()
-	p := newPolicyWatcher(context.TODO(), policyMgr, &PolicyResourcesWatcher{})
+
+	p := newPolicyWatcher(PolicyWatcherParams{Logger: logrus.New(), Importer: policyMgr}, defaultConfig)
 
 	// validate addToPolicyEngine returns no error and updates map entry
 	data := []byte(policy1)
@@ -116,7 +112,7 @@ func TestAddToPolicyEngine(t *testing.T) {
 
 func TestDeleteFromPolicyEngine(t *testing.T) {
 	policyMgr := newPolicyManager()
-	p := newPolicyWatcher(context.TODO(), policyMgr, &PolicyResourcesWatcher{params: PolicyWatcherParams{Logger: logrus.New()}})
+	p := newPolicyWatcher(PolicyWatcherParams{Logger: logrus.New(), Importer: policyMgr}, defaultConfig)
 
 	// validate deleteFromPolicyEngine returns no error and clears map entry
 	data := []byte(policy1)
