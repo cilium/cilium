@@ -328,7 +328,7 @@ jobs:
         uses: ./.github/actions/ipsec-key-rotate
         with:
           key-algo: ${{ matrix.key-two }}
-          encryption-overlay: ${{ matrix.encryption-overlay }}
+          tunnel: ${{ matrix.tunnel }}
           nb-nodes: 2
           ipv6: true
 
