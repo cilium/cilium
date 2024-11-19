@@ -189,3 +189,36 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 	}, 1*time.Second))
 	require.Empty(t, collector.GetStaleProbes())
 }
+
+func TestWaitForFirstRun(t *testing.T) {
+	s := setUpTest(t)
+
+	unlock := make(chan struct{})
+	probeFn := func(ctx context.Context) (interface{}, error) {
+		<-unlock
+		return nil, nil
+	}
+
+	p := []Probe{
+		{Probe: probeFn, OnStatusUpdate: func(status Status) {}},
+		{Probe: probeFn, OnStatusUpdate: func(status Status) {}},
+		{Probe: probeFn, OnStatusUpdate: func(status Status) {}},
+	}
+
+	collector := NewCollector(p, s.Config())
+	defer collector.Close()
+
+	test := func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer cancel()
+		return collector.WaitForFirstRun(ctx)
+	}
+
+	require.Error(t, test())
+	unlock <- struct{}{}
+	require.Error(t, test())
+	unlock <- struct{}{}
+	require.Error(t, test())
+	unlock <- struct{}{}
+	require.NoError(t, test())
+}
