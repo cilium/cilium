@@ -344,17 +344,17 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	// both L3 and L4 matches found
 	if haveL3 && haveL4 {
 		// Precedence rules of the bpf datapath between two policy entries:
-		// 1. higher precedence entry wins, but auth may need to be propagated.
-		// 2. if Deny at same precedence, no further processing is needed
-		// 3. if both entries are allows at the same precedence, the one with more
+		// 1. higher precedence level entry wins, but auth may need to be propagated.
+		// 2. if Deny at same precedence level, no further processing is needed
+		// 3. if both entries are allows at the same precedence level, the one with more
 		//    specific L4 is selected
-		// 4. If the two allows on the same precedence have equal port/proto, then
+		// 4. If the two allows on the same precedence level have equal port/proto, then
 		//    the policy for a specific L3 is selected (rather than the L4-only entry)
 		//
 		// If the selected entry has non-explicit auth type, it gets the auth type from the
 		// other entry, if the other entry's auth type is numerically higher.
 
-		// 1. Entry with higher precedence is selected.
+		// 1. Entry with higher precedence level is selected.
 		//    Auth requirement does not propagate from a lower precedence rule to a
 		//    higher precedence rule!
 		if l3entry.Precedence > l4entry.Precedence {
@@ -399,6 +399,7 @@ type mapStateEntry struct {
 
 // newMapStateEntry creates a map state entry.
 func newMapStateEntry(
+	level uint32,
 	derivedFrom ruleOrigin,
 	proxyPort uint16,
 	priority ListenerPriority,
@@ -406,7 +407,7 @@ func newMapStateEntry(
 	authReq AuthRequirement,
 ) mapStateEntry {
 	return mapStateEntry{
-		MapStateEntry:    types.NewMapStateEntry(deny, proxyPort, priority, authReq),
+		MapStateEntry:    types.NewMapStateEntry(level, deny, proxyPort, priority, authReq),
 		derivedFromRules: derivedFrom,
 	}
 }
@@ -414,7 +415,7 @@ func newMapStateEntry(
 // newAllowEntryWithLabels creates an allow entry with the specified labels.
 // Used for adding allow-all entries when policy enforcement is not wanted.
 func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
-	return newMapStateEntry(makeSingleRuleOrigin(lbls, ""), 0, 0, false, NoAuthRequirement)
+	return newMapStateEntry(0, makeSingleRuleOrigin(lbls, ""), 0, 0, false, NoAuthRequirement)
 }
 
 func NewMapStateEntry(e MapStateEntry) mapStateEntry {
@@ -720,9 +721,9 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 			return
 		}
 
-		// Bail if covered by a key of an higher precedence.
+		// Bail if covered by a key of a higher precedence.
 		//
-		// This can be skipped if no rules have proxy redirects, non-zero precedence,
+		// This can be skipped if no rules have proxy redirects, non-zero precedence levels,
 		// and there are no deny rules.
 		if features.contains(precedenceFeatures) {
 			for _, v := range ms.BroaderOrEqualKeys(newKey) {
@@ -732,12 +733,12 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 			}
 		}
 
-		// Delete covered entries of lower precedence.
+		// Delete covered entries of lower precedence levels.
 		//
-		// NOTE: We do not delete covered allow entries on the same precedence, as they may
-		// specify proxy redirection or different auth types.
+		// NOTE: We do not delete covered allow entries on the same precedence level, as
+		// they may specify different auth types.
 		//
-		// This can be skipped if all rules have the same precedence
+		// This can be skipped if all rules have the same precedence level
 		if features.contains(precedenceFeatures) {
 			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 				if v.Precedence < newEntry.Precedence {
@@ -788,16 +789,13 @@ func (ms *mapState) overrideAuthRequirement(newEntry mapStateEntry, k Key, v map
 // entry evaluation. If there is a covering map key for 'newKey'
 // which denies traffic matching 'newKey', then this function should not be called.
 func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
-	// Bail if covered by a deny key or a key with a higher precedence and current
+	// Bail if covered by a key with a higher precedence and current
 	// entry has no explicit auth.
 	var derived bool
 	newEntryHasExplicitAuth := newEntry.AuthRequirement.IsExplicit()
 	for k, v := range ms.CoveringKeysWithSameID(newKey) {
-		if v.IsDeny() {
-			return // bail if covered by deny
-		}
 		if v.Precedence > newEntry.Precedence {
-			if !newEntryHasExplicitAuth {
+			if v.IsDeny() || !newEntryHasExplicitAuth {
 				// Covering entry has higher precedence and newEntry has a
 				// default auth type => can bail out
 				return
