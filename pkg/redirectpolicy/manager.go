@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/cilium/ebpf"
@@ -226,6 +227,33 @@ func (rpm *Manager) OnAddService(svcID k8s.ServiceID) {
 		}
 		rpm.getAndUpsertPolicySvcConfig(config)
 	}
+}
+
+// EnsureService ensures that the LRP service is updated to the latest state.
+// It is called after synchronization is complete during agent startup.
+func (rpm *Manager) EnsureService(svcID k8s.ServiceID) (bool, error) {
+	rpm.mutex.Lock()
+	defer rpm.mutex.Unlock()
+
+	if len(rpm.policyConfigs) == 0 {
+		return false, nil
+	}
+
+	if svcName, found := strings.CutSuffix(svcID.Name, localRedirectSvcStr); found {
+		id := k8s.ServiceID{
+			Name:      svcName,
+			Namespace: svcID.Namespace,
+		}
+
+		if config, ok := rpm.policyConfigs[id]; ok && config.lrpType == lrpConfigTypeSvc {
+			if err := rpm.getAndUpsertPolicySvcConfig(config); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // OnDeleteService handles Kubernetes service deletes, and deletes the internal state

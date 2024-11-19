@@ -566,3 +566,37 @@ func (m *ManagerSuite) TestManager_OnAddandUpdatePod(c *C) {
 	_, found = m.rpm.policyPods[podID]
 	c.Assert(found, Equals, false)
 }
+
+// Tests if EnsureService only processes the LRP type service
+func (m *ManagerSuite) TestManager_EnsureService(c *C) {
+	configSvc := configSvcType
+	configSvc.serviceID = &k8s.ServiceID{
+		Name:      "foo",
+		Namespace: "ns1",
+	}
+	m.rpm.policyConfigs[configSvc.id] = &configSvc
+
+	processed, err := m.rpm.EnsureService(k8s.ServiceID{
+		Name:      "test-foo" + localRedirectSvcStr,
+		Namespace: "ns1",
+	})
+
+	c.Assert(processed, Equals, true)
+	c.Assert(err, IsNil)
+
+	processed, err = m.rpm.EnsureService(k8s.ServiceID{
+		Name:      "test-foo",
+		Namespace: "ns1",
+	})
+
+	c.Assert(processed, Equals, false)
+	c.Assert(err, IsNil)
+
+	processed, err = m.rpm.EnsureService(k8s.ServiceID{
+		Name:      "test-foo" + localRedirectSvcStr,
+		Namespace: "ns2",
+	})
+
+	c.Assert(processed, Equals, false)
+	c.Assert(err, IsNil)
+}
