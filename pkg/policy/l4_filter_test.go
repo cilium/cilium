@@ -336,6 +336,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
+	level              uint32
 	isIngress          bool
 	isDeny             bool
 	ns                 string
@@ -379,6 +380,16 @@ func (p *testPolicyContextType) GetTLSContext(tls *api.TLSContext) (ca, public, 
 
 func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
 	return nil, true
+}
+
+// SetPriority sets the precedence level for the first rule being processed.
+func (p *testPolicyContextType) SetPriority(level uint32) {
+	p.level = level
+}
+
+// Priority returns the precedence level for the current rule.
+func (p *testPolicyContextType) Priority() uint32 {
+	return p.level
 }
 
 func (p *testPolicyContextType) SetDeny(isDeny bool) bool {
@@ -571,8 +582,8 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -624,8 +635,8 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -687,8 +698,8 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -748,8 +759,8 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeKafka,
-				Priority: ListenerPriorityKafka,
+				L7Parser:         ParserTypeKafka,
+				ListenerPriority: ListenerPriorityKafka,
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
@@ -973,8 +984,8 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeTLS,
-				Priority: ListenerPriorityTLS,
+				L7Parser:         ParserTypeTLS,
+				ListenerPriority: ListenerPriorityTLS,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
@@ -1054,8 +1065,8 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
@@ -1154,8 +1165,8 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
@@ -1285,9 +1296,9 @@ func TestMergeListenerPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeCRD,
-				Priority: ListenerPriorityCRD,
-				Listener: "/shared-cec/test",
+				L7Parser:         ParserTypeCRD,
+				ListenerPriority: ListenerPriorityCRD,
+				Listener:         "/shared-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1343,9 +1354,9 @@ func TestMergeListenerPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeCRD,
-				Priority: ListenerPriorityCRD,
-				Listener: "default/test-cec/test",
+				L7Parser:         ParserTypeCRD,
+				ListenerPriority: ListenerPriorityCRD,
+				Listener:         "default/test-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1402,9 +1413,9 @@ func TestMergeListenerPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeCRD,
-				Priority: ListenerPriorityCRD,
-				Listener: "/shared-cec/test",
+				L7Parser:         ParserTypeCRD,
+				ListenerPriority: ListenerPriorityCRD,
+				Listener:         "/shared-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1561,8 +1572,8 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1619,8 +1630,8 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1689,15 +1700,15 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1759,15 +1770,15 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1998,15 +2009,15 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 		wildcard: nil,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2112,8 +2123,8 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2222,8 +2233,8 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 							MatchPattern: "*",
 						}},
 					},
-					L7Parser: ParserTypeDNS,
-					Priority: ListenerPriorityDNS,
+					L7Parser:         ParserTypeDNS,
+					ListenerPriority: ListenerPriorityDNS,
 				},
 			},
 			Ingress:    false,
@@ -2291,8 +2302,8 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 							// Empty HTTP rule should be added
 						}},
 					},
-					L7Parser: ParserTypeHTTP,
-					Priority: ListenerPriorityHTTP,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 				},
 			},
 			Ingress:    true,
@@ -2359,8 +2370,8 @@ func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 							Topic: "",
 						}},
 					},
-					L7Parser: ParserTypeKafka,
-					Priority: ListenerPriorityKafka,
+					L7Parser:         ParserTypeKafka,
+					ListenerPriority: ListenerPriorityKafka,
 				},
 			},
 			Ingress:    true,
@@ -2427,8 +2438,8 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 							MatchPattern: "*",
 						}},
 					},
-					L7Parser: ParserTypeDNS,
-					Priority: ListenerPriorityDNS,
+					L7Parser:         ParserTypeDNS,
+					ListenerPriority: ListenerPriorityDNS,
 				},
 			},
 			Ingress:    false,
@@ -2500,8 +2511,8 @@ func TestDenyRuleNoWildcardInDefaultAllow(t *testing.T) {
 							// No wildcard rule should be added
 						}},
 					},
-					L7Parser: ParserTypeHTTP,
-					Priority: ListenerPriorityHTTP,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 				},
 			},
 			Ingress:    true,
