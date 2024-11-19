@@ -11,4 +11,5 @@ var Cell = cell.Module(
 
 	rateLimiterCell,        // Request rate-limiting
 	configModificationCell, // Config Modification
+	policyAPICell,          // Network Policy REST api
 )
