@@ -111,6 +111,7 @@ jobs:
             kpr: 'false'
             tunnel: 'vxlan'
             host-fw: 'true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -119,6 +120,7 @@ jobs:
             kpr: 'false'
             tunnel: 'disabled'
             host-fw: 'true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -184,6 +186,7 @@ jobs:
             ingress-controller: 'true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -291,9 +294,7 @@ jobs:
             secondary-network: 'true'
             tunnel: 'disabled'
             ingress-controller: 'true'
-            # Disable bpf.tproxy=true until https://github.com/cilium/cilium/issues/31918
-            # has been resolved.
-            misc: 'bpfClockProbe=false,cni.uninstall=false'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
             ciliumendpointslice: 'true'
 
           - name: '16'
