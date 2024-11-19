@@ -9,6 +9,11 @@
 # This property allows to use Cilium as part of an Umbrella Chart with different targets.
 namespaceOverride: ""
 # @schema
+# type: [null, object]
+# @schema
+# -- commonLabels allows users to add common labels for all Cilium resources.
+commonLabels: {}
+# @schema
 # type: [null, string]
 # @schema
 # -- upgradeCompatibility helps users upgrading to ensure that the configMap for

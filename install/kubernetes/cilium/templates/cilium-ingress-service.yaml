@@ -6,8 +6,12 @@ metadata:
   namespace: {{ include "cilium.namespace" . }}
   labels:
     cilium.io/ingress: "true"
+    app.kubernetes.io/part-of: cilium
     {{- if .Values.ingressController.service.labels }}
     {{- toYaml .Values.ingressController.service.labels | nindent 4 }}
+    {{- end }}
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- if .Values.ingressController.service.annotations }}
   annotations:
@@ -46,10 +50,13 @@ kind: Endpoints
 metadata:
   name: {{ .Values.ingressController.service.name }}
   namespace: {{ include "cilium.namespace" . }}
-  {{- if .Values.ingressController.service.labels }}
   labels:
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if .Values.ingressController.service.labels }}
     {{- toYaml .Values.ingressController.service.labels | nindent 4 }}
-  {{- end }}
+    {{- end }}
   {{- if .Values.ingressController.service.annotations }}
   annotations:
     {{- toYaml .Values.ingressController.service.annotations | nindent 4 }}

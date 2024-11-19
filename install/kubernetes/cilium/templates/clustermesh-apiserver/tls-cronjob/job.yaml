@@ -7,6 +7,9 @@ metadata:
   namespace: {{ include "cilium.namespace" . }}
   labels:
     k8s-app: clustermesh-apiserver-generate-certs
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     app.kubernetes.io/part-of: cilium
   annotations:
     "helm.sh/hook": post-install,post-upgrade

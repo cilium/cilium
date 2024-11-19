@@ -5,12 +5,17 @@ apiVersion: v1
 metadata:
   name: hubble-relay-metrics
   namespace: {{ include "cilium.namespace" . }}
+
   {{- with .Values.hubble.relay.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   labels:
     k8s-app: hubble-relay
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
 spec:
   clusterIP: None
   type: ClusterIP

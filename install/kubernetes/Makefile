@@ -73,6 +73,15 @@ CRD_FILES := $(shell find $(ROOT_DIR)/examples/crds/*/ -type f)
 CRDS := $(foreach path,$(patsubst %.yaml,%,$(CRD_FILES)),$(shell basename $(path)))
 lint:
 	$(ECHO_CHECK)
+	$(QUIET)grep -RL --exclude validate.yaml .Values.commonLabels $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates/*.yaml $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates/**/*.yaml >> missing_label
+	$(QUIET)if [ -s missing_label ]; then \
+		echo "These files are missing the .Values.commonLabels, please add them and submit your changes" ; \
+		cat missing_label ; \
+		rm -f missing_label ; \
+		exit 1; \
+	else \
+		rm -f missing_label ; \
+	fi;
 	$(QUIET)for crd in $(CRDS); do \
 		grep -q $$crd $(CHART_FILE) \
 		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \

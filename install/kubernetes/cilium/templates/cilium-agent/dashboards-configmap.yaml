@@ -12,6 +12,9 @@ metadata:
     k8s-app: cilium
     app.kubernetes.io/name: cilium-agent
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     {{- if $.Values.dashboards.label }}
     {{ $.Values.dashboards.label }}: {{ ternary $.Values.dashboards.labelValue "1" (not (empty $.Values.dashboards.labelValue)) | quote }}
     {{- end }}
