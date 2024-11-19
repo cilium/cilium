@@ -233,10 +233,10 @@ func benchmarkGC(b *testing.B) {
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 
 	keysToDelete := map[string]uint64{}
-	keysToDelete, _, err = allocator.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator.RunGC(context.Background(), rateLimiter, keysToDelete)
 	require.NoError(b, err)
 	require.Len(b, keysToDelete, 1)
-	keysToDelete, _, err = allocator.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator.RunGC(context.Background(), rateLimiter, keysToDelete)
 	require.NoError(b, err)
 	require.Empty(b, keysToDelete)
 
@@ -305,11 +305,11 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 
 	keysToDelete := map[string]uint64{}
-	keysToDelete, _, err = allocator1.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator1.RunGC(context.Background(), rateLimiter, keysToDelete)
 	require.NoError(b, err)
 	// But, only one will be filtered out and GC'ed
 	require.Len(b, keysToDelete, 1)
-	keysToDelete, _, err = allocator1.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator1.RunGC(context.Background(), rateLimiter, keysToDelete)
 	require.NoError(b, err)
 	require.Empty(b, keysToDelete)
 
@@ -397,7 +397,7 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 	staleKeysPreviousRound := map[string]uint64{}
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 	// running the GC should not evict any entries
-	staleKeysPreviousRound, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	staleKeysPreviousRound, _, err = a.RunGC(context.Background(), rateLimiter, staleKeysPreviousRound)
 	require.NoError(t, err)
 
 	v, err := kvstore.Client().ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
@@ -411,9 +411,9 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 	}
 
 	// running the GC should evict all entries
-	staleKeysPreviousRound, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	staleKeysPreviousRound, _, err = a.RunGC(context.Background(), rateLimiter, staleKeysPreviousRound)
 	require.NoError(t, err)
-	_, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	_, _, err = a.RunGC(context.Background(), rateLimiter, staleKeysPreviousRound)
 	require.NoError(t, err)
 
 	v, err = kvstore.Client().ListPrefix(context.TODO(), path.Join(allocatorName, "id"))

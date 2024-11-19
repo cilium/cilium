@@ -42,7 +42,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 	for {
 		now := time.Now()
 
-		keysToDelete, gcStats, err := igc.allocator.RunGC(igc.rateLimiter, keysToDeletePrev)
+		keysToDelete, gcStats, err := igc.allocator.RunGC(ctx, igc.rateLimiter, keysToDeletePrev)
 		gcDuration := time.Since(now)
 		if err != nil {
 			igc.logger.Warn("Unable to run kvstore security identity garbage collector", logfields.Error, err)
