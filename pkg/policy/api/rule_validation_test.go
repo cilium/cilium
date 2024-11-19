@@ -723,8 +723,8 @@ func TestL7Rules(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-// This test ensures that DNS rules do not accept port ranges
-func TestPortRangesNotAllowedWithDNSRules(t *testing.T) {
+// This test ensures that L7 rules do not accept port ranges
+func TestPortRangesNotAllowedWithL7Rules(t *testing.T) {
 	// Rule is invalid because DNS rules do not support port ranges.
 	invalidPortRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
@@ -748,7 +748,60 @@ func TestPortRangesNotAllowedWithDNSRules(t *testing.T) {
 	}
 	err := invalidPortRule.Sanitize()
 	require.NotNil(t, err)
-	require.Equal(t, "DNS rules do not support port ranges", err.Error())
+	require.Equal(t, "L7 rules do not support port ranges", err.Error())
+
+	invalidPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "443", EndPort: 445, Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						HTTP: []PortRuleHTTP{
+							{
+								Path:   "/",
+								Method: "GET",
+							},
+						},
+					},
+				}},
+			},
+		},
+	}
+	err = invalidPortRule.Sanitize()
+	require.NotNil(t, err)
+	require.Equal(t, "L7 rules do not support port ranges", err.Error())
+
+	invalidPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "443", EndPort: 445, Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						Kafka: []kafka.PortRule{
+							{
+								Role: "producer",
+							},
+						},
+					},
+				}},
+			},
+		},
+	}
+	err = invalidPortRule.Sanitize()
+	require.NotNil(t, err)
+	require.Equal(t, "L7 rules do not support port ranges", err.Error())
 }
 
 // This test ensures that host policies with L7 rules are rejected.
