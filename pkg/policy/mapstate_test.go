@@ -733,6 +733,22 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 			},
 		},
 		{
+			name: "test-14c - L3-L4 ingress allow should not overwrite a L3-L4-L7 port-range ingress allow on overlapping port",
+			ms: testMapState(mapStateMap{
+				ingressKey(1, 3, 64, 10): allowEntry.withProxyPort(8080),
+			}),
+			args: args{
+				key:   ingressKey(1, 3, 80, 16),
+				entry: MapStateEntry{},
+			},
+			want: testMapState(mapStateMap{
+				ingressKey(1, 3, 64, 10): allowEntry.withProxyPort(8080),
+			}),
+			wantAdds:    Keys{},
+			wantDeletes: Keys{},
+			wantOld:     mapStateMap{},
+		},
+		{
 			name: "test-15a - L3 port-range allow KV should not overwrite a wildcard deny entry",
 			ms: testMapState(mapStateMap{
 				ingressKey(0, 3, 80, 0): denyEntry,
