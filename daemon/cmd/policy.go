@@ -4,15 +4,12 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/netip"
 	"sync"
 
-	"github.com/go-openapi/runtime/middleware"
 	"github.com/google/uuid"
 
-	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -481,92 +478,4 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	if err := d.SendNotification(monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev)); err != nil {
 		log.WithError(err).WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
 	}
-}
-
-func deletePolicyHandler(d *Daemon, params DeletePolicyParams) middleware.Responder {
-	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	rev, err := d.PolicyDelete(lbls, &policy.DeleteOptions{Source: source.LocalAPI})
-	if err != nil {
-		return api.Error(DeletePolicyFailureCode, err)
-	}
-
-	ruleList := d.policy.SearchRLocked(labels.LabelArray{})
-	policy := &models.Policy{
-		Revision: int64(rev),
-		Policy:   policy.JSONMarshalRules(ruleList),
-	}
-	return NewDeletePolicyOK().WithPayload(policy)
-}
-
-func putPolicyHandler(d *Daemon, params PutPolicyParams) middleware.Responder {
-	var rules policyAPI.Rules
-	if err := json.Unmarshal([]byte(params.Policy), &rules); err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		return NewPutPolicyInvalidPolicy()
-	}
-
-	for _, r := range rules {
-		if err := r.Sanitize(); err != nil {
-			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-			return api.Error(PutPolicyFailureCode, err)
-		}
-	}
-
-	replace := false
-	if params.Replace != nil {
-		replace = *params.Replace
-	}
-	replaceWithLabels := labels.ParseSelectLabelArrayFromArray(params.ReplaceWithLabels)
-
-	rev, err := d.PolicyAdd(rules, &policy.AddOptions{
-		Replace:           replace,
-		ReplaceWithLabels: replaceWithLabels,
-		Source:            source.LocalAPI,
-	})
-	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		return api.Error(PutPolicyFailureCode, err)
-	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
-
-	policy := &models.Policy{
-		Revision: int64(rev),
-		Policy:   policy.JSONMarshalRules(rules),
-	}
-	return NewPutPolicyOK().WithPayload(policy)
-}
-
-func getPolicyHandler(d *Daemon, params GetPolicyParams) middleware.Responder {
-	repository := d.policy
-	repository.RLock()
-	defer repository.RUnlock()
-
-	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	ruleList := repository.SearchRLocked(lbls)
-
-	// Error if labels have been specified but no entries found, otherwise,
-	// return empty list
-	if len(ruleList) == 0 && len(lbls) != 0 {
-		return NewGetPolicyNotFound()
-	}
-
-	policy := &models.Policy{
-		Revision: int64(repository.GetRevision()),
-		Policy:   policy.JSONMarshalRules(ruleList),
-	}
-
-	// debug potential policy race with cilium-cli:
-	// cilium-cli issues this command to get the current policy revision before updating policy,
-	// when it waits for all the endpoints to have been bumped to the next revision before
-	// proceeding with a test case. It seems that sometimes that happens too early, which could
-	// happen if the policy repository's revision if bumped for any other reason than a policy
-	// add during this wait. Log the current revision number here so that we know what to look
-	// for in this case.
-	log.WithField(logfields.PolicyRevision, policy.Revision).Debug("Policy Get Request")
-
-	return NewGetPolicyOK().WithPayload(policy)
-}
-
-func getPolicySelectorsHandler(d *Daemon, params GetPolicySelectorsParams) middleware.Responder {
-	return NewGetPolicySelectorsOK().WithPayload(d.policy.GetSelectorCache().GetModel())
 }
