@@ -71,6 +71,7 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -182,6 +183,8 @@ type Daemon struct {
 	orchestrator    datapath.Orchestrator
 	iptablesManager datapath.IptablesManager
 	hubble          hubblecell.HubbleIntegration
+
+	lrpManager *redirectpolicy.Manager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -394,6 +397,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		orchestrator:      params.Orchestrator,
 		iptablesManager:   params.IPTablesManager,
 		hubble:            params.Hubble,
+		lrpManager:        params.LRPManager,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
