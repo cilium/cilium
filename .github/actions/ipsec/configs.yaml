@@ -59,7 +59,6 @@
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
-  encryption-overlay: 'true'
   key-one: 'gcm(aes)'
   key-two: 'gcm(aes)'
 - name: '8'
