@@ -398,8 +398,8 @@ func TestL7WithIngressWildcard(t *testing.T) {
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{
-								L7Parser: ParserTypeHTTP,
-								Priority: ListenerPriorityHTTP,
+								L7Parser:         ParserTypeHTTP,
+								ListenerPriority: ListenerPriorityHTTP,
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
@@ -492,8 +492,8 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							cachedSelectorHost: nil,
 							td.wildcardCachedSelector: &PerSelectorPolicy{
-								L7Parser: ParserTypeHTTP,
-								Priority: ListenerPriorityHTTP,
+								L7Parser:         ParserTypeHTTP,
+								ListenerPriority: ListenerPriorityHTTP,
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
@@ -997,7 +997,7 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 
 	// test non-empty mapstate
 	p.policyMapState = emptyMapState(log).withState(mapStateMap{
-		key1: newMapStateEntry(makeSingleRuleOrigin(lbls, logstr), 0, 0, false, NoAuthRequirement),
+		key1: newMapStateEntry(0, makeSingleRuleOrigin(lbls, logstr), 0, 0, false, NoAuthRequirement),
 	})
 
 	rm, err := p.GetRuleMeta(key1)
@@ -1010,7 +1010,7 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 
 	// test mapstate from dump
 	msDump := MapStateMap{
-		key1: types.NewMapStateEntry(false, 0, 0, NoAuthRequirement),
+		key1: types.NewMapStateEntry(0, false, 0, 0, NoAuthRequirement),
 	}
 
 	p = &EndpointPolicy{
