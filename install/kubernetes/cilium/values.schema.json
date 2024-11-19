@@ -4438,6 +4438,9 @@
             "enabled": {
               "type": "boolean"
             },
+            "metricsService": {
+              "type": "boolean"
+            },
             "port": {
               "type": "integer"
             },
@@ -4816,6 +4819,9 @@
             "null",
             "array"
           ]
+        },
+        "metricsService": {
+          "type": "boolean"
         },
         "port": {
           "type": "integer"
