@@ -407,7 +407,8 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		return fmt.Errorf("DNS rules are not allowed on ingress")
 	}
 
-	if len(pr.ServerNames) > 0 && !pr.Rules.IsEmpty() && pr.TerminatingTLS == nil {
+	hasL7Rules := pr.Rules != nil && !pr.Rules.IsEmpty()
+	if len(pr.ServerNames) > 0 && hasL7Rules && pr.TerminatingTLS == nil {
 		return fmt.Errorf("ServerNames are not allowed with L7 rules without TLS termination")
 	}
 	for _, sn := range pr.ServerNames {
@@ -423,7 +424,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	for i := range pr.Ports {
 		var isZero bool
 		var err error
-		if isZero, err = pr.Ports[i].sanitize(hasDNSRules); err != nil {
+		if isZero, err = pr.Ports[i].sanitize(hasL7Rules); err != nil {
 			return err
 		}
 		if isZero {
@@ -468,7 +469,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	return nil
 }
 
-func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
+func (pp *PortProtocol) sanitize(hasL7Rules bool) (isZero bool, err error) {
 	if pp.Port == "" {
 		return isZero, fmt.Errorf("Port must be specified")
 	}
@@ -484,8 +485,8 @@ func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
 			return isZero, fmt.Errorf("Unable to parse port: %w", err)
 		}
 		isZero = p == 0
-		if hasDNSRules && pp.EndPort > int32(p) {
-			return isZero, errors.New("DNS rules do not support port ranges")
+		if hasL7Rules && pp.EndPort > int32(p) {
+			return isZero, errors.New("L7 rules do not support port ranges")
 		}
 	}
 
