@@ -1864,7 +1864,9 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 	bootstrapStats.healthCheck.End(true)
 
-	d.startStatusCollector(cleaner)
+	if err := d.startStatusCollector(d.ctx, cleaner); err != nil {
+		return fmt.Errorf("failed to start status collector: %w", err)
+	}
 
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
