@@ -44,8 +44,10 @@ type Metrics struct {
 	ACLBL2PodAnnouncementEnabled    metric.Gauge
 	ACLBExternalEnvoyProxyEnabled   metric.Vec[metric.Gauge]
 
-	NPL3Ingested  metric.Vec[metric.Counter]
-	NPDNSIngested metric.Vec[metric.Counter]
+	NPL3Ingested                metric.Vec[metric.Counter]
+	NPDNSIngested               metric.Vec[metric.Counter]
+	NPHTTPIngested              metric.Vec[metric.Counter]
+	NPHTTPHeaderMatchesIngested metric.Vec[metric.Counter]
 }
 
 const (
@@ -518,6 +520,42 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "dns_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPHTTPIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "HTTP/GRPC Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "http_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPHTTPHeaderMatchesIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "HTTP HeaderMatches Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "http_header_matches_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {
