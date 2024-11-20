@@ -256,6 +256,11 @@ func newEnvoyLogPiper() io.WriteCloser {
 				if !flowdebug.Enabled() && strings.Contains(msg, "Unable to use runtime singleton for feature envoy.http.headermap.lazy_map_min_size") {
 					continue
 				}
+				// Demote expected warnings to info level
+				if strings.Contains(msg, "gRPC config: initial fetch timed out for") {
+					scopedLog.Info(msg)
+					continue
+				}
 				scopedLog.Warn(msg)
 			case "info":
 				scopedLog.Info(msg)
