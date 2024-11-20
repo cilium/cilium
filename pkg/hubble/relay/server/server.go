@@ -73,12 +73,9 @@ func New(options ...Option) (*Server, error) {
 		return nil, ErrNoServerTLSConfig
 	}
 
-	var peerClientBuilder peerTypes.ClientBuilder = &peerTypes.LocalClientBuilder{
-		DialTimeout: opts.dialTimeout,
-	}
+	var peerClientBuilder peerTypes.ClientBuilder = &peerTypes.LocalClientBuilder{}
 	if !strings.HasPrefix(opts.peerTarget, "unix://") {
 		peerClientBuilder = &peerTypes.RemoteClientBuilder{
-			DialTimeout:   opts.dialTimeout,
 			TLSConfig:     opts.clientTLSConfig,
 			TLSServerName: peer.TLSServerName(defaults.PeerServiceName, opts.clusterName),
 		}
@@ -89,12 +86,6 @@ func New(options ...Option) (*Server, error) {
 		pool.WithPeerServiceAddress(opts.peerTarget),
 		pool.WithPeerClientBuilder(peerClientBuilder),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
-			DialTimeout: opts.dialTimeout,
-			Options: []grpc.DialOption{
-				grpc.WithBlock(),
-				grpc.FailOnNonTempDialError(true),
-				grpc.WithReturnConnectionError(),
-			},
 			TLSConfig: opts.clientTLSConfig,
 		}),
 		pool.WithRetryTimeout(opts.retryTimeout),

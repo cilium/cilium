@@ -347,6 +347,9 @@ Removed Options
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
+* The hubble-relay flag ``--dial-timeout`` has been deprecated (now a no-op)
+  and will be removed in Cilium 1.18.
+
 Helm Options
 ~~~~~~~~~~~~
 
@@ -359,6 +362,8 @@ Helm Options
 * The default value of ``hubble.tls.auto.certValidityDuration`` has been
   lowered from 1095 days to 365 days because recent versions of MacOS will fail
   to validate certificates with expirations longer than 825 days.
+* The Helm option ``hubble.relay.dialTimeout`` has been deprecated (now a no-op)
+  and will be removed in Cilium 1.18.
 
 Agent Options
 ~~~~~~~~~~~~~
