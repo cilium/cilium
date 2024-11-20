@@ -259,6 +259,11 @@ func newEnvoyLogPiper() io.WriteCloser {
 				if !tracing && strings.Contains(msg, "message 'envoy.extensions.bootstrap.internal_listener.v3.InternalListener' is contained in proto file 'envoy/extensions/bootstrap/internal_listener/v3/internal_listener.proto' marked as work-in-progress.") {
 					continue
 				}
+				// Demote expected warnings to info level
+				if strings.Contains(msg, "gRPC config: initial fetch timed out for") {
+					scopedLog.Info(msg)
+					continue
+				}
 				scopedLog.Warn(msg)
 			case "info":
 				scopedLog.Info(msg)
