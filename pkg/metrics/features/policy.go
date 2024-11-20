@@ -8,7 +8,8 @@ import (
 )
 
 type RuleFeatures struct {
-	L3 bool
+	L3   bool
+	Host bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -20,6 +21,12 @@ func (m Metrics) AddRule(r api.Rule) {
 		}
 		m.NPL3L4Present.Inc()
 	}
+	if rf.Host {
+		if m.NPHostNPIngested.Get() == 0 {
+			m.NPHostNPIngested.Inc()
+		}
+		m.NPHostNPPresent.Inc()
+	}
 }
 
 func (m Metrics) DelRule(r api.Rule) {
@@ -28,18 +35,22 @@ func (m Metrics) DelRule(r api.Rule) {
 	if rf.L3 {
 		m.NPL3L4Present.Dec()
 	}
+	if rf.Host {
+		m.NPHostNPPresent.Dec()
+	}
 }
 
 func (rf *RuleFeatures) allFeaturesIngressCommon() bool {
-	return rf.L3
+	return rf.L3 && rf.Host
 }
 
 func (rf *RuleFeatures) allFeaturesEgressCommon() bool {
-	return rf.L3
+	return rf.L3 && rf.Host
 }
 
 func ruleTypeIngressCommon(rf *RuleFeatures, i api.IngressCommonRule) {
 	if len(i.FromNodes) > 0 {
+		rf.Host = true
 		rf.L3 = true
 	}
 	for _, cidrRuleSet := range i.FromCIDRSet {
@@ -54,6 +65,7 @@ func ruleTypeIngressCommon(rf *RuleFeatures, i api.IngressCommonRule) {
 
 func ruleTypeEgressCommon(rf *RuleFeatures, e api.EgressCommonRule) {
 	if len(e.ToNodes) > 0 {
+		rf.Host = true
 		rf.L3 = true
 	}
 
