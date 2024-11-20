@@ -264,7 +264,7 @@ func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 // the listing to complete.
 func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend) (identities map[idpool.ID]allocator.AllocatorKey, err error) {
 	identities = make(map[idpool.ID]allocator.AllocatorKey)
-	stopChan := make(chan struct{})
+	listDone := make(chan struct{})
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -272,24 +272,26 @@ func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend)
 	// modifications to the identities map afterwards.
 	defer wg.Wait()
 
+	cctx, cancel := context.WithCancel(ctx)
 	go func() {
 		defer wg.Done()
-		kvstoreBackend.ListAndWatch(ctx, kvstoreListHandler{
+		kvstoreBackend.ListAndWatch(cctx, kvstoreListHandler{
 			onUpsert: func(id idpool.ID, key allocator.AllocatorKey) {
 				log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
 				identities[id] = key
 			},
 			onListDone: func() {
-				close(stopChan)
+				close(listDone)
+				cancel()
 			},
-		}, stopChan)
+		})
 	}()
 	// This makes the ListAndWatch exit after the initial listing or on a timeout
 	// that exits this function
 
 	// Wait for the listing to complete
 	select {
-	case <-stopChan:
+	case <-listDone:
 		log.Debug("kvstore ID list complete")
 
 	case <-ctx.Done():

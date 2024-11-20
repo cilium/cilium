@@ -243,12 +243,12 @@ func (h NoOpHandler) OnListDone()                                {}
 func (h NoOpHandler) OnUpsert(idpool.ID, allocator.AllocatorKey) {}
 func (h NoOpHandler) OnDelete(idpool.ID, allocator.AllocatorKey) {}
 
-func (d *doubleWriteBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
+func (d *doubleWriteBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations) {
 	if d.readFromKVStore {
 		// We still need to run ListAndWatch for the CRD backend to initialize the underlying store.
 		// Since we don't need to use the results of the list operation, we can use a no-op handler
-		go d.crdBackend.ListAndWatch(ctx, NoOpHandler{}, stopChan)
-		d.kvstoreBackend.ListAndWatch(ctx, handler, stopChan)
+		go d.crdBackend.ListAndWatch(ctx, NoOpHandler{})
+		d.kvstoreBackend.ListAndWatch(ctx, handler)
 	}
-	d.crdBackend.ListAndWatch(ctx, handler, stopChan)
+	d.crdBackend.ListAndWatch(ctx, handler)
 }

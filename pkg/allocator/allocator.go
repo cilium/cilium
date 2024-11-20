@@ -273,7 +273,7 @@ type Backend interface {
 
 	// ListAndWatch begins synchronizing the local Backend instance with its
 	// remote.
-	ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{})
+	ListAndWatch(ctx context.Context, handler CacheMutations)
 
 	// RunGC reaps stale or unused identities within the Backend and makes them
 	// available for reuse. It is used by the cilium-operator and is not invoked
@@ -1179,7 +1179,8 @@ func (rc *remoteCache) Synced() bool {
 	}
 
 	select {
-	case <-rc.cache.stopChan:
+	case <-rc.cache.ctx.Done():
+		// The cache has been stopped.
 		return false
 	default:
 		select {
