@@ -642,6 +642,11 @@ jobs:
             --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
             ${EXTRA[@]}" >> $GITHUB_OUTPUT
 
+      - name: Restart kind nodes
+        uses: ./.github/actions/lvh-kind-restart
+        with:
+          test-name: e2e-conformance
+
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
         shell: bash
         run: |

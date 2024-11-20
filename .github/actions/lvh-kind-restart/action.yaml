@@ -1,0 +1,25 @@
+name: Kind Restart
+description: Performing a reboot of all nodes in the kind cluster.
+
+inputs:
+  test-name:
+    required: true
+    description: 'Test name'
+
+runs:
+  using: composite
+  steps:
+    - name: Reboot nodes in K8s cluster
+      uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+      with:
+        provision: 'false'
+        cmd: |
+          nodes=$(kind get nodes --name kind)
+
+          while IFS= read -r node; do
+            echo "Rebooting $node..."
+
+            docker restart -t0 $node
+          done <<< "$nodes"
+
+          cilium status --wait
