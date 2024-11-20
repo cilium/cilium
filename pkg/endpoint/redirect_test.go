@@ -141,7 +141,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	defer mgr.Close()
 
 	do := &DummyOwner{
-		repo: policy.NewPolicyRepository(nil, nil, nil, nil),
+		repo: policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
 	}
 	do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	identitymanager.Subscribe(do.repo)
@@ -373,7 +373,7 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	}
 
 	do := &DummyOwner{
-		repo: policy.NewPolicyRepository(mgr, identityCache, nil, nil),
+		repo: policy.NewPolicyRepository(mgr, identityCache, nil, nil, api.NewPolicyMetricsNoop()),
 	}
 	do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	identitymanager.Subscribe(do.repo)

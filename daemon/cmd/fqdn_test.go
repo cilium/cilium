@@ -46,7 +46,7 @@ func (ds *DaemonFQDNSuite) SetUpSuite(c *C) {
 
 func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 	d := &Daemon{}
-	d.policy = policy.NewPolicyRepository(d.identityAllocator, nil, nil, nil)
+	d.policy = policy.NewPolicyRepository(d.identityAllocator, nil, nil, nil, api.NewPolicyMetricsNoop())
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
 		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
