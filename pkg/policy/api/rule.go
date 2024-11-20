@@ -244,3 +244,21 @@ func (r *Rule) CreateDerivative(ctx context.Context) (*Rule, error) {
 	}
 	return newRule, nil
 }
+
+type PolicyMetrics interface {
+	AddRule(r Rule)
+	DelRule(r Rule)
+}
+
+type policyMetricsNoop struct {
+}
+
+func (p *policyMetricsNoop) AddRule(Rule) {
+}
+
+func (p *policyMetricsNoop) DelRule(Rule) {
+}
+
+func NewPolicyMetricsNoop() PolicyMetrics {
+	return &policyMetricsNoop{}
+}
