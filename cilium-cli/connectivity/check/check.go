@@ -74,6 +74,7 @@ type Parameters struct {
 	DeploymentAnnotations  annotationsMap
 	NamespaceAnnotations   annotations
 	ExternalTarget         string
+	ExternalOtherTarget    string
 	ExternalCIDR           string
 	ExternalIP             string
 	ExternalDeploymentPort int
