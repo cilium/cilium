@@ -45,11 +45,11 @@ type DoubleWriteMetricReporter struct {
 
 	interval time.Duration
 
-	kvStoreBackend            allocator.Backend
-	clientset                 k8sClient.Clientset
-	crdBackend                allocator.Backend
-	crdBackendWatcherStopChan chan struct{}
-	crdBackendListDone        chan struct{}
+	kvStoreBackend        allocator.Backend
+	clientset             k8sClient.Clientset
+	crdBackend            allocator.Backend
+	crdBackendWatcherStop context.CancelFunc
+	crdBackendListDone    chan struct{}
 
 	mgr *controller.Manager
 	wg  sync.WaitGroup
@@ -97,12 +97,13 @@ func (g *DoubleWriteMetricReporter) Start(ctx cell.HookContext) error {
 	}
 	g.crdBackend = crdBackend
 	// Initialize the CRD backend store
-	g.crdBackendWatcherStopChan = make(chan struct{})
+	var cctx context.Context
+	cctx, g.crdBackendWatcherStop = context.WithCancel(context.Background())
 	g.crdBackendListDone = make(chan struct{})
 	g.wg = sync.WaitGroup{}
 	g.wg.Add(1)
 	go func() {
-		g.crdBackend.ListAndWatch(context.Background(), NoOpHandlerWithListDone{listDone: g.crdBackendListDone}, g.crdBackendWatcherStopChan)
+		g.crdBackend.ListAndWatch(cctx, NoOpHandlerWithListDone{listDone: g.crdBackendListDone})
 		g.wg.Done()
 	}()
 
@@ -121,7 +122,11 @@ func (g *DoubleWriteMetricReporter) Stop(ctx cell.HookContext) error {
 	if g.mgr != nil {
 		g.mgr.RemoveAllAndWait()
 	}
-	close(g.crdBackendWatcherStopChan)
+
+	if g.crdBackendWatcherStop != nil {
+		g.crdBackendWatcherStop()
+	}
+
 	g.wg.Wait()
 	return nil
 }
