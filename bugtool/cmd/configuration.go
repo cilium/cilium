@@ -395,6 +395,7 @@ func ciliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	commands := []string{
 		fmt.Sprintf("cilium-dbg debuginfo --output=markdown,json -f --output-directory=%s", cmdDir),
 		"cilium-dbg metrics list",
+		"cilium-dbg shell -- metrics/html",
 		"cilium-dbg bpf metrics list",
 		"cilium-dbg fqdn cache list",
 		"cilium-dbg config -a",
