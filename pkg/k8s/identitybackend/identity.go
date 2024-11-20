@@ -370,7 +370,7 @@ func (c *crdBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, err 
 	return identityIDs, err
 }
 
-func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
+func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations) {
 	c.Store = cache.NewIndexer(
 		cache.DeletionHandlingMetaNamespaceKeyFunc,
 		cache.Indexers{byKeyIndex: getIdentitiesByKeyFunc(c.KeyFunc)})
@@ -419,10 +419,10 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 	)
 
 	go func() {
-		if ok := cache.WaitForCacheSync(stopChan, identityInformer.HasSynced); ok {
+		if ok := cache.WaitForCacheSync(ctx.Done(), identityInformer.HasSynced); ok {
 			handler.OnListDone()
 		}
 	}()
 
-	identityInformer.Run(stopChan)
+	identityInformer.Run(ctx.Done())
 }
