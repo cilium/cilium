@@ -39,15 +39,13 @@ func TestGRPCClientConnBuilder_CertificateChange(t *testing.T) {
 		ca:   ca,
 	}
 	cb := GRPCClientConnBuilder{
-		DialTimeout: 5 * time.Second,
-		Options: []grpc.DialOption{
-			grpc.WithBlock(),
-			grpc.FailOnNonTempDialError(true),
-			grpc.WithReturnConnectionError(),
-		},
 		TLSConfig: fTLSb,
 	}
-	dir, err := os.MkdirTemp("", t.Name())
+	// on mac, the max length of a unix socket path is 104
+	// when using the test name as-is, we can hit:
+	//   listen unix /var/folders/3c/l4cz8jlx17s0fz5z5vcj26500000gn/T/TestGRPCClientConnBuilder_CertificateChange1112872806/relay.sock: bind: invalid argument
+	// therefore hardcode a smaller name to avoid issues
+	dir, err := os.MkdirTemp("", "testCertificateChange**")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 
