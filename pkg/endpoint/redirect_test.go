@@ -59,7 +59,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	}
 
 	s.do.idmgr = identitymanager.NewIDManager()
-	s.do.repo = policy.NewPolicyRepository(identityCache, nil, nil, s.do.idmgr)
+	s.do.repo = policy.NewPolicyRepository(identityCache, nil, nil, s.do.idmgr, api.NewPolicyMetricsNoop())
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	s.rsp = &RedirectSuiteProxy{

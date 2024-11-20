@@ -363,6 +363,19 @@ func (e *EgressCommonRule) RequiresDerivative() bool {
 	return len(e.ToGroups) > 0
 }
 
+func (in *EgressCommonRule) IsL3() bool {
+	if in == nil {
+		return false
+	}
+	return len(in.ToEndpoints) > 0 ||
+		len(in.ToRequires) > 0 ||
+		len(in.ToCIDR) > 0 ||
+		len(in.ToCIDRSet) > 0 ||
+		len(in.ToEntities) > 0 ||
+		len(in.ToGroups) > 0 ||
+		len(in.ToNodes) > 0
+}
+
 // CreateDerivative will return a new rule based on the data gathered by the
 // rules that creates a new derivative policy.
 // In the case of ToGroups will call outside using the groups callback and this

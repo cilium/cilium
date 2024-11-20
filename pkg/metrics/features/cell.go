@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -30,6 +31,9 @@ var Cell = cell.Module(
 	cell.Invoke(updateAgentConfigMetricOnStart),
 	cell.Provide(
 		func(m Metrics) featureMetrics {
+			return m
+		},
+		func(m Metrics) api.PolicyMetrics {
 			return m
 		},
 	),

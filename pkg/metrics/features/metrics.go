@@ -46,6 +46,9 @@ type Metrics struct {
 	ACLBExternalEnvoyProxyEnabled    metric.Vec[metric.Gauge]
 	ACLBCiliumNodeConfigEnabled      metric.Gauge
 	ACLBSRv6Enabled                  metric.Gauge
+
+	NPL3L4Ingested metric.Counter
+	NPL3L4Present  metric.Gauge
 }
 
 const (
@@ -511,6 +514,20 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemACLB,
 			Name:      "cilium_node_config_enabled",
+		}),
+
+		NPL3L4Ingested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Layer 3 and Layer 4 policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "l3_l4_policies_ingested",
+		}),
+
+		NPL3L4Present: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Number of Layer 3 and Layer 4 policies are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "l3_l4_policies_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
