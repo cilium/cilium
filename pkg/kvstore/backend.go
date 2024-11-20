@@ -196,9 +196,9 @@ type BackendOperations interface {
 	// ListAndWatch creates a new watcher which will watch the specified
 	// prefix for changes. Before doing this, it will list the current keys
 	// matching the prefix and report them as new keys. The Events channel is
-	// created with the specified sizes. Upon every change observed, a
-	// KeyValueEvent will be sent to the Events channel
-	ListAndWatch(ctx context.Context, prefix string, chanSize int) *Watcher
+	// unbuffered. Upon every change observed, a KeyValueEvent will be sent
+	// to the Events channel
+	ListAndWatch(ctx context.Context, prefix string) *Watcher
 
 	// RegisterLeaseExpiredObserver registers a function which is executed when
 	// the lease associated with a key having the given prefix is detected as expired.

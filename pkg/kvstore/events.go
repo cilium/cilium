@@ -61,10 +61,10 @@ type Watcher struct {
 	Prefix string `json:"prefix"`
 }
 
-func newWatcher(prefix string, chanSize int) *Watcher {
+func newWatcher(prefix string) *Watcher {
 	return &Watcher{
 		Prefix: prefix,
-		Events: make(EventChan, chanSize),
+		Events: make(EventChan),
 	}
 }
 

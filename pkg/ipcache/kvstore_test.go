@@ -41,7 +41,7 @@ func (m *fakeIPCache) Delete(ip string, source source.Source) (namedPortsChanged
 	return true
 }
 
-func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *kvstore.Watcher {
+func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string) *kvstore.Watcher {
 	var pair identity.IPIdentityPair
 	ch := make(kvstore.EventChan, 10)
 

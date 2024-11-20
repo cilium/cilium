@@ -219,7 +219,7 @@ func testListAndWatch(t *testing.T) {
 	require.True(t, success)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	w := Client().ListAndWatch(ctx, "foo2/", 100)
+	w := Client().ListAndWatch(ctx, "foo2/")
 	require.NotNil(t, t)
 
 	expectEvent(t, w, EventTypeCreate, key1, val1)
