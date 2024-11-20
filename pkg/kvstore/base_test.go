@@ -218,7 +218,8 @@ func testListAndWatch(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, success)
 
-	w := Client().ListAndWatch(context.TODO(), "foo2/", 100)
+	ctx, cancel := context.WithCancel(context.Background())
+	w := Client().ListAndWatch(ctx, "foo2/", 100)
 	require.NotNil(t, t)
 
 	expectEvent(t, w, EventTypeCreate, key1, val1)
@@ -246,5 +247,9 @@ func testListAndWatch(t *testing.T) {
 	require.NoError(t, err)
 	expectEvent(t, w, EventTypeDelete, key2, val2)
 
-	w.Stop()
+	cancel()
+
+	// Wait for the Events channel to be closed
+	_, ok := <-w.Events
+	require.False(t, ok, "Received unexpected event")
 }

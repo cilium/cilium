@@ -771,21 +771,13 @@ func (e *etcdClient) watch(ctx context.Context, w *Watcher) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
-	defer func() {
-		close(w.Events)
-		w.stopWait.Done()
-
-		// The watch might be aborted by closing
-		// the context instead of calling
-		// w.Stop() from outside. In that case
-		// we make sure to close everything and
-		// as this uses sync.Once it can be
-		// run multiple times (if that's the case).
-		w.Stop()
-	}()
-
 	scopedLog := e.logger.WithField(fieldPrefix, w.Prefix)
 	scopedLog.Debug("Starting watcher...")
+
+	defer func() {
+		scopedLog.Debug("Stopped watcher")
+		close(w.Events)
+	}()
 
 	err := <-e.Connected(ctx)
 	if err != nil {
@@ -887,8 +879,6 @@ reList:
 				return
 			case <-ctx.Done():
 				return
-			case <-w.stopWatch:
-				return
 			default:
 				goto recreateWatcher
 			}
@@ -903,8 +893,6 @@ reList:
 			case <-e.client.Ctx().Done():
 				return
 			case <-ctx.Done():
-				return
-			case <-w.stopWatch:
 				return
 			case r, ok := <-etcdWatch:
 				if !ok {
