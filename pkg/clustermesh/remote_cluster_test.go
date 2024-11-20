@@ -45,12 +45,12 @@ type remoteEtcdClientWrapper struct {
 }
 
 // Override the ListAndWatch method so that we can track whether the synced canaries prefix has been watched.
-func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix string, chanSize int) *kvstore.Watcher {
+func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix string) *kvstore.Watcher {
 	if prefix == fmt.Sprintf("cilium/synced/%s/", w.name) {
 		w.syncedCanariesWatched = true
 	}
 
-	return w.BackendOperations.ListAndWatch(ctx, prefix, chanSize)
+	return w.BackendOperations.ListAndWatch(ctx, prefix)
 }
 
 type fakeIPCache struct{ updates atomic.Int32 }

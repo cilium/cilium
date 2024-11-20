@@ -663,7 +663,7 @@ func (e *etcdClient) asyncConnectEtcdClient(errChan chan<- error) {
 		e.statusChecker()
 	}()
 
-	watcher := e.ListAndWatch(ctx, HeartbeatPath, 0)
+	watcher := e.ListAndWatch(ctx, HeartbeatPath)
 	for event := range watcher.Events {
 		switch event.Typ {
 		case EventTypeDelete:
@@ -1553,8 +1553,8 @@ func (e *etcdClient) Close() {
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd
-func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string, chanSize int) *Watcher {
-	w := newWatcher(prefix, chanSize)
+func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string) *Watcher {
+	w := newWatcher(prefix)
 
 	go e.watch(ctx, w)
 
