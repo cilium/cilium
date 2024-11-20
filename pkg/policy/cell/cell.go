@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // Cell provides the PolicyRepository and PolicyUpdater.
@@ -34,6 +35,7 @@ type policyRepoParams struct {
 	SecretManager   certificatemanager.SecretManager
 	IdentityManager identitymanager.IDManager
 	ClusterInfo     cmtypes.ClusterInfo
+	MetricsManager  api.PolicyMetrics
 }
 
 func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
@@ -56,6 +58,7 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 		params.CertManager,
 		params.SecretManager,
 		params.IdentityManager,
+		params.MetricsManager,
 	)
 	policyRepo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
