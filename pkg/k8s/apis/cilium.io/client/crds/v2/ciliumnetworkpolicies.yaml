@@ -364,6 +364,7 @@ spec:
                             description: |-
                               MatchName matches literal DNS names. A trailing "." is automatically added
                               when missing.
+                            maxLength: 255
                             pattern: ^([-a-zA-Z0-9_]+[.]?)+$
                             type: string
                           matchPattern:
@@ -385,6 +386,7 @@ spec:
                               begins with "sub"
                                 sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
                                 blog.cilium.io, cilium.io and google.com do not
+                            maxLength: 255
                             pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                             type: string
                         type: object
@@ -676,6 +678,7 @@ spec:
                                       description: |-
                                         MatchName matches literal DNS names. A trailing "." is automatically added
                                         when missing.
+                                      maxLength: 255
                                       pattern: ^([-a-zA-Z0-9_]+[.]?)+$
                                       type: string
                                     matchPattern:
@@ -697,6 +700,7 @@ spec:
                                         begins with "sub"
                                           sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
                                           blog.cilium.io, cilium.io and google.com do not
+                                      maxLength: 255
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
                                   type: object
@@ -2390,6 +2394,7 @@ spec:
                                       description: |-
                                         MatchName matches literal DNS names. A trailing "." is automatically added
                                         when missing.
+                                      maxLength: 255
                                       pattern: ^([-a-zA-Z0-9_]+[.]?)+$
                                       type: string
                                     matchPattern:
@@ -2411,6 +2416,7 @@ spec:
                                         begins with "sub"
                                           sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
                                           blog.cilium.io, cilium.io and google.com do not
+                                      maxLength: 255
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
                                   type: object
@@ -3558,6 +3564,7 @@ spec:
                               description: |-
                                 MatchName matches literal DNS names. A trailing "." is automatically added
                                 when missing.
+                              maxLength: 255
                               pattern: ^([-a-zA-Z0-9_]+[.]?)+$
                               type: string
                             matchPattern:
@@ -3579,6 +3586,7 @@ spec:
                                 begins with "sub"
                                   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
                                   blog.cilium.io, cilium.io and google.com do not
+                              maxLength: 255
                               pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                               type: string
                           type: object
@@ -3870,6 +3878,7 @@ spec:
                                         description: |-
                                           MatchName matches literal DNS names. A trailing "." is automatically added
                                           when missing.
+                                        maxLength: 255
                                         pattern: ^([-a-zA-Z0-9_]+[.]?)+$
                                         type: string
                                       matchPattern:
@@ -3891,6 +3900,7 @@ spec:
                                           begins with "sub"
                                             sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
                                             blog.cilium.io, cilium.io and google.com do not
+                                        maxLength: 255
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                         type: string
                                     type: object
@@ -5586,6 +5596,7 @@ spec:
                                         description: |-
                                           MatchName matches literal DNS names. A trailing "." is automatically added
                                           when missing.
+                                        maxLength: 255
                                         pattern: ^([-a-zA-Z0-9_]+[.]?)+$
                                         type: string
                                       matchPattern:
@@ -5607,6 +5618,7 @@ spec:
                                           begins with "sub"
                                             sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
                                             blog.cilium.io, cilium.io and google.com do not
+                                        maxLength: 255
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                         type: string
                                     type: object
