@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -18,7 +19,11 @@ var MetricsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all metrics",
 	Run: func(cmd *cobra.Command, args []string) {
-		shellExchange(os.Stdout, "metrics %s", matchPattern)
+		format := "table"
+		if command.OutputOption() {
+			format = strings.ToLower(command.OutputOptionString())
+		}
+		shellExchange(os.Stdout, "metrics -format=%s '%s'", format, matchPattern)
 	},
 }
 
