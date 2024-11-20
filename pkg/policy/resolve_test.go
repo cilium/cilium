@@ -138,7 +138,7 @@ func GenerateL3EgressRules(numRules int) api.Rules {
 func GenerateCIDRRules(numRules int) api.Rules {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
-	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+	// barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 
 	// Change ingRule and rule in the for-loop below to change what type of rules
 	// are added into the policy repository.
@@ -203,7 +203,7 @@ func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, tb testing.TB)
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	ids := mgr.GetIdentityCache()
 	fakeAllocator := testidentity.NewMockIdentityAllocator(ids)
-	testRepo := NewPolicyRepository(fakeAllocator, ids, nil, nil)
+	testRepo := NewPolicyRepository(fakeAllocator, ids, nil, nil, api.NewPolicyMetricsNoop())
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)

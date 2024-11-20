@@ -74,6 +74,7 @@ type policyParams struct {
 	SecretManager   certificatemanager.SecretManager
 	CacheStatus     k8s.CacheStatus
 	ClusterInfo     cmtypes.ClusterInfo
+	MetricsManager  policyAPI.PolicyMetrics
 }
 
 type policyOut struct {
@@ -107,6 +108,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		idAlloc.GetIdentityCache(),
 		params.CertManager,
 		params.SecretManager,
+		params.MetricsManager,
 	)
 	iao.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
