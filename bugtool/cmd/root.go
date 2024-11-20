@@ -452,7 +452,14 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 	// Clean up the filename
 	name := strings.Replace(prompt, "/", " ", -1)
 	name = strings.Replace(name, " ", "-", -1)
-	f, err := os.Create(filepath.Join(cmdDir, name+".md"))
+	suffix := ".md"
+	if strings.HasSuffix(name, "html") {
+		// If the command we run ends in 'html' (such as 'metrics/html'), write out the
+		// output as a HTML file.
+		suffix = ".html"
+		enableMarkdown = false
+	}
+	f, err := os.Create(filepath.Join(cmdDir, name+suffix))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not create file %s\n", err)
 		return
