@@ -61,7 +61,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	testutils.IntegrationTest(tb)
 
 	s := &EndpointSuite{}
-	s.repo = policy.NewPolicyRepository(nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(nil, nil, nil, api.NewPolicyMetricsNoop())
 	// GetConfig the default labels prefix filter
 	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
 	if err != nil {

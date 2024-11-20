@@ -43,6 +43,8 @@ type Metrics struct {
 	ACLBL2LBEnabled                 metric.Gauge
 	ACLBL2PodAnnouncementEnabled    metric.Gauge
 	ACLBExternalEnvoyProxyEnabled   metric.Vec[metric.Gauge]
+
+	NPL3Ingested metric.Vec[metric.Counter]
 }
 
 const (
@@ -77,6 +79,8 @@ const (
 
 	advConnExtEnvoyProxyStandalone = "standalone"
 	advConnExtEnvoyProxyEmbedded   = "embedded"
+	actionAdd                      = "add"
+	actionDel                      = "delete"
 )
 
 var (
@@ -161,6 +165,10 @@ var (
 	defaultExternalEnvoyProxyModes = []string{
 		advConnExtEnvoyProxyStandalone,
 		advConnExtEnvoyProxyEmbedded,
+	}
+	defaultActions = []string{
+		actionAdd,
+		actionDel,
 	}
 )
 
@@ -483,6 +491,24 @@ func NewMetrics(withDefaults bool) Metrics {
 					}
 					return metric.NewValues(
 						defaultExternalEnvoyProxyModes...,
+					)
+				}(),
+			},
+		}),
+
+		NPL3Ingested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "Layer 3 and Layer 4 policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "l3_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
 					)
 				}(),
 			},
