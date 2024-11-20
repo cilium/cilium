@@ -1,7 +1,7 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  name: "l7-policy-tls"
+  name: "client-egress-l7-tls-sni"
 specs:
 - description: "L7 policy with TLS"
   endpointSelector:
