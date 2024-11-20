@@ -182,10 +182,12 @@ jobs:
       uses: ./.github/actions/set-env-variables
 
     - name: Print helm command
+      env:
+        CHART_VERSION: ${{ needs.setup-charts.outputs.chart-version }}
       run: |
         echo "Example commands:"
-        echo helm template -n kube-system oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version ${{ needs.setup-charts.outputs.chart-version }}
-        echo helm install cilium -n kube-system  oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version ${{ needs.setup-charts.outputs.chart-version }}
+        echo helm template -n kube-system oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
+        echo helm install cilium -n kube-system  oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
 
     - name: Set commit status to success
       if: ${{ success() }}
