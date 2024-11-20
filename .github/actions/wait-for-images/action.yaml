@@ -17,7 +17,7 @@ runs:
     - name: Wait for images
       shell: bash
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
           SHA="${{ inputs.SHA }}"
         else
           SHA="${{ github.sha }}"
