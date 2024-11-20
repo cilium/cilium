@@ -1,7 +1,7 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  name: "l7-policy-tls-port-range"
+  name: "client-egress-l7-tls-port-range"
 specs:
 - description: "L7 policy with TLS port range"
   endpointSelector:
