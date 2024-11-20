@@ -16,7 +16,8 @@ func Test_ruleType(t *testing.T) {
 		r api.Rule
 	}
 	type metrics struct {
-		npL3Ingested float64
+		npL3Ingested     float64
+		npHostNPIngested float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -116,10 +117,12 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3: true,
+					L3:   true,
+					Host: true,
 				},
 				wantMetrics: metrics{
-					npL3Ingested: 1,
+					npL3Ingested:     1,
+					npHostNPIngested: 1,
 				},
 			},
 		},
@@ -140,10 +143,12 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3: true,
+					L3:   true,
+					Host: true,
 				},
 				wantMetrics: metrics{
-					npL3Ingested: 1,
+					npL3Ingested:     1,
+					npHostNPIngested: 1,
 				},
 			},
 		},
@@ -181,10 +186,12 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3: true,
+					L3:   true,
+					Host: true,
 				},
 				wantMetrics: metrics{
-					npL3Ingested: 1,
+					npL3Ingested:     1,
+					npHostNPIngested: 1,
 				},
 			},
 		},
@@ -249,10 +256,64 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3: true,
+					L3:   true,
+					Host: true,
 				},
 				wantMetrics: metrics{
-					npL3Ingested: 1,
+					npL3Ingested:     1,
+					npHostNPIngested: 1,
+				},
+			},
+		},
+		{
+			name: "Host from EgressDeny ToNodes",
+			args: args{
+				r: api.Rule{
+					EgressDeny: []api.EgressDenyRule{
+						{
+							EgressCommonRule: api.EgressCommonRule{
+								ToNodes: []api.EndpointSelector{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: wanted{
+				wantRF: RuleFeatures{
+					L3:   true,
+					Host: true,
+				},
+				wantMetrics: metrics{
+					npL3Ingested:     1,
+					npHostNPIngested: 1,
+				},
+			},
+		},
+		{
+			name: "Host from Egress ToNodes",
+			args: args{
+				r: api.Rule{
+					Egress: []api.EgressRule{
+						{
+							EgressCommonRule: api.EgressCommonRule{
+								ToNodes: []api.EndpointSelector{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: wanted{
+				wantRF: RuleFeatures{
+					L3:   true,
+					Host: true,
+				},
+				wantMetrics: metrics{
+					npL3Ingested:     1,
+					npHostNPIngested: 1,
 				},
 			},
 		},
@@ -267,11 +328,15 @@ func Test_ruleType(t *testing.T) {
 
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionAdd).Get(), "NPL3Ingested different")
 			assert.Equalf(t, float64(0), metrics.NPL3Ingested.WithLabelValues(actionDel).Get(), "NPL3Ingested different")
+			assert.Equalf(t, tt.want.wantMetrics.npHostNPIngested, metrics.NPHostNPIngested.WithLabelValues(actionAdd).Get(), "NPHostNPIngested different")
+			assert.Equalf(t, float64(0), metrics.NPHostNPIngested.WithLabelValues(actionDel).Get(), "NPHostNPIngested different")
 
 			metrics.DelRule(tt.args.r)
 
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionAdd).Get(), "NPL3Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionDel).Get(), "NPL3Ingested different")
+			assert.Equalf(t, tt.want.wantMetrics.npHostNPIngested, metrics.NPHostNPIngested.WithLabelValues(actionAdd).Get(), "NPL3Ingested different")
+			assert.Equalf(t, tt.want.wantMetrics.npHostNPIngested, metrics.NPHostNPIngested.WithLabelValues(actionDel).Get(), "NPL3Ingested different")
 		})
 	}
 }
