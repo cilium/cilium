@@ -4,13 +4,17 @@
 package metrics
 
 import (
+	"cmp"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -24,13 +28,15 @@ import (
 	"github.com/cilium/hive/script"
 )
 
-func newMetricsCommand(r *Registry) hive.ScriptCmdOut {
+// newMetricsCommand implements the "metrics" script command. This can be accessed
+// in script tests, via "cilium-dbg shell" or indirectly via 'cilium-dbg metrics list'.
+func newMetricsCommand(r *Registry, dc *debugCollector) hive.ScriptCmdOut {
 	return hive.NewScriptCmd(
 		"metrics",
 		script.Command(
 			script.CmdUsage{
 				Summary: "Show metrics",
-				Args:    "[-o=file] [-format={table,yaml,json}] [match regex]",
+				Args:    "[-o=file] [-format={table,yaml,json}] [-s] [match regex]",
 				RegexpArgs: func(rawArgs ...string) []int {
 					for i, arg := range rawArgs {
 						if !strings.HasPrefix(arg, "-") {
@@ -47,13 +53,18 @@ func newMetricsCommand(r *Registry) hive.ScriptCmdOut {
 					"",
 					"To write the metrics to a file: 'metrics -o=/path/to/file'",
 					"To show metrics matching a regex: 'metrics foo.*'",
+					"To show samples: 'metrics -s'",
 				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
 				flags := flag.NewFlagSet("metrics", flag.ContinueOnError)
 				file := flags.String("o", "", "Output file")
 				format := flags.String("format", "table", "Output format, one of: table, json or yaml")
+				samples := flags.Bool("s", false, "Show sampled metrics")
 				if err := flags.Parse(args); err != nil {
+					if errors.Is(err, flag.ErrHelp) {
+
+					}
 					return nil, err
 				}
 				args = flags.Args()
@@ -77,6 +88,9 @@ func newMetricsCommand(r *Registry) hive.ScriptCmdOut {
 					defer f.Close()
 				} else {
 					w = s.LogWriter()
+				}
+				if *samples {
+					return nil, writeMetricsFromDebugCollector(w, *format, re, dc)
 				}
 				return nil, writeMetricsFromRegistry(w, *format, re, r.inner)
 			},
@@ -110,12 +124,9 @@ func getMetricValue(name string, typ dto.MetricType, m *dto.Metric) (float64, st
 		return 0.0, x
 
 	case dto.MetricType_HISTOGRAM:
-		count := m.Histogram.GetSampleCountFloat()
-		var avg float64
-		if count > 0.0 {
-			avg = m.Histogram.GetSampleSum() / count
-		}
-		return avg, prettyValue(avg)
+		h := m.GetHistogram()
+		p95 := getHistogramQuantile(h, 0.95)
+		return p95, prettyValue(p95) + suffix
 	default:
 		return -1, fmt.Sprintf("(?%s)", typ)
 	}
@@ -243,4 +254,71 @@ func chooseUnit(v float64) (string, float64) {
 		multp = 1000
 	}
 	return unit, multp
+}
+
+type metricJSONSample struct {
+	Name   string  `json:"name" yaml:"name"`
+	Labels string  `json:"labels,omitempty" yaml:"labels,omitempty"`
+	M1     float64 `json:"1min" yaml:"1min"`
+	M5     float64 `json:"5min" yaml:"5min"`
+	M15    float64 `json:"15min" yaml:"15min"`
+}
+
+func writeMetricsFromDebugCollector(outw io.Writer, format string, re *regexp.Regexp, dc *debugCollector) error {
+	dc.mu.Lock()
+	defer dc.mu.Unlock()
+
+	// Get and sort the keys so that output is deterministic.
+	sampleKeys := slices.Collect(maps.Keys(dc.samples))
+	slices.SortFunc(sampleKeys, func(a, b debugKey) int {
+		return cmp.Or(
+			cmp.Compare(a.name, b.name),
+			cmp.Compare(a.label, b.label),
+		)
+	})
+
+	switch format {
+	case "json", "yaml":
+		var jsonMetrics []metricJSONSample
+		for _, key := range sampleKeys {
+			bucket := dc.samples[key]
+			if re != nil && !re.MatchString(key.name) {
+				continue
+			}
+			jsonMetrics = append(jsonMetrics, metricJSONSample{
+				Name:   key.name,
+				Labels: key.label,
+				M1:     bucket.samples[0],
+				M5:     bucket.samples[4],
+				M15:    bucket.samples[14],
+			})
+		}
+		if format == "json" {
+			enc := json.NewEncoder(outw)
+			enc.SetIndent("", "  ")
+			return enc.Encode(jsonMetrics)
+		} else {
+			enc := yaml.NewEncoder(outw)
+			return enc.Encode(jsonMetrics)
+		}
+	case "table":
+		w := tabwriter.NewWriter(outw, 5, 0, 3, ' ', 0)
+		defer w.Flush()
+		_, err := fmt.Fprintln(w, "Metric\tLabels\t1min\t5min\t15min")
+		if err != nil {
+			return err
+		}
+
+		for _, key := range sampleKeys {
+			samples := dc.samples[key].samples
+			if re != nil && !re.MatchString(key.name) {
+				continue
+			}
+			_, err := fmt.Fprintf(w, "%s\t%s\t%f\t%f\t%f\n", key.name, key.label, samples[0], samples[4], samples[14])
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
