@@ -574,48 +574,39 @@ func (k *kvstoreBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, 
 
 func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations) {
 	watcher := k.backend.ListAndWatch(ctx, k.idPrefix, 512)
-	for {
-		select {
-		case event, ok := <-watcher.Events:
-			if !ok {
-				goto abort
-			}
-			if event.Typ == kvstore.EventTypeListDone {
-				handler.OnListDone()
-				continue
-			}
+	for event := range watcher.Events {
+		if event.Typ == kvstore.EventTypeListDone {
+			handler.OnListDone()
+			continue
+		}
 
-			id, err := k.keyToID(event.Key)
-			switch {
-			case err != nil:
-				log.WithError(err).WithField(logfields.Key, event.Key).Warning("Invalid key")
+		id, err := k.keyToID(event.Key)
+		switch {
+		case err != nil:
+			log.WithError(err).WithField(logfields.Key, event.Key).Warning("Invalid key")
 
-			case id != idpool.NoID:
-				var key allocator.AllocatorKey
+		case id != idpool.NoID:
+			var key allocator.AllocatorKey
 
-				if len(event.Value) > 0 {
-					key = k.keyType.PutKey(string(event.Value))
-				} else {
-					if event.Typ != kvstore.EventTypeDelete {
-						log.WithFields(logrus.Fields{
-							logfields.Key:       event.Key,
-							logfields.EventType: event.Typ,
-						}).Error("Received a key with an empty value")
-						continue
-					}
+			if len(event.Value) > 0 {
+				key = k.keyType.PutKey(string(event.Value))
+			} else {
+				if event.Typ != kvstore.EventTypeDelete {
+					log.WithFields(logrus.Fields{
+						logfields.Key:       event.Key,
+						logfields.EventType: event.Typ,
+					}).Error("Received a key with an empty value")
+					continue
 				}
+			}
 
-				switch event.Typ {
-				case kvstore.EventTypeCreate, kvstore.EventTypeModify:
-					handler.OnUpsert(id, key)
+			switch event.Typ {
+			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+				handler.OnUpsert(id, key)
 
-				case kvstore.EventTypeDelete:
-					handler.OnDelete(id, key)
-				}
+			case kvstore.EventTypeDelete:
+				handler.OnDelete(id, key)
 			}
 		}
 	}
-
-abort:
-	watcher.Stop()
 }
