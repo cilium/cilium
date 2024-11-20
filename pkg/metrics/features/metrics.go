@@ -47,7 +47,8 @@ type Metrics struct {
 	ACLBExternalEnvoyProxyEnabled    metric.Vec[metric.Gauge]
 	ACLBCiliumNodeConfigEnabled      metric.Gauge
 
-	NPL3Ingested metric.Vec[metric.Counter]
+	NPL3Ingested     metric.Vec[metric.Counter]
+	NPHostNPIngested metric.Vec[metric.Counter]
 }
 
 const (
@@ -528,6 +529,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "l3_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPHostNPIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "Host Network Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "host_network_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {
