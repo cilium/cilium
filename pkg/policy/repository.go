@@ -140,6 +140,8 @@ type Repository struct {
 	secretManager certificatemanager.SecretManager
 
 	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+
+	metricsManager api.PolicyMetrics
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -174,8 +176,9 @@ func NewPolicyRepository(
 	idCache cache.IdentityCache,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
+	metricsManager api.PolicyMetrics,
 ) *Repository {
-	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager)
+	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager, metricsManager)
 	repo.Start()
 	return repo
 }
@@ -190,6 +193,7 @@ func NewStoppedPolicyRepository(
 	idCache cache.IdentityCache,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
+	metricsManager api.PolicyMetrics,
 ) *Repository {
 	selectorCache := NewSelectorCache(idAllocator, idCache)
 	repo := &Repository{
@@ -197,6 +201,7 @@ func NewStoppedPolicyRepository(
 		selectorCache:      selectorCache,
 		certManager:        certManager,
 		secretManager:      secretManager,
+		metricsManager:     metricsManager,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = NewPolicyCache(repo, true)
@@ -412,6 +417,7 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 
 	newList := make(ruleSlice, len(rules))
 	for i := range rules {
+		p.metricsManager.AddRule(*rules[i])
 		newRule := &rule{
 			Rule:     *rules[i],
 			metadata: newRuleMetadata(),
@@ -524,6 +530,7 @@ func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, ui
 		} else {
 			deletedRules = append(deletedRules, r)
 			deleted++
+			p.metricsManager.DelRule(r.Rule)
 		}
 	}
 

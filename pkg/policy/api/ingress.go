@@ -213,3 +213,16 @@ func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requireme
 func (i *IngressCommonRule) AllowsWildcarding() bool {
 	return len(i.FromRequires) == 0
 }
+
+// IsL3 returns true if the IngressCommonRule contains at least a rule that
+// affects L3 policy enforcement.
+func (in *IngressCommonRule) IsL3() bool {
+	if in == nil {
+		return false
+	}
+	return len(in.FromEndpoints) > 0 ||
+		len(in.FromRequires) > 0 ||
+		len(in.FromCIDR) > 0 ||
+		len(in.FromCIDRSet) > 0 ||
+		len(in.FromEntities) > 0
+}

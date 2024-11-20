@@ -220,7 +220,7 @@ func TestTranslate(t *testing.T) {
 
 func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	idAllocator := testidentity.NewMockIdentityAllocator(nil)
-	repo := policy.NewPolicyRepository(idAllocator, nil, nil, nil)
+	repo := policy.NewPolicyRepository(idAllocator, nil, nil, nil, api.NewPolicyMetricsNoop())
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
 	serviceInfo := ServiceID{
@@ -324,7 +324,7 @@ func (s *K8sSuite) TestServiceMatches(c *C) {
 
 func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	idAllocator := testidentity.NewMockIdentityAllocator(nil)
-	repo := policy.NewPolicyRepository(idAllocator, nil, nil, nil)
+	repo := policy.NewPolicyRepository(idAllocator, nil, nil, nil, api.NewPolicyMetricsNoop())
 	svcLabels := map[string]string{
 		"app": "tested-service",
 	}
