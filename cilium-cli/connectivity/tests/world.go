@@ -70,7 +70,7 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
-// PodToWorld2 sends an HTTPS request to cilium.io from from random client
+// PodToWorld2 sends an HTTPS request to ExternalOtherTarget from random client
 // Pods.
 func PodToWorld2() check.Scenario {
 	return &podToWorld2{}
@@ -84,7 +84,8 @@ func (s *podToWorld2) Name() string {
 }
 
 func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
-	https := check.HTTPEndpoint("cilium-io-https", "https://cilium.io.")
+	extTarget := t.Context().Params().ExternalOtherTarget
+	https := check.HTTPEndpoint(extTarget+"-https", "https://"+extTarget)
 
 	fp := check.FlowParameters{
 		DNSRequired: true,
@@ -96,7 +97,7 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 
 	for _, client := range ct.ClientPods() {
 		// With https, over port 443.
-		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
+		t.NewAction(s, fmt.Sprintf("https-%s-%d", extTarget, i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, ct.CurlCommand(https, features.IPFamilyAny))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 			a.ValidateMetrics(ctx, client, a.GetEgressMetricsRequirements())
