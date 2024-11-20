@@ -25,6 +25,7 @@ var Cell = cell.Module("metrics", "Metrics",
 	}),
 	cell.Provide(
 		newMetricsCommand,
+		newDebugCollector,
 	),
 )
 
