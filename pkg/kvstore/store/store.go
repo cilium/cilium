@@ -25,9 +25,6 @@ const (
 	// listTimeoutDefault is the default timeout to wait while performing
 	// the initial list operation of objects from the kvstore
 	listTimeoutDefault = 3 * time.Minute
-
-	// watcherChanSize is the size of the channel to buffer kvstore events
-	watcherChanSize = 100
 )
 
 var (
@@ -470,7 +467,7 @@ func (s *SharedStore) listAndStartWatcher() error {
 }
 
 func (s *SharedStore) watcher(listDone chan struct{}) {
-	kvstoreWatcher := s.backend.ListAndWatch(s.conf.Context, s.conf.Prefix, watcherChanSize)
+	kvstoreWatcher := s.backend.ListAndWatch(s.conf.Context, s.conf.Prefix)
 
 	for event := range kvstoreWatcher.Events {
 		if event.Typ == kvstore.EventTypeListDone {
