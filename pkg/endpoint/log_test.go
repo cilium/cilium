@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -23,7 +24,7 @@ func TestEndpointLogFormat(t *testing.T) {
 	setupEndpointSuite(t)
 
 	// Default log format is text
-	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
+	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, api.NewPolicyMetricsNoop())}
 	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	_, ok := ep.getLogger().Logger.Formatter.(*logrus.TextFormatter)
@@ -34,7 +35,7 @@ func TestEndpointLogFormat(t *testing.T) {
 	defer func() {
 		logging.SetLogFormat(logging.LogFormatText)
 	}()
-	do = &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
+	do = &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, api.NewPolicyMetricsNoop())}
 	ep = NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	_, ok = ep.getLogger().Logger.Formatter.(*logrus.JSONFormatter)
@@ -44,7 +45,7 @@ func TestEndpointLogFormat(t *testing.T) {
 func TestPolicyLog(t *testing.T) {
 	setupEndpointSuite(t)
 
-	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
+	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, api.NewPolicyMetricsNoop())}
 	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	// Initially nil

@@ -65,7 +65,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	}, nil, wg)
 	wg.Wait()
 
-	s.repo = policy.NewPolicyRepository(nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(nil, nil, nil, api.NewPolicyMetricsNoop())
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
 	s.dnsServer = setupServer(tb)
 	require.NotNil(tb, s.dnsServer, "unable to setup DNS server")

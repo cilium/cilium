@@ -74,6 +74,7 @@ type policyParams struct {
 	SecretManager   certificatemanager.SecretManager
 	CacheStatus     synced.CacheStatus
 	ClusterInfo     cmtypes.ClusterInfo
+	MetricsManager  policyAPI.PolicyMetrics
 }
 
 type policyOut struct {
@@ -114,6 +115,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.SecretManager,
+		params.MetricsManager,
 	)
 	repo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 

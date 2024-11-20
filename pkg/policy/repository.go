@@ -145,6 +145,8 @@ type Repository struct {
 	secretManager certificatemanager.SecretManager
 
 	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+
+	metricsManager api.PolicyMetrics
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -179,8 +181,9 @@ func NewPolicyRepository(
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
+	metricsManager api.PolicyMetrics,
 ) *Repository {
-	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager)
+	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager, metricsManager)
 	repo.Start()
 	return repo
 }
@@ -194,6 +197,7 @@ func NewStoppedPolicyRepository(
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
+	metricsManager api.PolicyMetrics,
 ) *Repository {
 	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
@@ -202,6 +206,7 @@ func NewStoppedPolicyRepository(
 		selectorCache:   selectorCache,
 		certManager:     certManager,
 		secretManager:   secretManager,
+		metricsManager:  metricsManager,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = NewPolicyCache(repo, true)
@@ -448,6 +453,7 @@ func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachety
 
 func (p *Repository) insert(r *rule) {
 	p.rules[r.key] = r
+	p.metricsManager.AddRule(r.Rule)
 	rid := r.key.resource
 	if len(rid) > 0 {
 		if p.rulesByResource[rid] == nil {
@@ -460,9 +466,11 @@ func (p *Repository) insert(r *rule) {
 }
 
 func (p *Repository) del(key ruleKey) {
-	if p.rules[key] == nil {
+	r := p.rules[key]
+	if r == nil {
 		return
 	}
+	p.metricsManager.DelRule(r.Rule)
 	delete(p.rules, key)
 
 	rid := key.resource
