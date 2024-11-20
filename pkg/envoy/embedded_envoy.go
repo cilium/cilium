@@ -275,6 +275,11 @@ func newEnvoyLogPiper() io.WriteCloser {
 			case "off", "critical", "error":
 				scopedLog.Error(msg)
 			case "warning":
+				// Demote expected warnings to info level
+				if strings.Contains(msg, "gRPC config: initial fetch timed out for") {
+					scopedLog.Info(msg)
+					continue
+				}
 				scopedLog.Warn(msg)
 			case "info":
 				scopedLog.Info(msg)
