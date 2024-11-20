@@ -42,7 +42,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	idcache := make(identity.IdentityMap, testfactor)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
-	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil, nil)
+	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil, nil, api.NewPolicyMetricsNoop())
 
 	defer func() {
 		repoChangeQueue := repo.GetRepositoryChangeQueue()

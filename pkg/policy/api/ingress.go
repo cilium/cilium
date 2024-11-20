@@ -284,6 +284,21 @@ func (e *IngressCommonRule) RequiresDerivative() bool {
 	return len(e.FromGroups) > 0
 }
 
+// IsL3 returns true if the IngressCommonRule contains at least a rule that
+// affects L3 policy enforcement.
+func (in *IngressCommonRule) IsL3() bool {
+	if in == nil {
+		return false
+	}
+	return len(in.FromEndpoints) > 0 ||
+		len(in.FromRequires) > 0 ||
+		len(in.FromCIDR) > 0 ||
+		len(in.FromCIDRSet) > 0 ||
+		len(in.FromEntities) > 0 ||
+		len(in.FromGroups) > 0 ||
+		len(in.FromNodes) > 0
+}
+
 // CreateDerivative will return a new rule based on the data gathered by the
 // rules that creates a new derivative policy.
 // In the case of FromGroups will call outside using the groups callback and this

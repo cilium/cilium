@@ -193,6 +193,8 @@ type Repository struct {
 	secretManager certificatemanager.SecretManager
 
 	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)
+
+	metricsManager api.PolicyMetrics
 }
 
 // Lock acquiers the lock of the whole policy tree.
@@ -251,8 +253,9 @@ func NewPolicyRepository(
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 	idmgr identitymanager.IDManager,
+	metricsManager api.PolicyMetrics,
 ) *Repository {
-	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager, idmgr)
+	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager, idmgr, metricsManager)
 	repo.Start()
 	return repo
 }
@@ -267,6 +270,7 @@ func NewStoppedPolicyRepository(
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 	idmgr identitymanager.IDManager,
+	metricsManager api.PolicyMetrics,
 ) *Repository {
 	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
@@ -276,6 +280,7 @@ func NewStoppedPolicyRepository(
 		selectorCache:    selectorCache,
 		certManager:      certManager,
 		secretManager:    secretManager,
+		metricsManager:   metricsManager,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = newPolicyCache(repo, idmgr)
@@ -522,6 +527,7 @@ func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachety
 
 func (p *Repository) insert(r *rule) {
 	p.rules[r.key] = r
+	p.metricsManager.AddRule(r.Rule)
 	if _, ok := p.rulesByNamespace[r.key.resource.Namespace()]; !ok {
 		p.rulesByNamespace[r.key.resource.Namespace()] = sets.New[ruleKey]()
 	}
@@ -538,9 +544,11 @@ func (p *Repository) insert(r *rule) {
 }
 
 func (p *Repository) del(key ruleKey) {
-	if p.rules[key] == nil {
+	r := p.rules[key]
+	if r == nil {
 		return
 	}
+	p.metricsManager.DelRule(r.Rule)
 	delete(p.rules, key)
 	p.rulesByNamespace[key.resource.Namespace()].Delete(key)
 	if len(p.rulesByNamespace[key.resource.Namespace()]) == 0 {
