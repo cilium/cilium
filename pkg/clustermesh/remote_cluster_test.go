@@ -45,7 +45,7 @@ type remoteEtcdClientWrapper struct {
 }
 
 // Override the ListAndWatch method so that we can track whether the synced canaries prefix has been watched.
-func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix string) *kvstore.Watcher {
+func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan {
 	if prefix == fmt.Sprintf("cilium/synced/%s/", w.name) {
 		w.syncedCanariesWatched = true
 	}
