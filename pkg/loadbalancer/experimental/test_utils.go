@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -225,6 +227,42 @@ func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, c
 		))
 	}
 	if err := lbmaps.DumpSourceRange(srcRangeCB); err != nil {
+		panic(err)
+	}
+
+	maglevCB := func(key lbmap.MaglevOuterKey, _ lbmap.MaglevOuterVal, _ lbmap.MaglevInnerKey, innerValue *lbmap.MaglevInnerVal, _ bool) {
+		key = lbmap.MaglevOuterKey{
+			RevNatID: byteorder.NetworkToHost16(key.RevNatID),
+		}
+		idCounts := make(map[loadbalancer.BackendID]int)
+		for _, backend := range innerValue.BackendIDs {
+			idCounts[backend]++
+		}
+		type idWithCount struct {
+			loadbalancer.BackendID
+			count int
+		}
+		var compactIDs []idWithCount
+		for id, count := range idCounts {
+			compactIDs = append(compactIDs, idWithCount{id, count})
+		}
+		slices.SortFunc(compactIDs, func(a, b idWithCount) int {
+			diff := a.count - b.count
+			if diff != 0 {
+				return -diff // Descending order by counts
+			}
+			return int(a.BackendID) - int(b.BackendID)
+		})
+		var ids []string
+		for _, idWithCount := range compactIDs {
+			ids = append(ids, fmt.Sprintf("%s(%d)", sanitizeID(idWithCount.BackendID, sanitizeIDs), idWithCount.count))
+		}
+		out = append(out, fmt.Sprintf("MAGLEV: ID=%s INNER=[%s]",
+			sanitizeID(byteorder.HostToNetwork16(key.RevNatID), sanitizeIDs),
+			strings.Join(ids, ", "),
+		))
+	}
+	if err := lbmaps.DumpMaglev(maglevCB); err != nil {
 		panic(err)
 	}
 

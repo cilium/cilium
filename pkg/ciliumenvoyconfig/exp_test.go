@@ -56,6 +56,7 @@ func TestScript(t *testing.T) {
 						EnableIPv6:        true,
 						SockRevNatEntries: 1000,
 						LBMapEntries:      1000,
+						MaglevTableSize:   1021,
 					}
 				},
 				func() *experimental.TestConfig {
