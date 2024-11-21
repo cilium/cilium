@@ -264,6 +264,25 @@ install-binary:
 
 install-bash-completion:
 
+# FORMAT_IMAGE ?= quay.io/cilium/cilium-clang-format:1731509078-96081ab
+FORMAT_IMAGE ?= local/cilium-clang-format:1731509078-96081ab
+format_files = $(shell find . -iname '*.c' -o -iname '*.h' | xargs -I '{}' echo "/app/{}" | paste -sd " " -)
+
+format:
+	$(CONTAINER_ENGINE) run --rm -it -v `pwd`:/app $(FORMAT_IMAGE) ./clang-format --style=file -i $(format_files)
+
+format-dry:
+	$(QUIET) rm -rf /tmp/clang-format-diff
+	$(QUIET) cp -r `pwd` /tmp/clang-format-diff
+	$(QUIET) $(CONTAINER_ENGINE) run --rm -t -v /tmp/clang-format-diff:/app $(FORMAT_IMAGE) ./clang-format --style=file -i $(format_files)
+	diff -bru --color . /tmp/clang-format-diff
+
+FORMAT_BIN_PATH ?= /usr/local/bin/clang-format
+format-local-install:
+	$(eval CID := $(shell $(CONTAINER_ENGINE) create $(FORMAT_IMAGE) ./clang-format))
+	sudo $(CONTAINER_ENGINE) cp $(CID):/clang-format $(FORMAT_BIN_PATH)
+	$(CONTAINER_ENGINE) rm $(CID)
+
 clean:
 	@$(ECHO_CLEAN)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \

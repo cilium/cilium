@@ -118,3 +118,18 @@ jobs:
       - name: Run BPF tests
         run: |
           make run_bpf_tests || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
+
+  format:
+    needs: [check_changes]
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.workflow-description == 'true' }}
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+       - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Run BPF tests
+        run: |
+          make -C bpf format-dry
