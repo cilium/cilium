@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -265,15 +266,24 @@ func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend)
 	identities = make(map[idpool.ID]allocator.AllocatorKey)
 	stopChan := make(chan struct{})
 
-	go kvstoreBackend.ListAndWatch(ctx, kvstoreListHandler{
-		onUpsert: func(id idpool.ID, key allocator.AllocatorKey) {
-			log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
-			identities[id] = key
-		},
-		onListDone: func() {
-			close(stopChan)
-		},
-	}, stopChan)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	// Make sure that the watcher terminated before returning, to prevent parallel
+	// modifications to the identities map afterwards.
+	defer wg.Wait()
+
+	go func() {
+		defer wg.Done()
+		kvstoreBackend.ListAndWatch(ctx, kvstoreListHandler{
+			onUpsert: func(id idpool.ID, key allocator.AllocatorKey) {
+				log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
+				identities[id] = key
+			},
+			onListDone: func() {
+				close(stopChan)
+			},
+		}, stopChan)
+	}()
 	// This makes the ListAndWatch exit after the initial listing or on a timeout
 	// that exits this function
 
