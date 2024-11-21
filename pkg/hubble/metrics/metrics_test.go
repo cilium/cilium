@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -84,7 +85,12 @@ func ConfigureAndFetchMetrics(t *testing.T, testName string, metricCfg []string,
 			Verdict:     pb.Verdict_DROPPED,
 			DropReason:  uint32(pb.DropReason_POLICY_DENIED),
 		}
-		api.ExecuteAllProcessFlow(context.TODO(), flow, &EnabledMetrics)
+
+		var err error
+		for _, nh := range EnabledMetrics {
+			err = errors.Join(err, nh.Handler.ProcessFlow(context.TODO(), flow))
+		}
+		require.NoError(t, err)
 
 		resp, err := http.Get("http://" + srv.Listener.Addr().String() + "/metrics")
 		require.NoError(t, err)

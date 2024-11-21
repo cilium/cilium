@@ -341,42 +341,55 @@ func (h *hubbleIntegration) launch(ctx context.Context) {
 
 	var srv *http.Server
 	if h.config.MetricsServer != "" {
-		if h.config.DynamicMetricConfigFilePath != "" && len(h.config.Metrics) > 0 {
-			h.log.Error("Cannot configure both static and dynamic Hubble metrics")
-		} else if h.config.DynamicMetricConfigFilePath != "" {
-			h.log.WithFields(logrus.Fields{
-				"address":      h.config.MetricsServer,
-				"metricConfig": h.config.DynamicMetricConfigFilePath,
-				"tls":          h.config.EnableMetricsServerTLS,
-			}).Info("Starting Hubble server with dynamically configurable metrics")
-
-			metrics.InitHubbleInternalMetrics(metrics.Registry, grpcMetrics)
-			dynamicFp := metrics.NewDynamicFlowProcessor(metrics.Registry, h.log, h.config.DynamicMetricConfigFilePath)
-			observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(dynamicFp))
-		} else if len(h.config.Metrics) > 0 {
-			h.log.WithFields(logrus.Fields{
-				"address": h.config.MetricsServer,
-				"metrics": h.config.Metrics,
-				"tls":     h.config.EnableMetricsServerTLS,
-			}).Info("Starting Hubble Metrics server")
-
-			err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(h.config.Metrics), grpcMetrics)
-			if err != nil {
-				h.log.WithError(err).Error("Unable to setup metrics: %w", err)
+		switch {
+		case h.config.DynamicMetricConfigFilePath != "" && len(h.config.Metrics) > 0:
+			{
+				h.log.Error("Cannot configure both static and dynamic Hubble metrics")
 				return
 			}
+		case h.config.DynamicMetricConfigFilePath != "":
+			{
+				h.log.WithFields(logrus.Fields{
+					"address":      h.config.MetricsServer,
+					"metricConfig": h.config.DynamicMetricConfigFilePath,
+					"tls":          h.config.EnableMetricsServerTLS,
+				}).Info("Starting Hubble server with dynamically configurable metrics")
 
-			observerOpts = append(observerOpts,
-				observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
-					if metrics.EnabledMetrics != nil {
-						err := api.ExecuteAllProcessFlow(ctx, flow, &metrics.EnabledMetrics)
-						if err != nil {
-							h.log.WithError(err).Error("Failed to ProcessFlow in metrics handler")
+				metrics.InitHubbleInternalMetrics(metrics.Registry, grpcMetrics)
+				dynamicFp := metrics.NewDynamicFlowProcessor(metrics.Registry, h.log, h.config.DynamicMetricConfigFilePath)
+				observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(dynamicFp))
+			}
+		case len(h.config.Metrics) > 0:
+			{
+				h.log.WithFields(logrus.Fields{
+					"address": h.config.MetricsServer,
+					"metrics": h.config.Metrics,
+					"tls":     h.config.EnableMetricsServerTLS,
+				}).Info("Starting Hubble Metrics server")
+
+				err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(h.config.Metrics), grpcMetrics)
+				if err != nil {
+					h.log.WithError(err).Error("Unable to setup metrics: %w", err)
+					return
+				}
+
+				observerOpts = append(observerOpts,
+					observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+						if metrics.EnabledMetrics != nil {
+							var errs error
+							for _, nh := range metrics.EnabledMetrics {
+								// Continue running the remaining metrics handlers, since one failing
+								// shouldn't impact the other metrics handlers.
+								errs = errors.Join(errs, nh.Handler.ProcessFlow(ctx, flow))
+							}
+							if errs != nil {
+								h.log.WithError(err).Error("Failed to ProcessFlow in metrics handler")
+							}
 						}
-					}
-					return false, nil
-				}),
-			)
+						return false, nil
+					}),
+				)
+			}
 		}
 
 		srv = &http.Server{
