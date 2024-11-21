@@ -65,11 +65,12 @@ func TestExporter(t *testing.T) {
 		assert.NoError(t, err)
 
 	}
+	//nolint: testifylint
 	assert.Equal(t, `{"flow":{"time":"1970-01-01T00:00:01Z","node_name":"my-node"},"node_name":"my-node","time":"1970-01-01T00:00:01Z"}
 {"agent_event":{},"node_name":"my-node","time":"1970-01-01T00:00:02Z"}
 {"debug_event":{},"node_name":"my-node","time":"1970-01-01T00:00:03Z"}
 {"lost_events":{},"node_name":"my-node","time":"1970-01-01T00:00:04Z"}
-`, buf.String()) //nolint: testifylint
+`, buf.String())
 }
 
 func TestExporterWithFilters(t *testing.T) {
@@ -278,9 +279,10 @@ func TestExporterWithFieldMask(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	//nolint: testifylint
 	assert.Equal(t, `{"flow":{"source":{"namespace":"nsA","pod_name":"podA"}}}
 {"flow":{}}
-`, buf.String()) //nolint: testifylint
+`, buf.String())
 }
 
 type boolOnExportEvent bool
@@ -365,6 +367,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 	assert.Falsef(t, hookNoOpFuncCalledAfterAbort, "hook no-op func was called after abort requested by previous hook")
 
 	// ensure that aborting OnExportEvent hook processing works (debug_event should not be exported)
+	//nolint: testifylint
 	assert.Equal(t, `{"Timestamp":{"seconds":3},"Event":{}}
 {"flow":{"time":"1970-01-01T00:00:01Z","node_name":"my-node"},"node_name":"my-node","time":"1970-01-01T00:00:01Z"}
 `, buf.String())
