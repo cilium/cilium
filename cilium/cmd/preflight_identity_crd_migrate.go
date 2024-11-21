@@ -95,7 +95,7 @@ func migrateIdentityCmd() *cobra.Command {
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
 func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
-	defer shutdowner.Shutdown(nil)
+	defer shutdowner.Shutdown()
 
 	// Setup global configuration
 	// These are defined in cilium/cmd/kvstore.go
