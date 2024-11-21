@@ -11,6 +11,7 @@ type RuleFeatures struct {
 	L3   bool
 	Host bool
 	DNS  bool
+	HTTP bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -34,6 +35,12 @@ func (m Metrics) AddRule(r api.Rule) {
 		}
 		m.NPDNSPresent.Inc()
 	}
+	if rf.HTTP {
+		if m.NPHTTPIngested.Get() == 0 {
+			m.NPHTTPIngested.Inc()
+		}
+		m.NPHTTPPresent.Inc()
+	}
 }
 
 func (m Metrics) DelRule(r api.Rule) {
@@ -48,6 +55,9 @@ func (m Metrics) DelRule(r api.Rule) {
 	if rf.DNS {
 		m.NPDNSPresent.Dec()
 	}
+	if rf.HTTP {
+		m.NPHTTPPresent.Dec()
+	}
 }
 
 func (rf *RuleFeatures) allFeaturesIngressCommon() bool {
@@ -59,7 +69,7 @@ func (rf *RuleFeatures) allFeaturesEgressCommon() bool {
 }
 
 func (rf *RuleFeatures) allFeaturesPortRules() bool {
-	return rf.DNS
+	return rf.DNS && rf.HTTP
 }
 
 func ruleTypeIngressCommon(rf *RuleFeatures, i api.IngressCommonRule) {
@@ -92,6 +102,9 @@ func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
 	for _, p := range portRules {
 		if p.Rules != nil && len(p.Rules.DNS) > 0 {
 			rf.DNS = true
+		}
+		if p.Rules != nil && len(p.Rules.HTTP) > 0 {
+			rf.HTTP = true
 		}
 		if rf.allFeaturesPortRules() {
 			break
