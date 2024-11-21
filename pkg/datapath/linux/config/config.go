@@ -540,10 +540,19 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	)
 	cDefinesMap["LB_SELECTION_RANDOM"] = fmt.Sprintf("%d", selectionRandom)
 	cDefinesMap["LB_SELECTION_MAGLEV"] = fmt.Sprintf("%d", selectionMaglev)
+	if option.Config.LoadBalancerAlgAnnotation {
+		cDefinesMap["LB_ALG_PER_SERVICE"] = "1"
+	}
 	if option.Config.NodePortAlg == option.NodePortAlgRandom {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
 	} else if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
+	}
+
+	// define maglev tables when loadbalancer algorith is maglev or config can
+	// be set by the Service annotation
+	if option.Config.LoadBalancerAlgAnnotation ||
+		option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", option.Config.MaglevTableSize)
 		if option.Config.EnableIPv6 {
 			cDefinesMap["LB6_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter6MapName

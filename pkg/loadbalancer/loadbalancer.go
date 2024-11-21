@@ -60,6 +60,24 @@ const (
 	SVCForwardingModeSNAT = SVCForwardingMode("snat")
 )
 
+type SVCLoadBalancingAlgo uint8
+
+const (
+	SVCLoadBalancingAlgoUndef  = 0
+	SVCLoadBalancingAlgoRandom = 1
+	SVCLoadBalancingAlgoMaglev = 2
+)
+
+func ToSVCLoadBalancingAlgo(s string) SVCLoadBalancingAlgo {
+	if s == option.NodePortAlgMaglev {
+		return SVCLoadBalancingAlgoMaglev
+	}
+	if s == option.NodePortAlgRandom {
+		return SVCLoadBalancingAlgoRandom
+	}
+	return SVCLoadBalancingAlgoUndef
+}
+
 // ServiceFlags is the datapath representation of the service flags that can be
 // used (lb{4,6}_service.flags)
 type ServiceFlags uint16
@@ -479,8 +497,9 @@ type SVC struct {
 	NatPolicy                 SVCNatPolicy      // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
-	HealthCheckNodePort       uint16      // Service health check node port
-	Name                      ServiceName // Fully qualified service name
+	HealthCheckNodePort       uint16               // Service health check node port
+	Name                      ServiceName          // Fully qualified service name
+	LoadBalancerAlgo          SVCLoadBalancingAlgo // Service LB algorithm (random or maglev)
 	LoadBalancerSourceRanges  []*cidr.CIDR
 	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 	LoopbackHostport          bool
