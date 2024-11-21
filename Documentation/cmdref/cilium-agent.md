@@ -43,6 +43,7 @@ cilium-agent [flags]
       --bpf-fragments-map-max int                                 Maximum number of entries in fragments tracking map (default 8192)
       --bpf-lb-acceleration string                                BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                   BPF load balancing algorithm ("random", "maglev") (default "random")
+      --bpf-lb-algorithm-annotation                               Tells whether controller should check service level annotation for configuring bpf load balancing algorithm.
       --bpf-lb-dsr-dispatch string                                BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")
       --bpf-lb-external-clusterip                                 Enable external access to ClusterIP services (default false)
       --bpf-lb-maglev-hash-seed string                            Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")

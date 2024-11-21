@@ -430,6 +430,7 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 	// apply common service properties
 	for i := range svcs {
 		svcs[i].ForwardingMode = svc.ForwardingMode
+		svcs[i].LoadBalancerAlgo = svc.LoadBalancerAlgo
 		svcs[i].ExtTrafficPolicy = svc.ExtTrafficPolicy
 		svcs[i].IntTrafficPolicy = svc.IntTrafficPolicy
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
@@ -566,6 +567,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
 			Annotations:               dpSvc.Annotations,
 			LoadBalancerSourceRanges:  dpSvc.LoadBalancerSourceRanges,
+			LoadBalancerAlgo:          dpSvc.LoadBalancerAlgo,
 			Name: loadbalancer.ServiceName{
 				Name:      svcID.Name,
 				Namespace: svcID.Namespace,

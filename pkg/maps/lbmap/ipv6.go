@@ -67,6 +67,7 @@ var _ RevNatKey = (*RevNat6Key)(nil)
 var _ RevNatValue = (*RevNat6Value)(nil)
 var _ ServiceKey = (*Service6Key)(nil)
 var _ ServiceValue = (*Service6Value)(nil)
+var _ ServiceValue = (*Service6ExtendedValue)(nil)
 var _ BackendKey = (*Backend6Key)(nil)
 var _ BackendValue = (*Backend6Value)(nil)
 var _ Backend = (*Backend6)(nil)
@@ -219,6 +220,11 @@ func (s *Service6Value) SetFlags(flags uint16) {
 	s.Flags2 = uint8(flags >> 8)
 }
 
+func (s *Service6Value) GetLbAlg() uint8 { return 0 }
+
+func (s *Service6Value) SetLbAlg(lb uint8) {
+}
+
 func (s *Service6Value) GetFlags() uint16 {
 	return (uint16(s.Flags2) << 8) | uint16(s.Flags)
 }
@@ -237,6 +243,7 @@ func (s *Service6Value) SetL7LBProxyPort(port uint16) {
 func (s *Service6Value) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)
 }
+
 func (s *Service6Value) GetBackendID() loadbalancer.BackendID {
 	return loadbalancer.BackendID(s.BackendID)
 }
@@ -249,6 +256,41 @@ func (s *Service6Value) ToNetwork() ServiceValue {
 
 // ToHost converts Service6Value to host byte order.
 func (s *Service6Value) ToHost() ServiceValue {
+	h := *s
+	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
+	return &h
+}
+
+// Service6ExtendedValue must match 'struct lb6_service' in "bpf/lib/common.h".
+type Service6ExtendedValue struct {
+	Service6Value
+	LbAlg uint8    `align:"lb_alg"`
+	Pad   [3]uint8 `align:"pad"`
+}
+
+func (s *Service6ExtendedValue) String() string {
+	sHost := s.ToHost().(*Service6ExtendedValue)
+	return fmt.Sprintf("%d %d[%d] (%d) [0x%x 0x%x] %d", sHost.BackendID, sHost.Count, sHost.QCount, sHost.RevNat, sHost.Flags, sHost.Flags2, s.LbAlg)
+}
+
+func (s *Service6ExtendedValue) GetLbAlg() uint8 {
+	return s.LbAlg
+}
+
+func (s *Service6ExtendedValue) SetLbAlg(lb uint8) {
+	s.LbAlg = lb
+}
+
+func (s *Service6ExtendedValue) New() bpf.MapValue { return &Service6ExtendedValue{} }
+
+func (s *Service6ExtendedValue) ToNetwork() ServiceValue {
+	n := *s
+	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
+	return &n
+}
+
+// ToHost converts Service6Value to host byte order.
+func (s *Service6ExtendedValue) ToHost() ServiceValue {
 	h := *s
 	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
 	return &h
