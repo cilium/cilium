@@ -16,7 +16,8 @@ func Test_ruleType(t *testing.T) {
 		r api.Rule
 	}
 	type metrics struct {
-		npL3Ingested float64
+		npL3Ingested  float64
+		npDNSIngested float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -160,6 +161,61 @@ func Test_ruleType(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "DNS rules",
+			args: args{
+				r: api.Rule{
+					Egress: []api.EgressRule{
+						{
+							ToPorts: api.PortRules{
+								{
+									Rules: &api.L7Rules{
+										DNS: []api.PortRuleDNS{
+											{
+												MatchName: "cilium.io",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: wanted{
+				wantRF: RuleFeatures{
+					DNS: true,
+				},
+				wantMetrics: metrics{
+					npDNSIngested: 1,
+				},
+			},
+		},
+		{
+			name: "FQDN rules",
+			args: args{
+				r: api.Rule{
+					Egress: []api.EgressRule{
+						{
+							ToFQDNs: api.FQDNSelectorSlice{
+								{
+									MatchName:    "cilium.io",
+									MatchPattern: "",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: wanted{
+				wantRF: RuleFeatures{
+					DNS: true,
+				},
+				wantMetrics: metrics{
+					npDNSIngested: 1,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -171,11 +227,15 @@ func Test_ruleType(t *testing.T) {
 
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionAdd).Get(), "NPL3Ingested different")
 			assert.Equalf(t, float64(0), metrics.NPL3Ingested.WithLabelValues(actionDel).Get(), "NPL3Ingested different")
+			assert.Equalf(t, tt.want.wantMetrics.npDNSIngested, metrics.NPDNSIngested.WithLabelValues(actionAdd).Get(), "NPDNSIngested different")
+			assert.Equalf(t, float64(0), metrics.NPDNSIngested.WithLabelValues(actionDel).Get(), "NPDNSIngested different")
 
 			metrics.DelRule(tt.args.r)
 
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionAdd).Get(), "NPL3Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionDel).Get(), "NPL3Ingested different")
+			assert.Equalf(t, tt.want.wantMetrics.npDNSIngested, metrics.NPDNSIngested.WithLabelValues(actionAdd).Get(), "NPDNSIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npDNSIngested, metrics.NPDNSIngested.WithLabelValues(actionDel).Get(), "NPDNSIngested different")
 		})
 	}
 }
