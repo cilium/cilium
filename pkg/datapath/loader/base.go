@@ -17,6 +17,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -297,6 +298,10 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 			return err
 		}
 	}
+
+	// Clean up the legacy cilium_calls_xdp path.
+	os.Remove(filepath.Join(bpf.TCGlobalsPath(), "cilium_calls_xdp"))
+
 	return nil
 }
 
