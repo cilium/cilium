@@ -36,11 +36,15 @@ var DefaultConfig = Config{
 // TestConfig are the configuration options for testing. Only provided by tests and not present in the agent.
 type TestConfig struct {
 	TestFaultProbability float32 `mapstructure:"lb-test-fault-probability"`
+
+	// NodePortAlg mirrors option.Config.NodePortAlg. This can be removed when the NodePort config
+	// flags move away from option.DaemonConfig and can thus be set directly.
+	NodePortAlg string `mapstructure:"node-port-algorithm"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
-	flags.MarkHidden("lb-test-fault-probability")
+	flags.String("node-port-algorithm", option.NodePortAlgRandom, "NodePort algorithm")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
@@ -49,6 +53,8 @@ type ExternalConfig struct {
 	ExternalClusterIP        bool
 	EnableSessionAffinity    bool
 	NodePortMin, NodePortMax uint16
+	NodePortAlg              string
+	MaglevTableSize          int
 }
 
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
@@ -57,5 +63,7 @@ func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 		EnableSessionAffinity: cfg.EnableSessionAffinity,
 		NodePortMin:           uint16(cfg.NodePortMin),
 		NodePortMax:           uint16(cfg.NodePortMax),
+		NodePortAlg:           cfg.NodePortAlg,
+		MaglevTableSize:       cfg.MaglevTableSize,
 	}
 }

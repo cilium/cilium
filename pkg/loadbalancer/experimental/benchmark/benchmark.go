@@ -66,6 +66,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 				AffinityMapMaxEntries:    3 * testSize,
 				SourceRangeMapMaxEntries: 3 * testSize,
 				MaglevMapMaxEntries:      3 * testSize,
+				MaglevTableSize:          1021,
 			},
 		}
 	} else {
