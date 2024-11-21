@@ -20,6 +20,8 @@ func Test_ruleType(t *testing.T) {
 		npL3L4Present    float64
 		npHostNPIngested float64
 		npHostNPPresent  float64
+		npDNSIngested    float64
+		npDNSPresent     float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -336,6 +338,63 @@ func Test_ruleType(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "DNS rules",
+			args: args{
+				r: api.Rule{
+					Egress: []api.EgressRule{
+						{
+							ToPorts: api.PortRules{
+								{
+									Rules: &api.L7Rules{
+										DNS: []api.PortRuleDNS{
+											{
+												MatchName: "cilium.io",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: wanted{
+				wantRF: RuleFeatures{
+					DNS: true,
+				},
+				wantMetrics: metrics{
+					npDNSIngested: 1,
+					npDNSPresent:  1,
+				},
+			},
+		},
+		{
+			name: "FQDN rules",
+			args: args{
+				r: api.Rule{
+					Egress: []api.EgressRule{
+						{
+							ToFQDNs: api.FQDNSelectorSlice{
+								{
+									MatchName:    "cilium.io",
+									MatchPattern: "",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: wanted{
+				wantRF: RuleFeatures{
+					DNS: true,
+				},
+				wantMetrics: metrics{
+					npDNSIngested: 1,
+					npDNSPresent:  1,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -349,6 +408,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npL3L4Present, metrics.NPL3L4Present.Get(), "NPL3L4Present different")
 			assert.Equalf(t, tt.want.wantMetrics.npHostNPIngested, metrics.NPHostNPIngested.Get(), "NPHostNPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHostNPPresent, metrics.NPHostNPPresent.Get(), "NPHostNPPresent different")
+			assert.Equalf(t, tt.want.wantMetrics.npDNSIngested, metrics.NPDNSIngested.Get(), "NPDNSIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npDNSPresent, metrics.NPDNSPresent.Get(), "NPDNSPresent different")
 
 			metrics.DelRule(tt.args.r)
 
@@ -356,6 +417,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPL3L4Present.Get(), "NPL3L4Present different")
 			assert.Equalf(t, tt.want.wantMetrics.npHostNPIngested, metrics.NPHostNPIngested.Get(), "NPHostNPIngested different")
 			assert.Equalf(t, float64(0), metrics.NPHostNPPresent.Get(), "NPHostNPPresent different")
+			assert.Equalf(t, tt.want.wantMetrics.npDNSIngested, metrics.NPDNSIngested.Get(), "NPHostNPIngested different")
+			assert.Equalf(t, float64(0), metrics.NPDNSPresent.Get(), "NPDNSPresent different")
 		})
 	}
 }

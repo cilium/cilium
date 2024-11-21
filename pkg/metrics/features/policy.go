@@ -10,6 +10,7 @@ import (
 type RuleFeatures struct {
 	L3   bool
 	Host bool
+	DNS  bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -27,6 +28,12 @@ func (m Metrics) AddRule(r api.Rule) {
 		}
 		m.NPHostNPPresent.Inc()
 	}
+	if rf.DNS {
+		if m.NPDNSIngested.Get() == 0 {
+			m.NPDNSIngested.Inc()
+		}
+		m.NPDNSPresent.Inc()
+	}
 }
 
 func (m Metrics) DelRule(r api.Rule) {
@@ -38,6 +45,9 @@ func (m Metrics) DelRule(r api.Rule) {
 	if rf.Host {
 		m.NPHostNPPresent.Dec()
 	}
+	if rf.DNS {
+		m.NPDNSPresent.Dec()
+	}
 }
 
 func (rf *RuleFeatures) allFeaturesIngressCommon() bool {
@@ -46,6 +56,10 @@ func (rf *RuleFeatures) allFeaturesIngressCommon() bool {
 
 func (rf *RuleFeatures) allFeaturesEgressCommon() bool {
 	return rf.L3 && rf.Host
+}
+
+func (rf *RuleFeatures) allFeaturesPortRules() bool {
+	return rf.DNS
 }
 
 func ruleTypeIngressCommon(rf *RuleFeatures, i api.IngressCommonRule) {
@@ -74,13 +88,27 @@ func ruleTypeEgressCommon(rf *RuleFeatures, e api.EgressCommonRule) {
 	}
 }
 
+func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
+	for _, p := range portRules {
+		if p.Rules != nil && len(p.Rules.DNS) > 0 {
+			rf.DNS = true
+		}
+		if rf.allFeaturesPortRules() {
+			break
+		}
+	}
+}
+
 func ruleType(r api.Rule) RuleFeatures {
 
 	var rf RuleFeatures
 
 	for _, i := range r.Ingress {
 		ruleTypeIngressCommon(&rf, i.IngressCommonRule)
-		if rf.allFeaturesIngressCommon() {
+		if !rf.allFeaturesPortRules() {
+			ruleTypePortRules(&rf, i.ToPorts)
+		}
+		if rf.allFeaturesIngressCommon() && rf.allFeaturesPortRules() {
 			break
 		}
 	}
@@ -94,10 +122,16 @@ func ruleType(r api.Rule) RuleFeatures {
 		}
 	}
 
-	if !(rf.allFeaturesEgressCommon()) {
+	if !(rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules()) {
 		for _, e := range r.Egress {
 			ruleTypeEgressCommon(&rf, e.EgressCommonRule)
-			if rf.allFeaturesEgressCommon() {
+			if !rf.allFeaturesPortRules() {
+				if len(e.ToFQDNs) > 0 {
+					rf.DNS = true
+				}
+				ruleTypePortRules(&rf, e.ToPorts)
+			}
+			if rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() {
 				break
 			}
 		}
