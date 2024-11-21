@@ -99,11 +99,6 @@ func RepinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 		pinned.ValueSize() == spec.ValueSize &&
 		pinned.Flags() == spec.Flags &&
 		pinned.MaxEntries() == spec.MaxEntries {
-		// cilium_calls_xdp is shared between XDP interfaces and should only be
-		// migrated if the existing map is incompatible.
-		if spec.Name == "cilium_calls_xdp" {
-			return nil
-		}
 		// Maps prefixed with cilium_calls_ should never be reused by subsequent ELF
 		// loads and should be migrated unconditionally.
 		if !strings.HasPrefix(spec.Name, "cilium_calls_") {
