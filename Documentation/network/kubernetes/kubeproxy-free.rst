@@ -1461,6 +1461,54 @@ externally accessible, see :ref:`External Access To ClusterIP Services <external
 section) also filter traffic based on the source IP addresses.
 This option can be enabled in Helm via ``bpf.lbSourceRangeAllTypes=true``.
 
+The ``loadBalancerSourceRanges`` by default specifies an allow-list of CIDRs,
+meaning, traffic originating not from those CIDRs is automatically dropped.
+
+Cilium also supports the option to turn this list into a deny-list, in order
+to block traffic from certain CIDRs while allowing everything else. This
+behavior can be achieved through the ``service.cilium.io/src-ranges-policy``
+annotation which accepts the values of ``allow`` or ``deny``.
+
+The default ``loadBalancerSourceRanges`` behavior equals to
+``service.cilium.io/src-ranges-policy: allow``:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+      service.cilium.io/src-ranges-policy: allow
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+    loadBalancerSourceRanges:
+    - 192.168.1.0/24
+
+In order to turn the CIDR list into a deny-list while allowing traffic not
+originating from this set, this can be changed into ``service.cilium.io/src-ranges-policy: deny``:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+      service.cilium.io/src-ranges-policy: deny
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+    loadBalancerSourceRanges:
+    - 192.168.1.0/24
+
 Service Proxy Name Configuration
 ********************************
 
