@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -39,6 +40,9 @@ func TestScript(t *testing.T) {
 
 	// pkg/k8s/endpoints.go uses this in ParseEndpointSlice*
 	option.Config.EnableK8sTerminatingEndpoint = true
+
+	maglevTableSize := 1021
+	require.NoError(t, maglev.Init(maglev.DefaultHashSeed, uint64(maglevTableSize)), "maglev.Init")
 
 	log := hivetest.Logger(t)
 	scripttest.Test(t,
@@ -56,12 +60,15 @@ func TestScript(t *testing.T) {
 					func(cfg TestConfig) *TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
 					statedb.RWTable[tables.NodeAddress].ToTable,
-					func() *option.DaemonConfig {
+					func(cfg TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:        true,
-							EnableIPv6:        true,
-							SockRevNatEntries: 1000,
-							LBMapEntries:      1000,
+							EnableIPv4:                   true,
+							EnableIPv6:                   true,
+							SockRevNatEntries:            1000,
+							LBMapEntries:                 1000,
+							NodePortAlg:                  cfg.NodePortAlg,
+							MaglevTableSize:              maglevTableSize,
+							EnableK8sTerminatingEndpoint: true,
 						}
 					},
 				),

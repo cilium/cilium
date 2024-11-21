@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/ebpf"
 )
@@ -29,6 +30,12 @@ func (m *MaglevOuterMap) UpdateService(id uint16, inner *MaglevInnerMap) error {
 type MaglevOuterKey struct {
 	RevNatID uint16
 }
+
+// New and String implement bpf.MapKey
+func (k *MaglevOuterKey) New() bpf.MapKey { return &MaglevOuterKey{} }
+func (k *MaglevOuterKey) String() string  { return fmt.Sprintf("%d", k.RevNatID) }
+
+var _ bpf.MapKey = &MaglevOuterKey{}
 
 // toNetwork converts a maglev outer map's key to network byte order.
 // The key is in network byte order in the eBPF maps.
