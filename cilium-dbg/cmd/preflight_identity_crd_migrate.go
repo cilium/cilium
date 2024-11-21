@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
@@ -53,11 +52,10 @@ func migrateIdentityCmd() *cobra.Command {
 
 	hive := hive.New(
 		k8sClient.Cell,
-		agentK8s.LocalNodeCell,
-		cell.Invoke(func(lc cell.Lifecycle, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources, shutdowner hive.Shutdowner) {
+		cell.Invoke(func(lc cell.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 			lc.Append(cell.Hook{
 				OnStart: func(ctx cell.HookContext) error {
-					return migrateIdentities(ctx, clientset, resources, shutdowner)
+					return migrateIdentities(ctx, clientset, shutdowner)
 				},
 			})
 		}),
@@ -96,7 +94,7 @@ func migrateIdentityCmd() *cobra.Command {
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
-func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources, shutdowner hive.Shutdowner) error {
+func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
 	defer shutdowner.Shutdown(nil)
 
 	// Setup global configuration
@@ -111,7 +109,7 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, reso
 	initCtx, initCancel := context.WithTimeout(ctx, opTimeout)
 	kvstoreBackend := initKVStore(ctx, initCtx)
 
-	crdBackend, crdAllocator := initK8s(initCtx, clientset, resources)
+	crdBackend, crdAllocator := initK8s(initCtx, clientset)
 	initCancel()
 
 	log.Info("Listing identities in kvstore")
@@ -205,12 +203,8 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, reso
 
 // initK8s connects to k8s with a allocator.Backend and an initialized
 // allocator.Allocator, using the k8s config passed into the command.
-func initK8s(ctx context.Context, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
+func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
-
-	if err := agentK8s.WaitForNodeInformation(ctx, log, resources.LocalNode, resources.LocalCiliumNode); err != nil {
-		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
-	}
 
 	// Update CRDs to ensure ciliumIdentity is present
 	ciliumClient.RegisterCRDs(clientset)
