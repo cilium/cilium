@@ -653,3 +653,114 @@ func TestNodeIpsetNATCmds(t *testing.T) {
 		assert.Equal(t, tt.expected, actual)
 	}
 }
+
+func TestAllEgressMasqueradeCmds(t *testing.T) {
+	allocRange := "10.0.0.0/16"
+	snatDstExclusionCIDR := "192.168.0.0/16"
+	tests := []struct {
+		masqueradeInterfaces []string
+		iptablesRandomFull   bool
+		expected             [][]string
+	}{
+		{
+			expected: [][]string{
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat", "!",
+					"-d", "192.168.0.0/16",
+					"-s", "10.0.0.0/16", "!",
+					"-o", "cilium_+",
+					"-m", "comment",
+					"--comment", "cilium masquerade non-cluster",
+					"-j", "MASQUERADE",
+				},
+			},
+		},
+		{
+			iptablesRandomFull: true,
+			expected: [][]string{
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat", "!",
+					"-d", "192.168.0.0/16",
+					"-s", "10.0.0.0/16", "!",
+					"-o", "cilium_+",
+					"-m", "comment",
+					"--comment", "cilium masquerade non-cluster",
+					"-j", "MASQUERADE",
+					"--random-fully",
+				},
+			},
+		},
+		{
+			masqueradeInterfaces: []string{"eth+"},
+			expected: [][]string{
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat", "!",
+					"-d", "192.168.0.0/16",
+					"-o", "eth+",
+					"-m", "comment",
+					"--comment", "cilium masquerade non-cluster",
+					"-j", "MASQUERADE",
+				},
+			},
+		},
+		{
+			masqueradeInterfaces: []string{"eth+", "ens+"},
+			expected: [][]string{
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat", "!",
+					"-d", "192.168.0.0/16",
+					"-o", "eth+",
+					"-m", "comment",
+					"--comment", "cilium masquerade non-cluster",
+					"-j", "MASQUERADE",
+				},
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat", "!",
+					"-d", "192.168.0.0/16",
+					"-o", "ens+",
+					"-m", "comment",
+					"--comment", "cilium masquerade non-cluster",
+					"-j", "MASQUERADE",
+				},
+			},
+		},
+		{
+			masqueradeInterfaces: []string{"eth+", "ens+"},
+			iptablesRandomFull:   true,
+			expected: [][]string{
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat", "!",
+					"-d", "192.168.0.0/16",
+					"-o", "eth+",
+					"-m", "comment",
+					"--comment", "cilium masquerade non-cluster",
+					"-j", "MASQUERADE",
+					"--random-fully",
+				},
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat", "!",
+					"-d", "192.168.0.0/16",
+					"-o", "ens+",
+					"-m", "comment",
+					"--comment", "cilium masquerade non-cluster",
+					"-j", "MASQUERADE",
+					"--random-fully",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		actual := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, tt.masqueradeInterfaces,
+			tt.iptablesRandomFull)
+
+		assert.Equal(t, tt.expected, actual)
+	}
+}
