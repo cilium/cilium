@@ -1297,30 +1297,12 @@ func (m *Manager) installMasqueradeRules(
 		//     range
 		// * Non-tunnel mode:
 		//   * May not be targeted to an IP in the cluster range
-		progArgs := []string{
-			"-t", "nat",
-			"-A", ciliumPostNatChain,
-			"!", "-d", snatDstExclusionCIDR,
-		}
-		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
-			progArgs = append(
-				progArgs,
-				"-o", strings.Join(m.sharedCfg.MasqueradeInterfaces, ","))
-		} else {
-			progArgs = append(
-				progArgs,
-				"-s", allocRange,
-				"!", "-o", "cilium_+")
-		}
-		progArgs = append(
-			progArgs,
-			"-m", "comment", "--comment", "cilium masquerade non-cluster",
-			"-j", "MASQUERADE")
-		if m.cfg.IPTablesRandomFully {
-			progArgs = append(progArgs, "--random-fully")
-		}
-		if err := prog.runProg(progArgs); err != nil {
-			return err
+		cmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, m.sharedCfg.MasqueradeInterfaces,
+			m.cfg.IPTablesRandomFully)
+		for _, cmd := range cmds {
+			if err := prog.runProg(cmd); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1819,3 +1801,39 @@ func nodeIpsetNATCmds(allocRange string, ipset string, masqueradeInterfaces []st
 	return cmds
 }
 
+func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string,
+	masqueradeInterfaces []string, iptablesRandomFully bool) [][]string {
+	preArgs := []string{
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"!", "-d", snatDstExclusionCIDR,
+	}
+
+	postArgs := []string{
+		"-m", "comment", "--comment", "cilium masquerade non-cluster",
+		"-j", "MASQUERADE",
+	}
+
+	if len(masqueradeInterfaces) == 0 {
+		cmd := append(preArgs,
+			"-s", allocRange,
+			"!", "-o", "cilium_+",
+		)
+		cmd = append(cmd, postArgs...)
+		if iptablesRandomFully {
+			cmd = append(cmd, "--random-fully")
+		}
+		return [][]string{cmd}
+	}
+
+	cmds := make([][]string, 0, len(masqueradeInterfaces))
+	for _, inf := range masqueradeInterfaces {
+		cmd := append(preArgs, "-o", inf)
+		cmd = append(cmd, postArgs...)
+		if iptablesRandomFully {
+			cmd = append(cmd, "--random-fully")
+		}
+		cmds = append(cmds, cmd)
+	}
+	return cmds
+}
