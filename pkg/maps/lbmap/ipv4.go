@@ -70,14 +70,26 @@ func initSVC(params InitParams) {
 	RevNatMapMaxEntries = params.RevNatMapMaxEntries
 
 	if params.IPv4 {
-		Service4MapV2 = bpf.NewMap(Service4MapV2Name,
-			ebpf.Hash,
-			&Service4Key{},
-			&Service4Value{},
-			ServiceMapMaxEntries,
-			0,
-		).WithCache().WithPressureMetric().
-			WithEvents(option.Config.GetEventBufferConfig(Service4MapV2Name))
+		if params.PerSvcLbEnabled {
+			Service4MapV2 = bpf.NewMap(Service4MapV2Name,
+				ebpf.Hash,
+				&Service4Key{},
+				&Service4ExtendedValue{},
+				ServiceMapMaxEntries,
+				0,
+			).WithCache().WithPressureMetric().
+				WithEvents(option.Config.GetEventBufferConfig(Service4MapV2Name))
+		} else {
+			Service4MapV2 = bpf.NewMap(Service4MapV2Name,
+				ebpf.Hash,
+				&Service4Key{},
+				&Service4Value{},
+				ServiceMapMaxEntries,
+				0,
+			).WithCache().WithPressureMetric().
+				WithEvents(option.Config.GetEventBufferConfig(Service4MapV2Name))
+		}
+
 		Backend4Map = bpf.NewMap(Backend4MapName,
 			ebpf.Hash,
 			&Backend4Key{},
@@ -113,14 +125,27 @@ func initSVC(params InitParams) {
 	}
 
 	if params.IPv6 {
-		Service6MapV2 = bpf.NewMap(Service6MapV2Name,
-			ebpf.Hash,
-			&Service6Key{},
-			&Service6Value{},
-			ServiceMapMaxEntries,
-			0,
-		).WithCache().WithPressureMetric().
-			WithEvents(option.Config.GetEventBufferConfig(Service6MapV2Name))
+		if params.PerSvcLbEnabled {
+			Service6MapV2 = bpf.NewMap(Service6MapV2Name,
+				ebpf.Hash,
+				&Service6Key{},
+				&Service6ExtendedValue{},
+				ServiceMapMaxEntries,
+				0,
+			).WithCache().WithPressureMetric().
+				WithEvents(option.Config.GetEventBufferConfig(Service6MapV2Name))
+
+		} else {
+			Service6MapV2 = bpf.NewMap(Service6MapV2Name,
+				ebpf.Hash,
+				&Service6Key{},
+				&Service6Value{},
+				ServiceMapMaxEntries,
+				0,
+			).WithCache().WithPressureMetric().
+				WithEvents(option.Config.GetEventBufferConfig(Service6MapV2Name))
+
+		}
 		Backend6Map = bpf.NewMap(Backend6MapName,
 			ebpf.Hash,
 			&Backend6Key{},
@@ -161,6 +186,7 @@ var _ RevNatKey = (*RevNat4Key)(nil)
 var _ RevNatValue = (*RevNat4Value)(nil)
 var _ ServiceKey = (*Service4Key)(nil)
 var _ ServiceValue = (*Service4Value)(nil)
+var _ ServiceValue = (*Service4ExtendedValue)(nil)
 var _ BackendKey = (*Backend4Key)(nil)
 var _ BackendKey = (*Backend4KeyV3)(nil)
 var _ BackendValue = (*Backend4Value)(nil)
@@ -344,6 +370,13 @@ func (s *Service4Value) GetBackendID() loadbalancer.BackendID {
 	return loadbalancer.BackendID(s.BackendID)
 }
 
+func (s *Service4Value) GetLbAlg() uint8 {
+	return 0
+}
+
+func (s *Service4Value) SetLbAlg(lb uint8) {
+}
+
 func (s *Service4Value) ToNetwork() ServiceValue {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
@@ -352,6 +385,41 @@ func (s *Service4Value) ToNetwork() ServiceValue {
 
 // ToHost converts Service4Value to host byte order.
 func (s *Service4Value) ToHost() ServiceValue {
+	h := *s
+	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
+	return &h
+}
+
+// Service4ExtendedValue must match 'struct lb4_service' in "bpf/lib/common.h" with LB_ALG_PER_SERVICE set.
+type Service4ExtendedValue struct {
+	Service4Value
+	LbAlg uint8    `align:"lb_alg"`
+	Pad   [3]uint8 `align:"pad"`
+}
+
+func (s *Service4ExtendedValue) New() bpf.MapValue { return &Service4ExtendedValue{} }
+
+func (s *Service4ExtendedValue) String() string {
+	sHost := s.ToHost().(*Service4ExtendedValue)
+	return fmt.Sprintf("%d %d[%d] (%d) [0x%x 0x%x] %d", sHost.BackendID, sHost.Count, sHost.QCount, sHost.RevNat, sHost.Flags, sHost.Flags2, s.LbAlg)
+}
+
+func (s *Service4ExtendedValue) GetLbAlg() uint8 {
+	return s.LbAlg
+}
+
+func (s *Service4ExtendedValue) SetLbAlg(lb uint8) {
+	s.LbAlg = lb
+}
+
+func (s *Service4ExtendedValue) ToNetwork() ServiceValue {
+	n := *s
+	n.RevNat = byteorder.HostToNetwork16(n.RevNat)
+	return &n
+}
+
+// ToHost converts Service4ExtendedValue to host byte order.
+func (s *Service4ExtendedValue) ToHost() ServiceValue {
 	h := *s
 	h.RevNat = byteorder.NetworkToHost16(h.RevNat)
 	return &h

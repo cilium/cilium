@@ -76,6 +76,17 @@ func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) loadbalancer.S
 
 	return loadbalancer.SVCForwardingModeSNAT
 }
+func getAnnotationServiceLoadBalancingAlgo(svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgo, error) {
+	if value, ok := annotation.Get(svc, annotation.ServiceLoadBalancingAlgo); ok {
+		val := loadbalancer.ToSVCLoadBalancingAlgo(strings.ToLower(value))
+		if val != loadbalancer.SVCLoadBalancingAlgoUndef {
+			return val, nil
+		}
+		return loadbalancer.ToSVCLoadBalancingAlgo(option.Config.NodePortAlg), fmt.Errorf("Value %q is not supported for %q", val, annotation.ServiceLoadBalancingAlgo)
+	}
+
+	return loadbalancer.ToSVCLoadBalancingAlgo(option.Config.NodePortAlg), nil
+}
 
 func getTopologyAware(svc *slim_corev1.Service) bool {
 	return getAnnotationTopologyAwareHints(svc) ||
@@ -249,6 +260,16 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 	svcInfo.ForwardingMode = getAnnotationServiceForwardingMode(svc)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.ServiceAffinity = getAnnotationServiceAffinity(svc)
+
+	if option.Config.LoadBalancerAlgAnnotation {
+		var err error
+		svcInfo.LoadBalancerAlgo, err = getAnnotationServiceLoadBalancingAlgo(svc)
+		if err != nil {
+			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v", annotation.ServiceLoadBalancingAlgo, svcInfo.LoadBalancerAlgo)
+		}
+	} else {
+		svcInfo.LoadBalancerAlgo = loadbalancer.ToSVCLoadBalancingAlgo(option.Config.NodePortAlg)
+	}
 
 	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {
 		svcInfo.SessionAffinity = true
@@ -425,6 +446,9 @@ type Service struct {
 	// manually.
 	// +deepequal-gen=false
 	K8sExternalIPs map[string]net.IP
+
+	// LoadBalancerAlgo indicates which backend selection algorithm to use.
+	LoadBalancerAlgo loadbalancer.SVCLoadBalancingAlgo
 
 	// LoadBalancerIPs stores LB IPs assigned to the service (string(IP) => IP).
 	//

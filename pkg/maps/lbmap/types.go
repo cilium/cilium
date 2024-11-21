@@ -106,6 +106,12 @@ type ServiceValue interface {
 
 	// ToHost converts fields to host byte order.
 	ToHost() ServiceValue
+
+	// Set LoadBalancing Algorithm for Service
+	SetLbAlg(uint8)
+
+	// Get LoadBalancing Algorithm for Service
+	GetLbAlg() uint8
 }
 
 // BackendKey is the interface describing protocol independent backend key.

@@ -229,6 +229,9 @@ func (in *Service) deepEqual(other *Service) bool {
 		}
 	}
 
+	if in.LoadBalancerAlgo != other.LoadBalancerAlgo {
+		return false
+	}
 	if ((in.LoadBalancerSourceRanges != nil) && (other.LoadBalancerSourceRanges != nil)) || ((in.LoadBalancerSourceRanges == nil) != (other.LoadBalancerSourceRanges == nil)) {
 		in, other := &in.LoadBalancerSourceRanges, &other.LoadBalancerSourceRanges
 		if other == nil {

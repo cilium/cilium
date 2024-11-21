@@ -144,7 +144,8 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
-		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+		if option.Config.NodePortAlg == option.NodePortAlgMaglev ||
+			option.Config.LoadBalancerAlgAnnotation {
 			// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
 			// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
 			// backends." (from Maglev paper, page 6)

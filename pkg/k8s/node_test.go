@@ -344,8 +344,11 @@ func Test_ParseNodeAddressType(t *testing.T) {
 func TestParseNodeWithService(t *testing.T) {
 	prevAnnotateK8sNode := option.Config.AnnotateK8sNode
 	option.Config.AnnotateK8sNode = false
+	oldDefaultLbAlg := option.Config.NodePortAlg
+	option.Config.NodePortAlg = option.NodePortAlgRandom
 	defer func() {
 		option.Config.AnnotateK8sNode = prevAnnotateK8sNode
+		option.Config.NodePortAlg = oldDefaultLbAlg
 	}()
 
 	k8sNode := &slim_corev1.Node{
@@ -410,6 +413,7 @@ func TestParseNodeWithService(t *testing.T) {
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		LoadBalancerAlgo:         loadbalancer.SVCLoadBalancingAlgoRandom,
 		Type:                     loadbalancer.SVCTypeClusterIP,
 		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 	}, svc)
