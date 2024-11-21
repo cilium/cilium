@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumClient "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
@@ -206,10 +205,6 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 // allocator.Allocator, using the k8s config passed into the command.
 func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
-
-	if err := k8s.WaitForNodeInformation(ctx, clientset); err != nil {
-		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
-	}
 
 	// Update CRDs to ensure ciliumIdentity is present
 	ciliumClient.RegisterCRDs(clientset)
