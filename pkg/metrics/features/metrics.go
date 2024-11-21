@@ -46,6 +46,7 @@ type Metrics struct {
 
 	NPL3Ingested     metric.Vec[metric.Counter]
 	NPHostNPIngested metric.Vec[metric.Counter]
+	NPDNSIngested    metric.Vec[metric.Counter]
 }
 
 const (
@@ -520,6 +521,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "host_network_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPDNSIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "DNS Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "dns_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {
