@@ -109,7 +109,7 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, reso
 
 	// Init Identity backends
 	initCtx, initCancel := context.WithTimeout(ctx, opTimeout)
-	kvstoreBackend := initKVStore(initCtx)
+	kvstoreBackend := initKVStore(ctx, initCtx)
 
 	crdBackend, crdAllocator := initK8s(initCtx, clientset, resources)
 	initCancel()
@@ -248,9 +248,13 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset, resources agent
 
 // initKVStore connects to the kvstore with a allocator.Backend, initialised to
 // find identities at the default cilium paths.
-func initKVStore(ctx context.Context) (kvstoreBackend allocator.Backend) {
+func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 	log.Info("Setting up kvstore client")
 	setupKvstore(ctx)
+
+	if err := <-kvstore.Client().Connected(wctx); err != nil {
+		log.WithError(err).Fatal("Cannot connect to the kvstore")
+	}
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
 	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, idPath, &cacheKey.GlobalIdentity{}, kvstore.Client())
