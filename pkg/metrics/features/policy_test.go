@@ -16,14 +16,16 @@ func Test_ruleType(t *testing.T) {
 		r api.Rule
 	}
 	type metrics struct {
-		npL3L4Ingested   float64
-		npL3L4Present    float64
-		npHostNPIngested float64
-		npHostNPPresent  float64
-		npDNSIngested    float64
-		npDNSPresent     float64
-		npHTTPIngested   float64
-		npHTTPPresent    float64
+		npL3L4Ingested              float64
+		npL3L4Present               float64
+		npHostNPIngested            float64
+		npHostNPPresent             float64
+		npDNSIngested               float64
+		npDNSPresent                float64
+		npHTTPIngested              float64
+		npHTTPPresent               float64
+		npHTTPHeaderMatchesIngested float64
+		npHTTPHeaderMatchesPresent  float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -455,6 +457,78 @@ func Test_ruleType(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "HTTP matches ingress rules",
+			args: args{
+				r: api.Rule{
+					Ingress: []api.IngressRule{
+						{
+							ToPorts: api.PortRules{
+								{
+									Rules: &api.L7Rules{
+										HTTP: []api.PortRuleHTTP{
+											{
+												HeaderMatches: []*api.HeaderMatch{
+													{},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: wanted{
+				wantRF: RuleFeatures{
+					HTTP:              true,
+					HTTPHeaderMatches: true,
+				},
+				wantMetrics: metrics{
+					npHTTPIngested:              1,
+					npHTTPPresent:               1,
+					npHTTPHeaderMatchesIngested: 1,
+					npHTTPHeaderMatchesPresent:  1,
+				},
+			},
+		},
+		{
+			name: "HTTP matches egress rules",
+			args: args{
+				r: api.Rule{
+					Egress: []api.EgressRule{
+						{
+							ToPorts: api.PortRules{
+								{
+									Rules: &api.L7Rules{
+										HTTP: []api.PortRuleHTTP{
+											{
+												HeaderMatches: []*api.HeaderMatch{
+													{},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: wanted{
+				wantRF: RuleFeatures{
+					HTTP:              true,
+					HTTPHeaderMatches: true,
+				},
+				wantMetrics: metrics{
+					npHTTPIngested:              1,
+					npHTTPPresent:               1,
+					npHTTPHeaderMatchesIngested: 1,
+					npHTTPHeaderMatchesPresent:  1,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -472,6 +546,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npDNSPresent, metrics.NPDNSPresent.Get(), "NPDNSPresent different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPIngested, metrics.NPHTTPIngested.Get(), "NPDNSIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPPresent, metrics.NPHTTPPresent.Get(), "NPDNSPresent different")
+			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.Get(), "NPHTTPHeaderMatchesIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesPresent, metrics.NPHTTPHeaderMatchesPresent.Get(), "NPHTTPHeaderMatchesPresent different")
 
 			metrics.DelRule(tt.args.r)
 
@@ -483,6 +559,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPDNSPresent.Get(), "NPDNSPresent different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPIngested, metrics.NPHTTPIngested.Get(), "NPHTTPIngested different")
 			assert.Equalf(t, float64(0), metrics.NPHTTPPresent.Get(), "NPHTTPPresent different")
+			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.Get(), "NPHTTPHeaderMatchesIngested different")
+			assert.Equalf(t, float64(0), metrics.NPHTTPHeaderMatchesPresent.Get(), "NPHTTPHeaderMatchesPresent different")
 
 		})
 	}

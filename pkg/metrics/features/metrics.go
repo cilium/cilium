@@ -47,14 +47,16 @@ type Metrics struct {
 	ACLBCiliumNodeConfigEnabled      metric.Gauge
 	ACLBSRv6Enabled                  metric.Gauge
 
-	NPL3L4Ingested   metric.Counter
-	NPL3L4Present    metric.Gauge
-	NPHostNPIngested metric.Counter
-	NPHostNPPresent  metric.Gauge
-	NPDNSIngested    metric.Counter
-	NPDNSPresent     metric.Gauge
-	NPHTTPIngested   metric.Counter
-	NPHTTPPresent    metric.Gauge
+	NPL3L4Ingested              metric.Counter
+	NPL3L4Present               metric.Gauge
+	NPHostNPIngested            metric.Counter
+	NPHostNPPresent             metric.Gauge
+	NPDNSIngested               metric.Counter
+	NPDNSPresent                metric.Gauge
+	NPHTTPIngested              metric.Counter
+	NPHTTPPresent               metric.Gauge
+	NPHTTPHeaderMatchesIngested metric.Counter
+	NPHTTPHeaderMatchesPresent  metric.Gauge
 }
 
 const (
@@ -576,6 +578,20 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "http_policies_present",
+		}),
+
+		NPHTTPHeaderMatchesIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "HTTP HeaderMatches Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "http_header_matches_policies_ingested",
+		}),
+
+		NPHTTPHeaderMatchesPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "HTTP HeaderMatches Policies are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "http_header_matches_policies_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
