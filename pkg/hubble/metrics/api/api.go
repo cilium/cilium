@@ -5,7 +5,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -75,17 +74,19 @@ type Handler interface {
 func InitHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in *[]NamedHandler) (*[]NamedHandler, error) {
 	var handlers []NamedHandler
 	for _, item := range *in {
-		InitHandler(log, registry, &item, &handlers)
+		if err := InitHandler(log, registry, &item); err != nil {
+			return nil, err
+		}
+		handlers = append(handlers, item)
 	}
 	return &handlers, nil
 }
 
-func InitHandler(log logrus.FieldLogger, registry *prometheus.Registry, item *NamedHandler, handlers *[]NamedHandler) error {
+func InitHandler(log logrus.FieldLogger, registry *prometheus.Registry, item *NamedHandler) error {
 	if err := item.Handler.Init(registry, item.MetricConfig); err != nil {
 		return fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
 	}
 
-	*handlers = append(*handlers, *item)
 	log.WithFields(logrus.Fields{
 		"name":   item.Name,
 		"status": item.Handler.Status(),
@@ -94,22 +95,10 @@ func InitHandler(log logrus.FieldLogger, registry *prometheus.Registry, item *Na
 	return nil
 }
 
-// ExecuteAllProcessFlow processes a flow by calling ProcessFlow on all enabled
-// metric handlers
-func ExecuteAllProcessFlow(ctx context.Context, flow *pb.Flow, handlers *[]NamedHandler) error {
-	var errs error
-	for _, nh := range *handlers {
-		// Continue running the remaining metrics handlers, since one failing
-		// shouldn't impact the other metrics handlers.
-		errs = errors.Join(errs, nh.Handler.ProcessFlow(ctx, flow))
-	}
-	return errs
-}
-
 // ProcessCiliumEndpointDeletion queries all handlers for a list of MetricVec and removes
 // metrics directly associated to pod of the deleted cilium endpoint.
-func ProcessCiliumEndpointDeletion(endpoint *types.CiliumEndpoint, handlers *[]NamedHandler) {
-	for _, h := range *handlers {
+func ProcessCiliumEndpointDeletion(endpoint *types.CiliumEndpoint, handlers []NamedHandler) {
+	for _, h := range handlers {
 		for _, mv := range h.Handler.ListMetricVec() {
 			if ctx := h.Handler.Context(); ctx != nil {
 				ctx.DeleteMetricsAssociatedWithPod(endpoint.GetName(), endpoint.GetNamespace(), mv)
@@ -136,7 +125,7 @@ type ContextOptionConfig struct {
 }
 
 // MetricConfig represents a Hubble metric, its options and which resources it applies to.
-// It can hold data parsed from the "hubble-dyn-metrics-config" K8S ConfigMap.
+// It can hold data parsed from the "hubble-dynamic-metrics-config" K8S ConfigMap.
 type MetricConfig struct {
 	// Name of the metric
 	Name                 string                 `json:"name,omitempty" yaml:"name,omitempty"`

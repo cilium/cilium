@@ -93,7 +93,7 @@ func (c *metricConfigWatcher) Stop() {
 	if c.ticker != nil {
 		c.ticker.Stop()
 	}
-	c.stop <- true
+	close(c.stop)
 }
 
 func (c *metricConfigWatcher) readConfig() (*api.Config, bool, uint64, error) {
