@@ -312,7 +312,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	option.BindEnv(vp, option.DisableCiliumEndpointCRDName)
 
-	flags.StringSlice(option.MasqueradeInterfaces, []string{}, "Limit iptables-based egress masquerading to interface selector")
+	flags.String(option.MasqueradeInterfaces, "", "Limit iptables-based egress masquerading to interfaces selector")
 	option.BindEnv(vp, option.MasqueradeInterfaces)
 
 	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
