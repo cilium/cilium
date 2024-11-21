@@ -97,13 +97,21 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 		identityHandlers: params.IdentityHandlers,
 	}
 
-	allocatorConfig := cache.AllocatorConfig{
-		EnableOperatorManageCIDs: params.Config.EnableOperatorManageCIDs,
-	}
+	var idAlloc CachingIdentityAllocator
 
-	// Allocator: allocates local and cluster-wide security identities.
-	idAlloc := cache.NewCachingIdentityAllocator(iao, allocatorConfig)
-	idAlloc.EnableCheckpointing()
+	if netPolicySystemIsEnabled(option.Config) {
+		allocatorConfig := cache.AllocatorConfig{
+			EnableOperatorManageCIDs: params.Config.EnableOperatorManageCIDs,
+		}
+
+		// Allocator: allocates local and cluster-wide security identities.
+		cacheIDAlloc := cache.NewCachingIdentityAllocator(iao, allocatorConfig)
+		cacheIDAlloc.EnableCheckpointing()
+
+		idAlloc = cacheIDAlloc
+	} else {
+		idAlloc = cache.NewNoopIdentityAllocator()
+	}
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStop: func(hc cell.HookContext) error {
