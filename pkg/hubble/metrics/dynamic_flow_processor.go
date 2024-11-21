@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,7 +32,7 @@ type DynamicFlowProcessor struct {
 func (d *DynamicFlowProcessor) OnDecodedFlow(ctx context.Context, flow *flowpb.Flow) (bool, error) {
 	select {
 	case <-ctx.Done():
-		return false, nil
+		return false, d.Stop()
 	default:
 	}
 
@@ -40,13 +41,32 @@ func (d *DynamicFlowProcessor) OnDecodedFlow(ctx context.Context, flow *flowpb.F
 
 	var errs error
 	if d.Metrics != nil {
-		errs = api.ExecuteAllProcessFlow(ctx, flow, &d.Metrics)
+		for _, nh := range d.Metrics {
+			// Continue running the remaining metrics handlers, since one failing
+			// shouldn't impact the other metrics handlers.
+			errs = errors.Join(errs, nh.Handler.ProcessFlow(ctx, flow))
+		}
 	}
 
 	if errs != nil {
 		d.logger.WithError(errs).Error("Failed to ProcessFlow in metrics handler")
 	}
 	return false, errs
+}
+
+// Stop stops configuration watcher  and all deinitializes all metric handlers.
+func (d *DynamicFlowProcessor) Stop() error {
+	d.watcher.Stop()
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	var errs error
+	for _, h := range d.Metrics {
+		errs = errors.Join(errs, h.Handler.Deinit(d.registry))
+	}
+
+	return errs
 }
 
 // NewDynamicFlowProcessor creates instance of dynamic hubble flow exporter.
@@ -94,15 +114,12 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, 
 		if m, ok := curHandlerMap[cm.Name]; ok {
 			if reflect.DeepEqual(*m.MetricConfig, *cm) {
 				continue
-			} else {
-				if h, ok := curHandlerMap[cm.Name]; ok {
-					err := h.Handler.HandleConfigurationUpdate(cm)
-					if err != nil {
-						d.logger.WithField("name", cm.Name).WithError(err).Error("HandleConfigurationUpdate failed for handler")
-					}
-					h.MetricConfig = cm
-				}
 			}
+			err := m.Handler.HandleConfigurationUpdate(cm)
+			if err != nil {
+				d.logger.WithField("name", cm.Name).WithError(err).Error("HandleConfigurationUpdate failed for handler")
+			}
+			m.MetricConfig = cm
 		} else {
 			// New handler found in config.
 			d.addNewMetric(d.registry, cm, metricNames, &newHandlers)
@@ -126,10 +143,13 @@ func (d *DynamicFlowProcessor) addNewMetric(reg *prometheus.Registry, cm *api.Me
 		return
 	}
 
-	err = api.InitHandler(d.logger, reg, nh, newMetrics)
+	err = api.InitHandler(d.logger, reg, nh)
 	if err != nil {
 		d.logger.WithFields(logrus.Fields{
 			"metric name": cm.Name,
 		}).WithError(err).Error("Failed to configure metrics plugin")
+
+		return
 	}
+	*newMetrics = append(*newMetrics, *nh)
 }
