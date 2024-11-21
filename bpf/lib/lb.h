@@ -592,6 +592,7 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 {
 #ifdef ENABLE_SRC_RANGE_CHECK
 	struct lb6_src_range_key key;
+	bool verdict = false;
 
 	if (!lb6_svc_has_src_range_check(svc))
 		return true;
@@ -603,9 +604,9 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 	};
 
 	if (map_lookup_elem(&LB6_SRC_RANGE_MAP, &key))
-		return true;
+		verdict = true;
 
-	return false;
+	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
 #else
 	return true;
 #endif /* ENABLE_SRC_RANGE_CHECK */
@@ -1297,6 +1298,7 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 {
 #ifdef ENABLE_SRC_RANGE_CHECK
 	struct lb4_src_range_key key;
+	bool verdict = false;
 
 	if (!lb4_svc_has_src_range_check(svc))
 		return true;
@@ -1308,9 +1310,9 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 	};
 
 	if (map_lookup_elem(&LB4_SRC_RANGE_MAP, &key))
-		return true;
+		verdict = true;
 
-	return false;
+	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
 #else
 	return true;
 #endif /* ENABLE_SRC_RANGE_CHECK */
