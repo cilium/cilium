@@ -198,7 +198,7 @@ type BackendOperations interface {
 	// matching the prefix and report them as new keys. The Events channel is
 	// unbuffered. Upon every change observed, a KeyValueEvent will be sent
 	// to the Events channel
-	ListAndWatch(ctx context.Context, prefix string) *Watcher
+	ListAndWatch(ctx context.Context, prefix string) EventChan
 
 	// RegisterLeaseExpiredObserver registers a function which is executed when
 	// the lease associated with a key having the given prefix is detected as expired.

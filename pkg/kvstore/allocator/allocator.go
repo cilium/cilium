@@ -573,8 +573,8 @@ func (k *kvstoreBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, 
 }
 
 func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations) {
-	watcher := k.backend.ListAndWatch(ctx, k.idPrefix)
-	for event := range watcher.Events {
+	events := k.backend.ListAndWatch(ctx, k.idPrefix)
+	for event := range events {
 		if event.Typ == kvstore.EventTypeListDone {
 			handler.OnListDone()
 			continue

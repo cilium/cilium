@@ -51,33 +51,30 @@ type KeyValueEvent struct {
 }
 
 // EventChan is a channel to receive events on
-type EventChan chan KeyValueEvent
+type EventChan <-chan KeyValueEvent
 
-// Watcher represents a KVstore watcher
-type Watcher struct {
-	// Events is the channel to which change notifications will be sent to
-	Events EventChan `json:"-"`
-
-	Prefix string `json:"prefix"`
-}
-
-func newWatcher(prefix string) *Watcher {
-	return &Watcher{
-		Prefix: prefix,
-		Events: make(EventChan),
-	}
+// emitter wraps the channel to send events to, to ensure it is accessed
+// via the proper helper methods.
+type emitter struct {
+	events chan<- KeyValueEvent
+	scope  string
 }
 
 // emit attempts to notify the watcher of an event within the given context.
 // returning false if the context is done before the event is emitted.
-func (w *Watcher) emit(ctx context.Context, scope string, event KeyValueEvent) bool {
+func (e emitter) emit(ctx context.Context, event KeyValueEvent) bool {
 	queueStart := spanstat.Start()
 	var ok bool
 	select {
 	case <-ctx.Done():
-	case w.Events <- event:
+	case e.events <- event:
 		ok = true
 	}
-	trackEventQueued(scope, event.Typ, queueStart.End(ok).Total())
+	trackEventQueued(e.scope, event.Typ, queueStart.End(ok).Total())
 	return ok
+}
+
+// close closes the events channel.
+func (e emitter) close() {
+	close(e.events)
 }

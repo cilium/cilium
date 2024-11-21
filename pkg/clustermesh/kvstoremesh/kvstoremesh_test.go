@@ -56,8 +56,8 @@ type remoteEtcdClientWrapper struct {
 
 // Override the ListAndWatch method so that we can propagate whatever event we want without key conflicts with
 // those eventually created by kvstoremesh. Additionally, this also allows to track which prefixes have been watched.
-func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix string) *kvstore.Watcher {
-	events := make(kvstore.EventChan, 10)
+func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan {
+	events := make(chan kvstore.KeyValueEvent, 10)
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -94,7 +94,7 @@ func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix strin
 		close(events)
 	}()
 
-	return &kvstore.Watcher{Events: events}
+	return events
 }
 
 func clockAdvance(t assert.TestingT, fc *baseclocktest.FakeClock, d time.Duration) {

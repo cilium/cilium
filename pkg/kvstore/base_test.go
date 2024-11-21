@@ -187,9 +187,9 @@ func testCreateOnly(t *testing.T) {
 	require.EqualValues(t, testValue(0), string(val))
 }
 
-func expectEvent(t *testing.T, w *Watcher, typ EventType, key string, val string) {
+func expectEvent(t *testing.T, events EventChan, typ EventType, key string, val string) {
 	select {
-	case event := <-w.Events:
+	case event := <-events:
 		require.Equal(t, typ, event.Typ)
 
 		if event.Typ != EventTypeListDone {
@@ -219,37 +219,37 @@ func testListAndWatch(t *testing.T) {
 	require.True(t, success)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	w := Client().ListAndWatch(ctx, "foo2/")
+	events := Client().ListAndWatch(ctx, "foo2/")
 	require.NotNil(t, t)
 
-	expectEvent(t, w, EventTypeCreate, key1, val1)
-	expectEvent(t, w, EventTypeListDone, "", "")
+	expectEvent(t, events, EventTypeCreate, key1, val1)
+	expectEvent(t, events, EventTypeListDone, "", "")
 
 	success, err = Client().CreateOnly(context.Background(), key2, []byte(val2), false)
 	require.NoError(t, err)
 	require.True(t, success)
-	expectEvent(t, w, EventTypeCreate, key2, val2)
+	expectEvent(t, events, EventTypeCreate, key2, val2)
 
 	err = Client().Delete(context.TODO(), key1)
 	require.NoError(t, err)
-	expectEvent(t, w, EventTypeDelete, key1, val1)
+	expectEvent(t, events, EventTypeDelete, key1, val1)
 
 	success, err = Client().CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)
 	require.True(t, success)
-	expectEvent(t, w, EventTypeCreate, key1, val1)
+	expectEvent(t, events, EventTypeCreate, key1, val1)
 
 	err = Client().Delete(context.TODO(), key1)
 	require.NoError(t, err)
-	expectEvent(t, w, EventTypeDelete, key1, val1)
+	expectEvent(t, events, EventTypeDelete, key1, val1)
 
 	err = Client().Delete(context.TODO(), key2)
 	require.NoError(t, err)
-	expectEvent(t, w, EventTypeDelete, key2, val2)
+	expectEvent(t, events, EventTypeDelete, key2, val2)
 
 	cancel()
 
 	// Wait for the Events channel to be closed
-	_, ok := <-w.Events
+	_, ok := <-events
 	require.False(t, ok, "Received unexpected event")
 }

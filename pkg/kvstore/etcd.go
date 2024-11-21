@@ -663,8 +663,8 @@ func (e *etcdClient) asyncConnectEtcdClient(errChan chan<- error) {
 		e.statusChecker()
 	}()
 
-	watcher := e.ListAndWatch(ctx, HeartbeatPath)
-	for event := range watcher.Events {
+	events := e.ListAndWatch(ctx, HeartbeatPath)
+	for event := range events {
 		switch event.Typ {
 		case EventTypeDelete:
 			// A deletion event is not an heartbeat signal
@@ -766,17 +766,16 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 }
 
 // watch starts watching for changes in a prefix
-func (e *etcdClient) watch(ctx context.Context, w *Watcher) {
-	scope := GetScopeFromKey(strings.TrimRight(w.Prefix, "/"))
+func (e *etcdClient) watch(ctx context.Context, prefix string, events emitter) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
-	scopedLog := e.logger.WithField(fieldPrefix, w.Prefix)
+	scopedLog := e.logger.WithField(fieldPrefix, prefix)
 	scopedLog.Debug("Starting watcher...")
 
 	defer func() {
 		scopedLog.Debug("Stopped watcher")
-		close(w.Events)
+		events.close()
 	}()
 
 	err := <-e.Connected(ctx)
@@ -805,7 +804,7 @@ reList:
 		if err != nil {
 			continue
 		}
-		kvs, revision, err := e.paginatedList(ctx, scopedLog, w.Prefix)
+		kvs, revision, err := e.paginatedList(ctx, scopedLog, prefix)
 		if err != nil {
 			lr.Error(err, -1)
 
@@ -833,7 +832,7 @@ reList:
 				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
 			}
 
-			if !w.emit(ctx, scope, KeyValueEvent{
+			if !events.emit(ctx, KeyValueEvent{
 				Key:   string(key.Key),
 				Value: key.Value,
 				Typ:   t,
@@ -856,14 +855,14 @@ reList:
 			if traceEnabled {
 				scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
 			}
-			return w.emit(ctx, scope, event)
+			return events.emit(ctx, event)
 		}) {
 			return
 		}
 
 		// Only send the list signal once
 		if !listSignalSent {
-			if !w.emit(ctx, scope, KeyValueEvent{Typ: EventTypeListDone}) {
+			if !events.emit(ctx, KeyValueEvent{Typ: EventTypeListDone}) {
 				return
 			}
 			listSignalSent = true
@@ -884,7 +883,7 @@ reList:
 			}
 		}
 
-		etcdWatch := e.client.Watch(client.WithRequireLeader(ctx), w.Prefix,
+		etcdWatch := e.client.Watch(client.WithRequireLeader(ctx), prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
 		lr.Done()
 
@@ -945,7 +944,7 @@ reList:
 					if traceEnabled {
 						scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
 					}
-					if !w.emit(ctx, scope, event) {
+					if !events.emit(ctx, event) {
 						return
 					}
 				}
@@ -1553,12 +1552,12 @@ func (e *etcdClient) Close() {
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd
-func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string) *Watcher {
-	w := newWatcher(prefix)
+func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string) EventChan {
+	events := make(chan KeyValueEvent)
 
-	go e.watch(ctx, w)
+	go e.watch(ctx, prefix, emitter{events: events, scope: GetScopeFromKey(strings.TrimRight(prefix, "/"))})
 
-	return w
+	return events
 }
 
 // RegisterLeaseExpiredObserver registers a function which is executed when
