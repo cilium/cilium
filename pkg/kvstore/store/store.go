@@ -467,9 +467,9 @@ func (s *SharedStore) listAndStartWatcher() error {
 }
 
 func (s *SharedStore) watcher(listDone chan struct{}) {
-	kvstoreWatcher := s.backend.ListAndWatch(s.conf.Context, s.conf.Prefix)
+	events := s.backend.ListAndWatch(s.conf.Context, s.conf.Prefix)
 
-	for event := range kvstoreWatcher.Events {
+	for event := range events {
 		if event.Typ == kvstore.EventTypeListDone {
 			s.getLogger().Debug("Initial list of objects received from kvstore")
 			close(listDone)
