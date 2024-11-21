@@ -131,3 +131,8 @@ func (n *NoopIdentityAllocator) ReleaseRestoredIdentities() {
 }
 
 func (n *NoopIdentityAllocator) Close() {}
+
+func (m *NoopIdentityAllocator) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
+	// No-op, because identities are not managed.
+	complete(nil)
+}
