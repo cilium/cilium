@@ -162,7 +162,6 @@ var (
 		"Unsupported protocol for NAT masquerade",
 		"Invalid source ip",
 		"Unknown L3 target address",
-		"No tunnel/encapsulation endpoint (datapath BUG!)",
 		"Host datapath not ready",
 		"Unknown ICMPv4 code",
 		"Forbidden ICMPv6 message",
