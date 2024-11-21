@@ -1248,27 +1248,11 @@ func (m *Manager) installMasqueradeRules(prog iptablesInterface, ifName, localDe
 			return err
 		}
 
-		progArgs := []string{
-			"-t", "nat",
-			"-A", ciliumPostNatChain,
-		}
-
-		// If MasqueradeInterfaces is set, we need to mirror base condition of the
-		// "cilium masquerade non-cluster" rule below, as the allocRange might not
-		// be valid in such setups (e.g. in ENI mode).
-		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
-			progArgs = append(progArgs, "-o", strings.Join(m.sharedCfg.MasqueradeInterfaces, ","))
-		} else {
-			progArgs = append(progArgs, "-s", allocRange)
-		}
-
-		progArgs = append(progArgs,
-			"-m", "set", "--match-set", prog.getIpset(), "dst",
-			"-m", "comment", "--comment", "exclude traffic to cluster nodes from masquerade",
-			"-j", "ACCEPT",
-		)
-		if err := prog.runProg(progArgs); err != nil {
-			return err
+		cmds := nodeIpsetNATCmds(allocRange, prog.getIpset(), m.sharedCfg.MasqueradeInterfaces)
+		for _, cmd := range cmds {
+			if err := prog.runProg(cmd); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1888,4 +1872,33 @@ func (m *Manager) addCiliumENIRules() error {
 		"-i", "lxc+",
 		"-m", "comment", "--comment", "cilium: primary ENI",
 		"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask})
+}
+
+func nodeIpsetNATCmds(allocRange string, ipset string, masqueradeInterfaces []string) [][]string {
+	// Exclude traffic to nodes from masquerade.
+	preArgs := []string{
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+	}
+
+	postArgs := []string{
+		"-m", "set", "--match-set", ipset, "dst",
+		"-m", "comment", "--comment", "exclude traffic to cluster nodes from masquerade",
+		"-j", "ACCEPT",
+	}
+
+	if len(masqueradeInterfaces) == 0 {
+		cmd := append(preArgs, "-s", allocRange)
+		return [][]string{append(cmd, postArgs...)}
+	}
+
+	// If MasqueradeInterfaces is set, we need to mirror base condition of the
+	// "cilium masquerade non-cluster" rule below, as the allocRange might not
+	// be valid in such setups (e.g. in ENI mode).
+	cmds := make([][]string, 0, len(masqueradeInterfaces))
+	for _, inf := range masqueradeInterfaces {
+		cmd := append(preArgs, "-o", inf)
+		cmds = append(cmds, append(cmd, postArgs...))
+	}
+	return cmds
 }

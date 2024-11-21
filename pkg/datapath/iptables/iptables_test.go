@@ -10,6 +10,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test(t *testing.T) {
@@ -581,4 +582,74 @@ func (s *iptablesTestSuite) TestRemoveCiliumRulesv6(c *check.C) {
 	mockManager.removeCiliumRules("mangle", mockIp6tables, oldCiliumPrefix+"CILIUM_")
 	err := mockIp6tables.checkExpectations()
 	c.Assert(err, check.IsNil)
+}
+
+func TestNodeIpsetNATCmds(t *testing.T) {
+	allocRange := "10.0.0.0/16"
+	ipset := "1.1.1.1"
+	tests := []struct {
+		masqueradeInterfaces []string
+		expected             [][]string
+	}{
+		{
+			expected: [][]string{
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat",
+					"-s", "10.0.0.0/16",
+					"-m", "set",
+					"--match-set", "1.1.1.1", "dst",
+					"-m", "comment",
+					"--comment", "exclude traffic to cluster nodes from masquerade",
+					"-j", "ACCEPT",
+				},
+			},
+		},
+		{
+			masqueradeInterfaces: []string{"eth+"},
+			expected: [][]string{
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat",
+					"-o", "eth+",
+					"-m", "set",
+					"--match-set", "1.1.1.1", "dst",
+					"-m", "comment",
+					"--comment", "exclude traffic to cluster nodes from masquerade",
+					"-j", "ACCEPT",
+				},
+			},
+		},
+		{
+			masqueradeInterfaces: []string{"eth+", "ens+"},
+			expected: [][]string{
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat",
+					"-o", "eth+",
+					"-m", "set",
+					"--match-set", "1.1.1.1", "dst",
+					"-m", "comment",
+					"--comment", "exclude traffic to cluster nodes from masquerade",
+					"-j", "ACCEPT",
+				},
+				{
+					"-t", "nat",
+					"-A", "CILIUM_POST_nat",
+					"-o", "ens+",
+					"-m", "set",
+					"--match-set", "1.1.1.1", "dst",
+					"-m", "comment",
+					"--comment", "exclude traffic to cluster nodes from masquerade",
+					"-j", "ACCEPT",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		actual := nodeIpsetNATCmds(allocRange, ipset, tt.masqueradeInterfaces)
+
+		assert.Equal(t, tt.expected, actual)
+	}
 }
