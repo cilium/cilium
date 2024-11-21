@@ -454,6 +454,8 @@ endif
 	$(QUIET) contrib/scripts/check-logrus.sh
 	@$(ECHO_CHECK) contrib/scripts/check-safenetlink.sh
 	$(QUIET) contrib/scripts/check-safenetlink.sh
+	@$(ECHO_CHECK) contrib/scripts/check-clang-format-off.sh
+	$(QUIET) contrib/scripts/check-clang-format-off.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
