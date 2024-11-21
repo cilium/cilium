@@ -853,48 +853,42 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 		// By default this is a buffered channel, by making it a non-buffered
 		// channel we can sync up iterations of background sync.
 		nh1.NodeValidateImplementationEvent = make(chan nodeTypes.Node)
-		nh1.NodeValidateImplementationEventError = fmt.Errorf("test error")
 		m.nodeHandlers[nh1] = struct{}{}
 
-		done := make(chan struct{})
-		reattempt := make(chan struct{})
-		checkStatus := func(old statedb.Revision) (types.Status, <-chan struct{}, statedb.Revision) {
-			tx := db.ReadTxn()
+		// Start the manager
+		assert.NoError(m.Start(context.Background()))
 
+		checkStatus := func() (types.Status, <-chan struct{}) {
 			id := types.Identifier{
 				Module:    cell.FullModuleID{"node_manager"},
 				Component: []string{"background-sync"},
 			}
-			for {
-				ss, cur, watch, _ := statusTable.GetWatch(tx, health.PrimaryIndex.Query(id.HealthID()))
-				if cur != old {
-					return ss, watch, cur
-				}
-				<-watch
-			}
+			ss, _, watch, _ := statusTable.GetWatch(db.ReadTxn(), health.PrimaryIndex.Query(id.HealthID()))
+			return ss, watch
 		}
-		go func() {
-			status, watch, rev := checkStatus(99)
-			assert.Equal(types.Level(""), status.Level)
-			<-watch
-			status, watch, rev = checkStatus(rev)
-			assert.Equal(types.LevelDegraded, string(status.Level))
-			close(reattempt)
-			<-watch
-			status, _, _ = checkStatus(rev)
-			assert.Equal(types.LevelOK, string(status.Level))
-		}()
-		go func() {
-			<-nh1.NodeValidateImplementationEvent
-			<-reattempt
-			nh1.NodeValidateImplementationEventError = nil
-			<-nh1.NodeValidateImplementationEvent
-			close(done)
-		}()
-		// Start the manager
-		assert.NoError(m.Start(context.Background()))
-		<-done
+
+		// Expecting initial empty health status before initial background sync,
+		// which is blocked by us not reading on `nh1.NodeValidateImplementationEvent`
+		status, watch := checkStatus()
+		assert.Equal(types.Level(""), status.Level)
+
+		// Unblock background sync by reading event. After this we expect the
+		// status to switch to "Degraded", due to the test error set below
+		nh1.NodeValidateImplementationEventError = fmt.Errorf("test error")
+		<-nh1.NodeValidateImplementationEvent
+		<-watch
+		status, watch = checkStatus()
+		assert.Equal(types.LevelDegraded, string(status.Level))
+
+		// Stop returning an error and unblock background sync by reading event. After
+		// this we expect the status to switch to "OK"
+		nh1.NodeValidateImplementationEventError = nil
+		<-nh1.NodeValidateImplementationEvent
+		<-watch
+		status, _ = checkStatus()
+		assert.Equal(types.LevelOK, string(status.Level))
 	}
+
 	ipcacheMock := newIPcacheMock()
 	config := &option.DaemonConfig{}
 	err := hive.New(
