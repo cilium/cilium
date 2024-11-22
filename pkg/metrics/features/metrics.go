@@ -61,6 +61,8 @@ type Metrics struct {
 	NPOtherL7Present            metric.Gauge
 	NPDenyPoliciesIngested      metric.Counter
 	NPDenyPoliciesPresent       metric.Gauge
+	NPIngressCIDRGroupIngested  metric.Counter
+	NPIngressCIDRGroupPresent   metric.Gauge
 }
 
 const (
@@ -624,6 +626,20 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "deny_policies_present",
+		}),
+
+		NPIngressCIDRGroupIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Ingress CIDR Group Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "ingress_cidr_group_policies_ingested",
+		}),
+
+		NPIngressCIDRGroupPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Ingress CIDR Group Policies are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "ingress_cidr_group_policies_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
