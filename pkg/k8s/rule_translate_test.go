@@ -489,7 +489,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 
 	epAddrCluster := cmtypes.MustParseAddrCluster("10.1.1.1")
 
-	cache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	cache := NewServiceCache(fakeDatapath.NewNodeAddressing(), NewSVCMetricsNoop())
 
 	endpointInfo := Endpoints{
 		Backends: map[cmtypes.AddrCluster]*Backend{

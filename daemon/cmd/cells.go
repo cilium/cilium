@@ -143,7 +143,9 @@ var (
 		egressgateway.Cell,
 
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
-		cell.Provide(func(dp dptypes.Datapath) *k8s.ServiceCache { return k8s.NewServiceCache(dp.LocalNodeAddressing()) }),
+		cell.Provide(func(dp dptypes.Datapath) *k8s.ServiceCache {
+			return k8s.NewServiceCache(dp.LocalNodeAddressing(), k8s.NewSVCMetricsNoop())
+		}),
 
 		// ClusterMesh is the Cilium's multicluster implementation.
 		clustermesh.Cell,
