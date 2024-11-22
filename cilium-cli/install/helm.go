@@ -65,7 +65,7 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 				helmMapOpts["tunnel"] = tunnelDisabled
 			}
 			// TODO(tgraf) Is this really sane?
-			helmMapOpts["egressMasqueradeInterfaces"] = "eth+,ens+"
+			helmMapOpts["egressMasqueradeInterfaces"] = "eth+\\,ens+"
 
 		case DatapathGKE:
 			helmMapOpts["ipam.mode"] = ipamKubernetes
