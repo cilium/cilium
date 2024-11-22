@@ -6,6 +6,7 @@ package features
 import (
 	"testing"
 
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -20,6 +21,7 @@ func Test_ruleType(t *testing.T) {
 		npDNSIngested               float64
 		npHTTPIngested              float64
 		npHTTPHeaderMatchesIngested float64
+		npOtherL7Ingested           float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -164,7 +166,7 @@ func Test_ruleType(t *testing.T) {
 			},
 		},
 		{
-			name: "DNS rules",
+			name: "DNS rules and other L7",
 			args: args{
 				r: api.Rule{
 					Egress: []api.EgressRule{
@@ -177,6 +179,9 @@ func Test_ruleType(t *testing.T) {
 												MatchName: "cilium.io",
 											},
 										},
+										Kafka: []kafka.PortRule{
+											{},
+										},
 									},
 								},
 							},
@@ -186,10 +191,12 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					DNS: true,
+					DNS:     true,
+					OtherL7: true,
 				},
 				wantMetrics: metrics{
-					npDNSIngested: 1,
+					npDNSIngested:     1,
+					npOtherL7Ingested: 1,
 				},
 			},
 		},
@@ -309,7 +316,7 @@ func Test_ruleType(t *testing.T) {
 			},
 		},
 		{
-			name: "HTTP matches egress rules",
+			name: "HTTP matches egress rules and other L7",
 			args: args{
 				r: api.Rule{
 					Egress: []api.EgressRule{
@@ -324,6 +331,9 @@ func Test_ruleType(t *testing.T) {
 												},
 											},
 										},
+										L7: []api.PortRuleL7{
+											{},
+										},
 									},
 								},
 							},
@@ -335,10 +345,12 @@ func Test_ruleType(t *testing.T) {
 				wantRF: RuleFeatures{
 					HTTP:              true,
 					HTTPHeaderMatches: true,
+					OtherL7:           true,
 				},
 				wantMetrics: metrics{
 					npHTTPIngested:              1,
 					npHTTPHeaderMatchesIngested: 1,
+					npOtherL7Ingested:           1,
 				},
 			},
 		},
@@ -359,6 +371,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPHTTPIngested.WithLabelValues(actionDel).Get(), "NPHTTPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionAdd).Get(), "NPHTTPHeaderMatchesIngested different")
 			assert.Equalf(t, float64(0), metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionDel).Get(), "NPHTTPHeaderMatchesIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.WithLabelValues(actionAdd).Get(), "NPOtherL7Ingested different")
+			assert.Equalf(t, float64(0), metrics.NPOtherL7Ingested.WithLabelValues(actionDel).Get(), "NPOtherL7Ingested different")
 
 			metrics.DelRule(tt.args.r)
 
@@ -370,6 +384,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPIngested, metrics.NPHTTPIngested.WithLabelValues(actionDel).Get(), "NPHTTPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionAdd).Get(), "NPHTTPHeaderMatchesIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionDel).Get(), "NPHTTPHeaderMatchesIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.WithLabelValues(actionAdd).Get(), "NPOtherL7Ingested different")
+			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.WithLabelValues(actionDel).Get(), "NPOtherL7Ingested different")
 
 		})
 	}
