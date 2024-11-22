@@ -28,6 +28,7 @@ func Test_ruleType(t *testing.T) {
 		npMutualAuthIngested        float64
 		npTLSInspectionIngested     float64
 		npSNIAllowListIngested      float64
+		npNonDefaultDenyIngested    float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -384,9 +385,10 @@ func Test_ruleType(t *testing.T) {
 			},
 		},
 		{
-			name: "FQDN rules",
+			name: "FQDN rules w/ default deny config",
 			args: args{
 				r: api.Rule{
+					EnableDefaultDeny: api.DefaultDenyConfig{Ingress: func() *bool { a := true; return &a }()},
 					Egress: []api.EgressRule{
 						{
 							ToFQDNs: api.FQDNSelectorSlice{
@@ -401,10 +403,12 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					DNS: true,
+					DNS:            true,
+					NonDefaultDeny: true,
 				},
 				wantMetrics: metrics{
-					npDNSIngested: 1,
+					npDNSIngested:            1,
+					npNonDefaultDenyIngested: 1,
 				},
 			},
 		},
@@ -595,6 +599,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPTLSInspectionIngested.WithLabelValues(actionDel).Get(), "TLSInspectionIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npSNIAllowListIngested, metrics.NPSNIAllowListIngested.WithLabelValues(actionAdd).Get(), "SNIAllowListIngested different")
 			assert.Equalf(t, float64(0), metrics.NPSNIAllowListIngested.WithLabelValues(actionDel).Get(), "SNIAllowListIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npNonDefaultDenyIngested, metrics.NPNonDefaultDenyIngested.WithLabelValues(actionAdd).Get(), "NPNonDefaultDenyIngested different")
+			assert.Equalf(t, float64(0), metrics.NPNonDefaultDenyIngested.WithLabelValues(actionDel).Get(), "NPNonDefaultDenyIngested different")
 
 			metrics.DelRule(tt.args.r)
 
@@ -620,6 +626,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npTLSInspectionIngested, metrics.NPTLSInspectionIngested.WithLabelValues(actionDel).Get(), "NPTLSInspectionIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npSNIAllowListIngested, metrics.NPSNIAllowListIngested.WithLabelValues(actionAdd).Get(), "NPSNIAllowListIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npSNIAllowListIngested, metrics.NPSNIAllowListIngested.WithLabelValues(actionDel).Get(), "NPSNIAllowListIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npNonDefaultDenyIngested, metrics.NPNonDefaultDenyIngested.WithLabelValues(actionAdd).Get(), "NPNonDefaultDenyIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npNonDefaultDenyIngested, metrics.NPNonDefaultDenyIngested.WithLabelValues(actionDel).Get(), "NPNonDefaultDenyIngested different")
 
 		})
 	}
