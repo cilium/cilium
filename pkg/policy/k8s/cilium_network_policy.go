@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/sirupsen/logrus"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -161,6 +162,12 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 	})
 
 	scopedLog.Debug("Adding CiliumNetworkPolicy")
+	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
+	if namespace == "" {
+		p.metricsManager.AddCCNP(cnp.CiliumNetworkPolicy)
+	} else {
+		p.metricsManager.AddCNP(cnp.CiliumNetworkPolicy)
+	}
 
 	rules, policyImportErr := cnp.Parse()
 	if policyImportErr == nil {
@@ -189,6 +196,12 @@ func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 	})
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
+	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
+	if namespace == "" {
+		p.metricsManager.DelCCNP(cnp.CiliumNetworkPolicy)
+	} else {
+		p.metricsManager.DelCNP(cnp.CiliumNetworkPolicy)
+	}
 
 	_, err := p.policyManager.PolicyDelete(nil, &policy.DeleteOptions{
 		Source:           source.CustomResource,

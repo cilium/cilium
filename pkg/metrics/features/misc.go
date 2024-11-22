@@ -57,3 +57,25 @@ func (m Metrics) AddCCEC(_ *v2.CiliumEnvoyConfigSpec) {
 func (m Metrics) DelCCEC(_ *v2.CiliumEnvoyConfigSpec) {
 	m.ACLBCiliumClusterwideEnvoyConfigPresent.Dec()
 }
+
+func (m Metrics) AddCNP(_ *v2.CiliumNetworkPolicy) {
+	if m.NPCNPIngested.Get() == 0 {
+		m.NPCNPIngested.Inc()
+	}
+	m.NPCNPPresent.Inc()
+}
+
+func (m Metrics) DelCNP(_ *v2.CiliumNetworkPolicy) {
+	m.NPCNPPresent.Dec()
+}
+
+func (m Metrics) AddCCNP(_ *v2.CiliumNetworkPolicy) {
+	if m.NPCCNPIngested.Get() == 0 {
+		m.NPCCNPIngested.Inc()
+	}
+	m.NPCCNPPresent.Inc()
+}
+
+func (m Metrics) DelCCNP(_ *v2.CiliumNetworkPolicy) {
+	m.NPCCNPPresent.Dec()
+}

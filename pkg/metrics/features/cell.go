@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	k8s2 "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
@@ -46,6 +47,9 @@ var Cell = cell.Module(
 			return m
 		},
 		func(m Metrics) ciliumenvoyconfig.CECMetrics {
+			return m
+		},
+		func(m Metrics) k8s2.CNPMetrics {
 			return m
 		},
 	),
