@@ -80,9 +80,11 @@ type Manager struct {
 	policyPods map[podID][]policyID
 	// Stores redirect policy configs indexed by policyID
 	policyConfigs map[policyID]*LRPConfig
+
+	metricsManager LRPMetrics
 }
 
-func NewRedirectPolicyManager(svc svcManager, lpr agentK8s.LocalPodResource) *Manager {
+func NewRedirectPolicyManager(svc svcManager, lpr agentK8s.LocalPodResource, metricsManager LRPMetrics) *Manager {
 	return &Manager{
 		svcManager:            svc,
 		localPods:             lpr,
@@ -90,6 +92,7 @@ func NewRedirectPolicyManager(svc svcManager, lpr agentK8s.LocalPodResource) *Ma
 		policyServices:        make(map[k8s.ServiceID]policyID),
 		policyPods:            make(map[podID][]policyID),
 		policyConfigs:         make(map[policyID]*LRPConfig),
+		metricsManager:        metricsManager,
 	}
 }
 
@@ -403,6 +406,7 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) error {
 // storePolicyConfig stores various state for the given policy config.
 func (rpm *Manager) storePolicyConfig(config LRPConfig) {
 	rpm.policyConfigs[config.id] = &config
+	rpm.metricsManager.AddLRPConfig(&config)
 
 	switch config.lrpType {
 	case lrpConfigTypeAddr:
@@ -416,6 +420,7 @@ func (rpm *Manager) storePolicyConfig(config LRPConfig) {
 
 // deletePolicyConfig cleans up stored state for the given policy config.
 func (rpm *Manager) deletePolicyConfig(config *LRPConfig) {
+	rpm.metricsManager.DelLRPConfig(config)
 	switch config.lrpType {
 	case lrpConfigTypeAddr:
 		for _, feM := range config.frontendMappings {
