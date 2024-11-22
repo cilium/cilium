@@ -94,16 +94,19 @@ type ServiceCache struct {
 	selfNodeZoneLabel string
 
 	ServiceMutators []func(svc *slim_corev1.Service, svcInfo *Service)
+
+	metrics SVCMetrics
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(nodeAddressing types.NodeAddressing) *ServiceCache {
+func NewServiceCache(nodeAddressing types.NodeAddressing, svcMetrics SVCMetrics) *ServiceCache {
 	return &ServiceCache{
 		services:          map[ServiceID]*Service{},
 		endpoints:         map[ServiceID]*EndpointSlices{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
 		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
 		nodeAddressing:    nodeAddressing,
+		metrics:           svcMetrics,
 	}
 }
 
@@ -208,8 +211,10 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 		if oldService.DeepEqual(newService) {
 			return svcID
 		}
+		s.metrics.DelService(oldService)
 	}
 
+	s.metrics.AddService(newService)
 	s.services[svcID] = newService
 
 	// Check if the corresponding Endpoints resource is already available
@@ -264,6 +269,7 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	delete(s.services, svcID)
 
 	if serviceOK {
+		s.metrics.DelService(oldService)
 		swg.Add()
 		s.Events <- ServiceEvent{
 			Action:    DeleteService,
@@ -800,4 +806,22 @@ func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string,
 			}
 		}
 	}
+}
+
+type SVCMetrics interface {
+	AddService(svc *Service)
+	DelService(svc *Service)
+}
+
+type svcMetricsNoop struct {
+}
+
+func (s svcMetricsNoop) AddService(svc *Service) {
+}
+
+func (s svcMetricsNoop) DelService(svc *Service) {
+}
+
+func NewSVCMetricsNoop() SVCMetrics {
+	return &svcMetricsNoop{}
 }
