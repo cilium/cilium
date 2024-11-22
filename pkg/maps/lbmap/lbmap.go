@@ -138,7 +138,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 
 	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
 		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
-		p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgo); err != nil {
+		p.SourceRangesPolicy, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgo); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
 	}
@@ -620,8 +620,8 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int,
 	svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode, svcExtLocal, svcIntLocal bool,
 	svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool, loadBalancingAlgo loadbalancer.SVCLoadBalancingAlgo) error {
-
+	svcSourceRangesPolicy loadbalancer.SVCSourceRangesPolicy, checkSourceRange bool, l7lbProxyPort uint16,
+	loopbackHostport bool, loadBalancingAlgo loadbalancer.SVCLoadBalancingAlgo) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
@@ -639,6 +639,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 		SvcNatPolicy:     svcNatPolicy,
 		SessionAffinity:  sessionAffinity,
 		IsRoutable:       isRoutable,
+		SourceRangeDeny:  svcSourceRangesPolicy == loadbalancer.SVCSourceRangesPolicyDeny,
 		CheckSourceRange: checkSourceRange,
 		L7LoadBalancer:   l7lbProxyPort != 0,
 		LoopbackHostport: loopbackHostport,
