@@ -51,6 +51,7 @@ var _ = Describe("RuntimeAgentChaos", func() {
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 		ExpectDockerContainersMatchCiliumEndpoints(vm)
+
 	})
 
 	AfterFailed(func() {
