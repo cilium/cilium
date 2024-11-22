@@ -95,7 +95,6 @@ type Parameters struct {
 	Namespace             string
 	Writer                io.Writer
 	ClusterName           string
-	DisableChecks         []string
 	Version               string
 	Wait                  bool
 	WaitDuration          time.Duration
