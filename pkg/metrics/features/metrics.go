@@ -55,6 +55,7 @@ type Metrics struct {
 	NPMutualAuthIngested        metric.Vec[metric.Counter]
 	NPTLSInspectionIngested     metric.Vec[metric.Counter]
 	NPSNIAllowListIngested      metric.Vec[metric.Counter]
+	NPNonDefaultDenyIngested    metric.Vec[metric.Counter]
 }
 
 const (
@@ -691,6 +692,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "sni_allow_list_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPNonDefaultDenyIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "Non DefaultDeny Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "non_defaultdeny_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {
