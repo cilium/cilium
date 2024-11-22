@@ -266,9 +266,6 @@ const (
 	// EnableBPFTProxy is the default value for EnableBPFTProxy
 	EnableBPFTProxy = false
 
-	// EnableXTSocketFallback is the default value for EnableXTSocketFallback
-	EnableXTSocketFallback = true
-
 	// EnableLocalNodeRoute default value for EnableLocalNodeRoute
 	EnableLocalNodeRoute = true
 
