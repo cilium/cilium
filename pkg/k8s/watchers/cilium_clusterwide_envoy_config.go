@@ -33,6 +33,7 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ctx context.Context, clien
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCCEC, resources.MetricCreate, valid, equal) }()
 				if ccec := k8s.CastInformerEvent[cilium_v2.CiliumClusterwideEnvoyConfig](obj); ccec != nil {
+					k.cecMetrics.AddCCEC(&ccec.Spec)
 					valid = true
 					err := k.addCiliumClusterwideEnvoyConfig(ccec)
 					k.K8sEventProcessed(metricCCEC, resources.MetricCreate, err == nil)
@@ -45,6 +46,8 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ctx context.Context, clien
 				if oldCCEC := k8s.CastInformerEvent[cilium_v2.CiliumClusterwideEnvoyConfig](oldObj); oldCCEC != nil {
 					if newCCEC := k8s.CastInformerEvent[cilium_v2.CiliumClusterwideEnvoyConfig](newObj); newCCEC != nil {
 						valid = true
+						k.cecMetrics.DelCCEC(&oldCCEC.Spec)
+						k.cecMetrics.AddCCEC(&newCCEC.Spec)
 						if newCCEC.DeepEqual(oldCCEC) {
 							equal = true
 							return
@@ -61,6 +64,7 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ctx context.Context, clien
 				if ccec == nil {
 					return
 				}
+				k.cecMetrics.DelCCEC(&ccec.Spec)
 				valid = true
 				err := k.deleteCiliumClusterwideEnvoyConfig(ccec)
 				k.K8sEventProcessed(metricCCEC, resources.MetricDelete, err == nil)
