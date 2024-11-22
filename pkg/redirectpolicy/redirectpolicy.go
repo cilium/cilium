@@ -373,3 +373,21 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 		FrontendMappings: feMappingModelArray,
 	}
 }
+
+type LRPMetrics interface {
+	AddLRPConfig(cfg *LRPConfig)
+	DelLRPConfig(cfg *LRPConfig)
+}
+
+type lrpMetricsNoop struct {
+}
+
+func (p *lrpMetricsNoop) AddLRPConfig(cfg *LRPConfig) {
+}
+
+func (p *lrpMetricsNoop) DelLRPConfig(cfg *LRPConfig) {
+}
+
+func NewLRPMetricsNoop() LRPMetrics {
+	return &lrpMetricsNoop{}
+}
