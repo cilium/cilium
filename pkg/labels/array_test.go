@@ -371,12 +371,11 @@ func TestLabelArray_Intersects(t *testing.T) {
 		la := ParseLabelArray(strings.Split(tc.a, " ")...)
 		lb := ParseLabelArray(strings.Split(tc.b, " ")...)
 		assert.Equal(t, tc.want, la.Intersects(lb), "[%s].Intersects([%s])", tc.a, tc.b)
-
 	}
 
 	// Test a careful CIDR case that catches naive sorting
 	la := GetCIDRLabels(netip.MustParsePrefix("11.11.11.11/32")).LabelArray()
 	lb := ParseLabelArray("cidr:110.0.0.0/8", "cidr:8.0.0.0/5")
-	assert.True(t, la.Intersects(lb))
+	assert.True(t, la.Intersects(lb), "[%s].Intersects([%s])", la, lb)
 
 }

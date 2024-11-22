@@ -241,16 +241,16 @@ func toProto(derivedFrom labels.LabelArrayList, rev uint64) (policies []*flowpb.
 func populate(f *flowpb.Policy, lbl labels.LabelArray) {
 	var kind, ns, name string
 	for _, l := range lbl {
-		if l.Source != string(source.Kubernetes) {
+		if l.Source() != string(source.Kubernetes) {
 			continue
 		}
-		switch l.Key {
+		switch l.Key() {
 		case k8sConst.PolicyLabelName:
-			name = l.Value
+			name = l.Value()
 		case k8sConst.PolicyLabelNamespace:
-			ns = l.Value
+			ns = l.Value()
 		case k8sConst.PolicyLabelDerivedFrom:
-			kind = l.Value
+			kind = l.Value()
 		}
 
 		if kind != "" && name != "" && ns != "" {

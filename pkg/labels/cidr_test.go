@@ -317,12 +317,12 @@ func TestLabelToPrefix(t *testing.T) {
 		want = want.Masked()
 
 		label := maskedIPToLabel(want.Addr().String(), want.Bits())
-		have, err := LabelToPrefix(label.Key)
+		have, err := LabelToPrefix(label.Key())
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
 		if have != want {
-			t.Fatalf("prefixes did not match: want %s, have %s, label %s", want, have, label.Key)
+			t.Fatalf("prefixes did not match: want %s, have %s, label %s", want, have, label.Key())
 		}
 	}
 }

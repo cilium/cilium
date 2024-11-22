@@ -5,15 +5,12 @@ package labels
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/netip"
 	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	v2 "github.com/cilium/cilium/pkg/labels/v2"
 )
 
 const (
@@ -158,18 +155,7 @@ const (
 )
 
 // Label is the Cilium's representation of a container label.
-type Label struct {
-	Key   string `json:"key"`
-	Value string `json:"value,omitempty"`
-	// Source can be one of the above values (e.g.: LabelSourceContainer).
-	//
-	// +kubebuilder:validation:Optional
-	Source string `json:"source"`
-
-	// optimization for CIDR prefixes
-	// +deepequal-gen=false
-	cidr *netip.Prefix `json:"-"`
-}
+type Label = v2.Label
 
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]Label
@@ -233,8 +219,8 @@ func (l Labels) HasWorldLabel() bool {
 func (l Labels) GetPrintableModel() (res []string) {
 	res = make([]string, 0, len(l))
 	for _, v := range l {
-		if v.Source == LabelSourceCIDR {
-			prefix, err := LabelToPrefix(v.Key)
+		if v.Source() == LabelSourceCIDR {
+			prefix, err := LabelToPrefix(v.Key())
 			if err != nil {
 				res = append(res, v.String())
 			} else {
@@ -263,7 +249,7 @@ func (l Labels) Equals(other Labels) bool {
 
 	for k, lbl1 := range l {
 		if lbl2, ok := other[k]; ok {
-			if lbl1.Source == lbl2.Source && lbl1.Key == lbl2.Key && lbl1.Value == lbl2.Value {
+			if lbl1.Source() == lbl2.Source() && lbl1.Key() == lbl2.Key() && lbl1.Value() == lbl2.Value() {
 				continue
 			}
 		}
@@ -276,7 +262,7 @@ func (l Labels) Equals(other Labels) bool {
 func (l Labels) GetFromSource(source string) Labels {
 	lbls := Labels{}
 	for k, v := range l {
-		if v.Source == source {
+		if v.Source() == source {
 			lbls[k] = v
 		}
 	}
@@ -287,7 +273,7 @@ func (l Labels) GetFromSource(source string) Labels {
 func (l Labels) RemoveFromSource(source string) Labels {
 	lbls := Labels{}
 	for k, v := range l {
-		if v.Source != source {
+		if v.Source() != source {
 			lbls[k] = v
 		}
 	}
@@ -301,7 +287,7 @@ func (l Labels) RemoveFromSource(source string) Labels {
 // ':' will be deleted and unused.
 func NewLabel(key string, value string, source string) Label {
 	var src string
-	src, key = parseSource(key, ':')
+	src, key = v2.ParseSource(key, ':')
 	if source == "" {
 		if src == "" {
 			source = LabelSourceUnspec
@@ -314,157 +300,19 @@ func NewLabel(key string, value string, source string) Label {
 		value = ""
 	}
 
-	l := Label{
-		Key:    key,
-		Value:  value,
-		Source: source,
-	}
-	if l.Source == LabelSourceCIDR {
-		c, err := LabelToPrefix(l.Key)
+	var l Label
+	if source == LabelSourceCIDR {
+		c, err := LabelToPrefix(key)
 		if err != nil {
 			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+			l = v2.NewLabel(key, value, source)
 		} else {
-			l.cidr = &c
+			l = v2.NewCIDRLabel(key, value, source, &c)
 		}
-	}
-
-	return l
-}
-
-// Equals returns true if source, Key and Value are equal and false otherwise.
-func (l *Label) Equals(b *Label) bool {
-	if !l.IsAnySource() && l.Source != b.Source {
-		return false
-	}
-	return l.Key == b.Key && l.Value == b.Value
-}
-
-// IsAnySource return if the label was set with source "any".
-func (l *Label) IsAnySource() bool {
-	return l.Source == LabelSourceAny
-}
-
-// IsReservedSource return if the label was set with source "Reserved".
-func (l *Label) IsReservedSource() bool {
-	return l.Source == LabelSourceReserved
-}
-
-// Has returns true label L contains target.
-// target may be "looser" w.r.t source or cidr, i.e.
-// "k8s:foo=bar".Has("any:foo=bar") is true
-// "any:foo=bar".Has("k8s:foo=bar") is false
-// "cidr:10.0.0.1/32".Has("cidr:10.0.0.0/24") is true
-func (l *Label) Has(target *Label) bool {
-	return l.HasKey(target) && l.Value == target.Value
-}
-
-// HasKey returns true if l has target's key.
-// target may be "looser" w.r.t source or cidr, i.e.
-// "k8s:foo=bar".HasKey("any:foo") is true
-// "any:foo=bar".HasKey("k8s:foo") is false
-// "cidr:10.0.0.1/32".HasKey("cidr:10.0.0.0/24") is true
-// "cidr:10.0.0.0/24".HasKey("cidr:10.0.0.1/32") is false
-func (l *Label) HasKey(target *Label) bool {
-	if !target.IsAnySource() && l.Source != target.Source {
-		return false
-	}
-
-	// Do cidr-aware matching if both sources are "cidr".
-	if target.Source == LabelSourceCIDR && l.Source == LabelSourceCIDR {
-		tc := target.cidr
-		if tc == nil {
-			v, err := LabelToPrefix(target.Key)
-			if err != nil {
-				tc = &v
-			}
-		}
-		lc := l.cidr
-		if lc == nil {
-			v, err := LabelToPrefix(l.Key)
-			if err != nil {
-				lc = &v
-			}
-		}
-		if tc != nil && lc != nil && tc.Bits() <= lc.Bits() && tc.Contains(lc.Addr()) {
-			return true
-		}
-	}
-
-	return l.Key == target.Key
-}
-
-// String returns the string representation of Label in the for of Source:Key=Value or
-// Source:Key if Value is empty.
-func (l *Label) String() string {
-	if len(l.Value) != 0 {
-		return l.Source + ":" + l.Key + "=" + l.Value
-	}
-	return l.Source + ":" + l.Key
-}
-
-// IsValid returns true if Key != "".
-func (l *Label) IsValid() bool {
-	return l.Key != ""
-}
-
-// UnmarshalJSON TODO create better explanation about unmarshall with examples
-func (l *Label) UnmarshalJSON(data []byte) error {
-	if l == nil {
-		return fmt.Errorf("cannot unmarshal to nil pointer")
-	}
-
-	if len(data) == 0 {
-		return fmt.Errorf("invalid Label: empty data")
-	}
-
-	var aux struct {
-		Source string `json:"source"`
-		Key    string `json:"key"`
-		Value  string `json:"value,omitempty"`
-	}
-
-	err := json.Unmarshal(data, &aux)
-	if err != nil {
-		// If parsing of the full representation failed then try the short
-		// form in the format:
-		//
-		// [SOURCE:]KEY[=VALUE]
-		var aux string
-
-		if err := json.Unmarshal(data, &aux); err != nil {
-			return fmt.Errorf("decode of Label as string failed: %w", err)
-		}
-
-		if aux == "" {
-			return fmt.Errorf("invalid Label: Failed to parse %s as a string", data)
-		}
-
-		*l = ParseLabel(aux)
 	} else {
-		if aux.Key == "" {
-			return fmt.Errorf("invalid Label: '%s' does not contain label key", data)
-		}
-
-		l.Source = aux.Source
-		l.Key = aux.Key
-		l.Value = aux.Value
+		l = v2.NewLabel(key, value, source)
 	}
-
-	if l.Source == LabelSourceCIDR {
-		c, err := LabelToPrefix(l.Key)
-		if err == nil {
-			l.cidr = &c
-		} else {
-			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
-		}
-	}
-
-	return nil
-}
-
-// GetExtendedKey returns the key of a label with the source encoded.
-func (l *Label) GetExtendedKey() string {
-	return l.Source + PathDelimiter + l.Key
+	return l
 }
 
 // GetCiliumKeyFrom returns the label's source and key from the an extended key
@@ -483,7 +331,7 @@ func GetCiliumKeyFrom(extKey string) string {
 // `container:foo=bar` returns `container.foo`
 // `foo=bar` returns `any.foo=bar`
 func GetExtendedKeyFrom(str string) string {
-	src, next := parseSource(str, ':')
+	src, next := v2.ParseSource(str, ':')
 	if src == "" {
 		src = LabelSourceAny
 	}
@@ -495,18 +343,11 @@ func GetExtendedKeyFrom(str string) string {
 	return src + PathDelimiter + next
 }
 
-// Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
-// source argument will overwrite the source written in the key of the given map.
-// Example:
-// l := Map2Labels(map[string]string{"k8s:foo": "bar"}, "cilium")
-// fmt.Printf("%+v\n", l)
-//
-//	map[string]Label{"foo":Label{Key:"foo", Value:"bar", Source:"cilium"}}
 func Map2Labels(m map[string]string, source string) Labels {
 	o := make(Labels, len(m))
 	for k, v := range m {
 		l := NewLabel(k, v, source)
-		o[l.Key] = l
+		o[l.Key()] = l
 	}
 	return o
 }
@@ -515,7 +356,7 @@ func Map2Labels(m map[string]string, source string) Labels {
 func (l Labels) StringMap() map[string]string {
 	o := make(map[string]string, len(l))
 	for _, v := range l {
-		o[v.Source+":"+v.Key] = v.Value
+		o[v.Source()+":"+v.Key()] = v.Value()
 	}
 	return o
 }
@@ -524,10 +365,10 @@ func (l Labels) StringMap() map[string]string {
 func (l Labels) K8sStringMap() map[string]string {
 	o := make(map[string]string, len(l))
 	for _, v := range l {
-		if v.Source == LabelSourceK8s || v.Source == LabelSourceAny || v.Source == LabelSourceUnspec {
-			o[v.Key] = v.Value
+		if v.Source() == LabelSourceK8s || v.Source() == LabelSourceAny || v.Source() == LabelSourceUnspec {
+			o[v.Key()] = v.Value()
 		} else {
-			o[v.Source+"."+v.Key] = v.Value
+			o[v.Source()+"."+v.Key()] = v.Value()
 		}
 	}
 	return o
@@ -537,8 +378,8 @@ func (l Labels) K8sStringMap() map[string]string {
 func NewLabelsFromModel(base []string) Labels {
 	lbls := make(Labels, len(base))
 	for _, v := range base {
-		if lbl := ParseLabel(v); lbl.Key != "" {
-			lbls[lbl.Key] = lbl
+		if lbl := ParseLabel(v); lbl.Key() != "" {
+			lbls[lbl.Key()] = lbl
 		}
 	}
 
@@ -549,7 +390,7 @@ func NewLabelsFromModel(base []string) Labels {
 func FromSlice(labels []Label) Labels {
 	lbls := make(Labels, len(labels))
 	for _, lbl := range labels {
-		lbls[lbl.Key] = lbl
+		lbls[lbl.Key()] = lbl
 	}
 	return lbls
 }
@@ -613,41 +454,6 @@ func (l Labels) Remove(from Labels) Labels {
 	return result
 }
 
-// FormatForKVStore returns the label as a formatted string, ending in
-// a semicolon
-//
-// DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS
-// PART OF THE KEY IN THE KEY-VALUE STORE.
-//
-// Non-pointer receiver allows this to be called on a value in a map.
-func (l Label) FormatForKVStore() []byte {
-	// We don't care if the values already have a '='.
-	//
-	// We absolutely care that the final character is a semi-colon.
-	// Identity allocation in the kvstore depends on this (see
-	// kvstore.prefixMatchesKey())
-	b := make([]byte, 0, len(l.Source)+len(l.Key)+len(l.Value)+3)
-	buf := bytes.NewBuffer(b)
-	l.formatForKVStoreInto(buf)
-	return buf.Bytes()
-}
-
-// formatForKVStoreInto writes the label as a formatted string, ending in
-// a semicolon into buf.
-//
-// DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS
-// PART OF THE KEY IN THE KEY-VALUE STORE.
-//
-// Non-pointer receiver allows this to be called on a value in a map.
-func (l Label) formatForKVStoreInto(buf *bytes.Buffer) {
-	buf.WriteString(l.Source)
-	buf.WriteRune(':')
-	buf.WriteString(l.Key)
-	buf.WriteRune('=')
-	buf.WriteString(l.Value)
-	buf.WriteRune(';')
-}
-
 // SortedList returns the labels as a sorted list, separated by semicolon
 //
 // DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS KEY IN
@@ -673,7 +479,7 @@ func (l Labels) SortedList() []byte {
 	b := make([]byte, 0, len(keys)*30)
 	buf := bytes.NewBuffer(b)
 	for _, k := range keys {
-		l[k].formatForKVStoreInto(buf)
+		l[k].FormatForKVStoreInto(buf)
 	}
 
 	return buf.Bytes()
@@ -701,7 +507,7 @@ func (l Labels) FindReserved() Labels {
 	lbls := Labels{}
 
 	for k, lbl := range l {
-		if lbl.Source == LabelSourceReserved {
+		if lbl.Source() == LabelSourceReserved {
 			lbls[k] = lbl
 		}
 	}
@@ -720,7 +526,7 @@ func (l Labels) IsReserved() bool {
 // Has returns true if l contains the given label.
 func (l Labels) Has(label Label) bool {
 	for _, lbl := range l {
-		if lbl.Has(&label) {
+		if lbl.Has(label) {
 			return true
 		}
 	}
@@ -730,7 +536,7 @@ func (l Labels) Has(label Label) bool {
 // HasSource returns true if l contains the given label source.
 func (l Labels) HasSource(source string) bool {
 	for _, lbl := range l {
-		if lbl.Source == source {
+		if lbl.Source() == source {
 			return true
 		}
 	}
@@ -741,102 +547,15 @@ func (l Labels) HasSource(source string) bool {
 func (l Labels) CollectSources() map[string]struct{} {
 	sources := make(map[string]struct{})
 	for _, lbl := range l {
-		sources[lbl.Source] = struct{}{}
+		sources[lbl.Source()] = struct{}{}
 	}
 	return sources
 }
 
-// parseSource returns the parsed source of the given str. It also returns the next piece
-// of text that is after the source.
-// Example:
-//
-//	src, next := parseSource("foo:bar==value")
-//
-// Println(src) // foo
-// Println(next) // bar==value
-// For Cilium format 'delim' must be passed in as ':'
-// For k8s format 'delim' must be passed in as '.'
-func parseSource(str string, delim byte) (src, next string) {
-	if str == "" {
-		return "", ""
-	}
-	if str[0] == '$' {
-		return LabelSourceReserved, str[1:]
-	}
-	i := strings.IndexByte(str, delim)
-	if i < 0 {
-		if delim != '.' && strings.HasPrefix(str, LabelSourceReservedKeyPrefix) {
-			return LabelSourceReserved, strings.TrimPrefix(str, LabelSourceReservedKeyPrefix)
-		}
-		return "", str
-	}
-	return str[:i], str[i+1:]
-}
-
-// ParseLabel returns the label representation of the given string. The str should be
-// in the form of Source:Key=Value or Source:Key if Value is empty. It also parses short
-// forms, for example: $host will be Label{Key: "host", Source: "reserved", Value: ""}.
-func ParseLabel(str string) Label {
-	return parseLabel(str, ':')
-}
-
-// parseLabel returns the label representation of the given string by value.
-// For Cilium format 'delim' must be passed in as ':'
-// For k8s format 'delim' must be passed in as '.'
-func parseLabel(str string, delim byte) (lbl Label) {
-	src, next := parseSource(str, delim)
-	if src != "" {
-		lbl.Source = src
-	} else {
-		lbl.Source = LabelSourceUnspec
-	}
-
-	i := strings.IndexByte(next, '=')
-	if i < 0 {
-		lbl.Key = next
-	} else {
-		if i == 0 && src == LabelSourceReserved {
-			lbl.Key = next[i+1:]
-		} else {
-			lbl.Key = next[:i]
-			lbl.Value = next[i+1:]
-		}
-	}
-
-	if lbl.Source == LabelSourceCIDR {
-		if lbl.Value != "" {
-			logrus.WithField(logfields.Label, lbl.String()).Error("Invalid CIDR label: labels with source cidr cannot have values.")
-		}
-		c, err := LabelToPrefix(lbl.Key)
-		if err != nil {
-			logrus.WithField(logfields.Label, str).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
-		} else {
-			lbl.cidr = &c
-		}
-	}
-	return lbl
-}
-
-// ParseSelectLabel returns a selecting label representation of the given
-// string. Unlike ParseLabel, if source is unspecified, the source defaults to
-// LabelSourceAny
-func ParseSelectLabel(str string) Label {
-	return parseSelectLabel(str, ':')
-}
-
-// parseSelectLabel returns a selecting label representation of the given
-// string by value.
-// For Cilium format 'delim' must be passed in as ':'
-// For k8s format 'delim' must be passed in as '.'
-func parseSelectLabel(str string, delim byte) Label {
-	lbl := parseLabel(str, delim)
-
-	if lbl.Source == LabelSourceUnspec {
-		lbl.Source = LabelSourceAny
-	}
-
-	return lbl
-}
+var (
+	ParseLabel       = v2.ParseLabel
+	ParseSelectLabel = v2.ParseSelectLabel
+)
 
 // generateLabelString generates the string representation of a label with
 // the provided source, key, and value in the format "source:key=value".

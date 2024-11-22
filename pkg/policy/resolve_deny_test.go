@@ -215,7 +215,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
+		idFooSelectLabels[lbl.Key()] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
@@ -300,7 +300,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
+		idFooSelectLabels[lbl.Key()] = lbl
 	}
 
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
@@ -400,7 +400,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
+		idFooSelectLabels[lbl.Key()] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
@@ -509,7 +509,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
+		idFooSelectLabels[lbl.Key()] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)

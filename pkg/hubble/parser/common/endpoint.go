@@ -177,7 +177,9 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				Debug("failed to resolve identity")
 		} else {
 			labels = SortAndFilterLabels(r.log, id.Labels.GetModel(), identity.NumericIdentity(numericIdentity))
-			clusterName = (id.Labels[k8sConst.PolicyLabelCluster]).Value
+			if l, ok := id.Labels[k8sConst.PolicyLabelCluster]; ok {
+				clusterName = l.Value()
+			}
 		}
 	}
 
