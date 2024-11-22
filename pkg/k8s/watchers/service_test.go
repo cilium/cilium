@@ -331,7 +331,7 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
@@ -466,7 +466,7 @@ func TestChangeSVCPort(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
@@ -933,7 +933,7 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
@@ -1229,7 +1229,7 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
@@ -1518,7 +1518,7 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
@@ -2441,7 +2441,7 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
@@ -2572,7 +2572,7 @@ func TestHeadless(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs)
+	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
 	svcWatcher := &K8sServiceWatcher{
 		k8sSvcCache: k8sSvcCache,
 		svcManager:  svcManager,
