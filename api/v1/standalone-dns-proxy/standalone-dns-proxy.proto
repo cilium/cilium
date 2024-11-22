@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+syntax = "proto3";
+
+package standalonednsproxy;
+
+option go_package = "github.com/cilium/cilium/api/v1/standalonednsproxy";
+
+// Cilium agent runs the FQDNData service and Standalone DNS proxy connects to it to get the DNS Policy rules.
+// Standalone DNS proxy sends FQDN-IP mapping updates to Cilium Agent.
+// CFP: https://github.com/cilium/design-cfps/pull/54
+service FQDNData {
+  // StreamPolicyState is used by the Standalone DNS proxy to get the current policy state. 
+  // Policy state includes the DNS policies and the identity to IP mapping.
+  // Cilium agent will stream DNS policies state to Standalone DNS proxy.
+  // In case of any client side error, cilium agent will cancel the stream and SDP will have to re-subscribe.
+  // In case of any server side error, cilium agent will send an error response and SDP will have to re-subscribe.  
+  rpc StreamPolicyState(stream PolicyStateResponse) returns (stream PolicyState) {}
+  
+  // UpdateMappingRequest is used by the Standalone DNS proxy to update ciliium agent with FQDN-IP mappings which in turn update L3/L4 policy maps.
+  // In case of any error, SDP will either retry the connection if the error is server side or will error out.
+  // Note: In case of concurrent updates, since this is called in a callback(notifyDNSMsg) from the DNS server it follows the same behavior as
+  // the inbuilt dns proxy in cilium.
+  rpc UpdateMappingRequest(FQDNMapping) returns (UpdateMappingResponse) {}
+}
+
+// Response code returned by RPC methods.
+enum ResponseCode {
+    RESPONSE_CODE_UNSPECIFIED = 0;
+    RESPONSE_CODE_NO_ERROR = 1;
+    RESPONSE_CODE_FORMAT_ERROR = 2;
+    RESPONSE_CODE_SERVER_FAILURE = 3;
+    RESPONSE_CODE_NOT_IMPLEMENTED = 4;
+    RESPONSE_CODE_REFUSED = 5;
+}
+
+// Ack sent from SDP to Agent on processing DNS policy rules
+message PolicyStateResponse  {
+    ResponseCode response = 1;
+    string request_id = 2; // Request ID for which response is sent to
+}
+
+// FQDN-IP mapping goalstate sent from SDP to agent 
+message FQDNMapping {
+    string fqdn = 1; // dns name
+    repeated bytes record_ip = 2; // List of IPs corresponding to dns name
+    uint32 ttl = 3;  // TTL of DNS record
+    uint32 source_identity = 4; // Identity of the client making the DNS request
+    bytes source_ip = 5; // IP address of the client making the DNS request
+    uint32 response_code = 6; // DNS Response code as specified in RFC2316
+}
+
+// Ack returned by cilium agent to SDP on receiving FQDN-IP mapping update
+message UpdateMappingResponse {
+    ResponseCode response = 1;
+}
+
+// DNServer identity, port and protocol the requests be allowed to
+message DNSServer {
+    uint32 dns_server_identity = 1;  // Identity of destination DNS server
+    uint32 dns_server_port = 2;
+    uint32 dns_server_proto = 3;
+}
+
+// L7 DNS policy specifying which requests are permitted to which DNS server
+message DNSPolicy {
+    uint32 source_endpoint_id = 1;  // Endpoint ID of the workload this L7 DNS policy should apply to
+    repeated string dns_pattern = 2;  // Allowed DNS pattern this identity is allowed to resolve.
+    repeated DNSServer dns_servers = 3; // List of DNS servers to be allowed to connect.
+}
+
+// L7 DNS policy snapshot of all local endpoints and identity to ip mapping of source 
+// and destinatione egress endpoints enforcing fqdn rules.
+message PolicyState {
+    repeated DNSPolicy egress_l7_dns_policy = 1;
+    string request_id = 2; // Random UUID based identifier which will be referenced in ACKs
+    repeated IdentityToEndpointMapping identity_to_endpoint_mapping = 3; // Identity to Endpoint mapping for the DNS server and the source identity
+}
+
+// Cilium Identity ID to IP address mapping
+message IdentityToEndpointMapping {
+    uint32 identity = 1;
+    repeated EndpointInfo endpoint_info = 2;
+}
+
+// cilium endpoint ipaddress and ID
+message EndpointInfo {
+    uint64 id = 1;
+    repeated bytes ip = 2;
+}
