@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	K8sSvcCache = k8s.NewServiceCache(nil, nil)
+	K8sSvcCache = k8s.NewServiceCache(nil, nil, k8s.NewSVCMetricsNoop())
 
 	kvs store.SyncStore
 )
