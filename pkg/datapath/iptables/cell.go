@@ -33,7 +33,6 @@ var Cell = cell.Module(
 
 			EnableIPv4:                  cfg.EnableIPv4,
 			EnableIPv6:                  cfg.EnableIPv6,
-			EnableXTSocketFallback:      cfg.EnableXTSocketFallback,
 			EnableBPFTProxy:             cfg.EnableBPFTProxy,
 			InstallNoConntrackIptRules:  cfg.InstallNoConntrackIptRules,
 			EnableEndpointRoutes:        cfg.EnableEndpointRoutes,
@@ -63,6 +62,10 @@ type Config struct {
 
 	// PrependIptablesChains, when enabled, prepends custom iptables chains instead of appending.
 	PrependIptablesChains bool
+
+	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
+	// sysctl option if `xt_socket` kernel module is not available.
+	EnableXTSocketFallback bool
 }
 
 var defaultConfig = Config{
@@ -70,6 +73,7 @@ var defaultConfig = Config{
 	PrependIptablesChains:      true,
 	DisableIptablesFeederRules: []string{},
 	IPTablesRandomFully:        false,
+	EnableXTSocketFallback:     true,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -77,6 +81,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice("disable-iptables-feeder-rules", def.DisableIptablesFeederRules, "Chains to ignore when installing feeder rules.")
 	flags.Bool("iptables-random-fully", def.IPTablesRandomFully, "Set iptables flag random-fully on masquerading rules")
 	flags.Bool("prepend-iptables-chains", def.PrependIptablesChains, "Prepend custom iptables chains instead of appending")
+	flags.Bool("enable-xt-socket-fallback", def.EnableXTSocketFallback, "Enable fallback for missing xt_socket module")
 }
 
 type SharedConfig struct {
