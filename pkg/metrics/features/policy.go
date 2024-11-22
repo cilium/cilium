@@ -19,6 +19,7 @@ type RuleFeatures struct {
 	MutualAuth        bool
 	TLSInspection     bool
 	SNIAllowList      bool
+	NonDefaultDeny    bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -90,6 +91,12 @@ func (m Metrics) AddRule(r api.Rule) {
 		}
 		m.NPSNIAllowListPresent.Inc()
 	}
+	if rf.NonDefaultDeny {
+		if m.NPNonDefaultDenyIngested.Get() == 0 {
+			m.NPNonDefaultDenyIngested.Inc()
+		}
+		m.NPNonDefaultDenyPresent.Inc()
+	}
 }
 
 func (m Metrics) DelRule(r api.Rule) {
@@ -127,6 +134,9 @@ func (m Metrics) DelRule(r api.Rule) {
 	}
 	if rf.SNIAllowList {
 		m.NPSNIAllowListPresent.Dec()
+	}
+	if rf.NonDefaultDeny {
+		m.NPNonDefaultDenyPresent.Dec()
 	}
 }
 
@@ -202,6 +212,10 @@ func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
 func ruleType(r api.Rule) RuleFeatures {
 
 	var rf RuleFeatures
+
+	rf.NonDefaultDeny =
+		r.EnableDefaultDeny.Ingress != nil && *r.EnableDefaultDeny.Ingress ||
+			r.EnableDefaultDeny.Egress != nil && *r.EnableDefaultDeny.Egress
 
 	for _, i := range r.Ingress {
 		ruleTypeIngressCommon(&rf, i.IngressCommonRule)

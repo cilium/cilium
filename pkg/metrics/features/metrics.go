@@ -69,6 +69,8 @@ type Metrics struct {
 	NPTLSInspectionPresent      metric.Gauge
 	NPSNIAllowListIngested      metric.Counter
 	NPSNIAllowListPresent       metric.Gauge
+	NPNonDefaultDenyIngested    metric.Counter
+	NPNonDefaultDenyPresent     metric.Gauge
 }
 
 const (
@@ -688,6 +690,20 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "sni_allow_list_policies_present",
+		}),
+
+		NPNonDefaultDenyIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Non DefaultDeny Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "non_defaultdeny_policies_ingested",
+		}),
+
+		NPNonDefaultDenyPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Non DefaultDeny Policies are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "non_defaultdeny_policies_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
