@@ -233,7 +233,7 @@ func (m *ManagerSuite) SetUpTest(c *C) {
 	fpr := &fakePodResource{
 		fakePodStore{},
 	}
-	m.rpm = NewRedirectPolicyManager(m.svc, fpr)
+	m.rpm = NewRedirectPolicyManager(m.svc, fpr, NewLRPMetricsNoop())
 	configAddrType = LRPConfig{
 		id: k8s.ServiceID{
 			Name:      "test-foo",
