@@ -72,6 +72,8 @@ type PolicyWatcherParams struct {
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	CiliumCIDRGroups                 resource.Resource[*cilium_v2_alpha1.CiliumCIDRGroup]
 	NetworkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
+
+	MetricsManager CNPMetrics
 }
 
 func startK8sPolicyWatcher(params PolicyWatcherParams) {
@@ -102,6 +104,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 
 		toServicesPolicies: make(map[resource.Key]struct{}),
 		cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
+		metricsManager:     params.MetricsManager,
 	}
 
 	params.Lifecycle.Append(cell.Hook{
