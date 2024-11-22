@@ -345,7 +345,7 @@ correct certificate:
 .. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system deployment/hubble-cli -- \
-    hubble observe --server ${IP?}:4244 \
+    hubble observe --server tls://${IP?}:4244 \
         --tls-server-name ${SERVERNAME?} \
         --tls-ca-cert-files /var/lib/hubble-relay/tls/hubble-server-ca.crt \
         --tls-client-cert-file /var/lib/hubble-relay/tls/client.crt \
