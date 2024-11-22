@@ -91,6 +91,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -1691,6 +1692,7 @@ type daemonParams struct {
 	BandwidthManager    datapath.BandwidthManager
 	IPsecKeyCustodian   datapath.IPsecKeyCustodian
 	MTU                 mtu.MTU
+	LRPMetrics          redirectpolicy.LRPMetrics
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
