@@ -61,7 +61,9 @@ type Metrics struct {
 	NPNonDefaultDenyIngested    metric.Vec[metric.Counter]
 	NPLRPIngested               metric.Vec[metric.Counter]
 
-	ACLBInternalTrafficPolicyIngested metric.Vec[metric.Counter]
+	ACLBInternalTrafficPolicyIngested        metric.Vec[metric.Counter]
+	ACLBCiliumEnvoyConfigIngested            metric.Vec[metric.Counter]
+	ACLBCiliumClusterwideEnvoyConfigIngested metric.Vec[metric.Counter]
 }
 
 const (
@@ -775,6 +777,42 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "internal_traffic_policy_services_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		ACLBCiliumEnvoyConfigIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "Cilium Envoy Config have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "cilium_envoy_config_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		ACLBCiliumClusterwideEnvoyConfigIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "Cilium Clusterwide Envoy Config have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "cilium_clusterwide_envoy_config_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {
