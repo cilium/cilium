@@ -73,6 +73,9 @@ type Metrics struct {
 	NPNonDefaultDenyPresent     metric.Gauge
 	NPLRPIngested               metric.Counter
 	NPLRPPresent                metric.Gauge
+
+	ACLBInternalTrafficPolicyIngested metric.Counter
+	ACLBInternalTrafficPolicyPresent  metric.Gauge
 }
 
 const (
@@ -720,6 +723,20 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "local_redirect_policies_present",
+		}),
+
+		ACLBInternalTrafficPolicyIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "K8s Services with Internal Traffic Policy have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "internal_traffic_policy_services_ingested",
+		}),
+
+		ACLBInternalTrafficPolicyPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "K8s Services with Internal Traffic Policy are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "internal_traffic_policy_services_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
