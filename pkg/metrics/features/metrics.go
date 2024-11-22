@@ -55,6 +55,8 @@ type Metrics struct {
 	NPTLSInspectionIngested     metric.Vec[metric.Counter]
 	NPSNIAllowListIngested      metric.Vec[metric.Counter]
 	NPLRPIngested               metric.Vec[metric.Counter]
+
+	ACLBInternalTrafficPolicyIngested metric.Vec[metric.Counter]
 }
 
 const (
@@ -689,6 +691,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "local_redirect_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		ACLBInternalTrafficPolicyIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "K8s Services with Internal Traffic Policy have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "internal_traffic_policy_services_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {

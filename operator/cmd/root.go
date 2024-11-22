@@ -601,7 +601,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 							// Create another service cache that contains the
 							// k8s service for etcd. As soon the k8s caches are
 							// synced, this hijack will stop happening.
-							sc := k8s.NewServiceCache(nil)
+							sc := k8s.NewServiceCache(nil, k8s.NewSVCMetricsNoop())
 							slimSvcObj, err := k8s.TransformToK8sService(k8sSvc)
 							if err != nil {
 								scopedLog.WithFields(logrus.Fields{

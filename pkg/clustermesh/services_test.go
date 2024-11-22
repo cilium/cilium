@@ -73,7 +73,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	clusterName2 := s.randomName + "2"
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
-	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
+	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing(), k8s.NewSVCMetricsNoop())
 
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
