@@ -67,7 +67,7 @@ func TestGetUniqueServiceFrontends(t *testing.T) {
 	}
 
 	db, nodeAddrs := newDB(t)
-	cache := NewServiceCache(db, nodeAddrs)
+	cache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	cache.services = map[ServiceID]*Service{
 		svcID1: {
@@ -142,7 +142,6 @@ func TestGetUniqueServiceFrontends(t *testing.T) {
 		require.Equal(t, wild_match_ok, frontends.LooseMatch(*frontend))
 	}
 }
-
 func TestServiceCacheEndpoints(t *testing.T) {
 	endpoints := ParseEndpoints(&slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -213,7 +212,7 @@ func testServiceCache(t *testing.T,
 	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup)) {
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -378,7 +377,7 @@ func testServiceCache(t *testing.T,
 
 func TestForEachService(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc1 := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -489,7 +488,7 @@ func TestServiceMutators(t *testing.T) {
 	var m1, m2 int
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	svcCache.ServiceMutators = append(svcCache.ServiceMutators,
 		func(svc *slim_corev1.Service, svcInfo *Service) { m1++ },
@@ -512,7 +511,7 @@ func TestServiceMutators(t *testing.T) {
 
 func TestExternalServiceMerging(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -873,7 +872,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	swg := lock.NewStoppableWaitGroup()
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	// Store the service with the non-cluster-aware ID
 	svcCache.services[id1] = &svc
@@ -934,7 +933,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 func TestClusterServiceMerging(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 	swgSvcs := lock.NewStoppableWaitGroup()
 	swgEps := lock.NewStoppableWaitGroup()
 
@@ -1002,7 +1001,7 @@ func TestClusterServiceMerging(t *testing.T) {
 
 func TestNonSharedService(t *testing.T) {
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1127,7 +1126,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	})
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1346,7 +1345,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	})
 
 	db, nodeAddrs := newDB(t)
-	svcCache := NewServiceCache(db, nodeAddrs)
+	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1562,7 +1561,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 	db, nodeAddrs := newDB(t)
 	svcCache := newServiceCache(hivetest.Lifecycle(t),
 		ServiceCacheConfig{EnableServiceTopology: true}, store,
-		db, nodeAddrs)
+		db, nodeAddrs, NewSVCMetricsNoop())
 
 	swg := lock.NewStoppableWaitGroup()
 
@@ -1636,7 +1635,7 @@ func BenchmarkCorrelateEndpoints(b *testing.B) {
 	const epsPerSlice = 100
 
 	db, nodeAddrs := newDB(b)
-	cache := NewServiceCache(db, nodeAddrs)
+	cache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
 
 	var swg lock.StoppableWaitGroup
 	id := ServiceID{Name: "foo", Namespace: "bar"}
