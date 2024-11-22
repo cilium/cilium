@@ -52,6 +52,8 @@ type Metrics struct {
 	NPDenyPoliciesIngested      metric.Vec[metric.Counter]
 	NPIngressCIDRGroupIngested  metric.Vec[metric.Counter]
 	NPMutualAuthIngested        metric.Vec[metric.Counter]
+	NPTLSInspectionIngested     metric.Vec[metric.Counter]
+	NPSNIAllowListIngested      metric.Vec[metric.Counter]
 }
 
 const (
@@ -632,6 +634,42 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "mutual_auth_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPTLSInspectionIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "TLS Inspection Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "tls_inspection_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPSNIAllowListIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "SNI Allow List Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "sni_allow_list_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {
