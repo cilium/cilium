@@ -71,6 +71,8 @@ type Metrics struct {
 	NPSNIAllowListPresent       metric.Gauge
 	NPNonDefaultDenyIngested    metric.Counter
 	NPNonDefaultDenyPresent     metric.Gauge
+	NPLRPIngested               metric.Counter
+	NPLRPPresent                metric.Gauge
 }
 
 const (
@@ -704,6 +706,20 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "non_defaultdeny_policies_present",
+		}),
+
+		NPLRPIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Local Redirect Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "local_redirect_policies_ingested",
+		}),
+
+		NPLRPPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Local Redirect Policies are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "local_redirect_policies_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
