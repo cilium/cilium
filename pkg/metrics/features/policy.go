@@ -14,6 +14,7 @@ type RuleFeatures struct {
 	HTTPHeaderMatches bool
 	OtherL7           bool
 	Deny              bool
+	IngressCIDRGroup  bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -36,6 +37,9 @@ func (m Metrics) AddRule(r api.Rule) {
 	}
 	if rf.Deny {
 		m.NPDenyPoliciesIngested.WithLabelValues(actionAdd).Inc()
+	}
+	if rf.IngressCIDRGroup {
+		m.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Inc()
 	}
 }
 
@@ -60,10 +64,13 @@ func (m Metrics) DelRule(r api.Rule) {
 	if rf.Deny {
 		m.NPDenyPoliciesIngested.WithLabelValues(actionDel).Inc()
 	}
+	if rf.IngressCIDRGroup {
+		m.NPIngressCIDRGroupIngested.WithLabelValues(actionDel).Inc()
+	}
 }
 
 func (rf *RuleFeatures) allFeaturesIngressCommon() bool {
-	return rf.L3
+	return rf.L3 && rf.IngressCIDRGroup
 }
 
 func (rf *RuleFeatures) allFeaturesEgressCommon() bool {
@@ -77,6 +84,7 @@ func (rf *RuleFeatures) allFeaturesPortRules() bool {
 func ruleTypeIngressCommon(rf *RuleFeatures, i api.IngressCommonRule) {
 	for _, cidrRuleSet := range i.FromCIDRSet {
 		if cidrRuleSet.CIDRGroupRef != "" {
+			rf.IngressCIDRGroup = true
 			rf.L3 = true
 		}
 	}
