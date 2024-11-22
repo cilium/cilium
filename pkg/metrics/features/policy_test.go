@@ -24,6 +24,7 @@ func Test_ruleType(t *testing.T) {
 		npHTTPHeaderMatchesIngested float64
 		npOtherL7Ingested           float64
 		npDenyPoliciesIngested      float64
+		npIngressCIDRGroupIngested  float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -75,10 +76,12 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3: true,
+					L3:               true,
+					IngressCIDRGroup: true,
 				},
 				wantMetrics: metrics{
-					npL3Ingested: 1,
+					npL3Ingested:               1,
+					npIngressCIDRGroupIngested: 1,
 				},
 			},
 		},
@@ -99,12 +102,14 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3:   true,
-					Deny: true,
+					L3:               true,
+					Deny:             true,
+					IngressCIDRGroup: true,
 				},
 				wantMetrics: metrics{
-					npL3Ingested:           1,
-					npDenyPoliciesIngested: 1,
+					npL3Ingested:               1,
+					npDenyPoliciesIngested:     1,
+					npIngressCIDRGroupIngested: 1,
 				},
 			},
 		},
@@ -547,6 +552,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPOtherL7Ingested.WithLabelValues(actionDel).Get(), "NPOtherL7Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.WithLabelValues(actionAdd).Get(), "NPDenyPoliciesIngested different")
 			assert.Equalf(t, float64(0), metrics.NPDenyPoliciesIngested.WithLabelValues(actionDel).Get(), "NPDenyPoliciesIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npIngressCIDRGroupIngested, metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Get(), "IngressCIDRGroupIngested different")
+			assert.Equalf(t, float64(0), metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionDel).Get(), "IngressCIDRGroupIngested different")
 
 			metrics.DelRule(tt.args.r)
 
@@ -564,6 +571,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.WithLabelValues(actionDel).Get(), "NPOtherL7Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.WithLabelValues(actionAdd).Get(), "NPDenyPoliciesIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.WithLabelValues(actionDel).Get(), "NPDenyPoliciesIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npIngressCIDRGroupIngested, metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Get(), "NPIngressCIDRGroupIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npIngressCIDRGroupIngested, metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionDel).Get(), "NPIngressCIDRGroupIngested different")
 
 		})
 	}
