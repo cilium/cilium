@@ -195,3 +195,93 @@ func TestCiliumClusterwideEnvoyConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestCNP(t *testing.T) {
+	type args struct {
+		cnp ciliumv2.CiliumNetworkPolicy
+	}
+	type metrics struct {
+		npCNPIngested float64
+	}
+	type wanted struct {
+		wantMetrics metrics
+	}
+	tests := []struct {
+		name string
+		args args
+		want wanted
+	}{
+		{
+			name: "CNP",
+			args: args{
+				cnp: ciliumv2.CiliumNetworkPolicy{},
+			},
+			want: wanted{
+				wantMetrics: metrics{
+					npCNPIngested: 1,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			metrics := NewMetrics(true)
+			metrics.AddCNP(&tt.args.cnp)
+
+			assert.Equalf(t, tt.want.wantMetrics.npCNPIngested, metrics.NPCNPIngested.WithLabelValues(actionAdd).Get(), "NPCNPIngested different")
+			assert.Equalf(t, float64(0), metrics.NPCNPIngested.WithLabelValues(actionDel).Get(), "NPCNPIngested different")
+
+			metrics.DelCNP(&tt.args.cnp)
+
+			assert.Equalf(t, tt.want.wantMetrics.npCNPIngested, metrics.NPCNPIngested.WithLabelValues(actionAdd).Get(), "NPCNPIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npCNPIngested, metrics.NPCNPIngested.WithLabelValues(actionDel).Get(), "NPCNPIngested different")
+
+		})
+	}
+}
+
+func TestCCNP(t *testing.T) {
+	type args struct {
+		cnp ciliumv2.CiliumNetworkPolicy
+	}
+	type metrics struct {
+		npCCNPIngested float64
+	}
+	type wanted struct {
+		wantMetrics metrics
+	}
+	tests := []struct {
+		name string
+		args args
+		want wanted
+	}{
+		{
+			name: "CCNP",
+			args: args{
+				cnp: ciliumv2.CiliumNetworkPolicy{},
+			},
+			want: wanted{
+				wantMetrics: metrics{
+					npCCNPIngested: 1,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			metrics := NewMetrics(true)
+			metrics.AddCCNP(&tt.args.cnp)
+
+			assert.Equalf(t, tt.want.wantMetrics.npCCNPIngested, metrics.NPCCNPIngested.WithLabelValues(actionAdd).Get(), "NPCCNPIngested different")
+			assert.Equalf(t, float64(0), metrics.NPCCNPIngested.WithLabelValues(actionDel).Get(), "NPCCNPIngested different")
+
+			metrics.DelCCNP(&tt.args.cnp)
+
+			assert.Equalf(t, tt.want.wantMetrics.npCCNPIngested, metrics.NPCCNPIngested.WithLabelValues(actionAdd).Get(), "NPCCNPIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npCCNPIngested, metrics.NPCCNPIngested.WithLabelValues(actionDel).Get(), "NPCCNPIngested different")
+
+		})
+	}
+}

@@ -50,6 +50,9 @@ var Cell = cell.Module(
 		func(m Metrics) watchers.CECMetrics {
 			return m
 		},
+		func(m Metrics) watchers.CNPMetrics {
+			return m
+		},
 	),
 	cell.Metric(func() Metrics {
 		if withDefaults != "" {
