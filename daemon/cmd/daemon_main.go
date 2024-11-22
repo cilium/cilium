@@ -86,6 +86,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
@@ -1668,6 +1669,7 @@ type daemonParams struct {
 	DB                   statedb.DB
 	EndpointRegenerator  *endpoint.Regenerator
 	AuthManager          *auth.AuthManager
+	LRPMetrics           redirectpolicy.LRPMetrics
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
