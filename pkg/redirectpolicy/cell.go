@@ -25,14 +25,15 @@ var Cell = cell.Module(
 type lrpManagerParams struct {
 	cell.In
 
-	Svc      service.ServiceManager
-	SvcCache *k8s.ServiceCache
-	Lpr      agentK8s.LocalPodResource
-	Ep       endpointmanager.EndpointManager
+	Svc            service.ServiceManager
+	SvcCache       *k8s.ServiceCache
+	Lpr            agentK8s.LocalPodResource
+	Ep             endpointmanager.EndpointManager
+	MetricsManager LRPMetrics
 }
 
 func newLRPManager(params lrpManagerParams) *Manager {
-	return NewRedirectPolicyManager(params.Svc, params.SvcCache, params.Lpr, params.Ep)
+	return NewRedirectPolicyManager(params.Svc, params.SvcCache, params.Lpr, params.Ep, params.MetricsManager)
 }
 
 func newLRPApiHandler(lrpManager *Manager) serviceapi.GetLrpHandler {
