@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
@@ -104,6 +105,100 @@ func TestInternalTrafficPolicy(t *testing.T) {
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbInternalTrafficPolicyIngested, metrics.ACLBInternalTrafficPolicyIngested.Get(), "aclbInternalTrafficPolicyIngested different")
 			assert.Equalf(t, float64(0), metrics.ACLBInternalTrafficPolicyPresent.Get(), "aclbInternalTrafficPolicyPresent different")
+
+		})
+	}
+}
+
+func TestCiliumEnvoyConfig(t *testing.T) {
+	type args struct {
+		cec ciliumv2.CiliumEnvoyConfigSpec
+	}
+	type metrics struct {
+		aclbCiliumEnvoyConfigIngested float64
+		aclbCiliumEnvoyConfigPresent  float64
+	}
+	type wanted struct {
+		wantMetrics metrics
+	}
+	tests := []struct {
+		name string
+		args args
+		want wanted
+	}{
+		{
+			name: "CiliumEnvoyConfig",
+			args: args{
+				cec: ciliumv2.CiliumEnvoyConfigSpec{},
+			},
+			want: wanted{
+				wantMetrics: metrics{
+					aclbCiliumEnvoyConfigIngested: 1,
+					aclbCiliumEnvoyConfigPresent:  1,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			metrics := NewMetrics(true)
+			metrics.AddCEC(&tt.args.cec)
+
+			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.Get(), "aclbCiliumEnvoyConfigIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigPresent, metrics.ACLBCiliumEnvoyConfigPresent.Get(), "aclbCiliumEnvoyConfigPresent different")
+
+			metrics.DelCEC(&tt.args.cec)
+
+			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.Get(), "aclbCiliumEnvoyConfigIngested different")
+			assert.Equalf(t, float64(0), metrics.ACLBCiliumEnvoyConfigPresent.Get(), "aclbCiliumEnvoyConfigPresent different")
+
+		})
+	}
+}
+
+func TestCiliumClusterwideEnvoyConfig(t *testing.T) {
+	type args struct {
+		cec ciliumv2.CiliumEnvoyConfigSpec
+	}
+	type metrics struct {
+		aclbCiliumClusterwideEnvoyConfigIngested float64
+		aclbCiliumClusterwideEnvoyConfigPresent  float64
+	}
+	type wanted struct {
+		wantMetrics metrics
+	}
+	tests := []struct {
+		name string
+		args args
+		want wanted
+	}{
+		{
+			name: "CiliumClusterwideEnvoyConfig",
+			args: args{
+				cec: ciliumv2.CiliumEnvoyConfigSpec{},
+			},
+			want: wanted{
+				wantMetrics: metrics{
+					aclbCiliumClusterwideEnvoyConfigIngested: 1,
+					aclbCiliumClusterwideEnvoyConfigPresent:  1,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			metrics := NewMetrics(true)
+			metrics.AddCCEC(&tt.args.cec)
+
+			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.Get(), "aclbCiliumClusterwideEnvoyConfigIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigPresent, metrics.ACLBCiliumClusterwideEnvoyConfigPresent.Get(), "aclbCiliumClusterwideEnvoyConfigPresent different")
+
+			metrics.DelCCEC(&tt.args.cec)
+
+			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.Get(), "aclbCiliumClusterwideEnvoyConfigIngested different")
+			assert.Equalf(t, float64(0), metrics.ACLBCiliumClusterwideEnvoyConfigPresent.Get(), "aclbCiliumClusterwideEnvoyConfigPresent different")
 
 		})
 	}

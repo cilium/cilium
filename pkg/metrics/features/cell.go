@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -42,6 +43,9 @@ var Cell = cell.Module(
 			return m
 		},
 		func(m Metrics) k8s.SVCMetrics {
+			return m
+		},
+		func(m Metrics) ciliumenvoyconfig.CECMetrics {
 			return m
 		},
 	),

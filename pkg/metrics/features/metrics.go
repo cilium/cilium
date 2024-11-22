@@ -74,8 +74,12 @@ type Metrics struct {
 	NPLRPIngested               metric.Counter
 	NPLRPPresent                metric.Gauge
 
-	ACLBInternalTrafficPolicyIngested metric.Counter
-	ACLBInternalTrafficPolicyPresent  metric.Gauge
+	ACLBInternalTrafficPolicyIngested        metric.Counter
+	ACLBInternalTrafficPolicyPresent         metric.Gauge
+	ACLBCiliumEnvoyConfigIngested            metric.Counter
+	ACLBCiliumEnvoyConfigPresent             metric.Gauge
+	ACLBCiliumClusterwideEnvoyConfigIngested metric.Counter
+	ACLBCiliumClusterwideEnvoyConfigPresent  metric.Gauge
 }
 
 const (
@@ -737,6 +741,34 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "internal_traffic_policy_services_present",
+		}),
+
+		ACLBCiliumEnvoyConfigIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Cilium Envoy Config have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "cilium_envoy_config_ingested",
+		}),
+
+		ACLBCiliumEnvoyConfigPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Cilium Envoy Config are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "cilium_envoy_config_present",
+		}),
+
+		ACLBCiliumClusterwideEnvoyConfigIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Cilium Clusterwide Envoy Config have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "cilium_clusterwide_envoy_config_ingested",
+		}),
+
+		ACLBCiliumClusterwideEnvoyConfigPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Cilium Clusterwide Envoy Config are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "cilium_clusterwide_envoy_config_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
