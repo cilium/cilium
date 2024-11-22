@@ -73,6 +73,7 @@ func Test_GH33432(t *testing.T) {
 		cnpCache:           map[resource.Key]*types.SlimCNP{},
 		toServicesPolicies: map[resource.Key]struct{}{},
 		cnpByServiceID:     map[k8s.ServiceID]map[resource.Key]struct{}{},
+		metricsManager:     NewCNPMetricsNoop(),
 	}
 
 	err := p.onUpsert(cnp, cnpKey, k8sAPIGroupCiliumNetworkPolicyV2, cnpResourceID)
