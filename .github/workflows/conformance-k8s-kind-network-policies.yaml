@@ -141,18 +141,18 @@ jobs:
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@3286926bbf80fdd0103a372256459e577224f9f6 # v0.16.20
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
-
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ steps.vars.outputs.sha }}
-          persist-credentials: false
 
       - name: Wait for images to be available
         timeout-minutes: 30
