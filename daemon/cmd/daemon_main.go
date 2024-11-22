@@ -1672,6 +1672,7 @@ type daemonParams struct {
 	AuthManager          *auth.AuthManager
 	LRPMetrics           redirectpolicy.LRPMetrics
 	CECMetrics           watchers.CECMetrics
+	CNPMetrics           watchers.CNPMetrics
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {

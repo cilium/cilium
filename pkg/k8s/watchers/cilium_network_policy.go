@@ -134,8 +134,10 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Cl
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
+					k.policyMetrics.AddCNP(slimCNP.CiliumNetworkPolicy)
 					err = k.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, cs, k8sAPIGroupCiliumNetworkPolicyV2, resources.MetricCNP, cidrGroupPolicies, resourceID)
 				case resource.Delete:
+					k.policyMetrics.DelCNP(slimCNP.CiliumNetworkPolicy)
 					err = k.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resources.MetricCNP, cidrGroupPolicies, resourceID)
 				}
 				reportCNPChangeMetrics(err)
@@ -169,8 +171,10 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ctx context.Context, cs client.Cl
 				var err error
 				switch event.Kind {
 				case resource.Upsert:
+					k.policyMetrics.AddCCNP(slimCNP.CiliumNetworkPolicy)
 					err = k.onUpsert(slimCNP, cnpCache, event.Key, cidrGroupCache, cs, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP, cidrGroupPolicies, resourceID)
 				case resource.Delete:
+					k.policyMetrics.DelCCNP(slimCNP.CiliumNetworkPolicy)
 					err = k.onDelete(slimCNP, cnpCache, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resources.MetricCCNP, cidrGroupPolicies, resourceID)
 				}
 				reportCNPChangeMetrics(err)
@@ -490,4 +494,30 @@ func reportCNPChangeMetrics(err error) {
 	} else {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 	}
+}
+
+type CNPMetrics interface {
+	AddCNP(cec *cilium_v2.CiliumNetworkPolicy)
+	DelCNP(cec *cilium_v2.CiliumNetworkPolicy)
+	AddCCNP(spec *cilium_v2.CiliumNetworkPolicy)
+	DelCCNP(spec *cilium_v2.CiliumNetworkPolicy)
+}
+
+type cnpMetricsNoop struct {
+}
+
+func (c cnpMetricsNoop) AddCNP(cec *cilium_v2.CiliumNetworkPolicy) {
+}
+
+func (c cnpMetricsNoop) DelCNP(cec *cilium_v2.CiliumNetworkPolicy) {
+}
+
+func (c cnpMetricsNoop) AddCCNP(spec *cilium_v2.CiliumNetworkPolicy) {
+}
+
+func (c cnpMetricsNoop) DelCCNP(spec *cilium_v2.CiliumNetworkPolicy) {
+}
+
+func NewCNPMetricsNoop() CNPMetrics {
+	return &cnpMetricsNoop{}
 }
