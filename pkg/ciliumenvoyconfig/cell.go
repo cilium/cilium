@@ -147,6 +147,13 @@ func registerCECK8sReconciler(params reconcilerParams) {
 	}
 }
 
+type CECMetrics interface {
+	AddCEC(cec *ciliumv2.CiliumEnvoyConfigSpec)
+	DelCEC(cec *ciliumv2.CiliumEnvoyConfigSpec)
+	AddCCEC(spec *ciliumv2.CiliumEnvoyConfigSpec)
+	DelCCEC(spec *ciliumv2.CiliumEnvoyConfigSpec)
+}
+
 type managerParams struct {
 	cell.In
 
@@ -163,11 +170,13 @@ type managerParams struct {
 
 	Services  allService
 	Endpoints allEndpoint
+
+	MetricsManager CECMetrics
 }
 
 func newCECManager(params managerParams) ciliumEnvoyConfigManager {
 	return newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer,
-		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.Services, params.Endpoints)
+		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.Services, params.Endpoints, params.MetricsManager)
 }
 
 func newPortAllocator(proxy *proxy.Proxy) PortAllocator {
