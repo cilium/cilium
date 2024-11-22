@@ -50,6 +50,7 @@ type Metrics struct {
 	NPHTTPIngested              metric.Vec[metric.Counter]
 	NPHTTPHeaderMatchesIngested metric.Vec[metric.Counter]
 	NPOtherL7Ingested           metric.Vec[metric.Counter]
+	NPDenyPoliciesIngested      metric.Vec[metric.Counter]
 }
 
 const (
@@ -596,6 +597,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "other_l7_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPDenyPoliciesIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "Deny Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "deny_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {
