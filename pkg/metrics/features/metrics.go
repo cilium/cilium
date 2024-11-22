@@ -52,6 +52,7 @@ type Metrics struct {
 	NPDNSIngested               metric.Vec[metric.Counter]
 	NPHTTPIngested              metric.Vec[metric.Counter]
 	NPHTTPHeaderMatchesIngested metric.Vec[metric.Counter]
+	NPOtherL7Ingested           metric.Vec[metric.Counter]
 }
 
 const (
@@ -603,6 +604,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "http_header_matches_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPOtherL7Ingested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "Other L7 Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "other_l7_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {

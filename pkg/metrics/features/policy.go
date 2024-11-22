@@ -13,6 +13,7 @@ type RuleFeatures struct {
 	DNS               bool
 	HTTP              bool
 	HTTPHeaderMatches bool
+	OtherL7           bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -32,6 +33,9 @@ func (m Metrics) AddRule(r api.Rule) {
 	}
 	if rf.HTTPHeaderMatches {
 		m.NPHTTPHeaderMatchesIngested.WithLabelValues(actionAdd).Inc()
+	}
+	if rf.OtherL7 {
+		m.NPOtherL7Ingested.WithLabelValues(actionAdd).Inc()
 	}
 }
 
@@ -53,6 +57,9 @@ func (m Metrics) DelRule(r api.Rule) {
 	if rf.HTTPHeaderMatches {
 		m.NPHTTPHeaderMatchesIngested.WithLabelValues(actionDel).Inc()
 	}
+	if rf.OtherL7 {
+		m.NPOtherL7Ingested.WithLabelValues(actionDel).Inc()
+	}
 }
 
 func (rf *RuleFeatures) allFeaturesIngressCommon() bool {
@@ -64,7 +71,7 @@ func (rf *RuleFeatures) allFeaturesEgressCommon() bool {
 }
 
 func (rf *RuleFeatures) allFeaturesPortRules() bool {
-	return rf.DNS && rf.HTTP && rf.HTTPHeaderMatches
+	return rf.DNS && rf.HTTP && rf.HTTPHeaderMatches && rf.OtherL7
 }
 
 func ruleTypeIngressCommon(rf *RuleFeatures, i api.IngressCommonRule) {
@@ -107,6 +114,9 @@ func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
 					}
 				}
 			}
+		}
+		if p.Rules != nil && (len(p.Rules.L7) > 0 || len(p.Rules.Kafka) > 0) {
+			rf.OtherL7 = true
 		}
 		if rf.allFeaturesPortRules() {
 			break
