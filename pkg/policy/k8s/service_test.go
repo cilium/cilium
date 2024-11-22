@@ -264,6 +264,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		cnpCache:           map[resource.Key]*types.SlimCNP{},
 		toServicesPolicies: map[resource.Key]struct{}{},
 		cnpByServiceID:     map[k8s.ServiceID]map[resource.Key]struct{}{},
+		metricsManager:     NewCNPMetricsNoop(),
 	}
 
 	// Upsert policies. No services are known, so generated ToCIDRSet should be empty
