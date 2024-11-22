@@ -103,6 +103,17 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 	return !(value == "" || value == "disabled" || value == "Disabled")
 }
 
+func getAnnotationServiceSourceRangesPolicy(svc *slim_corev1.Service) loadbalancer.SVCSourceRangesPolicy {
+	if value, ok := annotation.Get(svc, annotation.ServiceSourceRangesPolicy); ok {
+		tmp := loadbalancer.SVCSourceRangesPolicy(strings.ToLower(value))
+		if tmp == loadbalancer.SVCSourceRangesPolicyDeny {
+			return tmp
+		}
+	}
+
+	return loadbalancer.SVCSourceRangesPolicyAllow
+}
+
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
 // is supported in cilium configuration.
 func isValidServiceFrontendIP(netIP net.IP) bool {
@@ -256,10 +267,11 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		uint16(svc.Spec.HealthCheckNodePort), svc.Annotations, svc.Labels, svc.Spec.Selector,
 		svc.GetNamespace(), svcType)
 
-	svcInfo.Shared = getAnnotationShared(svc)
+	svcInfo.SourceRangesPolicy = getAnnotationServiceSourceRangesPolicy(svc)
 	svcInfo.ForwardingMode = getAnnotationServiceForwardingMode(svc)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.ServiceAffinity = getAnnotationServiceAffinity(svc)
+	svcInfo.Shared = getAnnotationShared(svc)
 
 	if option.Config.LoadBalancerAlgAnnotation {
 		var err error
@@ -427,6 +439,10 @@ type Service struct {
 	// ForwardingMode controls whether DSR or SNAT should be used for the dispatch
 	// to the backend.
 	ForwardingMode loadbalancer.SVCForwardingMode
+
+	// SourceRangesPolicy controls whether the specified loadBalancerSourceRanges
+	// CIDR set defines an allow- or deny-list.
+	SourceRangesPolicy loadbalancer.SVCSourceRangesPolicy
 
 	// HealthCheckNodePort defines on which port the node runs a HTTP health
 	// check server which may be used by external loadbalancers to determine

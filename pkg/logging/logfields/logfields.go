@@ -308,6 +308,9 @@ const (
 	// LoadBalancerAlgo is algorithm for backend selection
 	LoadBalancerAlgo = "LoadBalancerAlgo"
 
+	// LoadBalancerSourceRangesPolicy is the LB SVC source ranges policy
+	LoadBalancerSourceRangesPolicy = "loadBalancerSourceRangesPolicy"
+
 	// LoadBalancerSourceRanges is the LB SVC source ranges
 	LoadBalancerSourceRanges = "loadBalancerSourceRanges"
 
