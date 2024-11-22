@@ -207,6 +207,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		k8s.NewServiceCache(dp.LocalNodeAddressing(), k8s.NewSVCMetricsNoop()),
 		nil,
 		NewCECMetricsNoop(),
+		NewCNPMetricsNoop(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -533,6 +534,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		k8s.NewServiceCache(dp.LocalNodeAddressing(), k8s.NewSVCMetricsNoop()),
 		nil,
 		NewCECMetricsNoop(),
+		NewCNPMetricsNoop(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -688,6 +690,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		k8s.NewServiceCache(dp.LocalNodeAddressing(), k8s.NewSVCMetricsNoop()),
 		nil,
 		NewCECMetricsNoop(),
+		NewCNPMetricsNoop(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1172,6 +1175,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		k8s.NewServiceCache(dp.LocalNodeAddressing(), k8s.NewSVCMetricsNoop()),
 		nil,
 		NewCECMetricsNoop(),
+		NewCNPMetricsNoop(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1490,6 +1494,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		k8s.NewServiceCache(dp.LocalNodeAddressing(), k8s.NewSVCMetricsNoop()),
 		nil,
 		NewCECMetricsNoop(),
+		NewCNPMetricsNoop(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1801,6 +1806,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		k8s.NewServiceCache(dp.LocalNodeAddressing(), k8s.NewSVCMetricsNoop()),
 		nil,
 		NewCECMetricsNoop(),
+		NewCNPMetricsNoop(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2726,6 +2732,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		k8s.NewServiceCache(dp.LocalNodeAddressing(), k8s.NewSVCMetricsNoop()),
 		nil,
 		NewCECMetricsNoop(),
+		NewCNPMetricsNoop(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()

@@ -1695,6 +1695,7 @@ type daemonParams struct {
 	MTU                 mtu.MTU
 	LRPMetrics          redirectpolicy.LRPMetrics
 	CECMetrics          watchers.CECMetrics
+	CNPMetrics          watchers.CNPMetrics
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig]) {
