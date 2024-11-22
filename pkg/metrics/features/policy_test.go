@@ -24,6 +24,7 @@ func Test_ruleType(t *testing.T) {
 		npOtherL7Ingested           float64
 		npDenyPoliciesIngested      float64
 		npIngressCIDRGroupIngested  float64
+		npMutualAuthIngested        float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -252,16 +253,21 @@ func Test_ruleType(t *testing.T) {
 									},
 								},
 							},
+							Authentication: &api.Authentication{
+								Mode: api.AuthenticationModeRequired,
+							},
 						},
 					},
 				},
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					HTTP: true,
+					HTTP:       true,
+					MutualAuth: true,
 				},
 				wantMetrics: metrics{
-					npHTTPIngested: 1,
+					npHTTPIngested:       1,
+					npMutualAuthIngested: 1,
 				},
 			},
 		},
@@ -389,6 +395,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPDenyPoliciesIngested.WithLabelValues(actionDel).Get(), "NPDenyPoliciesIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npIngressCIDRGroupIngested, metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Get(), "IngressCIDRGroupIngested different")
 			assert.Equalf(t, float64(0), metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionDel).Get(), "IngressCIDRGroupIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npMutualAuthIngested, metrics.NPMutualAuthIngested.WithLabelValues(actionAdd).Get(), "MutualAuthIngested different")
+			assert.Equalf(t, float64(0), metrics.NPMutualAuthIngested.WithLabelValues(actionDel).Get(), "MutualAuthIngested different")
 
 			metrics.DelRule(tt.args.r)
 
@@ -406,6 +414,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.WithLabelValues(actionDel).Get(), "NPDenyPoliciesIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npIngressCIDRGroupIngested, metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Get(), "NPIngressCIDRGroupIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npIngressCIDRGroupIngested, metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionDel).Get(), "NPIngressCIDRGroupIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npMutualAuthIngested, metrics.NPMutualAuthIngested.WithLabelValues(actionAdd).Get(), "NPMutualAuthIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npMutualAuthIngested, metrics.NPMutualAuthIngested.WithLabelValues(actionDel).Get(), "NPMutualAuthIngested different")
 
 		})
 	}
