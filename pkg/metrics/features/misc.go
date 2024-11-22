@@ -45,3 +45,19 @@ func (m Metrics) AddCCEC(_ *v2.CiliumEnvoyConfigSpec) {
 func (m Metrics) DelCCEC(_ *v2.CiliumEnvoyConfigSpec) {
 	m.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionDel).Inc()
 }
+
+func (m Metrics) AddCNP(_ *v2.CiliumNetworkPolicy) {
+	m.NPCNPIngested.WithLabelValues(actionAdd).Inc()
+}
+
+func (m Metrics) DelCNP(_ *v2.CiliumNetworkPolicy) {
+	m.NPCNPIngested.WithLabelValues(actionDel).Inc()
+}
+
+func (m Metrics) AddCCNP(_ *v2.CiliumNetworkPolicy) {
+	m.NPCCNPIngested.WithLabelValues(actionAdd).Inc()
+}
+
+func (m Metrics) DelCCNP(_ *v2.CiliumNetworkPolicy) {
+	m.NPCCNPIngested.WithLabelValues(actionDel).Inc()
+}

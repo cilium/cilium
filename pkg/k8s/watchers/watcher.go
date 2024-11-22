@@ -294,6 +294,8 @@ type K8sWatcher struct {
 
 	resources  agentK8s.Resources
 	cecMetrics CECMetrics
+
+	policyMetrics CNPMetrics
 }
 
 func NewK8sWatcher(
@@ -314,6 +316,7 @@ func NewK8sWatcher(
 	resources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
 	cecMetrics CECMetrics,
+	policyMetrics CNPMetrics,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		clientset:             clientset,
@@ -338,6 +341,7 @@ func NewK8sWatcher(
 		cfg:                   cfg,
 		resources:             resources,
 		cecMetrics:            cecMetrics,
+		policyMetrics:         policyMetrics,
 	}
 }
 
