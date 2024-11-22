@@ -39,6 +39,7 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricCreate, valid, equal) }()
 				if cec := k8s.CastInformerEvent[cilium_v2.CiliumEnvoyConfig](obj); cec != nil {
+					k.cecMetrics.AddCEC(&cec.Spec)
 					valid = true
 					err := k.addCiliumEnvoyConfig(cec)
 					k.K8sEventProcessed(metricCEC, resources.MetricCreate, err == nil)
@@ -51,6 +52,8 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 				if oldCEC := k8s.CastInformerEvent[cilium_v2.CiliumEnvoyConfig](oldObj); oldCEC != nil {
 					if newCEC := k8s.CastInformerEvent[cilium_v2.CiliumEnvoyConfig](newObj); newCEC != nil {
 						valid = true
+						k.cecMetrics.DelCEC(&oldCEC.Spec)
+						k.cecMetrics.AddCEC(&newCEC.Spec)
 						if newCEC.DeepEqual(oldCEC) {
 							equal = true
 							return
@@ -67,6 +70,7 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 				if cec == nil {
 					return
 				}
+				k.cecMetrics.DelCEC(&cec.Spec)
 				valid = true
 				err := k.deleteCiliumEnvoyConfig(cec)
 				k.K8sEventProcessed(metricCEC, resources.MetricDelete, err == nil)
@@ -396,4 +400,29 @@ func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName loadbalancer.Service
 	}
 
 	return nil
+}
+
+type CECMetrics interface {
+	AddCEC(cec *cilium_v2.CiliumEnvoyConfigSpec)
+	DelCEC(cec *cilium_v2.CiliumEnvoyConfigSpec)
+	AddCCEC(spec *cilium_v2.CiliumEnvoyConfigSpec)
+	DelCCEC(spec *cilium_v2.CiliumEnvoyConfigSpec)
+}
+
+type cecMetricsNoop struct{}
+
+func (c cecMetricsNoop) AddCEC(cec *cilium_v2.CiliumEnvoyConfigSpec) {
+}
+
+func (c cecMetricsNoop) DelCEC(cec *cilium_v2.CiliumEnvoyConfigSpec) {
+}
+
+func (c cecMetricsNoop) AddCCEC(spec *cilium_v2.CiliumEnvoyConfigSpec) {
+}
+
+func (c cecMetricsNoop) DelCCEC(spec *cilium_v2.CiliumEnvoyConfigSpec) {
+}
+
+func NewCECMetricsNoop() CECMetrics {
+	return &cecMetricsNoop{}
 }
