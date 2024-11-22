@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package v2
+
+import (
+	"runtime"
+	"strconv"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestNewLabel(t *testing.T) {
+	k, v, s := "my-key", "my-value", "my-source"
+	l := NewLabel(k, v, s)
+	assert.Equal(t, k, l.Key())
+	assert.Equal(t, v, l.Value())
+	assert.Equal(t, s, l.Source())
+	assert.Equal(t,
+		"my-source:my-key=my-value",
+		l.String())
+}
+
+func TestLabelJSON(t *testing.T) {
+	k, v, s := "my-key", "my-value", "my-source"
+	l := NewLabel(k, v, s)
+	assert.Equal(t, k, l.Key())
+	assert.Equal(t, v, l.Value())
+	assert.Equal(t, s, l.Source())
+
+	b, err := l.MarshalJSON()
+	require.NoError(t, err, "MarshalJSON")
+	require.Equal(t,
+		`{"key":"my-key","value":"my-value","source":"my-source"}`,
+		string(b))
+
+	var l2 Label
+	err = l2.UnmarshalJSON(b)
+	require.NoError(t, err, "UnmarshalJSON")
+	assert.Equal(t, k, l.Key())
+	assert.Equal(t, v, l.Value())
+	assert.Equal(t, s, l.Source())
+	assert.True(t, l.Equal(l2), "Equal")
+}
+
+func BenchmarkNewLabel(b *testing.B) {
+	k, v, s := "my-bench-key", "my-bench-value", "my-bench-source"
+	for range b.N {
+		NewLabel(k, v, s)
+	}
+}
+
+func BenchmarkNewLabelFresh(b *testing.B) {
+	for i := range b.N {
+		x := strconv.FormatInt(int64(i), 10)
+		NewLabel(x, x, x)
+	}
+}
+
+func TestNewLabel_Interning(t *testing.T) {
+	var before, after runtime.MemStats
+	lbls := make([]Label, 1000)
+	for range 10000 {
+		runtime.GC()
+		runtime.ReadMemStats(&before)
+		for i := range lbls {
+			lbls[i] = NewLabel("key_intern1", "value_intern1", "source_intern1")
+		}
+		runtime.GC()
+		runtime.ReadMemStats(&after)
+		if after.HeapInuse-before.HeapInuse == 0 {
+			return
+		}
+	}
+	t.Fatalf("intering of NewLabel did not succeed, mem usage not 0")
+}
