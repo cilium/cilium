@@ -17,6 +17,8 @@ type RuleFeatures struct {
 	Deny              bool
 	IngressCIDRGroup  bool
 	MutualAuth        bool
+	TLSInspection     bool
+	SNIAllowList      bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -76,6 +78,18 @@ func (m Metrics) AddRule(r api.Rule) {
 		}
 		m.NPMutualAuthPresent.Inc()
 	}
+	if rf.TLSInspection {
+		if m.NPTLSInspectionIngested.Get() == 0 {
+			m.NPTLSInspectionIngested.Inc()
+		}
+		m.NPTLSInspectionPresent.Inc()
+	}
+	if rf.SNIAllowList {
+		if m.NPSNIAllowListIngested.Get() == 0 {
+			m.NPSNIAllowListIngested.Inc()
+		}
+		m.NPSNIAllowListPresent.Inc()
+	}
 }
 
 func (m Metrics) DelRule(r api.Rule) {
@@ -108,6 +122,12 @@ func (m Metrics) DelRule(r api.Rule) {
 	if rf.MutualAuth {
 		m.NPMutualAuthPresent.Dec()
 	}
+	if rf.TLSInspection {
+		m.NPTLSInspectionPresent.Dec()
+	}
+	if rf.SNIAllowList {
+		m.NPSNIAllowListPresent.Dec()
+	}
 }
 
 func (rf *RuleFeatures) allFeaturesIngressCommon() bool {
@@ -119,7 +139,7 @@ func (rf *RuleFeatures) allFeaturesEgressCommon() bool {
 }
 
 func (rf *RuleFeatures) allFeaturesPortRules() bool {
-	return rf.DNS && rf.HTTP && rf.HTTPHeaderMatches && rf.OtherL7
+	return rf.DNS && rf.HTTP && rf.HTTPHeaderMatches && rf.OtherL7 && rf.TLSInspection && rf.SNIAllowList
 }
 
 func ruleTypeIngressCommon(rf *RuleFeatures, i api.IngressCommonRule) {
@@ -166,6 +186,12 @@ func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
 		}
 		if p.Rules != nil && (len(p.Rules.L7) > 0 || len(p.Rules.Kafka) > 0) {
 			rf.OtherL7 = true
+		}
+		if !rf.TLSInspection && (p.OriginatingTLS != nil || p.TerminatingTLS != nil) {
+			rf.TLSInspection = true
+		}
+		if !rf.SNIAllowList && len(p.ServerNames) != 0 {
+			rf.SNIAllowList = true
 		}
 		if rf.allFeaturesPortRules() {
 			break

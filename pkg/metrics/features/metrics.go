@@ -65,6 +65,10 @@ type Metrics struct {
 	NPIngressCIDRGroupPresent   metric.Gauge
 	NPMutualAuthIngested        metric.Counter
 	NPMutualAuthPresent         metric.Gauge
+	NPTLSInspectionIngested     metric.Counter
+	NPTLSInspectionPresent      metric.Gauge
+	NPSNIAllowListIngested      metric.Counter
+	NPSNIAllowListPresent       metric.Gauge
 }
 
 const (
@@ -656,6 +660,34 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "mutual_auth_policies_present",
+		}),
+
+		NPTLSInspectionIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "TLS Inspection Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "tls_inspection_policies_ingested",
+		}),
+
+		NPTLSInspectionPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "TLS Inspection Policies are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "tls_inspection_policies_present",
+		}),
+
+		NPSNIAllowListIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "SNI Allow List Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "sni_allow_list_policies_ingested",
+		}),
+
+		NPSNIAllowListPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "SNI Allow List Policies are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "sni_allow_list_policies_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
