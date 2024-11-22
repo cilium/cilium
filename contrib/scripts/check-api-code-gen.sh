@@ -46,6 +46,9 @@ make generate-kvstoremesh-api
 # Generate all hubble api files
 make generate-hubble-api
 
+# Generate all sdp api files
+make generate-sdp-api
+
 # Ensure new files are also considered in the diff
 git add --intent-to-add .
 
@@ -57,7 +60,7 @@ if [ -n "$diff" ] || [ -n "$diff_staged" ]; then
 	echo "Ungenerated api source code:"
 	echo "$diff"
 	echo "$diff_staged"
-	echo "Please run 'make generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api' and submit your changes"
+	echo "Please run 'make generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api generate-sdp-api' and submit your changes"
 	exit 1
 fi
 

@@ -134,6 +134,7 @@ get started and experiment with Cilium.
    contributing/docs/index
    api
    grpcapi
+   sdpapi
    internals/index
 
 .. toctree::
