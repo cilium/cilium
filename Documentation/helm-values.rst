@@ -1237,7 +1237,7 @@
      - int
      - ``0``
    * - :spelling:ignore:`envoy.bootstrapConfigMap`
-     - Go off-road and bring your own custom Envoy bootstrap ConfigMap. Provide the name of the ConfigMap with a ``bootstrap-config.json`` key here. @schema type: [null, string] @schema
+     - ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a ``bootstrap-config.json`` key. When specified, Envoy will use this ConfigMap instead of the default provided by the chart. WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support cannot be provided for custom Envoy bootstrap configs. @schema type: [null, string] @schema
      - string
      - ``nil``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
