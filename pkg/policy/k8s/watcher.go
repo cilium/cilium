@@ -63,6 +63,8 @@ type policyWatcher struct {
 	// toServicesPolicies is the set of policies that contain ToServices references
 	toServicesPolicies map[resource.Key]struct{}
 	cnpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
+
+	metricsManager CNPMetrics
 }
 
 func (p *policyWatcher) watchResources(ctx context.Context) {
@@ -218,4 +220,30 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+type CNPMetrics interface {
+	AddCNP(cec *cilium_v2.CiliumNetworkPolicy)
+	DelCNP(cec *cilium_v2.CiliumNetworkPolicy)
+	AddCCNP(spec *cilium_v2.CiliumNetworkPolicy)
+	DelCCNP(spec *cilium_v2.CiliumNetworkPolicy)
+}
+
+type cnpMetricsNoop struct {
+}
+
+func (c cnpMetricsNoop) AddCNP(cec *cilium_v2.CiliumNetworkPolicy) {
+}
+
+func (c cnpMetricsNoop) DelCNP(cec *cilium_v2.CiliumNetworkPolicy) {
+}
+
+func (c cnpMetricsNoop) AddCCNP(spec *cilium_v2.CiliumNetworkPolicy) {
+}
+
+func (c cnpMetricsNoop) DelCCNP(spec *cilium_v2.CiliumNetworkPolicy) {
+}
+
+func NewCNPMetricsNoop() CNPMetrics {
+	return &cnpMetricsNoop{}
 }
