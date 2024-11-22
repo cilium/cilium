@@ -63,6 +63,8 @@ type Metrics struct {
 	NPDenyPoliciesPresent       metric.Gauge
 	NPIngressCIDRGroupIngested  metric.Counter
 	NPIngressCIDRGroupPresent   metric.Gauge
+	NPMutualAuthIngested        metric.Counter
+	NPMutualAuthPresent         metric.Gauge
 }
 
 const (
@@ -640,6 +642,20 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "ingress_cidr_group_policies_present",
+		}),
+
+		NPMutualAuthIngested: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Mutual Auth Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "mutual_auth_policies_ingested",
+		}),
+
+		NPMutualAuthPresent: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Mutual Auth Policies are currently present in the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "mutual_auth_policies_present",
 		}),
 
 		ACLBSRv6Enabled: metric.NewGauge(metric.GaugeOpts{
