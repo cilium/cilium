@@ -29,6 +29,8 @@ func Test_ruleType(t *testing.T) {
 		npHTTPHeaderMatchesPresent  float64
 		npOtherL7Ingested           float64
 		npOtherL7Present            float64
+		npDenyPoliciesIngested      float64
+		npDenyPoliciesPresent       float64
 	}
 	type wanted struct {
 		wantRF      RuleFeatures
@@ -106,11 +108,14 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3: true,
+					L3:   true,
+					Deny: true,
 				},
 				wantMetrics: metrics{
-					npL3L4Ingested: 1,
-					npL3L4Present:  1,
+					npL3L4Ingested:         1,
+					npL3L4Present:          1,
+					npDenyPoliciesIngested: 1,
+					npDenyPoliciesPresent:  1,
 				},
 			},
 		},
@@ -206,12 +211,15 @@ func Test_ruleType(t *testing.T) {
 				wantRF: RuleFeatures{
 					L3:   true,
 					Host: true,
+					Deny: true,
 				},
 				wantMetrics: metrics{
-					npL3L4Ingested:   1,
-					npL3L4Present:    1,
-					npHostNPIngested: 1,
-					npHostNPPresent:  1,
+					npL3L4Ingested:         1,
+					npL3L4Present:          1,
+					npHostNPIngested:       1,
+					npHostNPPresent:        1,
+					npDenyPoliciesIngested: 1,
+					npDenyPoliciesPresent:  1,
 				},
 			},
 		},
@@ -230,11 +238,14 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3: true,
+					L3:   true,
+					Deny: true,
 				},
 				wantMetrics: metrics{
-					npL3L4Ingested: 1,
-					npL3L4Present:  1,
+					npL3L4Ingested:         1,
+					npL3L4Present:          1,
+					npDenyPoliciesIngested: 1,
+					npDenyPoliciesPresent:  1,
 				},
 			},
 		},
@@ -253,11 +264,14 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					L3: true,
+					L3:   true,
+					Deny: true,
 				},
 				wantMetrics: metrics{
-					npL3L4Ingested: 1,
-					npL3L4Present:  1,
+					npL3L4Ingested:         1,
+					npL3L4Present:          1,
+					npDenyPoliciesIngested: 1,
+					npDenyPoliciesPresent:  1,
 				},
 			},
 		},
@@ -280,12 +294,15 @@ func Test_ruleType(t *testing.T) {
 				wantRF: RuleFeatures{
 					L3:   true,
 					Host: true,
+					Deny: true,
 				},
 				wantMetrics: metrics{
-					npL3L4Ingested:   1,
-					npL3L4Present:    1,
-					npHostNPIngested: 1,
-					npHostNPPresent:  1,
+					npL3L4Ingested:         1,
+					npL3L4Present:          1,
+					npHostNPIngested:       1,
+					npHostNPPresent:        1,
+					npDenyPoliciesIngested: 1,
+					npDenyPoliciesPresent:  1,
 				},
 			},
 		},
@@ -308,12 +325,15 @@ func Test_ruleType(t *testing.T) {
 				wantRF: RuleFeatures{
 					L3:   true,
 					Host: true,
+					Deny: true,
 				},
 				wantMetrics: metrics{
-					npL3L4Ingested:   1,
-					npL3L4Present:    1,
-					npHostNPIngested: 1,
-					npHostNPPresent:  1,
+					npL3L4Ingested:         1,
+					npL3L4Present:          1,
+					npHostNPIngested:       1,
+					npHostNPPresent:        1,
+					npDenyPoliciesIngested: 1,
+					npDenyPoliciesPresent:  1,
 				},
 			},
 		},
@@ -565,6 +585,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesPresent, metrics.NPHTTPHeaderMatchesPresent.Get(), "NPHTTPHeaderMatchesPresent different")
 			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.Get(), "OtherL7Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Present, metrics.NPOtherL7Present.Get(), "OtherL7Present different")
+			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.Get(), "DenyIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesPresent, metrics.NPDenyPoliciesPresent.Get(), "DenyPresent different")
 
 			metrics.DelRule(tt.args.r)
 
@@ -580,6 +602,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPHTTPHeaderMatchesPresent.Get(), "NPHTTPHeaderMatchesPresent different")
 			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.Get(), "OtherL7Ingested different")
 			assert.Equalf(t, float64(0), metrics.NPOtherL7Present.Get(), "OtherL7Present different")
+			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.Get(), "DenyIngested different")
+			assert.Equalf(t, float64(0), metrics.NPDenyPoliciesPresent.Get(), "DenyPresent different")
 
 		})
 	}

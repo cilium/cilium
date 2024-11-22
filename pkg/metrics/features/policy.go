@@ -14,6 +14,7 @@ type RuleFeatures struct {
 	HTTP              bool
 	HTTPHeaderMatches bool
 	OtherL7           bool
+	Deny              bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -55,6 +56,12 @@ func (m Metrics) AddRule(r api.Rule) {
 		}
 		m.NPOtherL7Present.Inc()
 	}
+	if rf.Deny {
+		if m.NPDenyPoliciesIngested.Get() == 0 {
+			m.NPDenyPoliciesIngested.Inc()
+		}
+		m.NPDenyPoliciesPresent.Inc()
+	}
 }
 
 func (m Metrics) DelRule(r api.Rule) {
@@ -77,6 +84,9 @@ func (m Metrics) DelRule(r api.Rule) {
 	}
 	if rf.OtherL7 {
 		m.NPOtherL7Present.Dec()
+	}
+	if rf.Deny {
+		m.NPDenyPoliciesPresent.Dec()
 	}
 }
 
@@ -156,10 +166,11 @@ func ruleType(r api.Rule) RuleFeatures {
 		}
 	}
 
-	if !(rf.allFeaturesIngressCommon()) {
+	if !(rf.allFeaturesIngressCommon() && rf.Deny) {
 		for _, i := range r.IngressDeny {
 			ruleTypeIngressCommon(&rf, i.IngressCommonRule)
-			if rf.allFeaturesIngressCommon() {
+			rf.Deny = true
+			if rf.allFeaturesIngressCommon() && rf.Deny {
 				break
 			}
 		}
@@ -180,10 +191,11 @@ func ruleType(r api.Rule) RuleFeatures {
 		}
 	}
 
-	if !(rf.allFeaturesEgressCommon()) {
+	if !(rf.allFeaturesEgressCommon() && rf.Deny) {
 		for _, e := range r.EgressDeny {
+			rf.Deny = true
 			ruleTypeEgressCommon(&rf, e.EgressCommonRule)
-			if rf.allFeaturesEgressCommon() {
+			if rf.allFeaturesEgressCommon() && rf.Deny {
 				break
 			}
 		}
