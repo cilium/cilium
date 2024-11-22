@@ -16,6 +16,7 @@ type RuleFeatures struct {
 	OtherL7           bool
 	Deny              bool
 	IngressCIDRGroup  bool
+	MutualAuth        bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -45,6 +46,9 @@ func (m Metrics) AddRule(r api.Rule) {
 	if rf.IngressCIDRGroup {
 		m.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Inc()
 	}
+	if rf.MutualAuth {
+		m.NPMutualAuthIngested.WithLabelValues(actionAdd).Inc()
+	}
 }
 
 func (m Metrics) DelRule(r api.Rule) {
@@ -73,6 +77,9 @@ func (m Metrics) DelRule(r api.Rule) {
 	}
 	if rf.IngressCIDRGroup {
 		m.NPIngressCIDRGroupIngested.WithLabelValues(actionDel).Inc()
+	}
+	if rf.MutualAuth {
+		m.NPMutualAuthIngested.WithLabelValues(actionDel).Inc()
 	}
 }
 
@@ -148,7 +155,10 @@ func ruleType(r api.Rule) RuleFeatures {
 		if !rf.allFeaturesPortRules() {
 			ruleTypePortRules(&rf, i.ToPorts)
 		}
-		if rf.allFeaturesIngressCommon() && rf.allFeaturesPortRules() {
+		if i.Authentication != nil {
+			rf.MutualAuth = true
+		}
+		if rf.allFeaturesIngressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth {
 			break
 		}
 	}
@@ -163,7 +173,7 @@ func ruleType(r api.Rule) RuleFeatures {
 		}
 	}
 
-	if !(rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules()) {
+	if !(rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth) {
 		for _, e := range r.Egress {
 			ruleTypeEgressCommon(&rf, e.EgressCommonRule)
 			if !rf.allFeaturesPortRules() {
@@ -172,7 +182,10 @@ func ruleType(r api.Rule) RuleFeatures {
 				}
 				ruleTypePortRules(&rf, e.ToPorts)
 			}
-			if rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() {
+			if e.Authentication != nil {
+				rf.MutualAuth = true
+			}
+			if rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth {
 				break
 			}
 		}
