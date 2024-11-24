@@ -31,6 +31,7 @@ type PerfParameters struct {
 	RR          bool
 	UDP         bool
 	Image       string
+	NetQos      bool
 }
 
 type Parameters struct {

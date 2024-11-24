@@ -33,9 +33,13 @@ import (
 const (
 	PerfHostName                          = "-host-net"
 	PerfOtherNode                         = "-other-node"
+	PerfLowPriority                       = "-low-priority"
+	PerfHighPriority                      = "-high-priority"
 	perfClientDeploymentName              = "perf-client"
 	perfClientHostNetDeploymentName       = perfClientDeploymentName + PerfHostName
 	perfClientAcrossDeploymentName        = perfClientDeploymentName + PerfOtherNode
+	perClientLowPriorityDeploymentName    = perfClientDeploymentName + PerfLowPriority
+	perClientHighPriorityDeploymentName   = perfClientDeploymentName + PerfHighPriority
 	perfClientHostNetAcrossDeploymentName = perfClientAcrossDeploymentName + PerfHostName
 	perfServerDeploymentName              = "perf-server"
 	perfServerHostNetDeploymentName       = perfServerDeploymentName + PerfHostName
@@ -70,6 +74,8 @@ const (
 	testConnDisruptServiceName          = "test-conn-disrupt"
 	testConnDisruptCNPName              = "test-conn-disrupt"
 	KindTestConnDisrupt                 = "test-conn-disrupt"
+
+	bwPrioAnnotationString = "bandwidth.cilium.io/priority"
 )
 
 var (
@@ -1249,15 +1255,39 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 	}
 
 	if ct.params.PerfParameters.PodNet {
-		if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, firstNodeName, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
-		}
-		// Create second client on other node
-		if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, secondNodeName, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
-		}
-		if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, firstNodeName, false); err != nil {
-			ct.Warnf("unable to create deployment: %w", err)
+		if ct.params.PerfParameters.NetQos {
+			// Disable host net deploys
+			ct.params.PerfParameters.HostNet = false
+			// TODO: Merge with existing annotations
+			var lowPrioDeployAnnotations = annotations{bwPrioAnnotationString: "5"}
+			var highPrioDeployAnnotations = annotations{bwPrioAnnotationString: "6"}
+
+			ct.params.DeploymentAnnotations.Set(`{
+				"` + perClientLowPriorityDeploymentName + `": ` + lowPrioDeployAnnotations.String() + `,
+			    "` + perClientHighPriorityDeploymentName + `": ` + highPrioDeployAnnotations.String() + `
+			}`)
+			if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, firstNodeName, false); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
+			// Create low priority client on other node
+			if err = ct.createClientPerfDeployment(ctx, perClientLowPriorityDeploymentName, secondNodeName, false); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
+			// Create high priority client on other node
+			if err = ct.createClientPerfDeployment(ctx, perClientHighPriorityDeploymentName, secondNodeName, false); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
+		} else {
+			if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, firstNodeName, false); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
+			// Create second client on other node
+			if err = ct.createClientPerfDeployment(ctx, perfClientAcrossDeploymentName, secondNodeName, false); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
+			if err = ct.createServerPerfDeployment(ctx, perfServerDeploymentName, firstNodeName, false); err != nil {
+				ct.Warnf("unable to create deployment: %w", err)
+			}
 		}
 	}
 
@@ -1281,9 +1311,15 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
 	if ct.params.Perf && ct.params.TestNamespaceIndex == 0 {
 		if ct.params.PerfParameters.PodNet {
-			srcList = append(srcList, perfClientDeploymentName)
-			srcList = append(srcList, perfClientAcrossDeploymentName)
-			srcList = append(srcList, perfServerDeploymentName)
+			if ct.params.PerfParameters.NetQos {
+				srcList = append(srcList, perClientLowPriorityDeploymentName)
+				srcList = append(srcList, perClientHighPriorityDeploymentName)
+				srcList = append(srcList, perfServerDeploymentName)
+			} else {
+				srcList = append(srcList, perfClientDeploymentName)
+				srcList = append(srcList, perfClientAcrossDeploymentName)
+				srcList = append(srcList, perfServerDeploymentName)
+			}
 		}
 		if ct.params.PerfParameters.HostNet {
 			srcList = append(srcList, perfClientHostNetDeploymentName)
