@@ -99,8 +99,9 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 							Duration: perfParameters.Duration,
 							Scenario: scenarioName,
 							MsgSize:  perfParameters.MessageSize,
+							NetQos:   false,
 						}
-						perfResult := netperf(ctx, server.Pod.Status.PodIP, k, a)
+						perfResult := NetperfCmd(ctx, server.Pod.Status.PodIP, k, a)
 						t.Context().PerfResults = append(t.Context().PerfResults, common.PerfSummary{PerfTest: k, Result: perfResult})
 					})
 				}
@@ -132,9 +133,9 @@ func parseFloat(a *check.Action, value string) float64 {
 	return res
 }
 
-func netperf(ctx context.Context, sip string, perfTest common.PerfTests, a *check.Action) common.PerfResult {
+func NetperfCmd(ctx context.Context, sip string, perfTest common.PerfTests, a *check.Action) common.PerfResult {
 	args := []string{"-o", "MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,TRANSACTION_RATE,THROUGHPUT,THROUGHPUT_UNITS"}
-	if perfTest.Test == "UDP_STREAM" {
+	if perfTest.Test == "UDP_STREAM" || perfTest.NetQos {
 		args = append(args, "-m", fmt.Sprintf("%d", perfTest.MsgSize))
 	}
 	exec := buildExecCommand(perfTest.Test, sip, perfTest.Duration, args)
