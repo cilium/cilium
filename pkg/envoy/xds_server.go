@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -305,6 +306,10 @@ func (s *xdsServer) initializeXdsConfigs() map[string]*xds.ResourceTypeConfigura
 }
 
 func (s *xdsServer) newSocketListener() (*net.UnixListener, error) {
+	// Make sure sockets dir exists
+	socketsDir, _ := filepath.Split(s.socketPath)
+	os.MkdirAll(GetSocketDir(socketsDir), 0777)
+
 	// Remove/Unlink the old unix domain socket, if any.
 	_ = os.Remove(s.socketPath)
 
