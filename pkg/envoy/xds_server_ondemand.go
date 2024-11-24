@@ -33,12 +33,12 @@ type onDemandXdsStarter struct {
 
 var _ XDSServer = &onDemandXdsStarter{}
 
-func (o *onDemandXdsStarter) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) {
+func (o *onDemandXdsStarter) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) {
 	if err := o.startEmbeddedEnvoy(nil); err != nil {
 		log.WithError(err).Error("Envoy: Failed to start embedded Envoy proxy on demand")
 	}
 
-	o.XDSServer.AddListener(name, kind, port, isIngress, mayUseOriginalSourceAddr, wg)
+	o.XDSServer.AddListener(name, kind, port, isIngress, mayUseOriginalSourceAddr, wg, cb)
 }
 
 func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources Resources) error {
