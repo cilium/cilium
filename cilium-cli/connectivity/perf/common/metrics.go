@@ -101,6 +101,7 @@ type PerfTests struct {
 	Sample   int
 	MsgSize  int
 	Duration time.Duration
+	NetQos   bool
 }
 
 // PerfSummary stores combined metadata information and results of test

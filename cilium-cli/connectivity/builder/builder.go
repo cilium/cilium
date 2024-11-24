@@ -106,6 +106,13 @@ type testBuilder interface {
 func GetTestSuites(params check.Parameters) ([]func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error, error) {
 	switch {
 	case params.Perf:
+		if params.PerfParameters.NetQos {
+			return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
+				func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
+					return networkQosTests(connTests[0])
+				},
+			}, nil
+		}
 		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
 			func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
 				return networkPerformanceTests(connTests[0])
@@ -166,6 +173,12 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 // networkPerformanceTests injects the network performance connectivity tests.
 func networkPerformanceTests(ct *check.ConnectivityTest) error {
 	tests := []testBuilder{networkPerf{}}
+	return injectTests(tests, ct)
+}
+
+// networkQosTests injects the network performance connectivity tests.
+func networkQosTests(ct *check.ConnectivityTest) error {
+	tests := []testBuilder{networkQos{}}
 	return injectTests(tests, ct)
 }
 
