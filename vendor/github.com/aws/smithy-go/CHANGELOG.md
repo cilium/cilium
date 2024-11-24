@@ -1,3 +1,12 @@
+# Release (2024-11-15)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.22.1
+  * **Bug Fix**: Fix failure to replace URI path segments when their names overlap.
+
 # Release (2024-10-03)
 
 ## General Highlights

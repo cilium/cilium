@@ -12,30 +12,29 @@ import (
 	"time"
 )
 
-// Creates a new Capacity Reservation with the specified attributes.
+// Creates a new Capacity Reservation with the specified attributes. Capacity
+// Reservations enable you to reserve capacity for your Amazon EC2 instances in a
+// specific Availability Zone for any duration.
 //
-// Capacity Reservations enable you to reserve capacity for your Amazon EC2
-// instances in a specific Availability Zone for any duration. This gives you the
-// flexibility to selectively add capacity reservations and still get the Regional
-// RI discounts for that usage. By creating Capacity Reservations, you ensure that
-// you always have access to Amazon EC2 capacity when you need it, for as long as
-// you need it. For more information, see [Capacity Reservations]in the Amazon EC2 User Guide.
+// You can create a Capacity Reservation at any time, and you can choose when it
+// starts. You can create a Capacity Reservation for immediate use or you can
+// request a Capacity Reservation for a future date.
 //
-// Your request to create a Capacity Reservation could fail if Amazon EC2 does not
-// have sufficient capacity to fulfill the request. If your request fails due to
-// Amazon EC2 capacity constraints, either try again at a later time, try in a
-// different Availability Zone, or request a smaller capacity reservation. If your
-// application is flexible across instance types and sizes, try to create a
-// Capacity Reservation with different instance attributes.
+// For more information, see [Reserve compute capacity with On-Demand Capacity Reservations] in the Amazon EC2 User Guide.
 //
-// Your request could also fail if the requested quantity exceeds your On-Demand
-// Instance limit for the selected instance type. If your request fails due to
-// limit constraints, increase your On-Demand Instance limit for the required
-// instance type and try again. For more information about increasing your instance
-// limits, see [Amazon EC2 Service Quotas]in the Amazon EC2 User Guide.
+// Your request to create a Capacity Reservation could fail if:
+//
+//   - Amazon EC2 does not have sufficient capacity. In this case, try again at a
+//     later time, try in a different Availability Zone, or request a smaller Capacity
+//     Reservation. If your workload is flexible across instance types and sizes, try
+//     with different instance attributes.
+//
+//   - The requested quantity exceeds your On-Demand Instance quota. In this case,
+//     increase your On-Demand Instance quota for the requested instance type and try
+//     again. For more information, see [Amazon EC2 Service Quotas]in the Amazon EC2 User Guide.
 //
 // [Amazon EC2 Service Quotas]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-resource-limits.html
-// [Capacity Reservations]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html
+// [Reserve compute capacity with On-Demand Capacity Reservations]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html
 func (c *Client) CreateCapacityReservation(ctx context.Context, params *CreateCapacityReservationInput, optFns ...func(*Options)) (*CreateCapacityReservationOutput, error) {
 	if params == nil {
 		params = &CreateCapacityReservationInput{}
@@ -55,6 +54,11 @@ type CreateCapacityReservationInput struct {
 
 	// The number of instances for which to reserve capacity.
 	//
+	// You can request future-dated Capacity Reservations for an instance count with a
+	// minimum of 100 VPUs. For example, if you request a future-dated Capacity
+	// Reservation for m5.xlarge instances, you must request at least 25 instances (25
+	// * m5.xlarge = 100 vCPUs).
+	//
 	// Valid range: 1 - 1000
 	//
 	// This member is required.
@@ -65,8 +69,12 @@ type CreateCapacityReservationInput struct {
 	// This member is required.
 	InstancePlatform types.CapacityReservationInstancePlatform
 
-	// The instance type for which to reserve capacity. For more information, see [Instance types] in
-	// the Amazon EC2 User Guide.
+	// The instance type for which to reserve capacity.
+	//
+	// You can request future-dated Capacity Reservations for instance types in the C,
+	// M, R, I, and T instance families only.
+	//
+	// For more information, see [Instance types] in the Amazon EC2 User Guide.
 	//
 	// [Instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
 	//
@@ -84,6 +92,31 @@ type CreateCapacityReservationInput struct {
 	//
 	// [Ensure Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string
+
+	// Required for future-dated Capacity Reservations only. To create a Capacity
+	// Reservation for immediate use, omit this parameter.
+	//
+	// Specify a commitment duration, in seconds, for the future-dated Capacity
+	// Reservation.
+	//
+	// The commitment duration is a minimum duration for which you commit to having
+	// the future-dated Capacity Reservation in the active state in your account after
+	// it has been delivered.
+	//
+	// For more information, see [Commitment duration].
+	//
+	// [Commitment duration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cr-concepts.html#cr-commitment-duration
+	CommitmentDuration *int64
+
+	// Required for future-dated Capacity Reservations only. To create a Capacity
+	// Reservation for immediate use, omit this parameter.
+	//
+	// Indicates that the requested capacity will be delivered in addition to any
+	// running instances or reserved capacity that you have in your account at the
+	// requested date and time.
+	//
+	// The only supported value is incremental .
+	DeliveryPreference types.CapacityReservationDeliveryPreference
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -110,6 +143,9 @@ type CreateCapacityReservationInput struct {
 	// hour from the specified time. For example, if you specify 5/31/2019, 13:30:55,
 	// the Capacity Reservation is guaranteed to end between 13:30:55 and 14:30:55 on
 	// 5/31/2019.
+	//
+	// If you are requesting a future-dated Capacity Reservation, you can't specify an
+	// end date and time that is within the commitment duration.
 	EndDate *time.Time
 
 	// Indicates the way in which the Capacity Reservation ends. A Capacity
@@ -139,19 +175,37 @@ type CreateCapacityReservationInput struct {
 	//   explicitly target the Capacity Reservation. This ensures that only permitted
 	//   instances can use the reserved capacity.
 	//
+	// If you are requesting a future-dated Capacity Reservation, you must specify
+	// targeted .
+	//
 	// Default: open
 	InstanceMatchCriteria types.InstanceMatchCriteria
 
+	// Not supported for future-dated Capacity Reservations.
+	//
 	// The Amazon Resource Name (ARN) of the Outpost on which to create the Capacity
 	// Reservation.
 	OutpostArn *string
 
+	// Not supported for future-dated Capacity Reservations.
+	//
 	// The Amazon Resource Name (ARN) of the cluster placement group in which to
 	// create the Capacity Reservation. For more information, see [Capacity Reservations for cluster placement groups]in the Amazon EC2
 	// User Guide.
 	//
 	// [Capacity Reservations for cluster placement groups]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cr-cpg.html
 	PlacementGroupArn *string
+
+	// Required for future-dated Capacity Reservations only. To create a Capacity
+	// Reservation for immediate use, omit this parameter.
+	//
+	// The date and time at which the future-dated Capacity Reservation should become
+	// available for use, in the ISO8601 format in the UTC time zone (
+	// YYYY-MM-DDThh:mm:ss.sssZ ).
+	//
+	// You can request a future-dated Capacity Reservation between 5 and 120 days in
+	// advance.
+	StartDate *time.Time
 
 	// The tags to apply to the Capacity Reservation during launch.
 	TagSpecifications []types.TagSpecification

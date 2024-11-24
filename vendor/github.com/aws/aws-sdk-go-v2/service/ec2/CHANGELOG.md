@@ -1,3 +1,33 @@
+# v1.193.0 (2024-11-21)
+
+* **Feature**: Adds support for requesting future-dated Capacity Reservations with a minimum commitment duration, enabling IPAM for organizational units within AWS Organizations, reserving EC2 Capacity Blocks that start in 30 minutes, and extending the end date of existing Capacity Blocks.
+
+# v1.192.0 (2024-11-20)
+
+* **Feature**: With this release, customers can express their desire to launch instances only in an ODCR or ODCR group rather than OnDemand capacity. Customers can express their baseline instances' CPU-performance in attribute-based Instance Requirements configuration by referencing an instance family.
+
+# v1.191.0 (2024-11-19)
+
+* **Feature**: This release adds VPC Block Public Access (VPC BPA), a new declarative control which blocks resources in VPCs and subnets that you own in a Region from reaching or being reached from the internet through internet gateways and egress-only internet gateways.
+
+# v1.190.0 (2024-11-18)
+
+* **Feature**: Adding request and response elements for managed resources.
+* **Dependency Update**: Update to smithy-go v1.22.1.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.189.0 (2024-11-15.2)
+
+* **Feature**: Remove non-functional enum variants for FleetCapacityReservationUsageStrategy
+
+# v1.188.0 (2024-11-13)
+
+* **Feature**: This release adds the source AMI details in DescribeImages API
+
+# v1.187.1 (2024-11-06)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.187.0 (2024-10-30)
 
 * **Feature**: This release adds two new capabilities to VPC Security Groups: Security Group VPC Associations and Shared Security Groups.
