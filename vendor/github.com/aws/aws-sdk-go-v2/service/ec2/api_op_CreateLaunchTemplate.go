@@ -65,6 +65,9 @@ type CreateLaunchTemplateInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Reserved for internal use.
+	Operator *types.OperatorRequest
+
 	// The tags to apply to the launch template on creation. To tag the launch
 	// template, the resource type must be launch-template .
 	//

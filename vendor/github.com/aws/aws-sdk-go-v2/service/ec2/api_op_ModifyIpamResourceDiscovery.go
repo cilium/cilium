@@ -41,6 +41,15 @@ type ModifyIpamResourceDiscoveryInput struct {
 	// select as operating Regions.
 	AddOperatingRegions []types.AddIpamOperatingRegion
 
+	// Add an Organizational Unit (OU) exclusion to your IPAM. If your IPAM is
+	// integrated with Amazon Web Services Organizations and you add an organizational
+	// unit (OU) exclusion, IPAM will not manage the IP addresses in accounts in that
+	// OU exclusion. There is a limit on the number of exclusions you can create. For
+	// more information, see [Quotas for your IPAM]in the Amazon VPC IPAM User Guide.
+	//
+	// [Quotas for your IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/quotas-ipam.html
+	AddOrganizationalUnitExclusions []types.AddIpamOrganizationalUnitExclusion
+
 	// A resource discovery description.
 	Description *string
 
@@ -52,6 +61,15 @@ type ModifyIpamResourceDiscoveryInput struct {
 
 	// Remove operating Regions.
 	RemoveOperatingRegions []types.RemoveIpamOperatingRegion
+
+	// Remove an Organizational Unit (OU) exclusion to your IPAM. If your IPAM is
+	// integrated with Amazon Web Services Organizations and you add an organizational
+	// unit (OU) exclusion, IPAM will not manage the IP addresses in accounts in that
+	// OU exclusion. There is a limit on the number of exclusions you can create. For
+	// more information, see [Quotas for your IPAM]in the Amazon VPC IPAM User Guide.
+	//
+	// [Quotas for your IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/quotas-ipam.html
+	RemoveOrganizationalUnitExclusions []types.RemoveIpamOrganizationalUnitExclusion
 
 	noSmithyDocumentSerde
 }

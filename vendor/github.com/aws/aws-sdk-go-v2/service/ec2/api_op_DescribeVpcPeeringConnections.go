@@ -68,7 +68,7 @@ type DescribeVpcPeeringConnectionsInput struct {
 	//   - status-message - A message that provides more information about the status
 	//   of the VPC peering connection, if applicable.
 	//
-	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
+	//   - tag - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,
 	//   specify tag:Owner for the filter name and TeamA for the filter value.
