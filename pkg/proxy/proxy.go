@@ -234,6 +234,10 @@ func (p *Proxy) AckProxyPort(ctx context.Context, name string) error {
 func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
 	scopedLog := log.WithField(fieldProxyRedirectID, name)
 
+	if pp.ProxyPort == 0 {
+		return fmt.Errorf("ackProxyPort: zero port on %s not allowed", name)
+	}
+
 	// Datapath rules are added only after we know the proxy configuration
 	// with the actual port number has succeeded. Deletion of the rules
 	// is delayed after the redirects have been removed to the point
@@ -773,7 +777,8 @@ func (p *Proxy) createNewRedirect(
 	p.redirects[id] = redirect
 	p.updateRedirectMetrics()
 
-	// must mark the proxyPort configured while we still hold the lock to prevent racing between two parallel runs
+	// must mark the proxyPort configured while we still hold the lock to prevent racing between
+	// two parallel runs
 
 	// marks port as reserved
 	p.allocatedPorts[pp.ProxyPort] = true
@@ -786,13 +791,16 @@ func (p *Proxy) createNewRedirect(
 		p.mutex.Lock()
 		delete(p.redirects, id)
 
-		// Mark the  port for reuse only if no other ports are available
-		// Discourage the reuse of the same port in future as revert may have been due to
-		// port not being available for bind().
-		p.allocatedPorts[pp.ProxyPort] = false
-		// clear proxy port on failure so that a new one will be tried next time
-		pp.ProxyPort = 0
-		pp.configured = false
+		// Do not release static proxy port.
+		if !pp.isStatic {
+			// Mark the port for reuse only if no other ports are available
+			// Discourage the reuse of the same port in future as revert may have been
+			// due to port not being available for bind().
+			p.allocatedPorts[pp.ProxyPort] = false
+			// clear proxy port on failure so that a new one will be tried next time
+			pp.ProxyPort = 0
+			pp.configured = false
+		}
 
 		p.updateRedirectMetrics()
 		p.mutex.Unlock()
