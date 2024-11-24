@@ -11,36 +11,42 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies the Capacity Reservation settings for a stopped instance. Use this
-// action to configure an instance to target a specific Capacity Reservation, run
-// in any open Capacity Reservation with matching attributes, run in On-Demand
-// Instance capacity, or only run in a Capacity Reservation.
-func (c *Client) ModifyInstanceCapacityReservationAttributes(ctx context.Context, params *ModifyInstanceCapacityReservationAttributesInput, optFns ...func(*Options)) (*ModifyInstanceCapacityReservationAttributesOutput, error) {
+// Create a VPC Block Public Access (BPA) exclusion. A VPC BPA exclusion is a mode
+// that can be applied to a single VPC or subnet that exempts it from the account’s
+// BPA mode and will allow bidirectional or egress-only access. You can create BPA
+// exclusions for VPCs and subnets even when BPA is not enabled on the account to
+// ensure that there is no traffic disruption to the exclusions when VPC BPA is
+// turned on. To learn more about VPC BPA, see [Block public access to VPCs and subnets]in the Amazon VPC User Guide.
+//
+// [Block public access to VPCs and subnets]: https://docs.aws.amazon.com/vpc/latest/userguide/security-vpc-bpa.html
+func (c *Client) CreateVpcBlockPublicAccessExclusion(ctx context.Context, params *CreateVpcBlockPublicAccessExclusionInput, optFns ...func(*Options)) (*CreateVpcBlockPublicAccessExclusionOutput, error) {
 	if params == nil {
-		params = &ModifyInstanceCapacityReservationAttributesInput{}
+		params = &CreateVpcBlockPublicAccessExclusionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceCapacityReservationAttributes", params, optFns, c.addOperationModifyInstanceCapacityReservationAttributesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateVpcBlockPublicAccessExclusion", params, optFns, c.addOperationCreateVpcBlockPublicAccessExclusionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*ModifyInstanceCapacityReservationAttributesOutput)
+	out := result.(*CreateVpcBlockPublicAccessExclusionOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type ModifyInstanceCapacityReservationAttributesInput struct {
+type CreateVpcBlockPublicAccessExclusionInput struct {
 
-	// Information about the Capacity Reservation targeting option.
+	// The exclusion mode for internet gateway traffic.
+	//
+	//   - allow-bidirectional : Allow all internet traffic to and from the excluded
+	//   VPCs and subnets.
+	//
+	//   - allow-egress : Allow outbound internet traffic from the excluded VPCs and
+	//   subnets. Block inbound internet traffic to the excluded VPCs and subnets. Only
+	//   applies when VPC Block Public Access is set to Bidirectional.
 	//
 	// This member is required.
-	CapacityReservationSpecification *types.CapacityReservationSpecification
-
-	// The ID of the instance to be modified.
-	//
-	// This member is required.
-	InstanceId *string
+	InternetGatewayExclusionMode types.InternetGatewayExclusionMode
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -48,13 +54,25 @@ type ModifyInstanceCapacityReservationAttributesInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// A subnet ID.
+	SubnetId *string
+
+	// tag - The key/value combination of a tag assigned to the resource. Use the tag
+	// key in the filter name and the tag value as the filter value. For example, to
+	// find all resources that have a tag with the key Owner and the value TeamA ,
+	// specify tag:Owner for the filter name and TeamA for the filter value.
+	TagSpecifications []types.TagSpecification
+
+	// A VPC ID.
+	VpcId *string
+
 	noSmithyDocumentSerde
 }
 
-type ModifyInstanceCapacityReservationAttributesOutput struct {
+type CreateVpcBlockPublicAccessExclusionOutput struct {
 
-	// Returns true if the request succeeds; otherwise, it returns an error.
-	Return *bool
+	// Details about an exclusion.
+	VpcBlockPublicAccessExclusion *types.VpcBlockPublicAccessExclusion
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -62,19 +80,19 @@ type ModifyInstanceCapacityReservationAttributesOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationModifyInstanceCapacityReservationAttributesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateVpcBlockPublicAccessExclusionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceCapacityReservationAttributes{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateVpcBlockPublicAccessExclusion{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyInstanceCapacityReservationAttributes{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCreateVpcBlockPublicAccessExclusion{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyInstanceCapacityReservationAttributes"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateVpcBlockPublicAccessExclusion"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -126,10 +144,10 @@ func (c *Client) addOperationModifyInstanceCapacityReservationAttributesMiddlewa
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = addOpModifyInstanceCapacityReservationAttributesValidationMiddleware(stack); err != nil {
+	if err = addOpCreateVpcBlockPublicAccessExclusionValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyInstanceCapacityReservationAttributes(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVpcBlockPublicAccessExclusion(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -162,10 +180,10 @@ func (c *Client) addOperationModifyInstanceCapacityReservationAttributesMiddlewa
 	return nil
 }
 
-func newServiceMetadataMiddleware_opModifyInstanceCapacityReservationAttributes(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opCreateVpcBlockPublicAccessExclusion(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "ModifyInstanceCapacityReservationAttributes",
+		OperationName: "CreateVpcBlockPublicAccessExclusion",
 	}
 }

@@ -11,36 +11,34 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies the Capacity Reservation settings for a stopped instance. Use this
-// action to configure an instance to target a specific Capacity Reservation, run
-// in any open Capacity Reservation with matching attributes, run in On-Demand
-// Instance capacity, or only run in a Capacity Reservation.
-func (c *Client) ModifyInstanceCapacityReservationAttributes(ctx context.Context, params *ModifyInstanceCapacityReservationAttributesInput, optFns ...func(*Options)) (*ModifyInstanceCapacityReservationAttributesOutput, error) {
+// Purchase the Capacity Block extension for use with your account. You must
+// specify the ID of the Capacity Block extension offering you are purchasing.
+func (c *Client) PurchaseCapacityBlockExtension(ctx context.Context, params *PurchaseCapacityBlockExtensionInput, optFns ...func(*Options)) (*PurchaseCapacityBlockExtensionOutput, error) {
 	if params == nil {
-		params = &ModifyInstanceCapacityReservationAttributesInput{}
+		params = &PurchaseCapacityBlockExtensionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceCapacityReservationAttributes", params, optFns, c.addOperationModifyInstanceCapacityReservationAttributesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PurchaseCapacityBlockExtension", params, optFns, c.addOperationPurchaseCapacityBlockExtensionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*ModifyInstanceCapacityReservationAttributesOutput)
+	out := result.(*PurchaseCapacityBlockExtensionOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type ModifyInstanceCapacityReservationAttributesInput struct {
+type PurchaseCapacityBlockExtensionInput struct {
 
-	// Information about the Capacity Reservation targeting option.
+	// The ID of the Capacity Block extension offering to purchase.
 	//
 	// This member is required.
-	CapacityReservationSpecification *types.CapacityReservationSpecification
+	CapacityBlockExtensionOfferingId *string
 
-	// The ID of the instance to be modified.
+	// The ID of the Capacity reservation to be extended.
 	//
 	// This member is required.
-	InstanceId *string
+	CapacityReservationId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -51,10 +49,10 @@ type ModifyInstanceCapacityReservationAttributesInput struct {
 	noSmithyDocumentSerde
 }
 
-type ModifyInstanceCapacityReservationAttributesOutput struct {
+type PurchaseCapacityBlockExtensionOutput struct {
 
-	// Returns true if the request succeeds; otherwise, it returns an error.
-	Return *bool
+	// The purchased Capacity Block extensions.
+	CapacityBlockExtensions []types.CapacityBlockExtension
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -62,19 +60,19 @@ type ModifyInstanceCapacityReservationAttributesOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationModifyInstanceCapacityReservationAttributesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPurchaseCapacityBlockExtensionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceCapacityReservationAttributes{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpPurchaseCapacityBlockExtension{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyInstanceCapacityReservationAttributes{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpPurchaseCapacityBlockExtension{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyInstanceCapacityReservationAttributes"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "PurchaseCapacityBlockExtension"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -126,10 +124,10 @@ func (c *Client) addOperationModifyInstanceCapacityReservationAttributesMiddlewa
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = addOpModifyInstanceCapacityReservationAttributesValidationMiddleware(stack); err != nil {
+	if err = addOpPurchaseCapacityBlockExtensionValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyInstanceCapacityReservationAttributes(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPurchaseCapacityBlockExtension(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -162,10 +160,10 @@ func (c *Client) addOperationModifyInstanceCapacityReservationAttributesMiddlewa
 	return nil
 }
 
-func newServiceMetadataMiddleware_opModifyInstanceCapacityReservationAttributes(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opPurchaseCapacityBlockExtension(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "ModifyInstanceCapacityReservationAttributes",
+		OperationName: "PurchaseCapacityBlockExtension",
 	}
 }

@@ -190,6 +190,47 @@ type AddIpamOperatingRegion struct {
 	noSmithyDocumentSerde
 }
 
+// Add an Organizational Unit (OU) exclusion to your IPAM. If your IPAM is
+// integrated with Amazon Web Services Organizations and you add an organizational
+// unit (OU) exclusion, IPAM will not manage the IP addresses in accounts in that
+// OU exclusion. There is a limit on the number of exclusions you can create. For
+// more information, see [Quotas for your IPAM]in the Amazon VPC IPAM User Guide.
+//
+// [Quotas for your IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/quotas-ipam.html
+type AddIpamOrganizationalUnitExclusion struct {
+
+	// An Amazon Web Services Organizations entity path. Build the path for the OU(s)
+	// using Amazon Web Services Organizations IDs separated by a / . Include all child
+	// OUs by ending the path with /* .
+	//
+	//   - Example 1
+	//
+	//   - Path to a child OU:
+	//   o-a1b2c3d4e5/r-f6g7h8i9j0example/ou-ghi0-awsccccc/ou-jkl0-awsddddd/
+	//
+	//   - In this example, o-a1b2c3d4e5 is the organization ID, r-f6g7h8i9j0example is
+	//   the root ID , ou-ghi0-awsccccc is an OU ID, and ou-jkl0-awsddddd is a child OU
+	//   ID.
+	//
+	//   - IPAM will not manage the IP addresses in accounts in the child OU.
+	//
+	//   - Example 2
+	//
+	//   - Path where all child OUs will be part of the exclusion:
+	//   o-a1b2c3d4e5/r-f6g7h8i9j0example/ou-ghi0-awsccccc/*
+	//
+	//   - In this example, IPAM will not manage the IP addresses in accounts in the
+	//   OU ( ou-ghi0-awsccccc ) or in accounts in any OUs that are children of the OU.
+	//
+	// For more information on how to construct an entity path, see [Understand the Amazon Web Services Organizations entity path] in the Amazon Web
+	// Services Identity and Access Management User Guide.
+	//
+	// [Understand the Amazon Web Services Organizations entity path]: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_last-accessed-view-data-orgs.html#access_policies_access-advisor-viewing-orgs-entity-path
+	OrganizationsEntityPath *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes an additional detail for a path analysis. For more information, see [Reachability Analyzer additional detail codes].
 //
 // [Reachability Analyzer additional detail codes]: https://docs.aws.amazon.com/vpc/latest/reachability/additional-detail-codes.html
@@ -858,6 +899,42 @@ type BaselineEbsBandwidthMbpsRequest struct {
 	noSmithyDocumentSerde
 }
 
+// The baseline performance to consider, using an instance family as a baseline
+// reference. The instance family establishes the lowest acceptable level of
+// performance. Amazon EC2 uses this baseline to guide instance type selection, but
+// there is no guarantee that the selected instance types will always exceed the
+// baseline for every application.
+//
+// Currently, this parameter only supports CPU performance as a baseline
+// performance factor. For example, specifying c6i would use the CPU performance
+// of the c6i family as the baseline reference.
+type BaselinePerformanceFactors struct {
+
+	// The CPU performance to consider, using an instance family as the baseline
+	// reference.
+	Cpu *CpuPerformanceFactor
+
+	noSmithyDocumentSerde
+}
+
+// The baseline performance to consider, using an instance family as a baseline
+// reference. The instance family establishes the lowest acceptable level of
+// performance. Amazon EC2 uses this baseline to guide instance type selection, but
+// there is no guarantee that the selected instance types will always exceed the
+// baseline for every application.
+//
+// Currently, this parameter only supports CPU performance as a baseline
+// performance factor. For example, specifying c6i would use the CPU performance
+// of the c6i family as the baseline reference.
+type BaselinePerformanceFactorsRequest struct {
+
+	// The CPU performance to consider, using an instance family as the baseline
+	// reference.
+	Cpu *CpuPerformanceFactorRequest
+
+	noSmithyDocumentSerde
+}
+
 type BlobAttributeValue struct {
 	Value []byte
 
@@ -893,6 +970,27 @@ type BlockDeviceMapping struct {
 	// block device mapping for the instance. When you launch an M3 instance, we ignore
 	// any instance store volumes specified in the block device mapping for the AMI.
 	VirtualName *string
+
+	noSmithyDocumentSerde
+}
+
+// The state of VPC Block Public Access (BPA).
+type BlockPublicAccessStates struct {
+
+	// The mode of VPC BPA.
+	//
+	//   - off : VPC BPA is not enabled and traffic is allowed to and from internet
+	//   gateways and egress-only internet gateways in this Region.
+	//
+	//   - block-bidirectional : Block all traffic to and from internet gateways and
+	//   egress-only internet gateways in this Region (except for excluded VPCs and
+	//   subnets).
+	//
+	//   - block-ingress : Block all internet traffic to the VPCs in this Region
+	//   (except for VPCs or subnets which are excluded). Only traffic to and from NAT
+	//   gateways and egress-only internet gateways is allowed because these gateways
+	//   only allow outbound connections to be established.
+	InternetGatewayBlockMode BlockPublicAccessMode
 
 	noSmithyDocumentSerde
 }
@@ -1101,14 +1199,133 @@ type CapacityAllocation struct {
 	noSmithyDocumentSerde
 }
 
+// Describes a Capacity Block extension. With an extension, you can extend the
+// duration of time for an existing Capacity Block.
+type CapacityBlockExtension struct {
+
+	// The Availability Zone of the Capacity Block extension.
+	AvailabilityZone *string
+
+	// The Availability Zone ID of the Capacity Block extension.
+	AvailabilityZoneId *string
+
+	// The duration of the Capacity Block extension in hours.
+	CapacityBlockExtensionDurationHours *int32
+
+	// The end date of the Capacity Block extension.
+	CapacityBlockExtensionEndDate *time.Time
+
+	// The ID of the Capacity Block extension offering.
+	CapacityBlockExtensionOfferingId *string
+
+	// The date when the Capacity Block extension was purchased.
+	CapacityBlockExtensionPurchaseDate *time.Time
+
+	// The start date of the Capacity Block extension.
+	CapacityBlockExtensionStartDate *time.Time
+
+	// The status of the Capacity Block extension. A Capacity Block extension can have
+	// one of the following statuses:
+	//
+	//   - payment-pending - The Capacity Block extension payment is processing. If
+	//   your payment can't be processed within 12 hours, the Capacity Block extension is
+	//   failed.
+	//
+	//   - payment-failed - Payment for the Capacity Block extension request was not
+	//   successful.
+	//
+	//   - payment-succeeded - Payment for the Capacity Block extension request was
+	//   successful. You receive an invoice that reflects the one-time upfront payment.
+	//   In the invoice, you can associate the paid amount with the Capacity Block
+	//   reservation ID.
+	CapacityBlockExtensionStatus CapacityBlockExtensionStatus
+
+	// The reservation ID of the Capacity Block extension.
+	CapacityReservationId *string
+
+	// The currency of the payment for the Capacity Block extension.
+	CurrencyCode *string
+
+	// The number of instances in the Capacity Block extension.
+	InstanceCount *int32
+
+	// The instance type of the Capacity Block extension.
+	InstanceType *string
+
+	// The total price to be paid up front.
+	UpfrontFee *string
+
+	noSmithyDocumentSerde
+}
+
+// The recommended Capacity Block extension that fits your search requirements.
+type CapacityBlockExtensionOffering struct {
+
+	// The Availability Zone of the Capacity Block that will be extended.
+	AvailabilityZone *string
+
+	// The Availability Zone ID of the Capacity Block that will be extended.
+	AvailabilityZoneId *string
+
+	// The amount of time of the Capacity Block extension offering in hours.
+	CapacityBlockExtensionDurationHours *int32
+
+	// The date and time at which the Capacity Block extension expires. When a
+	// Capacity Block expires, the reserved capacity is released and you can no longer
+	// launch instances into it. The Capacity Block's state changes to expired when it
+	// reaches its end date
+	CapacityBlockExtensionEndDate *time.Time
+
+	// The ID of the Capacity Block extension offering.
+	CapacityBlockExtensionOfferingId *string
+
+	// The date and time at which the Capacity Block extension will start. This date
+	// is also the same as the end date of the Capacity Block that will be extended.
+	CapacityBlockExtensionStartDate *time.Time
+
+	// The currency of the payment for the Capacity Block extension offering.
+	CurrencyCode *string
+
+	// The number of instances in the Capacity Block extension offering.
+	InstanceCount *int32
+
+	// The instance type of the Capacity Block that will be extended.
+	InstanceType *string
+
+	// The start date of the Capacity Block that will be extended.
+	StartDate *time.Time
+
+	// Indicates the tenancy of the Capacity Block extension offering. A Capacity
+	// Block can have one of the following tenancy settings:
+	//
+	//   - default - The Capacity Block is created on hardware that is shared with
+	//   other Amazon Web Services accounts.
+	//
+	//   - dedicated - The Capacity Block is created on single-tenant hardware that is
+	//   dedicated to a single Amazon Web Services account.
+	Tenancy CapacityReservationTenancy
+
+	// The total price of the Capacity Block extension offering, to be paid up front.
+	UpfrontFee *string
+
+	noSmithyDocumentSerde
+}
+
 // The recommended Capacity Block that fits your search requirements.
 type CapacityBlockOffering struct {
 
 	// The Availability Zone of the Capacity Block offering.
 	AvailabilityZone *string
 
-	// The amount of time of the Capacity Block reservation in hours.
+	// The number of hours (in addition to capacityBlockDurationMinutes ) for the
+	// duration of the Capacity Block reservation. For example, if a Capacity Block
+	// starts at 04:55 and ends at 11:30, the hours field would be 6.
 	CapacityBlockDurationHours *int32
+
+	// The number of minutes (in addition to capacityBlockDurationHours ) for the
+	// duration of the Capacity Block reservation. For example, if a Capacity Block
+	// starts at 08:55 and ends at 11:30, the minutes field would be 35.
+	CapacityBlockDurationMinutes *int32
 
 	// The ID of the Capacity Block offering.
 	CapacityBlockOfferingId *string
@@ -1164,8 +1381,17 @@ type CapacityReservation struct {
 	// The ID of the Capacity Reservation.
 	CapacityReservationId *string
 
+	// Information about your commitment for a future-dated Capacity Reservation.
+	CommitmentInfo *CapacityReservationCommitmentInfo
+
 	// The date and time at which the Capacity Reservation was created.
 	CreateDate *time.Time
+
+	// The delivery method for a future-dated Capacity Reservation. incremental
+	// indicates that the requested capacity is delivered in addition to any running
+	// instances and reserved capacity that you have in your account at the requested
+	// date and time.
+	DeliveryPreference CapacityReservationDeliveryPreference
 
 	// Indicates whether the Capacity Reservation supports EBS-optimized instances.
 	// This optimization provides dedicated throughput to Amazon EBS and an optimized
@@ -1237,22 +1463,38 @@ type CapacityReservation struct {
 	// The current state of the Capacity Reservation. A Capacity Reservation can be in
 	// one of the following states:
 	//
-	//   - active - The Capacity Reservation is active and the capacity is available
-	//   for your use.
+	//   - active - The capacity is available for use.
 	//
 	//   - expired - The Capacity Reservation expired automatically at the date and
-	//   time specified in your request. The reserved capacity is no longer available for
-	//   your use.
+	//   time specified in your reservation request. The reserved capacity is no longer
+	//   available for your use.
 	//
-	//   - cancelled - The Capacity Reservation was cancelled. The reserved capacity is
+	//   - cancelled - The Capacity Reservation was canceled. The reserved capacity is
 	//   no longer available for your use.
 	//
 	//   - pending - The Capacity Reservation request was successful but the capacity
 	//   provisioning is still pending.
 	//
-	//   - failed - The Capacity Reservation request has failed. A request might fail
-	//   due to invalid request parameters, capacity constraints, or instance limit
-	//   constraints. Failed requests are retained for 60 minutes.
+	//   - failed - The Capacity Reservation request has failed. A request can fail due
+	//   to request parameters that are not valid, capacity constraints, or instance
+	//   limit constraints. You can view a failed request for 60 minutes.
+	//
+	//   - scheduled - (Future-dated Capacity Reservations only) The future-dated
+	//   Capacity Reservation request was approved and the Capacity Reservation is
+	//   scheduled for delivery on the requested start date.
+	//
+	//   - assessing - (Future-dated Capacity Reservations only) Amazon EC2 is
+	//   assessing your request for a future-dated Capacity Reservation.
+	//
+	//   - delayed - (Future-dated Capacity Reservations only) Amazon EC2 encountered a
+	//   delay in provisioning the requested future-dated Capacity Reservation. Amazon
+	//   EC2 is unable to deliver the requested capacity by the requested start date and
+	//   time.
+	//
+	//   - unsupported - (Future-dated Capacity Reservations only) Amazon EC2 can't
+	//   support the future-dated Capacity Reservation request due to capacity
+	//   constraints. You can view unsupported requests for 30 days. The Capacity
+	//   Reservation will not be delivered.
 	State CapacityReservationState
 
 	// Any tags assigned to the Capacity Reservation.
@@ -1305,6 +1547,21 @@ type CapacityReservationBillingRequest struct {
 
 	// The ID of the Amazon Web Services account to which the request was sent.
 	UnusedReservationBillingOwnerId *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about your commitment for a future-dated Capacity Reservation.
+type CapacityReservationCommitmentInfo struct {
+
+	// The date and time at which the commitment duration expires, in the ISO8601
+	// format in the UTC time zone ( YYYY-MM-DDThh:mm:ss.sssZ ). You can't decrease the
+	// instance count or cancel the Capacity Reservation before this date and time.
+	CommitmentEndDate *time.Time
+
+	// The instance capacity that you committed to when you requested the future-dated
+	// Capacity Reservation.
+	CommittedInstanceCount *int32
 
 	noSmithyDocumentSerde
 }
@@ -1509,24 +1766,30 @@ type CapacityReservationOptionsRequest struct {
 	noSmithyDocumentSerde
 }
 
-// Describes an instance's Capacity Reservation targeting option. You can specify
-// only one parameter at a time. If you specify CapacityReservationPreference and
-// CapacityReservationTarget , the request fails.
+// Describes an instance's Capacity Reservation targeting option.
 //
 // Use the CapacityReservationPreference parameter to configure the instance to
-// run as an On-Demand Instance or to run in any open Capacity Reservation that
-// has matching attributes (instance type, platform, Availability Zone). Use the
-// CapacityReservationTarget parameter to explicitly target a specific Capacity
-// Reservation or a Capacity Reservation group.
+// run as an On-Demand Instance, to run in any open Capacity Reservation that has
+// matching attributes, or to run only in a Capacity Reservation or Capacity
+// Reservation group. Use the CapacityReservationTarget parameter to explicitly
+// target a specific Capacity Reservation or a Capacity Reservation group.
+//
+// You can only specify CapacityReservationPreference and CapacityReservationTarget
+// if the CapacityReservationPreference is capacity-reservations-only .
 type CapacityReservationSpecification struct {
 
 	// Indicates the instance's Capacity Reservation preferences. Possible preferences
 	// include:
 	//
-	//   - open - The instance can run in any open Capacity Reservation that has
-	//   matching attributes (instance type, platform, Availability Zone).
+	//   - capacity-reservations-only - The instance will only run in a Capacity
+	//   Reservation or Capacity Reservation group. If capacity isn't available, the
+	//   instance will fail to launch.
 	//
-	//   - none - The instance avoids running in a Capacity Reservation even if one is
+	//   - open - The instance can run in any open Capacity Reservation that has
+	//   matching attributes (instance type, platform, Availability Zone, and tenancy).
+	//   If capacity isn't available, the instance runs as an On-Demand Instance.
+	//
+	//   - none - The instance doesn't run in a Capacity Reservation even if one is
 	//   available. The instance runs as an On-Demand Instance.
 	CapacityReservationPreference CapacityReservationPreference
 
@@ -2419,6 +2682,36 @@ type CpuOptionsRequest struct {
 	// The number of threads per CPU core. To disable multithreading for the instance,
 	// specify a value of 1 . Otherwise, specify the default value of 2 .
 	ThreadsPerCore *int32
+
+	noSmithyDocumentSerde
+}
+
+// The CPU performance to consider, using an instance family as the baseline
+// reference.
+type CpuPerformanceFactor struct {
+
+	// Specify an instance family to use as the baseline reference for CPU
+	// performance. All instance types that match your specified attributes will be
+	// compared against the CPU performance of the referenced instance family,
+	// regardless of CPU manufacturer or architecture differences.
+	//
+	// Currently, only one instance family can be specified in the list.
+	References []PerformanceFactorReference
+
+	noSmithyDocumentSerde
+}
+
+// The CPU performance to consider, using an instance family as the baseline
+// reference.
+type CpuPerformanceFactorRequest struct {
+
+	// Specify an instance family to use as the baseline reference for CPU
+	// performance. All instance types that match your specified attributes will be
+	// compared against the CPU performance of the referenced instance family,
+	// regardless of CPU manufacturer or architecture differences.
+	//
+	// Currently, only one instance family can be specified in the list.
+	References []PerformanceFactorReferenceRequest
 
 	noSmithyDocumentSerde
 }
@@ -3500,6 +3793,9 @@ type EbsInstanceBlockDevice struct {
 
 	// Indicates whether the volume is deleted on instance termination.
 	DeleteOnTermination *bool
+
+	// The entity that manages the EBS volume.
+	Operator *OperatorResponse
 
 	// The attachment state.
 	Status AttachmentStatus
@@ -5788,7 +6084,7 @@ type Image struct {
 	// The location of the AMI.
 	ImageLocation *string
 
-	// The owner alias ( amazon | aws-marketplace ).
+	// The owner alias ( amazon | aws-backup-vault | aws-marketplace ).
 	ImageOwnerAlias *string
 
 	// The type of image.
@@ -5849,6 +6145,25 @@ type Image struct {
 	// The type of root device used by the AMI. The AMI can use an Amazon EBS volume
 	// or an instance store volume.
 	RootDeviceType DeviceType
+
+	// The ID of the source AMI from which the AMI was created.
+	//
+	// The ID only appears if the AMI was created using CreateImage, CopyImage, or CreateRestoreImageTask. The ID does not
+	// appear if the AMI was created using any other API. For some older AMIs, the ID
+	// might not be available. For more information, see [Identify the source AMI used to create a new AMI]in the Amazon EC2 User Guide.
+	//
+	// [Identify the source AMI used to create a new AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify-source-ami-used-to-create-new-ami.html
+	SourceImageId *string
+
+	// The Region of the source AMI.
+	//
+	// The Region only appears if the AMI was created using CreateImage, CopyImage, or CreateRestoreImageTask. The Region does
+	// not appear if the AMI was created using any other API. For some older AMIs, the
+	// Region might not be available. For more information, see [Identify the source AMI used to create a new AMI]in the Amazon EC2 User
+	// Guide.
+	//
+	// [Identify the source AMI used to create a new AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify-source-ami-used-to-create-new-ami.html
+	SourceImageRegion *string
 
 	// The ID of the instance that the AMI was created from if the AMI was created
 	// using [CreateImage]. This field only appears if the AMI was created using CreateImage.
@@ -5937,7 +6252,7 @@ type ImageMetadata struct {
 
 	// The alias of the AMI owner.
 	//
-	// Valid values: amazon | aws-marketplace
+	// Valid values: amazon | aws-backup-vault | aws-marketplace
 	ImageOwnerAlias *string
 
 	// Indicates whether the AMI has public launch permissions. A value of true means
@@ -6333,7 +6648,9 @@ type Instance struct {
 	// pair.
 	KeyName *string
 
-	// The time the instance was launched.
+	// The time that the instance was last launched. To determine the time that
+	// instance was first launched, see the attachment time for the primary network
+	// interface.
 	LaunchTime *time.Time
 
 	// The license configurations for the instance.
@@ -6350,6 +6667,9 @@ type Instance struct {
 
 	// The network interfaces for the instance.
 	NetworkInterfaces []InstanceNetworkInterface
+
+	// The entity that manages the instance.
+	Operator *OperatorResponse
 
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string
@@ -6763,6 +7083,9 @@ type InstanceImageMetadata struct {
 	// The time the instance was launched.
 	LaunchTime *time.Time
 
+	// The entity that manages the instance.
+	Operator *OperatorResponse
+
 	// The ID of the Amazon Web Services account that owns the instance.
 	OwnerId *string
 
@@ -7041,6 +7364,9 @@ type InstanceNetworkInterface struct {
 
 	// The ID of the network interface.
 	NetworkInterfaceId *string
+
+	// The entity that manages the network interface.
+	Operator *OperatorResponse
 
 	// The ID of the Amazon Web Services account that created the network interface.
 	OwnerId *string
@@ -7429,6 +7755,17 @@ type InstanceRequirements struct {
 	// [Amazon EBS–optimized instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html
 	BaselineEbsBandwidthMbps *BaselineEbsBandwidthMbps
 
+	// The baseline performance to consider, using an instance family as a baseline
+	// reference. The instance family establishes the lowest acceptable level of
+	// performance. Amazon EC2 uses this baseline to guide instance type selection, but
+	// there is no guarantee that the selected instance types will always exceed the
+	// baseline for every application. Currently, this parameter only supports CPU
+	// performance as a baseline performance factor. For more information, see [Performance protection]in the
+	// Amazon EC2 User Guide.
+	//
+	// [Performance protection]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html#ec2fleet-abis-performance-protection
+	BaselinePerformanceFactors *BaselinePerformanceFactors
+
 	// Indicates whether burstable performance T instance types are included,
 	// excluded, or required. For more information, see [Burstable performance instances].
 	//
@@ -7785,6 +8122,17 @@ type InstanceRequirementsRequest struct {
 	// [Amazon EBS–optimized instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html
 	BaselineEbsBandwidthMbps *BaselineEbsBandwidthMbpsRequest
 
+	// The baseline performance to consider, using an instance family as a baseline
+	// reference. The instance family establishes the lowest acceptable level of
+	// performance. Amazon EC2 uses this baseline to guide instance type selection, but
+	// there is no guarantee that the selected instance types will always exceed the
+	// baseline for every application. Currently, this parameter only supports CPU
+	// performance as a baseline performance factor. For more information, see [Performance protection]in the
+	// Amazon EC2 User Guide.
+	//
+	// [Performance protection]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-attribute-based-instance-type-selection.html#ec2fleet-abis-performance-protection
+	BaselinePerformanceFactors *BaselinePerformanceFactorsRequest
+
 	// Indicates whether burstable performance T instance types are included,
 	// excluded, or required. For more information, see [Burstable performance instances].
 	//
@@ -8102,6 +8450,9 @@ type InstanceStatus struct {
 	// Reports impaired functionality that stems from issues internal to the instance,
 	// such as impaired reachability.
 	InstanceStatus *InstanceStatusSummary
+
+	// The entity that manages the instance.
+	Operator *OperatorResponse
 
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string
@@ -8588,6 +8939,9 @@ type IpamDiscoveredAccount struct {
 	// The last successful resource discovery time.
 	LastSuccessfulDiscoveryTime *time.Time
 
+	// The ID of an Organizational Unit in Amazon Web Services Organizations.
+	OrganizationalUnitId *string
+
 	noSmithyDocumentSerde
 }
 
@@ -8814,6 +9168,21 @@ type IpamOperatingRegion struct {
 
 	// The name of the operating Region.
 	RegionName *string
+
+	noSmithyDocumentSerde
+}
+
+// If your IPAM is integrated with Amazon Web Services Organizations and you add
+// an organizational unit (OU) exclusion, IPAM will not manage the IP addresses in
+// accounts in that OU exclusion.
+type IpamOrganizationalUnitExclusion struct {
+
+	// An Amazon Web Services Organizations entity path. For more information on the
+	// entity path, see [Understand the Amazon Web Services Organizations entity path]in the Amazon Web Services Identity and Access Management User
+	// Guide.
+	//
+	// [Understand the Amazon Web Services Organizations entity path]: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_last-accessed-view-data-orgs.html#access_policies_access-advisor-viewing-orgs-entity-path
+	OrganizationsEntityPath *string
 
 	noSmithyDocumentSerde
 }
@@ -9198,6 +9567,11 @@ type IpamResourceDiscovery struct {
 	// only discovers and monitors resources in the Amazon Web Services Regions you
 	// select as operating Regions.
 	OperatingRegions []IpamOperatingRegion
+
+	// If your IPAM is integrated with Amazon Web Services Organizations and you add
+	// an organizational unit (OU) exclusion, IPAM will not manage the IP addresses in
+	// accounts in that OU exclusion.
+	OrganizationalUnitExclusions []IpamOrganizationalUnitExclusion
 
 	// The ID of the owner.
 	OwnerId *string
@@ -9728,6 +10102,9 @@ type LaunchTemplate struct {
 
 	// The name of the launch template.
 	LaunchTemplateName *string
+
+	// The entity that manages the launch template.
+	Operator *OperatorResponse
 
 	// The tags for the launch template.
 	Tags []Tag
@@ -10870,6 +11247,9 @@ type LaunchTemplateVersion struct {
 
 	// The name of the launch template.
 	LaunchTemplateName *string
+
+	// The entity that manages the launch template.
+	Operator *OperatorResponse
 
 	// The description for the version.
 	VersionDescription *string
@@ -12300,6 +12680,9 @@ type NetworkInterface struct {
 	// The ID of the network interface.
 	NetworkInterfaceId *string
 
+	// The entity that manages the network interface.
+	Operator *OperatorResponse
+
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string
 
@@ -12736,6 +13119,29 @@ type OnDemandOptionsRequest struct {
 	noSmithyDocumentSerde
 }
 
+// The entity that manages the resource.
+type OperatorRequest struct {
+
+	// The entity that manages the resource.
+	Principal *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes whether the resource is managed by an entity and, if so, describes
+// the entity that manages it.
+type OperatorResponse struct {
+
+	// If true , the resource is managed by an entity.
+	Managed *bool
+
+	// If managed is true , then the principal is returned. The principal is the entity
+	// that manages the resource.
+	Principal *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes a packet header statement.
 type PacketHeaderStatement struct {
 
@@ -12994,6 +13400,102 @@ type PeeringTgwInfo struct {
 
 	// The ID of the transit gateway.
 	TransitGatewayId *string
+
+	noSmithyDocumentSerde
+}
+
+// Specify an instance family to use as the baseline reference for CPU
+// performance. All instance types that match your specified attributes will be
+// compared against the CPU performance of the referenced instance family,
+// regardless of CPU manufacturer or architecture.
+//
+// Currently, only one instance family can be specified in the list.
+type PerformanceFactorReference struct {
+
+	// The instance family to use as a baseline reference.
+	//
+	// Ensure that you specify the correct value for the instance family. The instance
+	// family is everything before the period ( . ) in the instance type name. For
+	// example, in the instance type c6i.large , the instance family is c6i , not c6 .
+	// For more information, see [Amazon EC2 instance type naming conventions]in Amazon EC2 Instance Types.
+	//
+	// The following instance families are not supported for performance protection:
+	//
+	//   - c1
+	//
+	//   - g3 | g3s
+	//
+	//   - hpc7g
+	//
+	//   - m1 | m2
+	//
+	//   - mac1 | mac2 | mac2-m1ultra | mac2-m2 | mac2-m2pro
+	//
+	//   - p3dn | p4d | p5
+	//
+	//   - t1
+	//
+	//   - u-12tb1 | u-18tb1 | u-24tb1 | u-3tb1 | u-6tb1 | u-9tb1 | u7i-12tb |
+	//   u7in-16tb | u7in-24tb | u7in-32tb
+	//
+	// If you enable performance protection by specifying a supported instance family,
+	// the returned instance types will exclude the above unsupported instance
+	// families.
+	//
+	// If you specify an unsupported instance family as a value for baseline
+	// performance, the API returns an empty response for and an exception for , , ,
+	// and .
+	//
+	// [Amazon EC2 instance type naming conventions]: https://docs.aws.amazon.com/ec2/latest/instancetypes/instance-type-names.html
+	InstanceFamily *string
+
+	noSmithyDocumentSerde
+}
+
+// Specify an instance family to use as the baseline reference for CPU
+// performance. All instance types that match your specified attributes will be
+// compared against the CPU performance of the referenced instance family,
+// regardless of CPU manufacturer or architecture.
+//
+// Currently, only one instance family can be specified in the list.
+type PerformanceFactorReferenceRequest struct {
+
+	// The instance family to use as a baseline reference.
+	//
+	// Ensure that you specify the correct value for the instance family. The instance
+	// family is everything before the period ( . ) in the instance type name. For
+	// example, in the instance type c6i.large , the instance family is c6i , not c6 .
+	// For more information, see [Amazon EC2 instance type naming conventions]in Amazon EC2 Instance Types.
+	//
+	// The following instance families are not supported for performance protection:
+	//
+	//   - c1
+	//
+	//   - g3 | g3s
+	//
+	//   - hpc7g
+	//
+	//   - m1 | m2
+	//
+	//   - mac1 | mac2 | mac2-m1ultra | mac2-m2 | mac2-m2pro
+	//
+	//   - p3dn | p4d | p5
+	//
+	//   - t1
+	//
+	//   - u-12tb1 | u-18tb1 | u-24tb1 | u-3tb1 | u-6tb1 | u-9tb1 | u7i-12tb |
+	//   u7in-16tb | u7in-24tb | u7in-32tb
+	//
+	// If you enable performance protection by specifying a supported instance family,
+	// the returned instance types will exclude the above unsupported instance
+	// families.
+	//
+	// If you specify an unsupported instance family as a value for baseline
+	// performance, the API returns an empty response for and an exception for , , ,
+	// and .
+	//
+	// [Amazon EC2 instance type naming conventions]: https://docs.aws.amazon.com/ec2/latest/instancetypes/instance-type-names.html
+	InstanceFamily *string
 
 	noSmithyDocumentSerde
 }
@@ -13738,6 +14240,47 @@ type RemoveIpamOperatingRegion struct {
 	noSmithyDocumentSerde
 }
 
+// Remove an Organizational Unit (OU) exclusion to your IPAM. If your IPAM is
+// integrated with Amazon Web Services Organizations and you add an organizational
+// unit (OU) exclusion, IPAM will not manage the IP addresses in accounts in that
+// OU exclusion. There is a limit on the number of exclusions you can create. For
+// more information, see [Quotas for your IPAM]in the Amazon VPC IPAM User Guide.
+//
+// [Quotas for your IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/quotas-ipam.html
+type RemoveIpamOrganizationalUnitExclusion struct {
+
+	// An Amazon Web Services Organizations entity path. Build the path for the OU(s)
+	// using Amazon Web Services Organizations IDs separated by a / . Include all child
+	// OUs by ending the path with /* .
+	//
+	//   - Example 1
+	//
+	//   - Path to a child OU:
+	//   o-a1b2c3d4e5/r-f6g7h8i9j0example/ou-ghi0-awsccccc/ou-jkl0-awsddddd/
+	//
+	//   - In this example, o-a1b2c3d4e5 is the organization ID, r-f6g7h8i9j0example is
+	//   the root ID , ou-ghi0-awsccccc is an OU ID, and ou-jkl0-awsddddd is a child OU
+	//   ID.
+	//
+	//   - IPAM will not manage the IP addresses in accounts in the child OU.
+	//
+	//   - Example 2
+	//
+	//   - Path where all child OUs will be part of the exclusion:
+	//   o-a1b2c3d4e5/r-f6g7h8i9j0example/ou-ghi0-awsccccc/*
+	//
+	//   - In this example, IPAM will not manage the IP addresses in accounts in the
+	//   OU ( ou-ghi0-awsccccc ) or in accounts in any OUs that are children of the OU.
+	//
+	// For more information on how to construct an entity path, see [Understand the Amazon Web Services Organizations entity path] in the Amazon Web
+	// Services Identity and Access Management User Guide.
+	//
+	// [Understand the Amazon Web Services Organizations entity path]: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_last-accessed-view-data-orgs.html#access_policies_access-advisor-viewing-orgs-entity-path
+	OrganizationsEntityPath *string
+
+	noSmithyDocumentSerde
+}
+
 // An entry for a prefix list.
 type RemovePrefixListEntry struct {
 
@@ -14043,6 +14586,9 @@ type RequestLaunchTemplateData struct {
 
 	// The network interfaces for the instance.
 	NetworkInterfaces []LaunchTemplateInstanceNetworkInterfaceSpecificationRequest
+
+	// The entity that manages the launch template.
+	Operator *OperatorRequest
 
 	// The placement for the instance.
 	Placement *LaunchTemplatePlacementRequest
@@ -14680,6 +15226,9 @@ type ResponseLaunchTemplateData struct {
 
 	// The network interfaces.
 	NetworkInterfaces []LaunchTemplateInstanceNetworkInterfaceSpecification
+
+	// The entity that manages the launch template.
+	Operator *OperatorResponse
 
 	// The placement of the instance.
 	Placement *LaunchTemplatePlacement
@@ -17171,6 +17720,9 @@ type Subnet struct {
 	// for any stopped instances are considered unavailable.
 	AvailableIpAddressCount *int32
 
+	// The state of VPC Block Public Access (BPA).
+	BlockPublicAccessStates *BlockPublicAccessStates
+
 	// The IPv4 CIDR block assigned to the subnet.
 	CidrBlock *string
 
@@ -19604,6 +20156,9 @@ type Volume struct {
 	// Indicates whether Amazon EBS Multi-Attach is enabled.
 	MultiAttachEnabled *bool
 
+	// The entity that manages the volume.
+	Operator *OperatorResponse
+
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string
 
@@ -19846,6 +20401,9 @@ type VolumeStatusItem struct {
 // Describes a VPC.
 type Vpc struct {
 
+	// The state of VPC Block Public Access (BPA).
+	BlockPublicAccessStates *BlockPublicAccessStates
+
 	// The primary IPv4 CIDR block for the VPC.
 	CidrBlock *string
 
@@ -19887,6 +20445,97 @@ type VpcAttachment struct {
 
 	// The ID of the VPC.
 	VpcId *string
+
+	noSmithyDocumentSerde
+}
+
+// A VPC BPA exclusion is a mode that can be applied to a single VPC or subnet
+// that exempts it from the account’s BPA mode and will allow bidirectional or
+// egress-only access. You can create BPA exclusions for VPCs and subnets even when
+// BPA is not enabled on the account to ensure that there is no traffic disruption
+// to the exclusions when VPC BPA is turned on. To learn more about VPC BPA, see [Block public access to VPCs and subnets]
+// in the Amazon VPC User Guide.
+//
+// [Block public access to VPCs and subnets]: https://docs.aws.amazon.com/vpc/latest/userguide/security-vpc-bpa.html
+type VpcBlockPublicAccessExclusion struct {
+
+	// When the exclusion was created.
+	CreationTimestamp *time.Time
+
+	// When the exclusion was deleted.
+	DeletionTimestamp *time.Time
+
+	// The ID of the exclusion.
+	ExclusionId *string
+
+	// The exclusion mode for internet gateway traffic.
+	//
+	//   - allow-bidirectional : Allow all internet traffic to and from the excluded
+	//   VPCs and subnets.
+	//
+	//   - allow-egress : Allow outbound internet traffic from the excluded VPCs and
+	//   subnets. Block inbound internet traffic to the excluded VPCs and subnets. Only
+	//   applies when VPC Block Public Access is set to Bidirectional.
+	InternetGatewayExclusionMode InternetGatewayExclusionMode
+
+	// When the exclusion was last updated.
+	LastUpdateTimestamp *time.Time
+
+	// The reason for the current exclusion state.
+	Reason *string
+
+	// The ARN of the exclusion.
+	ResourceArn *string
+
+	// The state of the exclusion.
+	State VpcBlockPublicAccessExclusionState
+
+	// tag - The key/value combination of a tag assigned to the resource. Use the tag
+	// key in the filter name and the tag value as the filter value. For example, to
+	// find all resources that have a tag with the key Owner and the value TeamA ,
+	// specify tag:Owner for the filter name and TeamA for the filter value.
+	Tags []Tag
+
+	noSmithyDocumentSerde
+}
+
+// VPC Block Public Access (BPA) enables you to block resources in VPCs and
+// subnets that you own in a Region from reaching or being reached from the
+// internet through internet gateways and egress-only internet gateways. To learn
+// more about VPC BPA, see [Block public access to VPCs and subnets]in the Amazon VPC User Guide.
+//
+// [Block public access to VPCs and subnets]: https://docs.aws.amazon.com/vpc/latest/userguide/security-vpc-bpa.html
+type VpcBlockPublicAccessOptions struct {
+
+	// An Amazon Web Services account ID.
+	AwsAccountId *string
+
+	// An Amazon Web Services Region.
+	AwsRegion *string
+
+	// The current mode of VPC BPA.
+	//
+	//   - off : VPC BPA is not enabled and traffic is allowed to and from internet
+	//   gateways and egress-only internet gateways in this Region.
+	//
+	//   - block-bidirectional : Block all traffic to and from internet gateways and
+	//   egress-only internet gateways in this Region (except for excluded VPCs and
+	//   subnets).
+	//
+	//   - block-ingress : Block all internet traffic to the VPCs in this Region
+	//   (except for VPCs or subnets which are excluded). Only traffic to and from NAT
+	//   gateways and egress-only internet gateways is allowed because these gateways
+	//   only allow outbound connections to be established.
+	InternetGatewayBlockMode InternetGatewayBlockMode
+
+	// The last time the VPC BPA mode was updated.
+	LastUpdateTimestamp *time.Time
+
+	// The reason for the current state.
+	Reason *string
+
+	// The current state of VPC BPA.
+	State VpcBlockPublicAccessState
 
 	noSmithyDocumentSerde
 }

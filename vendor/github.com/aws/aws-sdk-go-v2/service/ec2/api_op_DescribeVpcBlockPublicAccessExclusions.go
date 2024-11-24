@@ -11,25 +11,30 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// This action is deprecated.
+// Describe VPC Block Public Access (BPA) exclusions. A VPC BPA exclusion is a
+// mode that can be applied to a single VPC or subnet that exempts it from the
+// account’s BPA mode and will allow bidirectional or egress-only access. You can
+// create BPA exclusions for VPCs and subnets even when BPA is not enabled on the
+// account to ensure that there is no traffic disruption to the exclusions when VPC
+// BPA is turned on. To learn more about VPC BPA, see [Block public access to VPCs and subnets]in the Amazon VPC User Guide.
 //
-// Describes the ClassicLink status of the specified VPCs.
-func (c *Client) DescribeVpcClassicLink(ctx context.Context, params *DescribeVpcClassicLinkInput, optFns ...func(*Options)) (*DescribeVpcClassicLinkOutput, error) {
+// [Block public access to VPCs and subnets]: https://docs.aws.amazon.com/vpc/latest/userguide/security-vpc-bpa.html
+func (c *Client) DescribeVpcBlockPublicAccessExclusions(ctx context.Context, params *DescribeVpcBlockPublicAccessExclusionsInput, optFns ...func(*Options)) (*DescribeVpcBlockPublicAccessExclusionsOutput, error) {
 	if params == nil {
-		params = &DescribeVpcClassicLinkInput{}
+		params = &DescribeVpcBlockPublicAccessExclusionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcClassicLink", params, optFns, c.addOperationDescribeVpcClassicLinkMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcBlockPublicAccessExclusions", params, optFns, c.addOperationDescribeVpcBlockPublicAccessExclusionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeVpcClassicLinkOutput)
+	out := result.(*DescribeVpcBlockPublicAccessExclusionsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeVpcClassicLinkInput struct {
+type DescribeVpcBlockPublicAccessExclusionsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -37,10 +42,19 @@ type DescribeVpcClassicLinkInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The filters.
+	// IDs of exclusions.
+	ExclusionIds []string
+
+	// Filters for the request:
 	//
-	//   - is-classic-link-enabled - Whether the VPC is enabled for ClassicLink ( true
-	//   | false ).
+	//   - resource-arn - The Amazon Resource Name (ARN) of a exclusion.
+	//
+	//   - internet-gateway-exclusion-mode - The mode of a VPC BPA exclusion. Possible
+	//   values: allow-bidirectional | allow-egress .
+	//
+	//   - state - The state of VPC BPA. Possible values: create-in-progress |
+	//   create-complete | update-in-progress | update-complete | delete-in-progress |
+	//   deleted-complete | disable-in-progress | disable-complete
 	//
 	//   - tag - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
@@ -49,18 +63,34 @@ type DescribeVpcClassicLinkInput struct {
 	//
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources assigned a tag with a specific key, regardless of the tag value.
+	//
+	//   - tag-value : The value of a tag assigned to the resource. Use this filter to
+	//   find all resources assigned a tag with a specific value, regardless of the tag
+	//   key.
 	Filters []types.Filter
 
-	// The VPCs for which you want to describe the ClassicLink status.
-	VpcIds []string
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
+	MaxResults *int32
+
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
+	NextToken *string
 
 	noSmithyDocumentSerde
 }
 
-type DescribeVpcClassicLinkOutput struct {
+type DescribeVpcBlockPublicAccessExclusionsOutput struct {
 
-	// The ClassicLink status of the VPCs.
-	Vpcs []types.VpcClassicLink
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
+	NextToken *string
+
+	// Details related to the exclusions.
+	VpcBlockPublicAccessExclusions []types.VpcBlockPublicAccessExclusion
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -68,19 +98,19 @@ type DescribeVpcClassicLinkOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeVpcClassicLinkMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeVpcBlockPublicAccessExclusionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVpcClassicLink{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVpcBlockPublicAccessExclusions{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeVpcClassicLink{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeVpcBlockPublicAccessExclusions{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeVpcClassicLink"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeVpcBlockPublicAccessExclusions"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -132,7 +162,7 @@ func (c *Client) addOperationDescribeVpcClassicLinkMiddlewares(stack *middleware
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcClassicLink(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcBlockPublicAccessExclusions(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -165,10 +195,10 @@ func (c *Client) addOperationDescribeVpcClassicLinkMiddlewares(stack *middleware
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDescribeVpcClassicLink(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeVpcBlockPublicAccessExclusions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeVpcClassicLink",
+		OperationName: "DescribeVpcBlockPublicAccessExclusions",
 	}
 }

@@ -11,46 +11,40 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes your egress-only internet gateways. The default is to describe all
-// your egress-only internet gateways. Alternatively, you can specify specific
-// egress-only internet gateway IDs or filter the results to include only the
-// egress-only internet gateways that match specific criteria.
-func (c *Client) DescribeEgressOnlyInternetGateways(ctx context.Context, params *DescribeEgressOnlyInternetGatewaysInput, optFns ...func(*Options)) (*DescribeEgressOnlyInternetGatewaysOutput, error) {
+// Describes Capacity Block extension offerings available for purchase in the
+// Amazon Web Services Region that you're currently using.
+func (c *Client) DescribeCapacityBlockExtensionOfferings(ctx context.Context, params *DescribeCapacityBlockExtensionOfferingsInput, optFns ...func(*Options)) (*DescribeCapacityBlockExtensionOfferingsOutput, error) {
 	if params == nil {
-		params = &DescribeEgressOnlyInternetGatewaysInput{}
+		params = &DescribeCapacityBlockExtensionOfferingsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeEgressOnlyInternetGateways", params, optFns, c.addOperationDescribeEgressOnlyInternetGatewaysMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeCapacityBlockExtensionOfferings", params, optFns, c.addOperationDescribeCapacityBlockExtensionOfferingsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeEgressOnlyInternetGatewaysOutput)
+	out := result.(*DescribeCapacityBlockExtensionOfferingsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeEgressOnlyInternetGatewaysInput struct {
+type DescribeCapacityBlockExtensionOfferingsInput struct {
+
+	// The duration of the Capacity Block extension offering in hours.
+	//
+	// This member is required.
+	CapacityBlockExtensionDurationHours *int32
+
+	// The ID of the Capacity reservation to be extended.
+	//
+	// This member is required.
+	CapacityReservationId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
-
-	// The IDs of the egress-only internet gateways.
-	EgressOnlyInternetGatewayIds []string
-
-	// The filters.
-	//
-	//   - tag - The key/value combination of a tag assigned to the resource. Use the
-	//   tag key in the filter name and the tag value as the filter value. For example,
-	//   to find all resources that have a tag with the key Owner and the value TeamA ,
-	//   specify tag:Owner for the filter name and TeamA for the filter value.
-	//
-	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
-	//   all resources assigned a tag with a specific key, regardless of the tag value.
-	Filters []types.Filter
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
@@ -59,20 +53,19 @@ type DescribeEgressOnlyInternetGatewaysInput struct {
 	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
-	// The token returned from a previous paginated request. Pagination continues from
-	// the end of the items returned by the previous request.
+	// The token to use to retrieve the next page of results.
 	NextToken *string
 
 	noSmithyDocumentSerde
 }
 
-type DescribeEgressOnlyInternetGatewaysOutput struct {
+type DescribeCapacityBlockExtensionOfferingsOutput struct {
 
-	// Information about the egress-only internet gateways.
-	EgressOnlyInternetGateways []types.EgressOnlyInternetGateway
+	// The recommended Capacity Block extension offerings for the dates specified.
+	CapacityBlockExtensionOfferings []types.CapacityBlockExtensionOffering
 
-	// The token to include in another request to get the next page of items. This
-	// value is null when there are no more items to return.
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
@@ -81,19 +74,19 @@ type DescribeEgressOnlyInternetGatewaysOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeEgressOnlyInternetGatewaysMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeCapacityBlockExtensionOfferingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeEgressOnlyInternetGateways{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeCapacityBlockExtensionOfferings{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeEgressOnlyInternetGateways{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeCapacityBlockExtensionOfferings{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeEgressOnlyInternetGateways"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeCapacityBlockExtensionOfferings"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -145,7 +138,10 @@ func (c *Client) addOperationDescribeEgressOnlyInternetGatewaysMiddlewares(stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeEgressOnlyInternetGateways(options.Region), middleware.Before); err != nil {
+	if err = addOpDescribeCapacityBlockExtensionOfferingsValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCapacityBlockExtensionOfferings(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -178,9 +174,9 @@ func (c *Client) addOperationDescribeEgressOnlyInternetGatewaysMiddlewares(stack
 	return nil
 }
 
-// DescribeEgressOnlyInternetGatewaysPaginatorOptions is the paginator options for
-// DescribeEgressOnlyInternetGateways
-type DescribeEgressOnlyInternetGatewaysPaginatorOptions struct {
+// DescribeCapacityBlockExtensionOfferingsPaginatorOptions is the paginator
+// options for DescribeCapacityBlockExtensionOfferings
+type DescribeCapacityBlockExtensionOfferingsPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
 	// information, see [Pagination].
@@ -193,24 +189,24 @@ type DescribeEgressOnlyInternetGatewaysPaginatorOptions struct {
 	StopOnDuplicateToken bool
 }
 
-// DescribeEgressOnlyInternetGatewaysPaginator is a paginator for
-// DescribeEgressOnlyInternetGateways
-type DescribeEgressOnlyInternetGatewaysPaginator struct {
-	options   DescribeEgressOnlyInternetGatewaysPaginatorOptions
-	client    DescribeEgressOnlyInternetGatewaysAPIClient
-	params    *DescribeEgressOnlyInternetGatewaysInput
+// DescribeCapacityBlockExtensionOfferingsPaginator is a paginator for
+// DescribeCapacityBlockExtensionOfferings
+type DescribeCapacityBlockExtensionOfferingsPaginator struct {
+	options   DescribeCapacityBlockExtensionOfferingsPaginatorOptions
+	client    DescribeCapacityBlockExtensionOfferingsAPIClient
+	params    *DescribeCapacityBlockExtensionOfferingsInput
 	nextToken *string
 	firstPage bool
 }
 
-// NewDescribeEgressOnlyInternetGatewaysPaginator returns a new
-// DescribeEgressOnlyInternetGatewaysPaginator
-func NewDescribeEgressOnlyInternetGatewaysPaginator(client DescribeEgressOnlyInternetGatewaysAPIClient, params *DescribeEgressOnlyInternetGatewaysInput, optFns ...func(*DescribeEgressOnlyInternetGatewaysPaginatorOptions)) *DescribeEgressOnlyInternetGatewaysPaginator {
+// NewDescribeCapacityBlockExtensionOfferingsPaginator returns a new
+// DescribeCapacityBlockExtensionOfferingsPaginator
+func NewDescribeCapacityBlockExtensionOfferingsPaginator(client DescribeCapacityBlockExtensionOfferingsAPIClient, params *DescribeCapacityBlockExtensionOfferingsInput, optFns ...func(*DescribeCapacityBlockExtensionOfferingsPaginatorOptions)) *DescribeCapacityBlockExtensionOfferingsPaginator {
 	if params == nil {
-		params = &DescribeEgressOnlyInternetGatewaysInput{}
+		params = &DescribeCapacityBlockExtensionOfferingsInput{}
 	}
 
-	options := DescribeEgressOnlyInternetGatewaysPaginatorOptions{}
+	options := DescribeCapacityBlockExtensionOfferingsPaginatorOptions{}
 	if params.MaxResults != nil {
 		options.Limit = *params.MaxResults
 	}
@@ -219,7 +215,7 @@ func NewDescribeEgressOnlyInternetGatewaysPaginator(client DescribeEgressOnlyInt
 		fn(&options)
 	}
 
-	return &DescribeEgressOnlyInternetGatewaysPaginator{
+	return &DescribeCapacityBlockExtensionOfferingsPaginator{
 		options:   options,
 		client:    client,
 		params:    params,
@@ -229,12 +225,12 @@ func NewDescribeEgressOnlyInternetGatewaysPaginator(client DescribeEgressOnlyInt
 }
 
 // HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeEgressOnlyInternetGatewaysPaginator) HasMorePages() bool {
+func (p *DescribeCapacityBlockExtensionOfferingsPaginator) HasMorePages() bool {
 	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
 }
 
-// NextPage retrieves the next DescribeEgressOnlyInternetGateways page.
-func (p *DescribeEgressOnlyInternetGatewaysPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeEgressOnlyInternetGatewaysOutput, error) {
+// NextPage retrieves the next DescribeCapacityBlockExtensionOfferings page.
+func (p *DescribeCapacityBlockExtensionOfferingsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeCapacityBlockExtensionOfferingsOutput, error) {
 	if !p.HasMorePages() {
 		return nil, fmt.Errorf("no more pages available")
 	}
@@ -251,7 +247,7 @@ func (p *DescribeEgressOnlyInternetGatewaysPaginator) NextPage(ctx context.Conte
 	optFns = append([]func(*Options){
 		addIsPaginatorUserAgent,
 	}, optFns...)
-	result, err := p.client.DescribeEgressOnlyInternetGateways(ctx, &params, optFns...)
+	result, err := p.client.DescribeCapacityBlockExtensionOfferings(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
 	}
@@ -270,18 +266,18 @@ func (p *DescribeEgressOnlyInternetGatewaysPaginator) NextPage(ctx context.Conte
 	return result, nil
 }
 
-// DescribeEgressOnlyInternetGatewaysAPIClient is a client that implements the
-// DescribeEgressOnlyInternetGateways operation.
-type DescribeEgressOnlyInternetGatewaysAPIClient interface {
-	DescribeEgressOnlyInternetGateways(context.Context, *DescribeEgressOnlyInternetGatewaysInput, ...func(*Options)) (*DescribeEgressOnlyInternetGatewaysOutput, error)
+// DescribeCapacityBlockExtensionOfferingsAPIClient is a client that implements
+// the DescribeCapacityBlockExtensionOfferings operation.
+type DescribeCapacityBlockExtensionOfferingsAPIClient interface {
+	DescribeCapacityBlockExtensionOfferings(context.Context, *DescribeCapacityBlockExtensionOfferingsInput, ...func(*Options)) (*DescribeCapacityBlockExtensionOfferingsOutput, error)
 }
 
-var _ DescribeEgressOnlyInternetGatewaysAPIClient = (*Client)(nil)
+var _ DescribeCapacityBlockExtensionOfferingsAPIClient = (*Client)(nil)
 
-func newServiceMetadataMiddleware_opDescribeEgressOnlyInternetGateways(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeCapacityBlockExtensionOfferings(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeEgressOnlyInternetGateways",
+		OperationName: "DescribeCapacityBlockExtensionOfferings",
 	}
 }

@@ -50,7 +50,10 @@ type RevokeClientVpnIngressInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Indicates whether access should be revoked for all clients.
+	// Indicates whether access should be revoked for all groups for a single
+	// TargetNetworkCidr that earlier authorized ingress for all groups using
+	// AuthorizeAllGroups . This does not impact other authorization rules that allowed
+	// ingress to the same TargetNetworkCidr with a specific AccessGroupId .
 	RevokeAllGroups *bool
 
 	noSmithyDocumentSerde

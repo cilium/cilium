@@ -2370,6 +2370,26 @@ func (m *validateOpCreateVolume) HandleInitialize(ctx context.Context, in middle
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateVpcBlockPublicAccessExclusion struct {
+}
+
+func (*validateOpCreateVpcBlockPublicAccessExclusion) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateVpcBlockPublicAccessExclusion) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateVpcBlockPublicAccessExclusionInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateVpcBlockPublicAccessExclusionInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateVpcEndpointConnectionNotification struct {
 }
 
@@ -3750,6 +3770,26 @@ func (m *validateOpDeleteVolume) HandleInitialize(ctx context.Context, in middle
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDeleteVpcBlockPublicAccessExclusion struct {
+}
+
+func (*validateOpDeleteVpcBlockPublicAccessExclusion) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteVpcBlockPublicAccessExclusion) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteVpcBlockPublicAccessExclusionInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteVpcBlockPublicAccessExclusionInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDeleteVpcEndpointConnectionNotifications struct {
 }
 
@@ -4045,6 +4085,26 @@ func (m *validateOpDescribeByoipCidrs) HandleInitialize(ctx context.Context, in 
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDescribeByoipCidrsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDescribeCapacityBlockExtensionOfferings struct {
+}
+
+func (*validateOpDescribeCapacityBlockExtensionOfferings) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDescribeCapacityBlockExtensionOfferings) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DescribeCapacityBlockExtensionOfferingsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDescribeCapacityBlockExtensionOfferingsInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -7450,6 +7510,46 @@ func (m *validateOpModifyVpcAttribute) HandleInitialize(ctx context.Context, in 
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyVpcBlockPublicAccessExclusion struct {
+}
+
+func (*validateOpModifyVpcBlockPublicAccessExclusion) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyVpcBlockPublicAccessExclusion) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyVpcBlockPublicAccessExclusionInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyVpcBlockPublicAccessExclusionInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpModifyVpcBlockPublicAccessOptions struct {
+}
+
+func (*validateOpModifyVpcBlockPublicAccessOptions) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyVpcBlockPublicAccessOptions) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyVpcBlockPublicAccessOptionsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyVpcBlockPublicAccessOptionsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyVpcEndpointConnectionNotification struct {
 }
 
@@ -7825,6 +7925,26 @@ func (m *validateOpProvisionPublicIpv4PoolCidr) HandleInitialize(ctx context.Con
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpProvisionPublicIpv4PoolCidrInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpPurchaseCapacityBlockExtension struct {
+}
+
+func (*validateOpPurchaseCapacityBlockExtension) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpPurchaseCapacityBlockExtension) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*PurchaseCapacityBlockExtensionInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpPurchaseCapacityBlockExtensionInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -9462,6 +9582,10 @@ func addOpCreateVolumeValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateVolume{}, middleware.After)
 }
 
+func addOpCreateVpcBlockPublicAccessExclusionValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateVpcBlockPublicAccessExclusion{}, middleware.After)
+}
+
 func addOpCreateVpcEndpointConnectionNotificationValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateVpcEndpointConnectionNotification{}, middleware.After)
 }
@@ -9738,6 +9862,10 @@ func addOpDeleteVolumeValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteVolume{}, middleware.After)
 }
 
+func addOpDeleteVpcBlockPublicAccessExclusionValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteVpcBlockPublicAccessExclusion{}, middleware.After)
+}
+
 func addOpDeleteVpcEndpointConnectionNotificationsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteVpcEndpointConnectionNotifications{}, middleware.After)
 }
@@ -9796,6 +9924,10 @@ func addOpDeregisterInstanceEventNotificationAttributesValidationMiddleware(stac
 
 func addOpDescribeByoipCidrsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDescribeByoipCidrs{}, middleware.After)
+}
+
+func addOpDescribeCapacityBlockExtensionOfferingsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDescribeCapacityBlockExtensionOfferings{}, middleware.After)
 }
 
 func addOpDescribeCapacityBlockOfferingsValidationMiddleware(stack *middleware.Stack) error {
@@ -10478,6 +10610,14 @@ func addOpModifyVpcAttributeValidationMiddleware(stack *middleware.Stack) error 
 	return stack.Initialize.Add(&validateOpModifyVpcAttribute{}, middleware.After)
 }
 
+func addOpModifyVpcBlockPublicAccessExclusionValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyVpcBlockPublicAccessExclusion{}, middleware.After)
+}
+
+func addOpModifyVpcBlockPublicAccessOptionsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyVpcBlockPublicAccessOptions{}, middleware.After)
+}
+
 func addOpModifyVpcEndpointConnectionNotificationValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyVpcEndpointConnectionNotification{}, middleware.After)
 }
@@ -10552,6 +10692,10 @@ func addOpProvisionIpamPoolCidrValidationMiddleware(stack *middleware.Stack) err
 
 func addOpProvisionPublicIpv4PoolCidrValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpProvisionPublicIpv4PoolCidr{}, middleware.After)
+}
+
+func addOpPurchaseCapacityBlockExtensionValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpPurchaseCapacityBlockExtension{}, middleware.After)
 }
 
 func addOpPurchaseCapacityBlockValidationMiddleware(stack *middleware.Stack) error {
@@ -13770,6 +13914,21 @@ func validateOpCreateVolumeInput(v *CreateVolumeInput) error {
 	}
 }
 
+func validateOpCreateVpcBlockPublicAccessExclusionInput(v *CreateVpcBlockPublicAccessExclusionInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateVpcBlockPublicAccessExclusionInput"}
+	if len(v.InternetGatewayExclusionMode) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("InternetGatewayExclusionMode"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateVpcEndpointConnectionNotificationInput(v *CreateVpcEndpointConnectionNotificationInput) error {
 	if v == nil {
 		return nil
@@ -14838,6 +14997,21 @@ func validateOpDeleteVolumeInput(v *DeleteVolumeInput) error {
 	}
 }
 
+func validateOpDeleteVpcBlockPublicAccessExclusionInput(v *DeleteVpcBlockPublicAccessExclusionInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteVpcBlockPublicAccessExclusionInput"}
+	if v.ExclusionId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ExclusionId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDeleteVpcEndpointConnectionNotificationsInput(v *DeleteVpcEndpointConnectionNotificationsInput) error {
 	if v == nil {
 		return nil
@@ -15064,6 +15238,24 @@ func validateOpDescribeByoipCidrsInput(v *DescribeByoipCidrsInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "DescribeByoipCidrsInput"}
 	if v.MaxResults == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("MaxResults"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDescribeCapacityBlockExtensionOfferingsInput(v *DescribeCapacityBlockExtensionOfferingsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DescribeCapacityBlockExtensionOfferingsInput"}
+	if v.CapacityBlockExtensionDurationHours == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityBlockExtensionDurationHours"))
+	}
+	if v.CapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -17905,6 +18097,39 @@ func validateOpModifyVpcAttributeInput(v *ModifyVpcAttributeInput) error {
 	}
 }
 
+func validateOpModifyVpcBlockPublicAccessExclusionInput(v *ModifyVpcBlockPublicAccessExclusionInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyVpcBlockPublicAccessExclusionInput"}
+	if v.ExclusionId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ExclusionId"))
+	}
+	if len(v.InternetGatewayExclusionMode) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("InternetGatewayExclusionMode"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpModifyVpcBlockPublicAccessOptionsInput(v *ModifyVpcBlockPublicAccessOptionsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyVpcBlockPublicAccessOptionsInput"}
+	if len(v.InternetGatewayBlockMode) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("InternetGatewayBlockMode"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpModifyVpcEndpointConnectionNotificationInput(v *ModifyVpcEndpointConnectionNotificationInput) error {
 	if v == nil {
 		return nil
@@ -18230,6 +18455,24 @@ func validateOpProvisionPublicIpv4PoolCidrInput(v *ProvisionPublicIpv4PoolCidrIn
 	}
 	if v.NetmaskLength == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("NetmaskLength"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpPurchaseCapacityBlockExtensionInput(v *PurchaseCapacityBlockExtensionInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "PurchaseCapacityBlockExtensionInput"}
+	if v.CapacityBlockExtensionOfferingId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityBlockExtensionOfferingId"))
+	}
+	if v.CapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

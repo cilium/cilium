@@ -133,6 +133,9 @@ type CreateNetworkInterfaceInput struct {
 	// count of IPv6 prefixes, specific IPv6 addresses, or a count of IPv6 addresses.
 	Ipv6Prefixes []types.Ipv6PrefixSpecificationRequest
 
+	// Reserved for internal use.
+	Operator *types.OperatorRequest
+
 	// The primary private IPv4 address of the network interface. If you don't specify
 	// an IPv4 address, Amazon EC2 selects one for you from the subnet's IPv4 CIDR
 	// range. If you specify an IP address, you cannot indicate any IP addresses
