@@ -107,13 +107,13 @@ func TestEnvoy(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	log.Debug("adding listener1")
-	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
+	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
 
 	log.Debug("adding listener2")
-	xdsServer.AddListener("listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
+	xdsServer.AddListener("listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
 
 	log.Debug("adding listener3")
-	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
+	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -131,10 +131,18 @@ func TestEnvoy(t *testing.T) {
 
 	// Add listener3 again
 	log.Debug("adding listener 3")
-	xdsServer.AddListener("listener3", "test.headerparser", 8083, false, false, s.waitGroup)
+	var cbErr error
+	cbCalled := false
+	xdsServer.AddListener("listener3", "test.headerparser", 8083, false, false, s.waitGroup,
+		func(err error) {
+			cbCalled = true
+			cbErr = err
+		})
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
+	require.True(t, cbCalled)
+	require.NoError(t, cbErr)
 	log.Debug("completed adding listener 3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
@@ -207,10 +215,18 @@ func TestEnvoyNACK(t *testing.T) {
 	rName := "listener:22"
 
 	log.Debug("adding ", rName)
-	xdsServer.AddListener(rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup)
+	var cbErr error
+	cbCalled := false
+	xdsServer.AddListener(rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup,
+		func(err error) {
+			cbCalled = true
+			cbErr = err
+		})
 
 	err = s.waitForProxyCompletion()
 	require.Error(t, err)
+	require.True(t, cbCalled)
+	require.Equal(t, err, cbErr)
 	require.EqualValues(t, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '127.0.0.1:22': Address already in use\n"}, err)
 
 	s.waitGroup = completion.NewWaitGroup(ctx)

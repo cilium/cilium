@@ -59,7 +59,7 @@ func (p *envoyProxyIntegration) handleEnvoyRedirect(r *Redirect, wg *completion.
 	if l.Ingress {
 		mayUseOriginalSourceAddr = false
 	}
-	p.xdsServer.AddListener(redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg)
+	p.xdsServer.AddListener(redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg, nil)
 
 	return redirect, nil
 }
