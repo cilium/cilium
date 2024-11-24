@@ -20,6 +20,15 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
+// To run the embedded_envoy_test, the following have to be met:
+// - Environment variable `CILIUM_ENABLE_ENVOY_UNIT_TEST` must be set
+// - `cilium-envoy-starter` and `cilium-envoy` must exist in the PATH
+//   - if these were left running from a previous test, these must be killed
+//     - `pkill -9 cilium-envoy`
+// - `proxylib.so` must exist in the library path (e.g., `/usr/lib`)
+// - `cilium-envoy-starter` must have capabilities CAP_NET_ADMIN and CAP_BPF
+//   - e.g., `sudo setcap 'cap_net_admin,cap_bpf+pe' cilium-envoy-starter`
+
 type EnvoySuite struct {
 	waitGroup *completion.WaitGroup
 }
@@ -59,7 +68,7 @@ func TestEnvoy(t *testing.T) {
 
 	xdsServer, err := newXDSServer(nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
-			envoySocketDir:    testRunDir,
+			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 		})
@@ -80,12 +89,14 @@ func TestEnvoy(t *testing.T) {
 	envoyProxy, err := startEmbeddedEnvoy(embeddedEnvoyConfig{
 		runDir:         testRunDir,
 		logPath:        filepath.Join(testRunDir, "cilium-envoy.log"),
-		baseID:         0,
+		baseID:         15,
 		connectTimeout: 1,
 	})
-	require.NotNil(t, envoyProxy)
 	require.NoError(t, err)
+	require.NotNil(t, envoyProxy)
 	log.Debug("started Envoy")
+
+	defer envoyProxy.admin.quit()
 
 	log.Debug("adding metrics listener")
 	xdsServer.AddMetricsListener(9964, s.waitGroup)
@@ -164,7 +175,7 @@ func TestEnvoyNACK(t *testing.T) {
 
 	xdsServer, err := newXDSServer(nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
-			envoySocketDir:    testRunDir,
+			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 		})
@@ -182,13 +193,16 @@ func TestEnvoyNACK(t *testing.T) {
 
 	// launch debug variant of the Envoy proxy
 	envoyProxy, err := startEmbeddedEnvoy(embeddedEnvoyConfig{
-		runDir:  testRunDir,
-		logPath: filepath.Join(testRunDir, "cilium-envoy.log"),
-		baseID:  42,
+		runDir:         testRunDir,
+		logPath:        filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:         42,
+		connectTimeout: 1,
 	})
 	require.NotNil(t, envoyProxy)
 	require.NoError(t, err)
 	log.Debug("started Envoy")
+
+	defer envoyProxy.admin.quit()
 
 	rName := "listener:22"
 
@@ -197,7 +211,7 @@ func TestEnvoyNACK(t *testing.T) {
 
 	err = s.waitForProxyCompletion()
 	require.Error(t, err)
-	require.EqualValues(t, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '[::]:22': Address already in use\n"}, err)
+	require.EqualValues(t, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '127.0.0.1:22': Address already in use\n"}, err)
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// Remove listener1
