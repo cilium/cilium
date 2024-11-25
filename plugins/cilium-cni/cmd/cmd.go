@@ -185,6 +185,7 @@ func allocateIPsWithDelegatedPlugin(
 	conf *models.DaemonConfigurationStatus,
 	netConf *types.NetConf,
 	stdinData []byte,
+	logger *logrus.Entry,
 ) (*models.IPAMResponse, func(context.Context), error) {
 	ipamRawResult, err := cniInvoke.DelegateAdd(ctx, netConf.IPAM.Type, stdinData, nil)
 	if err != nil {
@@ -211,15 +212,37 @@ func allocateIPsWithDelegatedPlugin(
 	// Safe to assume at most one IP per family. The K8s API docs say:
 	// "Pods may be allocated at most 1 value for each of IPv4 and IPv6"
 	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/
+	// Interface returned by IPAM should be treated as the uplink for the Pod.
+	masterMac := ""
+	for _, iface := range ipamResult.Interfaces {
+		if iface.Sandbox == "" && iface.Mac != "" {
+			masterMac = iface.Mac
+		}
+	}
 	for _, ipConfig := range ipamResult.IPs {
+		logger.WithField("ipconfig", logfields.Repr(ipConfig)).Debugf("Seeing what interface is in ipConfig")
+		logger.WithField("interface", logfields.Repr(*ipConfig.Interface)).Debugf("Interface value")
 		ipNet := ipConfig.Address
 		if ipv4 := ipNet.IP.To4(); ipv4 != nil {
 			ipam.Address.IPV4 = ipNet.String()
-			ipam.IPV4 = &models.IPAMAddressResponse{IP: ipv4.String()}
+			ipam.IPV4 = &models.IPAMAddressResponse{
+				IP:        ipv4.String(),
+				Gateway:   ipConfig.Gateway.String(),
+				MasterMac: masterMac,
+				// InterfaceNumber: "string(*ipConfig.Interface)",
+				InterfaceNumber: "0",
+			}
+			logger.Printf("IPV4 value: %+v", ipam.IPV4)
 		} else if conf.Addressing.IPV6 != nil {
 			// assign ipam ipv6 address only if agent ipv6 config is enabled
 			ipam.Address.IPV6 = ipNet.String()
-			ipam.IPV6 = &models.IPAMAddressResponse{IP: ipNet.IP.String()}
+			ipam.IPV6 = &models.IPAMAddressResponse{
+				IP:        ipNet.IP.String(),
+				MasterMac: masterMac,
+				// InterfaceNumber: string(*ipConfig.Interface),
+				InterfaceNumber: "0",
+			}
+			logger.Printf("IPV4 value: %+v", ipam.IPV6)
 		}
 	}
 
@@ -532,7 +555,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		var ipam *models.IPAMResponse
 		var releaseIPsFunc func(context.Context)
 		if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
-			ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
+			ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData, logger)
 		} else {
 			ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(c, cniArgs, epConf.IPAMPool())
 		}
@@ -665,6 +688,13 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			err = interfaceAdd(ipConfig, ipam.IPV4, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)
+			}
+		case ipamOption.IPAMDelegatedPlugin:
+			if ipam.IPV4.MasterMac != "" || ipam.IPV6.MasterMac != "" {
+				err = interfaceAdd(ipConfig, ipam.IPV4, conf)
+				if err != nil {
+					return fmt.Errorf("unable to setup interface datapath: %w", err)
+				}
 			}
 		}
 
