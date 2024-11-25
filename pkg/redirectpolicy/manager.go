@@ -140,7 +140,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 		})()
 		if rpm.noNetnsCookieSupport {
 			err := fmt.Errorf("policy with skipRedirectFromBackend flag set not applied" +
-				":SO_NETNS_COOKIE not supported. Needs kernel version >= 5.8")
+				":`getsockopt() with SO_NETNS_COOKIE option not supported. Needs kernel version >= 5.12")
 			log.WithFields(logrus.Fields{
 				logfields.LRPType:      config.lrpType,
 				logfields.K8sNamespace: config.id.Namespace,
