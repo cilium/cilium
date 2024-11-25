@@ -4,7 +4,10 @@
 package v2
 
 import (
+	"bytes"
+	"encoding/json"
 	"iter"
+	"maps"
 	"slices"
 	"strings"
 	"unique"
@@ -173,6 +176,44 @@ func (lbls Labels) String() string {
 // The value is derived from tests on a large real-world data set when
 // optimizing for smallest memory use.
 const smallLabelsSize = 9
+
+func (lbls Labels) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteRune('{')
+	remaining := lbls.Len()
+	for l := range lbls.All() {
+		kb, err := json.Marshal(l.Key())
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(kb)
+		buf.WriteRune(':')
+		lb, err := l.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(lb)
+		remaining--
+		if remaining > 0 {
+			buf.WriteRune(',')
+		}
+	}
+	buf.WriteRune('}')
+	return buf.Bytes(), nil
+}
+
+func (lbls *Labels) UnmarshalJSON(b []byte) error {
+	// Unmarshalling the labels is not as much on the critical path
+	// as marshalling as it's mostly done when restoring endpoints.
+	// Hence we're just doing the straightforward thing and unmarshalling
+	// into a map first.
+	var m map[string]Label
+	if err := json.Unmarshal(b, &m); err != nil {
+		return err
+	}
+	*lbls = NewLabels(slices.AppendSeq(make([]Label, 0, len(m)), maps.Values(m))...)
+	return nil
+}
 
 // smallRep is the internal unique'd representation for a small set of labels.
 // The labels are stored sorted by key.

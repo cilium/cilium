@@ -4,6 +4,7 @@
 package v2
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewLabels_Small(t *testing.T) {
@@ -142,5 +144,37 @@ func BenchmarkGet_Large(b *testing.B) {
 	for range b.N {
 		// Worst case is Get() the last one
 		lbls.Get(lastKey)
+	}
+}
+
+func TestLabelsJSON(t *testing.T) {
+	// Empty labels
+	{
+		lbls := NewLabels()
+		b, err := json.Marshal(lbls)
+		require.NoError(t, err, "Marshal")
+
+		var lbls2 Labels
+		err = json.Unmarshal(b, &lbls2)
+		require.NoError(t, err, "Unmarshal")
+		require.True(t, lbls.Equal(lbls2), "Equal")
+		require.Equal(t, lbls.String(), lbls2.String(), "Equal strings")
+	}
+
+	// Non-empty
+	{
+		lbls := NewLabels(
+			NewLabel("key1", "value1", "source1"),
+			NewLabel("key3", "value3", "source3"),
+			NewLabel("key2", "value2", "source2"),
+		)
+		b, err := json.Marshal(lbls)
+		require.NoError(t, err, "Marshal")
+
+		var lbls2 Labels
+		err = json.Unmarshal(b, &lbls2)
+		require.NoError(t, err, "Unmarshal")
+		require.True(t, lbls.Equal(lbls2), "Equal")
+		require.Equal(t, lbls.String(), lbls2.String(), "Equal strings")
 	}
 }
