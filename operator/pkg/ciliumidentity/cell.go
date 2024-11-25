@@ -41,4 +41,7 @@ type SharedConfig struct {
 	// EnableCiliumEndpointSlice indicates if the Cilium Endpoint Slice feature is
 	// enabled.
 	EnableCiliumEndpointSlice bool
+	// DisableNetworkPolicy indicates if the network policy enforcement system is
+	// disabled for K8s, Cilium and Cilium Clusterwide network policies.
+	DisableNetworkPolicy bool
 }
