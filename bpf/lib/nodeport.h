@@ -2565,7 +2565,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		struct ct_state ct_state = {};
 
 #if (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
-		if (src_sec_identity == 0)
+		if (src_sec_identity == UNKNOWN_ID)
 			src_sec_identity = WORLD_IPV4_ID;
 
 		 /* Before forwarding the identity, make sure it's not local,
