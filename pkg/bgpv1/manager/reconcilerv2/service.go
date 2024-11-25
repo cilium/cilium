@@ -124,14 +124,9 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 		return err
 	}
 
-	ls, err := r.populateLocalServices(p.CiliumNode.Name)
-	if err != nil {
-		return fmt.Errorf("failed to populate local services: %w", err)
-	}
-
 	reqFullReconcile := r.modifiedServiceAdvertisements(p, desiredPeerAdverts)
 
-	err = r.reconcileServices(ctx, p, desiredPeerAdverts, ls, reqFullReconcile)
+	err = r.reconcileServices(ctx, p, desiredPeerAdverts, reqFullReconcile)
 
 	if err == nil && reqFullReconcile {
 		// update svc advertisements in metadata only if the reconciliation was successful
@@ -140,7 +135,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 	return err
 }
 
-func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcileParams, desiredPeerAdverts PeerAdvertisements, ls sets.Set[resource.Key], fullReconcile bool) error {
+func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcileParams, desiredPeerAdverts PeerAdvertisements, fullReconcile bool) error {
 	var (
 		toReconcile []*slim_corev1.Service
 		toWithdraw  []resource.Key
@@ -168,6 +163,12 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 		if err != nil {
 			return err
 		}
+	}
+
+	// populate locally available services
+	ls, err := r.populateLocalServices(p.CiliumNode.Name)
+	if err != nil {
+		return fmt.Errorf("failed to populate local services: %w", err)
 	}
 
 	// get desired service route policies
