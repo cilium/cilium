@@ -700,13 +700,12 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	}
 
 	// Create a new redirect
-	port, err, newRedirectFinalizeFunc, newRedirectRevertFunc := p.createNewRedirect(ctx, l4, id, localEndpoint, wg)
+	port, err, newRedirectRevertFunc := p.createNewRedirect(ctx, l4, id, localEndpoint, wg)
 	if err != nil {
 		p.revertStackUnlocked(revertStack)
 		return 0, fmt.Errorf("failed to create new redirect: %w", err), nil, nil
 	}
 
-	finalizeList.Append(newRedirectFinalizeFunc)
 	revertStack.Push(newRedirectRevertFunc)
 
 	return port, nil, finalizeList.Finalize, revertStack.Revert
@@ -715,7 +714,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 func (p *Proxy) createNewRedirect(
 	ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater, wg *completion.WaitGroup,
 ) (
-	uint16, error, revert.FinalizeFunc, revert.RevertFunc,
+	uint16, error, revert.RevertFunc,
 ) {
 	scopedLog := log.
 		WithField(fieldProxyRedirectID, id).
@@ -724,7 +723,7 @@ func (p *Proxy) createNewRedirect(
 
 	ppName, pp := p.findProxyPortByType(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
 	if pp == nil {
-		return 0, proxyTypeNotFoundError(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress()), nil, nil
+		return 0, proxyTypeNotFoundError(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress()), nil
 	}
 
 	redirect := newRedirect(localEndpoint, ppName, pp, l4.GetPort(), l4.GetProtocol())
@@ -737,6 +736,43 @@ func (p *Proxy) createNewRedirect(
 	if pp.ProxyPort == 0 && pp.rulesPort != 0 {
 		// try first with the previous port
 		pp.ProxyPort = pp.rulesPort
+	}
+
+	// Callback for Envoy ACK/NACK handling for the redirect.
+	// If we get a non-nil 'err' Envoy has NACKed the listener update, and the whole (endpoint)
+	// regeneration will also be reverted. Revert can happen for other reasons as well (such as
+	// bpf datapath compilation failure), and we do not want to churn proxy ports in that case.
+	// Not called for DNS redirects.
+	proxyCallback := func(err error) {
+		p.mutex.Lock()
+		defer p.mutex.Unlock()
+		if err == nil {
+			// Enable datapath redirection for the proxy port if proxy creation
+			// was successful, even if the overall (endpoint) regeneration
+			// fails. This way there is less churm on the procy port allocation
+			// and datapath. Endpoint policy will no redirect to the new proxy
+			// implementation if regeneration fails.
+			err = p.ackProxyPort(ctx, ppName, pp)
+			if err != nil {
+				scopedLog.
+					WithError(err).
+					Error("Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed")
+			}
+		} else {
+			// Release proxy port if NACK was received. Do not release a port that has
+			// already been successfully acknowledged.
+			if pp.nRedirects == 0 {
+				// Mark the port for reuse only if no other ports are
+				// available Discourage the reuse of the same port in future
+				// as revert may have been due to port not being available
+				// for bind().
+				p.allocatedPorts[pp.ProxyPort] = false
+				// clear proxy port on failure so that a new one will be
+				// tried next time
+				pp.ProxyPort = 0
+				pp.configured = false
+			}
+		}
 	}
 
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
@@ -755,12 +791,12 @@ func (p *Proxy) createNewRedirect(
 			// Check if pp.proxyPort is available and find another available proxy port if not.
 			proxyPort, err := p.allocatePort(pp.ProxyPort, p.rangeMin, p.rangeMax)
 			if err != nil {
-				return 0, fmt.Errorf("failed to allocate port: %w", err), nil, nil
+				return 0, fmt.Errorf("failed to allocate port: %w", err), nil
 			}
 			pp.ProxyPort = proxyPort
 		}
 
-		if err := p.createRedirectImpl(redirect, l4, wg); err != nil {
+		if err := p.createRedirectImpl(redirect, l4, wg, proxyCallback); err != nil {
 			if nRetry < redirectCreationAttempts-1 {
 				// an error occurred and we are retrying
 				scopedLog.
@@ -772,7 +808,7 @@ func (p *Proxy) createNewRedirect(
 				scopedLog.
 					WithError(err).
 					Error("Unable to create proxy")
-				return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil, nil
+				return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil
 			}
 		}
 
@@ -799,18 +835,6 @@ func (p *Proxy) createNewRedirect(
 		// when reverting. Undo what we have done above.
 		p.mutex.Lock()
 		delete(p.redirects, id)
-
-		// Do not release static proxy port.
-		if !pp.isStatic {
-			// Mark the port for reuse only if no other ports are available
-			// Discourage the reuse of the same port in future as revert may have been
-			// due to port not being available for bind().
-			p.allocatedPorts[pp.ProxyPort] = false
-			// clear proxy port on failure so that a new one will be tried next time
-			pp.ProxyPort = 0
-			pp.configured = false
-		}
-
 		p.updateRedirectMetrics()
 		p.mutex.Unlock()
 		implFinalizeFunc, _ := redirect.implementation.Close(wg)
@@ -820,30 +844,19 @@ func (p *Proxy) createNewRedirect(
 		return nil
 	}
 
-	// Set the proxy port only after an ACK is received.
-	finalizeFunc := func() {
-		p.mutex.Lock()
-		err := p.ackProxyPort(ctx, ppName, pp)
-		p.mutex.Unlock()
-		if err != nil {
-			scopedLog.
-				WithError(err).
-				Error("Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed")
-		}
-	}
-
 	// Must return the proxy port when successful
-	return pp.ProxyPort, nil, finalizeFunc, revertFunc
+	return pp.ProxyPort, nil, revertFunc
 }
 
-func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup) error {
+func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup, cb func(err error)) error {
 	var err error
 
 	switch l4.GetL7Parser() {
 	case policy.ParserTypeDNS:
 		redir.implementation, err = p.dnsIntegration.createRedirect(redir, wg)
+		// 'cb' not called for DNS redirects, which have a static proxy port
 	default:
-		redir.implementation, err = p.envoyIntegration.createRedirect(redir, wg)
+		redir.implementation = p.envoyIntegration.createRedirect(redir, wg, cb)
 	}
 
 	return err
