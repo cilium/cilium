@@ -108,6 +108,34 @@ you can inspect installed BGP policies using cilium-dbg CLI from the Cilium agen
     65001     65000-ipv6-PodCIDR   export   fd00:10::1/128   fd00:10:1::/64 (64..64)         accept       AddCommunities: [65000:99]
     65001     allow-local          import                                                    accept
 
+CiliumBGPClusterConfig Status
+=============================
+
+CiliumBGPClusterConfig may report some configuration errors in the
+``.status.conditions`` caught at runtime. Currently, the following conditions
+are defined.
+
+====================================== ===============================================
+Condition Name                         Description
+====================================== ===============================================
+``cilium.io/NoMatchingNode``           ``.spec.nodeSelector`` doesn't select any node.
+``cilium.io/MissingPeerConfigs``       The PeerConfig specified in the ``spec.bgpInstances[].peers[].peerConfigRef`` doesn't exist.
+``cilium.io/ConflictingClusterConfig`` There is an another CiliumBGPClusterConfig selecting the same node.
+====================================== ===============================================
+
+CiliumBGPPeerConfig Status
+==========================
+
+CiliumBGPPeerConfig may report some configuration errors in the
+``.status.conditions`` caught at runtime. Currently, the following conditions
+are defined.
+
+====================================== ===============================================
+Condition Name                         Description
+====================================== ===============================================
+``cilium.io/MissingAuthSecret``        The Secret specified in the ``.spec.authSecretRef`` doesn't exist.
+====================================== ===============================================
+
 CiliumBGPNodeConfig Status
 ==========================
 
@@ -175,6 +203,15 @@ In the following example, you can see BGP instance state from node ``bgpv2-cplan
             Applied Keepalive Seconds:  30
     Events:                             <none>
 
+Disabling CRD Status Report
+===========================
+
+CRD status reporting is useful for troubleshooting, making it useful to enable
+in general. However, for large clusters with a lot of nodes or BGP policies,
+CRD status reporting may add a significant API server load. To disable status
+reporting, set the ``bgpControlPlane.statusReport.enabled`` Helm value to
+``false``. Doing so disables status reporting and clears the currently reported
+status.
 
 Logs
 ====
