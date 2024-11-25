@@ -259,7 +259,12 @@ var (
 
 	// ExistsOneMacro expands "range.exists_one(var, predicate)", which is true if for exactly one
 	// element in range the predicate holds.
+	// Deprecated: Use ExistsOneMacroNew
 	ExistsOneMacro = NewReceiverMacro(operators.ExistsOne, 2, MakeExistsOne)
+
+	// ExistsOneMacroNew expands "range.existsOne(var, predicate)", which is true if for exactly one
+	// element in range the predicate holds.
+	ExistsOneMacroNew = NewReceiverMacro("existsOne", 2, MakeExistsOne)
 
 	// MapMacro expands "range.map(var, function)" into a comprehension which applies the function
 	// to each element in the range to produce a new list.
@@ -280,6 +285,7 @@ var (
 		AllMacro,
 		ExistsMacro,
 		ExistsOneMacro,
+		ExistsOneMacroNew,
 		MapMacro,
 		MapFilterMacro,
 		FilterMacro,
@@ -336,6 +342,9 @@ func MakeMap(eh ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common
 	if !found {
 		return nil, eh.NewError(args[0].ID(), "argument is not an identifier")
 	}
+	if v == AccumulatorName {
+		return nil, eh.NewError(args[0].ID(), "iteration variable overwrites accumulator variable")
+	}
 
 	var fn ast.Expr
 	var filter ast.Expr
@@ -366,6 +375,9 @@ func MakeFilter(eh ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *com
 	if !found {
 		return nil, eh.NewError(args[0].ID(), "argument is not an identifier")
 	}
+	if v == AccumulatorName {
+		return nil, eh.NewError(args[0].ID(), "iteration variable overwrites accumulator variable")
+	}
 
 	filter := args[1]
 	init := eh.NewList()
@@ -388,6 +400,9 @@ func makeQuantifier(kind quantifierKind, eh ExprHelper, target ast.Expr, args []
 	v, found := extractIdent(args[0])
 	if !found {
 		return nil, eh.NewError(args[0].ID(), "argument must be a simple name")
+	}
+	if v == AccumulatorName {
+		return nil, eh.NewError(args[0].ID(), "iteration variable overwrites accumulator variable")
 	}
 
 	var init ast.Expr
