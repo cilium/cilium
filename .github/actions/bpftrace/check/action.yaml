@@ -10,7 +10,7 @@ runs:
   using: composite
   steps:
     - name: Assert that bpftrace completed successfully
-      uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+      uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
       with:
         provision: 'false'
         cmd: |
