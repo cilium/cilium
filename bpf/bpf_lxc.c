@@ -1677,7 +1677,7 @@ static __always_inline
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
 	struct ipv6_ct_tuple tuple = {};
-	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
+	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
@@ -1686,6 +1686,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	__u16 proxy_port = 0;
 	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
+	int ret;
 
 #ifdef HAVE_ENCAP
 	from_tunnel = ctx_load_and_clear_meta(ctx, CB_FROM_TUNNEL);
@@ -1715,7 +1716,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		}
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
-		if (ifindex)
+		if (do_redirect)
 			ret = redirect_ep(ctx, THIS_INTERFACE_IFINDEX, from_host,
 					  from_tunnel);
 		break;
@@ -2025,7 +2026,7 @@ static __always_inline
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
 	struct ipv4_ct_tuple tuple = {};
-	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
+	bool do_redirect = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 	bool proxy_redirect __maybe_unused = false;
@@ -2034,6 +2035,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	__u16 proxy_port = 0;
 	struct iphdr *ip4;
 	__s8 ext_err = 0;
+	int ret;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 0);
 
@@ -2072,7 +2074,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		}
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
-		if (ifindex)
+		if (do_redirect)
 			ret = redirect_ep(ctx, THIS_INTERFACE_IFINDEX, from_host,
 					  from_tunnel);
 		break;

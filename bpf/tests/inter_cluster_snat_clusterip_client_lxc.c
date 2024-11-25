@@ -264,7 +264,7 @@ int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
 	ctx_store_meta(ctx, CB_SRC_LABEL, BACKEND_IDENTITY);
-	ctx_store_meta(ctx, CB_IFINDEX, 1);
+	ctx_store_meta(ctx, CB_DELIVERY_REDIRECT, 1);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 2);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 1);
