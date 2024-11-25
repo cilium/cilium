@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package identitycachecell
+package option
 
 import (
 	"testing"
-
-	"github.com/cilium/cilium/pkg/option"
 )
 
-func TestNetPolicySystemIsEnabled(t *testing.T) {
+func TestNetworkPolicyEnabled(t *testing.T) {
 	type testCase struct {
 		description string
 		want        bool
@@ -27,15 +25,15 @@ func TestNetPolicySystemIsEnabled(t *testing.T) {
 			description: "disabled",
 			want:        false,
 
-			enablePolicy: option.NeverEnforce,
+			enablePolicy: NeverEnforce,
 			disableCEP:   true,
-			idAllocMode:  option.IdentityAllocationModeCRD,
+			idAllocMode:  IdentityAllocationModeCRD,
 		},
 		{
 			description: "enabled_all",
 			want:        true,
 
-			enablePolicy:    option.AlwaysEnforce,
+			enablePolicy:    AlwaysEnforce,
 			enableK8sPolicy: true,
 			enableCNP:       true,
 			enableCCNP:      true,
@@ -52,7 +50,7 @@ func TestNetPolicySystemIsEnabled(t *testing.T) {
 			description: "enabled_only_k8s_np_on",
 			want:        true,
 
-			enablePolicy:    option.NeverEnforce,
+			enablePolicy:    NeverEnforce,
 			enableK8sPolicy: true,
 			disableCEP:      true,
 		},
@@ -60,7 +58,7 @@ func TestNetPolicySystemIsEnabled(t *testing.T) {
 			description: "enabled_only_cnp_on",
 			want:        true,
 
-			enablePolicy: option.NeverEnforce,
+			enablePolicy: NeverEnforce,
 			enableCNP:    true,
 			disableCEP:   true,
 		},
@@ -68,7 +66,7 @@ func TestNetPolicySystemIsEnabled(t *testing.T) {
 			description: "enabled_only_ccnp_on",
 			want:        true,
 
-			enablePolicy: option.NeverEnforce,
+			enablePolicy: NeverEnforce,
 			enableCCNP:   true,
 			disableCEP:   true,
 		},
@@ -76,7 +74,7 @@ func TestNetPolicySystemIsEnabled(t *testing.T) {
 			description: "enabled_only_cep_crd_on",
 			want:        true,
 
-			enablePolicy: option.NeverEnforce,
+			enablePolicy: NeverEnforce,
 			disableCEP:   false,
 		},
 		{
@@ -89,7 +87,7 @@ func TestNetPolicySystemIsEnabled(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		cfg := &option.DaemonConfig{
+		cfg := &DaemonConfig{
 			EnablePolicy:                         tc.enablePolicy,
 			EnableK8sNetworkPolicy:               tc.enableK8sPolicy,
 			EnableCiliumNetworkPolicy:            tc.enableCNP,
@@ -99,7 +97,7 @@ func TestNetPolicySystemIsEnabled(t *testing.T) {
 		}
 
 		t.Run(tc.description, func(t *testing.T) {
-			if got := netPolicySystemIsEnabled(cfg); got != tc.want {
+			if got := NetworkPolicyEnabled(cfg); got != tc.want {
 				t.Errorf("policy enabled = %t, want = %t", got, tc.want)
 			}
 		})

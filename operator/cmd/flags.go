@@ -281,6 +281,13 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.KVstorePodNetworkSupport)
 	option.BindEnv(vp, option.KVstorePodNetworkSupport)
 
+	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
+	option.BindEnv(vp, option.EnablePolicy)
+
+	flags.Bool(option.EnableK8sNetworkPolicy, defaults.EnableK8sNetworkPolicy, "Enable support for K8s NetworkPolicy")
+	flags.MarkHidden(option.EnableK8sNetworkPolicy)
+	option.BindEnv(vp, option.EnableK8sNetworkPolicy)
+
 	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy")
 	flags.MarkHidden(option.EnableCiliumNetworkPolicy)
 	option.BindEnv(vp, option.EnableCiliumNetworkPolicy)

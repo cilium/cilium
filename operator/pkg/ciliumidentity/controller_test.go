@@ -121,6 +121,7 @@ func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumI
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
 				EnableCiliumEndpointSlice: true,
+				DisableNetworkPolicy:      false,
 			}
 		}),
 		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
