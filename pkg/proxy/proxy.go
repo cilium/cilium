@@ -263,29 +263,44 @@ func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) er
 
 // releaseProxyPort() decreases the use count and frees the port if no users remain
 // Must be called with mutex held!
-func (p *Proxy) releaseProxyPort(name string) error {
+func (p *Proxy) releaseProxyPort(name string, portReuseWait time.Duration) error {
 	pp := p.proxyPorts[name]
 	if pp == nil {
 		return fmt.Errorf("Can't find proxy port %s", name)
 	}
 
-	pp.nRedirects--
 	if pp.nRedirects <= 0 {
-		if pp.isStatic {
-			return fmt.Errorf("Can't release proxy port: proxy %s on %d has a static listener", name, pp.ProxyPort)
-		}
-
-		log.WithField(fieldProxyRedirectID, name).Debugf("Delayed release of proxy port %d", pp.ProxyPort)
-
-		// Allow the port to be reallocated for other use if needed.
-		p.allocatedPorts[pp.ProxyPort] = false
-		pp.ProxyPort = 0
-		pp.configured = false
+		nRedirects := pp.nRedirects
 		pp.nRedirects = 0
+		return fmt.Errorf("Can't release proxy port with has non-positive reference count: %d", nRedirects)
+	}
 
-		// Leave the datapath rules behind on the hope that they get reused later.
-		// This becomes possible when we are able to keep the proxy listeners
-		// configured also when there are no redirects.
+	pp.nRedirects--
+
+	// Static proxy port is not released, dynamic proxy ports are released after a delay if
+	// still on last reference count
+	if !pp.isStatic && pp.nRedirects == 0 {
+		pp.nRedirects = 1 // keep the last reference during the delay
+		go func() {
+			time.Sleep(portReuseWait)
+
+			p.mutex.Lock()
+			defer p.mutex.Unlock()
+
+			pp.nRedirects--
+			if pp.nRedirects == 0 {
+				log.WithField(fieldProxyRedirectID, name).Debugf("Delayed release of proxy port %d", pp.ProxyPort)
+
+				// Allow the port to be reallocated for other use if needed.
+				p.allocatedPorts[pp.ProxyPort] = false
+				pp.ProxyPort = 0
+				pp.configured = false
+
+				// Leave the datapath rules behind on the hope that they get reused
+				// later.  This becomes possible when we are able to keep the proxy
+				// listeners configured also when there are no redirects.
+			}
+		}()
 	}
 
 	return nil
@@ -518,7 +533,7 @@ func (p *Proxy) ReleaseProxyPort(name string) error {
 	// Accessing pp.proxyPort requires the lock
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	return p.releaseProxyPort(name)
+	return p.releaseProxyPort(name, portReuseDelay)
 }
 
 // SetProxyPort() marks the proxy 'name' as successfully created with proxy port 'port'.
@@ -882,20 +897,14 @@ func (p *Proxy) removeRedirect(id string) {
 	// break GC loop (implementation may point back to 'r')
 	r.implementation = nil
 
-	go func() {
-		time.Sleep(portReuseDelay)
-
-		p.mutex.Lock()
-		err := p.releaseProxyPort(listenerName)
-		p.mutex.Unlock()
-		if err != nil {
-			log.
-				WithField(fieldProxyRedirectID, id).
-				WithField("proxyPort", proxyPort).
-				WithError(err).
-				Warning("Releasing proxy port failed")
-		}
-	}()
+	err := p.releaseProxyPort(listenerName, portReuseDelay)
+	if err != nil {
+		log.
+			WithField(fieldProxyRedirectID, id).
+			WithField("proxyPort", proxyPort).
+			WithError(err).
+			Warning("Releasing proxy port failed")
+	}
 }
 
 func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
