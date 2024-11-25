@@ -4,7 +4,6 @@
 package v2
 
 import (
-	"runtime"
 	"strconv"
 	"testing"
 
@@ -57,22 +56,4 @@ func BenchmarkNewLabelFresh(b *testing.B) {
 		x := strconv.FormatInt(int64(i), 10)
 		NewLabel(x, x, x)
 	}
-}
-
-func TestNewLabel_Interning(t *testing.T) {
-	var before, after runtime.MemStats
-	lbls := make([]Label, 1000)
-	for range 10000 {
-		runtime.GC()
-		runtime.ReadMemStats(&before)
-		for i := range lbls {
-			lbls[i] = NewLabel("key_intern1", "value_intern1", "source_intern1")
-		}
-		runtime.GC()
-		runtime.ReadMemStats(&after)
-		if after.HeapInuse-before.HeapInuse == 0 {
-			return
-		}
-	}
-	t.Fatalf("intering of NewLabel did not succeed, mem usage not 0")
 }

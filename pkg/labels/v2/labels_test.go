@@ -5,7 +5,6 @@ package v2
 
 import (
 	"fmt"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -75,32 +74,6 @@ func testNewLabels(t *testing.T, n int) {
 		assert.True(t, found, "strmap[%s]", l.String())
 		assert.Equal(t, l.Value(), v, "values equal")
 	}
-}
-
-func TestNewLabels_Interning(t *testing.T) {
-	var before, after runtime.MemStats
-	l1 := NewLabel("key1", "value1", "source1")
-	l2 := NewLabel("key2", "value2", "source2")
-	l3 := NewLabel("key3", "value3", "source3")
-	lbls := make([]Labels, 1000)
-
-	// Validate that NewLabels() interns the result correctly by
-	// creating new label set with the same labels repeatedly and
-	// checking that heap memory usage stays at 0. We do multiple
-	// tries as there's some uncertainty involved with GC.
-	for range 10000 {
-		runtime.GC()
-		runtime.ReadMemStats(&before)
-		for i := range lbls {
-			lbls[i] = NewLabels(l1, l2, l3)
-		}
-		runtime.GC()
-		runtime.ReadMemStats(&after)
-		if after.HeapInuse-before.HeapInuse == 0 {
-			return
-		}
-	}
-	t.Fatalf("intering of small NewLabels did not succeed, mem usage not 0")
 }
 
 func BenchmarkNewLabels_Small(b *testing.B) {

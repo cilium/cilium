@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unique"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -18,6 +19,10 @@ import (
 // Label is a unique source, key and value tuple.
 type Label unique.Handle[labelRep]
 
+// Keep a cache of recently created labels to avoid unnecessary
+// allocations.
+var labelCache = newCache[labelRep]()
+
 // NewLabel returns a new label. Labels created with the same
 // source, key and value will share a single allocation.
 func NewLabel(key, value, source string) Label {
@@ -25,16 +30,37 @@ func NewLabel(key, value, source string) Label {
 }
 
 func NewCIDRLabel(key, value, source string, cidr *netip.Prefix) Label {
-	skv := source + ":" + key
-	if value != "" {
-		skv += "=" + value
-	}
-	return Label(unique.Make(labelRep{
-		skv:  skv,
-		kpos: uint16(len(source) + 1),
-		vpos: uint16(len(source) + 1 + len(key) + 1),
-		cidr: cidr,
-	}))
+	return Label(labelCache.lookupOrMake(
+		// Look up the cache entry by hash of key+value. As the likelyhood
+		// that the same key is from multiple sources isn't that high, we're
+		// ignoring the source in the hash.
+		hashKV(key, value),
+		func(other labelRep) bool {
+			return other.key() == key &&
+				other.value() == value &&
+				other.source() == source
+		},
+		func(hash uint64) labelRep {
+			skv := source + ":" + key
+			if value != "" {
+				skv += "=" + value
+			}
+			return labelRep{
+				skv:  skv,
+				kpos: uint16(len(source) + 1),
+				vpos: uint16(len(source) + 1 + len(key) + 1),
+				cidr: cidr,
+				hash: hash,
+			}
+		}))
+}
+
+func hashKV(key, value string) uint64 {
+	var xxh xxhash.Digest
+	xxh.Reset()
+	xxh.WriteString(key)
+	xxh.WriteString(value)
+	return xxh.Sum64()
 }
 
 func (l Label) String() string {
@@ -123,6 +149,9 @@ type labelRep struct {
 
 	// optimization for CIDR prefixes
 	cidr *netip.Prefix
+
+	// hash of the 'skv'
+	hash uint64
 }
 
 func (rep labelRep) source() string {

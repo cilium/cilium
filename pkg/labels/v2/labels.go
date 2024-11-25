@@ -24,22 +24,39 @@ type Labels struct {
 	overflow *[]Label
 }
 
+var labelsCache = newCache[smallRep]()
+
 func NewLabels(lbls ...Label) Labels {
 	// Sort the labels by key
 	slices.SortFunc(lbls, func(a, b Label) int {
 		return strings.Compare(a.Key(), b.Key())
 	})
-	var (
-		l   Labels
-		rep smallRep
+	smallArrayLabels := lbls[:min(len(lbls), smallLabelsSize)]
+
+	// Lookup or create the unique handle to the small array of labels.
+	var labels Labels
+	labels.handle = labelsCache.lookupOrMake(
+		labelsHash(smallArrayLabels),
+		func(other smallRep) bool {
+			return slices.Equal(smallArrayLabels, other.smallArray[:other.smallLen])
+		},
+		func(hash uint64) (rep smallRep) {
+			rep.smallLen = uint8(copy(rep.smallArray[:], smallArrayLabels))
+			return
+		},
 	)
-	rep.smallLen = uint8(copy(rep.smallArray[:], lbls[:min(len(lbls), smallLabelsSize)]))
-	l.handle = unique.Make(rep)
-	lbls = lbls[rep.smallLen:]
-	if len(lbls) > 0 {
-		l.overflow = &lbls
+	if len(lbls) > smallLabelsSize {
+		overflowLabels := lbls[len(smallArrayLabels):]
+		labels.overflow = &overflowLabels
 	}
-	return l
+	return labels
+}
+
+func labelsHash(lbls []Label) (hash uint64) {
+	for _, l := range lbls {
+		hash ^= l.rep().hash
+	}
+	return
 }
 
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
