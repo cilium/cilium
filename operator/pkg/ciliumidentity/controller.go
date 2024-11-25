@@ -4,6 +4,7 @@
 package ciliumidentity
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -89,7 +90,11 @@ type Controller struct {
 }
 
 func registerController(p params) {
-	if !p.Clientset.IsEnabled() || !p.Config.EnableOperatorManageCIDs {
+	if cmp.Or(
+		!p.Clientset.IsEnabled(),
+		!p.Config.EnableOperatorManageCIDs,
+		p.SharedCfg.DisableNetworkPolicy,
+	) {
 		return
 	}
 

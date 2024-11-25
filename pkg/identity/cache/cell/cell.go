@@ -99,7 +99,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 
 	var idAlloc CachingIdentityAllocator
 
-	if netPolicySystemIsEnabled(option.Config) {
+	if option.NetworkPolicyEnabled(option.Config) {
 		allocatorConfig := cache.AllocatorConfig{
 			EnableOperatorManageCIDs: params.Config.EnableOperatorManageCIDs,
 		}
