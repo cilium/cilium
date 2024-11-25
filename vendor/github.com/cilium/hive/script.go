@@ -44,7 +44,9 @@ type ScriptCmds struct {
 func (sc ScriptCmds) Map() map[string]script.Cmd {
 	m := make(map[string]script.Cmd, len(sc.ScriptCmds))
 	for _, c := range sc.ScriptCmds {
-		m[c.Name] = c.Cmd
+		if c.Name != "" {
+			m[c.Name] = c.Cmd
+		}
 	}
 	return m
 }
