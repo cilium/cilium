@@ -31,13 +31,13 @@ func NewLabel(key, value, source string) Label {
 
 func NewCIDRLabel(key, value, source string, cidr *netip.Prefix) Label {
 	return Label(labelCache.lookupOrMake(
-		// Look up the cache entry by hash of key+value. As the likelyhood
+		// Look up the cache entry by hash of key+value. As the likelihood
 		// that the same key is from multiple sources isn't that high, we're
-		// ignoring the source in the hash.
+		// skipping hashing the 'source'.
 		hashKV(key, value),
 		func(other labelRep) bool {
-			return other.key() == key &&
-				other.value() == value &&
+			return other.value() == value &&
+				other.key() == key &&
 				other.source() == source
 		},
 		func(hash uint64) labelRep {

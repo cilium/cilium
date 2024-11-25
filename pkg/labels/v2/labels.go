@@ -169,7 +169,10 @@ func (lbls Labels) String() string {
 	return s
 }
 
-const smallLabelsSize = 7 // 7*8+1 < 64 => fits in cache line
+// smallLabelsSize is the number of labels to store in the "small" array.
+// The value is derived from tests on a large real-world data set when
+// optimizing for smallest memory use.
+const smallLabelsSize = 9
 
 // smallRep is the internal unique'd representation for a small set of labels.
 // The labels are stored sorted by key.

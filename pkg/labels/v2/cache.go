@@ -5,11 +5,15 @@ package v2
 
 import (
 	"sync"
+	"sync/atomic"
 	"unique"
 )
 
 const (
-	cacheSize = 256 // Must be power of 2
+	// cacheSize is the number of handles to store in a cache.
+	// This value has been calculated from a large real-world data set.
+	// Must be power of 2.
+	cacheSize = 512
 	cacheMask = cacheSize - 1
 )
 
@@ -25,7 +29,8 @@ func newCache[T comparable]() *cache[T] {
 // cache is a sync.Pool-based cache of recently created Label/Labels
 // to reduce allocations.
 type cache[T comparable] struct {
-	pool sync.Pool
+	pool      sync.Pool
+	hit, miss atomic.Int32 // TODO remove? costs about 4ns or ~10%
 }
 
 func (c *cache[T]) lookupOrMake(hash uint64, cmp func(T) bool, new func(hash uint64) T) unique.Handle[T] {
@@ -39,7 +44,9 @@ func (c *cache[T]) lookupOrMake(hash uint64, cmp func(T) bool, new func(hash uin
 	if v == zeroHandle || !cmp(v.Value()) {
 		v = unique.Make(new(hash))
 		(*arr)[idx] = v
+		c.miss.Add(1)
 	} else {
+		c.hit.Add(1)
 	}
 	c.pool.Put(arr)
 	return v
