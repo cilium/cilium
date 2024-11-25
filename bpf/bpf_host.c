@@ -54,6 +54,7 @@
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"
 #include "lib/vxlan.h"
+#include "lib/extlb_ipip_termination.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
 
@@ -1367,6 +1368,12 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_REDIRECT)
 		return ret;
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
+
+#ifdef ENABLE_EXTLB_IPIP_TERMINATION
+	ret = decap_ipip(ctx);
+	if (IS_ERR(ret))
+		goto drop_err;
+#endif /* ENABLE_EXTLB_IPIP_TERMINATION */
 
 	return handle_netdev(ctx, false);
 
