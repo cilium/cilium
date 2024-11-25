@@ -748,13 +748,17 @@ snat_v4_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx, __u64 off,
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		/* No reasons to see a packet different than ICMP_ECHOREPLY. */
-		if (ctx_load_bytes(ctx, icmpoff, &type,
-				   sizeof(type)) < 0 ||
-		    type != ICMP_ECHOREPLY)
+		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0)
 			return DROP_INVALID;
 
-		port_off = offsetof(struct icmphdr, un.echo.id);
+		switch (type) {
+		case ICMP_ECHOREPLY:
+			port_off = offsetof(struct icmphdr, un.echo.id);
+			break;
+		default:
+			/* No reasons to see a packet different than ICMP_ECHOREPLY. */
+			return DROP_UNKNOWN_ICMP_CODE;
+		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
 				   &tuple.sport, sizeof(tuple.sport)) < 0)
@@ -919,12 +923,17 @@ snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		/* No reasons to see a packet different than ICMP_ECHO. */
-		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0 ||
-		    type != ICMP_ECHO)
+		if (ctx_load_bytes(ctx, icmpoff, &type, sizeof(type)) < 0)
 			return DROP_INVALID;
 
-		port_off = offsetof(struct icmphdr, un.echo.id);
+		switch (type) {
+		case ICMP_ECHO:
+			port_off = offsetof(struct icmphdr, un.echo.id);
+			break;
+		default:
+			/* No reasons to see a packet different than ICMP_ECHO. */
+			return DROP_UNKNOWN_ICMP_CODE;
+		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
 				   &tuple.dport, sizeof(tuple.dport)) < 0)
