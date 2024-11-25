@@ -261,9 +261,9 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 	if (l4->check != bpf_htons(0x777f))
 		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
-	meta = ctx_load_meta(ctx, CB_IFINDEX);
-	if (meta != BACKEND_IFINDEX)
-		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d", BACKEND_IFINDEX, meta);
+	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	if (meta != 1)
+		test_fatal("skb->cb[CB_DELIVERY_REDIRECT] should be 1, got %d", meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != CLIENT_IDENTITY)
@@ -430,9 +430,9 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 	if (l4->check != bpf_htons(0x7771))
 		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
-	meta = ctx_load_meta(ctx, CB_IFINDEX);
-	if (meta != BACKEND_IFINDEX)
-		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d", BACKEND_IFINDEX, meta);
+	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	if (meta != 1)
+		test_fatal("skb->cb[CB_DELIVERY_REDIRECT] should be 1, got %d", meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != CLIENT_IDENTITY)

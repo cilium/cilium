@@ -835,15 +835,16 @@ enum {
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
 #define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
-	CB_IFINDEX,
-#define	CB_NAT_46X64		CB_IFINDEX	/* Alias, non-overlapping */
-#define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
-#define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
-#define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
-#define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
-#define CB_CLUSTER_ID_EGRESS	CB_IFINDEX	/* Alias, non-overlapping */
-#define CB_HSIPC_ADDR_V4	CB_IFINDEX	/* Alias, non-overlapping */
-#define CB_TRACED		CB_IFINDEX	/* Alias, non-overlapping */
+	CB_1,
+#define	CB_DELIVERY_REDIRECT	CB_1		/* Alias, non-overlapping */
+#define	CB_NAT_46X64		CB_1		/* Alias, non-overlapping */
+#define	CB_ADDR_V4		CB_1		/* Alias, non-overlapping */
+#define	CB_ADDR_V6_1		CB_1		/* Alias, non-overlapping */
+#define	CB_IPCACHE_SRC_LABEL	CB_1		/* Alias, non-overlapping */
+#define	CB_SRV6_SID_2		CB_1		/* Alias, non-overlapping */
+#define	CB_CLUSTER_ID_EGRESS	CB_1		/* Alias, non-overlapping */
+#define	CB_HSIPC_ADDR_V4	CB_1		/* Alias, non-overlapping */
+#define	CB_TRACED		CB_1		/* Alias, non-overlapping */
 	CB_2,
 #define	CB_ADDR_V6_2		CB_2		/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_2		/* Alias, non-overlapping */
