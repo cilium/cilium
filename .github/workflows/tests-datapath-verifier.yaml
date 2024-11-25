@@ -100,7 +100,7 @@ jobs:
           - kernel: '6.1-20240703.151759'
             ci-kernel: '61'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '6.6-20240703.151759'
+          - kernel: '6.6-20241107.001101'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
