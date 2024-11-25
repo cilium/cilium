@@ -732,11 +732,12 @@ snat_v4_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx, __u64 off,
 			return DROP_INVALID;
 
 		switch (type) {
+		case ICMP_ECHO:
+			return NAT_PUNT_TO_STACK;
 		case ICMP_ECHOREPLY:
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			break;
 		default:
-			/* No reasons to see a packet different than ICMP_ECHOREPLY. */
 			return DROP_UNKNOWN_ICMP_CODE;
 		}
 
@@ -910,8 +911,9 @@ snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
 		case ICMP_ECHO:
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			break;
+		case ICMP_ECHOREPLY:
+			return NAT_PUNT_TO_STACK;
 		default:
-			/* No reasons to see a packet different than ICMP_ECHO. */
 			return DROP_UNKNOWN_ICMP_CODE;
 		}
 
