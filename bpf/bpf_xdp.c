@@ -185,7 +185,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 no_encap:
 #endif /* ENABLE_DSR && !ENABLE_DSR_HYBRID && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
-		ret = nodeport_lb4(ctx, ip4, l3_off, 0, &ext_err, &is_dsr);
+		ret = nodeport_lb4(ctx, ip4, l3_off, UNKNOWN_ID, &ext_err, &is_dsr);
 		if (ret == NAT_46X64_RECIRC)
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
 						 &ext_err);
@@ -266,7 +266,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 			goto drop_err;
 		}
 
-		ret = nodeport_lb6(ctx, ip6, 0, &ext_err, &is_dsr);
+		ret = nodeport_lb6(ctx, ip6, UNKNOWN_ID, &ext_err, &is_dsr);
 		if (IS_ERR(ret))
 			goto drop_err;
 	}
