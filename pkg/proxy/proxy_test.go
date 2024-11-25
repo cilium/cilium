@@ -75,8 +75,22 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, uint16(0), pp.rulesPort)
 
-	err = p.ReleaseProxyPort("listener1")
+	// Proxy port without references can not be released, so increment to simulate proxy
+	// redirect creation
+	pp.nRedirects++
+
+	err = p.releaseProxyPort("listener1", 10*time.Millisecond)
 	require.NoError(t, err)
+
+	// Proxy port is not released immediately
+	require.Equal(t, 1, pp.nRedirects)
+	require.Equal(t, port, pp.ProxyPort)
+	port1a, _, err = p.GetProxyPort("listener1")
+	require.NoError(t, err)
+	require.Equal(t, port, port1a)
+
+	// Wait past the time the proxy port is released
+	time.Sleep(15 * time.Millisecond)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
 	port1b, _, err := p.GetProxyPort("listener1")
@@ -124,20 +138,17 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, port2, pp.ProxyPort)
 
 	// 2nd release decreases the count to zero
-	err = p.ReleaseProxyPort("listener1")
+	err = p.releaseProxyPort("listener1", time.Microsecond)
 	require.NoError(t, err)
+	time.Sleep(time.Millisecond)
 	require.Equal(t, 0, pp.nRedirects)
 	require.False(t, pp.configured)
 	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port2, pp.rulesPort)
 
-	// extra releases are idempotent
+	// extra releases return an error
 	err = p.ReleaseProxyPort("listener1")
-	require.NoError(t, err)
-	require.Equal(t, 0, pp.nRedirects)
-	require.False(t, pp.configured)
-	require.Equal(t, uint16(0), pp.ProxyPort)
-	require.Equal(t, port2, pp.rulesPort)
+	require.Error(t, err)
 
 	// mimic some other process taking the port
 	p.allocatedPorts[port2] = true
@@ -166,8 +177,9 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, port3, pp.rulesPort)
 
 	// Release marks the port as unallocated
-	err = p.ReleaseProxyPort("listener1")
+	err = p.releaseProxyPort("listener1", time.Microsecond)
 	require.NoError(t, err)
+	time.Sleep(time.Millisecond)
 	require.Equal(t, 0, pp.nRedirects)
 	require.False(t, pp.configured)
 	require.Equal(t, uint16(0), pp.ProxyPort)
