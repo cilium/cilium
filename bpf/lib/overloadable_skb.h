@@ -162,7 +162,7 @@ redirect_self(const struct __sk_buff *ctx)
 	/* Looping back the packet into the originating netns. We xmit into the
 	 * hosts' veth device such that we end up on ingress in the peer.
 	 */
-	return ctx_redirect(ctx, ctx->ifindex, 0);
+	return (int)ctx_redirect(ctx, ctx->ifindex, 0);
 }
 
 static __always_inline __maybe_unused bool

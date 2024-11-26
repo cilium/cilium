@@ -222,7 +222,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
-		__notify_pktcap_hdr(ctx_len, (__u16)cap_len),
+		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len),
 		.src_label	= src,
 		.dst_label	= dst,
 		.dst_id		= dst_id,
@@ -266,7 +266,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
-		__notify_pktcap_hdr(ctx_len, (__u16)cap_len),
+		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len),
 		.src_label	= src,
 		.dst_label	= dst,
 		.dst_id		= dst_id,
@@ -312,7 +312,7 @@ send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
-		__notify_pktcap_hdr(ctx_len, (__u16)cap_len),
+		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len),
 		.src_label	= src,
 		.dst_label	= dst,
 		.dst_id		= dst_id,

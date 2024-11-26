@@ -216,7 +216,7 @@ void *pktgen__push_rawhdr(struct pktgen *builder, __u32 hdrsize, enum pkt_layer 
 	int layer_idx;
 
 	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + hdrsize - ctx_full_len(ctx));
+	ctx_adjust_troom(ctx, (__s32)(builder->cur_off + hdrsize - ctx_full_len(ctx)));
 	if (ctx_data(ctx) + builder->cur_off + hdrsize > ctx_data_end(ctx))
 		return NULL;
 
@@ -560,7 +560,7 @@ void *pktgen__push_data_room(struct pktgen *builder, int len)
 	int layer_idx;
 
 	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + len - ctx_full_len(ctx));
+	ctx_adjust_troom(ctx, (__s32)(builder->cur_off + len - ctx_full_len(ctx)));
 	if (ctx_data(ctx) + builder->cur_off + len > ctx_data_end(ctx))
 		return 0;
 

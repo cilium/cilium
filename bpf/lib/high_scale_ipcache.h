@@ -73,8 +73,8 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	if (ip4->protocol != IPPROTO_UDP)
 		return CTX_ACT_OK;
 
-	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) +
-	      offsetof(struct udphdr, dest);
+	off = (__u32)(((void *)ip4 - data) + ipv4_hdrlen(ip4) +
+	      offsetof(struct udphdr, dest));
 	if (l4_load_port(ctx, off, &dport) < 0)
 		return DROP_INVALID;
 
@@ -113,9 +113,9 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	case TUNNEL_PROTOCOL_VXLAN:
 		shrink = ipv4_hdrlen(ip4) + sizeof(struct udphdr) +
 			 sizeof(struct vxlanhdr) + sizeof(struct ethhdr);
-		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) +
+		off = (__u32)(((void *)ip4 - data) + ipv4_hdrlen(ip4) +
 		      sizeof(struct udphdr) +
-		      offsetof(struct vxlanhdr, vx_vni);
+		      offsetof(struct vxlanhdr, vx_vni));
 
 		if (ctx_load_bytes(ctx, off, src_id, sizeof(__u32)) < 0)
 			return DROP_INVALID;

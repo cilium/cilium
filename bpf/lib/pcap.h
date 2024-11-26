@@ -64,8 +64,8 @@ static __always_inline void cilium_capture(struct __ctx_buff *ctx,
 			.to	= {
 				.tv_boot = tstamp,
 			},
-			.caplen	= cap_len,
-			.len	= ctx_len,
+			.caplen	= (__u32)cap_len,
+			.len	= (__u32)ctx_len,
 		},
 	};
 

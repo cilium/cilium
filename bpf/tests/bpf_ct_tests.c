@@ -77,7 +77,7 @@ __always_inline int mkpkt(void *dst, bool first)
 	memcpy(dst, tcp_data, sizeof(tcp_data));
 	dst += sizeof(tcp_data);
 
-	return dst - orig;
+	return (int)(dst - orig);
 }
 
 static char pkt[100];
@@ -206,7 +206,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		assert(entry);
 		assert(entry->rx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN | TCP_FLAG_RST));
 
-		__u32 expires = entry->lifetime - bpf_ktime_get_sec();
+		__u32 expires = (__u32)(entry->lifetime - bpf_ktime_get_sec());
 
 		if (expires > 10)
 			test_fatal("Expiration is %ds even if RST flag was set", expires);
