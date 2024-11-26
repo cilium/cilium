@@ -12,8 +12,8 @@ metadata:
     k8s-app: hubble
     app.kubernetes.io/name: hubble
     app.kubernetes.io/part-of: cilium
-    
-    {{- with .Values.commonLabels }}
+
+    {{- with $.Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 
