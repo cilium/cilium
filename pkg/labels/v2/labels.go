@@ -25,7 +25,14 @@ type Labels struct {
 	// smallRep. These are not unique'd. Stored as pointer to slice so that
 	// we only use a pointer worth of bits instead of the full slice header.
 	overflow *[]Label
+
+	// noCompare makes the Labels struct uncomparable, which it needs to be since
+	// 'overflow' pointer comparison is not meaningful. Comparisons of labels must
+	// be done with 'Equal'
+	_ noCompare
 }
+
+type noCompare [0]func()
 
 var labelsCache = newCache[smallRep]()
 
