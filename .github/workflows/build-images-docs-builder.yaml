@@ -133,8 +133,8 @@ jobs:
         id: get_token
         uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
         with:
-          APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM }}
-          APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID }}
+          APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM_202411 }}
+          APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID_202411 }}
 
       - name: Push changes into PR
         env:
