@@ -88,16 +88,18 @@ func (p *promise[T]) Reject(err error) {
 
 // Await blocks until the promise has been resolved, rejected or context cancelled.
 func (p *promise[T]) Await(ctx context.Context) (value T, err error) {
-	// Fork off a goroutine to wait for cancellation and wake up.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go func() {
-		<-ctx.Done()
-		p.cond.Broadcast()
-	}()
-
 	p.Lock()
 	defer p.Unlock()
+
+	// Wake up the for-loop below if the context is cancelled.
+	// See https://pkg.go.dev/context#AfterFunc for a more detailed
+	// explanation of this pattern
+	cleanupCancellation := context.AfterFunc(ctx, func() {
+		p.Lock()
+		defer p.Unlock()
+		p.cond.Broadcast()
+	})
+	defer cleanupCancellation()
 
 	// Wait until the promise is resolved or context cancelled.
 	for p.state == promiseUnresolved && (ctx == nil || ctx.Err() == nil) {
