@@ -50,6 +50,9 @@ type ConnectivityTest struct {
 	// Features contains the features enabled on the running Cilium cluster
 	Features features.Set
 
+	// ClusterName is the identifier of the local cluster.
+	ClusterName string
+
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
 
