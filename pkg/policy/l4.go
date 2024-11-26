@@ -719,7 +719,7 @@ func (l4 *L4Filter) IsPeerSelector() bool {
 	return true
 }
 
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls labels.LabelArray, selectorCache *SelectorCache) CachedSelector {
+func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls labels.Labels, selectorCache *SelectorCache) CachedSelector {
 	cs, added := selectorCache.AddIdentitySelector(l4, lbls, sel)
 	if added {
 		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
@@ -727,19 +727,19 @@ func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls labels.
 	return cs
 }
 
-func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, lbls labels.LabelArray, selectorCache *SelectorCache) {
+func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, lbls labels.Labels, selectorCache *SelectorCache) {
 	for _, sel := range selectors {
 		l4.cacheIdentitySelector(sel, lbls, selectorCache)
 	}
 }
 
-func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, lbls labels.LabelArray, selectorCache *SelectorCache) {
+func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, lbls labels.Labels, selectorCache *SelectorCache) {
 	for _, fqdnSel := range selectors {
 		l4.cacheFQDNSelector(fqdnSel, lbls, selectorCache)
 	}
 }
 
-func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls labels.LabelArray, selectorCache *SelectorCache) types.CachedSelector {
+func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls labels.Labels, selectorCache *SelectorCache) types.CachedSelector {
 	cs, added := selectorCache.AddFQDNSelector(l4, lbls, sel)
 	if added {
 		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
@@ -821,7 +821,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
 func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice,
+	protocol api.L4Proto, ruleLabels labels.Labels, ingress bool, fqdns api.FQDNSelectorSlice,
 ) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 
@@ -1009,7 +1009,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
 func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Authentication, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray,
+	protocol api.L4Proto, ruleLabels labels.Labels,
 ) (*L4Filter, error) {
 	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, ruleLabels, true, nil)
 	if err != nil {
@@ -1037,7 +1037,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, fqdns api.FQDNSelectorSlice,
+	protocol api.L4Proto, ruleLabels labels.Labels, fqdns api.FQDNSelectorSlice,
 ) (*L4Filter, error) {
 	return createL4Filter(policyCtx, toEndpoints, auth, rule, port, protocol, ruleLabels, false, fqdns)
 }
@@ -1081,7 +1081,7 @@ func (l4 *L4Filter) String() string {
 }
 
 // Note: Only used for policy tracing
-func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
+func (l4 *L4Filter) matchesLabels(labels labels.Labels) (bool, bool) {
 	if l4.wildcard != nil {
 		perSelectorPolicy := l4.PerSelectorPolicies[l4.wildcard]
 		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
@@ -1144,7 +1144,7 @@ type L4PolicyMap interface {
 	Upsert(port string, endPort uint16, protocol string, l4 *L4Filter)
 	Delete(port string, endPort uint16, protocol string)
 	ExactLookup(port string, endPort uint16, protocol string) *L4Filter
-	MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool)
+	MatchesLabels(port, protocol string, labels labels.Labels) (match, isDeny bool)
 	Detach(selectorCache *SelectorCache)
 	IngressCoversContext(ctx *SearchContext) api.Decision
 	EgressCoversContext(ctx *SearchContext) api.Decision
@@ -1297,7 +1297,7 @@ func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string
 
 // MatchesLabels checks if a given port, protocol, and labels matches
 // any Rule in the L4PolicyMap.
-func (l4M *l4PolicyMap) MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool) {
+func (l4M *l4PolicyMap) MatchesLabels(port, protocol string, labels labels.Labels) (match, isDeny bool) {
 	if iana.IsSvcName(port) {
 		l4 := l4M.namedPortMap[port+"/"+protocol]
 		if l4 != nil {
@@ -1472,7 +1472,7 @@ func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redir
 // Otherwise, returns api.Allowed.
 //
 // Note: Only used for policy tracing
-func (l4M *l4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
+func (l4M *l4PolicyMap) containsAllL3L4(labels labels.Labels, ports []*models.Port) api.Decision {
 	if l4M.Len() == 0 {
 		return api.Allowed
 	}

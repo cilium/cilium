@@ -342,7 +342,7 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 // PolicyDeleteEvent is a wrapper around deletion of policy rules with a given
 // set of labels from the policy repository in the daemon.
 type PolicyDeleteEvent struct {
-	labels labels.LabelArray
+	labels labels.Labels
 	opts   *policy.DeleteOptions
 	d      *Daemon
 }
@@ -364,7 +364,7 @@ type PolicyDeleteResult struct {
 // the policy repository of the daemon.
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
-func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
+func (d *Daemon) PolicyDelete(labels labels.Labels, opts *policy.DeleteOptions) (newRev uint64, err error) {
 	p := &PolicyDeleteEvent{
 		labels: labels,
 		opts:   opts,
@@ -384,7 +384,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	return 0, fmt.Errorf("policy deletion event cancelled")
 }
 
-func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptions, res chan interface{}) {
+func (d *Daemon) policyDelete(labels labels.Labels, opts *policy.DeleteOptions, res chan interface{}) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	d.policy.Lock()
@@ -490,7 +490,7 @@ func deletePolicyHandler(d *Daemon, params DeletePolicyParams) middleware.Respon
 		return api.Error(DeletePolicyFailureCode, err)
 	}
 
-	ruleList := d.policy.SearchRLocked(labels.LabelArray{})
+	ruleList := d.policy.SearchRLocked(labels.Empty)
 	policy := &models.Policy{
 		Revision: int64(rev),
 		Policy:   policy.JSONMarshalRules(ruleList),

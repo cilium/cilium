@@ -121,7 +121,7 @@ type PolicyRepository interface {
 
 	AddListLocked(rules api.Rules) (ruleSlice, uint64)
 	BumpRevision() uint64
-	DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int)
+	DeleteByLabelsLocked(lbls labels.Labels) (ruleSlice, uint64, int)
 	DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSlice, uint64)
 	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
@@ -142,7 +142,7 @@ type PolicyRepository interface {
 	Iterate(f func(rule *api.Rule))
 	Release(rs ruleSlice)
 	ReplaceByResourceLocked(rules api.Rules, resource ipcachetypes.ResourceID) (newRules ruleSlice, oldRules ruleSlice, revision uint64)
-	SearchRLocked(lbls labels.LabelArray) api.Rules
+	SearchRLocked(lbls labels.Labels) api.Rules
 	SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool))
 	Start()
 }
@@ -462,7 +462,7 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 
 // SearchRLocked searches the policy repository for rules which match the
 // specified labels and will return an array of all rules which matched.
-func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
+func (p *Repository) SearchRLocked(lbls labels.Labels) api.Rules {
 	result := api.Rules{}
 
 	for _, r := range p.rules {
@@ -626,7 +626,7 @@ func (r ruleSlice) FindSelectedEndpoints(endpointsToBumpRevision, endpointsToReg
 // DeleteByLabelsLocked deletes all rules in the policy repository which
 // contain the specified labels. Returns the revision of the policy repository
 // after deleting the rules, as well as now many rules were deleted.
-func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
+func (p *Repository) DeleteByLabelsLocked(lbls labels.Labels) (ruleSlice, uint64, int) {
 	deletedRules := ruleSlice{}
 
 	for key, r := range p.rules {
@@ -662,7 +662,7 @@ func (p *Repository) DeleteByResourceLocked(rid ipcachetypes.ResourceID) (ruleSl
 
 // DeleteByLabels deletes all rules in the policy repository which contain the
 // specified labels
-func (p *Repository) DeleteByLabels(lbls labels.LabelArray) (uint64, int) {
+func (p *Repository) DeleteByLabels(lbls labels.Labels) (uint64, int) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	_, rev, numDeleted := p.DeleteByLabelsLocked(lbls)
@@ -683,7 +683,7 @@ func JSONMarshalRules(rules api.Rules) string {
 // rule with labels matching the labels in the provided LabelArray.
 //
 // Must be called with p.mutex held
-func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool, egressMatch bool) {
+func (p *Repository) GetRulesMatching(lbls labels.Labels) (ingressMatch bool, egressMatch bool) {
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
@@ -908,7 +908,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 }
 
 // wildcardRule generates a wildcard rule that only selects the given identity.
-func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
+func wildcardRule(lbls labels.Labels, ingress bool) *rule {
 	r := &rule{}
 
 	if ingress {

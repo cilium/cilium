@@ -75,9 +75,7 @@ func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
 		err   error
 	)
 
-	lbls = labels.Labels{
-		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.NewLabels(labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved))
 
 	mgr := NewCachingIdentityAllocator(newDummyOwner(), testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil)
@@ -88,9 +86,8 @@ func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
 	require.Equal(t, identity.ReservedIdentityHost, i.ID)
 	require.False(t, isNew)
 
-	lbls = labels.Labels{
-		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.NewLabels(labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved))
+
 	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
@@ -103,18 +100,16 @@ func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
 	require.Equal(t, identity.ReservedIdentityHealth, i.ID)
 	require.False(t, isNew)
 
-	lbls = labels.Labels{
-		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.NewLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
+
 	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityInit, i.ID)
 	require.False(t, isNew)
 
-	lbls = labels.Labels{
-		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.NewLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
+
 	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
@@ -149,7 +144,7 @@ func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 	d.mutex.Unlock()
 }
 
-func (d *dummyOwner) GetIdentity(id identity.NumericIdentity) labels.LabelArray {
+func (d *dummyOwner) GetIdentity(id identity.NumericIdentity) labels.Labels {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	return d.cache[id]
@@ -199,7 +194,7 @@ func testEventWatcherBatching(t *testing.T) {
 	watcher.watch(events)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	key := &cacheKey.GlobalIdentity{LabelArray: lbls}
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
@@ -209,7 +204,7 @@ func testEventWatcherBatching(t *testing.T) {
 		}
 	}
 	require.NotEqual(t, 0, owner.WaitUntilID(1033))
-	require.EqualValues(t, lbls.LabelArray(), owner.GetIdentity(identity.NumericIdentity(1033)))
+	require.EqualValues(t, lbls, owner.GetIdentity(identity.NumericIdentity(1033)))
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
 			Typ: allocator.AllocatorChangeDelete,
@@ -292,7 +287,7 @@ func testAllocator(t *testing.T) {
 	require.True(t, isNew)
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id1a.ID))
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
+	require.EqualValues(t, lbls1, owner.GetIdentity(id1a.ID))
 
 	// reuse the same identity
 	id1b, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
@@ -311,7 +306,7 @@ func testAllocator(t *testing.T) {
 	// This also means that we should have not received an event from the
 	// KV-store for the deletion of the identity, so it should still be in
 	// owner's cache.
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
+	require.EqualValues(t, lbls1, owner.GetIdentity(id1a.ID))
 
 	id1b, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
 	require.NotNil(t, id1b)
@@ -321,7 +316,7 @@ func testAllocator(t *testing.T) {
 	require.False(t, isNew)
 	require.Equal(t, id1b.ID, id1a.ID)
 	// Should still be cached, no new events should have been received.
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
+	require.EqualValues(t, lbls1, owner.GetIdentity(id1a.ID))
 
 	ident := mgr.LookupIdentityByID(context.TODO(), id1b.ID)
 	require.NotNil(t, ident)
@@ -334,7 +329,7 @@ func testAllocator(t *testing.T) {
 	require.NotEqual(t, id2.ID, id1a.ID)
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id2.ID))
-	require.EqualValues(t, lbls2.LabelArray(), owner.GetIdentity(id2.ID))
+	require.EqualValues(t, lbls2, owner.GetIdentity(id2.ID))
 
 	id3, isNew, err := mgr.AllocateIdentity(context.Background(), lbls3, false, identity.InvalidIdentity)
 	require.NotNil(t, id3)
@@ -344,7 +339,7 @@ func testAllocator(t *testing.T) {
 	require.NotEqual(t, id3.ID, id2.ID)
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id3.ID))
-	require.EqualValues(t, lbls3.LabelArray(), owner.GetIdentity(id3.ID))
+	require.EqualValues(t, lbls3, owner.GetIdentity(id3.ID))
 
 	released, err = mgr.Release(context.Background(), id1b, false)
 	require.NoError(t, err)
@@ -361,7 +356,7 @@ func testAllocator(t *testing.T) {
 }
 
 func createCIDObj(id string, lbls labels.Labels) *capi_v2.CiliumIdentity {
-	k := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	k := &cacheKey.GlobalIdentity{LabelArray: lbls}
 	selectedLabels, _ := identitybackend.SanitizeK8sLabels(k.GetAsMap())
 	return &capi_v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
@@ -446,7 +441,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			}, 100*time.Millisecond)
 			require.NoError(t, err)
 			require.False(t, isNew)
-			require.EqualValues(t, lbls1.LabelArray(), id2.LabelArray)
+			require.EqualValues(t, lbls1, id2.LabelArray)
 
 			// Repeat verification for the same lbls.
 			var id3 *identity.Identity
@@ -456,7 +451,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			}, 100*time.Millisecond)
 			require.NoError(t, err)
 			require.False(t, isNew)
-			require.EqualValues(t, lbls1.LabelArray(), id3.LabelArray)
+			require.EqualValues(t, lbls1, id3.LabelArray)
 
 			released, err := mgr.Release(ctx, id2, false)
 			require.NoError(t, err)
@@ -494,7 +489,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 
 func addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
 	kvStoreClient := kvstore.Client()
-	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	key := &cacheKey.GlobalIdentity{LabelArray: lbls}
 	idPrefix := path.Join(IdentitiesPath, "id")
 	keyPath := path.Join(idPrefix, id)
 	success, err := kvStoreClient.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
@@ -538,7 +533,7 @@ func testLocalAllocation(t *testing.T, testConfig testConfig) {
 	require.True(t, id.ID.HasLocalScope())
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
+	require.EqualValues(t, lbls1, owner.GetIdentity(id.ID))
 
 	// reuse the same identity
 	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
@@ -555,7 +550,7 @@ func testLocalAllocation(t *testing.T, testConfig testConfig) {
 	require.False(t, released)
 
 	// Identity still exists
-	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
+	require.EqualValues(t, lbls1, owner.GetIdentity(id.ID))
 
 	// 2nd Release, released
 	released, err = mgr.Release(context.Background(), id, true)

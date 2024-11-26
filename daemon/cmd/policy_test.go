@@ -310,23 +310,23 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	require.NoError(t, err3)
 
 	// Prepare the identities necessary for testing
-	qaBarLbls := labels.Labels{lblBar.Key(): lblBar, lblQA.Key(): lblQA}
+	qaBarLbls := labels.NewLabels(lblBar, lblQA)
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
-	prodBarLbls := labels.Labels{lblBar.Key(): lblBar, lblProd.Key(): lblProd}
+	prodBarLbls := labels.NewLabels(lblBar, lblProd)
 	prodBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodBarLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), prodBarSecLblsCtx, false)
-	qaFooLbls := labels.Labels{lblFoo.Key(): lblFoo, lblQA.Key(): lblQA}
+	qaFooLbls := labels.NewLabels(lblFoo, lblQA)
 	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
-	prodFooLbls := labels.Labels{lblFoo.Key(): lblFoo, lblProd.Key(): lblProd}
+	prodFooLbls := labels.NewLabels(lblFoo, lblProd)
 	prodFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), prodFooSecLblsCtx, false)
-	prodFooJoeLbls := labels.Labels{lblFoo.Key(): lblFoo, lblProd.Key(): lblProd, lblJoe.Key(): lblJoe}
+	prodFooJoeLbls := labels.NewLabels(lblFoo, lblProd, lblJoe)
 	prodFooJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooJoeLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), prodFooJoeSecLblsCtx, false)
@@ -448,11 +448,11 @@ func TestL4L7ShadowingEtcd(t *testing.T) {
 
 func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 	// Prepare the identities necessary for testing
-	qaBarLbls := labels.Labels{lblBar.Key(): lblBar, lblQA.Key(): lblQA}
+	qaBarLbls := labels.NewLabels(lblBar, lblQA)
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
-	qaFooLbls := labels.Labels{lblFoo.Key(): lblFoo, lblQA.Key(): lblQA}
+	qaFooLbls := labels.NewLabels(lblFoo, lblQA)
 	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
@@ -539,11 +539,11 @@ func TestL4L7ShadowingShortCircuitEtcd(t *testing.T) {
 // envoy does not even have the HTTP rules).
 func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 	// Prepare the identities necessary for testing
-	qaBarLbls := labels.Labels{lblBar.Key(): lblBar, lblQA.Key(): lblQA}
+	qaBarLbls := labels.NewLabels(lblBar, lblQA)
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
-	qaFooLbls := labels.Labels{lblFoo.Key(): lblFoo, lblQA.Key(): lblQA}
+	qaFooLbls := labels.NewLabels(lblFoo, lblQA)
 	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
@@ -621,15 +621,15 @@ func TestL3DependentL7Etcd(t *testing.T) {
 
 func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 	// Prepare the identities necessary for testing
-	qaBarLbls := labels.Labels{lblBar.Key(): lblBar, lblQA.Key(): lblQA}
+	qaBarLbls := labels.NewLabels(lblBar, lblQA)
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
-	qaFooLbls := labels.Labels{lblFoo.Key(): lblFoo, lblQA.Key(): lblQA}
+	qaFooLbls := labels.NewLabels(lblFoo, lblQA)
 	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
-	qaJoeLbls := labels.Labels{lblJoe.Key(): lblJoe, lblQA.Key(): lblQA}
+	qaJoeLbls := labels.NewLabels(lblJoe, lblQA)
 	qaJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaJoeLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaJoeSecLblsCtx, false)
@@ -726,7 +726,7 @@ func TestReplacePolicyEtcd(t *testing.T) {
 }
 
 func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
-	lbls := labels.ParseLabelArray("foo", "bar")
+	lbls := labels.ParseLabels("foo", "bar")
 	rules := api.Rules{
 		{
 			Labels:           lbls,
@@ -780,7 +780,7 @@ func TestRemovePolicyEtcd(t *testing.T) {
 }
 
 func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
-	qaBarLbls := labels.Labels{lblBar.Key(): lblBar, lblQA.Key(): lblQA}
+	qaBarLbls := labels.NewLabels(lblBar, lblQA)
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
@@ -873,7 +873,7 @@ func TestIncrementalPolicyEtcd(t *testing.T) {
 }
 
 func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
-	qaBarLbls := labels.Labels{lblBar.Key(): lblBar, lblQA.Key(): lblQA}
+	qaBarLbls := labels.NewLabels(lblBar, lblQA)
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
@@ -965,7 +965,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	require.Equal(t, expectedIngressPolicy, qaBarNetworkPolicy.IngressPerPortPolicies[0])
 
 	// Allocate identities needed for this test
-	qaFooLbls := labels.Labels{lblFoo.Key(): lblFoo, lblQA.Key(): lblQA}
+	qaFooLbls := labels.NewLabels(lblFoo, lblQA)
 	qaFooID, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
 	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooID, false)
@@ -1102,7 +1102,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			setupArgs: func() args {
 				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
-				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
+				lbls = append(lbls, labels.ParseLabels("foo=bar")...).Sort()
 				r.MustAddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
@@ -1206,7 +1206,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 										},
 									},
 								},
-								Labels: labels.ParseLabelArray("foo=bar"),
+								Labels: labels.ParseLabels("foo=bar"),
 							},
 						},
 					},
@@ -1216,7 +1216,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
-				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...).Sort()
+				lbls = append(lbls, labels.ParseLabels("foo=bar")...).Sort()
 				r.MustAddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{

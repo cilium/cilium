@@ -63,7 +63,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					nil,
 				),
 			).WithLabels(
-				labels.LabelArray{
+				labels.Labels{
 					labels.NewLabel(
 						"io.cilium.k8s.policy.derived-from",
 						"CiliumNetworkPolicy",
@@ -113,7 +113,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					nil,
 				),
 			).WithLabels(
-				labels.LabelArray{
+				labels.Labels{
 					labels.NewLabel(
 						"io.cilium.k8s.policy.derived-from",
 						"CiliumNetworkPolicy",
@@ -164,7 +164,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					nil,
 				),
 			).WithLabels(
-				labels.LabelArray{
+				labels.Labels{
 					labels.NewLabel(
 						"io.cilium.k8s.policy.derived-from",
 						"CiliumClusterwideNetworkPolicy",
@@ -242,7 +242,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					},
 				},
 			).WithLabels(
-				labels.LabelArray{
+				labels.Labels{
 					labels.NewLabel(
 						"io.cilium.k8s.policy.derived-from",
 						"CiliumNetworkPolicy",
@@ -320,7 +320,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					},
 				},
 			).WithLabels(
-				labels.LabelArray{
+				labels.Labels{
 					labels.NewLabel(
 						"io.cilium.k8s.policy.derived-from",
 						"CiliumNetworkPolicy",
@@ -400,7 +400,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					},
 				},
 			).WithLabels(
-				labels.LabelArray{
+				labels.Labels{
 					labels.NewLabel(
 						"io.cilium.k8s.policy.derived-from",
 						"CiliumNetworkPolicy",
@@ -481,7 +481,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					},
 				},
 			).WithLabels(
-				labels.LabelArray{
+				labels.Labels{
 					labels.NewLabel(
 						"io.cilium.k8s.policy.derived-from",
 						"CiliumClusterwideNetworkPolicy",
@@ -520,12 +520,12 @@ func TestParseToCiliumLabels(t *testing.T) {
 		namespace string
 		name      string
 		uid       types.UID
-		ruleLbs   labels.LabelArray
+		ruleLbs   labels.Labels
 	}
 	tests := []struct {
 		name string
 		args args
-		want labels.LabelArray
+		want labels.Labels
 	}{
 		{
 			name: "parse labels",
@@ -533,7 +533,7 @@ func TestParseToCiliumLabels(t *testing.T) {
 				name:      "foo",
 				namespace: "bar",
 				uid:       uuid,
-				ruleLbs: labels.LabelArray{
+				ruleLbs: labels.Labels{
 					labels.NewLabel(
 						"hello",
 						"world",
@@ -541,7 +541,7 @@ func TestParseToCiliumLabels(t *testing.T) {
 					),
 				},
 			},
-			want: labels.LabelArray{
+			want: labels.Labels{
 				labels.NewLabel(
 					"hello",
 					"world",

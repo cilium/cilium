@@ -107,7 +107,7 @@ type Rule struct {
 	// unique, multiple rules can have overlapping or identical labels.
 	//
 	// +kubebuilder:validation:Optional
-	Labels labels.LabelArray `json:"labels,omitempty"`
+	Labels labels.Labels `json:"labels,omitempty"`
 
 	// EnableDefaultDeny determines whether this policy configures the
 	// subject endpoint(s) to have a default deny mode. If enabled,
@@ -144,7 +144,7 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		IngressDeny       []IngressDenyRule  `json:"ingressDeny,omitempty"`
 		Egress            []EgressRule       `json:"egress,omitempty"`
 		EgressDeny        []EgressDenyRule   `json:"egressDeny,omitempty"`
-		Labels            labels.LabelArray  `json:"labels,omitempty"`
+		Labels            labels.Labels      `json:"labels,omitempty"`
 		EnableDefaultDeny *DefaultDenyConfig `json:"enableDefaultDeny,omitempty"`
 		Description       string             `json:"description,omitempty"`
 	}
@@ -233,7 +233,7 @@ func (r *Rule) WithEgressDenyRules(rules []EgressDenyRule) *Rule {
 }
 
 // WithLabels configures the Rule with the specified labels metadata.
-func (r *Rule) WithLabels(labels labels.LabelArray) *Rule {
+func (r *Rule) WithLabels(labels labels.Labels) *Rule {
 	r.Labels = labels
 	return r
 }

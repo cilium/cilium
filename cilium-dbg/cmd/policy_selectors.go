@@ -71,7 +71,7 @@ var policyCacheGetCmd = &cobra.Command{
 	},
 }
 
-func getNameAndNamespaceFromLabels(lbls labels.LabelArray) string {
+func getNameAndNamespaceFromLabels(lbls labels.Labels) string {
 	ns := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sconst.PolicyLabelNamespace)
 	if ns == "" {
 		return ""
@@ -79,8 +79,8 @@ func getNameAndNamespaceFromLabels(lbls labels.LabelArray) string {
 	return ns + "/" + lbls.Get(labels.LabelSourceK8sKeyPrefix+k8sconst.PolicyLabelName)
 }
 
-func constructLabelsArrayFromAPIType(in models.LabelArray) labels.LabelArray {
-	lbls := make(labels.LabelArray, 0, len(in))
+func constructLabelsArrayFromAPIType(in models.LabelArray) labels.Labels {
+	lbls := make(labels.Labels, 0, len(in))
 	for _, l := range in {
 		lbls = append(lbls, labels.NewLabel(l.Key, l.Value, l.Source))
 	}

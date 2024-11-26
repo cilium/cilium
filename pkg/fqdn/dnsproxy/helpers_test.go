@@ -213,7 +213,7 @@ func (m MockCachedSelector) GetSelections(*versioned.VersionHandle) identity.Num
 	return nil
 }
 
-func (m MockCachedSelector) GetMetadataLabels() labels.LabelArray {
+func (m MockCachedSelector) GetMetadataLabels() labels.Labels {
 	panic("implement me")
 }
 

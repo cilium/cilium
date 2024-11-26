@@ -130,7 +130,7 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted identity.Identi
 	// record the id deleted even if an add was reversed, as the
 	// id may also have previously existed, in which case the
 	// result is not no-op!
-	deleted[id] = labels.LabelArray{}
+	deleted[id] = labels.Empty
 
 	return true
 }
@@ -217,7 +217,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 		return nil
 	}
 
-	lblArray := lbls.LabelArray()
+	lblArray := lbls
 	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, &key.GlobalIdentity{LabelArray: lblArray})
 	if err != nil {
 		return nil
@@ -233,7 +233,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 	return identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), lblArray)
 }
 
-var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
+var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.NewLabels(labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)))
 
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache, then the caches for remote kvstores and

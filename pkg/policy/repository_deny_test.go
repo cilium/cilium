@@ -54,7 +54,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 				},
 			},
 		},
-		Labels: labels.LabelArray{
+		Labels: labels.Labels{
 			fooIngressDenyRule1Label,
 		},
 	}
@@ -71,7 +71,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 				},
 			},
 		},
-		Labels: labels.LabelArray{
+		Labels: labels.Labels{
 			fooIngressDenyRule2Label,
 		},
 	}
@@ -88,7 +88,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 				},
 			},
 		},
-		Labels: labels.LabelArray{
+		Labels: labels.Labels{
 			fooEgressDenyRule1Label,
 		},
 	}
@@ -105,7 +105,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 				},
 			},
 		},
-		Labels: labels.LabelArray{
+		Labels: labels.Labels{
 			fooEgressDenyRule2Label,
 		},
 	}
@@ -131,7 +131,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 				},
 			},
 		},
-		Labels: labels.LabelArray{
+		Labels: labels.Labels{
 			combinedLabel,
 		},
 	}
@@ -172,7 +172,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, genCommentf(false, false))
 	require.ElementsMatch(t, matchingRules.AsPolicyRules(), api.Rules{&fooIngressDenyRule1, &fooIngressDenyRule2}, "returned matching rules did not match")
 
-	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressDenyRule1Label})
+	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.Labels{fooIngressDenyRule1Label})
 	require.Equal(t, 1, numDeleted)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
@@ -180,7 +180,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, genCommentf(false, false))
 	require.EqualValues(t, fooIngressDenyRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressDenyRule2Label})
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.Labels{fooIngressDenyRule2Label})
 	require.Equal(t, 1, numDeleted)
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
@@ -193,7 +193,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.False(t, ing, genCommentf(true, false))
 	require.True(t, egr, genCommentf(false, true))
 	require.EqualValues(t, fooEgressDenyRule1, matchingRules[0].Rule, "returned matching rules did not match")
-	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressDenyRule1Label})
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.Labels{fooEgressDenyRule1Label})
 	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.mustAdd(fooEgressDenyRule2)
@@ -203,7 +203,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.True(t, egr, genCommentf(false, true))
 	require.EqualValues(t, fooEgressDenyRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressDenyRule2Label})
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.Labels{fooEgressDenyRule2Label})
 	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.mustAdd(combinedRule)
@@ -212,7 +212,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.True(t, ing, genCommentf(true, true))
 	require.True(t, egr, genCommentf(false, true))
 	require.EqualValues(t, combinedRule, matchingRules[0].Rule, "returned matching rules did not match")
-	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{combinedLabel})
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.Labels{combinedLabel})
 	require.Equal(t, 1, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
@@ -270,7 +270,7 @@ func TestGetRulesMatching(t *testing.T) {
 
 	bar := labels.ParseSelectLabel("bar")
 	foo := labels.ParseSelectLabel("foo")
-	tag := labels.LabelArray{labels.ParseLabel("tag")}
+	tag := labels.Labels{labels.ParseLabel("tag")}
 	ingressDenyRule := api.Rule{
 		EndpointSelector: api.NewESFromLabels(bar),
 		IngressDeny: []api.IngressDenyRule{
@@ -300,14 +300,14 @@ func TestGetRulesMatching(t *testing.T) {
 	}
 
 	// When no policy is applied.
-	ingressMatch, egressMatch := repo.GetRulesMatching(labels.LabelArray{bar, foo})
+	ingressMatch, egressMatch := repo.GetRulesMatching(labels.Labels{bar, foo})
 	require.False(t, ingressMatch)
 	require.False(t, egressMatch)
 
 	// When ingress deny policy is applied.
 	_, _, err := repo.mustAdd(ingressDenyRule)
 	require.NoError(t, err)
-	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
+	ingressMatch, egressMatch = repo.GetRulesMatching(labels.Labels{bar, foo})
 	require.True(t, ingressMatch)
 	require.False(t, egressMatch)
 
@@ -317,7 +317,7 @@ func TestGetRulesMatching(t *testing.T) {
 	// When egress deny policy is applied.
 	_, _, err = repo.mustAdd(egressDenyRule)
 	require.NoError(t, err)
-	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
+	ingressMatch, egressMatch = repo.GetRulesMatching(labels.Labels{bar, foo})
 	require.False(t, ingressMatch)
 	require.True(t, egressMatch)
 }
@@ -336,7 +336,7 @@ func TestDeniesIngress(t *testing.T) {
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fooToBar))
 	repo.mutex.RUnlock()
 
-	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
+	tag1 := labels.Labels{labels.ParseLabel("tag1")}
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		IngressDeny: []api.IngressDenyRule{
@@ -435,7 +435,7 @@ func TestDeniesEgress(t *testing.T) {
 	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(fooToBar))
 	repo.mutex.RUnlock()
 
-	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
+	tag1 := labels.Labels{labels.ParseLabel("tag1")}
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
 		EgressDeny: []api.EgressDenyRule{
@@ -533,7 +533,7 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
 
-	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
+	labelsL3 := labels.Labels{labels.ParseLabel("L3")}
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -583,8 +583,8 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 
-	labelsL4Kafka := labels.LabelArray{labels.ParseLabel("L4-kafka")}
-	labelsL4HTTP := labels.LabelArray{labels.ParseLabel("L4-http")}
+	labelsL4Kafka := labels.Labels{labels.ParseLabel("L4-kafka")}
+	labelsL4HTTP := labels.Labels{labels.ParseLabel("L4-http")}
 
 	l49092Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -831,9 +831,9 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 
-	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
-	labelsICMP := labels.LabelArray{labels.ParseLabel("icmp")}
-	labelsICMPv6 := labels.LabelArray{labels.ParseLabel("icmpv6")}
+	labelsL4 := labels.Labels{labels.ParseLabel("L4")}
+	labelsICMP := labels.Labels{labels.ParseLabel("icmp")}
+	labelsICMPv6 := labels.Labels{labels.ParseLabel("icmpv6")}
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -958,8 +958,8 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 
-	labelsL3DNS := labels.LabelArray{labels.ParseLabel("L3-dns")}
-	labelsL3HTTP := labels.LabelArray{labels.ParseLabel("L3-http")}
+	labelsL3DNS := labels.Labels{labels.ParseLabel("L3-dns")}
+	labelsL3HTTP := labels.Labels{labels.ParseLabel("L3-http")}
 
 	l453Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1049,8 +1049,8 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 	td := newTestData()
 	repo := td.repo
 
-	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
-	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
+	labelsL3 := labels.Labels{labels.ParseLabel("L3")}
+	labelsHTTP := labels.Labels{labels.ParseLabel("http")}
 
 	cidrSlice := api.CIDRSlice{"192.0.0.0/3"}
 	cidrSelectors := cidrSlice.GetAsEndpointSelectors()
@@ -1149,7 +1149,7 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 
-	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
+	labelsL3 := labels.Labels{labels.ParseLabel("L3")}
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1216,7 +1216,7 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 
-	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
+	labelsL3 := labels.Labels{labels.ParseLabel("L3")}
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,

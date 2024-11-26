@@ -60,8 +60,8 @@ func (p *policyWatcher) readAndTranslateToCNPObject(file string) (*cilium_v2.Cil
 	return cnp, err
 }
 
-func getLabels(fileName string, cnp *cilium_v2.CiliumNetworkPolicy) labels.LabelArray {
-	labelsArr := labels.LabelArray{
+func getLabels(fileName string, cnp *cilium_v2.CiliumNetworkPolicy) labels.Labels {
+	labelsArr := labels.Labels{
 		labels.NewLabel("filename", fileName, labels.LabelSourceDirectory),
 	}
 

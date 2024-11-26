@@ -259,7 +259,7 @@ var (
 		},
 	}
 
-	lblsL3DenyFoo = labels.ParseLabelArray("l3-deny")
+	lblsL3DenyFoo = labels.ParseLabels("l3-deny")
 	ruleL3DenyFoo = api.NewRule().
 			WithLabels(lblsL3DenyFoo).
 			WithIngressDenyRules([]api.IngressDenyRule{{
@@ -268,7 +268,7 @@ var (
 			},
 			ToPorts: denyAllL4_,
 		}})
-	lblsL4L7Allow = labels.ParseLabelArray("l4l7-allow")
+	lblsL4L7Allow = labels.ParseLabels("l4l7-allow")
 	ruleL4L7Allow = api.NewRule().
 			WithLabels(lblsL4L7Allow).
 			WithIngressRules([]api.IngressRule{{
@@ -276,7 +276,7 @@ var (
 			ToPorts:           combineL4L7(allowPort80, allowHTTPRoot),
 		}})
 
-	AllowAnyEgressLabels = labels.LabelArray{labels.NewLabel(policy.LabelKeyPolicyDerivedFrom,
+	AllowAnyEgressLabels = labels.Labels{labels.NewLabel(policy.LabelKeyPolicyDerivedFrom,
 		policy.LabelAllowAnyEgress,
 		labels.LabelSourceReserved)}
 
@@ -466,7 +466,7 @@ var (
 			Priority: 1,
 		},
 	}}
-	lblsL4AllowListener1 = labels.ParseLabelArray("foo-l4l7-allow-listener1")
+	lblsL4AllowListener1 = labels.ParseLabels("foo-l4l7-allow-listener1")
 	ruleL4AllowListener1 = api.NewRule().
 				WithLabels(lblsL4AllowListener1).
 				WithIngressRules([]api.IngressRule{{
@@ -475,7 +475,7 @@ var (
 			},
 			ToPorts: allowListener1Port80,
 		}})
-	lblsL4L7AllowListener1Priority1 = labels.ParseLabelArray("foo-l4l7-allow-listener1-priority1")
+	lblsL4L7AllowListener1Priority1 = labels.ParseLabels("foo-l4l7-allow-listener1-priority1")
 	ruleL4L7AllowListener1Priority1 = api.NewRule().
 					WithLabels(lblsL4L7AllowListener1Priority1).
 					WithIngressRules([]api.IngressRule{{
@@ -484,14 +484,14 @@ var (
 			},
 			ToPorts: allowListener1Port80Priority1,
 		}})
-	lblsL4AllowPort80 = labels.ParseLabelArray("l4-allow-port80")
+	lblsL4AllowPort80 = labels.ParseLabels("l4-allow-port80")
 	ruleL4AllowPort80 = api.NewRule().
 				WithLabels(lblsL4AllowPort80).
 				WithIngressRules([]api.IngressRule{{
 			IngressCommonRule: api.IngressCommonRule{},
 			ToPorts:           allowPort80,
 		}})
-	lblsL4L7AllowListener2Priority1 = labels.ParseLabelArray("red-l4l7-allow-listener2-priority1")
+	lblsL4L7AllowListener2Priority1 = labels.ParseLabels("red-l4l7-allow-listener2-priority1")
 	ruleL4L7AllowListener2Priority1 = api.NewRule().
 					WithLabels(lblsL4L7AllowListener2Priority1).
 					WithIngressRules([]api.IngressRule{{

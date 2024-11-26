@@ -507,7 +507,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	idp, allocated, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{LabelArray: lbls.LabelArray()})
+	idp, allocated, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{LabelArray: lbls})
 	if err != nil {
 		return nil, false, err
 	}
@@ -873,7 +873,7 @@ func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
 	var idLabels labels.Labels = nil
 
 	if allocatorKey != nil {
-		idLabels = labels.Labels{}
+		idLabels = labels.Empty
 		for k, v := range allocatorKey.GetAsMap() {
 			label := labels.ParseLabel(k + "=" + v)
 			idLabels[label.Key()] = label

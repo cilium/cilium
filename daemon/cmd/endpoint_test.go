@@ -112,9 +112,8 @@ func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 	_, _, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
 	require.NoError(t, err)
 
-	expectedLabels := labels.Labels{
-		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-	}
+	expectedLabels := labels.NewLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
+
 	// Check that the endpoint has the reserved:init label.
 	v4ip, err := netip.ParseAddr(epTemplate.Addressing.IPV4)
 	require.NoError(t, err)

@@ -115,7 +115,7 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 			Prefix:   oldCIDR,
 			Source:   source.Generated,
 			Resource: resourceID,
-			Metadata: []ipcache.IPMetadata{labels.Labels{}},
+			Metadata: []ipcache.IPMetadata{labels.Empty},
 		})
 	}
 	if len(mu) > 0 {

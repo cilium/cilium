@@ -34,7 +34,7 @@ func CreateModel(id *identity.Identity) *models.Identity {
 
 	ret := &models.Identity{
 		ID:     int64(id.ID),
-		Labels: make([]string, 0, len(id.Labels)),
+		Labels: make([]string, 0, id.Labels.Len()),
 	}
 
 	for _, v := range id.LabelArray {

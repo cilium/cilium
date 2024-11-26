@@ -223,7 +223,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 }
 
 // GetIdentityLabels returns all rule labels in the CiliumNetworkPolicy.
-func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.LabelArray {
+func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.Labels {
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID

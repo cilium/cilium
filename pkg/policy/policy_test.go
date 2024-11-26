@@ -17,8 +17,8 @@ func TestSearchContextString(t *testing.T) {
 		"From: [unspec:a, unspec:b, unspec:c] => To: [unspec:d, unspec:e, unspec:f] Ports: [HTTP/TCP, HTTPs/TCP]": {
 			Trace: 1,
 			Depth: 0,
-			From:  labels.ParseLabelArray("a", "c", "b"),
-			To:    labels.ParseLabelArray("d", "e", "f"),
+			From:  labels.ParseLabels("a", "c", "b"),
+			To:    labels.ParseLabels("d", "e", "f"),
 			DPorts: []*models.Port{
 				{
 					Name:     "HTTP",
@@ -36,8 +36,8 @@ func TestSearchContextString(t *testing.T) {
 		"From: [unspec:a, unspec:b, unspec:c] => To: [unspec:d, unspec:e, unspec:f] Ports: [80/TCP, 442/TCP]": {
 			Trace: 1,
 			Depth: 0,
-			From:  labels.ParseLabelArray("a", "c", "b"),
-			To:    labels.ParseLabelArray("d", "e", "f"),
+			From:  labels.ParseLabels("a", "c", "b"),
+			To:    labels.ParseLabels("d", "e", "f"),
 			DPorts: []*models.Port{
 				{
 					Port:     80,
@@ -53,8 +53,8 @@ func TestSearchContextString(t *testing.T) {
 		"From: [k8s:a, local:b, unspec:c] => To: [unspec:d, unspec:e, unspec:f]": {
 			Trace:       1,
 			Depth:       0,
-			From:        labels.ParseLabelArray("k8s:a", "unspec:c", "local:b"),
-			To:          labels.ParseLabelArray("d", "e", "f"),
+			From:        labels.ParseLabels("k8s:a", "unspec:c", "local:b"),
+			To:          labels.ParseLabels("d", "e", "f"),
 			rulesSelect: false,
 		},
 	} {
@@ -71,8 +71,8 @@ func BenchmarkSearchContextString(b *testing.B) {
 			{
 				Trace: 1,
 				Depth: 0,
-				From:  labels.ParseLabelArray("a", "t", "b"),
-				To:    labels.ParseLabelArray("d", "e", "f"),
+				From:  labels.ParseLabels("a", "t", "b"),
+				To:    labels.ParseLabels("d", "e", "f"),
 				DPorts: []*models.Port{
 					{
 						Name:     "HTTP",
@@ -90,8 +90,8 @@ func BenchmarkSearchContextString(b *testing.B) {
 			{
 				Trace: 1,
 				Depth: 0,
-				From:  labels.ParseLabelArray("a", "t", "b"),
-				To:    labels.ParseLabelArray("d", "e", "f"),
+				From:  labels.ParseLabels("a", "t", "b"),
+				To:    labels.ParseLabels("d", "e", "f"),
 				DPorts: []*models.Port{
 					{
 						Port:     80,

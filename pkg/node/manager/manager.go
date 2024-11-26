@@ -603,9 +603,9 @@ func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptK
 }
 
 func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels, hasOverride bool) {
-	nodeLabels = labels.NewFrom(labels.LabelRemoteNode)
+	nodeLabels = labels.LabelRemoteNode
 	if n.IsLocal() {
-		nodeLabels = labels.NewFrom(labels.LabelHost)
+		nodeLabels = labels.LabelHost
 		if m.conf.PolicyCIDRMatchesNodes() {
 			for _, address := range n.IPAddresses {
 				addr, ok := netipx.FromStdIP(address.IP)
@@ -707,7 +707,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		lbls := nodeLabels
 		// Add the CIDR labels for this node, if we allow selecting nodes by CIDR
 		if m.conf.PolicyCIDRMatchesNodes() {
-			lbls = labels.NewFrom(nodeLabels)
+			lbls = nodeLabels
 			lbls.MergeLabels(labels.GetCIDRLabels(prefix))
 		}
 

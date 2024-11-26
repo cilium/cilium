@@ -181,15 +181,15 @@ var (
 	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 
 	IdentityCache = identity.IdentityMap{
-		1001: labels.LabelArray{
+		1001: labels.Labels{
 			labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 		},
-		1002: labels.LabelArray{
+		1002: labels.Labels{
 			labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v2", labels.LabelSourceK8s),
 		},
-		1003: labels.LabelArray{
+		1003: labels.Labels{
 			labels.NewLabel("app", "cassandra", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 		},

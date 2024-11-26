@@ -369,7 +369,7 @@ func (s EndpointSelectorSlice) Less(i, j int) bool {
 
 // Matches returns true if any of the EndpointSelectors in the slice match the
 // provided labels
-func (s EndpointSelectorSlice) Matches(ctx labels.LabelArray) bool {
+func (s EndpointSelectorSlice) Matches(ctx labels.Labels) bool {
 	for _, selector := range s {
 		if selector.Matches(ctx) {
 			return true

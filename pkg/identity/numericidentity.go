@@ -196,7 +196,7 @@ type wellKnownIdentities map[NumericIdentity]wellKnownIdentity
 // setup. Examples of this include kube-dns and the etcd-operator.
 type wellKnownIdentity struct {
 	identity   *Identity
-	labelArray labels.LabelArray
+	labelArray labels.Labels
 }
 
 func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
@@ -204,7 +204,7 @@ func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
 	identity := NewIdentity(i, labelMap)
 	w[i] = wellKnownIdentity{
 		identity:   NewIdentity(i, labelMap),
-		labelArray: labelMap.LabelArray(),
+		labelArray: labelMap,
 	}
 
 	cacheMU.Lock()

@@ -63,7 +63,7 @@ type identitySelector struct {
 	selections       versioned.Value[identity.NumericIdentitySlice]
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
-	metadataLbls     labels.LabelArray
+	metadataLbls     labels.Labels
 }
 
 func (i *identitySelector) MaySelectPeers() bool {
@@ -103,7 +103,7 @@ func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
 func (f *fqdnSelector) matches(identity scIdentity) bool {
-	return identity.lbls.Intersects(labels.LabelArray{f.selector.IdentityLabel()})
+	return identity.lbls.Intersects(labels.Labels{f.selector.IdentityLabel()})
 }
 
 func (f *fqdnSelector) metricsClass() string {
@@ -117,7 +117,7 @@ type labelIdentitySelector struct {
 
 // xxxMatches returns true if the CachedSelector matches given labels.
 // This is slow, but only used for policy tracing, so it's OK.
-func (l *labelIdentitySelector) xxxMatches(labels labels.LabelArray) bool {
+func (l *labelIdentitySelector) xxxMatches(labels labels.Labels) bool {
 	return l.selector.Matches(labels)
 }
 
@@ -197,7 +197,7 @@ func (i *identitySelector) GetSelections(version *versioned.VersionHandle) ident
 	return i.selections.At(version)
 }
 
-func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
+func (i *identitySelector) GetMetadataLabels() labels.Labels {
 	return i.metadataLbls
 }
 

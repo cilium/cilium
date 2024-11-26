@@ -55,7 +55,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
 		t.Helper()
-		lbls := labels.Labels{}
+		lbls := labels.Empty
 		for _, labelKey := range labelKeys {
 			lbls[labelKey] = labels.NewLabel("k8s:"+labelKey, "", "")
 		}
@@ -106,7 +106,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 				},
 			},
 		},
-		Labels: labels.LabelArray{
+		Labels: labels.Labels{
 			labels.NewLabel(k8sConst.PolicyLabelName, "egressDenyRule", labels.LabelSourceAny),
 		},
 	}

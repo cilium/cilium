@@ -264,11 +264,12 @@ func (m *metadata) mergeParentLabels(lbls labels.Labels, prefix netip.Prefix) {
 	for bits := prefix.Bits() - 1; bits >= 0; bits-- {
 		parent, _ := prefix.Addr().Unmap().Prefix(bits) // canonical
 		if info, ok := m.m[parent]; ok {
-			for k, v := range info.ToLabels() {
+			for v := range info.ToLabels().All() {
+				k := v.Key()
 				if v.Source() == labels.LabelSourceCIDR && hasCIDR {
 					continue
 				}
-				if _, ok := lbls[k]; !ok {
+				if _, ok := lbls.Get(k); !ok {
 					lbls[k] = v
 					if v.Source() == labels.LabelSourceCIDR {
 						hasCIDR = true
@@ -335,8 +336,8 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 		previouslyAllocatedIdentities = make(map[netip.Prefix]Identity)
 		// idsToAdd stores the identities that must be updated via the
 		// selector cache.
-		idsToAdd    = make(map[identity.NumericIdentity]labels.LabelArray)
-		idsToDelete = make(map[identity.NumericIdentity]labels.LabelArray)
+		idsToAdd    = make(map[identity.NumericIdentity]labels.Labels)
+		idsToDelete = make(map[identity.NumericIdentity]labels.Labels)
 		// entriesToReplace stores the identity to replace in the ipcache.
 		entriesToReplace = make(map[netip.Prefix]ipcacheEntry)
 		entriesToDelete  = make(map[netip.Prefix]Identity)
@@ -612,7 +613,7 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 
 // UpdatePolicyMaps pushes updates for the specified identities into the policy
 // engine and ensures that they are propagated into the underlying datapaths.
-func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, deletedIdentities map[identity.NumericIdentity]labels.LabelArray) {
+func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, deletedIdentities map[identity.NumericIdentity]labels.Labels) {
 	// GH-17962: Refactor to call (*Daemon).UpdateIdentities(), instead of
 	// re-implementing the same logic here. It will also allow removing the
 	// dependencies that are passed into this function.
@@ -731,7 +732,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 // However, nodes *are* allowed to be selectable by CIDR and CIDR equivalents
 // if PolicyCIDRMatchesNodes() is true.
 func resolveLabels(prefix netip.Prefix, lbls labels.Labels) labels.Labels {
-	out := labels.NewFrom(lbls)
+	out := lbls
 
 	isNode := lbls.HasRemoteNodeLabel() || lbls.HasHostLabel()
 
@@ -762,7 +763,7 @@ func resolveLabels(prefix netip.Prefix, lbls labels.Labels) labels.Labels {
 	// No empty labels allowed.
 	// Add in (cidr:<address/prefix>) label as a fallback.
 	// This should not be hit in production, but is used in tests.
-	if len(out) == 0 {
+	if out.Len() == 0 {
 		out = labels.GetCIDRLabels(prefix)
 	}
 
@@ -787,14 +788,14 @@ func resolveLabels(prefix netip.Prefix, lbls labels.Labels) labels.Labels {
 func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.Labels) *identity.Identity {
 	ipc.metadata.reservedHostLock.Lock()
 	defer ipc.metadata.reservedHostLock.Unlock()
-	if lbls == nil {
+	if lbls.IsEmpty() {
 		delete(ipc.metadata.reservedHostLabels, prefix)
 	} else {
 		ipc.metadata.reservedHostLabels[prefix] = lbls
 	}
 
 	// aggregate all labels and update static identity
-	newLabels := labels.NewFrom(labels.LabelHost)
+	newLabels := labels.LabelHost
 	for _, l := range ipc.metadata.reservedHostLabels {
 		newLabels.MergeLabels(l)
 	}

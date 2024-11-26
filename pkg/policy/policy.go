@@ -56,8 +56,8 @@ type SearchContext struct {
 	Trace   Tracing
 	Depth   int
 	Logging *stdlog.Logger
-	From    labels.LabelArray
-	To      labels.LabelArray
+	From    labels.Labels
+	To      labels.Labels
 	DPorts  []*models.Port
 	// rulesSelect specifies whether or not to check whether a rule which is
 	// being analyzed using this SearchContext matches either From or To.

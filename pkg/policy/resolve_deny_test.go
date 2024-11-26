@@ -56,7 +56,7 @@ func generateCIDRIdentities(rules api.Rules) identity.IdentityMap {
 		if _, exists := prefixes[prefix]; !exists {
 			lbls := labels.GetCIDRLabels(netip.MustParsePrefix(prefix))
 			id++
-			c[id] = lbls.LabelArray()
+			c[id] = lbls
 			prefixes[prefix] = id
 		}
 	}
@@ -213,7 +213,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
+	idFooSelectLabels := labels.Empty
 	for _, lbl := range idFooSelectLabelArray {
 		idFooSelectLabels[lbl.Key()] = lbl
 	}
@@ -298,7 +298,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
+	idFooSelectLabels := labels.Empty
 	for _, lbl := range idFooSelectLabelArray {
 		idFooSelectLabels[lbl.Key()] = lbl
 	}
@@ -392,13 +392,13 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
-	ruleLabel := labels.ParseLabelArray("rule-foo-allow-port-80")
-	ruleLabelAllowAnyEgress := labels.LabelArray{
+	ruleLabel := labels.ParseLabels("rule-foo-allow-port-80")
+	ruleLabelAllowAnyEgress := labels.Labels{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 	}
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
+	idFooSelectLabels := labels.Empty
 	for _, lbl := range idFooSelectLabelArray {
 		idFooSelectLabels[lbl.Key()] = lbl
 	}
@@ -501,13 +501,13 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
-	ruleLabel := labels.ParseLabelArray("rule-deny-port-80-world-and-test")
-	ruleLabelAllowAnyEgress := labels.LabelArray{
+	ruleLabel := labels.ParseLabels("rule-deny-port-80-world-and-test")
+	ruleLabelAllowAnyEgress := labels.Labels{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 	}
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
+	idFooSelectLabels := labels.Empty
 	for _, lbl := range idFooSelectLabelArray {
 		idFooSelectLabels[lbl.Key()] = lbl
 	}

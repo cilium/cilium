@@ -69,7 +69,7 @@ func (p *policyMananger) PolicyAdd(rules api.Rules, opts *policy.AddOptions) (ne
 	return 1, nil
 }
 
-func (p *policyMananger) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
+func (p *policyMananger) PolicyDelete(labels labels.Labels, opts *policy.DeleteOptions) (newRev uint64, err error) {
 	return 1, nil
 }
 

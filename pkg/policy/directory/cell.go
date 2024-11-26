@@ -33,7 +33,7 @@ var Cell = cell.Module(
 
 type PolicyManager interface {
 	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
+	PolicyDelete(labels labels.Labels, opts *policy.DeleteOptions) (newRev uint64, err error)
 }
 
 type DirectoryWatcherReadStatus chan struct{}

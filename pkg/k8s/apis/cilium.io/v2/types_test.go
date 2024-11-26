@@ -104,7 +104,7 @@ var (
 				},
 			},
 		},
-		Labels: labels.LabelArray{
+		Labels: labels.Labels{
 			labels.NewLabel("uuid", "98678-9868976-78687678887678", ""),
 		},
 	}

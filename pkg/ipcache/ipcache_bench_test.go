@@ -29,7 +29,7 @@ func BenchmarkInjectLabels(b *testing.B) {
 	alloc := cache.NewCachingIdentityAllocator(&dummyOwner{}, cache.AllocatorConfig{})
 	//<-alloc.InitIdentityAllocator(nil)
 	PolicyHandler = &mockUpdater{
-		identities: make(map[identity.NumericIdentity]labels.LabelArray),
+		identities: make(map[identity.NumericIdentity]labels.Labels),
 	}
 	ipc := NewIPCache(&Configuration{
 		Context:           ctx,

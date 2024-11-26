@@ -165,11 +165,11 @@ var (
 		},
 	}
 	// API rule definitions for default-deny, L3, L3L4, L3L4L7, L4, L4L7
-	lbls____NoAllow = labels.ParseLabelArray("no-allow")
+	lbls____NoAllow = labels.ParseLabels("no-allow")
 	rule____NoAllow = api.NewRule().
 			WithLabels(lbls____NoAllow).
 			WithIngressRules([]api.IngressRule{{}})
-	lblsL3____Allow = labels.ParseLabelArray("l3-allow")
+	lblsL3____Allow = labels.ParseLabels("l3-allow")
 	ruleL3____Allow = api.NewRule().
 			WithLabels(lblsL3____Allow).
 			WithIngressRules([]api.IngressRule{{
@@ -178,7 +178,7 @@ var (
 			},
 			ToPorts: allowAllL4_,
 		}})
-	lblsL3L4__Allow = labels.ParseLabelArray("l3l4-allow")
+	lblsL3L4__Allow = labels.ParseLabels("l3l4-allow")
 	ruleL3L4__Allow = api.NewRule().
 			WithLabels(lblsL3L4__Allow).
 			WithIngressRules([]api.IngressRule{{
@@ -195,7 +195,7 @@ var (
 			},
 			ToPorts: allowNamedPort80,
 		}})
-	lblsL3L4L7Allow = labels.ParseLabelArray("l3l4l7-allow")
+	lblsL3L4L7Allow = labels.ParseLabels("l3l4l7-allow")
 	ruleL3L4L7Allow = api.NewRule().
 			WithLabels(lblsL3L4L7Allow).
 			WithIngressRules([]api.IngressRule{{
@@ -212,7 +212,7 @@ var (
 			},
 			ToPorts: combineL4L7(allowNamedPort80, allowHTTPRoot),
 		}})
-	lbls__L4__Allow = labels.ParseLabelArray("l4-allow")
+	lbls__L4__Allow = labels.ParseLabels("l4-allow")
 	rule__L4__Allow = api.NewRule().
 			WithLabels(lbls__L4__Allow).
 			WithIngressRules([]api.IngressRule{{
@@ -231,7 +231,7 @@ var (
 				WithIngressRules([]api.IngressRule{{
 			ToPorts: allowNamedPort80,
 		}})
-	lbls__L4L7Allow = labels.ParseLabelArray("l4l7-allow")
+	lbls__L4L7Allow = labels.ParseLabels("l4l7-allow")
 	rule__L4L7Allow = api.NewRule().
 			WithLabels(lbls__L4L7Allow).
 			WithIngressRules([]api.IngressRule{{
@@ -242,7 +242,7 @@ var (
 				WithIngressRules([]api.IngressRule{{
 			ToPorts: combineL4L7(allowNamedPort80, allowHTTPRoot),
 		}})
-	lblsL3__AllowFoo = labels.ParseLabelArray("l3-allow-foo")
+	lblsL3__AllowFoo = labels.ParseLabels("l3-allow-foo")
 	ruleL3__AllowFoo = api.NewRule().
 				WithLabels(lblsL3__AllowFoo).
 				WithIngressRules([]api.IngressRule{{
@@ -250,7 +250,7 @@ var (
 				FromEndpoints: []api.EndpointSelector{allowFooL3_},
 			},
 		}})
-	lblsL3__AllowBar = labels.ParseLabelArray("l3-allow-bar")
+	lblsL3__AllowBar = labels.ParseLabels("l3-allow-bar")
 	ruleL3__AllowBar = api.NewRule().
 				WithLabels(lblsL3__AllowBar).
 				WithIngressRules([]api.IngressRule{{
@@ -258,7 +258,7 @@ var (
 				FromEndpoints: []api.EndpointSelector{allowBarL3_},
 			},
 		}})
-	lblsL3L4AllowBar     = labels.ParseLabelArray("l3l4-allow-bar")
+	lblsL3L4AllowBar     = labels.ParseLabels("l3l4-allow-bar")
 	ruleL3L4AllowBarAuth = api.NewRule().
 				WithLabels(lblsL3L4AllowBar).
 				WithIngressRules([]api.IngressRule{{
@@ -280,7 +280,7 @@ var (
 				Mode: api.AuthenticationModeAlwaysFail,
 			},
 		}})
-	lbls____AllowAll = labels.ParseLabelArray("allow-all")
+	lbls____AllowAll = labels.ParseLabels("allow-all")
 	rule____AllowAll = api.NewRule().
 				WithLabels(lbls____AllowAll).
 				WithIngressRules([]api.IngressRule{{
@@ -298,16 +298,16 @@ var (
 				Mode: api.AuthenticationModeRequired,
 			},
 		}})
-	lblsAllowAllIngress = labels.LabelArray{
+	lblsAllowAllIngress = labels.Labels{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 	}
 
-	lbls_____NoDeny = labels.ParseLabelArray("deny")
+	lbls_____NoDeny = labels.ParseLabels("deny")
 	rule_____NoDeny = api.NewRule().
 			WithLabels(lbls_____NoDeny).
 			WithIngressRules([]api.IngressRule{{}})
 
-	lblsL3_____Deny = labels.ParseLabelArray("l3-deny")
+	lblsL3_____Deny = labels.ParseLabels("l3-deny")
 	ruleL3_____Deny = api.NewRule().
 			WithLabels(lblsL3_____Deny).
 			WithIngressDenyRules([]api.IngressDenyRule{{
@@ -317,14 +317,14 @@ var (
 			ToPorts: denyAllL4_,
 		}})
 
-	lbls__L4___Deny = labels.ParseLabelArray("l4-deny")
+	lbls__L4___Deny = labels.ParseLabels("l4-deny")
 	rule__L4___Deny = api.NewRule().
 			WithLabels(lbls__L4___Deny).
 			WithIngressDenyRules([]api.IngressDenyRule{{
 			ToPorts: denyPort80,
 		}})
 
-	lblsL3L4___Deny = labels.ParseLabelArray("l3l4-deny")
+	lblsL3L4___Deny = labels.ParseLabels("l3l4-deny")
 	ruleL3L4___Deny = api.NewRule().
 			WithLabels(lblsL3L4___Deny).
 			WithIngressDenyRules([]api.IngressDenyRule{{
@@ -346,19 +346,19 @@ var (
 	mapKeyAllowAll__ = IngressKey()
 	mapKeyAllowAllE_ = EgressKey()
 	// Desired map entries for no L7 redirect / redirect to Proxy
-	mapEntryL7None_ = func(lbls ...labels.LabelArray) mapStateEntry {
+	mapEntryL7None_ = func(lbls ...labels.Labels) mapStateEntry {
 		return newAllowEntry().withLabels(lbls)
 	}
-	mapEntryL7ExplicitAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
+	mapEntryL7ExplicitAuth_ = func(at AuthType, lbls ...labels.Labels) mapStateEntry {
 		return newAllowEntry().withLabels(lbls).withExplicitAuth(at)
 	}
-	mapEntryL7DerivedAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
+	mapEntryL7DerivedAuth_ = func(at AuthType, lbls ...labels.Labels) mapStateEntry {
 		return newAllowEntry().withLabels(lbls).withDerivedAuth(at)
 	}
-	mapEntryL7Deny = func(lbls ...labels.LabelArray) mapStateEntry {
+	mapEntryL7Deny = func(lbls ...labels.Labels) mapStateEntry {
 		return newDenyEntry().withLabels(lbls)
 	}
-	mapEntryL7Proxy = func(lbls ...labels.LabelArray) mapStateEntry {
+	mapEntryL7Proxy = func(lbls ...labels.Labels) mapStateEntry {
 		return newAllowEntry().withLabels(lbls).withProxyPort(1)
 	}
 )
@@ -400,7 +400,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
-func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (mapState, error) {
+func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labels, identity *identity.Identity) (mapState, error) {
 	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{})
 	if err != nil {
 		return newMapState(), fmt.Errorf("failed to calculate policy: %w", err)
@@ -1848,12 +1848,12 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	defer SetPolicyEnabled(oldPolicyEnable)
 
 	SetPolicyEnabled(option.DefaultEnforcement)
-	hostLabel := labels.NewFrom(labels.LabelHost)
-	hostLabel.MergeLabels(lblHostIPv4CIDR)
-	hostLabel.MergeLabels(lblHostIPv6CIDR)
+	hostLabel := labels.LabelHost
+	hostLabel = labels.Merge(hostLabel, lblHostIPv4CIDR)
+	hostLabel = labels.Merge(hostLabel, lblHostIPv6CIDR)
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityHost:         hostLabel.LabelArray(),
+		identity.ReservedIdentityHost:         hostLabel,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)

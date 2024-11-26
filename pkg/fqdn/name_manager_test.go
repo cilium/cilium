@@ -30,8 +30,8 @@ func newMockIPCache() *mockIPCache {
 }
 
 func (m *mockIPCache) labelsForPrefix(prefix netip.Prefix) labels.Labels {
-	lbls := labels.Labels{}
-	for _, l := range m.metadata[prefix] {
+	lbls := labels.Empty
+	for _, l := range m.metadata.GetOrEmpty(prefix) {
 		lbls.MergeLabels(l)
 	}
 	return lbls
@@ -39,7 +39,7 @@ func (m *mockIPCache) labelsForPrefix(prefix netip.Prefix) labels.Labels {
 
 func (m *mockIPCache) UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64) {
 	for _, mu := range updates {
-		prefixMetadata, ok := m.metadata[mu.Prefix]
+		prefixMetadata, ok := m.metadata.Get(mu.Prefix)
 		if !ok {
 			prefixMetadata = make(map[ipcacheTypes.ResourceID]labels.Labels)
 		}
@@ -61,12 +61,12 @@ func (m *mockIPCache) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint6
 	for _, mu := range updates {
 		for _, aux := range mu.Metadata {
 			if _, ok := aux.(labels.Labels); ok {
-				delete(m.metadata[mu.Prefix], mu.Resource)
+				delete(m.metadata.GetOrEmpty(mu.Prefix), mu.Resource)
 				break
 			}
 		}
 
-		if len(m.metadata[mu.Prefix]) == 0 {
+		if len(m.metadata.GetOrEmpty(mu.Prefix)) == 0 {
 			delete(m.metadata, mu.Prefix)
 		}
 	}
@@ -153,7 +153,7 @@ func Test_deriveLabelsForNames(t *testing.T) {
 	require.Equal(t, map[string]nameMetadata{
 		"nomatch.local.": {
 			addrs:  []netip.Addr{nomatchIP},
-			labels: labels.Labels{},
+			labels: labels.Empty,
 		},
 		"github.com.": {
 			addrs:  []netip.Addr{githubIP},

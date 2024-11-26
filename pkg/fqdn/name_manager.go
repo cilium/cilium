@@ -295,7 +295,7 @@ func (n *NameManager) CompleteBootstrap() {
 				Source:   source.Restored,
 				Resource: restorationIPCacheResource,
 				Metadata: []ipcache.IPMetadata{
-					labels.Labels{}, // remove restored labels
+					labels.Empty, // remove restored labels
 				},
 			})
 		}
@@ -344,7 +344,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 
 		// derive labels for this DNS name
 		nameLabels := deriveLabelsForName(dnsName, n.allSelectors)
-		if len(nameLabels) == 0 {
+		if nameLabels.Len() == 0 {
 			// If no selectors care about this name, then skip IPCache updates
 			// for this name.
 			// If any selectors/ are added later, ipcache insertion will happen then.
@@ -427,7 +427,7 @@ func (n *NameManager) updateMetadata(nameToMetadata map[string]nameMetadata) (ip
 
 		// If labels are empty (i.e. this domain is no longer selected),
 		// then we want to the labels of our resource owner
-		if len(metadata.labels) > 0 {
+		if metadata.labels.Len() > 0 {
 			ipcacheUpserts = append(ipcacheUpserts, updates...)
 		} else {
 			ipcacheRemovals = append(ipcacheRemovals, updates...)
@@ -462,7 +462,7 @@ func (n *NameManager) maybeRemoveMetadata(maybeRemoved map[netip.Addr][]string) 
 					Source:   source.Generated,
 					Resource: ipcacheResource(name),
 					Metadata: []ipcache.IPMetadata{
-						labels.Labels{}, // remove all labels for this (ip, name) pair
+						labels.Empty, // remove all labels for this (ip, name) pair
 					},
 				})
 			}
@@ -511,7 +511,7 @@ type nameMetadata struct {
 // deriveLabelsForName derives what `fqdn:` labels we want to associate with
 // IPs for this DNS name, i.e. what selectors match the DNS name.
 func deriveLabelsForName(dnsName string, selectors map[api.FQDNSelector]*regexp.Regexp) labels.Labels {
-	lbls := labels.Labels{}
+	lbls := labels.Empty
 	for fqdnSel, fqdnRegex := range selectors {
 		matches := fqdnRegex.MatchString(dnsName)
 		if matches {

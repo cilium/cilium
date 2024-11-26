@@ -1355,10 +1355,10 @@ func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
 
 func TestL3RuleLabels(t *testing.T) {
 	td := newTestData()
-	ruleLabels := map[string]labels.LabelArray{
-		"rule0": labels.ParseLabelArray("name=apiRule0"),
-		"rule1": labels.ParseLabelArray("name=apiRule1"),
-		"rule2": labels.ParseLabelArray("name=apiRule2"),
+	ruleLabels := map[string]labels.Labels{
+		"rule0": labels.ParseLabels("name=apiRule0"),
+		"rule1": labels.ParseLabels("name=apiRule1"),
+		"rule2": labels.ParseLabels("name=apiRule2"),
 	}
 
 	rules := map[string]api.Rule{
@@ -1474,7 +1474,7 @@ func TestL3RuleLabels(t *testing.T) {
 
 					matches = false
 					for sel := range filter.PerSelectorPolicies {
-						cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
+						cidrLabels := labels.ParseLabels("cidr:" + cidr)
 						t.Logf("Testing %+v", cidrLabels)
 						if matches = sel.(*identitySelector).source.(*labelIdentitySelector).xxxMatches(cidrLabels); matches {
 							break
@@ -1489,10 +1489,10 @@ func TestL3RuleLabels(t *testing.T) {
 
 func TestL4RuleLabels(t *testing.T) {
 	td := newTestData()
-	ruleLabels := map[string]labels.LabelArray{
-		"rule0": labels.ParseLabelArray("name=apiRule0"),
-		"rule1": labels.ParseLabelArray("name=apiRule1"),
-		"rule2": labels.ParseLabelArray("name=apiRule2"),
+	ruleLabels := map[string]labels.Labels{
+		"rule0": labels.ParseLabels("name=apiRule0"),
+		"rule1": labels.ParseLabels("name=apiRule1"),
+		"rule2": labels.ParseLabels("name=apiRule2"),
 	}
 
 	rules := map[string]api.Rule{
@@ -1610,18 +1610,18 @@ func TestL4RuleLabels(t *testing.T) {
 }
 
 var (
-	labelsA = labels.LabelArray{
+	labelsA = labels.Labels{
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
 	}
 
 	endpointSelectorA = api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
 
-	labelsB = labels.LabelArray{
+	labelsB = labels.Labels{
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
 		labels.NewLabel("id2", "t", labels.LabelSourceK8s),
 	}
 
-	labelsC = labels.LabelArray{
+	labelsC = labels.Labels{
 		labels.NewLabel("id", "t", labels.LabelSourceK8s),
 	}
 
@@ -2630,15 +2630,15 @@ func TestMatches(t *testing.T) {
 	hostRule := repo.rules[ruleKey{idx: 1}]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
-	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key(): selectedEpLabels})
+	selectedIdentity := identity.NewIdentity(54321, labels.NewLabels(selectedEpLabels))
 	td.addIdentity(selectedIdentity)
 
 	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
-	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key(): notSelectedEpLabels})
+	notSelectedIdentity := identity.NewIdentity(9876, labels.NewLabels(notSelectedEpLabels))
 	td.addIdentity(notSelectedIdentity)
 
-	hostLabels := labels.Labels{selectedEpLabels.Key(): selectedEpLabels}
-	hostLabels.MergeLabels(labels.LabelHost)
+	hostLabels := labels.NewLabels(selectedEpLabels)
+	hostLabels = labels.Merge(hostLabels, labels.LabelHost)
 	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
 	td.addIdentity(hostIdentity)
 
@@ -2669,7 +2669,7 @@ func TestMatches(t *testing.T) {
 
 	// Assert that mutable host identities are handled
 	// First, add an additional label, ensure that match succeeds
-	hostLabels.MergeLabels(labels.NewLabelsFromModel([]string{"foo=bar"}))
+	hostLabels = labels.Merge(hostLabels, labels.NewLabelsFromModel([]string{"foo=bar"}))
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
 	td.addIdentity(hostIdentity)
 	require.True(t, hostRule.matchesSubject(hostIdentity))

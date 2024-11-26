@@ -125,7 +125,7 @@ func getNamespaceLabels(ns *slim_corev1.Namespace) labels.Labels {
 func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 	newLabels := getNamespaceLabels(newNS)
 
-	oldIdtyLabels := u.oldIdtyLabels[newNS.Name]
+	oldIdtyLabels := u.oldIdtyLabels.GetOrEmpty(newNS.Name)
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 
 	// Do not perform any other operations if the old labels are the same as

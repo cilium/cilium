@@ -1064,7 +1064,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 				ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
-				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
+				ep.OpLabels.Custom = labels.NewLabels(labels.NewLabel("k1", "v1", labels.LabelSourceK8s))
 				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
@@ -1091,7 +1091,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 				ep := endpoint.NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
-				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
+				ep.OpLabels.Custom = labels.NewLabels(labels.NewLabel("k1", "v1", labels.LabelSourceK8s))
 				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {

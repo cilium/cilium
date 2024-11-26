@@ -32,7 +32,7 @@ var (
 // GetPolicyLabelsv1 extracts the name of np. It uses the name  from the Cilium
 // annotation if present. If the policy's annotations do not contain
 // the Cilium annotation, the policy's name field is used instead.
-func GetPolicyLabelsv1(np *slim_networkingv1.NetworkPolicy) labels.LabelArray {
+func GetPolicyLabelsv1(np *slim_networkingv1.NetworkPolicy) labels.Labels {
 	if np == nil {
 		log.Warningf("unable to extract policy labels because provided NetworkPolicy is nil")
 		return nil

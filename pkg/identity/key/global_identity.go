@@ -20,7 +20,7 @@ const (
 
 // GlobalIdentity is the structure used to store an identity
 type GlobalIdentity struct {
-	labels.LabelArray
+	labels.Labels
 
 	// metadata contains metadata that are stored for example by the backends.
 	metadata map[any]any
@@ -76,5 +76,5 @@ func (gi *GlobalIdentity) Value(key any) any {
 func GetCIDKeyFromLabels(allLabels map[string]string, source string) *GlobalIdentity {
 	lbs := labels.Map2Labels(allLabels, source)
 	idLabels, _ := labelsfilter.Filter(lbs)
-	return &GlobalIdentity{LabelArray: idLabels.LabelArray()}
+	return &GlobalIdentity{LabelArray: idLabels}
 }

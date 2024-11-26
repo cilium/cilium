@@ -69,7 +69,7 @@ var (
 	ingressTuple      = ipTuple{src: remoteIP, dst: localIP}
 	xlatedEgressTuple = ipTuple{src: xlatedIP, dst: remoteIP}
 
-	fooBarLabel           = labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
+	fooBarLabel           = labels.LabelArrayList{labels.ParseLabels("foo=bar")}
 	remotePolicyKey       = policy.EgressKey().WithIdentity(remoteID)
 	defaultEndpointGetter = &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
@@ -701,7 +701,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	remoteIP := netip.MustParseAddr("5.6.7.8")
 	remoteID := identity.NumericIdentity(5678)
 
-	policyLabel := labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
+	policyLabel := labels.LabelArrayList{labels.ParseLabels("foo=bar")}
 	policyKey := policy.EgressKey().WithIdentity(remoteID)
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {

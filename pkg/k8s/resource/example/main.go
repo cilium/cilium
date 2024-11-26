@@ -170,7 +170,7 @@ func (ps *PrintServices) processLoop(ctx context.Context) error {
 				log.Infof("%s (%s)", key, selectors)
 				for podName, lbls := range podLabels {
 					match := true
-					for _, sel := range selectors {
+					for sel := range selectors.All() {
 						match = match && lbls.Has(sel)
 					}
 					if match {

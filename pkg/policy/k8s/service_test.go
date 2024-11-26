@@ -33,7 +33,7 @@ import (
 
 type fakePolicyManager struct {
 	OnPolicyAdd    func(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	OnPolicyDelete func(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
+	OnPolicyDelete func(labels labels.Labels, opts *policy.DeleteOptions) (newRev uint64, err error)
 }
 
 func (f *fakePolicyManager) PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error) {
@@ -43,7 +43,7 @@ func (f *fakePolicyManager) PolicyAdd(rules api.Rules, opts *policy.AddOptions) 
 	panic("OnPolicyAdd(api.Rules, *policy.AddOptions) (uint64, error) was called and is not set!")
 }
 
-func (f *fakePolicyManager) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
+func (f *fakePolicyManager) PolicyDelete(labels labels.Labels, opts *policy.DeleteOptions) (newRev uint64, err error) {
 	if f.OnPolicyDelete != nil {
 		return f.OnPolicyDelete(labels, opts)
 	}
@@ -493,7 +493,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 			policyAdd <- rules
 			return 0, nil
 		},
-		OnPolicyDelete: func(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error) {
+		OnPolicyDelete: func(labels labels.Labels, opts *policy.DeleteOptions) (newRev uint64, err error) {
 			policyDelete <- nil
 			return 0, nil
 		},

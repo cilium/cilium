@@ -14,7 +14,7 @@ import (
 )
 
 func TestGetAsEndpointSelectors(t *testing.T) {
-	world := labels.ParseLabelArray("reserved:world")
+	world := labels.ParseLabels("reserved:world")
 
 	labelWorld := labels.ParseSelectLabel("reserved:world")
 	esWorld := NewESFromLabels(labelWorld)
@@ -260,13 +260,13 @@ func TestGetAsEndpointSelectorsWithExceptions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			es := (CIDRRuleSlice{tc.rule}).GetAsEndpointSelectors()[0]
 			for _, l := range tc.matchesLabels {
-				lblArr := labels.ParseLabelArray(l)
+				lblArr := labels.ParseLabels(l)
 				if !es.Matches(lblArr) {
 					t.Fatalf("Expected to match %+v, but did not", lblArr[0])
 				}
 			}
 			for _, l := range tc.notMatchesLabels {
-				lblArr := labels.ParseLabelArray(l)
+				lblArr := labels.ParseLabels(l)
 				if es.Matches(lblArr) {
 					t.Fatalf("Expected not to match %s, but did", l)
 				}

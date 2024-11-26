@@ -135,7 +135,7 @@ func (c *Client) EndpointLabelsPatch(id string, toAdd, toDelete models.Labels) e
 	userLbl := labels.NewLabelsFromModel(currentCfg.Status.Realized.User)
 	for _, lbl := range toAdd {
 		lblParsed := labels.ParseLabel(lbl)
-		if _, found := userLbl[lblParsed.Key()]; !found {
+		if _, found := userLbl.Get(lblParsed.Key()); !found {
 			userLbl[lblParsed.Key()] = lblParsed
 		}
 	}

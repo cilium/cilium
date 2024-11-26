@@ -298,7 +298,7 @@ func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDN
 		n.restoredPrefixes = make(sets.Set[netip.Prefix], len(ipsToNames))
 
 		for addr, names := range ipsToNames {
-			lbls := labels.Labels{}
+			lbls := labels.Empty
 			for _, name := range names {
 				lbls.MergeLabels(deriveLabelsForName(name, oldSelectors))
 			}

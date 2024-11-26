@@ -62,10 +62,10 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	// Add these identities
 	wg := &sync.WaitGroup{}
 	testSelectorCache.UpdateIdentities(identity.IdentityMap{
-		dstID1: labels.Labels{"Dst1": labels.NewLabel("Dst1", "test", labels.LabelSourceK8s)}.LabelArray(),
-		dstID2: labels.Labels{"Dst2": labels.NewLabel("Dst2", "test", labels.LabelSourceK8s)}.LabelArray(),
-		dstID3: labels.Labels{"Dst3": labels.NewLabel("Dst3", "test", labels.LabelSourceK8s)}.LabelArray(),
-		dstID4: labels.Labels{"Dst4": labels.NewLabel("Dst4", "test", labels.LabelSourceK8s)}.LabelArray(),
+		dstID1: labels.NewLabels(labels.NewLabel("Dst1", "test", labels.LabelSourceK8s)).LabelArray(),
+		dstID2: labels.NewLabels(labels.NewLabel("Dst2", "test", labels.LabelSourceK8s)).LabelArray(),
+		dstID3: labels.NewLabels(labels.NewLabel("Dst3", "test", labels.LabelSourceK8s)).LabelArray(),
+		dstID4: labels.NewLabels(labels.NewLabel("Dst4", "test", labels.LabelSourceK8s)).LabelArray(),
 	}, nil, wg)
 	wg.Wait()
 
@@ -1211,7 +1211,7 @@ func (t selectorMock) GetSelections(*versioned.VersionHandle) identity.NumericId
 	panic("implement me")
 }
 
-func (t selectorMock) GetMetadataLabels() labels.LabelArray {
+func (t selectorMock) GetMetadataLabels() labels.Labels {
 	panic("implement me")
 }
 
