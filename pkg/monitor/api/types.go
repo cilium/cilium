@@ -458,9 +458,7 @@ type ServiceUpsertNotification struct {
 	Frontend ServiceUpsertNotificationAddr   `json:"frontend-address"`
 	Backends []ServiceUpsertNotificationAddr `json:"backend-addresses"`
 
-	Type string `json:"type,omitempty"`
-	// Deprecated: superseded by ExtTrafficPolicy.
-	TrafficPolicy    string `json:"traffic-policy,omitempty"`
+	Type             string `json:"type,omitempty"`
 	ExtTrafficPolicy string `json:"ext-traffic-policy,omitempty"`
 	IntTrafficPolicy string `json:"int-traffic-policy,omitempty"`
 
@@ -480,7 +478,6 @@ func ServiceUpsertMessage(
 		Frontend:         frontend,
 		Backends:         backends,
 		Type:             svcType,
-		TrafficPolicy:    svcExtTrafficPolicy,
 		ExtTrafficPolicy: svcExtTrafficPolicy,
 		IntTrafficPolicy: svcIntTrafficPolicy,
 		Name:             svcName,
