@@ -364,11 +364,6 @@ spec:
           mountPath: {{ .Values.kubeConfigPath }}
           readOnly: true
         {{- end }}
-        {{- if .Values.bgp.enabled }}
-        - name: bgp-config-path
-          mountPath: /var/lib/cilium/bgp
-          readOnly: true
-        {{- end }}
         {{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled .Values.hubble.metrics.tls.enabled }}
         - name: hubble-metrics-tls
           mountPath: /var/lib/cilium/tls/hubble-metrics
@@ -967,11 +962,6 @@ spec:
       - name: cni-configuration
         configMap:
           name: {{ .Values.cni.configMap }}
-      {{- end }}
-      {{- if .Values.bgp.enabled }}
-      - name: bgp-config-path
-        configMap:
-          name: bgp-config
       {{- end }}
       {{- if not .Values.securityContext.privileged }}
       - name: host-proc-sys-net

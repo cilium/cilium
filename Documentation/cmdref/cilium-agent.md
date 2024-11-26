@@ -23,9 +23,6 @@ cilium-agent [flags]
       --arping-refresh-period duration                            Period for remote node ARP entry refresh (set 0 to disable) (default 30s)
       --auto-create-cilium-node-resource                          Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                                   Enable automatic L2 routing between nodes
-      --bgp-announce-lb-ip                                        Announces service IPs of type LoadBalancer via BGP
-      --bgp-announce-pod-cidr                                     Announces the node's pod CIDR via BGP
-      --bgp-config-path string                                    Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --bpf-auth-map-max int                                      Maximum number of entries in auth map (default 524288)
       --bpf-conntrack-accounting                                  Enable CT accounting for packets and bytes (default false)
       --bpf-ct-global-any-max int                                 Maximum number of entries in non-TCP CT table (default 262144)

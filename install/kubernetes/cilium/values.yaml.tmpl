@@ -443,16 +443,6 @@ l2podAnnouncements:
   enabled: false
   # -- Interface used for sending Gratuitous ARP pod announcements
   interface: "eth0"
-# -- Configure BGP
-bgp:
-  # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
-  # cilium-agent and cilium-operator
-  enabled: false
-  announce:
-    # -- Enable allocation and announcement of service LoadBalancer IPs
-    loadbalancerIP: false
-    # -- Enable announcement of node pod CIDR
-    podCIDR: false
 # -- This feature set enables virtual BGP routers to be created via
 # CiliumBGPPeeringPolicy CRDs.
 bgpControlPlane:

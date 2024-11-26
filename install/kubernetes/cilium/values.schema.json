@@ -455,25 +455,6 @@
       },
       "type": "object"
     },
-    "bgp": {
-      "properties": {
-        "announce": {
-          "properties": {
-            "loadbalancerIP": {
-              "type": "boolean"
-            },
-            "podCIDR": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "bgpControlPlane": {
       "properties": {
         "enabled": {
