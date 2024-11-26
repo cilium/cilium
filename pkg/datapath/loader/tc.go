@@ -57,7 +57,7 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 	}
 
 	// tcx not available or disabled, fall back to legacy tc.
-	if err := attachTCProgram(device, prog, progName, parent); err != nil {
+	if err := upsertTCProgram(device, prog, progName, parent, option.Config.TCFilterPriority); err != nil {
 		return fmt.Errorf("attaching legacy tc program %s: %w", progName, err)
 	}
 
@@ -102,10 +102,20 @@ func detachSKBProgram(device netlink.Link, progName, bpffsDir string, parent uin
 	return removeTCFilters(device, parent)
 }
 
-// attachTCProgram attaches prog to device using a legacy tc bpf filter.
-func attachTCProgram(device netlink.Link, prog *ebpf.Program, progName string, parent uint32) error {
+// upsertTCProgram attaches prog to device using a legacy tc bpf filter.
+// Existing programs with the same name but different priority are detached
+// after attaching the new program.
+func upsertTCProgram(device netlink.Link, prog *ebpf.Program, progName string, parent uint32, prio uint16) error {
 	if err := replaceQdisc(device); err != nil {
 		return fmt.Errorf("replacing clsact qdisc for interface %s: %w", device.Attrs().Name, err)
+	}
+
+	// Leaving prio at 0 will cause the kernel to assign a priority in the higher
+	// 16-bits region. If this happens, we're unable to read back the value we
+	// specified in the request, i.e. when cleaning up leftover filters with a
+	// different priority. Default to 1 to avoid surprises.
+	if prio == 0 {
+		prio = 1
 	}
 
 	filter := &netlink.BpfFilter{
@@ -114,7 +124,7 @@ func attachTCProgram(device netlink.Link, prog *ebpf.Program, progName string, p
 			Parent:    parent,
 			Handle:    1,
 			Protocol:  unix.ETH_P_ALL,
-			Priority:  option.Config.TCFilterPriority,
+			Priority:  prio,
 		},
 		Fd:           prog.FD(),
 		Name:         fmt.Sprintf("%s-%s", progName, device.Attrs().Name),
@@ -125,7 +135,45 @@ func attachTCProgram(device netlink.Link, prog *ebpf.Program, progName string, p
 		return fmt.Errorf("replacing tc filter for interface %s: %w", device.Attrs().Name, err)
 	}
 
-	log.Infof("Program %s attached to device %s using legacy tc", progName, device.Attrs().Name)
+	log.Infof("Program %s with priority %d attached to device %s using legacy tc", progName, filter.Attrs().Priority, device.Attrs().Name)
+
+	if err := removeStaleTCFilters(device, parent, prio); err != nil {
+		return fmt.Errorf("removing stale tc filter %s for interface %s: %w", filter.Name, device.Attrs().Name, err)
+	}
+
+	return nil
+}
+
+// removeStaleTCFilters removes all Cilium tc bpf filters from the given
+// device with a different priority than the given new priority.
+func removeStaleTCFilters(device netlink.Link, parent uint32, newPrio uint16) error {
+	filters, err := safenetlink.FilterList(device, parent)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range filters {
+		old, ok := f.(*netlink.BpfFilter)
+		if !ok {
+			continue
+		}
+
+		// Don't touch filters belonging to other programs.
+		if !isCiliumFilter(old) {
+			continue
+		}
+
+		// Don't remove filters with the new priority.
+		if old.Priority == newPrio {
+			continue
+		}
+
+		if err := netlink.FilterDel(f); err != nil {
+			return err
+		}
+
+		log.Infof("Deleted stale tc bpf filter %s with priority %d on device %s", old.Name, old.Priority, device.Attrs().Name)
+	}
 
 	return nil
 }
@@ -159,7 +207,7 @@ func hasCiliumTCFilters(device netlink.Link, parent uint32) (bool, error) {
 		if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
 			// If any filter contains the cil_ prefix in the name we know Cilium
 			// previously attached its programs to this netlink device.
-			if strings.HasPrefix(bpfFilter.Name, "cil_") {
+			if isCiliumFilter(bpfFilter) {
 				return true, nil
 			}
 		}
@@ -181,4 +229,8 @@ func replaceQdisc(link netlink.Link) error {
 	}
 
 	return netlink.QdiscReplace(qdisc)
+}
+
+func isCiliumFilter(filter *netlink.BpfFilter) bool {
+	return strings.HasPrefix(filter.Name, "cil_")
 }
