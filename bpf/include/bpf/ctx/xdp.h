@@ -386,7 +386,7 @@ ctx_full_len(const struct xdp_md *ctx)
 static __always_inline __maybe_unused __u32
 ctx_wire_len(const struct xdp_md *ctx)
 {
-	return ctx_full_len(ctx);
+	return (__u32)ctx_full_len(ctx);
 }
 
 struct {

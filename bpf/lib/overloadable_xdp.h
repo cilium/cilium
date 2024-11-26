@@ -184,7 +184,7 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		   __u32 daddr, __u32 seclabel __maybe_unused,
 		   __u32 vni __maybe_unused, void *opt, __u32 opt_len)
 {
-	__u32 inner_len = ctx_full_len(ctx);
+	__u32 inner_len = (__u32)ctx_full_len(ctx);
 	__u32 tunnel_hdr_len = 8; /* geneve / vxlan */
 	void *data, *data_end;
 	struct ethhdr *eth;

@@ -138,7 +138,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 	}
 		break;
 	}
-	return dst - orig;
+	return (int)(dst - orig);
 }
 
 CHECK("tc", "nat4_icmp_error_tcp")

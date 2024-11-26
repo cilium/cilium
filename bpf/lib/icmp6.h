@@ -219,7 +219,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 		sum = compute_icmp6_csum(data, 56, ipv6hdr);
 		payload_len = bpf_htons(56);
 		trimlen = 56 - bpf_ntohs(ipv6hdr->payload_len);
-		if (ctx_change_tail(ctx, ctx_full_len(ctx) + trimlen, 0) < 0)
+		if (ctx_change_tail(ctx, (__u32)(ctx_full_len(ctx) + trimlen), 0) < 0)
 			return DROP_WRITE_ERROR;
 		/* trim or expand buffer and copy data buffer after ipv6 header */
 		if (ctx_store_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
@@ -238,7 +238,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 		payload_len = bpf_htons(68);
 		/* trim or expand buffer and copy data buffer after ipv6 header */
 		trimlen = 68 - bpf_ntohs(ipv6hdr->payload_len);
-		if (ctx_change_tail(ctx, ctx_full_len(ctx) + trimlen, 0) < 0)
+		if (ctx_change_tail(ctx, (__u32)(ctx_full_len(ctx) + trimlen), 0) < 0)
 			return DROP_WRITE_ERROR;
 		if (ctx_store_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
 				    data, 68, 0) < 0)
