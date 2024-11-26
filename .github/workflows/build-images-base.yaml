@@ -15,13 +15,13 @@ on:
   # build-images-base-renovate.yaml
   workflow_call:
     secrets:
-      QUAY_BASE_RELEASE_USERNAME:
+      QUAY_BASE_RELEASE_USERNAME_202411:
         required: true
-      QUAY_BASE_RELEASE_PASSWORD:
+      QUAY_BASE_RELEASE_PASSWORD_202411:
         required: true
-      AUTO_COMMITTER_PEM:
+      AUTO_COMMITTER_PEM_202411:
         required: true
-      AUTO_COMMITTER_APP_ID:
+      AUTO_COMMITTER_APP_ID_202411:
         required: true
     inputs:
       environment:
@@ -51,7 +51,7 @@ jobs:
       - name: Check for secrets
         id: secrets
         env:
-          has_credentials: ${{ secrets.QUAY_BASE_RELEASE_USERNAME && secrets.QUAY_BASE_RELEASE_PASSWORD && 1 }}
+          has_credentials: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 && secrets.QUAY_BASE_RELEASE_PASSWORD_202411 && 1 }}
         if: ${{ env.has_credentials }}
         run:
           echo 'present=1' >> "$GITHUB_OUTPUT"
@@ -139,8 +139,8 @@ jobs:
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
-          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD }}
+          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
+          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD_202411 }}
 
       - name: Release build cilium-runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -228,8 +228,8 @@ jobs:
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
-          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD }}
+          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
+          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD_202411 }}
 
       - name: Release build cilium-builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
@@ -333,8 +333,8 @@ jobs:
         id: get_token
         uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
         with:
-          APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM }}
-          APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID }}
+          APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM_202411 }}
+          APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID_202411 }}
 
       - name: Push changes into PR
         if: ${{ steps.update-runtime-image.outputs.committed == 'true' || steps.update-builder-image.outputs.committed == 'true' }}
@@ -343,7 +343,7 @@ jobs:
           repository:  ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         run: |
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:${{ env.ref }}
+          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:$ref
 
   image-digests:
     name: Display Digests
