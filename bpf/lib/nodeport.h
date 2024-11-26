@@ -154,7 +154,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	int oif = THIS_INTERFACE_IFINDEX;
 	int ret;
 
-	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
+	ret = (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
@@ -569,7 +569,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		goto drop_err;
 
 	if (ctx_load_bytes(ctx, off + sizeof(inner_ipv6_hdr), orig_ipv6_hdr,
-			   sizeof(orig_ipv6_hdr)) < 0)
+			   (__u32)sizeof(orig_ipv6_hdr)) < 0)
 		goto drop_err;
 	memcpy(orig_ipv6_hdr + l4_dport_offset, &dport, sizeof(dport));
 
@@ -584,13 +584,13 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 
 	wsum = ipv6_pseudohdr_checksum(&ip, IPPROTO_ICMPV6,
 				       bpf_ntohs(ip.payload_len), 0);
-	icmp.icmp6_cksum = csum_fold(csum_diff(NULL, 0, orig_ipv6_hdr, sizeof(orig_ipv6_hdr),
+	icmp.icmp6_cksum = csum_fold(csum_diff(NULL, 0, orig_ipv6_hdr, (__u32)sizeof(orig_ipv6_hdr),
 					       csum_diff(NULL, 0, &inner_ipv6_hdr,
 							 sizeof(inner_ipv6_hdr),
 							 csum_diff(NULL, 0, &icmp,
 								   sizeof(icmp), wsum))));
 
-	if (ctx_adjust_troom(ctx, -(len_old - len_new)) < 0)
+	if (ctx_adjust_troom(ctx, -(__s32)(len_old - len_new)) < 0)
 		goto drop_err;
 	if (ctx_adjust_hroom(ctx, sizeof(ip) + sizeof(icmp),
 			     BPF_ADJ_ROOM_NET,
@@ -1822,7 +1822,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 	const __u32 l3_max = MAX_IPOPTLEN + sizeof(*ip4) + orig_dgram;
 	__be16 type = bpf_htons(ETH_P_IP);
 	__s32 len_new = off + ipv4_hdrlen(ip4) + orig_dgram;
-	__s32 len_old = ctx_full_len(ctx);
+	__s32 len_old = (__s32)ctx_full_len(ctx);
 	__u8 reason = (__u8)-code;
 	__u8 tmp[l3_max];
 	union macaddr smac, dmac;
@@ -1885,13 +1885,13 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 	memset(tmp, 0, MAX_IPOPTLEN);
 	if (ctx_store_bytes(ctx, len_new, tmp, MAX_IPOPTLEN, 0) < 0)
 		goto drop_err;
-	if (ctx_load_bytes(ctx, off, tmp, sizeof(tmp)) < 0)
+	if (ctx_load_bytes(ctx, off, tmp, (__u32)sizeof(tmp)) < 0)
 		goto drop_err;
 
 	memcpy(tmp, &inner_ip_hdr, sizeof(inner_ip_hdr));
 	memcpy(tmp + sizeof(inner_ip_hdr) + l4_dport_offset, &dport, sizeof(dport));
 
-	icmp.checksum = csum_fold(csum_diff(NULL, 0, tmp, sizeof(tmp),
+	icmp.checksum = csum_fold(csum_diff(NULL, 0, tmp, (__u32)sizeof(tmp),
 					    csum_diff(NULL, 0, &icmp,
 						      sizeof(icmp), 0)));
 

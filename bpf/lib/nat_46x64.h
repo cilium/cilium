@@ -308,7 +308,7 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
 	if (csum_off < 0)
 		return csum_off;
 	csum_off += sizeof(struct ipv6hdr);
-	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
+	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, (__u32)csum_flags) < 0)
 		return DROP_CSUM_L4;
 	return 0;
 }
@@ -365,7 +365,7 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 	if (csum_off < 0)
 		return csum_off;
 	csum_off += sizeof(struct iphdr);
-	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
+	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, (__u32)csum_flags) < 0)
 		return DROP_CSUM_L4;
 	return 0;
 }

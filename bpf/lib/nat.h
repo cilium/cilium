@@ -704,7 +704,7 @@ static __always_inline __maybe_unused int
 snat_v4_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx, __u64 off,
 				     bool has_l4_header)
 {
-	__u32 inner_l3_off = off + sizeof(struct icmphdr);
+	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmphdr));
 	struct ipv4_ct_tuple tuple = {};
 	struct ipv4_nat_entry *state;
 	struct iphdr iphdr;
@@ -778,7 +778,7 @@ snat_v4_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx, __u64 off,
 		return ret;
 
 	/* Rewrite outer headers. No port rewrite needed. */
-	return snat_v4_rewrite_headers(ctx, IPPROTO_ICMP, ETH_HLEN, has_l4_header, off,
+	return snat_v4_rewrite_headers(ctx, IPPROTO_ICMP, ETH_HLEN, has_l4_header, (int)off,
 				       tuple.saddr, state->to_saddr, IPV4_SADDR_OFF,
 				       0, 0, 0);
 }
@@ -892,7 +892,7 @@ snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
 	 * packet in its response.
 	 */
 
-	if (ctx_load_bytes(ctx, inner_l3_off, &iphdr, sizeof(iphdr)) < 0)
+	if (ctx_load_bytes(ctx, (__u32)inner_l3_off, &iphdr, sizeof(iphdr)) < 0)
 		return DROP_INVALID;
 
 	/* From the embedded IP headers we should be able to determine
@@ -904,7 +904,7 @@ snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
 	tuple.daddr = iphdr.saddr;
 	tuple.flags = NAT_DIR_INGRESS;
 
-	icmpoff = inner_l3_off + ipv4_hdrlen(&iphdr);
+	icmpoff = (__u32)(inner_l3_off + ipv4_hdrlen(&iphdr));
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
@@ -946,7 +946,7 @@ snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
 		return NAT_PUNT_TO_STACK;
 
 	/* The embedded packet was SNATed on egress. Reverse it again: */
-	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, icmpoff,
+	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off, true, icmpoff,
 				       tuple.daddr, (*state)->to_daddr, IPV4_SADDR_OFF,
 				       tuple.dport, (*state)->to_dport, port_off);
 }
@@ -980,7 +980,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		ret = ipv4_load_l4_ports(ctx, ip4, off, CT_INGRESS,
+		ret = ipv4_load_l4_ports(ctx, ip4, (int)off, CT_INGRESS,
 					 &tuple.dport, &has_l4_header);
 		if (ret < 0)
 			return ret;
@@ -989,7 +989,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+		if (ctx_load_bytes(ctx, (__u32)off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
 		switch (icmphdr.type) {
 		case ICMP_ECHOREPLY:
@@ -1030,7 +1030,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	if (snat_v4_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_rev_nat_handle_mapping(ctx, &tuple, has_l4_header, &state,
-					     ip4, off, target, trace);
+					     ip4, (__u32)off, target, trace);
 	if (ret < 0)
 		return ret;
 
@@ -1038,7 +1038,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	to_dport = state->to_dport;
 
 rewrite:
-	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN, has_l4_header, off,
+	return snat_v4_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN, has_l4_header, (int)off,
 				       tuple.daddr, state->to_daddr, IPV4_DADDR_OFF,
 				       tuple.dport, to_dport, port_off);
 }
@@ -1722,7 +1722,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 
 	snat_v6_init_tuple(ip6, NAT_DIR_INGRESS, &tuple);
 
-	off = ((void *)ip6 - data) + hdrlen;
+	off = (__u32)(((void *)ip6 - data) + hdrlen);
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:

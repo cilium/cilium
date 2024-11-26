@@ -40,14 +40,14 @@ ipv4_csum_update_by_value(struct __ctx_buff *ctx, int l3_off, __u64 old_val,
 			  __u64 new_val, __u32 len)
 {
 	return l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
-			       old_val, new_val, len);
+			       (__u32)old_val, (__u32)new_val, len);
 }
 
 static __always_inline int
 ipv4_csum_update_by_diff(struct __ctx_buff *ctx, int l3_off, __u64 diff)
 {
 	return l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
-			       0, diff, 0);
+			       0, (__u32)diff, 0);
 }
 
 static __always_inline int ipv4_load_daddr(struct __ctx_buff *ctx, int off,

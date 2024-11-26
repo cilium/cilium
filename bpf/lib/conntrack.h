@@ -96,7 +96,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 						 union tcp_flags flags,
 						 __u8 report_mask)
 {
-	__u32 now = bpf_mono_now();
+	__u32 now = (__u32)bpf_mono_now();
 	__u8 accumulated_flags;
 	__u8 seen_flags = flags.lower_bits & report_mask;
 	__u32 last_report;
@@ -193,7 +193,7 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 {
 	state->rev_nat_index = entry->rev_nat_index;
 	if (dir == CT_SERVICE) {
-		state->backend_id = entry->backend_id;
+		state->backend_id = (__u32)entry->backend_id;
 		state->syn = syn;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
 #ifndef DISABLE_LOOPBACK_LB
