@@ -621,14 +621,6 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 	if option.Config.EnableNodePort {
 		k8sExternalIPs = parseIPs(externalIPs)
 		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
-	} else if option.Config.BGPAnnounceLBIP {
-		// The BGP LB Announcement feature requires that
-		// loadBalancerIPs be parsed. This is because
-		// an event must occur when a Service's Status field
-		// is updated with a new Ingress, ultimately triggering a
-		// BGP announcement. If we do not parse loadBalancerIPs
-		// this will not occur.
-		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
 	}
 
 	ip.SortIPList(ips)

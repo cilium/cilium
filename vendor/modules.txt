@@ -786,15 +786,6 @@ github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher
 github.com/go-jose/go-jose/v4/json
 github.com/go-jose/go-jose/v4/jwt
-# github.com/go-kit/kit v0.12.0
-## explicit; go 1.17
-github.com/go-kit/kit/log
-# github.com/go-kit/log v0.2.1
-## explicit; go 1.17
-github.com/go-kit/log
-# github.com/go-logfmt/logfmt v0.6.0
-## explicit; go 1.17
-github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v1.4.2
 ## explicit; go 1.18
 github.com/go-logr/logr
@@ -1133,9 +1124,6 @@ github.com/mdlayher/ethernet
 # github.com/mdlayher/genetlink v1.3.2
 ## explicit; go 1.18
 github.com/mdlayher/genetlink
-# github.com/mdlayher/ndp v0.0.0-20200602162440-17ab9e3e5567
-## explicit; go 1.13
-github.com/mdlayher/ndp
 # github.com/mdlayher/netlink v1.7.2
 ## explicit; go 1.18
 github.com/mdlayher/netlink
@@ -1149,9 +1137,6 @@ github.com/mdlayher/socket
 # github.com/miekg/dns v1.1.62
 ## explicit; go 1.19
 github.com/miekg/dns
-# github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721
-## explicit
-github.com/mikioh/ipaddr
 # github.com/mitchellh/copystructure v1.2.0
 ## explicit; go 1.15
 github.com/mitchellh/copystructure
@@ -1481,9 +1466,6 @@ github.com/zmap/zlint/v3/lints/etsi
 github.com/zmap/zlint/v3/lints/mozilla
 github.com/zmap/zlint/v3/lints/rfc
 github.com/zmap/zlint/v3/util
-# gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f
-## explicit; go 1.13
-gitlab.com/golang-commonmark/puny
 # go.etcd.io/etcd/api/v3 v3.5.17
 ## explicit; go 1.22
 go.etcd.io/etcd/api/v3/authpb
@@ -1596,17 +1578,6 @@ go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
-# go.universe.tf/metallb v0.11.0 => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
-## explicit; go 1.17
-go.universe.tf/metallb/pkg/allocator
-go.universe.tf/metallb/pkg/allocator/k8salloc
-go.universe.tf/metallb/pkg/bgp
-go.universe.tf/metallb/pkg/config
-go.universe.tf/metallb/pkg/controller
-go.universe.tf/metallb/pkg/k8s
-go.universe.tf/metallb/pkg/k8s/types
-go.universe.tf/metallb/pkg/layer2
-go.universe.tf/metallb/pkg/speaker
 # go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 ## explicit; go 1.18
 go4.org/netipx
@@ -2789,5 +2760,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 sigs.k8s.io/yaml/goyaml.v3
-# go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.5-1

@@ -32,13 +32,6 @@ const (
 )
 
 const (
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
-	BGPAnnounceLBIP = "bgp-announce-lb-ip"
-
-	// BGPConfigPath is the file path to the BGP configuration. It is
-	// compatible with MetalLB's configuration.
-	BGPConfigPath = "bgp-config-path"
-
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
 
@@ -253,13 +246,6 @@ type OperatorConfig struct {
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
 
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
-	BGPAnnounceLBIP bool
-
-	// BGPConfigPath is the file path to the BGP configuration. It is
-	// compatible with MetalLB's configuration.
-	BGPConfigPath string
-
 	// IPAM options
 
 	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
@@ -420,8 +406,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
-	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
-	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {
@@ -442,12 +426,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		} else {
 			c.CiliumK8sNamespace = option.Config.K8sNamespace
 		}
-	}
-
-	if c.BGPAnnounceLBIP {
-		c.SyncK8sServices = true
-		log.Infof("Auto-set %q to `true` because BGP support requires synchronizing services.",
-			SyncK8sServices)
 	}
 
 	// IPAM options
