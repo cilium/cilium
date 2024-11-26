@@ -296,7 +296,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/all_ingress_deny_from_outside.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/bgp_control_plane.go @cilium/sig-bgp
 /cilium-cli/connectivity/builder/cluster_entity_multi_cluster.go @cilium/sig-clustermesh
-/cilium-cli/connectivity/builder/dns_only.go @cilium/sig-clustermesh
+/cilium-cli/connectivity/builder/dns_only.go @cilium/fqdn
 /cilium-cli/connectivity/builder/echo_ingress.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/echo_ingress_auth_always_fail.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/echo_ingress_from_other_client_deny.go @cilium/sig-servicemesh
