@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
+	"github.com/tklauser/numcpus"
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -100,7 +101,8 @@ type directoryInfo struct {
 }
 
 var (
-	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu89",
+	standardCFlags = []string{
+		"-O2", "--target=bpf", "-std=gnu89",
 		"-nostdinc",
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
@@ -108,7 +110,8 @@ var (
 		"-Wno-gnu-variable-sized-type-not-at-end",
 		"-Wdeclaration-after-statement",
 		"-Wimplicit-int-conversion",
-		"-Wenum-conversion"}
+		"-Wenum-conversion",
+	}
 
 	// testIncludes allows the unit tests to inject additional include
 	// paths into the compile command at test time. It is usually nil.
@@ -173,6 +176,11 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 		return "", fmt.Errorf("failed to get number of possible CPUs: %w", err)
 	}
 
+	onlineCPUs, err := numcpus.GetOnline()
+	if err != nil {
+		return "", fmt.Errorf("failed to get number of online CPUs: %w", err)
+	}
+
 	compileArgs := append(testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
@@ -189,6 +197,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 
 	compileArgs = append(compileArgs, standardCFlags...)
 	compileArgs = append(compileArgs, fmt.Sprintf("-D__NR_CPUS__=%d", possibleCPUs))
+	compileArgs = append(compileArgs, fmt.Sprintf("-D__NR_ONLINE_CPUS__=%d", onlineCPUs))
 	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU())
 	compileArgs = append(compileArgs, prog.Options...)
 	compileArgs = append(compileArgs,
