@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -86,7 +87,7 @@ func TestAttachDetachTCProgram(t *testing.T) {
 	ns.Do(func() error {
 		prog := mustTCProgram(t)
 
-		require.NoError(t, attachTCProgram(lo, prog, "cil_test", directionToParent(dirEgress)))
+		require.NoError(t, upsertTCProgram(lo, prog, "cil_test", directionToParent(dirEgress), 1))
 		hasFilters, err := hasCiliumTCFilters(lo, directionToParent(dirEgress))
 		require.NoError(t, err)
 		require.True(t, hasFilters)
@@ -112,7 +113,7 @@ func TestHasCiliumTCFilters(t *testing.T) {
 
 		prog := mustTCProgram(t)
 
-		err = attachTCProgram(lo, prog, "no_prefix_test", directionToParent(dirEgress))
+		err = upsertTCProgram(lo, prog, "no_prefix_test", directionToParent(dirEgress), 1)
 		require.NoError(t, err)
 
 		// Test if function succeeds and return false if no filter with 'cil' prefix is attached
@@ -120,7 +121,7 @@ func TestHasCiliumTCFilters(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, hasFilters)
 
-		err = attachTCProgram(lo, prog, "cil_test", directionToParent(dirEgress))
+		err = upsertTCProgram(lo, prog, "cil_test", directionToParent(dirEgress), 1)
 		require.NoError(t, err)
 
 		// Test if function succeeds and return true if filter with 'cil' prefix is attached
@@ -145,7 +146,7 @@ func TestAttachSKBUpgrade(t *testing.T) {
 
 		// Use the cil_ prefix so the attachment algorithm knows which tc filter to
 		// clean up after attaching tcx.
-		require.NoError(t, attachTCProgram(lo, prog, "cil_test", directionToParent(dirEgress)))
+		require.NoError(t, upsertTCProgram(lo, prog, "cil_test", directionToParent(dirEgress), 1))
 
 		require.NoError(t, attachSKBProgram(lo, prog, "cil_test", linkDir, directionToParent(dirEgress), true))
 
@@ -187,6 +188,27 @@ func TestAttachSKBDowngrade(t *testing.T) {
 			require.NoError(t, err)
 			return !hasLinks
 		}, time.Second))
+
+		return nil
+	})
+}
+
+func TestCleanupStaleTCFilters(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	netns.NewNetNS(t).Do(func() error {
+		prog := mustTCProgram(t)
+
+		// Attach 2 filters with a name that doesn't match the prefix, so they're
+		// not implicitly cleaned up.
+		require.NoError(t, upsertTCProgram(lo, prog, "cil_test_1", directionToParent(dirEgress), 1))
+		require.NoError(t, upsertTCProgram(lo, prog, "cil_test_2", directionToParent(dirEgress), 2))
+
+		filters, err := safenetlink.FilterList(lo, directionToParent(dirEgress))
+		require.NoError(t, err)
+		require.Len(t, filters, 1)
+
+		require.EqualValues(t, 2, filters[0].Attrs().Priority)
 
 		return nil
 	})
