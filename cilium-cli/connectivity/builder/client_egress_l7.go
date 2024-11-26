@@ -28,8 +28,8 @@ func clientEgressL7Test(ct *check.ConnectivityTest, templates map[string]string,
 	// Test L7 HTTP introspection using an egress policy on the clients.
 	newTest(testName, ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
-		WithCiliumPolicy(templates[templateName]).       // L7 allow policy with HTTP introspection
+		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
+		WithCiliumPolicy(templates[templateName]).                    // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToWorld(tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),

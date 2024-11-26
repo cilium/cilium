@@ -19,8 +19,8 @@ func (t clientEgressL7TlsDenyWithoutHeaders) build(ct *check.ConnectivityTest, t
 		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretBackendK8s)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
-		WithCiliumPolicy(templates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).            // DNS resolution only
+		WithCiliumPolicy(templates["clientEgressL7TLSPolicyYAML"]).   // L7 allow policy with TLS interception
+		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 		WithScenarios(tests.PodToWorldWithTLSIntercept()).
 		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultDropCurlHTTPError, check.ResultNone

@@ -4,6 +4,7 @@
 package check
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -352,6 +353,8 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			initialized = true
 		}
 	}
+
+	ct.ClusterName = cmp.Or(cm.Data["cluster-name"], "default")
 
 	return nil
 }

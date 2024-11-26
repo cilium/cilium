@@ -15,7 +15,7 @@ func (t clientEgressL7NamedPort) build(ct *check.ConnectivityTest, templates map
 	// Test L7 HTTP named port introspection using an egress policy on the clients.
 	newTest("client-egress-l7-named-port", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).                      // DNS resolution only
+		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).         // DNS resolution only
 		WithCiliumPolicy(templates["clientEgressL7HTTPNamedPortPolicyYAML"]). // L7 allow policy with HTTP introspection (named port)
 		WithScenarios(
 			tests.PodToPod(),

@@ -31,8 +31,8 @@ func clientEgressL7TlsHeadersTest(ct *check.ConnectivityTest, templates map[stri
 		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretBackendK8s)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
-		WithCiliumPolicy(yamlFile).                      // L7 allow policy with TLS interception
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
+		WithCiliumPolicy(yamlFile).                                   // L7 allow policy with TLS interception
+		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 		WithScenarios(tests.PodToWorldWithTLSIntercept("-H", "X-Very-Secret-Token: 42")).
 		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
