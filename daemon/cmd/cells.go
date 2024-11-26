@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
-	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
@@ -221,9 +220,6 @@ var (
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
-
-		// The MetalLB BGP speaker enables support for MetalLB BGP.
-		speaker.Cell,
 
 		// Brokers datapath signals from signalmap
 		signal.Cell,
