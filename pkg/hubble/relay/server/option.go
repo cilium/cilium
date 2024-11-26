@@ -20,7 +20,7 @@ import (
 
 // MinTLSVersion defines the minimum TLS version clients are expected to
 // support in order to establish a connection to the hubble-relay server.
-const MinTLSVersion = tls.VersionTLS13
+var MinTLSVersion uint16 = tls.VersionTLS13
 
 // options stores all the configuration values for the hubble-relay server.
 type options struct {
