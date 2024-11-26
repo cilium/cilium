@@ -645,8 +645,6 @@ Makefile* @cilium/build
 /test/l4lb @cilium/sig-lb @cilium/ci-structure
 /test/nat46x64 @cilium/sig-lb @cilium/ci-structure
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
-# BGP tests
-/test/k8s/bgp.go @cilium/sig-bgp @cilium/ci-structure
 # Misc. tests
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
