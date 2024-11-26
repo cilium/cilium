@@ -842,67 +842,67 @@ func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup, callba
 }
 
 // upsertRoute either updates an existing RDS route with 'name', or creates a new one.
-func (s *xdsServer) upsertRoute(name string, conf *envoy_config_route.RouteConfiguration, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) upsertRoute(name string, conf *envoy_config_route.RouteConfiguration, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.routeMutator.Upsert(RouteTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+	return s.routeMutator.Upsert(RouteTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
 }
 
 // deleteRoute deletes an RDS Route.
-func (s *xdsServer) deleteRoute(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) deleteRoute(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.routeMutator.Delete(RouteTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	return s.routeMutator.Delete(RouteTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
 // upsertCluster either updates an existing CDS cluster with 'name', or creates a new one.
-func (s *xdsServer) upsertCluster(name string, conf *envoy_config_cluster.Cluster, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) upsertCluster(name string, conf *envoy_config_cluster.Cluster, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.clusterMutator.Upsert(ClusterTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+	return s.clusterMutator.Upsert(ClusterTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
 }
 
 // deleteCluster deletes an CDS cluster.
-func (s *xdsServer) deleteCluster(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) deleteCluster(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.clusterMutator.Delete(ClusterTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	return s.clusterMutator.Delete(ClusterTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
 // upsertEndpoint either updates an existing EDS endpoint with 'name', or creates a new one.
-func (s *xdsServer) upsertEndpoint(name string, conf *envoy_config_endpoint.ClusterLoadAssignment, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) upsertEndpoint(name string, conf *envoy_config_endpoint.ClusterLoadAssignment, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.endpointMutator.Upsert(EndpointTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+	return s.endpointMutator.Upsert(EndpointTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
 }
 
 // deleteEndpoint deletes an EDS endpoint.
-func (s *xdsServer) deleteEndpoint(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) deleteEndpoint(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.endpointMutator.Delete(EndpointTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	return s.endpointMutator.Delete(EndpointTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
 // upsertSecret either updates an existing SDS secret with 'name', or creates a new one.
-func (s *xdsServer) upsertSecret(name string, conf *envoy_config_tls.Secret, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) upsertSecret(name string, conf *envoy_config_tls.Secret, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.secretMutator.Upsert(SecretTypeURL, name, conf, []string{"127.0.0.1"}, wg, callback)
+	return s.secretMutator.Upsert(SecretTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
 }
 
 // deleteSecret deletes an SDS secret.
-func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
 func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16) *envoy_config_listener.ListenerFilter {
@@ -1964,19 +1964,19 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	// If both listeners and clusters are added then wait for clusters.
 	for _, r := range resources.Secrets {
 		log.Debugf("Envoy upsertSecret %s", r.Name)
-		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil))
 	}
 	for _, r := range resources.Endpoints {
 		log.Debugf("Envoy upsertEndpoint %s %v", r.ClusterName, r)
-		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil))
 	}
 	for _, r := range resources.Clusters {
 		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg))
 	}
 	for _, r := range resources.Routes {
 		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil))
 	}
 	// Wait before new Listeners are added if clusters were also added above.
 	if wg != nil {
@@ -2097,7 +2097,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d routes...", len(deleteRoutes), len(new.Routes))
 	for _, route := range deleteRoutes {
-		revertFuncs = append(revertFuncs, s.deleteRoute(route.Name, nil, nil))
+		revertFuncs = append(revertFuncs, s.deleteRoute(route.Name, nil))
 	}
 
 	// Delete old clusters not added in 'new'
@@ -2115,7 +2115,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d clusters...", len(deleteClusters), len(new.Clusters))
 	for _, cluster := range deleteClusters {
-		revertFuncs = append(revertFuncs, s.deleteCluster(cluster.Name, nil, nil))
+		revertFuncs = append(revertFuncs, s.deleteCluster(cluster.Name, nil))
 	}
 
 	// Delete old endpoints not added in 'new'
@@ -2133,7 +2133,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d endpoints...", len(deleteEndpoints), len(new.Endpoints))
 	for _, endpoint := range deleteEndpoints {
-		revertFuncs = append(revertFuncs, s.deleteEndpoint(endpoint.ClusterName, nil, nil))
+		revertFuncs = append(revertFuncs, s.deleteEndpoint(endpoint.ClusterName, nil))
 	}
 
 	// Delete old secrets not added in 'new'
@@ -2151,7 +2151,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	log.Debugf("UpdateEnvoyResources: Deleting %d, Upserting %d secrets...", len(deleteSecrets), len(new.Secrets))
 	for _, secret := range deleteSecrets {
-		revertFuncs = append(revertFuncs, s.deleteSecret(secret.Name, nil, nil))
+		revertFuncs = append(revertFuncs, s.deleteSecret(secret.Name, nil))
 	}
 
 	// Have to wait for deletes to complete before adding new listeners if a listener's port number is changed.
@@ -2169,19 +2169,19 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 
 	// Add new Secrets
 	for _, r := range new.Secrets {
-		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil))
 	}
 	// Add new Endpoints
 	for _, r := range new.Endpoints {
-		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertEndpoint(r.ClusterName, r, nil))
 	}
 	// Add new Clusters
 	for _, r := range new.Clusters {
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg))
 	}
 	// Add new Routes
 	for _, r := range new.Routes {
-		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil))
 	}
 	if wg != nil && len(new.Clusters) > 0 {
 		start := time.Now()
@@ -2254,16 +2254,16 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	// there is no listener referring to other named resources to
 	// begin with.
 	for _, r := range resources.Routes {
-		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, nil, nil))
+		revertFuncs = append(revertFuncs, s.deleteRoute(r.Name, nil))
 	}
 	for _, r := range resources.Clusters {
-		revertFuncs = append(revertFuncs, s.deleteCluster(r.Name, nil, nil))
+		revertFuncs = append(revertFuncs, s.deleteCluster(r.Name, nil))
 	}
 	for _, r := range resources.Endpoints {
-		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, nil, nil))
+		revertFuncs = append(revertFuncs, s.deleteEndpoint(r.ClusterName, nil))
 	}
 	for _, r := range resources.Secrets {
-		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, nil, nil))
+		revertFuncs = append(revertFuncs, s.deleteSecret(r.Name, nil))
 	}
 
 	if wg != nil {
