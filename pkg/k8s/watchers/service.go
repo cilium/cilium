@@ -15,7 +15,6 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ip"
@@ -46,11 +45,10 @@ type k8sServiceWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 
-	ServiceCache      *k8s.ServiceCache
-	ServiceManager    service.ServiceManager
-	LRPManager        *redirectpolicy.Manager
-	MetalLBBgpSpeaker speaker.MetalLBBgpSpeaker
-	LocalNodeStore    *node.LocalNodeStore
+	ServiceCache   *k8s.ServiceCache
+	ServiceManager service.ServiceManager
+	LRPManager     *redirectpolicy.Manager
+	LocalNodeStore *node.LocalNodeStore
 }
 
 func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
@@ -62,7 +60,6 @@ func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 		k8sSvcCache:           params.ServiceCache,
 		svcManager:            params.ServiceManager,
 		redirectPolicyManager: params.LRPManager,
-		bgpSpeakerManager:     params.MetalLBBgpSpeaker,
 		localNodeStore:        params.LocalNodeStore,
 		stop:                  make(chan struct{}),
 	}
@@ -82,7 +79,6 @@ type K8sServiceWatcher struct {
 	k8sSvcCache           *k8s.ServiceCache
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
-	bgpSpeakerManager     bgpSpeakerManager
 	localNodeStore        *node.LocalNodeStore
 
 	stop chan struct{}
@@ -147,7 +143,6 @@ func (k *K8sServiceWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lo
 			k.redirectPolicyManager.OnAddService(svcID)
 		}
 	}
-	k.bgpSpeakerManager.OnUpdateService(svc)
 }
 
 func (k *K8sServiceWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
@@ -158,7 +153,6 @@ func (k *K8sServiceWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lo
 			k.redirectPolicyManager.OnDeleteService(svcID)
 		}
 	}
-	k.bgpSpeakerManager.OnDeleteService(svc)
 }
 
 func (k *K8sServiceWatcher) k8sServiceHandler() {

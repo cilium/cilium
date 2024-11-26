@@ -612,12 +612,6 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		nodeManager = nm
 	}
 
-	if operatorOption.Config.BGPAnnounceLBIP {
-		log.Info("Starting LB IP allocator")
-		operatorWatchers.StartBGPBetaLBIPAllocator(legacy.ctx, legacy.clientset, legacy.resources.Services,
-			watcherLogger)
-	}
-
 	if kvstoreEnabled() {
 		var goopts *kvstore.ExtraOptions
 		scopedLog := log.WithFields(logrus.Fields{

@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/cell"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -30,9 +29,8 @@ type k8sEndpointsWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 
-	ServiceCache      *k8s.ServiceCache
-	MetalLBBgpSpeaker speaker.MetalLBBgpSpeaker
-	IPCache           *ipcache.IPCache
+	ServiceCache *k8s.ServiceCache
+	IPCache      *ipcache.IPCache
 }
 
 func newK8sEndpointsWatcher(params k8sEndpointsWatcherParams) *K8sEndpointsWatcher {
@@ -41,7 +39,6 @@ func newK8sEndpointsWatcher(params k8sEndpointsWatcherParams) *K8sEndpointsWatch
 		k8sAPIGroups:      params.K8sAPIGroups,
 		resources:         params.Resources,
 		k8sSvcCache:       params.ServiceCache,
-		bgpSpeakerManager: params.MetalLBBgpSpeaker,
 		ipcache:           params.IPCache,
 		stop:              make(chan struct{}),
 	}
@@ -57,9 +54,8 @@ type K8sEndpointsWatcher struct {
 	k8sAPIGroups *k8sSynced.APIGroups
 	resources    agentK8s.Resources
 
-	k8sSvcCache       *k8s.ServiceCache
-	bgpSpeakerManager bgpSpeakerManager
-	ipcache           ipcacheManager
+	k8sSvcCache *k8s.ServiceCache
+	ipcache     ipcacheManager
 
 	stop chan struct{}
 }
@@ -114,7 +110,6 @@ func (k *K8sEndpointsWatcher) stopWatcher() {
 
 func (k *K8sEndpointsWatcher) updateEndpoint(eps *k8s.Endpoints, swgEps *lock.StoppableWaitGroup) {
 	k.k8sSvcCache.UpdateEndpoints(eps, swgEps)
-	k.bgpSpeakerManager.OnUpdateEndpoints(eps)
 	k.addKubeAPIServerServiceEndpoints(eps)
 }
 

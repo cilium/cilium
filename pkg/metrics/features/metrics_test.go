@@ -863,36 +863,19 @@ func TestUpdateStandaloneNSLB(t *testing.T) {
 	}
 }
 
-func TestUpdateBGPAvertisment(t *testing.T) {
+func TestUpdateBGP(t *testing.T) {
 	tests := []struct {
-		name               string
-		bgpAnnouncePodCIDR bool
-		bgpAnnounceLBIP    bool
-		bgpControlPlane    bool
-		expected           float64
+		name            string
+		bgpControlPlane bool
+		expected        float64
 	}{
-		{
-			name:               "Announce PodCIDR enabled",
-			bgpAnnouncePodCIDR: true,
-			expected:           1,
-		},
-		{
-			name:               "Announce LBIP enabled",
-			bgpAnnouncePodCIDR: true,
-			expected:           1,
-		},
-		{
-			name:               "Announce PodCIDR and LBIP enabled",
-			bgpAnnouncePodCIDR: true,
-			expected:           1,
-		},
 		{
 			name:            "Enable BGP Control Plane",
 			bgpControlPlane: true,
 			expected:        1,
 		},
 		{
-			name:     "Announce none",
+			name:     "BGP disabled",
 			expected: 0,
 		},
 	}
@@ -908,8 +891,6 @@ func TestUpdateBGPAvertisment(t *testing.T) {
 				NodePortMode:           defaultNodePortModes[0],
 				NodePortAlg:            defaultNodePortModeAlgorithms[0],
 				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
-				BGPAnnouncePodCIDR:     tt.bgpAnnouncePodCIDR,
-				BGPAnnounceLBIP:        tt.bgpAnnounceLBIP,
 				EnableBGPControlPlane:  tt.bgpControlPlane,
 			}
 
@@ -920,7 +901,7 @@ func TestUpdateBGPAvertisment(t *testing.T) {
 			metrics.update(params, config)
 
 			counterValue := metrics.ACLBBGPEnabled.Get()
-			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for bgpAnnouncePodCIDR: %t and bgpAnnounceLBIP: %t and bgpControlPlane: %t, got %.f", tt.expected, tt.bgpAnnouncePodCIDR, tt.bgpAnnounceLBIP, tt.bgpControlPlane, counterValue)
+			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for bgpControlPlane: %t, got %.f", tt.expected, tt.bgpControlPlane, counterValue)
 		})
 	}
 }
