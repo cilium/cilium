@@ -1,3 +1,5 @@
+# The toFQDNs section relies on DNS introspection being performed by
+# the client-egress-only-dns policy.
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
@@ -8,16 +10,6 @@ specs:
     matchLabels:
       kind: client
   egress:
-  # Allow DNS 
-  - toPorts:
-    - ports:
-      - port: "53"
-        protocol: UDP
-      - port: "53"
-        protocol: TCP
-      rules:
-        dns:
-          - matchPattern: "*"
   # Allow HTTPS when X-Very-Secret-Token is set
   - toFQDNs:
     - matchName: "{{.ExternalTarget}}"
