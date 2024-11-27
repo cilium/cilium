@@ -194,6 +194,14 @@ func NeighListExecute(msg netlink.Ndmsg) ([]netlink.Neigh, error) {
 	})
 }
 
+// NeighSubscribeWithOptions wraps netlink.NeighSubscribeWithOptions, but retries the call automatically
+// if netlink.ErrDumpInterrupted is returned
+func NeighSubscribeWithOptions(ch chan<- netlink.NeighUpdate, done <-chan struct{}, options netlink.NeighSubscribeOptions) error {
+	return WithRetry(func() error {
+		return netlink.NeighSubscribeWithOptions(ch, done, options)
+	})
+}
+
 // LinkGetProtinfo wraps netlink.LinkGetProtinfo, but retries the call automatically
 // if netlink.ErrDumpInterrupted is returned
 func LinkGetProtinfo(link netlink.Link) (netlink.Protinfo, error) {
