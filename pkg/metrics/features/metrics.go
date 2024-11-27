@@ -16,13 +16,14 @@ import (
 // Metrics represents a collection of metrics related to a specific feature.
 // Each field is named according to the specific feature that it tracks.
 type Metrics struct {
-	DPMode                        metric.Vec[metric.Gauge]
-	DPIPAM                        metric.Vec[metric.Gauge]
-	DPChaining                    metric.Vec[metric.Gauge]
-	DPIP                          metric.Vec[metric.Gauge]
-	DPIdentityAllocation          metric.Vec[metric.Gauge]
-	DPCiliumEndpointSlicesEnabled metric.Gauge
-	DPDeviceMode                  metric.Vec[metric.Gauge]
+	CPIPAM                        metric.Vec[metric.Gauge]
+	CPIdentityAllocation          metric.Vec[metric.Gauge]
+	CPCiliumEndpointSlicesEnabled metric.Gauge
+
+	DPMode         metric.Vec[metric.Gauge]
+	DPChaining     metric.Vec[metric.Gauge]
+	DPIP           metric.Vec[metric.Gauge]
+	DPDeviceConfig metric.Vec[metric.Gauge]
 
 	NPHostFirewallEnabled        metric.Gauge
 	NPLocalRedirectPolicyEnabled metric.Gauge
@@ -45,6 +46,7 @@ type Metrics struct {
 }
 
 const (
+	subsystemCP   = "feature_controlplane"
 	subsystemDP   = "feature_datapath"
 	subsystemNP   = "feature_network_policies"
 	subsystemACLB = "feature_adv_connect_and_lb"
@@ -104,7 +106,7 @@ var (
 		networkChainingModeGenericVeth,
 	}
 
-	defaultIProtocols = []string{
+	defaultIPAddressFamilies = []string{
 		networkIPv4,
 		networkIPv6,
 		networkDualStack,
@@ -164,6 +166,49 @@ var (
 // all metrics will have defined all of their possible values.
 func NewMetrics(withDefaults bool) Metrics {
 	return Metrics{
+		CPIPAM: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "IPAM mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemCP,
+			Name:      "ipam",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultIPAMModes...,
+					)
+				}(),
+			},
+		}),
+
+		CPIdentityAllocation: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Identity Allocation mode enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemCP,
+			Name:      "identity_allocation",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultIdentityAllocationModes...,
+					)
+				}(),
+			},
+		}),
+
+		CPCiliumEndpointSlicesEnabled: metric.NewGauge(metric.GaugeOpts{
+			Help:      "Cilium Endpoint Slices enabled on the agent",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemCP,
+			Name:      "cilium_endpoint_slices_enabled",
+		}),
+
 		DPMode: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
 			Help:      "Network mode enabled on the agent",
 			Namespace: metrics.Namespace,
@@ -177,24 +222,6 @@ func NewMetrics(withDefaults bool) Metrics {
 					}
 					return metric.NewValues(
 						defaultNetworkModes...,
-					)
-				}(),
-			},
-		}),
-
-		DPIPAM: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
-			Help:      "IPAM mode enabled on the agent",
-			Namespace: metrics.Namespace,
-			Subsystem: subsystemDP,
-			Name:      "ipam",
-		}, metric.Labels{
-			{
-				Name: "mode", Values: func() metric.Values {
-					if !withDefaults {
-						return nil
-					}
-					return metric.NewValues(
-						defaultIPAMModes...,
 					)
 				}(),
 			},
@@ -225,47 +252,22 @@ func NewMetrics(withDefaults bool) Metrics {
 			Name:      "internet_protocol",
 		}, metric.Labels{
 			{
-				Name: "protocol", Values: func() metric.Values {
+				Name: "address_family", Values: func() metric.Values {
 					if !withDefaults {
 						return nil
 					}
 					return metric.NewValues(
-						defaultIProtocols...,
+						defaultIPAddressFamilies...,
 					)
 				}(),
 			},
 		}),
 
-		DPIdentityAllocation: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
-			Help:      "Identity Allocation mode enabled on the agent",
+		DPDeviceConfig: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Datapath config mode enabled on the agent",
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemDP,
-			Name:      "identity_allocation",
-		}, metric.Labels{
-			{
-				Name: "mode", Values: func() metric.Values {
-					if !withDefaults {
-						return nil
-					}
-					return metric.NewValues(
-						defaultIdentityAllocationModes...,
-					)
-				}(),
-			},
-		}),
-
-		DPCiliumEndpointSlicesEnabled: metric.NewGauge(metric.GaugeOpts{
-			Help:      "Cilium Endpoint Slices enabled on the agent",
-			Namespace: metrics.Namespace,
-			Subsystem: subsystemDP,
-			Name:      "cilium_endpoint_slices_enabled",
-		}),
-
-		DPDeviceMode: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
-			Help:      "Device mode enabled on the agent",
-			Namespace: metrics.Namespace,
-			Subsystem: subsystemDP,
-			Name:      "device",
+			Name:      "config",
 		}, metric.Labels{
 			{
 				Name: "mode", Values: func() metric.Values {
@@ -503,7 +505,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 	m.DPMode.WithLabelValues(networkMode).Add(1)
 
 	ipamMode := config.IPAMMode()
-	m.DPIPAM.WithLabelValues(ipamMode).Add(1)
+	m.CPIPAM.WithLabelValues(ipamMode).Add(1)
 
 	chainingMode := params.GetChainingMode()
 	m.DPChaining.WithLabelValues(chainingMode).Add(1)
@@ -520,14 +522,14 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig) {
 	m.DPIP.WithLabelValues(ip).Add(1)
 
 	identityAllocationMode := config.IdentityAllocationMode
-	m.DPIdentityAllocation.WithLabelValues(identityAllocationMode).Add(1)
+	m.CPIdentityAllocation.WithLabelValues(identityAllocationMode).Add(1)
 
 	if config.EnableCiliumEndpointSlice {
-		m.DPCiliumEndpointSlicesEnabled.Add(1)
+		m.CPCiliumEndpointSlicesEnabled.Add(1)
 	}
 
 	deviceMode := config.DatapathMode
-	m.DPDeviceMode.WithLabelValues(deviceMode).Add(1)
+	m.DPDeviceConfig.WithLabelValues(deviceMode).Add(1)
 
 	if config.EnableHostFirewall {
 		m.NPHostFirewallEnabled.Add(1)
