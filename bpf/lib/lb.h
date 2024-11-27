@@ -19,6 +19,15 @@
 #ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct skip_lb6_key);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} LB6_SKIP_MAP __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u16);
 	__type(value, struct lb6_reverse_nat);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -92,15 +101,6 @@ struct {
 	});
 } LB6_MAGLEV_MAP_OUTER __section_maps_btf;
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct skip_lb6_key);
-	__type(value, __u8);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} LB6_SKIP_MAP __section_maps_btf;
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -171,7 +171,7 @@ struct {
 } LB4_HEALTH_MAP __section_maps_btf;
 #endif
 
-#if LB_SELECTION == LB_SELECTION_MAGLEV
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u16);
@@ -732,16 +732,24 @@ lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 #endif  /* defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
 
 #ifdef LB_SELECTION_PER_SERVICE
+static __always_inline __u32 lb6_algorithm(const struct lb6_service *svc)
+{
+	return svc->affinity_timeout >> LB_ALGORITHM_SHIFT;
+}
+
 static __always_inline __u32
-lb6_select_backend_id(struct __ctx_buff *ctx,
-		      struct lb6_key *key,
-		      const struct ipv6_ct_tuple *tuple __maybe_unused,
+lb6_select_backend_id(struct __ctx_buff *ctx, struct lb6_key *key,
+		      const struct ipv6_ct_tuple *tuple,
 		      const struct lb6_service *svc)
 {
-	if (svc->lb_algorithm == LB_SELECTION_MAGLEV)
+	switch (lb6_algorithm(svc)) {
+	case LB_SELECTION_MAGLEV:
 		return lb6_select_backend_id_maglev(ctx, key, tuple, svc);
-
-	return lb6_select_backend_id_random(ctx, key, tuple, svc);
+	case LB_SELECTION_RANDOM:
+		return lb6_select_backend_id_random(ctx, key, tuple, svc);
+	default:
+		return 0;
+	}
 }
 #elif LB_SELECTION == LB_SELECTION_RANDOM
 # define lb6_select_backend_id	lb6_select_backend_id_random
@@ -789,6 +797,11 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 }
 
 #ifdef ENABLE_SESSION_AFFINITY
+static __always_inline __u32 lb6_affinity_timeout(const struct lb6_service *svc)
+{
+	return svc->affinity_timeout & AFFINITY_TIMEOUT_MASK;
+}
+
 static __always_inline __u32
 __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			  union lb6_affinity_client_id *id)
@@ -813,7 +826,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 		};
 
 		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
+		    bpf_sec_to_mono(lb6_affinity_timeout(svc)) <= now) {
 			map_delete_elem(&LB6_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -1436,16 +1449,24 @@ lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 #endif /* LB_SELECTION_PER_SERVICE || LB_SELECTION == LB_SELECTION_MAGLEV */
 
 #ifdef LB_SELECTION_PER_SERVICE
+static __always_inline __u32 lb4_algorithm(const struct lb4_service *svc)
+{
+	return svc->affinity_timeout >> LB_ALGORITHM_SHIFT;
+}
+
 static __always_inline __u32
-lb4_select_backend_id(struct __ctx_buff *ctx,
-		      struct lb4_key *key,
-		      const struct ipv4_ct_tuple *tuple __maybe_unused,
+lb4_select_backend_id(struct __ctx_buff *ctx, struct lb4_key *key,
+		      const struct ipv4_ct_tuple *tuple,
 		      const struct lb4_service *svc)
 {
-	if (svc->lb_algorithm == LB_SELECTION_MAGLEV)
+	switch (lb4_algorithm(svc)) {
+	case LB_SELECTION_MAGLEV:
 		return lb4_select_backend_id_maglev(ctx, key, tuple, svc);
-
-	return lb4_select_backend_id_random(ctx, key, tuple, svc);
+	case LB_SELECTION_RANDOM:
+		return lb4_select_backend_id_random(ctx, key, tuple, svc);
+	default:
+		return 0;
+	}
 }
 #elif LB_SELECTION == LB_SELECTION_RANDOM
 # define lb4_select_backend_id	lb4_select_backend_id_random
@@ -1513,6 +1534,11 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 }
 
 #ifdef ENABLE_SESSION_AFFINITY
+static __always_inline __u32 lb4_affinity_timeout(const struct lb4_service *svc)
+{
+	return svc->affinity_timeout & AFFINITY_TIMEOUT_MASK;
+}
+
 static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			  const union lb4_affinity_client_id *id)
@@ -1538,7 +1564,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 		 * Session is sticky for range [current, last_used + affinity_timeout)
 		 */
 		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
+		    bpf_sec_to_mono(lb4_affinity_timeout(svc)) <= now) {
 			map_delete_elem(&LB4_AFFINITY_MAP, &key);
 			return 0;
 		}

@@ -61,17 +61,10 @@ func CheckStructAlignments(path string) error {
 }
 
 func RegisterLbStructsToCheck(isPerSvcLb bool) {
-	if isPerSvcLb {
-		registerToCheck(map[string][]any{
-			"lb4_service": {lbmap.Service4ExtendedValue{}},
-			"lb6_service": {lbmap.Service6ExtendedValue{}},
-		})
-	} else {
-		registerToCheck(map[string][]any{
-			"lb4_service": {lbmap.Service4Value{}},
-			"lb6_service": {lbmap.Service6Value{}},
-		})
-	}
+	registerToCheck(map[string][]any{
+		"lb4_service": {lbmap.Service4Value{}},
+		"lb6_service": {lbmap.Service6Value{}},
+	})
 }
 
 func init() {
