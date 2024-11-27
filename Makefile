@@ -24,7 +24,7 @@ endif
 -include Makefile.override
 
 # List of subdirectories used for global "make build", "make clean", etc
-SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools $(SUBDIR_RELAY_CONTAINER) bpf
+SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools $(SUBDIR_RELAY_CONTAINER) bpf clustermesh-apiserver
 
 # Filter out any directories where the parent directory is also present, to avoid
 # building or cleaning a subdirectory twice.
