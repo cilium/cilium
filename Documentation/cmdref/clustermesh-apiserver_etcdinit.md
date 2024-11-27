@@ -2,7 +2,7 @@
 
 ## clustermesh-apiserver etcdinit
 
-Initialise an etcd data directory for use by the etcd sidecar of clustermesh-apiserver
+Initialize an etcd data directory for use by the etcd sidecar of clustermesh-apiserver
 
 ```
 clustermesh-apiserver etcdinit [flags]
