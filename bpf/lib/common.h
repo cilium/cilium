@@ -1010,29 +1010,19 @@ struct lb6_key {
 	__u8 pad[2];
 };
 
-/* See lb4_service comments */
+/* See lb4_service comments for all fields. */
 struct lb6_service {
 	union {
-		__u32 backend_id;	/* Backend ID in lb6_backends */
-		__u32 affinity_timeout;	/* In seconds, only for svc frontend */
-		__u32 l7_lb_proxy_port;	/* In host byte order, only when flags2 && SVC_FLAG_L7LOADBALANCER */
+		__u32 backend_id;
+		/* See lb4_service for storage internals. */
+		__u32 affinity_timeout;
+		__u32 l7_lb_proxy_port;
 	};
 	__u16 count;
 	__u16 rev_nat_index;
 	__u8 flags;
 	__u8 flags2;
-	/* For the service frontend, qcount denotes number of service backend
-	 * slots under quarantine (otherwise zero).
-	 */
 	__u16 qcount;
-#ifdef LB_SELECTION_PER_SERVICE
-    /* Load balancer algorithm
-     * 1 - random
-     * 2 - maglev
-     */
-    __u8 lb_algorithm;
-    __u8 pad[3];
-#endif
 };
 
 /* See lb4_backend comments */
@@ -1080,11 +1070,28 @@ struct lb4_key {
 	__u8 pad[2];
 };
 
+#define LB_ALGORITHM_SHIFT	24
+#define AFFINITY_TIMEOUT_MASK	((1 << LB_ALGORITHM_SHIFT) - 1)
+
 struct lb4_service {
 	union {
-		__u32 backend_id;	/* Backend ID in lb4_backends */
-		__u32 affinity_timeout;	/* In seconds, only for svc frontend */
-		__u32 l7_lb_proxy_port;	/* In host byte order, only when flags2 && SVC_FLAG_L7LOADBALANCER */
+		/* Non-master entry: backend ID in lb4_backends */
+		__u32 backend_id;
+		/* For master entry:
+		 * - Upper  8 bits: load balancer algorithm,
+		 *                  values:
+		 *                     1 - random
+		 *                     2 - maglev
+		 * - Lower 24 bits: timeout in seconds
+		 * Note: We don't use bitfield here given storage is
+		 * compiler implementation dependent and the map needs
+		 * to be populated from Go.
+		 */
+		__u32 affinity_timeout;
+		/* For master entry: proxy port in host byte order,
+		 * only when flags2 & SVC_FLAG_L7LOADBALANCER is set.
+		 */
+		__u32 l7_lb_proxy_port;
 	};
 	/* For the service frontend, count denotes number of service backend
 	 * slots (otherwise zero).
@@ -1097,14 +1104,6 @@ struct lb4_service {
 	 * slots under quarantine (otherwise zero).
 	 */
 	__u16 qcount;
-#ifdef LB_SELECTION_PER_SERVICE
-    /* Load balancer algorithm
-     * 1 - random
-     * 2 - maglev
-     */
-    __u8 lb_algorithm;
-    __u8 pad[3];
-#endif
 };
 
 struct lb4_backend {

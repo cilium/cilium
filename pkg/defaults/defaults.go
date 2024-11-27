@@ -189,6 +189,10 @@ const (
 	// is considered failed
 	StatusCollectorFailureThreshold = 1 * time.Minute
 
+	// SessionAffinityTimeoutMaxFallback defines the maximum number of seconds
+	// for the session affinity timeout. See also lb{4,6}_affinity_timeout().
+	SessionAffinityTimeoutMaxFallback = 0xffffff
+
 	// EnableIPv4 is the default value for IPv4 enablement
 	EnableIPv4 = true
 
