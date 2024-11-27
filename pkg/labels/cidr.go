@@ -10,13 +10,6 @@ import (
 	"strings"
 
 	v2 "github.com/cilium/cilium/pkg/labels/v2"
-	"github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	worldLabelNonDualStack = NewLabel(IDNameWorld, "", LabelSourceReserved)
-	worldLabelV4           = NewLabel(IDNameWorldIPv4, "", LabelSourceReserved)
-	worldLabelV6           = NewLabel(IDNameWorldIPv6, "", LabelSourceReserved)
 )
 
 // maskedIPToLabelString is the base method for serializing an IP + prefix into
@@ -88,25 +81,12 @@ func IPStringToLabel(ip string) (Label, error) {
 // IPv6 requires some special treatment, since ":" is special in the label selector
 // grammar. For example, "::/0" becomes "cidr:0--0/0",
 func GetCIDRLabels(prefix netip.Prefix) Labels {
-	lbls := make(Labels, 2)
+	lbls := Empty
 	if prefix.Bits() > 0 {
 		l := maskedIPToLabel(prefix.Addr().String(), prefix.Bits())
-		lbls[l.Key()] = v2.NewCIDRLabel(l.Key(), l.Value(), l.Source(), &prefix)
+		lbls = NewLabels(v2.MakeCIDRLabel(l.Key(), l.Value(), l.Source(), &prefix))
 	}
-	lbls.AddWorldLabel(prefix.Addr())
-
-	return lbls
-}
-
-func (lbls Labels) AddWorldLabel(addr netip.Addr) {
-	switch {
-	case !option.Config.IsDualStack():
-		lbls[worldLabelNonDualStack.Key()] = worldLabelNonDualStack
-	case addr.Is4():
-		lbls[worldLabelV4.Key()] = worldLabelV4
-	default:
-		lbls[worldLabelV6.Key()] = worldLabelV6
-	}
+	return lbls.AddWorldLabel(prefix.Addr())
 }
 
 var LabelToPrefix = v2.LabelToPrefix

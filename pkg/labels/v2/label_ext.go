@@ -8,11 +8,110 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 //
 // Convenience methods for 'Label'
 //
+
+const (
+	// PathDelimiter is the delimiter used in the labels paths.
+	PathDelimiter = "."
+
+	// IDNameHost is the label used for the hostname ID.
+	IDNameHost = "host"
+
+	// IDNameRemoteNode is the label used to describe the
+	// ReservedIdentityRemoteNode
+	IDNameRemoteNode = "remote-node"
+
+	// IDNameWorld is the label used for the world ID.
+	IDNameWorld = "world"
+
+	// IDNameWorldIPv4 is the label used for the world-ipv4 ID, to distinguish
+	// it from world-ipv6 in dual-stack mode.
+	IDNameWorldIPv4 = "world-ipv4"
+
+	// IDNameWorldIPv6 is the label used for the world-ipv6 ID, to distinguish
+	// it from world-ipv4 in dual-stack mode.
+	IDNameWorldIPv6 = "world-ipv6"
+
+	// IDNameCluster is the label used to identify an unspecified endpoint
+	// inside the cluster
+	IDNameCluster = "cluster"
+
+	// IDNameHealth is the label used for the local cilium-health endpoint
+	IDNameHealth = "health"
+
+	// IDNameInit is the label used to identify any endpoint that has not
+	// received any labels yet.
+	IDNameInit = "init"
+
+	// IDNameKubeAPIServer is the label used to identify the kube-apiserver. It
+	// is part of the reserved identity 7 and it is also used in conjunction
+	// with IDNameHost if the kube-apiserver is running on the local host.
+	IDNameKubeAPIServer = "kube-apiserver"
+
+	// IDNameEncryptedOverlay is the label used to identify encrypted overlay
+	// traffic.
+	//
+	// It is part of the reserved identity 11 and signals that overlay traffic
+	// with this identity must be IPSec encrypted before leaving the host.
+	//
+	// This identity should never be seen on the wire and is used only on the
+	// local host.
+	IDNameEncryptedOverlay = "overlay-to-encrypt"
+
+	// IDNameIngress is the label used to identify Ingress proxies. It is part
+	// of the reserved identity 8.
+	IDNameIngress = "ingress"
+
+	// IDNameNone is the label used to identify no endpoint or other L3 entity.
+	// It will never be assigned and this "label" is here for consistency with
+	// other Entities.
+	IDNameNone = "none"
+
+	// IDNameUnmanaged is the label used to identify unmanaged endpoints
+	IDNameUnmanaged = "unmanaged"
+
+	// IDNameUnknown is the label used to to identify an endpoint with an
+	// unknown identity.
+	IDNameUnknown = "unknown"
+)
+
+var (
+	// LabelHealth is the label used for health.
+	LabelHealth = NewLabels(NewLabel(IDNameHealth, "", LabelSourceReserved))
+
+	// LabelHost is the label used for the host endpoint.
+	LabelHost = NewLabels(NewLabel(IDNameHost, "", LabelSourceReserved))
+
+	// LabelWorld is the label used for world.
+	LabelWorld = NewLabels(NewLabel(IDNameWorld, "", LabelSourceReserved))
+
+	// LabelWorldIPv4 is the label used for world-ipv4.
+	LabelWorldIPv4 = NewLabels(NewLabel(IDNameWorldIPv4, "", LabelSourceReserved))
+
+	// LabelWorldIPv6 is the label used for world-ipv6.
+	LabelWorldIPv6 = NewLabels(NewLabel(IDNameWorldIPv6, "", LabelSourceReserved))
+
+	// LabelRemoteNode is the label used for remote nodes.
+	LabelRemoteNode = NewLabels(NewLabel(IDNameRemoteNode, "", LabelSourceReserved))
+
+	// LabelKubeAPIServer is the label used for the kube-apiserver. See comment
+	// on IDNameKubeAPIServer.
+	LabelKubeAPIServer = NewLabels(NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved))
+
+	// LabelIngress is the label used for Ingress proxies. See comment
+	// on IDNameIngress.
+	LabelIngress = NewLabels(NewLabel(IDNameIngress, "", LabelSourceReserved))
+)
+
+// LabelKeyFixedIdentity is the label that can be used to define a fixed
+// identity.
+const LabelKeyFixedIdentity = "io.cilium.fixed-identity"
 
 const (
 	// LabelSourceUnspec is a label with unspecified source
@@ -58,12 +157,40 @@ const (
 	LabelSourceDirectory = "directory"
 )
 
-// EqualIgnoringAnySource returns true if source (ignoring 'any'), Key and Value are equal and false otherwise.
-func (l Label) EqualIgnoringAnySource(b Label) bool {
-	if !l.IsAnySource() && l.Source() != b.Source() {
-		return false
+// NewLabel returns a new label from the given key, value and source. If source is empty,
+// the default value will be LabelSourceUnspec. If key starts with '$', the source
+// will be overwritten with LabelSourceReserved. If key contains ':', the value
+// before ':' will be used as source if given source is empty, otherwise the value before
+// ':' will be deleted and unused.
+func NewLabel(key string, value string, source string) Label {
+	var src string
+	src, key = ParseSource(key, ':')
+	if source == "" {
+		if src == "" {
+			source = LabelSourceUnspec
+		} else {
+			source = src
+		}
 	}
-	return l.Equal(b)
+	if src == LabelSourceReserved && key == "" {
+		key = value
+		value = ""
+	}
+
+	var l Label
+	if source == LabelSourceCIDR {
+		c, err := LabelToPrefix(key)
+		if err != nil {
+			// FIXME what are these logs
+			logrus.WithField("key", l.Key).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
+			l = MakeLabel(key, value, source)
+		} else {
+			l = MakeCIDRLabel(key, value, source, &c)
+		}
+	} else {
+		l = MakeLabel(key, value, source)
+	}
+	return l
 }
 
 func (l Label) DeepEqual(other *Label) bool {
@@ -118,6 +245,20 @@ func (l Label) HasKey(target Label) bool {
 	return l.Key() == target.Key()
 }
 
+func (l Label) HasCIDR(cidr netip.Prefix) bool {
+	if l.Source() != LabelSourceCIDR {
+		return false
+	}
+	lc := l.CIDR()
+	if lc == nil {
+		v, err := LabelToPrefix(l.Key())
+		if err != nil {
+			lc = &v
+		}
+	}
+	return cidr.Bits() <= lc.Bits() && cidr.Contains(lc.Addr())
+}
+
 // IsValid returns true if Key != "".
 func (l Label) IsValid() bool {
 	return l.Key() != ""
@@ -132,8 +273,6 @@ func (l Label) IsAnySource() bool {
 func (l Label) IsReservedSource() bool {
 	return l.Source() == LabelSourceReserved
 }
-
-const PathDelimiter = "."
 
 // GetExtendedKey returns the key of a label with the source encoded.
 func (l Label) GetExtendedKey() string {

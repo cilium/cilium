@@ -5,18 +5,12 @@ package labels
 
 import (
 	"fmt"
+	"iter"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-type keepMarks map[string]struct{}
-
-// set marks the label with 'key' to not be deleted.
-func (k keepMarks) set(key string) {
-	k[key] = struct{}{} // marked for keeping
-}
 
 // OpLabels represents the possible types.
 type OpLabels struct {
@@ -36,97 +30,101 @@ type OpLabels struct {
 // NewOpLabels creates new initialized OpLabels
 func NewOpLabels() OpLabels {
 	return OpLabels{
-		Custom:                Labels{},
-		Disabled:              Labels{},
-		OrchestrationIdentity: Labels{},
-		OrchestrationInfo:     Labels{},
+		Custom:                Empty,
+		Disabled:              Empty,
+		OrchestrationIdentity: Empty,
+		OrchestrationInfo:     Empty,
 	}
+}
+
+func (o *OpLabels) DeepEqual(other *OpLabels) bool {
+	return o.Custom.Equal(other.Custom) &&
+		o.Disabled.Equal(other.Disabled) &&
+		o.OrchestrationIdentity.Equal(other.OrchestrationIdentity) &&
+		o.OrchestrationInfo.Equal(other.OrchestrationInfo)
 }
 
 // SplitUserLabelChanges returns labels to 'add' and 'del'ete to make
 // the custom labels match 'lbls'
-// FIXME: Somewhere in the code we crash if the returned maps are non-nil
-// but length 0. We retain this behaviour here because it's easier.
 func (o *OpLabels) SplitUserLabelChanges(lbls Labels) (add, del Labels) {
-	for key, lbl := range lbls {
-		if _, found := o.Custom[key]; !found {
-			if add == nil {
-				add = Labels{}
-			}
-			add[key] = lbl
+	var addSlice, delSlice []Label
+	for lbl := range lbls.All() {
+		if _, found := o.Custom.GetLabel(lbl.Key()); !found {
+			addSlice = append(addSlice, lbl)
 		}
 	}
-
-	for key, lbl := range o.Custom {
-		if _, found := lbls[key]; !found {
-			if del == nil {
-				del = Labels{}
-			}
-			del[key] = lbl
+	for lbl := range o.Custom.All() {
+		if _, found := lbls.GetLabel(lbl.Key()); !found {
+			delSlice = append(delSlice, lbl)
 		}
 	}
-
-	return add, del
+	return NewLabels(addSlice...), NewLabels(delSlice...)
 }
 
 // IdentityLabels returns map of labels that are used when determining a
 // security identity.
 func (o *OpLabels) IdentityLabels() Labels {
-	enabled := make(Labels, len(o.Custom)+len(o.OrchestrationIdentity))
-
-	for k, v := range o.Custom {
-		enabled[k] = v
-	}
-
-	for k, v := range o.OrchestrationIdentity {
-		enabled[k] = v
-	}
-
-	return enabled
+	return Merge(o.Custom, o.OrchestrationIdentity)
 }
 
 // GetIdentityLabel returns the value of the given Key from all IdentityLabels.
 func (o *OpLabels) GetIdentityLabel(key string) (l Label, found bool) {
-	l, found = o.OrchestrationIdentity[key]
+	l, found = o.OrchestrationIdentity.GetLabel(key)
 	if !found {
-		l, found = o.Custom[key]
+		l, found = o.Custom.GetLabel(key)
 	}
 	return l, found
 }
 
-// AllLabels returns all Labels within the provided OpLabels.
-func (o *OpLabels) AllLabels() Labels {
-	all := make(Labels, len(o.Custom)+len(o.OrchestrationInfo)+len(o.OrchestrationIdentity)+len(o.Disabled))
-
-	for k, v := range o.Custom {
-		all[k] = v
+// AllLabels returns an iterator for all labels
+func (o *OpLabels) AllLabels() iter.Seq[Label] {
+	return func(yield func(Label) bool) {
+		for l := range o.Custom.All() {
+			if !yield(l) {
+				return
+			}
+		}
+		for l := range o.Disabled.All() {
+			if !yield(l) {
+				return
+			}
+		}
+		for l := range o.OrchestrationIdentity.All() {
+			if !yield(l) {
+				return
+			}
+		}
+		for l := range o.OrchestrationInfo.All() {
+			if !yield(l) {
+				return
+			}
+		}
 	}
-
-	for k, v := range o.Disabled {
-		all[k] = v
-	}
-
-	for k, v := range o.OrchestrationIdentity {
-		all[k] = v
-	}
-
-	for k, v := range o.OrchestrationInfo {
-		all[k] = v
-	}
-	return all
 }
 
 func (o *OpLabels) ReplaceInformationLabels(sourceFilter string, l Labels, logger *logrus.Entry) bool {
 	changed := false
-	keepers := make(keepMarks)
-	for _, v := range l {
-		keepers.set(v.Key())
-		if o.OrchestrationInfo.upsertLabel(sourceFilter, v) {
+	labelSlice := make([]Label, 0, o.OrchestrationInfo.Len())
+	for new := range l.All() {
+		replace := true
+		old, exists := o.OrchestrationInfo.GetLabel(new.Key())
+		if exists {
+			switch {
+			case sourceFilter != LabelSourceAny && old.Source() != sourceFilter:
+				replace = false
+			case old == new:
+				replace = false
+			}
+		}
+		if replace {
 			changed = true
-			logger.WithField(logfields.Object, logfields.Repr(v)).Debug("Assigning information label")
+			logger.WithField(logfields.Object, logfields.Repr(new)).Debug("Assigning information label")
+			labelSlice = append(labelSlice, new)
+		} else {
+			labelSlice = append(labelSlice, old)
 		}
 	}
-	o.OrchestrationInfo.deleteUnMarked(sourceFilter, keepers)
+	o.OrchestrationInfo = NewLabels(labelSlice...)
 
 	return changed
 }
@@ -134,34 +132,50 @@ func (o *OpLabels) ReplaceInformationLabels(sourceFilter string, l Labels, logge
 func (o *OpLabels) ReplaceIdentityLabels(sourceFilter string, l Labels, logger *logrus.Entry) bool {
 	changed := false
 
-	keepers := make(keepMarks)
-	disabledKeepers := make(keepMarks)
+	idLabels := make([]Label, 0, max(l.Len(), o.OrchestrationIdentity.Len()))
+	disabledLabels := make([]Label, 0, o.Disabled.Len())
 
-	for k, v := range l {
+	for new := range l.All() {
 		// A disabled identity label stays disabled without value updates
-		if _, found := o.Disabled[k]; found {
-			disabledKeepers.set(k)
-		} else if keepers.set(v.Key()); o.OrchestrationIdentity.upsertLabel(sourceFilter, v) {
-			logger.WithField(logfields.Object, logfields.Repr(v)).Debug("Assigning security relevant label")
+		if lbl, found := o.Disabled.GetLabel(new.Key()); found {
+			disabledLabels = append(disabledLabels, lbl)
+			continue
+		}
+		replace := true
+		old, exists := o.OrchestrationIdentity.GetLabel(new.Key())
+		if exists {
+			switch {
+			case sourceFilter != LabelSourceAny && old.Source() != sourceFilter:
+				replace = false
+			case old == new:
+				replace = false
+			}
+		}
+		if replace {
 			changed = true
+			logger.WithField(logfields.Object, logfields.Repr(new)).Debug("Assigning security relevant label")
+			idLabels = append(idLabels, new)
+		} else {
+			idLabels = append(idLabels, old)
 		}
 	}
 
-	if o.OrchestrationIdentity.deleteUnMarked(sourceFilter, keepers) || o.Disabled.deleteUnMarked(sourceFilter, disabledKeepers) {
-		changed = true
-	}
+	o.OrchestrationIdentity = NewLabels(idLabels...)
+	changed = changed || len(disabledLabels) != o.Disabled.Len()
+	o.Disabled = NewLabels(disabledLabels...)
 
 	return changed
 }
 
 func (o *OpLabels) ModifyIdentityLabels(addLabels, delLabels Labels) (changed bool, err error) {
-	for k := range delLabels {
+	for lbl := range delLabels.All() {
+		k := lbl.Key()
 		// The change request is accepted if the label is on
 		// any of the lists. If the label is already disabled,
 		// we will simply ignore that change.
-		if _, found := o.Custom[k]; !found {
-			if _, found := o.OrchestrationIdentity[k]; !found {
-				if _, found := o.Disabled[k]; !found {
+		if _, found := o.Custom.GetLabel(k); !found {
+			if _, found := o.OrchestrationIdentity.GetLabel(k); !found {
+				if _, found := o.Disabled.GetLabel(k); !found {
 					return false, fmt.Errorf("label %s not found", k)
 				}
 			}
@@ -169,35 +183,38 @@ func (o *OpLabels) ModifyIdentityLabels(addLabels, delLabels Labels) (changed bo
 	}
 
 	// Will not fail after this point
-	for k := range delLabels {
-		if v, found := o.OrchestrationIdentity[k]; found {
-			delete(o.OrchestrationIdentity, k)
-			o.Disabled[k] = v
+	for lbl := range delLabels.All() {
+		k := lbl.Key()
+		if v, found := o.OrchestrationIdentity.GetLabel(k); found {
+			o.OrchestrationIdentity = o.OrchestrationIdentity.RemoveKeys(k)
+			o.Disabled = o.Disabled.Add(v)
 			changed = true
 		}
 
-		if _, found := o.Custom[k]; found {
-			delete(o.Custom, k)
+		if _, found := o.Custom.GetLabel(k); found {
+			o.Custom = o.Custom.RemoveKeys(k)
 			changed = true
 		}
 	}
 
-	for k, v := range addLabels {
-		if _, found := o.Disabled[k]; found { // Restore label.
-			delete(o.Disabled, k)
-			o.OrchestrationIdentity[k] = v
+	for lbl := range addLabels.All() {
+		k := lbl.Key()
+		if _, found := o.Disabled.GetLabel(k); found { // Restore label.
+			o.Disabled = o.Disabled.RemoveKeys(k)
+			o.OrchestrationIdentity = o.OrchestrationIdentity.Add(lbl)
 			changed = true
-		} else if _, found := o.OrchestrationIdentity[k]; found { // Replace label's source and value.
-			o.OrchestrationIdentity[k] = v
+		} else if _, found := o.OrchestrationIdentity.GetLabel(k); found { // Replace label's source and value.
+			o.OrchestrationIdentity = o.OrchestrationIdentity.Add(lbl)
 			changed = true
 		} else {
-			o.Custom[k] = v
+			o.Custom = o.Custom.Add(lbl)
 			changed = true
 		}
 	}
 	return changed, nil
 }
 
+/*
 // upsertLabel updates or inserts 'label' in 'l', but only if exactly the same label
 // was not already in 'l'. Returns 'true' if a label was added, or an old label was
 // updated, 'false' otherwise.
@@ -242,3 +259,4 @@ func (l Labels) deleteUnMarked(sourceFilter string, marks keepMarks) bool {
 
 	return deleted
 }
+*/

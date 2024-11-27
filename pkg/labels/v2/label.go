@@ -4,11 +4,13 @@
 package v2
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/netip"
 	"strings"
 	"unique"
+	"unsafe"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/sirupsen/logrus"
@@ -19,17 +21,23 @@ import (
 // Label is a unique source, key and value tuple.
 type Label unique.Handle[labelRep]
 
+// EmptyLabel is the canonical empty/zero label.
+var EmptyLabel = MakeLabel("", "", "")
+
 // Keep a cache of recently created labels to avoid unnecessary
 // allocations.
 var labelCache = newCache[labelRep]()
 
-// NewLabel returns a new label. Labels created with the same
+// MakeLabel returns a new label. Labels created with the same
 // source, key and value will share a single allocation.
-func NewLabel(key, value, source string) Label {
-	return NewCIDRLabel(key, value, source, nil)
+func MakeLabel(key, value, source string) Label {
+	return MakeCIDRLabel(key, value, source, nil)
 }
 
-func NewCIDRLabel(key, value, source string, cidr *netip.Prefix) Label {
+func MakeCIDRLabel(key, value, source string, cidr *netip.Prefix) Label {
+	if source == "" {
+		source = LabelSourceUnspec
+	}
 	return Label(labelCache.lookupOrMake(
 		// Look up the cache entry by hash of key+value. As the likelihood
 		// that the same key is from multiple sources isn't that high, we're
@@ -64,6 +72,11 @@ func hashKV(key, value string) uint64 {
 }
 
 func (l Label) String() string {
+	type h struct{ rep *labelRep }
+	hp := (*h)(unsafe.Pointer(&l))
+	if hp.rep == nil {
+		return "<nil>"
+	}
 	return l.rep().skv
 }
 
@@ -72,7 +85,18 @@ func (l Label) Key() string    { return l.rep().key() }
 func (l Label) Value() string  { return l.rep().value() }
 
 func (l Label) Equal(other Label) bool {
+	if l.IsAnySource() {
+		return l.Key() == other.Key() && l.Value() == other.Value()
+	}
 	return l == other
+}
+
+func (l Label) Compare(other Label) int {
+	return cmp.Or(
+		cmp.Compare(l.Key(), other.Key()),
+		cmp.Compare(l.Value(), other.Value()),
+		cmp.Compare(l.Source(), other.Source()),
+	)
 }
 
 type jsonLabel struct {
@@ -112,18 +136,18 @@ func (l *Label) UnmarshalJSON(b []byte) error {
 			return fmt.Errorf("invalid Label: '%s' does not contain label key", b)
 		}
 
-		*l = NewLabel(jl.Key, jl.Value, jl.Source)
+		*l = MakeLabel(jl.Key, jl.Value, jl.Source)
 	}
 
 	if jl.Source == LabelSourceCIDR {
 		c, err := LabelToPrefix(l.Key())
 		if err == nil {
-			*l = NewCIDRLabel(jl.Key, jl.Value, jl.Source, &c)
+			*l = MakeCIDRLabel(jl.Key, jl.Value, jl.Source, &c)
 		} else {
 			return fmt.Errorf("failed to parse CIDR label: invalid prefix: %w", err)
 		}
 	} else {
-		*l = NewLabel(jl.Key, jl.Value, jl.Source)
+		*l = MakeLabel(jl.Key, jl.Value, jl.Source)
 	}
 
 	return nil
@@ -233,12 +257,12 @@ func parseLabel(str string, delim byte) Label {
 			if err != nil {
 				logrus.WithField(logfields.Label, str).WithError(err).Error("Failed to parse CIDR label: invalid prefix.")
 			} else {
-				return NewCIDRLabel(key, value, src, &c)
+				return MakeCIDRLabel(key, value, src, &c)
 			}
 		}
 	}
 
-	return NewLabel(key, value, src)
+	return MakeLabel(key, value, src)
 }
 
 // ParseSelectLabel returns a selecting label representation of the given
@@ -255,7 +279,7 @@ func ParseSelectLabel(str string) Label {
 func ParseSelectLabelWithDelim(str string, delim byte) Label {
 	lbl := parseLabel(str, delim)
 	if lbl.Source() == LabelSourceUnspec {
-		return NewLabel(lbl.Key(), lbl.Value(), LabelSourceAny)
+		return MakeLabel(lbl.Key(), lbl.Value(), LabelSourceAny)
 	}
 	return lbl
 }

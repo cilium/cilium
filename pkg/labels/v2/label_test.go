@@ -13,7 +13,7 @@ import (
 
 func TestNewLabel(t *testing.T) {
 	k, v, s := "my-key", "my-value", "my-source"
-	l := NewLabel(k, v, s)
+	l := MakeLabel(k, v, s)
 	assert.Equal(t, k, l.Key())
 	assert.Equal(t, v, l.Value())
 	assert.Equal(t, s, l.Source())
@@ -24,7 +24,7 @@ func TestNewLabel(t *testing.T) {
 
 func TestLabelJSON(t *testing.T) {
 	k, v, s := "my-key", "my-value", "my-source"
-	l := NewLabel(k, v, s)
+	l := MakeLabel(k, v, s)
 	assert.Equal(t, k, l.Key())
 	assert.Equal(t, v, l.Value())
 	assert.Equal(t, s, l.Source())
@@ -47,13 +47,13 @@ func TestLabelJSON(t *testing.T) {
 func BenchmarkNewLabel(b *testing.B) {
 	k, v, s := "my-bench-key", "my-bench-value", "my-bench-source"
 	for range b.N {
-		NewLabel(k, v, s)
+		MakeLabel(k, v, s)
 	}
 }
 
 func BenchmarkNewLabelFresh(b *testing.B) {
 	for i := range b.N {
 		x := strconv.FormatInt(int64(i), 10)
-		NewLabel(x, x, x)
+		MakeLabel(x, x, x)
 	}
 }

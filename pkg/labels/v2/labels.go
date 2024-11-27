@@ -11,11 +11,13 @@ import (
 	"slices"
 	"strings"
 	"unique"
+	"unsafe"
 )
 
 // NOTE: Keep this file dedicated to the core implementation of Labels.
 // Put the domain specific logic to labels_ext.go or label_ext.go.
 
+// Labels is an immutable set of [Label]s.
 type Labels struct {
 	// handle stores uniquely small set of labels, allowing deduplication
 	// and quick comparisons for majority of the label sets.
@@ -37,10 +39,20 @@ type noCompare [0]func()
 var labelsCache = newCache[smallRep]()
 
 func NewLabels(lbls ...Label) Labels {
-	// Sort the labels by key
-	slices.SortFunc(lbls, func(a, b Label) int {
-		return strings.Compare(a.Key(), b.Key())
+	// Sort the labels by key and remember if we see any duplicates
+	equalKeysSeen := false
+	slices.SortStableFunc(lbls, func(a, b Label) int {
+		cmp := strings.Compare(a.Key(), b.Key())
+		if cmp == 0 {
+			equalKeysSeen = true
+		}
+		return cmp
 	})
+	if equalKeysSeen {
+		// Remove the duplicates we saw during sorting. The last one
+		// wins.
+		lbls = compactSortedLabels(lbls)
+	}
 	smallArrayLabels := lbls[:min(len(lbls), smallLabelsSize)]
 
 	// Lookup or create the unique handle to the small array of labels.
@@ -62,6 +74,40 @@ func NewLabels(lbls ...Label) Labels {
 	return labels
 }
 
+// compactSortedLabels removes duplicate keys. The last one wins.
+func compactSortedLabels(lbls []Label) []Label {
+	if len(lbls) < 2 {
+		return lbls
+	}
+
+	// Iterate over the labels looking for runs of duplicates.
+	// 'r' is the "read head", e.g. the label we're currently
+	// looking at, and 'w' is the write head. If there are
+	// duplicates 'r' will be further ahead than 'w'.
+	r, w := 0, 0
+	for r < len(lbls) {
+		k := lbls[r].Key()
+
+		// Find the last index 'i' where the key matches.
+		i := r
+		for i+1 < len(lbls) && lbls[i+1].Key() == k {
+			i++
+		}
+		if i != r {
+			// Duplicates found, write out the last one and start
+			// looking at the next label with a different key.
+			lbls[w] = lbls[i]
+			r = i + 1
+		} else {
+			lbls[w] = lbls[r]
+			r++
+		}
+		w++
+	}
+	clear(lbls[w:]) // zero out the tail for GC
+	return lbls[:w]
+}
+
 func labelsHash(lbls []Label) (hash uint64) {
 	for _, l := range lbls {
 		hash ^= l.rep().hash
@@ -69,47 +115,24 @@ func labelsHash(lbls []Label) (hash uint64) {
 	return
 }
 
-// Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
-// source argument will overwrite the source written in the key of the given map.
-// Example:
-// l := Map2Labels(map[string]string{"k8s:foo": "bar"}, "cilium")
-// l == [{Key: "foo", Value: "bar", Source: "cilium")]
-func Map2Labels(m map[string]string, source string) Labels {
-	if len(m) <= smallLabelsSize {
-		// Fast path: fits into the small array and we can sort in-place.
-		rep := smallRep{}
-		for k, v := range m {
-			rep.smallArray[rep.smallLen] = NewLabel(k, v, source)
-			rep.smallLen++
-		}
-		slices.SortFunc(rep.smallArray[:rep.smallLen], func(a, b Label) int {
-			return strings.Compare(a.Key(), b.Key())
-		})
-		return Labels{
-			handle: unique.Make(rep),
-		}
-	}
-
-	// Slow path: does not fit into small array. Build up an temporary,
-	// sort it, and construct the labels with it.
-	lbls := make([]Label, 0, len(m))
-	for k, v := range m {
-		lbls = append(lbls, NewLabel(k, v, source))
-	}
-	return NewLabels(lbls...)
+// isZero returns true if the labels is the zero value and thus
+// invalid.
+func (lbls Labels) isZero() bool {
+	type h struct{ rep *smallRep }
+	hp := (*h)(unsafe.Pointer(&lbls.handle))
+	return hp.rep == nil
 }
 
-func (lbls Labels) StringMap() (m map[string]string) {
-	m = make(map[string]string, lbls.Len())
-	for l := range lbls.All() {
-		rep := l.rep()
-		// Key is "Source:Key", which is what we already have in skv.
-		m[rep.skv[:rep.vpos-1]] = rep.value()
-	}
-	return
+func (lbls Labels) rep() *smallRep {
+	type h struct{ rep *smallRep }
+	hp := (*h)(unsafe.Pointer(&lbls.handle))
+	return hp.rep
 }
 
 func (lbls Labels) Len() int {
+	if lbls.isZero() {
+		return 0
+	}
 	length := int(lbls.handle.Value().smallLen)
 	if lbls.overflow != nil {
 		length += len(*lbls.overflow)
@@ -117,8 +140,19 @@ func (lbls Labels) Len() int {
 	return length
 }
 
+func (lbls Labels) IsEmpty() bool {
+	if lbls.isZero() {
+		return true
+	}
+	return lbls.rep().smallLen == 0
+}
+
 func (lbls Labels) Equal(other Labels) bool {
 	switch {
+	case lbls.IsEmpty():
+		return other.IsEmpty()
+	case other.IsEmpty():
+		return lbls.IsEmpty()
 	case lbls.overflow == nil && other.overflow == nil:
 		// No overflow, can compare handles directly.
 		return lbls.handle == other.handle
@@ -130,8 +164,41 @@ func (lbls Labels) Equal(other Labels) bool {
 	}
 }
 
-func (lbls Labels) Get(key string) (lbl Label, found bool) {
-	lbl, found = lbls.handle.Value().get(key)
+// Less returns true if [lbls] comes before [other] in the lexicographical order.
+func (lbls Labels) Less(other Labels) bool {
+	if lbls.IsEmpty() && other.IsEmpty() {
+		return false
+	}
+	nextA, stopA := iter.Pull(lbls.All())
+	defer stopA()
+	nextB, stopB := iter.Pull(other.All())
+	defer stopB()
+	for {
+		a, okA := nextA()
+		b, okB := nextB()
+		switch {
+		case !okA:
+			// [lbls] is less than [other] only if it is shorter.
+			return okB
+		case !okB:
+			return false
+		default:
+			switch a.Compare(b) {
+			case -1:
+				return true
+			case 1:
+				return false
+			}
+		}
+	}
+}
+
+func (lbls Labels) GetLabel(key string) (lbl Label, found bool) {
+	if lbls.isZero() {
+		return
+	}
+
+	lbl, found = lbls.rep().get(key)
 	if !found && lbls.overflow != nil {
 		// Label not found from the small array, look into the overflow array.
 		idx, found := slices.BinarySearchFunc(
@@ -141,15 +208,38 @@ func (lbls Labels) Get(key string) (lbl Label, found bool) {
 				return strings.Compare(l.Key(), key)
 			})
 		if found {
-			return (*lbls.overflow)[idx], true
+			lbl = (*lbls.overflow)[idx]
+			//fmt.Printf(">>> Get %q: %v %s\n", key, found, lbl)
+			return lbl, true
 		}
 	}
+	//fmt.Printf(">>> Get %q: %v %s\n", key, found, lbl)
+
 	return
+}
+
+func (lbls Labels) GetOrEmpty(key string) Label {
+	lbl, found := lbls.GetLabel(key)
+	if !found {
+		lbl = EmptyLabel
+	}
+	return lbl
+}
+
+func (lbls Labels) GetValue(key string) string {
+	lbl, found := lbls.GetLabel(key)
+	if !found {
+		return ""
+	}
+	return lbl.Value()
 }
 
 func (lbls Labels) All() iter.Seq[Label] {
 	return func(yield func(Label) bool) {
-		rep := lbls.handle.Value()
+		if lbls.isZero() {
+			return
+		}
+		rep := lbls.rep()
 		for _, l := range rep.smallArray[:rep.smallLen] {
 			if !yield(l) {
 				return
@@ -163,20 +253,6 @@ func (lbls Labels) All() iter.Seq[Label] {
 			}
 		}
 	}
-}
-
-func (lbls Labels) String() string {
-	var b strings.Builder
-	for l := range lbls.All() {
-		b.WriteString(l.String())
-		b.WriteByte(',')
-	}
-	s := b.String()
-	if len(s) > 0 {
-		// Drop trailing comma
-		s = s[:len(s)-1]
-	}
-	return s
 }
 
 // smallLabelsSize is the number of labels to store in the "small" array.
@@ -218,7 +294,11 @@ func (lbls *Labels) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return err
 	}
-	*lbls = NewLabels(slices.AppendSeq(make([]Label, 0, len(m)), maps.Values(m))...)
+	if len(m) == 0 {
+		*lbls = Labels{}
+	} else {
+		*lbls = NewLabels(slices.AppendSeq(make([]Label, 0, len(m)), maps.Values(m))...)
+	}
 	return nil
 }
 
@@ -233,7 +313,7 @@ type smallRep struct {
 	smallLen uint8
 }
 
-func (rep smallRep) get(key string) (lbl Label, found bool) {
+func (rep *smallRep) get(key string) (lbl Label, found bool) {
 	for i := 0; i < int(rep.smallLen); i++ {
 		candidate := rep.smallArray[i]
 		switch strings.Compare(candidate.Key(), key) {

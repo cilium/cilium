@@ -5,6 +5,7 @@ package labels
 
 import (
 	"net/netip"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,14 +25,14 @@ func TestGetCIDRLabels(t *testing.T) {
 		enableIPv4 bool
 		enableIPv6 bool
 		prefix     netip.Prefix
-		expected   LabelArray
+		expected   Labels
 	}{
 		{
 			name:       "IPv4 /32 prefix",
 			enableIPv4: true,
 			enableIPv6: false,
 			prefix:     netip.MustParsePrefix("192.0.2.3/32"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:192.0.2.3/32",
 				"reserved:world",
 			),
@@ -41,7 +42,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: false,
 			prefix:     netip.MustParsePrefix("192.0.2.0/24"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:192.0.2.0/24",
 				"reserved:world",
 			),
@@ -51,7 +52,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: false,
 			prefix:     netip.MustParsePrefix("10.0.0.0/16"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:10.0.0.0/16",
 				"reserved:world",
 			),
@@ -61,7 +62,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: false,
 			prefix:     netip.MustParsePrefix("0.0.0.0/0"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"reserved:world",
 			),
 		},
@@ -70,7 +71,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: false,
 			enableIPv6: true,
 			prefix:     netip.MustParsePrefix("2001:db8:cafe::cab:4:b0b:0/112"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				// Note that we convert the colons in IPv6 addresses into dashes when
 				// translating into labels, because endpointSelectors don't support
 				// colons.
@@ -83,7 +84,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: false,
 			enableIPv6: true,
 			prefix:     netip.MustParsePrefix("2001:DB8::1/128"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:2001-db8--1/128",
 				"reserved:world",
 			),
@@ -93,7 +94,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: true,
 			prefix:     netip.MustParsePrefix("192.0.2.3/32"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:192.0.2.3/32",
 				"reserved:world-ipv4",
 			),
@@ -103,7 +104,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: true,
 			prefix:     netip.MustParsePrefix("192.0.2.0/24"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:192.0.2.0/24",
 				"reserved:world-ipv4",
 			),
@@ -113,7 +114,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: true,
 			prefix:     netip.MustParsePrefix("10.0.0.0/16"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:10.0.0.0/16",
 				"reserved:world-ipv4",
 			),
@@ -123,7 +124,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: true,
 			prefix:     netip.MustParsePrefix("0.0.0.0/0"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"reserved:world-ipv4",
 			),
 		},
@@ -132,7 +133,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: true,
 			prefix:     netip.MustParsePrefix("2001:db8:cafe::cab:4:b0b:0/112"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:2001-db8-cafe-0-cab-4-b0b-0/112",
 				"reserved:world-ipv6",
 			),
@@ -142,7 +143,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			enableIPv4: true,
 			enableIPv6: true,
 			prefix:     netip.MustParsePrefix("2001:DB8::1/128"),
-			expected: ParseLabelArray(
+			expected: ParseLabels(
 				"cidr:2001-db8--1/128",
 				"reserved:world-ipv6",
 			),
@@ -153,8 +154,7 @@ func TestGetCIDRLabels(t *testing.T) {
 			option.Config.EnableIPv6 = tc.enableIPv6
 
 			lbls := GetCIDRLabels(tc.prefix)
-			lblArray := lbls.LabelArray()
-			assert.ElementsMatch(t, lblArray, tc.expected)
+			assert.True(t, lbls.Equal(tc.expected))
 		})
 	}
 }
@@ -279,13 +279,13 @@ func TestGetPrintableModel(t *testing.T) {
 		"k8s:foo=bar",
 		"reserved:remote-node",
 	})
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.0.0.6/32")))
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.0.1.0/24")))
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("192.168.0.0/24")))
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("fc00:c111::5/128")))
-	cl.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("fc00:c112::0/64")))
+	cl = Merge(cl, GetCIDRLabels(netip.MustParsePrefix("10.0.0.6/32")))
+	cl = Merge(cl, GetCIDRLabels(netip.MustParsePrefix("10.0.1.0/24")))
+	cl = Merge(cl, GetCIDRLabels(netip.MustParsePrefix("192.168.0.0/24")))
+	cl = Merge(cl, GetCIDRLabels(netip.MustParsePrefix("fc00:c111::5/128")))
+	cl = Merge(cl, GetCIDRLabels(netip.MustParsePrefix("fc00:c112::0/64")))
 	assert.Equal(t,
-		[]string{
+		strings.Join([]string{
 			"cidr:10.0.0.6/32",
 			"cidr:10.0.1.0/24",
 			"cidr:192.168.0.0/24",
@@ -295,8 +295,8 @@ func TestGetPrintableModel(t *testing.T) {
 			"reserved:remote-node",
 			"reserved:world-ipv4",
 			"reserved:world-ipv6",
-		},
-		cl.GetPrintableModel(),
+		}, ","),
+		cl.String(),
 	)
 }
 
