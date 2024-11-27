@@ -2,40 +2,33 @@
 
 set -eu
 
-cd "$(dirname "$0")/../.."
+SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+REPO_ROOT="$SCRIPT_PATH/../.."
 
-CILIUM_BUILDER_IMAGE=$(cat images/cilium/Dockerfile | grep '^ARG CILIUM_BUILDER_IMAGE=' | cut -d '=' -f 2)
 
-USER_OPTION=""
+CILIUM_BUILDER_IMAGE=$(grep '^ARG CILIUM_BUILDER_IMAGE=' "$REPO_ROOT/images/cilium/Dockerfile" | cut -d '=' -f 2)
+
+ARGS=()
 
 if [ -n "${RUN_AS_NONROOT:-}" ]; then
-    USER_OPTION="--user $(id -u):$(id -g)"
+    ARGS+=(--user "$(id -u):$(id -g)")
 fi
-
-MOUNT_GOCACHE_DIR=""
 
 if [ -n "${BUILDER_GOCACHE_DIR:-}" ]; then
-    MOUNT_GOCACHE_DIR="-v ${BUILDER_GOCACHE_DIR}:/root/.cache/go-build"
+    ARGS+=(-v "${BUILDER_GOCACHE_DIR}:/root/.cache/go-build")
 fi
-
-MOUNT_GOMODCACHE_DIR=""
 
 if [ -n "${BUILDER_GOMODCACHE_DIR:-}" ]; then
-    MOUNT_GOMODCACHE_DIR="-v ${BUILDER_GOMODCACHE_DIR}:/go/pkg/mod"
+    ARGS+=(-v "${BUILDER_GOMODCACHE_DIR}:/go/pkg/mod")
 fi
 
-MOUNT_CCACHE_DIR=""
-
 if [ -n "${BUILDER_CCACHE_DIR:-}" ]; then
-    MOUNT_CCACHE_DIR="-v ${BUILDER_CCACHE_DIR}:/root/.ccache"
+    ARGS+=(-v "${BUILDER_CCACHE_DIR}:/root/.ccache")
 fi
 
 docker run --rm \
-	$USER_OPTION \
-	$MOUNT_GOCACHE_DIR \
-	$MOUNT_GOMODCACHE_DIR \
-	$MOUNT_CCACHE_DIR \
-	-v "$PWD":/go/src/github.com/cilium/cilium \
+  "${ARGS[@]}" \
+	-v "$REPO_ROOT":/go/src/github.com/cilium/cilium \
 	-w /go/src/github.com/cilium/cilium \
 	${DOCKER_ARGS:+"$DOCKER_ARGS"} \
 	"$CILIUM_BUILDER_IMAGE" \
