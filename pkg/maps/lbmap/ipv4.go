@@ -390,7 +390,7 @@ func (s *Service4Value) ToHost() ServiceValue {
 	return &h
 }
 
-// Service4ExtendedValue must match 'struct lb4_service' in "bpf/lib/common.h" with LB_ALG_PER_SERVICE set.
+// Service4ExtendedValue must match 'struct lb4_service' in "bpf/lib/common.h" with LB_SELECTION_PER_SERVICE set.
 type Service4ExtendedValue struct {
 	Service4Value
 	LbAlg uint8    `align:"lb_alg"`
