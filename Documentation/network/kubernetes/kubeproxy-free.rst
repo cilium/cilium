@@ -1094,13 +1094,23 @@ automatically enabled and therefore no further action is required. Otherwise
 If the ``hostPort`` is specified without an additional ``hostIP``, then the
 Pod will be exposed to the outside world with the same local addresses from
 the node that were detected and used for exposing NodePort services, e.g.
-the Kubernetes InternalIP or ExternalIP if set. Additionally, the Pod is also
-accessible through the loopback address on the node such as ``127.0.0.1:hostPort``.
-If in addition to ``hostPort`` also a ``hostIP`` has been specified for the
-Pod, then the Pod will only be exposed on the given ``hostIP`` instead. A
-``hostIP`` of ``0.0.0.0`` will have the same behavior as if a ``hostIP`` was
-not specified. The ``hostPort`` must not reside in the configured NodePort
-port range to avoid collisions.
+the Kubernetes InternalIP or ExternalIP if set.
+
+Additionally, the Pod is also accessible through the loopback address on the
+node such as ``127.0.0.1:hostPort``. If in addition to ``hostPort`` also
+a ``hostIP`` has been specified for the Pod, then the Pod will only be
+exposed on the given ``hostIP`` instead. A ``hostIP`` of ``0.0.0.0`` will
+have the same behavior as if a ``hostIP`` was not specified.
+
+The ``hostPort`` must not reside in the configured NodePort port range to
+avoid collisions.
+
+Note that ``hostPort`` support relies on Cilium's eBPF kube-proxy replacement
+and in the background plumbs service entries to direct traffic to the local
+host port backend. Given host port is not configured through a Kubernetes
+service object, the full feature set of Kubernetes services (such as custom
+Cilium service annotations) is not available. Instead, host port piggy-backs
+on user-configured defaults of the service handling behavior.
 
 An example deployment in a kube-proxy-free environment therefore is the same
 as in the earlier getting started deployment:
@@ -1112,7 +1122,6 @@ as in the earlier getting started deployment:
         --set kubeProxyReplacement=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
-
 
 Also, ensure that each node IP is known via ``INTERNAL-IP`` or ``EXTERNAL-IP``,
 for example:
