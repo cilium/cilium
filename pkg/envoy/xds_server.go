@@ -84,7 +84,7 @@ const (
 // XDSServer provides a high-lever interface to manage resources published using the xDS gRPC API.
 type XDSServer interface {
 	// AddListener adds a listener to a running Envoy proxy.
-	AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error))
+	AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error
 	// AddAdminListener adds an Admin API listener to Envoy.
 	AddAdminListener(port uint16, wg *completion.WaitGroup)
 	// AddMetricsListener adds a prometheus metrics listener to Envoy.
@@ -793,7 +793,7 @@ func (s *xdsServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 
 // addListener either reuses an existing listener with 'name', or creates a new one.
 // 'listenerConf()' is only called if a new listener is being created.
-func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) {
+func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -805,11 +805,7 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 		listenerConfig.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 	}
 	if err := listenerConfig.Validate(); err != nil {
-		log.Errorf("Envoy: Could not validate Listener (%s): %s", err, listenerConfig.String())
-		if cb != nil {
-			cb(err)
-		}
-		return
+		return fmt.Errorf("Envoy: Could not validate Listener %s: %w", listenerConfig.String(), err)
 	}
 
 	count := s.listenerCount[name]
@@ -828,6 +824,7 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 				cb(err)
 			}
 		})
+	return nil
 }
 
 // upsertListener either updates an existing LDS listener with 'name', or creates a new one.
@@ -983,10 +980,10 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 	return listenerConf
 }
 
-func (s *xdsServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) {
+func (s *xdsServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
 	log.Debugf("Envoy: %s AddListener %s (mayUseOriginalSourceAddr: %v)", kind, name, mayUseOriginalSourceAddr)
 
-	s.addListener(name, func() *envoy_config_listener.Listener {
+	return s.addListener(name, func() *envoy_config_listener.Listener {
 		return s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr)
 	}, wg, cb, true)
 }
