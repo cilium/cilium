@@ -320,6 +320,7 @@ endpointmanager
 enet
 enetc
 etcd
+etcdinit
 eth
 ethernet
 ethtool
