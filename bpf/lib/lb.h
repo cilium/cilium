@@ -75,7 +75,7 @@ struct {
 } LB6_HEALTH_MAP __section_maps_btf;
 #endif
 
-#if defined(LB_ALG_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u16);
@@ -680,31 +680,34 @@ struct lb6_service *lb6_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unuse
 	struct lb6_service *svc;
 
 	key->backend_slot = slot;
-	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT, key->backend_slot, key->dport);
+	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT,
+		      key->backend_slot, key->dport);
+
 	svc = __lb6_lookup_backend_slot(key);
 	if (svc)
 		return svc;
 
-	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL, key->backend_slot, key->dport);
-
+	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL,
+		      key->backend_slot, key->dport);
 	return NULL;
 }
 
-#if defined(LB_ALG_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM
 static __always_inline __u32
 lb6_select_backend_id_random(struct __ctx_buff *ctx,
 			     struct lb6_key *key,
 			     const struct ipv6_ct_tuple *tuple __maybe_unused,
 			     const struct lb6_service *svc)
 {
+	/* Backend slot 0 is always reserved for the service frontend. */
 	__u16 slot = (get_prandom_u32() % svc->count) + 1;
 	struct lb6_service *be = lb6_lookup_backend_slot(ctx, key, slot);
 
 	return be ? be->backend_id : 0;
 }
-#endif  /* defined(LB_ALG_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
+#endif  /* defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
 
-#if defined(LB_ALG_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u32
 lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 			     struct lb6_key *key __maybe_unused,
@@ -726,29 +729,24 @@ lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
 	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
-#endif  /* defined(LB_ALG_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
+#endif  /* defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
 
-#ifdef LB_ALG_PER_SERVICE
+#ifdef LB_SELECTION_PER_SERVICE
 static __always_inline __u32
 lb6_select_backend_id(struct __ctx_buff *ctx,
 		      struct lb6_key *key,
 		      const struct ipv6_ct_tuple *tuple __maybe_unused,
 		      const struct lb6_service *svc)
 {
-	if (svc->lb_alg == LB_SELECTION_MAGLEV)
+	if (svc->lb_algorithm == LB_SELECTION_MAGLEV)
 		return lb6_select_backend_id_maglev(ctx, key, tuple, svc);
 
 	return lb6_select_backend_id_random(ctx, key, tuple, svc);
 }
 #elif LB_SELECTION == LB_SELECTION_RANDOM
-/* Backend slot 0 is always reserved for the service frontend. */
-
-#define lb6_select_backend_id lb6_select_backend_id_random
-
+# define lb6_select_backend_id	lb6_select_backend_id_random
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
-
-#define lb6_select_backend_id lb6_select_backend_id_maglev
-
+# define lb6_select_backend_id	lb6_select_backend_id_maglev
 #elif LB_SELECTION == LB_SELECTION_FIRST
 /* Backend selection for tests that always chooses first slot. */
 static __always_inline __u32
@@ -1386,32 +1384,34 @@ struct lb4_service *lb4_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unuse
 	struct lb4_service *svc;
 
 	key->backend_slot = slot;
-	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT, key->backend_slot, key->dport);
+	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT,
+		      key->backend_slot, key->dport);
+
 	svc = __lb4_lookup_backend_slot(key);
 	if (svc)
 		return svc;
 
-	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL, key->backend_slot, key->dport);
-
+	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL,
+		      key->backend_slot, key->dport);
 	return NULL;
 }
 
-#if defined(LB_ALG_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM
-/* Backend slot 0 is always reserved for the service frontend. */
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM
 static __always_inline __u32
 lb4_select_backend_id_random(struct __ctx_buff *ctx,
 			     struct lb4_key *key,
 			     const struct ipv4_ct_tuple *tuple __maybe_unused,
 			     const struct lb4_service *svc)
 {
+	/* Backend slot 0 is always reserved for the service frontend. */
 	__u16 slot = (get_prandom_u32() % svc->count) + 1;
 	struct lb4_service *be = lb4_lookup_backend_slot(ctx, key, slot);
 
 	return be ? be->backend_id : 0;
 }
-#endif /* LB_ALG_PER_SERVICE || LB_SELECTION == LB_SELECTION_RANDOM */
+#endif /* LB_SELECTION_PER_SERVICE || LB_SELECTION == LB_SELECTION_RANDOM */
 
-#if defined(LB_ALG_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u32
 lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 			     struct lb4_key *key __maybe_unused,
@@ -1433,30 +1433,24 @@ lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
 	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
-#endif /* LB_ALG_PER_SERVICE || LB_SELECTION == LB_SELECTION_MAGLEV */
+#endif /* LB_SELECTION_PER_SERVICE || LB_SELECTION == LB_SELECTION_MAGLEV */
 
-#ifdef LB_ALG_PER_SERVICE
-
+#ifdef LB_SELECTION_PER_SERVICE
 static __always_inline __u32
 lb4_select_backend_id(struct __ctx_buff *ctx,
 		      struct lb4_key *key,
 		      const struct ipv4_ct_tuple *tuple __maybe_unused,
 		      const struct lb4_service *svc)
 {
-	if (svc->lb_alg == LB_SELECTION_MAGLEV)
+	if (svc->lb_algorithm == LB_SELECTION_MAGLEV)
 		return lb4_select_backend_id_maglev(ctx, key, tuple, svc);
 
 	return lb4_select_backend_id_random(ctx, key, tuple, svc);
 }
-
 #elif LB_SELECTION == LB_SELECTION_RANDOM
-
-#define lb4_select_backend_id lb4_select_backend_id_random
-
+# define lb4_select_backend_id	lb4_select_backend_id_random
 #elif LB_SELECTION == LB_SELECTION_MAGLEV
-
-#define lb4_select_backend_id lb4_select_backend_id_maglev
-
+# define lb4_select_backend_id	lb4_select_backend_id_maglev
 #elif LB_SELECTION == LB_SELECTION_FIRST
 /* Backend selection for tests that always chooses first slot. */
 static __always_inline __u32
