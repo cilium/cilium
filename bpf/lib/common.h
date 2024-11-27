@@ -1025,12 +1025,12 @@ struct lb6_service {
 	 * slots under quarantine (otherwise zero).
 	 */
 	__u16 qcount;
-#ifdef LB_ALG_PER_SERVICE
+#ifdef LB_SELECTION_PER_SERVICE
     /* Load balancer algorithm
      * 1 - random
      * 2 - maglev
      */
-    __u8 lb_alg;
+    __u8 lb_algorithm;
     __u8 pad[3];
 #endif
 };
@@ -1097,12 +1097,12 @@ struct lb4_service {
 	 * slots under quarantine (otherwise zero).
 	 */
 	__u16 qcount;
-#ifdef LB_ALG_PER_SERVICE
+#ifdef LB_SELECTION_PER_SERVICE
     /* Load balancer algorithm
      * 1 - random
      * 2 - maglev
      */
-    __u8 lb_alg;
+    __u8 lb_algorithm;
     __u8 pad[3];
 #endif
 };
