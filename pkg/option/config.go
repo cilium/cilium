@@ -3613,7 +3613,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(vp *viper.Viper, totalMemory 
 	//    4GB   265121  132560   265121
 	//   16GB  1060485  530242  1060485
 	memoryAvailableForMaps := int(float64(totalMemory) * dynamicSizeRatio)
-	log.Infof("Memory available for map entries (%.3f%% of %dB): %dB", dynamicSizeRatio, totalMemory, memoryAvailableForMaps)
+	log.Infof("Memory available for map entries (%.3f%% of %dB): %dB", dynamicSizeRatio*100, totalMemory, memoryAvailableForMaps)
 	totalMapMemoryDefault := CTMapEntriesGlobalTCPDefault*c.SizeofCTElement +
 		CTMapEntriesGlobalAnyDefault*c.SizeofCTElement +
 		NATMapEntriesGlobalDefault*c.SizeofNATElement +
