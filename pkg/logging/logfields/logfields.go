@@ -347,6 +347,9 @@ const (
 	// ProxyName is the name of a proxy (e.g., "Envoy")
 	ProxyName = "proxyName"
 
+	// ProxyPort is the port number of an L7 proxy listener.
+	ProxyPort = "ProxyPort"
+
 	// L7LBProxyPort is the port number of the Envoy listener a L7 LB service redirects traffic to for load balancing.
 	L7LBProxyPort = "l7LBProxyPort"
 
