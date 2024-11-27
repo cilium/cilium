@@ -439,7 +439,7 @@ func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources Reso
 	return nil
 }
 
-func (*fakeXdsServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) {
+func (*fakeXdsServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
 	panic("unimplemented")
 }
 
