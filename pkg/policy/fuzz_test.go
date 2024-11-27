@@ -47,7 +47,6 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 		key := Key{}
 		entry := mapStateEntry{}
 		ff := fuzz.NewConsumer(data)
-		ff.GenerateStruct(keys)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
 		keys.insertWithChanges(key, entry, allFeatures, ChangeState{})
