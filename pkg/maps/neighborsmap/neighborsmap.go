@@ -50,12 +50,12 @@ func neighMapsGet() (*bpf.Map, *bpf.Map) {
 
 // Key4 is the IPv4 for the IP-to-MAC address mappings.
 type Key4 struct {
-	ipv4 types.IPv4
+	Ipv4 types.IPv4
 }
 
 // Key6 is the IPv6 for the IP-to-MAC address mappings.
 type Key6 struct {
-	ipv6 types.IPv6
+	Ipv6 types.IPv6
 }
 
 // SizeofNeighKey6 is the size of type NeighKey6.
@@ -63,7 +63,7 @@ const SizeofNeighKey6 = int(unsafe.Sizeof(Key6{}))
 
 // Value is the MAC address for the IP-to-MAC address mappings.
 type Value struct {
-	macaddr types.MACAddr
+	Macaddr types.MACAddr
 	_       uint16
 }
 
@@ -71,15 +71,15 @@ type Value struct {
 const SizeOfNeighValue = int(unsafe.Sizeof(Value{}))
 
 // String converts the key into a human readable string format.
-func (k *Key4) String() string  { return k.ipv4.String() }
+func (k *Key4) String() string  { return k.Ipv4.String() }
 func (k *Key4) New() bpf.MapKey { return &Key4{} }
 
 // String converts the key into a human readable string format.
-func (k *Key6) String() string  { return k.ipv6.String() }
+func (k *Key6) String() string  { return k.Ipv6.String() }
 func (k *Key6) New() bpf.MapKey { return &Key6{} }
 
 // String converts the value into a human readable string format.
-func (v *Value) String() string    { return v.macaddr.String() }
+func (v *Value) String() string    { return v.Macaddr.String() }
 func (k *Value) New() bpf.MapValue { return &Value{} }
 
 // InitMaps creates the nodeport neighbors maps in the kernel.
@@ -112,11 +112,11 @@ func NeighRetire(ip net.IP) {
 	defer neighMap.Close()
 	if len(ip) == net.IPv4len {
 		key := &Key4{}
-		copy(key.ipv4[:], ip.To4())
+		copy(key.Ipv4[:], ip.To4())
 		neighMap.Delete(key)
 	} else {
 		key := &Key6{}
-		copy(key.ipv6[:], ip.To16())
+		copy(key.Ipv6[:], ip.To16())
 		neighMap.Delete(key)
 	}
 }

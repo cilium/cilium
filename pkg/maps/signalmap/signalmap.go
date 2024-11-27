@@ -20,20 +20,20 @@ const (
 
 // Key is the index into the prog array map.
 type Key struct {
-	index uint32
+	Index uint32
 }
 
 // Value is the program ID in the prog array map.
 type Value struct {
-	progID uint32
+	ProgID uint32
 }
 
 // String converts the key into a human readable string format.
-func (k *Key) String() string  { return fmt.Sprintf("%d", k.index) }
+func (k *Key) String() string  { return fmt.Sprintf("%d", k.Index) }
 func (k *Key) New() bpf.MapKey { return &Key{} }
 
 // String converts the value into a human readable string format.
-func (v *Value) String() string    { return fmt.Sprintf("%d", v.progID) }
+func (v *Value) String() string    { return fmt.Sprintf("%d", v.ProgID) }
 func (v *Value) New() bpf.MapValue { return &Value{} }
 
 type signalMap struct {

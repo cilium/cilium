@@ -204,20 +204,20 @@ func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
 
 // CallKey is the index into the prog array map.
 type CallKey struct {
-	index uint32
+	Index uint32
 }
 
 // CallValue is the program ID in the prog array map.
 type CallValue struct {
-	progID uint32
+	ProgID uint32
 }
 
 // String converts the key into a human readable string format.
-func (k *CallKey) String() string  { return strconv.FormatUint(uint64(k.index), 10) }
+func (k *CallKey) String() string  { return strconv.FormatUint(uint64(k.Index), 10) }
 func (k *CallKey) New() bpf.MapKey { return &CallKey{} }
 
 // String converts the value into a human readable string format.
-func (v *CallValue) String() string    { return strconv.FormatUint(uint64(v.progID), 10) }
+func (v *CallValue) String() string    { return strconv.FormatUint(uint64(v.ProgID), 10) }
 func (v *CallValue) New() bpf.MapValue { return &CallValue{} }
 
 func (pe *PolicyEntry) Add(oPe PolicyEntry) {
