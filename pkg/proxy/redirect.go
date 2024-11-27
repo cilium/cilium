@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -33,7 +34,7 @@ type Redirect struct {
 	// The following fields are only written to during initialization, it
 	// is safe to read these fields without locking the mutex
 	name           string
-	listener       *ProxyPort
+	listener       *proxyports.ProxyPort
 	dstPortProto   restore.PortProto
 	endpointID     uint16
 	implementation RedirectImplementation
@@ -44,7 +45,7 @@ type Redirect struct {
 	rules policy.L7DataMap
 }
 
-func newRedirect(epID uint16, name string, listener *ProxyPort, port uint16, proto u8proto.U8proto) *Redirect {
+func newRedirect(epID uint16, name string, listener *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) *Redirect {
 	return &Redirect{
 		name:         name,
 		listener:     listener,

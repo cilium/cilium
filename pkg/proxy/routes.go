@@ -13,6 +13,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -46,6 +50,90 @@ var (
 		Proto:  linux_defaults.RTProto,
 	}
 )
+
+// ReinstallRoutingRules ensures the presence of routing rules and tables needed
+// to route packets to and from the L7 proxy.
+func ReinstallRoutingRules(mtu int) error {
+	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes()
+
+	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
+	if !fromIngressProxy || !fromEgressProxy {
+		mtu = 0
+	}
+
+	if option.Config.EnableIPv4 {
+		if err := installToProxyRoutesIPv4(); err != nil {
+			return err
+		}
+
+		if fromIngressProxy || fromEgressProxy {
+			if err := installFromProxyRoutesIPv4(node.GetInternalIPv4Router(), defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+				return err
+			}
+		} else {
+			if err := removeFromProxyRoutesIPv4(); err != nil {
+				return err
+			}
+		}
+	} else {
+		if err := removeToProxyRoutesIPv4(); err != nil {
+			return err
+		}
+		if err := removeFromProxyRoutesIPv4(); err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		if err := installToProxyRoutesIPv6(); err != nil {
+			return err
+		}
+
+		if fromIngressProxy || fromEgressProxy {
+			ipv6, err := getCiliumNetIPv6()
+			if err != nil {
+				return err
+			}
+			if err := installFromProxyRoutesIPv6(ipv6, defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+				return err
+			}
+		} else {
+			if err := removeFromProxyRoutesIPv6(); err != nil {
+				return err
+			}
+		}
+	} else {
+		if err := removeToProxyRoutesIPv6(); err != nil {
+			return err
+		}
+		if err := removeFromProxyRoutesIPv6(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func requireFromProxyRoutes() (fromIngressProxy, fromEgressProxy bool) {
+	fromIngressProxy = (option.Config.EnableEnvoyConfig || option.Config.EnableIPSec) && !option.Config.TunnelingEnabled()
+	fromEgressProxy = option.Config.EnableIPSec && !option.Config.TunnelingEnabled()
+	return
+}
+
+// getCiliumNetIPv6 retrieves the first IPv6 address from the cilium_net device.
+func getCiliumNetIPv6() (net.IP, error) {
+	link, err := safenetlink.LinkByName(defaults.SecondHostDevice)
+	if err != nil {
+		return nil, fmt.Errorf("cannot find link '%s': %w", defaults.SecondHostDevice, err)
+	}
+
+	addrList, err := safenetlink.AddrList(link, netlink.FAMILY_V6)
+	if err == nil && len(addrList) > 0 {
+		return addrList[0].IP, nil
+	}
+
+	return nil, fmt.Errorf("failed to find valid IPv6 address for cilium_net")
+}
 
 // installToProxyRoutesIPv4 configures routes and rules needed to redirect ingress
 // packets to the proxy.

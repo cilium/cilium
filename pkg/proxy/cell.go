@@ -79,15 +79,15 @@ func newProxy(params proxyParams) *Proxy {
 		OnStart: func(cell.HookContext) (err error) {
 			// Restore all proxy ports before we create the trigger to overwrite the
 			// file below
-			p.RestoreProxyPorts(params.Config.RestoredProxyPortsAgeLimit)
+			p.proxyPorts.RestoreProxyPorts(params.Config.RestoredProxyPortsAgeLimit)
 
-			p.proxyPortsTrigger, err = trigger.NewTrigger(trigger.Parameters{
+			p.proxyPorts.Trigger, err = trigger.NewTrigger(trigger.Parameters{
 				MinInterval: 10 * time.Second,
 				TriggerFunc: func(reasons []string) {
 					controllerManager.UpdateController(controllerName, controller.ControllerParams{
 						Group:    controllerGroup,
-						DoFunc:   p.storeProxyPorts,
-						StopFunc: p.storeProxyPorts, // perform one last checkpoint when the controller is removed
+						DoFunc:   p.proxyPorts.StoreProxyPorts,
+						StopFunc: p.proxyPorts.StoreProxyPorts, // perform one last checkpoint when the controller is removed
 					})
 				},
 				ShutdownFunc: func() {
@@ -98,7 +98,7 @@ func newProxy(params proxyParams) *Proxy {
 			return err
 		},
 		OnStop: func(cell.HookContext) error {
-			p.proxyPortsTrigger.Shutdown()
+			p.proxyPorts.Trigger.Shutdown()
 			<-triggerDone
 			return nil
 		},
