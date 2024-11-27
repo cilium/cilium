@@ -160,7 +160,7 @@ func TestUpdateIPAMMode(t *testing.T) {
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultIPAMModes {
-				counter, err := metrics.DPIPAM.GetMetricWithLabelValues(mode)
+				counter, err := metrics.CPIPAM.GetMetricWithLabelValues(mode)
 				assert.NoError(t, err)
 
 				counterValue := counter.Get()
@@ -321,7 +321,7 @@ func TestUpdateIdentityAllocationMode(t *testing.T) {
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultIdentityAllocationModes {
-				counter, err := metrics.DPIdentityAllocation.GetMetricWithLabelValues(mode)
+				counter, err := metrics.CPIdentityAllocation.GetMetricWithLabelValues(mode)
 				assert.NoError(t, err)
 
 				counterValue := counter.Get()
@@ -373,7 +373,7 @@ func TestUpdateCiliumEndpointSlices(t *testing.T) {
 
 			metrics.update(params, config)
 
-			counterValue := metrics.DPCiliumEndpointSlicesEnabled.Get()
+			counterValue := metrics.CPCiliumEndpointSlicesEnabled.Get()
 
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableCES, counterValue)
 		})
@@ -416,7 +416,7 @@ func TestUpdateDeviceMode(t *testing.T) {
 
 			// Check that only the expected mode's counter is incremented
 			for _, mode := range defaultDeviceModes {
-				counter, err := metrics.DPDeviceMode.GetMetricWithLabelValues(mode)
+				counter, err := metrics.DPDeviceConfig.GetMetricWithLabelValues(mode)
 				assert.NoError(t, err)
 
 				counterValue := counter.Get()
