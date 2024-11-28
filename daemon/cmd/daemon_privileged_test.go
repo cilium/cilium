@@ -90,3 +90,33 @@ func createDevices(t *testing.T) {
 	addr := &netlink.Addr{IPNet: ipnet}
 	assert.NoError(t, netlink.AddrAdd(ciliumHost, addr))
 }
+
+func Test_removeStaleEPIfaces(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	ns := netns.NewNetNS(t)
+
+	ns.Do(func() error {
+		linkAttrs := netlink.NewLinkAttrs()
+		linkAttrs.Name = "lxc12345"
+		veth := &netlink.Veth{
+			LinkAttrs: linkAttrs,
+			PeerName:  "tmp54321",
+		}
+
+		err := netlink.LinkAdd(veth)
+		assert.NoError(t, err)
+
+		_, err = netlink.LinkByName(linkAttrs.Name)
+		assert.NoError(t, err)
+
+		// Check that stale iface is removed
+		err = clearCiliumVeths()
+		assert.NoError(t, err)
+
+		_, err = netlink.LinkByName(linkAttrs.Name)
+		assert.Error(t, err)
+
+		return nil
+	})
+}
