@@ -807,6 +807,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true
+	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
 	s.testNodeChurnXFRMLeaksWithConfig(t, config)
 }
 
@@ -836,6 +837,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksSubnetMode(t *testi
 	require.NoError(t, err)
 	require.NotNil(t, ipv6PodSubnets)
 	config.IPv6PodSubnets = []*cidr.CIDR{ipv6PodSubnets}
+	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
 	s.testNodeChurnXFRMLeaksWithConfig(t, config)
 }
 
