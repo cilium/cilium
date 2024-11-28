@@ -11,8 +11,6 @@ var (
 )
 
 func GetBootID() string {
-	logOnce.Do(func() {
-		log.Infof("Local boot ID is %q", localBootID)
-	})
+	logOnce.Do(initLocalBootID)
 	return localBootID
 }

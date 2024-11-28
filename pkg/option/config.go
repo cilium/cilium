@@ -776,6 +776,11 @@ const (
 	// This feature will encrypt overlay traffic before it leaves the cluster.
 	EnableIPSecEncryptedOverlay = "enable-ipsec-encrypted-overlay"
 
+	// BootIDFilename is a hidden flag that allows users to specify a
+	// filename other than /proc/sys/kernel/random/boot_id. This can be
+	// useful for testing purposes in local containerized cluster.
+	BootIDFilename = "boot-id-file"
+
 	// EnableWireguard is the name of the option to enable WireGuard
 	EnableWireguard = "enable-wireguard"
 
@@ -1572,6 +1577,9 @@ type DaemonConfig struct {
 
 	// EnableIPSecEncryptedOverlay enables IPSec encryption for overlay traffic.
 	EnableIPSecEncryptedOverlay bool
+
+	// BootIDFile is the file containing the boot ID of the node
+	BootIDFile string
 
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
@@ -2967,6 +2975,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
 	c.LBSourceRangeAllTypes = vp.GetBool(LBSourceRangeAllTypes)
+	c.BootIDFile = vp.GetString(BootIDFilename)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
