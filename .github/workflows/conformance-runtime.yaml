@@ -198,7 +198,6 @@ jobs:
           # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) L3-dependent L7/HTTP with toFQDN updates proxy policy
           # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) Policy addition after DNS lookup
           # RuntimeAgentFQDNPolicies Validate dns-proxy monitor information
-          # RuntimeAgentKVStoreTest KVStore tests Etcd KVStore
           # RuntimeAgentPolicies Init Policy Default Drop Test tests egress
           # RuntimeAgentPolicies Init Policy Default Drop Test tests ingress
           # RuntimeAgentPolicies Init Policy Default Drop Test With PolicyAuditMode tests egress
