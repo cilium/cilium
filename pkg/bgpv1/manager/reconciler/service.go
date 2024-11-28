@@ -93,18 +93,13 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 		return fmt.Errorf("attempted service reconciliation with nil local CiliumNode")
 	}
 
-	ls, err := r.populateLocalServices(p.CiliumNode.Name)
-	if err != nil {
-		return err
-	}
-
 	// compute existing path to resource references
 	pathRefs := r.computePathReferences(r.getMetadata(p.CurrentServer))
 
 	if r.requiresFullReconciliation(p) {
-		return r.fullReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls, pathRefs)
+		return r.fullReconciliation(ctx, p, pathRefs)
 	}
-	return r.svcDiffReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls, pathRefs)
+	return r.svcDiffReconciliation(ctx, p, pathRefs)
 }
 
 func (r *ServiceReconciler) getMetadata(sc *instance.ServerWithConfig) LBServiceReconcilerMetadata {
@@ -183,18 +178,22 @@ func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
 
 // fullReconciliation reconciles all services, this is a heavy operation due to the potential amount of services and
 // thus should be avoided if partial reconciliation is an option.
-func (r *ServiceReconciler) fullReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices, pathRefs pathReferencesMap) error {
-	toReconcile, toWithdraw, err := r.fullReconciliationServiceList(sc)
+func (r *ServiceReconciler) fullReconciliation(ctx context.Context, p ReconcileParams, pathRefs pathReferencesMap) error {
+	toReconcile, toWithdraw, err := r.fullReconciliationServiceList(p.CurrentServer)
+	if err != nil {
+		return err
+	}
+	ls, err := r.populateLocalServices(p.CiliumNode.Name)
 	if err != nil {
 		return err
 	}
 	for _, svc := range toReconcile {
-		if err := r.reconcileService(ctx, sc, newc, svc, ls, pathRefs); err != nil {
+		if err := r.reconcileService(ctx, p.CurrentServer, p.DesiredConfig, svc, ls, pathRefs); err != nil {
 			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
 	}
 	for _, svc := range toWithdraw {
-		if err := r.withdrawService(ctx, sc, svc, pathRefs); err != nil {
+		if err := r.withdrawService(ctx, p.CurrentServer, svc, pathRefs); err != nil {
 			return fmt.Errorf("failed to withdraw service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
 	}
@@ -203,19 +202,23 @@ func (r *ServiceReconciler) fullReconciliation(ctx context.Context, sc *instance
 
 // svcDiffReconciliation performs reconciliation, only on services which have been created, updated or deleted since
 // the last diff reconciliation.
-func (r *ServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices, pathRefs pathReferencesMap) error {
-	toReconcile, toWithdraw, err := r.diffReconciliationServiceList(sc)
+func (r *ServiceReconciler) svcDiffReconciliation(ctx context.Context, p ReconcileParams, pathRefs pathReferencesMap) error {
+	toReconcile, toWithdraw, err := r.diffReconciliationServiceList(p.CurrentServer)
+	if err != nil {
+		return err
+	}
+	ls, err := r.populateLocalServices(p.CiliumNode.Name)
 	if err != nil {
 		return err
 	}
 	for _, svc := range toReconcile {
-		if err := r.reconcileService(ctx, sc, newc, svc, ls, pathRefs); err != nil {
+		if err := r.reconcileService(ctx, p.CurrentServer, p.DesiredConfig, svc, ls, pathRefs); err != nil {
 			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
 	}
 	// Loop over the deleted services
 	for _, svcKey := range toWithdraw {
-		if err := r.withdrawService(ctx, sc, svcKey, pathRefs); err != nil {
+		if err := r.withdrawService(ctx, p.CurrentServer, svcKey, pathRefs); err != nil {
 			return fmt.Errorf("failed to withdraw service %s: %w", svcKey, err)
 		}
 	}
