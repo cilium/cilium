@@ -540,7 +540,7 @@ jobs:
           kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
           kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
 
-      - name: Enable kvstoremesh on cluster1
+      - name: Disable kvstoremesh on cluster1
         if: ${{ !matrix.external-kvstore }}
         env:
           KVSTORE_ID: 1
@@ -549,7 +549,7 @@ jobs:
             ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
-            --set clustermesh.apiserver.kvstoremesh.enabled=true
+            --set clustermesh.apiserver.kvstoremesh.enabled=false
 
       - name: Wait for cluster mesh status to be ready
         if: ${{ !matrix.external-kvstore }}
@@ -700,7 +700,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - stress-test"
 
 
-      - name: Downgrade Cilium in cluster1 and disable kvstoremesh
+      - name: Downgrade Cilium in cluster1 and enable kvstoremesh again
         env:
           KVSTORE_ID: 1
         run: |
