@@ -12,7 +12,7 @@
 # https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
 ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:63ebe035fbdd056ed682e6a87b286d07d3f05f12cb46f26b2b44fc10fc4a59ed
 ARG GOLANG_IMAGE=docker.io/library/golang:1.22.9@sha256:147f428a24c6b80b8afbdaec7f245b9e7ac342601e3aeaffb321a103b7c6b3f4
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:cfb61ff4384b7f2cc9634dbe703349a482c3cce4@sha256:d518f24a704869f1090c7abac3266425e1e7a122d823fe27f875ac25c8e6f884
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:9e00d40c5ccb7e388f9ed78af90417b26c8e4e06@sha256:835686cdf592f23c3378520624c6bf73421f75177d27f3a85ac047e9a54989a5
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
