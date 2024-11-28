@@ -493,7 +493,6 @@ jobs:
         run: |
           NAMESPACE=$(kubectl get namespace -l "app.kubernetes.io/name=cilium-cli" -o name | sort | cut -d / -f 2 | head -1)
           echo namespace="$NAMESPACE" >> $GITHUB_OUTPUT
-          ${{ steps.cilium-cli.outputs.namespace }}
 
       - name: Write the Service manifest for testing failover
         if: ${{ !matrix.external-kvstore }}
