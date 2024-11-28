@@ -662,7 +662,6 @@ Makefile* @cilium/build
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
-/test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /tools/dpgen @cilium/loader
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
