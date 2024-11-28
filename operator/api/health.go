@@ -6,6 +6,7 @@ package api
 import (
 	"errors"
 	"log/slog"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
@@ -57,6 +58,7 @@ type healthHandler struct {
 	kvstoreEnabled    kvstoreEnabledFunc
 	discovery         discovery.DiscoveryInterface
 	log               *slog.Logger
+	consecutiveErrors atomic.Uint64
 }
 
 func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Responder {
@@ -65,8 +67,17 @@ func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Resp
 	}
 
 	if err := h.checkStatus(); err != nil {
-		h.log.Warn("Health check status", logfields.Error, err)
+		if h.consecutiveErrors.Add(1) <= 3 {
+			h.log.Info("Health check failed", logfields.Error, err)
+		} else {
+			h.log.Warn("Health check failed", logfields.Error, err)
+		}
+
 		return operator.NewGetHealthzInternalServerError().WithPayload(err.Error())
+	}
+
+	if h.consecutiveErrors.Swap(0) > 0 {
+		h.log.Info("Health check succeeded after failures")
 	}
 
 	return operator.NewGetHealthzOK().WithPayload("ok")
