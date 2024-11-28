@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
+//go:build linux
+
 package node
 
 import (
 	"os"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/option"
 )
 
-var bootIDFilePath = "/proc/sys/kernel/random/boot_id"
-
-func init() {
-	bootID, err := os.ReadFile(bootIDFilePath)
+func initLocalBootID() {
+	bootID, err := os.ReadFile(option.Config.BootIDFile)
 	if err != nil {
-		log.WithError(err).Warnf("Could not read boot id from %s", bootIDFilePath)
+		log.WithError(err).Warnf("Could not read boot id from %s", option.Config.BootIDFile)
 		return
 	}
 	localBootID = strings.TrimSpace(string(bootID))
+	log.Infof("Local boot ID is %q", localBootID)
 }
