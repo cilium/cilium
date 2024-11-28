@@ -164,7 +164,7 @@ func (r *reconciler) reconcileCID(cidResourceKey resource.Key) error {
 	}
 
 	storeCIDKey := key.GetCIDKeyFromLabels(storeCID.SecurityLabels, "")
-	if cidKey.Equals(storeCIDKey.LabelArray) {
+	if cidKey.Equal(storeCIDKey.Labels) {
 		return nil
 	}
 
@@ -219,7 +219,7 @@ func (r *reconciler) upsertDesiredState(cidName string, cidKey *key.GlobalIdenti
 	}
 
 	cachedCIDKey, exists := r.desiredCIDState.LookupByID(cidName)
-	if exists && cidKey.Equals(cachedCIDKey.LabelArray) {
+	if exists && cidKey.Equal(cachedCIDKey.Labels) {
 		return nil
 	}
 

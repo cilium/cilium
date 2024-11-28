@@ -381,10 +381,7 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 		}
 	}
 
-	var namespace string
-	if l, ok := id.Labels[k8sConst.PodNamespaceLabel]; ok {
-		namespace = l.Value()
-	}
+	namespace := id.Labels.GetValue(k8sConst.PodNamespaceLabel)
 
 	var localCEP *ciliumv2.CiliumEndpoint
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {

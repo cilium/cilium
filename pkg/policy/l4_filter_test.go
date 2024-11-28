@@ -26,7 +26,7 @@ import (
 
 var (
 	hostSelector = api.ReservedEndpointSelectors[labels.IDNameHost]
-	toFoo        = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+	toFoo        = &SearchContext{To: labels.NewSelectLabelsFromModel("foo")}
 
 	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 	fooSelector            = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
@@ -64,17 +64,17 @@ func newTestData() *testData {
 	td.testPolicyContext.sc = td.sc
 	td.repo.selectorCache = td.sc
 
-	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
+	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, labels.Empty, api.WildcardEndpointSelector)
 
-	td.cachedSelectorA, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorA)
-	td.cachedSelectorC, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorC)
-	td.cachedSelectorHost, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, hostSelector)
+	td.cachedSelectorA, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, labels.Empty, endpointSelectorA)
+	td.cachedSelectorC, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, labels.Empty, endpointSelectorC)
+	td.cachedSelectorHost, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, labels.Empty, hostSelector)
 
-	td.cachedFooSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, fooSelector)
-	td.cachedBazSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, bazSelector)
+	td.cachedFooSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, labels.Empty, fooSelector)
+	td.cachedBazSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, labels.Empty, bazSelector)
 
-	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar1)
-	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar2)
+	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, labels.Empty, selBar1)
+	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, labels.Empty, selBar2)
 
 	return td
 }
@@ -91,7 +91,7 @@ func (td *testData) addIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(
 		identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}, nil, wg)
 	wg.Wait()
 }
@@ -331,7 +331,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	}})
 
 	require.EqualValues(t, expected, res)
@@ -452,7 +452,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	}})
 
 	buffer := new(bytes.Buffer)
@@ -540,7 +540,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	}})
 
 	state := traceState{}
@@ -813,7 +813,7 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 	}
 
 	buffer := new(bytes.Buffer)
-	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo := SearchContext{From: labels.NewSelectLabelsFromModel("foo"), Trace: TRACE_VERBOSE}
 	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
@@ -856,9 +856,9 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -913,7 +913,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 	}
 
 	buffer := new(bytes.Buffer)
-	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo := SearchContext{From: labels.NewSelectLabelsFromModel("foo"), Trace: TRACE_VERBOSE}
 	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
@@ -958,9 +958,9 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -1030,7 +1030,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 	}
 
 	buffer := new(bytes.Buffer)
-	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo := SearchContext{From: labels.NewSelectLabelsFromModel("foo"), Trace: TRACE_VERBOSE}
 	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
@@ -1076,9 +1076,9 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -1132,7 +1132,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	}
 
 	buffer := new(bytes.Buffer)
-	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo := SearchContext{From: labels.NewSelectLabelsFromModel("foo"), Trace: TRACE_VERBOSE}
 	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
@@ -1184,7 +1184,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	}
 
 	buffer = new(bytes.Buffer)
-	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo = SearchContext{From: labels.NewSelectLabelsFromModel("foo"), Trace: TRACE_VERBOSE}
 	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
@@ -1214,9 +1214,9 @@ func TestMergeListenerPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -1265,7 +1265,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	}
 
 	buffer = new(bytes.Buffer)
-	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo = SearchContext{From: labels.NewSelectLabelsFromModel("foo"), Trace: TRACE_VERBOSE}
 	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
@@ -1296,9 +1296,9 @@ func TestMergeListenerPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -1348,7 +1348,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 	}
 
 	buffer = new(bytes.Buffer)
-	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
+	ctxFromFoo = SearchContext{From: labels.NewSelectLabelsFromModel("foo"), Trace: TRACE_VERBOSE}
 	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
 	t.Log(buffer)
 
@@ -1379,9 +1379,9 @@ func TestMergeListenerPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -1442,9 +1442,9 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -1510,9 +1510,9 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 			td.cachedSelectorA:        nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -1597,9 +1597,9 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -1677,9 +1677,9 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.wildcardCachedSelector: {nil},
-			td.cachedSelectorA:        {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.wildcardCachedSelector: {labels.Empty},
+			td.cachedSelectorA:        {labels.Empty},
 		},
 	}})
 
@@ -1775,9 +1775,9 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -1865,9 +1865,9 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -2076,9 +2076,9 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -2152,9 +2152,9 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 			td.cachedSelectorC: nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -2238,7 +2238,7 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 			td.cachedSelectorHost: nil, // no proxy redirect
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	}})
 
 	state := traceState{}
@@ -2296,7 +2296,7 @@ func TestEntitiesL3(t *testing.T) {
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress:    false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	}})
 
 	state := traceState{}

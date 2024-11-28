@@ -408,12 +408,12 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 		return found, nil
 	}
 
-	if ctx.From != nil && len(fromEndpoints) > 0 {
+	if !ctx.From.IsEmpty() && len(fromEndpoints) > 0 {
 		if ctx.TraceEnabled() {
 			traceL3(ctx, fromEndpoints, "from", policyCtx.IsDeny())
 		}
 		if !fromEndpoints.Matches(ctx.From) {
-			ctx.PolicyTrace("      No label match for %s", ctx.From)
+			ctx.PolicyTrace("      No label match for [%s]", ctx.From)
 			return 0, nil
 		}
 		ctx.PolicyTrace("      Found all required labels")
@@ -627,7 +627,7 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 	// Fall back to explicit label matching for the local node
 	// because local node has mutable labels, which are applied asynchronously to the SelectorCache.
 	if r.subjectSelector == nil || ruleSelectsNode {
-		return r.getSelector().Matches(securityIdentity.LabelArray)
+		return r.getSelector().Matches(securityIdentity.Labels)
 	}
 
 	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)
@@ -643,12 +643,12 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 		return found, nil
 	}
 
-	if ctx.To != nil && len(toEndpoints) > 0 {
+	if !ctx.To.IsEmpty() && len(toEndpoints) > 0 {
 		if ctx.TraceEnabled() {
 			traceL3(ctx, toEndpoints, "to", policyCtx.IsDeny())
 		}
 		if !toEndpoints.Matches(ctx.To) {
-			ctx.PolicyTrace("      No label match for %s", ctx.To)
+			ctx.PolicyTrace("      No label match for [%s]", ctx.To)
 			return 0, nil
 		}
 		ctx.PolicyTrace("      Found all required labels")

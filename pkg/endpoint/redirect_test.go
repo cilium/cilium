@@ -215,7 +215,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	ep := NewTestEndpointWithState(s.do, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), 12345, StateRegenerating)
 	ep.SetPropertyValue(PropertyFakeEndpoint, false)
 
-	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
+	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar, true, identityBar)
 	require.NoError(t, err)
 	ep.SetIdentity(epIdentity, true)
 
@@ -236,14 +236,14 @@ func (s *RedirectSuite) TearDownTest(t *testing.T) {
 var (
 	// Identity, labels, selectors for an endpoint named "foo"
 	identityFoo = identity.NumericIdentity(100)
-	labelsFoo   = labels.ParseSelectLabelArray("foo", "red")
+	labelsFoo   = labels.NewSelectLabelsFromModel("foo", "red")
 	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	selectRed_  = api.NewESFromLabels(labels.ParseSelectLabel("red"))
 	denyFooL3__ = selectFoo_
 
 	identityBar = identity.NumericIdentity(200)
 
-	labelsBar  = labels.ParseSelectLabelArray("bar", "blue")
+	labelsBar  = labels.NewSelectLabelsFromModel("bar", "blue")
 	selectBar_ = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 
 	denyAllL4_ []api.PortDenyRule
@@ -276,9 +276,10 @@ var (
 			ToPorts:           combineL4L7(allowPort80, allowHTTPRoot),
 		}})
 
-	AllowAnyEgressLabels = labels.Labels{labels.NewLabel(policy.LabelKeyPolicyDerivedFrom,
-		policy.LabelAllowAnyEgress,
-		labels.LabelSourceReserved)}
+	AllowAnyEgressLabels = labels.NewLabels(
+		labels.NewLabel(policy.LabelKeyPolicyDerivedFrom,
+			policy.LabelAllowAnyEgress,
+			labels.LabelSourceReserved))
 
 	mapKeyAllL7     = policy.IngressKey().WithTCPPort(80)
 	mapKeyFoo       = policy.IngressKey().WithIdentity(identityFoo)
@@ -314,29 +315,29 @@ func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint, cmp *co
 	s.datapathRegenCtxt.finalizeList.Finalize()
 }
 
-type LabelArrayListMap map[policy.Key]labels.LabelArrayList
+type LabelsListMap map[policy.Key]labels.LabelsList
 
-func (obtained LabelArrayListMap) Equals(expected LabelArrayListMap) bool {
+func (obtained LabelsListMap) Equals(expected LabelsListMap) bool {
 	if len(obtained) != len(expected) {
 		return false
 	}
 	for kO, vO := range obtained {
-		if vE, ok := expected[kO]; !ok || !vO.Equals(vE) {
+		if vE, ok := expected[kO]; !ok || !vO.Equal(vE) {
 			return false
 		}
 	}
 	return true
 }
 
-func (e *Endpoint) GetDesiredPolicyRuleLabels() LabelArrayListMap {
-	desiredLabels := make(LabelArrayListMap)
+func (e *Endpoint) GetDesiredPolicyRuleLabels() LabelsListMap {
+	desiredLabels := make(LabelsListMap)
 	for k := range e.desiredPolicy.Entries() {
 		desiredLabels[k], _ = e.desiredPolicy.GetRuleLabels(k)
 	}
 	return desiredLabels
 }
 
-func (e *Endpoint) ValidateRuleLabels(t *testing.T, expectedLabels LabelArrayListMap) {
+func (e *Endpoint) ValidateRuleLabels(t *testing.T, expectedLabels LabelsListMap) {
 	t.Helper()
 
 	desiredLabels := e.GetDesiredPolicyRuleLabels()
@@ -350,11 +351,11 @@ func (e *Endpoint) ValidateRuleLabels(t *testing.T, expectedLabels LabelArrayLis
 // Diff returns the string of differences between 'obtained' and 'expected' prefixed with
 // '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
 // For use in debugging.
-func (obtained LabelArrayListMap) Diff(expected LabelArrayListMap) (res string) {
+func (obtained LabelsListMap) Diff(expected LabelsListMap) (res string) {
 	res += "Missing (-), Unexpected (+), Different (!):\n"
 	for kE, vE := range expected {
 		if vO, ok := obtained[kE]; ok {
-			if !vO.Equals(vE) {
+			if !vO.Equal(vE) {
 				res += "! " + kE.String() + ": " + vO.Diff(vE) + "\n"
 			}
 		} else {
@@ -401,9 +402,9 @@ func TestRedirectWithDeny(t *testing.T) {
 	}
 
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
-		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
-		mapKeyAllL7:     labels.LabelArrayList{lblsL4L7Allow},
-		mapKeyFoo:       labels.LabelArrayList{lblsL3DenyFoo},
+		mapKeyAllowAllE: labels.LabelsList{AllowAnyEgressLabels},
+		mapKeyAllL7:     labels.LabelsList{lblsL4L7Allow},
+		mapKeyFoo:       labels.LabelsList{lblsL3DenyFoo},
 	})
 
 	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
@@ -531,9 +532,9 @@ func TestRedirectWithPriority(t *testing.T) {
 		mapKeyAllL7:     {},
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
-		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
-		mapKeyFooL7:     labels.LabelArrayList{lblsL4AllowListener1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
-		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80},                                     // lblsL4AllowListener1, lblsL4L7AllowListener2Priority1
+		mapKeyAllowAllE: labels.LabelsList{AllowAnyEgressLabels},
+		mapKeyFooL7:     labels.LabelsList{lblsL4AllowListener1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
+		mapKeyAllL7:     labels.LabelsList{lblsL4AllowPort80},                                     // lblsL4AllowListener1, lblsL4L7AllowListener2Priority1
 	})
 	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
@@ -586,9 +587,9 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		mapKeyAllL7:     {},
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
-		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
-		mapKeyFooL7:     labels.LabelArrayList{lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
-		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80},                                                // lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1
+		mapKeyAllowAllE: labels.LabelsList{AllowAnyEgressLabels},
+		mapKeyFooL7:     labels.LabelsList{lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
+		mapKeyAllL7:     labels.LabelsList{lblsL4AllowPort80},                                                // lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1
 	})
 	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",

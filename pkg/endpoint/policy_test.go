@@ -55,11 +55,11 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
 		t.Helper()
-		lbls := labels.Empty
+		lbls := []labels.Label{}
 		for _, labelKey := range labelKeys {
-			lbls[labelKey] = labels.NewLabel("k8s:"+labelKey, "", "")
+			lbls = append(lbls, labels.NewLabel("k8s:"+labelKey, "", ""))
 		}
-		id, _, err := fakeAllocator.AllocateIdentity(context.Background(), lbls, false, 0)
+		id, _, err := fakeAllocator.AllocateIdentity(context.Background(), labels.NewLabels(lbls...), false, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -67,7 +67,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 		wg := &sync.WaitGroup{}
 		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}, nil, wg)
 		wg.Wait()
 		return id
@@ -106,9 +106,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 				},
 			},
 		},
-		Labels: labels.Labels{
+		Labels: labels.NewLabels(
 			labels.NewLabel(k8sConst.PolicyLabelName, "egressDenyRule", labels.LabelSourceAny),
-		},
+		),
 	}
 
 	repo.MustAddList(api.Rules{egressDenyRule})

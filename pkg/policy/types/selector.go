@@ -23,7 +23,7 @@ type CachedSelector interface {
 	// GetMetadataLabels returns metadata labels for additional context
 	// surrounding the selector. These are typically the labels associated with
 	// Cilium rules.
-	GetMetadataLabels() labels.LabelArray
+	GetMetadataLabels() labels.Labels
 
 	// Selects return 'true' if the CachedSelector selects the given
 	// numeric identity.

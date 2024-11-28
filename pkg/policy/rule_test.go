@@ -24,10 +24,10 @@ import (
 func TestL4Policy(t *testing.T) {
 	td := newTestData()
 
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
-	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
-	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
+	toBar := &SearchContext{To: labels.NewSelectLabelsFromModel("bar")}
+	fromBar := &SearchContext{From: labels.NewSelectLabelsFromModel("bar")}
+	toFoo := &SearchContext{To: labels.NewSelectLabelsFromModel("foo")}
+	fromFoo := &SearchContext{From: labels.NewSelectLabelsFromModel("foo")}
 
 	rule1 := &rule{
 		Rule: api.Rule{
@@ -74,13 +74,13 @@ func TestL4Policy(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 	expected.Ingress.PortRules.Upsert("8080", 0, "TCP", &L4Filter{
 		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 
 	expected.Egress.PortRules.Upsert("3000", 0, "TCP", &L4Filter{
@@ -89,7 +89,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "UDP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
@@ -97,7 +97,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "SCTP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
@@ -105,7 +105,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 
 	ingressState := traceState{}
@@ -202,7 +202,7 @@ func TestL4Policy(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "TCP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
@@ -210,7 +210,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "UDP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
@@ -218,7 +218,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "SCTP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
@@ -226,7 +226,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 
 	ingressState = traceState{}
@@ -234,7 +234,7 @@ func TestL4Policy(t *testing.T) {
 	res = NewL4Policy(0)
 
 	buffer := new(bytes.Buffer)
-	ctx := SearchContext{To: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
+	ctx := SearchContext{To: labels.NewSelectLabelsFromModel("bar"), Trace: TRACE_VERBOSE}
 	ctx.Logging = stdlog.New(buffer, "", 0)
 
 	res.Ingress.PortRules, err = rule2.resolveIngressPolicy(td.testPolicyContext, &ctx, &ingressState, NewL4PolicyMap(), nil, nil)
@@ -277,8 +277,8 @@ func TestL4Policy(t *testing.T) {
 
 func TestMergeL4PolicyIngress(t *testing.T) {
 	td := newTestData()
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	//toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+	toBar := &SearchContext{To: labels.NewSelectLabelsFromModel("bar")}
+	//toFoo := &SearchContext{To: labels.NewSelectLabelsFromModel("foo")}
 
 	rule1 := &rule{
 		Rule: api.Rule{
@@ -315,9 +315,9 @@ func TestMergeL4PolicyIngress(t *testing.T) {
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, PerSelectorPolicies: mergedES, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedFooSelector: {nil},
-			td.cachedBazSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedFooSelector: {labels.Empty},
+			td.cachedBazSelector: {labels.Empty},
 		},
 	}})
 
@@ -337,7 +337,7 @@ func TestMergeL4PolicyEgress(t *testing.T) {
 
 	buffer := new(bytes.Buffer)
 	fromBar := &SearchContext{
-		From:    labels.ParseSelectLabelArray("bar"),
+		From:    labels.NewSelectLabelsFromModel("bar"),
 		Logging: stdlog.New(buffer, "", 0),
 		Trace:   TRACE_VERBOSE,
 	}
@@ -378,9 +378,9 @@ func TestMergeL4PolicyEgress(t *testing.T) {
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, PerSelectorPolicies: mergedES, Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedFooSelector: {nil},
-			td.cachedBazSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedFooSelector: {labels.Empty},
+			td.cachedBazSelector: {labels.Empty},
 		},
 	}})
 
@@ -400,8 +400,8 @@ func TestMergeL4PolicyEgress(t *testing.T) {
 
 func TestMergeL7PolicyIngress(t *testing.T) {
 	td := newTestData()
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+	toBar := &SearchContext{To: labels.NewSelectLabelsFromModel("bar")}
+	toFoo := &SearchContext{To: labels.NewSelectLabelsFromModel("foo")}
 
 	fooSelectorSlice := []api.EndpointSelector{
 		fooSelector,
@@ -470,9 +470,9 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedFooSelector:      {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedFooSelector:      {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -546,9 +546,9 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedFooSelector:      {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedFooSelector:      {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -643,9 +643,9 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedFooSelector:      {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedFooSelector:      {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -662,8 +662,8 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 
 func TestMergeL7PolicyEgress(t *testing.T) {
 	td := newTestData()
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
-	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
+	fromBar := &SearchContext{From: labels.NewSelectLabelsFromModel("bar")}
+	fromFoo := &SearchContext{From: labels.NewSelectLabelsFromModel("foo")}
 
 	fooSelector := []api.EndpointSelector{
 		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
@@ -731,9 +731,9 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.wildcardCachedSelector: {nil},
-			td.cachedFooSelector:      {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.wildcardCachedSelector: {labels.Empty},
+			td.cachedFooSelector:      {labels.Empty},
 		},
 	}})
 
@@ -816,9 +816,9 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedFooSelector:      {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedFooSelector:      {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -904,9 +904,9 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedFooSelector:      {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedFooSelector:      {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -1081,8 +1081,8 @@ func TestL3Policy(t *testing.T) {
 func TestICMPPolicy(t *testing.T) {
 	td := newTestData()
 	var err error
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
+	toBar := &SearchContext{To: labels.NewSelectLabelsFromModel("bar")}
+	fromBar := &SearchContext{From: labels.NewSelectLabelsFromModel("bar")}
 
 	// A rule for ICMP
 	icmpV4Type := intstr.FromInt(8)
@@ -1120,7 +1120,7 @@ func TestICMPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 	expected.Egress.PortRules.Upsert("8", 0, "ICMP", &L4Filter{
 		Port:     8,
@@ -1131,7 +1131,7 @@ func TestICMPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 
 	ingressState := traceState{}
@@ -1187,7 +1187,7 @@ func TestICMPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 	expected.Ingress.PortRules.Upsert("8", 0, "ICMP", &L4Filter{
 		Port:     8,
@@ -1198,7 +1198,7 @@ func TestICMPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 
 	ingressState = traceState{}
@@ -1243,7 +1243,7 @@ func TestICMPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	})
 
 	ingressState = traceState{}
@@ -1407,10 +1407,10 @@ func TestL3RuleLabels(t *testing.T) {
 	}
 
 	testCases := []struct {
-		description           string                           // the description to print in asserts
-		rulesToApply          []string                         // the rules from the rules map to resolve, in order
-		expectedIngressLabels map[string]labels.LabelArrayList // the slice of LabelArray we should see, per CIDR prefix
-		expectedEgressLabels  map[string]labels.LabelArrayList // the slice of LabelArray we should see, per CIDR prefix
+		description           string                       // the description to print in asserts
+		rulesToApply          []string                     // the rules from the rules map to resolve, in order
+		expectedIngressLabels map[string]labels.LabelsList // the slice of LabelArray we should see, per CIDR prefix
+		expectedEgressLabels  map[string]labels.LabelsList // the slice of LabelArray we should see, per CIDR prefix
 
 	}{
 		{
@@ -1421,22 +1421,22 @@ func TestL3RuleLabels(t *testing.T) {
 		}, {
 			description:           "A rule that matches. Should apply labels",
 			rulesToApply:          []string{"rule1"},
-			expectedIngressLabels: map[string]labels.LabelArrayList{"10.0.1.0/32": {ruleLabels["rule1"]}},
-			expectedEgressLabels:  map[string]labels.LabelArrayList{"10.1.0.0/32": {ruleLabels["rule1"]}},
+			expectedIngressLabels: map[string]labels.LabelsList{"10.0.1.0/32": {ruleLabels["rule1"]}},
+			expectedEgressLabels:  map[string]labels.LabelsList{"10.1.0.0/32": {ruleLabels["rule1"]}},
 		}, {
 			description:  "Multiple matching rules. Should apply labels from all that have rule entries",
 			rulesToApply: []string{"rule0", "rule1", "rule2"},
-			expectedIngressLabels: map[string]labels.LabelArrayList{
+			expectedIngressLabels: map[string]labels.LabelsList{
 				"10.0.1.0/32": {ruleLabels["rule1"]},
 				"10.0.2.0/32": {ruleLabels["rule2"]}},
-			expectedEgressLabels: map[string]labels.LabelArrayList{
+			expectedEgressLabels: map[string]labels.LabelsList{
 				"10.1.0.0/32": {ruleLabels["rule1"]},
 				"10.2.0.0/32": {ruleLabels["rule2"]}},
 		}}
 
 	// endpoint selector for all tests
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
+	toBar := &SearchContext{To: labels.NewSelectLabelsFromModel("bar"), Trace: TRACE_VERBOSE}
+	fromBar := &SearchContext{From: labels.NewSelectLabelsFromModel("bar"), Trace: TRACE_VERBOSE}
 
 	for _, test := range testCases {
 		finalPolicy := NewL4Policy(0)
@@ -1455,7 +1455,7 @@ func TestL3RuleLabels(t *testing.T) {
 		// For debugging the test:
 		//require.EqualValues(t, NewL4PolicyMap(), finalPolicy.Ingress)
 
-		type expectedResult map[string]labels.LabelArrayList
+		type expectedResult map[string]labels.LabelsList
 		mapDirectionalResultsToExpectedOutput := map[*L4Filter]expectedResult{
 			finalPolicy.Ingress.PortRules.ExactLookup("0", 0, "ANY"): test.expectedIngressLabels,
 			finalPolicy.Egress.PortRules.ExactLookup("0", 0, "ANY"):  test.expectedEgressLabels,
@@ -1465,7 +1465,7 @@ func TestL3RuleLabels(t *testing.T) {
 				for cidr, rule := range exp {
 					matches := false
 					for _, origin := range filter.RuleOrigin {
-						if origin.Equals(rule) {
+						if origin.Equal(rule) {
 							matches = true
 							break
 						}
@@ -1542,37 +1542,37 @@ func TestL4RuleLabels(t *testing.T) {
 	}
 
 	testCases := []struct {
-		description           string                           // the description to print in asserts
-		rulesToApply          []string                         // the rules from the rules map to resolve, in order
-		expectedIngressLabels map[string]labels.LabelArrayList // the slice of LabelArray we should see, in order
-		expectedEgressLabels  map[string]labels.LabelArrayList // the slice of LabelArray we should see, in order
+		description           string                       // the description to print in asserts
+		rulesToApply          []string                     // the rules from the rules map to resolve, in order
+		expectedIngressLabels map[string]labels.LabelsList // the slice of LabelArray we should see, in order
+		expectedEgressLabels  map[string]labels.LabelsList // the slice of LabelArray we should see, in order
 
 	}{
 		{
 			description:           "Empty rule that matches. Should not apply labels",
 			rulesToApply:          []string{"rule0"},
-			expectedIngressLabels: map[string]labels.LabelArrayList{},
-			expectedEgressLabels:  map[string]labels.LabelArrayList{},
+			expectedIngressLabels: map[string]labels.LabelsList{},
+			expectedEgressLabels:  map[string]labels.LabelsList{},
 		},
 		{
 			description:           "A rule that matches. Should apply labels",
 			rulesToApply:          []string{"rule1"},
-			expectedIngressLabels: map[string]labels.LabelArrayList{"1010/TCP": {ruleLabels["rule1"]}},
-			expectedEgressLabels:  map[string]labels.LabelArrayList{"1100/TCP": {ruleLabels["rule1"]}},
+			expectedIngressLabels: map[string]labels.LabelsList{"1010/TCP": {ruleLabels["rule1"]}},
+			expectedEgressLabels:  map[string]labels.LabelsList{"1100/TCP": {ruleLabels["rule1"]}},
 		}, {
 			description:  "Multiple matching rules. Should apply labels from all that have rule entries",
 			rulesToApply: []string{"rule0", "rule1", "rule2"},
-			expectedIngressLabels: map[string]labels.LabelArrayList{
+			expectedIngressLabels: map[string]labels.LabelsList{
 				"1010/TCP": {ruleLabels["rule1"]},
 				"1020/TCP": {ruleLabels["rule2"]}},
-			expectedEgressLabels: map[string]labels.LabelArrayList{
+			expectedEgressLabels: map[string]labels.LabelsList{
 				"1100/TCP": {ruleLabels["rule1"]},
 				"1200/TCP": {ruleLabels["rule2"]}},
 		}}
 
 	// endpoint selector for all tests
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
+	toBar := &SearchContext{To: labels.NewSelectLabelsFromModel("bar")}
+	fromBar := &SearchContext{From: labels.NewSelectLabelsFromModel("bar")}
 
 	for _, test := range testCases {
 		finalPolicy := NewL4Policy(0)
@@ -1610,20 +1610,20 @@ func TestL4RuleLabels(t *testing.T) {
 }
 
 var (
-	labelsA = labels.Labels{
+	labelsA = labels.NewLabels(
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
-	}
+	)
 
 	endpointSelectorA = api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
 
-	labelsB = labels.Labels{
+	labelsB = labels.NewLabels(
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
 		labels.NewLabel("id2", "t", labels.LabelSourceK8s),
-	}
+	)
 
-	labelsC = labels.Labels{
+	labelsC = labels.NewLabels(
 		labels.NewLabel("id", "t", labels.LabelSourceK8s),
-	}
+	)
 
 	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=t"))
 
@@ -1949,7 +1949,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 		},
 	})
 
-	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	worldLabel := labels.NewSelectLabelsFromModel("reserved:world")
 	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
 	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(t, repo, &ctxAToWorld80, api.Allowed)
@@ -1959,7 +1959,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 	checkEgress(t, repo, &ctxAToWorld90, api.Denied)
 
 	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
-	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	fooLabel := labels.NewSelectLabelsFromModel("k8s:app=foo")
 	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
 		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
 	checkEgress(t, repo, &ctxAToFoo, api.Denied)
@@ -2006,7 +2006,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 		},
 	})
 
-	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	worldLabel := labels.NewSelectLabelsFromModel("reserved:world")
 	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
 	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(t, repo, &ctxAToWorld80, api.Allowed)
@@ -2016,7 +2016,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 	checkEgress(t, repo, &ctxAToWorld90, api.Denied)
 
 	// Pod to pod must be allowed on port 80, denied on port 90 (all identity)
-	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	fooLabel := labels.NewSelectLabelsFromModel("k8s:app=foo")
 	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
 		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
 	checkEgress(t, repo, &ctxAToFoo, api.Allowed)
@@ -2058,7 +2058,7 @@ func TestEgressL3AllowWorld(t *testing.T) {
 		},
 	})
 
-	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	worldLabel := labels.NewSelectLabelsFromModel("reserved:world")
 	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
 	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(t, repo, &ctxAToWorld80, api.Allowed)
@@ -2068,7 +2068,7 @@ func TestEgressL3AllowWorld(t *testing.T) {
 	checkEgress(t, repo, &ctxAToWorld90, api.Allowed)
 
 	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
-	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	fooLabel := labels.NewSelectLabelsFromModel("k8s:app=foo")
 	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
 		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
 	checkEgress(t, repo, &ctxAToFoo, api.Denied)
@@ -2097,7 +2097,7 @@ func TestEgressL3AllowAllEntity(t *testing.T) {
 		},
 	})
 
-	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	worldLabel := labels.NewSelectLabelsFromModel("reserved:world")
 	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
 	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(t, repo, &ctxAToWorld80, api.Allowed)
@@ -2107,7 +2107,7 @@ func TestEgressL3AllowAllEntity(t *testing.T) {
 	checkEgress(t, repo, &ctxAToWorld90, api.Allowed)
 
 	// Pod to pod must be allowed on both port 80 and 90 (L3 only rule)
-	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	fooLabel := labels.NewSelectLabelsFromModel("k8s:app=foo")
 	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
 		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
 	checkEgress(t, repo, &ctxAToFoo, api.Allowed)
@@ -2199,9 +2199,9 @@ func TestL4WildcardMerge(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorC:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorC:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}
 
@@ -2238,7 +2238,7 @@ func TestL4WildcardMerge(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorC: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.cachedSelectorC: {labels.Empty}},
 	}
 
 	filterL7 := l4IngressPolicy.ExactLookup("7000", 0, "TCP")
@@ -2525,9 +2525,9 @@ func TestL3L4L7Merge(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorC:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorC:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}, filter)
 
@@ -2592,9 +2592,9 @@ func TestL3L4L7Merge(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorC:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorC:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}, filter)
 
@@ -2722,8 +2722,8 @@ func BenchmarkRuleString(b *testing.B) {
 // also affected the rules for "baz".
 func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
 	td := newTestData()
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
-	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
+	fromBar := &SearchContext{From: labels.NewSelectLabelsFromModel("bar")}
+	fromFoo := &SearchContext{From: labels.NewSelectLabelsFromModel("foo")}
 
 	fooSelector := []api.EndpointSelector{
 		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
@@ -2785,9 +2785,9 @@ func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedBazSelector: {nil},
-			td.cachedFooSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedBazSelector: {labels.Empty},
+			td.cachedFooSelector: {labels.Empty},
 		},
 	}})
 

@@ -71,12 +71,12 @@ const (
 )
 
 var (
-	LabelsAllowAnyIngress = labels.LabelArray{
-		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved)}
-	LabelsAllowAnyEgress = labels.LabelArray{
-		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved)}
-	LabelsLocalHostIngress = labels.LabelArray{
-		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved)}
+	LabelsAllowAnyIngress = labels.NewLabels(
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved))
+	LabelsAllowAnyEgress = labels.NewLabels(
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved))
+	LabelsLocalHostIngress = labels.NewLabels(
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved))
 )
 
 // mapState is an indexed container for policymap keys and entries.
@@ -412,7 +412,7 @@ type mapStateEntry struct {
 
 	// derivedFromRules tracks the policy rules this entry derives from.
 	// In sorted order.
-	derivedFromRules labels.LabelArrayList
+	derivedFromRules labels.LabelsList
 
 	// owners collects the keys in the map and selectors in the policy that require this key to be present.
 	// TODO: keep track which selector needed the entry to be deny, redirect, or just allow.
@@ -425,7 +425,7 @@ type mapStateEntry struct {
 // 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
 // will become sticky and cannot be completely removed via incremental updates. Even in this case
 // the entry may be overridden or removed by a deny entry.
-func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxyPort uint16, priority uint16, deny bool, authReq AuthRequirement) mapStateEntry {
+func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelsList, proxyPort uint16, priority uint16, deny bool, authReq AuthRequirement) mapStateEntry {
 	if proxyPort == 0 {
 		priority = 0
 	} else if priority == 0 {
@@ -445,11 +445,11 @@ func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxy
 
 // newAllowEntryWithLabels creates an allow entry with the specified labels and a 'nil' owner.
 // Used for adding allow-all entries when policy ewnforcement is not wanted.
-func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
-	return newMapStateEntry(nil, labels.LabelArrayList{lbls}, 0, 0, false, NoAuthRequirement)
+func newAllowEntryWithLabels(lbls labels.Labels) mapStateEntry {
+	return newMapStateEntry(nil, labels.LabelsList{lbls}, 0, 0, false, NoAuthRequirement)
 }
 
-func (e MapStateEntry) toMapStateEntry(priority uint16, cs MapStateOwner, derivedFrom labels.LabelArrayList) mapStateEntry {
+func (e MapStateEntry) toMapStateEntry(priority uint16, cs MapStateOwner, derivedFrom labels.LabelsList) mapStateEntry {
 	if e.ProxyPort == 0 {
 		priority = 0
 	} else if priority == 0 {
@@ -463,7 +463,7 @@ func (e MapStateEntry) toMapStateEntry(priority uint16, cs MapStateOwner, derive
 	}
 }
 
-func (e *mapStateEntry) GetRuleLabels() labels.LabelArrayList {
+func (e *mapStateEntry) GetRuleLabels() labels.LabelsList {
 	return e.derivedFromRules
 }
 

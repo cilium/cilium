@@ -442,7 +442,7 @@ type L4Filter struct {
 	// (i.e. selector and port) filter. This information is used when distilling a policy to an
 	// EndpointPolicy, to track which policy rules were involved for a specific verdict.
 	// Each LabelArrayList is in sorted order.
-	RuleOrigin map[CachedSelector]labels.LabelArrayList `json:"-"`
+	RuleOrigin map[CachedSelector]labels.LabelsList `json:"-"`
 
 	// This reference is circular, but it is cleaned up at Detach()
 	policy atomic.Pointer[L4Policy]
@@ -845,7 +845,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		Protocol:            protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
-		RuleOrigin:          make(map[CachedSelector]labels.LabelArrayList), // Filled in below.
+		RuleOrigin:          make(map[CachedSelector]labels.LabelsList), // Filled in below.
 		Ingress:             ingress,
 	}
 
@@ -934,7 +934,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	}
 
 	for cs := range l4.PerSelectorPolicies {
-		l4.RuleOrigin[cs] = labels.LabelArrayList{ruleLabels}
+		l4.RuleOrigin[cs] = labels.LabelsList{ruleLabels}
 	}
 
 	return l4, nil
@@ -1086,7 +1086,7 @@ func (l4 *L4Filter) matchesLabels(labels labels.Labels) (bool, bool) {
 		perSelectorPolicy := l4.PerSelectorPolicies[l4.wildcard]
 		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
 		return true, isDeny
-	} else if len(labels) == 0 {
+	} else if labels.IsEmpty() {
 		return false, false
 	}
 
@@ -1734,7 +1734,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	ingress := []*models.PolicyRule{}
 	l4.Ingress.PortRules.ForEach(func(v *L4Filter) bool {
 		rulesBySelector := map[string][][]string{}
-		derivedFrom := labels.LabelArrayList{}
+		derivedFrom := labels.LabelsList{}
 		for sel, rules := range v.RuleOrigin {
 			derivedFrom.MergeSorted(rules)
 			rulesBySelector[sel.String()] = rules.GetModel()
@@ -1749,7 +1749,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 
 	egress := []*models.PolicyRule{}
 	l4.Egress.PortRules.ForEach(func(v *L4Filter) bool {
-		derivedFrom := labels.LabelArrayList{}
+		derivedFrom := labels.LabelsList{}
 		for _, rules := range v.RuleOrigin {
 			derivedFrom.MergeSorted(rules)
 		}

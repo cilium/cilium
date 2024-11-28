@@ -23,27 +23,27 @@ func TestGetCIDKeyFromLabels(t *testing.T) {
 			name:   "Valid Labels",
 			labels: map[string]string{"source1:label1": "value1", "source2:label2": "value2", "irrelevant": "foo"},
 			source: "source1",
-			expected: &GlobalIdentity{LabelArray: []labels.Label{
+			expected: &GlobalIdentity{Labels: labels.NewLabels(
 				labels.NewLabel("label1", "value1", "source1"),
 				labels.NewLabel("label2", "value2", "source1"),
 				labels.NewLabel("irrelevant", "foo", "source1"),
-			}},
+			)},
 		},
 		{
 			name:     "Empty Labels",
 			labels:   map[string]string{},
 			source:   "source",
-			expected: &GlobalIdentity{LabelArray: []labels.Label{}},
+			expected: &GlobalIdentity{Labels: labels.Empty},
 		},
 		{
 			name:   "Empty source",
 			labels: map[string]string{"source1:foo1": "value1", "source2:foo2": "value2", "foo3": "value3"},
 			source: "",
-			expected: &GlobalIdentity{LabelArray: []labels.Label{
+			expected: &GlobalIdentity{Labels: labels.NewLabels(
 				labels.NewLabel("foo1", "value1", "source1"),
 				labels.NewLabel("foo2", "value2", "source2"),
 				labels.NewLabel("foo3", "value3", labels.LabelSourceUnspec),
-			}},
+			)},
 		},
 	}
 
@@ -56,11 +56,8 @@ func TestGetCIDKeyFromLabels(t *testing.T) {
 				t.Fatalf("Expected a GlobalIdentity result, but got nil")
 			}
 
-			result.LabelArray.Sort()
-			tt.expected.LabelArray.Sort()
-
-			if !tt.expected.LabelArray.Equals(result.LabelArray) {
-				t.Errorf("Unexpected result:\nGot: %v\nExpected: %v", result.LabelArray, tt.expected.LabelArray)
+			if !tt.expected.Labels.Equal(result.Labels) {
+				t.Errorf("Unexpected result:\nGot: %q\nExpected: %q", result.Labels, tt.expected.Labels)
 			}
 
 		})

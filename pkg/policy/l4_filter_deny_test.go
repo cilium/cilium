@@ -87,7 +87,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 	}})
 
 	require.EqualValues(t, expected, l4IngressDenyPolicy)
@@ -196,9 +196,9 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -265,9 +265,9 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -338,9 +338,9 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 			td.cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
-			td.cachedSelectorC: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA: {labels.Empty},
+			td.cachedSelectorC: {labels.Empty},
 		},
 	}})
 
@@ -420,9 +420,9 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -491,9 +491,9 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -578,9 +578,9 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 
@@ -659,9 +659,9 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
-			td.wildcardCachedSelector: {nil},
+		RuleOrigin: map[CachedSelector]labels.LabelsList{
+			td.cachedSelectorA:        {labels.Empty},
+			td.wildcardCachedSelector: {labels.Empty},
 		},
 	}})
 

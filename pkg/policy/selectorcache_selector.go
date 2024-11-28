@@ -103,7 +103,7 @@ func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
 func (f *fqdnSelector) matches(identity scIdentity) bool {
-	return identity.lbls.Intersects(labels.Labels{f.selector.IdentityLabel()})
+	return identity.lbls.Intersects(labels.NewLabels(f.selector.IdentityLabel()))
 }
 
 func (f *fqdnSelector) metricsClass() string {

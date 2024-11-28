@@ -124,7 +124,6 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 		Labels:         lbls,
 		ReferenceCount: 1,
 	}
-	realID.Sanitize() // copy Labels to LabelArray
 	f.idToIdentity[int(id)] = realID
 
 	return realID, true, nil

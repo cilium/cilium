@@ -104,7 +104,7 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) bool {
 func (m *resourceInfo) unmerge(info IPMetadata) {
 	switch info.(type) {
 	case labels.Labels:
-		m.labels = nil
+		m.labels = labels.Empty
 	case overrideIdentity:
 		m.identityOverride = false
 	case ipcachetypes.TunnelPeer:
@@ -172,11 +172,11 @@ func (s prefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
 }
 
 func (s prefixInfo) ToLabels() labels.Labels {
-	l := labels.NewLabelsFromModel(nil)
+	lbls := []labels.Label{}
 	for _, v := range s {
-		l.MergeLabels(v.labels)
+		lbls = append(lbls, v.labels.ToSlice()...)
 	}
-	return l
+	return labels.NewLabels(lbls...)
 }
 
 func (s prefixInfo) Source() source.Source {
@@ -231,22 +231,22 @@ func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
 	}
 
 	// No override identity present
-	if identities.Len() == 0 {
+	if len(identities) == 0 {
 		return labels.Empty, false
 	}
 
 	// Conflict-resolution: We pick the labels with the alphabetically
 	// lowest value when formatted in the KV store format. The conflict
 	// is logged below in logConflicts.
-	if identities.Len() > 1 {
+	if len(identities) > 1 {
 		sort.Slice(identities, func(i, j int) bool {
-			a := identities.GetOrEmpty(i).SortedList()
-			b := identities.GetOrEmpty(j).SortedList()
+			a := identities[i].SortedList()
+			b := identities[j].SortedList()
 			return bytes.Compare(a, b) == -1
 		})
 	}
 
-	return identities.GetOrEmpty(0), true
+	return identities[0], true
 }
 
 func (ri resourceInfo) shouldLogConflicts() bool {

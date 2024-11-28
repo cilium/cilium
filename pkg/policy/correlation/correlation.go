@@ -127,7 +127,7 @@ func extractFlowKey(f *flowpb.Flow) (
 	return
 }
 
-func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
+func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelsList, rev uint64, ok bool) {
 	switch matchType {
 	case monitorAPI.PolicyMatchL3L4:
 		// Check for L4 policy rules.
@@ -214,13 +214,13 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 	return derivedFrom, rev, ok
 }
 
-func toProto(derivedFrom labels.LabelArrayList, rev uint64) (policies []*flowpb.Policy) {
+func toProto(derivedFrom labels.LabelsList, rev uint64) (policies []*flowpb.Policy) {
 	for i, lbl := range derivedFrom {
 		// derivedFrom may contain a duplicate policies if the policy had
 		// multiple that contributed to the same policy map entry.
 		// We can easily detect the duplicates here, because derivedFrom is
 		// sorted.
-		if i > 0 && lbl.Equals(derivedFrom[i-1]) {
+		if i > 0 && lbl.Equal(derivedFrom[i-1]) {
 			continue
 		}
 
@@ -240,7 +240,7 @@ func toProto(derivedFrom labels.LabelArrayList, rev uint64) (policies []*flowpb.
 // This function supports namespaced and cluster-scoped resources.
 func populate(f *flowpb.Policy, lbl labels.Labels) {
 	var kind, ns, name string
-	for _, l := range lbl {
+	for l := range lbl.All() {
 		if l.Source() != string(source.Kubernetes) {
 			continue
 		}

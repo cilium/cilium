@@ -231,7 +231,7 @@ var errMissingKey = errors.New("Key not found")
 // GetRuleLabels returns the list of labels of the rules that contributed
 // to the entry at this key.
 // The returned LabelArrayList is shallow-copied and therefore must not be mutated.
-func (p *EndpointPolicy) GetRuleLabels(k Key) (labels.LabelArrayList, error) {
+func (p *EndpointPolicy) GetRuleLabels(k Key) (labels.LabelsList, error) {
 	entry, ok := p.policyMapState.get(k)
 	if !ok {
 		return nil, errMissingKey

@@ -6,6 +6,7 @@ package labelsfilter
 import (
 	"encoding/json"
 	"fmt"
+	"iter"
 	"os"
 	"regexp"
 	"strings"
@@ -283,18 +284,13 @@ func readLabelPrefixCfgFrom(fileName string) (*labelPrefixCfg, error) {
 	return &lpc, nil
 }
 
-func (cfg *labelPrefixCfg) filterLabels(lbls labels.Labels) (identityLabels, informationLabels labels.Labels) {
-	if lbls.Len() == 0 {
-		return labels.Empty, labels.Empty
-	}
-
+func (cfg *labelPrefixCfg) filterLabels(lbls iter.Seq[labels.Label]) (identityLabels, informationLabels labels.Labels) {
 	validLabelPrefixesMU.RLock()
 	defer validLabelPrefixesMU.RUnlock()
 
-	identityLabels = labels.Empty
-	informationLabels = labels.Empty
-	for v := range lbls.All() {
-		k := v.Key()
+	identityLabelsArr := []labels.Label{}
+	informationLabelsArr := []labels.Label{}
+	for v := range lbls {
 		included, ignored := 0, 0
 
 		for _, p := range cfg.LabelPrefixes {
@@ -326,23 +322,27 @@ func (cfg *labelPrefixCfg) filterLabels(lbls labels.Labels) (identityLabels, inf
 		if (!cfg.whitelist && ignored == 0) || included > ignored {
 			// Just want to make sure we don't have labels deleted in
 			// on side and disappearing in the other side...
-			identityLabels[k] = v
+			identityLabelsArr = append(identityLabelsArr, v)
 		} else {
-			informationLabels[k] = v
+			informationLabelsArr = append(informationLabelsArr, v)
 		}
 	}
-	return identityLabels, informationLabels
+	return labels.NewLabels(identityLabelsArr...), labels.NewLabels(informationLabelsArr...)
 }
 
 // Filter returns Labels from the given labels that have the same source and the
 // same prefix as one of lpc valid prefixes, as well as labels that do not match
 // the aforementioned filtering criteria.
 func Filter(lbls labels.Labels) (identityLabels, informationLabels labels.Labels) {
+	return validLabelPrefixes.filterLabels(lbls.All())
+}
+
+func FilterSeq(lbls iter.Seq[labels.Label]) (identityLabels, informationLabels labels.Labels) {
 	return validLabelPrefixes.filterLabels(lbls)
 }
 
 func FilterNodeLabels(lbls labels.Labels) (identityLabels, informationLabels labels.Labels) {
-	return validNodeLabelPrefixes.filterLabels(lbls)
+	return validNodeLabelPrefixes.filterLabels(lbls.All())
 }
 
 func FilterLabelsByRegex(excludePatterns []*regexp.Regexp, labels map[string]string) map[string]string {

@@ -9,6 +9,7 @@ import (
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
@@ -58,19 +59,19 @@ func (p *policyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.Networ
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
-	labels := k8s.GetPolicyLabelsv1(k8sNP)
+	lbls := k8s.GetPolicyLabelsv1(k8sNP)
 
-	if labels == nil {
-		p.log.Fatalf("provided v1 NetworkPolicy is nil, so cannot delete it")
+	if lbls.IsEmpty() {
+		p.log.Fatalf("provided v1 NetworkPolicy is empty, so cannot delete it")
 	}
 
 	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace:         k8sNP.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
-		logfields.Labels:               logfields.Repr(labels),
+		logfields.Labels:               logfields.Repr(lbls),
 	})
-	if _, err := p.policyManager.PolicyDelete(nil, &policy.DeleteOptions{
+	if _, err := p.policyManager.PolicyDelete(labels.Empty, &policy.DeleteOptions{
 		Source:           source.Kubernetes,
 		DeleteByResource: true,
 		Resource: ipcacheTypes.NewResourceID(

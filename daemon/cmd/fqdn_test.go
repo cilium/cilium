@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -106,7 +107,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	dscu := &testpolicy.DummySelectorCacheUser{}
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
 	for _, sel := range selectorsToAdd {
-		ds.d.policy.GetSelectorCache().AddFQDNSelector(dscu, nil, sel)
+		ds.d.policy.GetSelectorCache().AddFQDNSelector(dscu, labels.Empty, sel)
 	}
 
 	const nEndpoints int = 1024

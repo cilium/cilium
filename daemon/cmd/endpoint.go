@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"net"
 	"net/http"
 	"runtime"
@@ -434,7 +433,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	d.endpointCreations.NewCreateRequest(ep, cancel)
 	defer d.endpointCreations.EndCreateRequest(ep)
 
-	identityLbls := maps.Clone(apiLabels)
+	identityLbls := apiLabels
 
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		pod, k8sMetadata, err := d.handleOutdatedPodInformer(ctx, ep)
@@ -469,8 +468,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		} else {
 			ep.SetPod(pod)
 			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
-			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
-			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
+			identityLbls = labels.Merge(identityLbls, k8sMetadata.IdentityLabels)
+			infoLabels = labels.Merge(infoLabels, k8sMetadata.InfoLabels)
 			if _, ok := k8sMetadata.Annotations[bandwidth.IngressBandwidth]; ok {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
@@ -514,7 +513,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		// If there are labels, but no pod namespace, then it's
 		// likely that there are no k8s labels at all. Resolve.
-		if _, k8sLabelsConfigured := identityLbls.Get(k8sConst.PodNamespaceLabel); !k8sLabelsConfigured {
+		if _, k8sLabelsConfigured := identityLbls.GetLabel(k8sConst.PodNamespaceLabel); !k8sLabelsConfigured {
 			ep.RunMetadataResolver(false, false, apiLabels, d.bwManager, d.fetchK8sMetadataForEndpoint)
 		}
 	}

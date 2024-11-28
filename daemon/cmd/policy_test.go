@@ -1102,7 +1102,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			setupArgs: func() args {
 				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
-				lbls = append(lbls, labels.ParseLabels("foo=bar")...).Sort()
+				lbls = labels.Merge(lbls, labels.ParseLabels("foo=bar"))
 				r.MustAddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
@@ -1216,7 +1216,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository(nil, nil, nil, nil)
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
-				lbls = append(lbls, labels.ParseLabels("foo=bar")...).Sort()
+				lbls = labels.Merge(lbls, labels.ParseLabels("foo=bar"))
 				r.MustAddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{

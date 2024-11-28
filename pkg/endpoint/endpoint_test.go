@@ -5,7 +5,6 @@ package endpoint
 
 import (
 	"context"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -639,8 +638,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 				mutex:    lock.RWMutex{},
 				OpLabels: tt.fields.OpLabels,
 			}
-			if got := e.getK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Endpoint.getK8sPodLabels() = %v, want %v", got, tt.want)
+			if got := e.getK8sPodLabels(); !got.Equal(tt.want) {
+				t.Errorf("Endpoint.getK8sPodLabels() = %s, want %s", got, tt.want)
 			}
 		})
 	}
@@ -783,21 +782,18 @@ func BenchmarkEndpointGetModel(b *testing.B) {
 func (e *Endpoint) getK8sPodLabels() labels.Labels {
 	e.unconditionalRLock()
 	defer e.runlock()
-	allLabels := e.OpLabels.AllLabels()
-	if allLabels.IsEmpty() {
-		return labels.Empty
-	}
 
-	allLabelsFromK8s := allLabels.GetFromSource(labels.LabelSourceK8s)
-
-	k8sEPPodLabels := labels.Empty
-	for v := range allLabelsFromK8s.All() {
+	k8sEPPodLabels := make([]labels.Label, 0, 16)
+	for v := range e.OpLabels.AllLabels() {
+		if v.Source() != labels.LabelSourceK8s {
+			continue
+		}
 		k := v.Key()
-		if !strings.HasPrefix(v.Key(), ciliumio.PodNamespaceMetaLabels) &&
-			!strings.HasPrefix(v.Key(), ciliumio.PolicyLabelServiceAccount) &&
-			!strings.HasPrefix(v.Key(), ciliumio.PodNamespaceLabel) {
-			k8sEPPodLabels[k] = v
+		if !strings.HasPrefix(k, ciliumio.PodNamespaceMetaLabels) &&
+			!strings.HasPrefix(k, ciliumio.PolicyLabelServiceAccount) &&
+			!strings.HasPrefix(k, ciliumio.PodNamespaceLabel) {
+			k8sEPPodLabels = append(k8sEPPodLabels, v)
 		}
 	}
-	return k8sEPPodLabels
+	return labels.NewLabels(k8sEPPodLabels...)
 }

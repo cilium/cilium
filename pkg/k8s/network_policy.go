@@ -35,7 +35,7 @@ var (
 func GetPolicyLabelsv1(np *slim_networkingv1.NetworkPolicy) labels.Labels {
 	if np == nil {
 		log.Warningf("unable to extract policy labels because provided NetworkPolicy is nil")
-		return nil
+		return labels.Empty
 	}
 
 	policyName, _ := annotation.Get(np, annotation.PolicyName, annotation.PolicyNameAlias)

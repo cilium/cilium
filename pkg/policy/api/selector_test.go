@@ -68,7 +68,7 @@ func TestLabelSelectorToRequirements(t *testing.T) {
 	require.EqualValues(t, &expRequirements, labelSelectorToRequirements(labelSelector))
 }
 
-func benchmarkMatchesSetup(match string, count int) (EndpointSelector, labels.Labels) {
+func benchmarkMatchesSetup(match string, count int) (EndpointSelector, k8sLbls.Labels) {
 	stringLabels := []string{}
 	for i := 0; i < count; i++ {
 		stringLabels = append(stringLabels, fmt.Sprintf("%d", i))

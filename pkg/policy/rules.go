@@ -17,7 +17,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 	result := NewL4PolicyMap()
 
 	ctx.PolicyTrace("\n")
-	ctx.PolicyTrace("Resolving ingress policy for %+v\n", ctx.To)
+	ctx.PolicyTrace("Resolving ingress policy for [%s]\n", ctx.To)
 
 	state := traceState{}
 	var matchedRules ruleSlice

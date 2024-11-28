@@ -40,7 +40,7 @@ func (c *Controller) processNamespaceEvents(ctx context.Context, wg *sync.WaitGr
 func (c *Controller) onNamespaceEvent(ns *slimcorev1.Namespace) {
 	newLabels := getNamespaceLabels(ns)
 
-	oldIdLabels := c.oldNSSecurityLabels.GetOrEmpty(ns.Name)
+	oldIdLabels := c.oldNSSecurityLabels[ns.Name]
 	newIdLabels, _ := labelsfilter.Filter(newLabels)
 
 	// Do not perform any other operations if labels did not change.

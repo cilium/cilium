@@ -29,7 +29,7 @@ type GlobalIdentity struct {
 // GetKey encodes an Identity as string
 func (gi *GlobalIdentity) GetKey() string {
 	var str strings.Builder
-	for _, l := range gi.LabelArray {
+	for l := range gi.Labels.All() {
 		str.Write(l.FormatForKVStore())
 	}
 	return str.String()
@@ -43,7 +43,7 @@ func (gi *GlobalIdentity) GetAsMap() map[string]string {
 
 // PutKey decodes an Identity from its string representation
 func (gi *GlobalIdentity) PutKey(v string) allocator.AllocatorKey {
-	return &GlobalIdentity{LabelArray: labels.NewLabelArrayFromSortedList(v)}
+	return &GlobalIdentity{Labels: labels.NewLabelsFromSortedList(v)}
 }
 
 // PutKeyFromMap decodes an Identity from a map of key to value. Output
@@ -51,7 +51,7 @@ func (gi *GlobalIdentity) PutKey(v string) allocator.AllocatorKey {
 // Note: NewLabelArrayFromMap will parse the ':' separated label source from
 // the keys because the source parameter is ""
 func (gi *GlobalIdentity) PutKeyFromMap(v map[string]string) allocator.AllocatorKey {
-	return &GlobalIdentity{LabelArray: labels.Map2Labels(v, "").LabelArray()}
+	return &GlobalIdentity{Labels: labels.Map2Labels(v, "")}
 }
 
 // PutValue puts metadata inside the global identity for the given 'key' with
@@ -63,8 +63,8 @@ func (gi *GlobalIdentity) PutValue(key, value any) allocator.AllocatorKey {
 	}
 	newMap[key] = value
 	return &GlobalIdentity{
-		LabelArray: gi.LabelArray,
-		metadata:   newMap,
+		Labels:   gi.Labels,
+		metadata: newMap,
 	}
 }
 
@@ -76,5 +76,5 @@ func (gi *GlobalIdentity) Value(key any) any {
 func GetCIDKeyFromLabels(allLabels map[string]string, source string) *GlobalIdentity {
 	lbs := labels.Map2Labels(allLabels, source)
 	idLabels, _ := labelsfilter.Filter(lbs)
-	return &GlobalIdentity{LabelArray: idLabels}
+	return &GlobalIdentity{Labels: idLabels}
 }

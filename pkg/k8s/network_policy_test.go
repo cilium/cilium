@@ -26,10 +26,10 @@ import (
 )
 
 var (
-	labelsA = labels.Labels{
+	labelsA = labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
-	}
+	)
 
 	labelSelectorA = slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -37,16 +37,16 @@ var (
 		},
 	}
 
-	labelsB = labels.Labels{
+	labelsB = labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
 		labels.NewLabel("id2", "c", labels.LabelSourceK8s),
-	}
+	)
 
-	labelsC = labels.Labels{
+	labelsC = labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("id", "c", labels.LabelSourceK8s),
-	}
+	)
 
 	labelSelectorC = slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -128,19 +128,19 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 	_, err := ParseNetworkPolicy(netPolicy)
 	require.NoError(t, err)
 
-	fromEndpoints := labels.Labels{
+	fromEndpoints := labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
 		labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
-	}
+	)
 
 	ctx := policy.SearchContext{
 		From: fromEndpoints,
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 
@@ -153,8 +153,8 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 	repo.MustAddList(rules)
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
-	epSelector := api.NewESFromLabels(fromEndpoints...)
-	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, nil, epSelector)
+	epSelector := api.NewESFromLabels(fromEndpoints.ToSlice()...)
+	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, labels.Empty, epSelector)
 	defer func() { repo.GetSelectorCache().RemoveSelector(cachedEPSelector, dummySelectorCacheUser) }()
 
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
@@ -166,7 +166,7 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 			L7Parser:            policy.ParserTypeNone,
 			PerSelectorPolicies: policy.L7DataMap{cachedEPSelector: nil},
 			Ingress:             true,
-			RuleOrigin: map[policy.CachedSelector]labels.LabelArrayList{
+			RuleOrigin: map[policy.CachedSelector]labels.LabelsList{
 				cachedEPSelector: {labels.ParseLabels(
 					"k8s:"+k8sConst.PolicyLabelName,
 					"k8s:"+k8sConst.PolicyLabelUID,
@@ -179,21 +179,21 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 	require.True(t, ingressL4Policy.TestingOnlyEquals(expected), ingressL4Policy.TestingOnlyDiff(expected))
 	ingressL4Policy.Detach(repo.GetSelectorCache())
 
-	ctx.To = labels.Labels{
+	ctx.To = labels.NewLabels(
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
-	}
+	)
 
 	// ctx.To needs to have all labels from the policy in order to be accepted
 	require.NotEqual(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// ctx.From also needs to have all labels from the policy in order to be accepted
@@ -280,16 +280,16 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 	repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
 
-	endpointLabels := labels.Labels{
+	endpointLabels := labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-	}
+	)
 
 	// Ingress context
 	ctx := policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
+		),
 		To:    endpointLabels,
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -297,18 +297,18 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 	// should be DENIED because ctx.From is missing the namespace selector
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
-	ctx.From = labels.Labels{
+	ctx.From = labels.NewLabels(
 		labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "project"), "myproject", labels.LabelSourceK8s),
-	}
+	)
 
 	// should be ALLOWED with the namespace label properly set
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
-	ctx.From = labels.Labels{
+	ctx.From = labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("app", "inventory", labels.LabelSourceK8s),
-	}
+	)
 
 	// should be ALLOWED since all rules in From must match
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
@@ -316,10 +316,10 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 	// Egress context
 	ctx = policy.SearchContext{
 		From: endpointLabels,
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("app", "db1", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 
@@ -331,10 +331,10 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 	// should be ALLOWED with DPorts set correctly
 	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctx))
 
-	ctx.To = labels.Labels{
+	ctx.To = labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("app", "db2", labels.LabelSourceK8s),
-	}
+	)
 
 	// should be ALLOWED for db2 as well
 	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctx))
@@ -374,12 +374,12 @@ func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 }
 }`)
 
-	fromEndpoints := labels.Labels{
+	fromEndpoints := labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 		labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-	}
+	)
 
-	epSelector := api.NewESFromLabels(fromEndpoints...)
+	epSelector := api.NewESFromLabels(fromEndpoints.ToSlice()...)
 	np := slim_networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
 	require.NoError(t, err)
@@ -459,17 +459,17 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 
-	fromEndpoints := labels.Labels{
+	fromEndpoints := labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
-	}
+	)
 
-	toEndpoints := labels.Labels{
+	toEndpoints := labels.NewLabels(
 		labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
 		labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
-	}
+	)
 
 	ctx := policy.SearchContext{
 		From:  fromEndpoints,
@@ -483,8 +483,8 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 	// expected.
 	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&ctx))
 
-	epSelector := api.NewESFromLabels(toEndpoints...)
-	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, nil, epSelector)
+	epSelector := api.NewESFromLabels(toEndpoints.ToSlice()...)
+	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, labels.Empty, epSelector)
 	defer func() { repo.GetSelectorCache().RemoveSelector(cachedEPSelector, dummySelectorCacheUser) }()
 
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
@@ -496,7 +496,7 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 			L7Parser:            policy.ParserTypeNone,
 			PerSelectorPolicies: policy.L7DataMap{cachedEPSelector: nil},
 			Ingress:             false,
-			RuleOrigin: map[policy.CachedSelector]labels.LabelArrayList{
+			RuleOrigin: map[policy.CachedSelector]labels.LabelsList{
 				cachedEPSelector: {rules[0].Labels},
 			},
 		},
@@ -504,21 +504,21 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 	require.True(t, egressL4Policy.TestingOnlyEquals(expected), egressL4Policy.TestingOnlyDiff(expected))
 	egressL4Policy.Detach(repo.GetSelectorCache())
 
-	ctx.From = labels.Labels{
+	ctx.From = labels.NewLabels(
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
-	}
+	)
 
 	// ctx.From needs to have all labels from the policy in order to be accepted
 	require.NotEqual(t, api.Allowed, repo.AllowsEgressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
-		},
-		From: labels.Labels{
+		),
+		From: labels.NewLabels(
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 
@@ -763,14 +763,14 @@ func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 	require.Len(t, rules, 1)
 
 	ctx := policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 
@@ -818,14 +818,14 @@ func TestParseNetworkPolicyDenyAll(t *testing.T) {
 	require.Len(t, rules, 1)
 
 	ctx := policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 
@@ -943,40 +943,40 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
 	ctx := policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Doesn't share the same namespace
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Doesn't share the same namespace
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Port:     6379,
@@ -1077,14 +1077,14 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	repo = testNewPolicyRepository()
 	repo.MustAddList(rules)
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 
@@ -1098,20 +1098,20 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	l4Policy.Detach(repo.GetSelectorCache())
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Port:     443,
 				Protocol: models.PortProtocolTCP,
 			},
 		},
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT sense the traffic comes from Bob's namespaces
@@ -1145,42 +1145,42 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	repo = testNewPolicyRepository()
 	repo.MustAddList(rules)
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since it's going to `default` namespace
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since it's coming from `default` and going to `default` ns
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
-		},
-		To: labels.Labels{
+		),
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Port:     443,
@@ -1295,60 +1295,60 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	repo.MustAddList(rules)
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Protocol: models.PortProtocolUDP,
 				Port:     8080,
 			},
 		},
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 8080 as specified in `ex4`.
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Port:     443,
 				Protocol: models.PortProtocolTCP,
 			},
 		},
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 443 as specified in `ex2`.
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "alice", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Protocol: models.PortProtocolUDP,
 				Port:     8080,
 			},
 		},
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT despite coming from Alice's namespaces since it's port 8080 as specified in `ex4`.
@@ -1439,7 +1439,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	//  If omitted, this selector selects no namespaces.
 	//  If present but empty, this selector selects all namespaces.
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			// doesn't matter the namespace.
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			// component==redis is in the policy
@@ -1450,76 +1450,76 @@ func TestNetworkPolicyExamples(t *testing.T) {
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "environment"), "production", labels.LabelSourceK8s),
 			// doesn't matter, there isn't any matchExpression denying traffic from any zone.
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Port:     8080,
 				Protocol: models.PortProtocolUDP,
 			},
 		},
-		To: labels.Labels{
+		To: labels.NewLabels(
 			// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
 			// component==redis is in the policy.
 			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 			// tier==cache is in the policy
 			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since the SearchContext is being covered by the rules.
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
-	ctx.To = labels.Labels{
+	ctx.To = labels.NewLabels(
 		// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 		// component==redis is in the policy.
 		labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 		// tier==cache is in the policy
 		labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
-	}
+	)
 	// Should be DENY since the namespace doesn't belong to the policy.
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "environment"), "dev", labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Port:     8080,
 				Protocol: models.PortProtocolUDP,
 			},
 		},
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
 			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be DENY since the environment is from dev.
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 
 	ctx = policy.SearchContext{
-		From: labels.Labels{
+		From: labels.NewLabels(
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
 			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
-		},
+		),
 		DPorts: []*models.Port{
 			{
 				Port:     8080,
 				Protocol: models.PortProtocolUDP,
 			},
 		},
-		To: labels.Labels{
+		To: labels.NewLabels(
 			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
 			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
-		},
+		),
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since the environment is from dev.
@@ -1849,20 +1849,19 @@ func TestGetPolicyLabelsv1(t *testing.T) {
 		},
 	}
 
-	assertLabel := func(lbl labels.Label, key, value string) {
-		require.Equal(t, key, lbl.Key)
-		require.Equal(t, value, lbl.Value)
-		require.Equal(t, labels.LabelSourceK8s, lbl.Source)
+	assertLabel := func(lbl labels.Label, value string) {
+		require.Equal(t, value, lbl.Value())
+		require.Equal(t, labels.LabelSourceK8s, lbl.Source())
 	}
 
 	for _, tt := range tests {
 		lbls := GetPolicyLabelsv1(tt.np)
 		require.NotNil(t, lbls)
-		require.Len(t, lbls, 4, "Incorrect number of labels: Expected DerivedFrom, Name, Namespace and UID labels.")
-		assertLabel(lbls[0], "io.cilium.k8s.policy.derived-from", tt.derivedFrom)
-		assertLabel(lbls[1], "io.cilium.k8s.policy.name", tt.name)
-		assertLabel(lbls[2], "io.cilium.k8s.policy.namespace", tt.namespace)
-		assertLabel(lbls[3], "io.cilium.k8s.policy.uid", tt.uuid)
+		require.Equal(t, lbls.Len(), 4, "Incorrect number of labels: Expected DerivedFrom, Name, Namespace and UID labels.")
+		assertLabel(lbls.GetOrEmpty("io.cilium.k8s.policy.derived-from"), tt.derivedFrom)
+		assertLabel(lbls.GetOrEmpty("io.cilium.k8s.policy.name"), tt.name)
+		assertLabel(lbls.GetOrEmpty("io.cilium.k8s.policy.namespace"), tt.namespace)
+		assertLabel(lbls.GetOrEmpty("io.cilium.k8s.policy.uid"), tt.uuid)
 	}
 }
 

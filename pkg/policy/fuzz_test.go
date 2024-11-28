@@ -23,7 +23,7 @@ func FuzzResolveEgressPolicy(f *testing.F) {
 		if err != nil {
 			return
 		}
-		fromBar := &SearchContext{From: labels.ParseSelectLabelArray(label)}
+		fromBar := &SearchContext{From: labels.NewSelectLabelsFromModel(label)}
 		r := api.Rule{}
 		err = ff.GenerateStruct(&r)
 		if err != nil {

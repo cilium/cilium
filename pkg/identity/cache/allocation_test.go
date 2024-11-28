@@ -194,7 +194,7 @@ func testEventWatcherBatching(t *testing.T) {
 	watcher.watch(events)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	key := &cacheKey.GlobalIdentity{LabelArray: lbls}
+	key := &cacheKey.GlobalIdentity{Labels: lbls}
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
@@ -356,7 +356,7 @@ func testAllocator(t *testing.T) {
 }
 
 func createCIDObj(id string, lbls labels.Labels) *capi_v2.CiliumIdentity {
-	k := &cacheKey.GlobalIdentity{LabelArray: lbls}
+	k := &cacheKey.GlobalIdentity{Labels: lbls}
 	selectedLabels, _ := identitybackend.SanitizeK8sLabels(k.GetAsMap())
 	return &capi_v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
@@ -441,7 +441,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			}, 100*time.Millisecond)
 			require.NoError(t, err)
 			require.False(t, isNew)
-			require.EqualValues(t, lbls1, id2.LabelArray)
+			require.EqualValues(t, lbls1, id2.Labels)
 
 			// Repeat verification for the same lbls.
 			var id3 *identity.Identity
@@ -451,7 +451,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 			}, 100*time.Millisecond)
 			require.NoError(t, err)
 			require.False(t, isNew)
-			require.EqualValues(t, lbls1, id3.LabelArray)
+			require.EqualValues(t, lbls1, id3.Labels)
 
 			released, err := mgr.Release(ctx, id2, false)
 			require.NoError(t, err)
@@ -489,7 +489,7 @@ func testAllocatorOperatorIDManagement(t *testing.T) {
 
 func addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
 	kvStoreClient := kvstore.Client()
-	key := &cacheKey.GlobalIdentity{LabelArray: lbls}
+	key := &cacheKey.GlobalIdentity{Labels: lbls}
 	idPrefix := path.Join(IdentitiesPath, "id")
 	keyPath := path.Join(idPrefix, id)
 	success, err := kvStoreClient.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
@@ -739,7 +739,7 @@ func TestClusterNameValidator(t *testing.T) {
 	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected source for cluster label: got qux, expected k8s")
 
 	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux:io.cilium.k8s.policy.cluster=bar;k8s:io.cilium.k8s.policy.cluster=bar")
-	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected source for cluster label: got qux, expected k8s")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected cluster name: got bar, expected foo")
 
 	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, nil), "unsupported key type <nil>")
 

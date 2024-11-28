@@ -37,7 +37,7 @@ func (s IdentitiesModel) FromIdentityCache(cache identity.IdentityMap) Identitie
 	for id, lbls := range cache {
 		s = append(s, identitymodel.CreateModel(&identity.Identity{
 			ID:     id,
-			Labels: lbls.Labels(),
+			Labels: lbls,
 		}))
 	}
 	return s
@@ -52,7 +52,7 @@ func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
 				if gi, ok := val.(*key.GlobalIdentity); ok {
-					cache[identity.NumericIdentity(id)] = gi.LabelArray
+					cache[identity.NumericIdentity(id)] = gi.Labels
 				} else {
 					log.Warningf("Ignoring unknown identity type '%s': %+v",
 						reflect.TypeOf(val), val)
@@ -62,14 +62,14 @@ func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 	}
 
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		cache[ni] = id.Labels.LabelArray()
+		cache[ni] = id.Labels
 	})
 
 	for _, identity := range m.localIdentities.GetIdentities() {
-		cache[identity.ID] = identity.Labels.LabelArray()
+		cache[identity.ID] = identity.Labels
 	}
 	for _, identity := range m.localNodeIdentities.GetIdentities() {
-		cache[identity.ID] = identity.Labels.LabelArray()
+		cache[identity.ID] = identity.Labels
 	}
 
 	return cache
@@ -82,7 +82,7 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if gi, ok := val.(*key.GlobalIdentity); ok {
-				identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
+				identity := identity.NewIdentityFromLabels(identity.NumericIdentity(id), gi.Labels)
 				identities = append(identities, identitymodel.CreateModel(identity))
 			}
 
@@ -118,7 +118,7 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted identity.Identi
 			// 'deleted' so that collected events can be
 			// processed in any order.
 			delete(deleted, id)
-			added[id] = gi.LabelArray
+			added[id] = gi.Labels
 			return true
 		}
 		log.Warningf("collectEvent: Ignoring unknown identity type '%s': %+v",
@@ -217,8 +217,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 		return nil
 	}
 
-	lblArray := lbls
-	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, &key.GlobalIdentity{LabelArray: lblArray})
+	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, &key.GlobalIdentity{Labels: lbls})
 	if err != nil {
 		return nil
 	}
@@ -230,7 +229,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 		return nil
 	}
 
-	return identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), lblArray)
+	return identity.NewIdentityFromLabels(identity.NumericIdentity(id), lbls)
 }
 
 var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.NewLabels(labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)))
@@ -265,7 +264,7 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 	}
 
 	if gi, ok := allocatorKey.(*key.GlobalIdentity); ok {
-		return identity.NewIdentityFromLabelArray(id, gi.LabelArray)
+		return identity.NewIdentityFromLabels(id, gi.Labels)
 	}
 
 	return nil

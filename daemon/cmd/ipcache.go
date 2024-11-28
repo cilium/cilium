@@ -85,13 +85,13 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 		return
 	}
 	// Only capture identities with requested labels
-	if ipc.labelsFilter != nil {
+	if !ipc.labelsFilter.IsEmpty() {
 		id, err := ipc.getIdentity(newID.ID.Uint32())
 		if err != nil {
 			return
 		}
-		for _, label := range ipc.labelsFilter {
-			if !id.Labels.Has(label) {
+		for label := range ipc.labelsFilter.All() {
+			if !id.Labels.HasLabel(label) {
 				return
 			}
 		}

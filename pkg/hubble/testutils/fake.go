@@ -425,7 +425,7 @@ type FakeEndpointInfo struct {
 	Labels       []string
 	Pod          *slim_corev1.Pod
 
-	PolicyMap      map[policyTypes.Key]labels.LabelArrayList
+	PolicyMap      map[policyTypes.Key]labels.LabelsList
 	PolicyRevision uint64
 }
 
@@ -460,7 +460,7 @@ func (e *FakeEndpointInfo) GetPod() *slim_corev1.Pod {
 }
 
 func (e *FakeEndpointInfo) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
-	derivedFrom labels.LabelArrayList,
+	derivedFrom labels.LabelsList,
 	revision uint64,
 	ok bool,
 ) {

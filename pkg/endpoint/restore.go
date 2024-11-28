@@ -222,7 +222,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
-	l, _ := labelsfilter.Filter(e.OpLabels.AllLabels())
+	l, _ := labelsfilter.FilterSeq(e.OpLabels.AllLabels())
 	e.runlock()
 
 	// Getting the ep's identity while we are restoring should block the

@@ -74,7 +74,7 @@ func (r *endpointInfoRegistry) FillEndpointInfo(ctx context.Context, info *acces
 			// this is best-effort anyways.
 			if err == nil && secid != nil {
 				info.Identity = uint64(secid.ID)
-				info.Labels = secid.LabelArray
+				info.Labels = secid.Labels
 			}
 		}
 
@@ -93,12 +93,12 @@ func (r *endpointInfoRegistry) FillEndpointInfo(ctx context.Context, info *acces
 	}
 
 	// Look up security labels if not provided
-	if info.Labels == nil {
+	if info.Labels.IsEmpty() {
 		// The allocator should already have this in cache, but it may fall back to a
 		// remote read if missing. So, provide the context.
 		identity := r.identityAllocator.LookupIdentityByID(ctx, identity.NumericIdentity(info.Identity))
 		if identity != nil {
-			info.Labels = identity.LabelArray
+			info.Labels = identity.Labels
 		}
 	}
 }

@@ -457,7 +457,7 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 
 		if notifyOwner {
 			added := identity.IdentityMap{
-				id.ID: id.LabelArray,
+				id.ID: id.Labels,
 			}
 			m.owner.UpdateIdentities(added, nil)
 		}
@@ -507,7 +507,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	idp, allocated, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{LabelArray: lbls})
+	idp, allocated, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{Labels: lbls})
 	if err != nil {
 		return nil, false, err
 	}
@@ -537,7 +537,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	// relying on the kv-store update events.
 	if allocated && notifyOwner {
 		added := identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}
 		m.owner.UpdateIdentities(added, nil)
 	}
@@ -673,7 +673,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 			log.WithError(err).WithField(logfields.Identity, oldID).Error("failed to restore checkpointed local identity, continuing")
 		} else {
 			m.restoredIdentities[newID.ID] = newID
-			added[newID.ID] = newID.LabelArray
+			added[newID.ID] = newID.Labels
 			if newID.ID != oldID.ID {
 				// Paranoia, shouldn't happen
 				log.WithField(logfields.Identity, newID).Warn("Restored local identity has different numeric ID")
@@ -711,7 +711,7 @@ func (m *CachingIdentityAllocator) ReleaseRestoredIdentities() {
 			}).Debug("Released restored identity reference")
 		}
 		if released {
-			deleted[id.ID] = id.LabelArray
+			deleted[id.ID] = id.Labels
 		}
 	}
 
@@ -747,7 +747,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 
 		if m.owner != nil && released && notifyOwner {
 			deleted := identity.IdentityMap{
-				id.ID: id.LabelArray,
+				id.ID: id.Labels,
 			}
 			m.owner.UpdateIdentities(nil, deleted)
 		}
@@ -781,7 +781,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	// ID is no longer used locally, it may still be used by
 	// remote nodes, so we can't rely on the locally computed
 	// "lastUse".
-	return m.IdentityAllocator.Release(ctx, &key.GlobalIdentity{LabelArray: id.LabelArray})
+	return m.IdentityAllocator.Release(ctx, &key.GlobalIdentity{Labels: id.Labels})
 }
 
 // WatchRemoteIdentities returns a RemoteCache instance which can be later
@@ -870,17 +870,16 @@ func (m *CachingIdentityAllocator) Observe(ctx context.Context, next func(Identi
 }
 
 func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
-	var idLabels labels.Labels = nil
+	var idLabels []labels.Label
 
 	if allocatorKey != nil {
-		idLabels = labels.Empty
 		for k, v := range allocatorKey.GetAsMap() {
 			label := labels.ParseLabel(k + "=" + v)
-			idLabels[label.Key()] = label
+			idLabels = append(idLabels, label)
 		}
 	}
 
-	return idLabels
+	return labels.NewLabels(idLabels...)
 }
 
 // clusterIDValidator returns a validator ensuring that the identity ID belongs
@@ -913,7 +912,8 @@ func clusterNameValidator(clusterName string) allocator.CacheValidator {
 		}
 
 		var found bool
-		for _, lbl := range gi.LabelArray {
+
+		for lbl := range gi.Labels.All() {
 			if lbl.Key() != api.PolicyLabelCluster {
 				continue
 			}

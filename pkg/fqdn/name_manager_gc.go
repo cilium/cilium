@@ -298,9 +298,9 @@ func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDN
 		n.restoredPrefixes = make(sets.Set[netip.Prefix], len(ipsToNames))
 
 		for addr, names := range ipsToNames {
-			lbls := labels.Empty
+			lbls := []labels.Label{}
 			for _, name := range names {
-				lbls.MergeLabels(deriveLabelsForName(name, oldSelectors))
+				lbls = append(lbls, deriveLabelsForName(name, oldSelectors)...)
 			}
 
 			prefix := netip.PrefixFrom(addr, addr.BitLen())
@@ -309,7 +309,7 @@ func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDN
 				Source:   source.Restored,
 				Resource: restorationIPCacheResource,
 				Metadata: []ipcache.IPMetadata{
-					lbls,
+					labels.NewLabels(lbls...),
 				},
 			})
 			n.restoredPrefixes.Insert(prefix)

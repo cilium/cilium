@@ -11,6 +11,7 @@ import (
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
@@ -190,7 +191,7 @@ func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
 
-	_, err := p.policyManager.PolicyDelete(nil, &policy.DeleteOptions{
+	_, err := p.policyManager.PolicyDelete(labels.Empty, &policy.DeleteOptions{
 		Source:           source.CustomResource,
 		Resource:         resourceID,
 		DeleteByResource: true,

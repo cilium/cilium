@@ -34,7 +34,7 @@ func newIdentity(nid identity.NumericIdentity, lbls labels.Labels) scIdentity {
 	return scIdentity{
 		NID:       nid,
 		lbls:      lbls,
-		namespace: lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		namespace: lbls.GetValue(k8sConst.PodNamespaceLabel),
 	}
 }
 
@@ -130,7 +130,7 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 			Selector:   selector,
 			Identities: ids,
 			Users:      int64(idSel.numUsers()),
-			Labels:     labelArrayToModel(idSel.GetMetadataLabels()),
+			Labels:     labelsToModel(idSel.GetMetadataLabels()),
 		}
 		selCacheMdl = append(selCacheMdl, selMdl)
 	}
@@ -165,16 +165,16 @@ func (sc *SelectorCache) Stats() selectorStats {
 	return result
 }
 
-func labelArrayToModel(arr labels.Labels) models.LabelArray {
-	lbls := make(models.LabelArray, 0, len(arr))
-	for _, l := range arr {
-		lbls = append(lbls, &models.Label{
+func labelsToModel(lbls labels.Labels) models.LabelArray {
+	model := make(models.LabelArray, 0, lbls.Len())
+	for l := range lbls.All() {
+		model = append(model, &models.Label{
 			Key:    l.Key(),
 			Value:  l.Value(),
 			Source: l.Source(),
 		})
 	}
-	return lbls
+	return model
 }
 
 func (sc *SelectorCache) handleUserNotifications() {
@@ -502,7 +502,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			// order is different, but identity labels are
 			// sorted for the kv-store, so there should
 			// not be too many false negatives.
-			if lbls.Equals(old.lbls) {
+			if lbls.Equal(old.lbls) {
 				log.WithFields(logrus.Fields{
 					logfields.NewVersion: txn,
 					logfields.Identity:   numericID,

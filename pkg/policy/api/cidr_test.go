@@ -262,7 +262,7 @@ func TestGetAsEndpointSelectorsWithExceptions(t *testing.T) {
 			for _, l := range tc.matchesLabels {
 				lblArr := labels.ParseLabels(l)
 				if !es.Matches(lblArr) {
-					t.Fatalf("Expected to match %+v, but did not", lblArr[0])
+					t.Fatalf("Expected to match %+v, but did not", lblArr)
 				}
 			}
 			for _, l := range tc.notMatchesLabels {

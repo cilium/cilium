@@ -128,7 +128,6 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 	id := &identity.Identity{
 		ID:             numericIdentity,
 		Labels:         lbls,
-		LabelArray:     lbls,
 		ReferenceCount: 1,
 	}
 
@@ -139,7 +138,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 		l.events <- allocator.AllocatorEvent{
 			Typ: allocator.AllocatorChangeUpsert,
 			ID:  idpool.ID(id.ID),
-			Key: &key.GlobalIdentity{LabelArray: id.LabelArray},
+			Key: &key.GlobalIdentity{Labels: id.Labels},
 		}
 	}
 

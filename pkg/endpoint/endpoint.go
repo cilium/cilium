@@ -965,7 +965,6 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	if ep.SecurityIdentity == nil {
 		ep.SecurityIdentity = identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 	}
-	ep.SecurityIdentity.Sanitize()
 
 	ep.UpdateLogger(nil)
 
@@ -1145,12 +1144,10 @@ func (e *Endpoint) HasLabels(l labels.Labels) bool {
 // return 'false' if any label in l is not in the endpoint's labels.
 // e.mutex must be RLock()ed.
 func (e *Endpoint) hasLabelsRLocked(l labels.Labels) bool {
-	allEpLabels := e.OpLabels.AllLabels()
-
 	for v := range l.All() {
 		found := false
-		for j := range allEpLabels.All() {
-			if j.EqualIgnoringAnySource(v) {
+		for j := range e.OpLabels.AllLabels() {
+			if j.Equal(v) {
 				found = true
 				break
 			}
@@ -1770,7 +1767,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 			// restoring the endpoint from a restart.
 			identityLabels := labels.NewLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
 
-			regenTriggered := e.UpdateLabels(ctx, labels.LabelSourceAny, identityLabels, nil, true)
+			regenTriggered := e.UpdateLabels(ctx, labels.LabelSourceAny, identityLabels, labels.Empty, true)
 			if blocking {
 				return regenTriggered, err
 			}
@@ -1910,7 +1907,7 @@ func (e *Endpoint) RunMetadataResolver(restoredEndpoint, blocking bool, baseLabe
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
 func (e *Endpoint) RunRestoredMetadataResolver(bwm dptypes.BandwidthManager, resolveMetadata MetadataResolverCB) {
-	e.RunMetadataResolver(true, false, nil, bwm, resolveMetadata)
+	e.RunMetadataResolver(true, false, labels.Empty, bwm, resolveMetadata)
 }
 
 // ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.
@@ -1935,7 +1932,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 	// started with any label.
 	if addLabels.Len() == 0 && delLabels.Len() == 0 && e.IsInit() {
 		idLabls := e.OpLabels.IdentityLabels()
-		delete(idLabls, labels.IDNameInit)
+		idLabls = idLabls.RemoveKeys(labels.IDNameInit)
 		e.replaceIdentityLabels(source, idLabls)
 		changed = true
 	}
@@ -2060,7 +2057,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 		e.IsInit() {
 
 		idLabls := e.OpLabels.IdentityLabels()
-		delete(idLabls, labels.IDNameInit)
+		idLabls = idLabls.RemoveKeys(labels.IDNameInit)
 		rev = e.replaceIdentityLabels(labels.LabelSourceAny, idLabls)
 	}
 
@@ -2173,7 +2170,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 		return false, nil
 	}
 
-	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
+	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equal(newLabels) {
 		// Sets endpoint state to ready if was waiting for identity
 		if e.getState() == StateWaitingForIdentity {
 			e.setState(StateReady, "Set identity for this endpoint")

@@ -212,11 +212,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Empty
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key()] = lbl
-	}
+	idFooSelectLabels := labels.NewSelectLabelsFromModel("id=foo")
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -262,7 +258,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 					},
 				}),
 					features: denyRules,
@@ -297,12 +293,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Empty
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key()] = lbl
-	}
-
+	idFooSelectLabels := labels.NewSelectLabelsFromModel("id=foo")
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -357,7 +348,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {labels.Empty}},
 					},
 				}),
 					features: denyRules,
@@ -393,15 +384,11 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
 	ruleLabel := labels.ParseLabels("rule-foo-allow-port-80")
-	ruleLabelAllowAnyEgress := labels.Labels{
+	ruleLabelAllowAnyEgress := labels.NewLabels(
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
-	}
+	)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Empty
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key()] = lbl
-	}
+	idFooSelectLabels := labels.NewSelectLabelsFromModel("id=foo")
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -432,7 +419,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, nil)
 	policy.Ready()
 
-	rule1MapStateEntry := newDenyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(td.wildcardCachedSelector)
+	rule1MapStateEntry := newDenyEntry().withLabels(labels.LabelsList{ruleLabel}).withOwners(td.wildcardCachedSelector)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -452,7 +439,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}},
+						RuleOrigin: map[CachedSelector]labels.LabelsList{td.wildcardCachedSelector: {ruleLabel}},
 					},
 				}),
 					features: denyRules,
@@ -472,7 +459,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
+		identity.NumericIdentity(192): labels.NewSelectLabelsFromModel("id=resolve_test_1"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
@@ -502,15 +489,11 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
 	ruleLabel := labels.ParseLabels("rule-deny-port-80-world-and-test")
-	ruleLabelAllowAnyEgress := labels.Labels{
+	ruleLabelAllowAnyEgress := labels.NewLabels(
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
-	}
+	)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Empty
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key()] = lbl
-	}
+	idFooSelectLabels := labels.NewSelectLabelsFromModel("id=foo")
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -560,17 +543,18 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
-		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
+		identity.NumericIdentity(192): labels.NewSelectLabelsFromModel("id=resolve_test_1", "num=1"),
+		identity.NumericIdentity(193): labels.NewSelectLabelsFromModel("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(194): labels.NewSelectLabelsFromModel("id=resolve_test_1", "num=3"),
 	}
+
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
 	wg.Wait()
 	require.Len(t, policy.policyMapChanges.synced, 3)
 
 	deleted1 := identity.IdentityMap{
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(193): labels.NewSelectLabelsFromModel("id=resolve_test_1", "num=2"),
 	}
 	wg = &sync.WaitGroup{}
 	td.sc.UpdateIdentities(nil, deleted1, wg)
@@ -589,7 +573,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := newDenyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(cachedSelectorTest)
+	rule1MapStateEntry := newDenyEntry().withLabels(labels.LabelsList{ruleLabel}).withOwners(cachedSelectorTest)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -611,7 +595,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 							cachedSelectorWorldV6: &PerSelectorPolicy{IsDeny: true},
 							cachedSelectorTest:    &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+						RuleOrigin: map[CachedSelector]labels.LabelsList{
 							cachedSelectorWorld:   {ruleLabel},
 							cachedSelectorWorldV4: {ruleLabel},
 							cachedSelectorWorldV6: {ruleLabel},

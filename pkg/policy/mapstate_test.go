@@ -34,7 +34,7 @@ func (e mapStateEntry) withOwners(owners ...MapStateOwner) mapStateEntry {
 	return e
 }
 
-func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
+func (e mapStateEntry) withLabels(lbls labels.LabelsList) mapStateEntry {
 	e.derivedFromRules = lbls
 	return e
 }

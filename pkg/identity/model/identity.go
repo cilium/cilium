@@ -14,17 +14,10 @@ func NewIdentityFromModel(base *models.Identity) *identity.Identity {
 		return nil
 	}
 
-	id := &identity.Identity{
+	return &identity.Identity{
 		ID:     identity.NumericIdentity(base.ID),
-		Labels: make(labels.Labels, len(base.Labels)),
+		Labels: labels.ParseLabels(base.Labels...),
 	}
-	for _, v := range base.Labels {
-		lbl := labels.ParseLabel(v)
-		id.Labels[lbl.Key()] = lbl
-	}
-	id.Sanitize()
-
-	return id
 }
 
 func CreateModel(id *identity.Identity) *models.Identity {
@@ -37,7 +30,7 @@ func CreateModel(id *identity.Identity) *models.Identity {
 		Labels: make([]string, 0, id.Labels.Len()),
 	}
 
-	for _, v := range id.LabelArray {
+	for v := range id.Labels.All() {
 		ret.Labels = append(ret.Labels, v.String())
 	}
 	return ret

@@ -143,7 +143,7 @@ func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 		lr.SourceEndpoint.ID = i.SrcEPID
 		if i.SrcSecIdentity != nil {
 			lr.SourceEndpoint.Identity = uint64(i.SrcSecIdentity.ID)
-			lr.SourceEndpoint.Labels = i.SrcSecIdentity.LabelArray
+			lr.SourceEndpoint.Labels = i.SrcSecIdentity.Labels
 		} else {
 			lr.SourceEndpoint.Identity = uint64(i.SrcIdentity)
 		}
@@ -161,7 +161,7 @@ func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 		lr.DestinationEndpoint.ID = i.DstEPID
 		if i.DstSecIdentity != nil {
 			lr.DestinationEndpoint.Identity = uint64(i.DstSecIdentity.ID)
-			lr.DestinationEndpoint.Labels = i.DstSecIdentity.LabelArray
+			lr.DestinationEndpoint.Labels = i.DstSecIdentity.Labels
 		} else {
 			lr.DestinationEndpoint.Identity = uint64(i.DstIdentity)
 		}

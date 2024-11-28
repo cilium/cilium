@@ -128,14 +128,14 @@ func TestCachePopulation(t *testing.T) {
 var (
 	// Identity, labels, selectors for an endpoint named "foo"
 	identityFoo = identity.NumericIdentity(100)
-	labelsFoo   = labels.ParseSelectLabelArray("foo", "blue")
+	labelsFoo   = labels.NewSelectLabelsFromModel("foo", "blue")
 	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	allowFooL3_ = selectFoo_
 	denyFooL3__ = selectFoo_
 
 	// Identity, labels, selectors for an endpoint named "bar"
 	identityBar = identity.NumericIdentity(200)
-	labelsBar   = labels.ParseSelectLabelArray("bar", "blue")
+	labelsBar   = labels.NewSelectLabelsFromModel("bar", "blue")
 	selectBar_  = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 	allowBarL3_ = selectBar_
 
@@ -298,9 +298,9 @@ var (
 				Mode: api.AuthenticationModeRequired,
 			},
 		}})
-	lblsAllowAllIngress = labels.Labels{
+	lblsAllowAllIngress = labels.NewLabels(
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
-	}
+	)
 
 	lbls_____NoDeny = labels.ParseLabels("deny")
 	rule_____NoDeny = api.NewRule().
@@ -619,7 +619,7 @@ func Test_MergeL3(t *testing.T) {
 		},
 	}
 
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentityFromLabels(identity.NumericIdentity(identityFoo), labelsFoo)
 	for _, tt := range tests {
 		for i, r := range tt.rules {
 			tt.rules[i] = r.WithEndpointSelector(selectFoo_)
@@ -1103,7 +1103,7 @@ func Test_MergeRules(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentityFromLabels(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     int
@@ -1180,7 +1180,7 @@ func Test_MergeRules(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			// Ignore generated rules as they lap LabelArrayList which would
+			// Ignore generated rules as they lap LabelsList which would
 			// make the tests fail.
 			if i < generatedIdx {
 				if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
@@ -1216,7 +1216,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentityFromLabels(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     int
@@ -1294,7 +1294,7 @@ func Test_AllowAll(t *testing.T) {
 		identityBar: labelsBar,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentityFromLabels(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     int
@@ -1347,7 +1347,7 @@ var (
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
 	cpyRule                   = *ruleL3DenyWorld
-	ruleL3DenyWorldWithLabels = (&cpyRule).WithLabels(labels.LabelWorld.LabelArray())
+	ruleL3DenyWorldWithLabels = (&cpyRule).WithLabels(labels.LabelWorld)
 	worldReservedID           = identity.ReservedIdentityWorld
 	worldReservedIDIPv4       = identity.ReservedIdentityWorldIPv4
 	worldReservedIDIPv6       = identity.ReservedIdentityWorldIPv6
@@ -1363,16 +1363,16 @@ var (
 			ProxyPort: 0,
 			IsDeny:    true,
 		},
-		derivedFromRules: labels.LabelArrayList{nil},
+		derivedFromRules: labels.LabelsList{labels.Empty},
 	}
 	mapEntryAllow = mapStateEntry{
 		MapStateEntry: MapStateEntry{
 			ProxyPort: 0,
 		},
-		derivedFromRules: labels.LabelArrayList{nil},
+		derivedFromRules: labels.LabelsList{labels.Empty},
 	}
 
-	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
+	worldLabelArrayList         = labels.LabelsList{labels.LabelWorld}
 	mapEntryWorldDenyWithLabels = mapStateEntry{
 		MapStateEntry: MapStateEntry{
 			ProxyPort: 0,
@@ -1621,14 +1621,14 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
-		identity.ReservedIdentityWorldIPv4:    labels.LabelWorldIPv4.LabelArray(),
-		identity.ReservedIdentityWorldIPv6:    labels.LabelWorldIPv6.LabelArray(),
-		worldIPIdentity:                       lblWorldIP.LabelArray(),     // "192.0.2.3/32"
-		worldSubnetIdentity:                   lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
+		identity.ReservedIdentityWorld:        labels.LabelWorld,
+		identity.ReservedIdentityWorldIPv4:    labels.LabelWorldIPv4,
+		identity.ReservedIdentityWorldIPv6:    labels.LabelWorldIPv6,
+		worldIPIdentity:                       lblWorldIP,     // "192.0.2.3/32"
+		worldSubnetIdentity:                   lblWorldSubnet, // "192.0.2.0/24"
 	}
 	selectorCache := testNewSelectorCache(identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentityFromLabels(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     string
@@ -1764,13 +1764,13 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 
 var (
 	allIPv4         = api.CIDR("0.0.0.0/0")
-	lblAllIPv4      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
+	lblAllIPv4      = labels.NewSelectLabelsFromModel(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
 	one3Z8          = api.CIDR("1.0.0.0/8")
 	one3Z8Identity  = localIdentity(16331)
-	lblOne3Z8       = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one3Z8))
+	lblOne3Z8       = labels.NewSelectLabelsFromModel(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one3Z8))
 	one0Z32         = api.CIDR("1.1.1.1/32")
 	one0Z32Identity = localIdentity(16332)
-	lblOne0Z32      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one0Z32))
+	lblOne0Z32      = labels.NewSelectLabelsFromModel(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one0Z32))
 
 	ruleAllowEgressDenyCIDRSet = api.NewRule().WithEgressRules([]api.EgressRule{{
 		EgressCommonRule: api.EgressCommonRule{
@@ -1799,7 +1799,7 @@ func Test_Allowception(t *testing.T) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityWorld:        append(labels.LabelWorld.LabelArray(), lblAllIPv4...),
+		identity.ReservedIdentityWorld:        labels.Merge(labels.LabelWorld, lblAllIPv4),
 		one3Z8Identity:                        lblOne3Z8,  // 16331 (0x3fcb): ["1.0.0.0/8"]
 		one0Z32Identity:                       lblOne0Z32, // 16332 (0x3fcc): ["1.1.1.1/32"]
 	}
@@ -1812,7 +1812,7 @@ func Test_Allowception(t *testing.T) {
 		egressKey(one0Z32Identity, 0, 0, 0):                mapEntryAllow,
 	})
 
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentityFromLabels(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	// Do not test in dualstack mode
 	defer func(ipv4, ipv6 bool) {
@@ -1856,7 +1856,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 		identity.ReservedIdentityHost:         hostLabel,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	identity := identity.NewIdentityFromLabels(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
 		test     string
@@ -1903,7 +1903,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 		identity.NumericIdentity(100): labelsA,
 	}
 	td.sc.UpdateIdentities(identityCache, nil, &sync.WaitGroup{})
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(100), labelsA)
+	identity := identity.NewIdentityFromLabels(identity.NumericIdentity(100), labelsA)
 
 	type portRange struct {
 		startPort, endPort uint16

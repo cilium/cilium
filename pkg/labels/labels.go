@@ -206,7 +206,7 @@ func NewLabelsFromModel(base []string) Labels {
 
 // NewSelectLabelsFromModel parses a slice of strings and converts them
 // into a set of selecting labels.
-func NewSelectLabelsFromModel(base []string) Labels {
+func NewSelectLabelsFromModel(base ...string) Labels {
 	lbls := make([]Label, 0, len(base))
 	for i := range base {
 		lbls = append(lbls, ParseSelectLabel(base[i]))

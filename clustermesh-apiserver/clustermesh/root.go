@@ -120,12 +120,12 @@ func newIdentitySynchronizer(ctx context.Context, cinfo cmtypes.ClusterInfo, bac
 	return &identitySynchronizer{store: identitiesStore, syncCallback: syncCallback}
 }
 
-func parseLabelArrayFromMap(base map[string]string) labels.LabelArray {
-	array := make(labels.LabelArray, 0, len(base))
+func parseLabelsFromMap(base map[string]string) labels.Labels {
+	array := make([]labels.Label, 0, len(base))
 	for sourceAndKey, value := range base {
 		array = append(array, labels.NewLabel(sourceAndKey, value, ""))
 	}
-	return array.Sort()
+	return labels.NewLabels(array...)
 }
 
 func (is *identitySynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
@@ -138,10 +138,10 @@ func (is *identitySynchronizer) upsert(ctx context.Context, _ resource.Key, obj 
 		return nil
 	}
 
-	labelArray := parseLabelArrayFromMap(identity.SecurityLabels)
+	lbls := parseLabelsFromMap(identity.SecurityLabels)
 
 	var labels []byte
-	for _, l := range labelArray {
+	for l := range lbls.All() {
 		labels = append(labels, l.FormatForKVStore()...)
 	}
 
