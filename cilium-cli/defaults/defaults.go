@@ -112,6 +112,9 @@ const (
 
 	// Default timeout for Connectivity Test Suite (disabled by default)
 	ConnectivityTestSuiteTimeout = 0 * time.Minute
+
+	LogLevelError   = "error"
+	LogLevelWarning = "warning"
 )
 
 var (
@@ -170,6 +173,11 @@ var (
 		"inbound_forward_header", // XfrmFwdHdrError
 		"inbound_other",          // XfrmInError
 		"inbound_state_invalid",  // XfrmInStateInvalid
+	}
+
+	LogCheckLevels = []string{
+		LogLevelError,
+		LogLevelWarning,
 	}
 
 	// The following variables are set at compile time via LDFLAGS.

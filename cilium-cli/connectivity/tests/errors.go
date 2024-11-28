@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -42,7 +43,7 @@ func (r regexMatcher) IsMatch(log string) bool {
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
 // logs. The error messages are defined in badLogMsgsWithExceptions, which key
 // is an error message, while values is a list of ignored messages.
-func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
+func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	errorLogExceptions := []logMatcher{
@@ -77,8 +78,12 @@ func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 		routerIPMismatch:    nil,
 		emptyIPNodeIDAlloc:  nil,
 		"DATA RACE":         nil,
-		"level=error":       errorLogExceptions,
-		"level=warn":        warningLogExceptions,
+	}
+	if slices.Contains(checkLevels, defaults.LogLevelError) {
+		errorMsgsWithExceptions["level=error"] = errorLogExceptions
+	}
+	if slices.Contains(checkLevels, defaults.LogLevelWarning) {
+		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
 	return &noErrorsInLogs{errorMsgsWithExceptions}
 }
