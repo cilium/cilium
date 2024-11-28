@@ -267,13 +267,13 @@ func TestUpsertAndDeleteServiceNat64(t *testing.T) {
 func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 	// Should create a new v4 service with two v6 backends
 	p := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends3,
-		Type:             lb.SVCTypeNodePort,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends3,
+		Type:                  lb.SVCTypeNodePort,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id1, err := m.svc.UpsertService(p)
 	require.NoError(t, err)
@@ -308,13 +308,13 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
 	// Should create a new v6 service with two v4 backends
 	p := &lb.SVC{
-		Frontend:         frontend3,
-		Backends:         backends1,
-		Type:             lb.SVCTypeNodePort,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend3,
+		Backends:              backends1,
+		Type:                  lb.SVCTypeNodePort,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id1, err := m.svc.UpsertService(p)
 	require.NoError(t, err)
@@ -357,7 +357,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id1, err := m.svc.UpsertService(p)
 	require.NoError(t, err)
@@ -427,7 +427,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 		SessionAffinityTimeoutSec: 300,
 		Name:                      lb.ServiceName{Name: "svc2", Namespace: "ns2"},
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id2, err := m.svc.UpsertService(p2)
 	require.NoError(t, err)
@@ -454,7 +454,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 		SessionAffinityTimeoutSec: 300,
 		Name:                      lb.ServiceName{Name: "svc3", Namespace: "ns3"},
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1},
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id3, err := m.svc.UpsertService(p3)
 	if option.Config.EnableIPv6 {
@@ -526,7 +526,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 		SessionAffinityTimeoutSec: 300,
 		Name:                      lb.ServiceName{Name: "svc3", Namespace: "ns3"},
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id4, err := m.svc.UpsertService(p4)
 	require.True(t, created)
@@ -538,12 +538,12 @@ func TestRestoreServices(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends1,
-		Type:             lb.SVCTypeNodePort,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends1,
+		Type:                  lb.SVCTypeNodePort,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, id1, err := m.svc.UpsertService(p1)
 	require.NoError(t, err)
@@ -560,7 +560,7 @@ func TestRestoreServices(t *testing.T) {
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 200,
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, id2, err := m.svc.UpsertService(p2)
 	require.NoError(t, err)
@@ -628,18 +628,18 @@ func TestSyncWithK8sFinished(t *testing.T) {
 		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 300,
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, id1, err := m.svc.UpsertService(p1)
 	require.NoError(t, err)
 	p2 := &lb.SVC{
-		Frontend:         frontend2,
-		Backends:         backends2,
-		Type:             lb.SVCTypeClusterIP,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "svc2", Namespace: "ns2"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend2,
+		Backends:              backends2,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "svc2", Namespace: "ns2"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, _, err = m.svc.UpsertService(p2)
 	require.NoError(t, err)
@@ -855,14 +855,14 @@ func TestHealthCheckNodePort(t *testing.T) {
 
 	// Insert svc1 as type LoadBalancer with some local backends
 	p1 := &lb.SVC{
-		Frontend:            loadBalancerIP,
-		Backends:            allBackends,
-		Type:                lb.SVCTypeLoadBalancer,
-		ExtTrafficPolicy:    lb.SVCTrafficPolicyLocal,
-		IntTrafficPolicy:    lb.SVCTrafficPolicyCluster,
-		HealthCheckNodePort: 32001,
-		Name:                lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo:    lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              loadBalancerIP,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeLoadBalancer,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyLocal,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		HealthCheckNodePort:   32001,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, id1, err := m.svc.UpsertService(p1)
 	require.NoError(t, err)
@@ -875,14 +875,14 @@ func TestHealthCheckNodePort(t *testing.T) {
 
 	// Insert the ClusterIP frontend of svc1
 	p2 := &lb.SVC{
-		Frontend:            clusterIP,
-		Backends:            allBackends,
-		Type:                lb.SVCTypeClusterIP,
-		ExtTrafficPolicy:    lb.SVCTrafficPolicyLocal,
-		IntTrafficPolicy:    lb.SVCTrafficPolicyCluster,
-		HealthCheckNodePort: 32001,
-		Name:                lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo:    lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              clusterIP,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyLocal,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		HealthCheckNodePort:   32001,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, id2, err := m.svc.UpsertService(p2)
 	require.NoError(t, err)
@@ -983,14 +983,14 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 
 	// Insert svc1 as type LoadBalancer with some local backends
 	p1 := &lb.SVC{
-		Frontend:            loadBalancerIP,
-		Backends:            allBackends,
-		Type:                lb.SVCTypeLoadBalancer,
-		ExtTrafficPolicy:    lb.SVCTrafficPolicyLocal,
-		IntTrafficPolicy:    lb.SVCTrafficPolicyCluster,
-		HealthCheckNodePort: 32001,
-		Name:                lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo:    lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              loadBalancerIP,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeLoadBalancer,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyLocal,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		HealthCheckNodePort:   32001,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	svc, _, _, _, _ := m.svc.createSVCInfoIfNotExist(p1)
@@ -1093,14 +1093,14 @@ func TestGetServiceNameByAddr(t *testing.T) {
 	namespace := "ns1"
 	hcport := uint16(3)
 	p := &lb.SVC{
-		Frontend:            *fe,
-		Backends:            backends1,
-		Type:                lb.SVCTypeNodePort,
-		ExtTrafficPolicy:    lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy:    lb.SVCTrafficPolicyCluster,
-		HealthCheckNodePort: hcport,
-		Name:                lb.ServiceName{Name: name, Namespace: namespace},
-		LoadBalancerAlgo:    lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              *fe,
+		Backends:              backends1,
+		Type:                  lb.SVCTypeNodePort,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		HealthCheckNodePort:   hcport,
+		Name:                  lb.ServiceName{Name: name, Namespace: namespace},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id1, err := m.svc.UpsertService(p)
 	require.NoError(t, err)
@@ -1134,13 +1134,13 @@ func TestLocalRedirectLocalBackendSelection(t *testing.T) {
 
 	// Create a service entry of type Local Redirect.
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeLocalRedirect,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeLocalRedirect,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	// Insert the service entry of type Local Redirect.
 	created, id, err := m.svc.UpsertService(p1)
@@ -1181,13 +1181,13 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	allBackends = append(allBackends, remoteBackends...)
 
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeClusterIP,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	// Insert the service entry of type ClusterIP.
@@ -1220,13 +1220,13 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	require.False(t, created)
 
 	p2 := &lb.SVC{
-		Frontend:         frontend2,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeNodePort,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "svc2", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend2,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeNodePort,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "svc2", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	// Insert the service entry of type NodePort.
@@ -1265,7 +1265,7 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -1404,13 +1404,13 @@ func TestUpsertServiceWithExternalClusterIP(t *testing.T) {
 	backends[0].State = lb.BackendStateActive
 	backends[1].State = lb.BackendStateActive
 	p := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -1432,13 +1432,13 @@ func TestUpsertServiceWithOutExternalClusterIP(t *testing.T) {
 
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	p := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends1,
-		Type:             lb.SVCTypeClusterIP,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends1,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -1468,7 +1468,7 @@ func TestRestoreServiceWithTerminatingBackends(t *testing.T) {
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -1534,13 +1534,13 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	allBackends = append(allBackends, remoteBackends...)
 
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeClusterIP,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	// Insert the service entry of type ClusterIP.
@@ -1628,13 +1628,13 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	allBackends = append(allBackends, remoteBackends...)
 
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeClusterIP,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	// Insert the service entry of type ClusterIP.
@@ -1688,13 +1688,13 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	// Adding a matching frontend gets proxy port
 
 	p2 := &lb.SVC{
-		Frontend:         frontend1_8080,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeClusterIP,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1_8080,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	// Insert the service entry of type ClusterIP.
@@ -1760,13 +1760,13 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 	allBackends = append(allBackends, remoteBackends...)
 
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeClusterIP,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		Name:             lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeClusterIP,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		Name:                  lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	// Insert the service entry of type ClusterIP.
@@ -1829,18 +1829,18 @@ func TestUpdateBackendsState(t *testing.T) {
 	backends[0].State = lb.BackendStateActive
 	backends[1].State = lb.BackendStateActive
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	p2 := &lb.SVC{
-		Frontend:         frontend2,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		Name:             lb.ServiceName{Name: "svc2", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend2,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		Name:                  lb.ServiceName{Name: "svc2", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	_, id1, err1 := m.svc.UpsertService(p1)
@@ -1930,7 +1930,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 		Type:                      lb.SVCTypeNodePort,
 		ExtTrafficPolicy:          lb.SVCTrafficPolicyCluster,
 		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id1, err := m.svc.UpsertService(p1)
 
@@ -1993,7 +1993,7 @@ func TestUpsertServiceWithZeroWeightBackends(t *testing.T) {
 		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 		Name: lb.ServiceName{
 			Name:      "svc1",
 			Namespace: "ns1",
@@ -2063,7 +2063,7 @@ func TestUpdateBackendsStateWithBackendSharedAcrossServices(t *testing.T) {
 		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 		Name: lb.ServiceName{
 			Name:      "svc1",
 			Namespace: "ns1",
@@ -2075,7 +2075,7 @@ func TestUpdateBackendsStateWithBackendSharedAcrossServices(t *testing.T) {
 		Type:                      lb.SVCTypeNodePort,
 		ExtTrafficPolicy:          lb.SVCTrafficPolicyCluster,
 		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
-		LoadBalancerAlgo:          lb.SVCLoadBalancingAlgoMaglev,
+		LoadBalancerAlgorithm:     lb.SVCLoadBalancingAlgorithmMaglev,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 100,
 		Name: lb.ServiceName{
@@ -2113,18 +2113,18 @@ func TestSyncNodePortFrontends(t *testing.T) {
 
 	// Add a IPv4 surrogate frontend
 	surrogate := &lb.SVC{
-		Frontend:         surrogateFE,
-		Backends:         backends1,
-		Type:             lb.SVCTypeNodePort,
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              surrogateFE,
+		Backends:              backends1,
+		Type:                  lb.SVCTypeNodePort,
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, surrID, err := m.svc.UpsertService(surrogate)
 	require.NoError(t, err)
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends1,
-		Type:             lb.SVCTypeNodePort,
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends1,
+		Type:                  lb.SVCTypeNodePort,
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, _, err = m.svc.UpsertService(p1)
 	require.NoError(t, err)
@@ -2155,10 +2155,10 @@ func TestSyncNodePortFrontends(t *testing.T) {
 
 	// Add an IPv6 surrogate
 	surrogate = &lb.SVC{
-		Frontend:         surrogateFEv6,
-		Backends:         backends3,
-		Type:             lb.SVCTypeNodePort,
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              surrogateFEv6,
+		Backends:              backends3,
+		Type:                  lb.SVCTypeNodePort,
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	_, _, err = m.svc.UpsertService(surrogate)
 	require.NoError(t, err)
@@ -2193,26 +2193,26 @@ func TestTrafficPolicy(t *testing.T) {
 	allBackends = append(allBackends, remoteBackends...)
 
 	p1 := &lb.SVC{
-		Frontend:         internalIP,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeLoadBalancer,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              internalIP,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeLoadBalancer,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyLocal,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id1, err := m.svc.UpsertService(p1)
 	require.True(t, created)
 	require.NoError(t, err)
 
 	p2 := &lb.SVC{
-		Frontend:         externalIP,
-		Backends:         allBackends,
-		Type:             lb.SVCTypeLoadBalancer,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              externalIP,
+		Backends:              allBackends,
+		Type:                  lb.SVCTypeLoadBalancer,
+		ExtTrafficPolicy:      lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:      lb.SVCTrafficPolicyLocal,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	created, id2, err := m.svc.UpsertService(p2)
 	require.True(t, created)
@@ -2263,10 +2263,10 @@ func TestDeleteServiceWithTerminatingBackends(t *testing.T) {
 	backends := backends5
 	backends[0].State = lb.BackendStateTerminating
 	p := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	created, id1, err := m.svc.UpsertService(p)
@@ -2294,11 +2294,11 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	_, id1, err1 := m.svc.UpsertService(p1)
@@ -2366,10 +2366,10 @@ func TestUpsertServiceWithDeletedBackends(t *testing.T) {
 		SockID: id2, Family: syscall.AF_INET, Protocol: unix.IPPROTO_UDP,
 	}
 	svc := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	key1 := *lbmap.NewSockRevNat4Key(1234, s1.SockID.Destination, s1.SockID.DestinationPort)
 	key2 := *lbmap.NewSockRevNat4Key(1235, s2.SockID.Destination, s2.SockID.DestinationPort)
@@ -2385,10 +2385,10 @@ func TestUpsertServiceWithDeletedBackends(t *testing.T) {
 
 	// Delete one of the backends.
 	svc = &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         []*lb.Backend{backends[1]},
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              []*lb.Backend{backends[1]},
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	created, _, err = m.svc.UpsertService(svc)
@@ -2459,11 +2459,11 @@ func TestHealthCheckCB(t *testing.T) {
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	_, id1, err1 := m.svc.UpsertService(p1)
@@ -2496,11 +2496,11 @@ func TestHealthCheckInitialSync(t *testing.T) {
 	backends[0] = backends1[0].DeepCopy()
 	backends[1] = backends1[1].DeepCopy()
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 
 	_, _, err := m.svc.UpsertService(p1)
@@ -2531,18 +2531,18 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	backends[1] = backends1[1].DeepCopy()
 	// Add two services with common backend.
 	p1 := &lb.SVC{
-		Frontend:         frontend1,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend1,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		Name:                  lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	p2 := &lb.SVC{
-		Frontend:         frontend2,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		Name:             lb.ServiceName{Name: "svc2", Namespace: "ns2"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontend2,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		Name:                  lb.ServiceName{Name: "svc2", Namespace: "ns2"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	cbCh1 := make(chan struct{})
 	cbCh2 := make(chan struct{})
@@ -2646,11 +2646,11 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	backends[0].State = lb.BackendStateQuarantined
 	frontendFoo := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.11"), 80, lb.ScopeExternal, 0)
 	p1 = &lb.SVC{
-		Frontend:         frontendFoo,
-		Backends:         backends,
-		Type:             lb.SVCTypeClusterIP,
-		Name:             lb.ServiceName{Name: "svc10", Namespace: "ns1"},
-		LoadBalancerAlgo: lb.SVCLoadBalancingAlgoMaglev,
+		Frontend:              frontendFoo,
+		Backends:              backends,
+		Type:                  lb.SVCTypeClusterIP,
+		Name:                  lb.ServiceName{Name: "svc10", Namespace: "ns1"},
+		LoadBalancerAlgorithm: lb.SVCLoadBalancingAlgorithmMaglev,
 	}
 	cbCh1 = make(chan struct{})
 	cb = func(svcInfo HealthUpdateSvcInfo) {

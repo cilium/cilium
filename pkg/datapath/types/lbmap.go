@@ -57,7 +57,7 @@ type UpsertServiceParams struct {
 	L7LBProxyPort             uint16                   // Non-zero for L7 LB services
 	Name                      loadbalancer.ServiceName // Fully qualified name of the service
 	LoopbackHostport          bool
-	LoadBalancingAlgo         loadbalancer.SVCLoadBalancingAlgo
+	LoadBalancingAlgorithm    loadbalancer.SVCLoadBalancingAlgorithm
 }
 
 // GetOrderedBackends returns an ordered list of backends with all the sorted

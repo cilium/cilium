@@ -196,7 +196,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if option.Config.NodePortAlg != option.NodePortAlgMaglev &&
-		!option.Config.LoadBalancerAlgAnnotation {
+		!option.Config.LoadBalancerAlgorithmAnnotation {
 		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
 	}
 
