@@ -493,9 +493,6 @@ data:
   {{- if ne (.Values.routingMode | default "tunnel") "tunnel" }}
     {{- fail (printf "RoutingMode must be set to tunnel when aksbyocni.enabled=true" )}}
   {{- end }}
-  {{- if ne (.Values.tunnelProtocol | default "vxlan" ) "vxlan" }}
-    {{- fail (printf "TunnelProtocol must be set to vxlan when aksbyocni.enabled=true" )}}
-  {{- end }}
 {{- end }}
 
   routing-mode: {{ .Values.routingMode | default (ternary "native" "tunnel" .Values.gke.enabled) | quote }}
