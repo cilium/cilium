@@ -98,6 +98,8 @@ type Parameters struct {
 	ExpectedDropReasons []string
 	ExpectedXFRMErrors  []string
 
+	LogCheckLevels []string
+
 	FlushCT               bool
 	SecondaryNetworkIface string
 
