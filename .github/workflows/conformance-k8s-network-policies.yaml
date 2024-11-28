@@ -130,7 +130,6 @@ jobs:
         run: ./test-cyclonus.sh
 
       - name: Install Cilium CLI
-        if: ${{ failure() }}
         uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
