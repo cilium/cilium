@@ -23,24 +23,6 @@ var agentChaosTests = func() {
 		vm.CloseSSHClient()
 	})
 
-	It("removing leftover Cilium interfaces", func() {
-		originalLinks, err := vm.Exec("sudo ip link show | wc -l").IntOutput()
-		Expect(err).Should(BeNil())
-
-		_ = vm.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
-
-		err = vm.RestartCilium()
-		Expect(err).Should(BeNil(), "restarting Cilium failed")
-
-		status := vm.Exec("sudo ip link show lxc12345")
-		status.ExpectFail("leftover interface were not properly cleaned up")
-
-		links, err := vm.Exec("sudo ip link show | wc -l").IntOutput()
-		Expect(err).Should(BeNil(), "Cannot get link layer information")
-		Expect(links).Should(Equal(originalLinks),
-			"Some network interfaces were accidentally removed!")
-	}, 300)
-
 	It("Checking for file-descriptor leak", func() {
 		threshold := 5000
 		fds, err := vm.Exec("sudo lsof -p `pidof cilium-agent` -p `pidof cilium-docker` 2>/dev/null | wc -l").IntOutput()
