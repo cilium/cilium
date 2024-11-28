@@ -34,6 +34,8 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		err := vm.SetUpCilium()
+		Expect(err).Should(BeNil(), "Cilium failed to start")
 		ExpectCiliumReady(vm)
 
 		dbgDone := vm.MonitorDebug(true, "")
