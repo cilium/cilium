@@ -15,9 +15,6 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/cilium/operator/doublewrite"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,6 +28,7 @@ import (
 	ciliumdbg "github.com/cilium/cilium/cilium-dbg/cmd"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
+	"github.com/cilium/cilium/operator/doublewrite"
 	"github.com/cilium/cilium/operator/endpointgc"
 	"github.com/cilium/cilium/operator/identitygc"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
@@ -128,8 +126,7 @@ var (
 				// to add their metrics when it's set to true. Therefore, we leave the flag as global
 				// instead of declaring it as part of the metrics cell.
 				// This should be changed once the IPAM allocator is modularized.
-				EnableMetrics:    operatorCfg.EnableMetrics,
-				EnableGatewayAPI: operatorCfg.EnableGatewayAPI,
+				EnableMetrics: operatorCfg.EnableMetrics,
 			}
 		}),
 	)

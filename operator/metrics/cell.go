@@ -40,13 +40,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 // SharedConfig contains the configuration that is shared between
 // this module and others.
-// Metrics cell needs to know if GatewayAPI is enabled in order to use
-// the same Registry as controller-runtime and avoid to expose
-// multiple metrics endpoints or servers.
 type SharedConfig struct {
 	// EnableMetrics is set to true if operator metrics are enabled
 	EnableMetrics bool
-
-	// EnableGatewayAPI enables support of Gateway API
-	EnableGatewayAPI bool
 }
