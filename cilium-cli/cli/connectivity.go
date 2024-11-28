@@ -178,6 +178,9 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringSliceVar(&params.ExpectedXFRMErrors, "expected-xfrm-errors", defaults.ExpectedXFRMErrors, "List of expected XFRM errors")
 	cmd.Flags().MarkHidden("expected-xfrm-errors")
 
+	cmd.Flags().StringSliceVar(&params.LogCheckLevels, "log-check-levels", defaults.LogCheckLevels, "Log levels to check for in log messages")
+	cmd.Flags().MarkHidden("log-check-levels")
+
 	cmd.Flags().BoolVar(&params.FlushCT, "flush-ct", false, "Flush conntrack of Cilium on each node")
 	cmd.Flags().MarkHidden("flush-ct")
 	cmd.Flags().StringVar(&params.SecondaryNetworkIface, "secondary-network-iface", "", "Secondary network iface name (e.g., to test NodePort BPF on multiple networks)")

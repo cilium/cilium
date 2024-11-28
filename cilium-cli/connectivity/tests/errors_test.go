@@ -10,21 +10,54 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 func TestErrorExceptionMatching(t *testing.T) {
-	s := NoErrorsInLogs(semver.MustParse("1.15.0")).(*noErrorsInLogs)
-	fails := s.findUniqueFailures(
-		`level=error msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
+	errs := `level=error msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
 		level=info msg="Cannot forward proxied DNS lookup" DNSRequestID=11649 dnsName=google.com.cluster.local. endpointID=3911 error="failed to dial connection to 10.242.1.245:53: dial udp 10.242.1.208:51871->10.242.1.245:53: bind: address already in use" identity=57932 ipAddr="10.242.1.208:51871" subsys=fqdn/dnsproxy (1 occurrences)
 level=info msg="foo"
 level=error msg="bar"
 level=error error="Failed to update lock:..."
+level=warning msg="baz"
 level=error msg="bar"
-		`)
-	assert.Len(t, fails, 1)
-	assert.Contains(t, fails, "level=error msg=\"bar\"")
-	assert.Equal(t, 2, fails["level=error msg=\"bar\""])
+`
+
+	for _, tt := range []struct {
+		levels        []string
+		wantLen       int
+		wantLogsCount map[string]int
+	}{
+		{
+			levels:  defaults.LogCheckLevels,
+			wantLen: 2,
+			wantLogsCount: map[string]int{
+				`level=error msg="bar"`:   2,
+				`level=warning msg="baz"`: 1,
+			},
+		},
+		{
+			levels:  []string{defaults.LogLevelError},
+			wantLen: 1,
+			wantLogsCount: map[string]int{
+				`level=error msg="bar"`: 2,
+			},
+		},
+		{
+			levels:        []string{},
+			wantLen:       0,
+			wantLogsCount: map[string]int{},
+		},
+	} {
+		s := NoErrorsInLogs(semver.MustParse("1.15.0"), tt.levels).(*noErrorsInLogs)
+		fails := s.findUniqueFailures(errs)
+		assert.Len(t, fails, tt.wantLen)
+		for wantMsg, wantCount := range tt.wantLogsCount {
+			assert.Contains(t, fails, wantMsg)
+			assert.Equal(t, wantCount, fails[wantMsg])
+		}
+	}
 }
 
 func TestComputeExpectedDropReasons(t *testing.T) {
