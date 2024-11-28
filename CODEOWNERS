@@ -627,7 +627,6 @@ Makefile* @cilium/build
 /test/bpf/ @cilium/sig-datapath
 /bpf/tests/bpftest/ @cilium/sig-datapath
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
-/test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
 /test/runtime/connectivity.go @cilium/sig-datapath @cilium/ci-structure
 /test/verifier @cilium/loader @cilium/ci-structure
@@ -648,7 +647,6 @@ Makefile* @cilium/build
 # Misc. tests
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
-/test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
 /go.sum @cilium/vendor

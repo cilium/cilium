@@ -196,6 +196,17 @@ jobs:
             --report-dir=${E2E_REPORT_DIR}                \
             --disable-log-dump=true
 
+      - name: Poor man's file-descriptor leak detector
+        run: |
+          for p in $(pidof cilium-agent); do
+            num=$(sudo lsof -p $p | wc -l)
+            echo "cilium-agent($p) has $num file descriptors open"
+            if [ "$num" -gt "500" ]; then
+              echo "cilium-agent($p) has more than 500 file descriptors (potential leak)"
+              exit 1
+            fi
+          done
+
       - name: Features tested
         uses: ./.github/actions/feature-status
         with:
