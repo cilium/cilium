@@ -114,7 +114,6 @@ to them:
          "name":"cilium",
          "plugins": [
            {
-             "cniVersion":"0.3.1",
              "type":"cilium-cni",
              "eni": {
                "subnet-tags":{
