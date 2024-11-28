@@ -646,7 +646,6 @@ Makefile* @cilium/build
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
-/test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
