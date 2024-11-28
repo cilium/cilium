@@ -744,8 +744,8 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 // Special handling exists when the count of zombies is large. Overlimit
 // zombies are deleted in GC with the following preferences (this is cumulative
 // and in order of precedence):
-//   - Zombies with zero AliveAt are evicted before those with a non-zero value
-//     (i.e. known connections marked by CT GC are evicted last)
+//   - Zombies with an earlier AliveAt are evicted before those with a later value
+//     (i.e. connections no longer marked as alive by CT GC are evicted first).
 //   - Zombies with an earlier DeletePendingAtTime are evicted first.
 //     Note: Upsert sets DeletePendingAt on every update, thus making GC prefer
 //     to evict IPs with less DNS churn on them.
@@ -760,7 +760,11 @@ type DNSZombieMapping struct {
 	IP netip.Addr `json:"ip,omitempty"`
 
 	// AliveAt is the last time this IP was marked alive via
-	// DNSZombieMappings.MarkAlive.
+	// DNSZombieMappings.MarkAlive. At zombie creation time we assume a zombie
+	// to be alive and initialize the field to the `lastCTGCUpdate` time. This
+	// avoids comparing a zero-valued time.Time as "earlier" than any other
+	// AliveAt values.
+	//
 	// When AliveAt is later than DNSZombieMappings.lastCTGCUpdate the zombie is
 	// considered alive.
 	AliveAt time.Time `json:"alive-at,omitempty"`
@@ -817,9 +821,10 @@ func NewDNSZombieMappings(max, perHostLimit int) *DNSZombieMappings {
 	}
 }
 
-// Upsert enqueues the ip -> qname as a possible deletion
-// updatedExisting is true when an earlier enqueue existed and was updated
-// If an existing entry is updated, the later expiryTime is applied to the existing entry.
+// Upsert enqueues the ip -> qname as a possible deletion. updatedExisting is
+// true when an earlier enqueue existed and was updated. If an entry already
+// exists and the expiry time is later, it is updated. The same also applies for
+// the AliveAt time.
 func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, qname ...string) (updatedExisting bool) {
 	zombies.Lock()
 	defer zombies.Unlock()
@@ -829,6 +834,7 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 		zombie = &DNSZombieMapping{
 			Names:           slices.Unique(qname),
 			IP:              addr,
+			AliveAt:         zombies.lastCTGCUpdate,
 			DeletePendingAt: expiryTime,
 			revisionAddedAt: zombies.ctGCRevision,
 		}
@@ -838,6 +844,10 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 		// Keep the latest expiry time
 		if expiryTime.After(zombie.DeletePendingAt) {
 			zombie.DeletePendingAt = expiryTime
+		}
+		// and bump the aliveAt.
+		if zombies.lastCTGCUpdate.After(zombie.AliveAt) {
+			zombie.AliveAt = zombies.lastCTGCUpdate
 		}
 	}
 	return updatedExisting
@@ -1008,7 +1018,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 			for _, z := range aliveIPsForName[overLimit:] {
 				possibleAlive[z] = struct{}{}
 			}
-			if dead[len(dead)-1].AliveAt.IsZero() {
+			if dead[len(dead)-1].AliveAt.After(zombies.lastCTGCUpdate) {
 				warnActiveDNSEntries = true
 			}
 		}
@@ -1034,7 +1044,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 		sortZombieMappingSlice(alive)
 		dead = append(dead, alive[:overLimit]...)
 		alive = alive[overLimit:]
-		if dead[len(dead)-1].AliveAt.IsZero() {
+		if dead[len(dead)-1].AliveAt.After(zombies.lastCTGCUpdate) {
 			log.Warning("Evicting expired DNS cache entries that may be in-use. This may cause recently created connections to be disconnected. Raise --tofqdns-max-deferred-connection-deletes to mitigate this.")
 		}
 	}
@@ -1224,9 +1234,8 @@ func (zombies *DNSZombieMappings) UnmarshalJSON(raw []byte) error {
 	}
 	zombies.deletes = aux.Deletes
 
-	// Reset the alive time & conntrack revision to ensure no deletes happen until we run CT GC again
+	// Reset the conntrack revision to ensure no deletes happen until we run CT GC again
 	for _, zombie := range zombies.deletes {
-		zombie.AliveAt = time.Time{}
 		zombie.revisionAddedAt = zombies.ctGCRevision
 	}
 	return nil
