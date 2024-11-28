@@ -88,6 +88,9 @@ func parseBuiltinModulesFile(r io.Reader) ([]string, error) {
 // listLoadedModules returns the parsed list of loaded kernel modules names.
 func listLoadedModules() ([]string, error) {
 	fModules, err := os.Open(loadedModulesFilepath)
+	if errors.Is(err, os.ErrNotExist) {
+		return []string{}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to open loaded modules information at %s: %w",
