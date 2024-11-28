@@ -203,6 +203,21 @@ jobs:
             --report-dir=${E2E_REPORT_DIR}                \
             --disable-log-dump=true
 
+      # Check for file-descriptor leaks from the cilium-agent process.
+      # There's no particular reason why we are checking it here, but
+      # it is a good idea to check for leaks in a CI job as this was migrated
+      # from the runtime tests' framework.
+      - name: File-descriptor leak detector
+        run: |
+          for p in $(pidof cilium-agent); do
+            num=$(sudo lsof -p $p | wc -l)
+            echo "cilium-agent($p) has $num file descriptors open"
+            if [ "$num" -gt "500" ]; then
+              echo "cilium-agent($p) has more than 500 file descriptors (potential leak)"
+              exit 1
+            fi
+          done
+
       - name: Features tested
         uses: ./.github/actions/feature-status
         with:

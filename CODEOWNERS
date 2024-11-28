@@ -647,7 +647,6 @@ Makefile* @cilium/build
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
 # Datapath tests
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
-/test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
 /test/verifier @cilium/loader @cilium/ci-structure
 # Policy tests
@@ -664,7 +663,6 @@ Makefile* @cilium/build
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
-/test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
 /tools/dpgen @cilium/loader
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
