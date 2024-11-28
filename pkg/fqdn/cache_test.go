@@ -1144,6 +1144,113 @@ func TestOverlimitPreferNewerEntries(t *testing.T) {
 	})
 }
 
+// This test tests the over limit behaviour of DNS Mapping zombies for repeated
+// lookups to the same domain (e.g. an S3 bucket). It tries to mimick the "fun"
+// interactions between the CT GC, FQDN GC and per-host IP limits. It covers a
+// case which, prior to the commit introducing this test, zombies were reaped
+// erroneously, since their "AliveAt" field was zero (and they thus sorted to
+// the front).
+func TestPerHostLimitBehaviourForS3(t *testing.T) {
+	someDomain := "s3.example.com"
+	maxIPs := 5
+	dnsTTL := 4 // seconds
+
+	tc := NewDNSCacheWithLimit(0, maxIPs)
+	z := NewDNSZombieMappings(10000, maxIPs)
+
+	// These are simulated lookup results for someDomain.
+	reallyOldLookup := []netip.Addr{
+		netip.MustParseAddr("1.0.0.1"),
+	}
+	recentLookup := []netip.Addr{
+		netip.MustParseAddr("1.1.0.1"),
+		netip.MustParseAddr("1.1.0.2"),
+		netip.MustParseAddr("1.1.0.3"),
+		netip.MustParseAddr("1.1.0.4"),
+		netip.MustParseAddr("1.1.0.5"),
+	}
+	keepaliveLookup := netip.MustParseAddr("1.2.0.1")
+
+	simulateFQDNGC := func(when time.Time) sets.Set[string] {
+		t.Helper()
+		names := tc.GC(when, z)
+		z.GC()
+		return names
+	}
+
+	simulateCTGC := func(when time.Time, alive []netip.Addr) {
+		t.Helper()
+		for _, ip := range alive {
+			z.MarkAlive(when, ip)
+		}
+		z.SetCTGCTime(when, when.Add(10*time.Second))
+	}
+
+	// Simulates a lookup and runs all GCs
+	tick := func(tock time.Time) {
+		t.Helper()
+		tc.Update(tock, someDomain, []netip.Addr{keepaliveLookup}, dnsTTL)
+		// Must be past TTL
+		simulateFQDNGC(tock.Add((2*time.Duration(dnsTTL)*time.Second + 1)))
+		simulateCTGC(tock.Add(2*time.Duration(dnsTTL)*time.Second+2), nil)
+	}
+
+	now := time.Now()
+	aLongTimeAgo := now.Add(-10 * time.Hour)
+	sevenSecondsAgo := now.Add(-7 * time.Second) // TTL expired by "now"
+
+	// A long time ago, we looked up example.com
+	tc.Update(aLongTimeAgo, someDomain, reallyOldLookup, dnsTTL)
+	// At some point past the lookup's TTL, a FQDN GC happens. The lookup now
+	// moves to the DNSMappingZombies. It's not yet dead, since the zombie
+	// tracking doesn't know whether its dead or alive (since CT GC hasn't run).
+	simulateFQDNGC(aLongTimeAgo.Add(8 * time.Second))
+	// Turns out it was a long-standing connection and hence CT GC marked it
+	// alive. The entry is still a zombie, but a live one.
+	simulateCTGC(aLongTimeAgo.Add(10*time.Second), reallyOldLookup)
+	if _, found := z.deletes[reallyOldLookup[0]]; !found {
+		t.Errorf("expected really old lookup to still be present")
+	}
+
+	// During these "ticks", we simulate lookups to someDomain. We call these
+	// keep-alive lookups because they keep the really old lookup alive. Any
+	// alive IP for a name keeps that name alive, and any name keeps
+	// corresponding zombies alive. Cilium wants to keep these alive to not
+	// break applications which resolve someDomain once, early, and then assume
+	// the resolved IPs to be alive for longer than TTL.
+	tick(aLongTimeAgo.Add(20 * time.Second))
+	tick(aLongTimeAgo.Add(30 * time.Second))
+	tick(aLongTimeAgo.Add(40 * time.Second))
+	tick(aLongTimeAgo.Add(50 * time.Second))
+	if _, found := z.deletes[reallyOldLookup[0]]; !found {
+		t.Errorf("expected really old lookup to still be present")
+	}
+
+	// Seven seconds ago, we looked example.com up again. To test the over-limit
+	// behaviour, this lookup gets multiple IPs back.
+	tc.Update(sevenSecondsAgo, someDomain, recentLookup, dnsTTL)
+	// FQDN GC should collect all but the newest five IPs due to the perHost limit.
+	affectedNames := simulateFQDNGC(now)
+	if len(affectedNames) != 1 || !affectedNames.Has(someDomain) {
+		t.Errorf("expected affected name to contain only %s but it is %+v", someDomain, affectedNames)
+	}
+
+	// Assert that the zombies respect the limit.
+	if len(z.deletes) != maxIPs {
+		t.Errorf("expected zombies to contain %v entries, but has %v", maxIPs, len(z.deletes))
+	}
+	// Assert that the old lookup was thrown out.
+	if _, found := z.deletes[reallyOldLookup[0]]; found {
+		t.Errorf("expected really old lookup not to be present")
+	}
+	// Asser that the new lookups are present.
+	for _, ip := range recentLookup {
+		if _, found := z.deletes[ip]; !found {
+			t.Errorf("expected recent lookup %v to be present", ip)
+		}
+	}
+}
+
 // Define a test-only string representation to make the output below more readable.
 func (z *DNSZombieMapping) String() string {
 	return fmt.Sprintf(
