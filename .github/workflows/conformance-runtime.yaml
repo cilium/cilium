@@ -191,7 +191,6 @@ jobs:
 
         include:
           ###
-          # RuntimeAgentChaos Cilium agent Checking for file-descriptor leak
           # RuntimeAgentFQDNPolicies Can update L7 DNS policy rules
           # RuntimeAgentFQDNPolicies CNAME follow
           # RuntimeAgentFQDNPolicies DNS proxy policy works if Cilium stops
