@@ -267,11 +267,11 @@ const (
 	LoadBalancerRSSv6CIDR = "bpf-lb-rss-ipv6-src-cidr"
 
 	// Alias to NodePortAlg
-	LoadBalancerAlg = "bpf-lb-algorithm"
+	LoadBalancerAlgorithm = "bpf-lb-algorithm"
 
-	// LoadBalancerAlgAnnotation tells whether controller should check service
+	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
 	// level annotation for configuring bpf loadbalancing algorithm.
-	LoadBalancerAlgAnnotation = "bpf-lb-algorithm-annotation"
+	LoadBalancerAlgorithmAnnotation = "bpf-lb-algorithm-annotation"
 
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
@@ -1867,9 +1867,9 @@ type DaemonConfig struct {
 	// ("random" or "maglev")
 	NodePortAlg string
 
-	// LoadBalancerAlgAnnotation tells whether controller should check service
+	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
 	// level annotation for configuring bpf load balancing algorithm.
-	LoadBalancerAlgAnnotation bool
+	LoadBalancerAlgorithmAnnotation bool
 
 	// LoadBalancerDSRDispatch indicates the method for pushing packets to
 	// backends under DSR ("opt" or "ipip")
@@ -3314,8 +3314,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
 	c.NodePortMode = vp.GetString(LoadBalancerMode)
-	c.NodePortAlg = vp.GetString(LoadBalancerAlg)
-	c.LoadBalancerAlgAnnotation = vp.GetBool(LoadBalancerAlgAnnotation)
+	c.NodePortAlg = vp.GetString(LoadBalancerAlgorithm)
+	c.LoadBalancerAlgorithmAnnotation = vp.GetBool(LoadBalancerAlgorithmAnnotation)
 	// If old settings were explicitly set by the user, then have them
 	// override the new ones in order to not break existing setups.
 	if vp.IsSet(NodePortAcceleration) {
@@ -3337,9 +3337,9 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	if vp.IsSet(NodePortAlg) {
 		prior := c.NodePortAlg
 		c.NodePortAlg = vp.GetString(NodePortAlg)
-		if vp.IsSet(LoadBalancerAlg) && prior != c.NodePortAlg {
+		if vp.IsSet(LoadBalancerAlgorithm) && prior != c.NodePortAlg {
 			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
-				LoadBalancerAlg, NodePortAlg, LoadBalancerAlg)
+				LoadBalancerAlgorithm, NodePortAlg, LoadBalancerAlgorithm)
 		}
 	}
 }

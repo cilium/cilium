@@ -50,7 +50,7 @@ type LBBPFMap struct {
 
 func New() *LBBPFMap {
 	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev ||
-		option.Config.LoadBalancerAlgAnnotation
+		option.Config.LoadBalancerAlgorithmAnnotation
 	maglevTableSize := option.Config.MaglevTableSize
 
 	m := &LBBPFMap{}
@@ -112,7 +112,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 				})
 				svcVal.SetFlags(flag.UInt16())
 			}
-			svcVal.SetLbAlg(uint8(p.LoadBalancingAlgo))
+			svcVal.SetLbAlg(uint8(p.LoadBalancingAlgorithm))
 			if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
 				if errors.Is(err, unix.E2BIG) {
 					return fmt.Errorf("Unable to update service entry %+v => %+v: "+
@@ -138,7 +138,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 
 	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
 		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
-		p.SourceRangesPolicy, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgo); err != nil {
+		p.SourceRangesPolicy, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgorithm); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
 	}
@@ -621,7 +621,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode, svcExtLocal, svcIntLocal bool,
 	svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	svcSourceRangesPolicy loadbalancer.SVCSourceRangesPolicy, checkSourceRange bool, l7lbProxyPort uint16,
-	loopbackHostport bool, loadBalancingAlgo loadbalancer.SVCLoadBalancingAlgo) error {
+	loopbackHostport bool, loadBalancingAlgorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
@@ -630,7 +630,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	v.SetCount(activeBackends)
 	v.SetQCount(quarantinedBackends)
 	v.SetRevNat(revNATID)
-	v.SetLbAlg(uint8(loadBalancingAlgo))
+	v.SetLbAlg(uint8(loadBalancingAlgorithm))
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcFwdModeDSR:    svcForwardingMode == loadbalancer.SVCForwardingModeDSR,

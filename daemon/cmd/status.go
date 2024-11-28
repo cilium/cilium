@@ -307,7 +307,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
 			features.NodePort.LutSize = int64(option.Config.MaglevTableSize)
 		}
-		if option.Config.LoadBalancerAlgAnnotation {
+		if option.Config.LoadBalancerAlgorithmAnnotation {
 			features.NodePort.LutSize = int64(option.Config.MaglevTableSize)
 		}
 		if option.Config.NodePortAcceleration == option.NodePortAccelerationGeneric {
