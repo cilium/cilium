@@ -60,22 +60,22 @@ const (
 	SVCForwardingModeSNAT = SVCForwardingMode("snat")
 )
 
-type SVCLoadBalancingAlgo uint8
+type SVCLoadBalancingAlgorithm uint8
 
 const (
-	SVCLoadBalancingAlgoUndef  = 0
-	SVCLoadBalancingAlgoRandom = 1
-	SVCLoadBalancingAlgoMaglev = 2
+	SVCLoadBalancingAlgorithmUndef  = 0
+	SVCLoadBalancingAlgorithmRandom = 1
+	SVCLoadBalancingAlgorithmMaglev = 2
 )
 
-func ToSVCLoadBalancingAlgo(s string) SVCLoadBalancingAlgo {
+func ToSVCLoadBalancingAlgorithm(s string) SVCLoadBalancingAlgorithm {
 	if s == option.NodePortAlgMaglev {
-		return SVCLoadBalancingAlgoMaglev
+		return SVCLoadBalancingAlgorithmMaglev
 	}
 	if s == option.NodePortAlgRandom {
-		return SVCLoadBalancingAlgoRandom
+		return SVCLoadBalancingAlgorithmRandom
 	}
-	return SVCLoadBalancingAlgoUndef
+	return SVCLoadBalancingAlgorithmUndef
 }
 
 type SVCSourceRangesPolicy string
@@ -518,9 +518,9 @@ type SVC struct {
 	SourceRangesPolicy        SVCSourceRangesPolicy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
-	HealthCheckNodePort       uint16               // Service health check node port
-	Name                      ServiceName          // Fully qualified service name
-	LoadBalancerAlgo          SVCLoadBalancingAlgo // Service LB algorithm (random or maglev)
+	HealthCheckNodePort       uint16                    // Service health check node port
+	Name                      ServiceName               // Fully qualified service name
+	LoadBalancerAlgorithm     SVCLoadBalancingAlgorithm // Service LB algorithm (random or maglev)
 	LoadBalancerSourceRanges  []*cidr.CIDR
 	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 	LoopbackHostport          bool
