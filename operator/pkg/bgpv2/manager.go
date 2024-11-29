@@ -10,6 +10,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -23,16 +25,6 @@ import (
 )
 
 var (
-	// retry options used in reconcileWithRetry method.
-	// steps will repeat for ~8.5 minutes.
-	bo = wait.Backoff{
-		Duration: 1 * time.Second,
-		Factor:   2,
-		Jitter:   0,
-		Steps:    10,
-		Cap:      0,
-	}
-
 	// maxErrorLen is the maximum length of error message to be logged.
 	maxErrorLen = 140
 )
@@ -247,13 +239,30 @@ func (b *BGPResourceManager) Run(ctx context.Context) (err error) {
 
 // reconcileWithRetry retries reconcile with exponential backoff.
 func (b *BGPResourceManager) reconcileWithRetry(ctx context.Context) error {
+	// steps will repeat for ~8.5 minutes.
+	bo := wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   2,
+		Jitter:   0,
+		Steps:    10,
+		Cap:      0,
+	}
+	attempt := 0
+
 	retryFn := func(ctx context.Context) (bool, error) {
+		attempt++
+
 		err := b.reconcile(ctx)
 
 		switch {
 		case err != nil:
 			// log error, continue retry
-			b.logger.Warn("BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+			if isRetryableError(err) && attempt%5 != 0 {
+				// for retryable error print warning only every 5th attempt
+				b.logger.Debug("Transient BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+			} else {
+				b.logger.Warn("BGP reconciliation error", logfields.Error, TrimError(err, maxErrorLen))
+			}
 			return false, nil
 		default:
 			// no error, stop retry
@@ -279,4 +288,13 @@ func TrimError(err error, maxLen int) error {
 		return fmt.Errorf("%s... ", err.Error()[:maxLen])
 	}
 	return err
+}
+
+// isRetryableError returns true if the error returned by reconcile
+// is likely transient, and will be addressed by a subsequent iteration.
+func isRetryableError(err error) bool {
+	return k8serrors.IsAlreadyExists(err) ||
+		k8serrors.IsConflict(err) ||
+		k8serrors.IsNotFound(err) ||
+		(k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause))
 }
