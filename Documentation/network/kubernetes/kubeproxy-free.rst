@@ -711,6 +711,66 @@ annotation mode would look as follows:
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
+Annotation-based Load Balancing Algorithm Selection
+***************************************************
+
+Cilium has the ability to specify the load balancing algorithm on a per-service
+basis through the ``service.cilium.io/lb-algorithm`` annotation. Setting
+``bpf.lbAlgorithmAnnotation=true`` opts into this ability for the BPF and
+corresponding agent code. A typical use-case is to reduce the memory footprint
+which comes with Maglev given the latter requires large lookup tables for each
+service. Thus, if not all services need consistent hashing, then these can
+fallback to a random selection instead.
+
+By default, if no service annotation is provided, the logic falls back to use
+whichever method was specified globally through ``loadBalancer.algorithm``. The
+latter supports either ``random`` or ``maglev`` as values today with ``random``
+being the default if ``loadBalancer.algorithm`` was not explicitly set via Helm.
+
+To add a new service which must use ``random`` as its load balancing algorithm:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/lb-algorithm: random
+  spec:
+    selector:
+      app: example
+    ports:
+      - port: 8765
+        targetPort: 9376
+    type: LoadBalancer
+
+Similarly, for opting into ``maglev``, use the following:
+
+ .. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/lb-algorithm: maglev
+  spec:
+    selector:
+      app: example
+    ports:
+      - port: 8765
+        targetPort: 9376
+    type: LoadBalancer
+
+All north-south traffic is now subsequently subject to ``maglev``-based load
+balancing for the latter example.
+
+Note that ``service.cilium.io/lb-algorithm`` only takes effect upon initial
+service creation and cannot be changed during the lifetime of the given
+Kubernetes service. Switching between load balancing algorithms requires
+recreation of a service.
+
 .. _socketlb-host-netns-only:
 
 Socket LoadBalancer Bypass in Pod Namespace
