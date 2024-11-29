@@ -60,7 +60,7 @@ function install_k8s_using_binary {
     	curl -sSL "https://github.com/containernetworking/plugins/releases/download/${CNI_VERSION}/cni-plugins${OS}-amd64-${CNI_VERSION}.tgz" | tar -C /opt/cni/bin -xz
     fi
 
-    wget -q https://storage.googleapis.com/kubernetes-release/release/${RELEASE}/bin/linux/amd64/{kubectl,kubeadm,kubelet}
+    wget -q https://dl.k8s.io/release/${RELEASE}/bin/linux/amd64/{kubectl,kubeadm,kubelet}
     chmod 777 ku*
     cp -fv ku* /usr/bin/
     rm -rf /etc/systemd/system/kubelet.service || true
