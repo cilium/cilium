@@ -30,12 +30,6 @@ type counter struct {
 	metric
 }
 
-func (c *counter) Collect(metricChan chan<- prometheus.Metric) {
-	if c.enabled {
-		c.Counter.Collect(metricChan)
-	}
-}
-
 func (c *counter) Get() float64 {
 	var pm dto.Metric
 	err := c.Counter.Write(&pm)
@@ -43,21 +37,6 @@ func (c *counter) Get() float64 {
 		return *pm.Counter.Value
 	}
 	return 0
-}
-
-// Inc increments the counter by 1. Use Add to increment it by arbitrary
-// non-negative values.
-func (c *counter) Inc() {
-	if c.enabled {
-		c.Counter.Inc()
-	}
-}
-
-// Add adds the given value to the counter. It panics if the value is < 0.
-func (c *counter) Add(val float64) {
-	if c.enabled {
-		c.Counter.Add(val)
-	}
 }
 
 // NewCounterVec creates a new DeletableVec[Counter] based on the provided CounterOpts and
@@ -121,12 +100,6 @@ func (cv *counterVec) CurryWith(labels prometheus.Labels) (Vec[Counter], error) 
 }
 
 func (cv *counterVec) GetMetricWith(labels prometheus.Labels) (Counter, error) {
-	if !cv.enabled {
-		return &counter{
-			metric: metric{enabled: false},
-		}, nil
-	}
-
 	promCounter, err := cv.CounterVec.GetMetricWith(labels)
 	if err == nil {
 		return &counter{
@@ -138,12 +111,6 @@ func (cv *counterVec) GetMetricWith(labels prometheus.Labels) (Counter, error) {
 }
 
 func (cv *counterVec) GetMetricWithLabelValues(lvs ...string) (Counter, error) {
-	if !cv.enabled {
-		return &counter{
-			metric: metric{enabled: false},
-		}, nil
-	}
-
 	promCounter, err := cv.CounterVec.GetMetricWithLabelValues(lvs...)
 	if err == nil {
 		return &counter{
@@ -156,12 +123,6 @@ func (cv *counterVec) GetMetricWithLabelValues(lvs ...string) (Counter, error) {
 
 func (cv *counterVec) With(labels prometheus.Labels) Counter {
 	cv.checkLabels(labels)
-	if !cv.enabled {
-		return &counter{
-			metric: metric{enabled: false},
-		}
-	}
-
 	promCounter := cv.CounterVec.With(labels)
 	return &counter{
 		Counter: promCounter,
@@ -171,12 +132,6 @@ func (cv *counterVec) With(labels prometheus.Labels) Counter {
 
 func (cv *counterVec) WithLabelValues(lvs ...string) Counter {
 	cv.checkLabelValues(lvs...)
-	if !cv.enabled {
-		return &counter{
-			metric: metric{enabled: false},
-		}
-	}
-
 	promCounter := cv.CounterVec.WithLabelValues(lvs...)
 	return &counter{
 		Counter: promCounter,
