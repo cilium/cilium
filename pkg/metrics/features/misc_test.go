@@ -4,9 +4,11 @@
 package features
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -282,6 +284,53 @@ func TestCCNP(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npCCNPIngested, metrics.NPCCNPIngested.WithLabelValues(actionAdd).Get(), "NPCCNPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npCCNPIngested, metrics.NPCCNPIngested.WithLabelValues(actionDel).Get(), "NPCCNPIngested different")
 
+		})
+	}
+}
+
+func TestClusterMesh(t *testing.T) {
+	type testCase struct {
+		name        string
+		mode        string
+		maxClusters string
+	}
+	var tests []testCase
+	for _, mode := range defaultClusterMeshMode {
+		for _, maxClusters := range defaultClusterMeshMaxConnectedClusters {
+			tests = append(tests, testCase{
+				name:        fmt.Sprintf("ClusterMesh %s - %s", mode, maxClusters),
+				mode:        mode,
+				maxClusters: maxClusters,
+			})
+		}
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultClusterMeshMode {
+				for _, maxClusters := range defaultClusterMeshMaxConnectedClusters {
+
+					metrics := NewMetrics(true)
+					metrics.AddClusterMeshConfig(tt.mode, tt.maxClusters)
+
+					counter, err := metrics.ACLBClusterMeshEnabled.GetMetricWithLabelValues(mode, maxClusters)
+					require.NoError(t, err)
+
+					counterValue := counter.Get()
+					if mode == tt.mode &&
+						maxClusters == tt.maxClusters {
+						assert.Equal(t, float64(1), counterValue, "Expected mode %s - %s to be incremented", mode, maxClusters)
+					} else {
+						assert.Equal(t, float64(0), counterValue, "Expected mode %s - %s to remain at 0", mode, maxClusters)
+					}
+					metrics.DelClusterMeshConfig(tt.mode, tt.maxClusters)
+
+					counterValue = counter.Get()
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s - %s to remain at 0", mode, maxClusters)
+				}
+			}
 		})
 	}
 }

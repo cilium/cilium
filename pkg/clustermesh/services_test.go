@@ -132,6 +132,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          store,
+		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 		Logger:                logrus.New(),
 	})
 	require.NotNil(tb, s.mesh)
