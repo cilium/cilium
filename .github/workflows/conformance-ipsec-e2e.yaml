@@ -200,6 +200,17 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Setup bootid file
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            set -ex
+            for container in \$(docker ps -q); do
+              docker exec \$container mkdir -p /var/run/cilium/
+              docker exec \$container sh -c 'cat /proc/sys/kernel/random/uuid > /var/run/cilium/boot_id'
+            done
+
       - name: Start Cilium KVStore
         id: kvstore
         if: matrix.kvstore == 'true'
@@ -246,7 +257,7 @@ jobs:
           kubectl create -n kube-system secret generic cilium-ipsec-keys \
             --from-literal=keys="3+ ${key}"
 
-          cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
+          cilium install ${{ steps.cilium-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
 
           cilium status --wait
           kubectl get pods --all-namespaces -o wide
