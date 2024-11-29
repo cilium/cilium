@@ -19,116 +19,282 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/script"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"gopkg.in/yaml.v3"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/hive"
-	"github.com/cilium/hive/script"
 )
 
-// newMetricsCommand implements the "metrics" script command. This can be accessed
-// in script tests, via "cilium-dbg shell" or indirectly via 'cilium-dbg metrics list'.
-func newMetricsCommand(r *Registry, dc *debugCollector) hive.ScriptCmdOut {
-	return hive.NewScriptCmd(
-		"metrics",
-		script.Command(
-			script.CmdUsage{
-				Summary: "Show metrics",
-				Args:    "[-o=file] [-format={table,yaml,json}] [-s] [match regex]",
-				RegexpArgs: func(rawArgs ...string) []int {
-					for i, arg := range rawArgs {
-						if !strings.HasPrefix(arg, "-") {
-							return []int{i}
-						}
-						if arg == "--" {
-							return []int{i + 1}
-						}
-					}
-					return nil
-				},
-				Detail: []string{
-					"Lists all registered metrics.",
-					"",
-					"To write the metrics to a file: 'metrics -o=/path/to/file'",
-					"To show metrics matching a regex: 'metrics foo.*'",
-					"To show samples: 'metrics -s'",
-				},
-			},
-			func(s *script.State, args ...string) (script.WaitFunc, error) {
-				flags := flag.NewFlagSet("metrics", flag.ContinueOnError)
-				file := flags.String("o", "", "Output file")
-				format := flags.String("format", "table", "Output format, one of: table, json or yaml")
-				samples := flags.Bool("s", false, "Show sampled metrics")
-				if err := flags.Parse(args); err != nil {
-					if errors.Is(err, flag.ErrHelp) {
+func metricsCommands(r *Registry, dc *sampler) hive.ScriptCmdsOut {
+	return hive.NewScriptCmds(map[string]script.Cmd{
+		"metrics":      metricsCommand(r, dc),
+		"metrics/plot": plotCommand(dc),
+	})
+}
 
+// metricsCommand implements the "metrics" script command. This can be accessed
+// in script tests, via "cilium-dbg shell" or indirectly via 'cilium-dbg metrics list'.
+func metricsCommand(r *Registry, dc *sampler) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "List registered metrics",
+			Args:    "[-o=file] [-format={table,yaml,json}] [-s] [-e] [match regex]",
+			RegexpArgs: func(rawArgs ...string) []int {
+				for i, arg := range rawArgs {
+					if !strings.HasPrefix(arg, "-") {
+						return []int{i}
 					}
+					if arg == "--" {
+						return []int{i + 1}
+					}
+				}
+				return nil
+			},
+			Detail: []string{
+				"To write the metrics to a file: 'metrics -o=/path/to/file'",
+				"To show metrics matching a regex: 'metrics foo.*'",
+				"To show only the enabled metrics: 'metrics -e'",
+				"To show samples from last 60 minutes: 'metrics -s'",
+				"",
+				"The metric samples can be plotted with 'metrics/plot' command.",
+				"",
+				"Run 'metrics -h' for extended help of the flags.",
+				"",
+				"Metrics can be filtered with a regexp. The match is made",
+				"against the metric name and its labels.",
+				"For example 'metrics regen.*scope=total' would match the",
+				"regenerations metric with one of the labels being scope=total",
+				"",
+				"In the sample output the 50th, 90th and 99th quantiles are shown",
+				"for histograms, e.g. in '15ms / 30ms / 60ms' 50th is 15ms and so on.",
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			flags := flag.NewFlagSet("metrics", flag.ContinueOnError)
+			flags.SetOutput(s.LogWriter())
+			file := flags.String("o", "", "Output file")
+			samples := flags.Bool("s", false, "Show sampled metrics")
+			format := flags.String("format", "table", "Output format, one of: table, json or yaml")
+			if err := flags.Parse(args); err != nil {
+				if errors.Is(err, flag.ErrHelp) {
+					return nil, nil
+				}
+				return nil, err
+			}
+			args = flags.Args()
+
+			var re *regexp.Regexp
+			if len(args) > 0 {
+				var err error
+				re, err = regexp.Compile(args[0])
+				if err != nil {
+					return nil, fmt.Errorf("regex: %w", err)
+				}
+			}
+
+			var w io.Writer
+			if *file != "" {
+				f, err := os.OpenFile(s.Path(*file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+				if err != nil {
 					return nil, err
 				}
-				args = flags.Args()
+				w = f
+				defer f.Close()
+			} else {
+				w = s.LogWriter()
+			}
 
-				var re *regexp.Regexp
-				if len(args) > 0 {
-					var err error
-					re, err = regexp.Compile(args[0])
-					if err != nil {
-						return nil, fmt.Errorf("regex: %w", err)
-					}
-				}
+			if *samples {
+				return nil, writeMetricsFromSamples(w, *format, re, dc)
+			}
 
-				var w io.Writer
-				if *file != "" {
-					f, err := os.OpenFile(s.Path(*file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-					if err != nil {
-						return nil, err
-					}
-					w = f
-					defer f.Close()
-				} else {
-					w = s.LogWriter()
-				}
-				if *samples {
-					return nil, writeMetricsFromDebugCollector(w, *format, re, dc)
-				}
-				return nil, writeMetricsFromRegistry(w, *format, re, r.inner)
-			},
-		),
+			return nil, writeMetricsFromRegistry(w, *format, re, r.inner)
+		},
 	)
 }
 
-// getMetricValue produces a single representative value out of the metric.
-func getMetricValue(name string, typ dto.MetricType, m *dto.Metric) (float64, string) {
-	suffix := ""
-	if strings.HasSuffix(name, "seconds") {
-		suffix = "s"
-	}
+// plotCommand implements the "metrics/plot" script command. This can be accessed
+// in script tests, via "cilium-dbg shell" or indirectly via 'cilium-dbg metrics list'.
+func plotCommand(dc *sampler) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Plot sampled metrics as a line graph",
+			Args:    "[-o=file] [-rate] [match regex]",
+			RegexpArgs: func(rawArgs ...string) []int {
+				for i, arg := range rawArgs {
+					if !strings.HasPrefix(arg, "-") {
+						return []int{i}
+					}
+					if arg == "--" {
+						return []int{i + 1}
+					}
+				}
+				return nil
+			},
+			Detail: []string{
+				"The sampled metric is specified with the regex argument.",
+				"Both the metric name and its labels are matched against.",
+				"Use the 'metrics' command to search for the right regex.",
+				"",
+				"For example to plot the 'go_sched_latencies_seconds':",
+				"",
+				"cilium> metrics/plot go_sched_lat",
+				"",
+				"Or to plot the sysctl reconciliation durations:",
+				"",
+				"cilium> metrics/plot reconciler_duration.*sysctl",
+				"",
+				"Specify '-rate' to show the rate of change for a counter,",
+				"for example to plot how many bytes are allocated per minute:",
+				"",
+				"cilium> metrics/plot -rate go.*heap_alloc_bytes",
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			flags := flag.NewFlagSet("metrics", flag.ContinueOnError)
+			flags.SetOutput(s.LogWriter())
+			file := flags.String("o", "", "Output file")
+			rate := flags.Bool("rate", false, "Plot the rate of change")
+			if err := flags.Parse(args); err != nil {
+				if errors.Is(err, flag.ErrHelp) {
+					return nil, nil
+				}
+				return nil, err
+			}
+			args = flags.Args()
 
-	switch typ {
-	case dto.MetricType_COUNTER:
-		v := m.Counter.GetValue()
-		return v, fmt.Sprintf("%f", v)
-	case dto.MetricType_GAUGE:
-		v := m.Gauge.GetValue()
-		return v, fmt.Sprintf("%f", v)
-	case dto.MetricType_SUMMARY:
-		s := m.Summary
-		x := ""
-		for i, q := range s.Quantile {
-			x += fmt.Sprintf("p%d(%s%s)", int(100.0*(*q.Quantile)), prettyValue(*q.Value), suffix)
-			if i != len(s.Quantile)-1 {
-				x += " "
+			var re *regexp.Regexp
+			if len(args) > 0 {
+				var err error
+				re, err = regexp.Compile(args[0])
+				if err != nil {
+					return nil, fmt.Errorf("regex: %w", err)
+				}
+			}
+
+			var w io.Writer
+			if *file != "" {
+				f, err := os.OpenFile(s.Path(*file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+				if err != nil {
+					return nil, err
+				}
+				w = f
+				defer f.Close()
+			} else {
+				w = s.LogWriter()
+			}
+
+			dc.mu.Lock()
+			defer dc.mu.Unlock()
+
+			if re == nil {
+				fmt.Fprintln(w, "regexp needed to find metric")
+				return nil, nil
+			}
+
+			sampledMetrics := slices.Collect(maps.Values(dc.metrics))
+			slices.SortFunc(sampledMetrics, func(a, b debugSamples) int {
+				return cmp.Or(
+					cmp.Compare(a.getName(), b.getName()),
+					cmp.Compare(a.getLabels(), b.getLabels()),
+				)
+			})
+
+			var ds debugSamples
+			matched := true
+			for _, ds = range sampledMetrics {
+				matched = re.MatchString(ds.getName() + ds.getLabels())
+				if matched {
+					break
+				}
+			}
+			if !matched {
+				fmt.Fprintf(w, "no metric found matching regexp %q", re.String())
+				return nil, nil
+			}
+
+			switch ds := ds.(type) {
+			case *gaugeOrCounterSamples:
+				plotSamples(w, *rate, ds.getName(), ds.getLabels(), samplingTimeSpan, ds.samples.grab(), ds.bits)
+			case *histogramSamples:
+				plotSamples(w, *rate, ds.getName()+" (p50)", ds.getLabels(), samplingTimeSpan, ds.p50.grab(), ds.bits)
+				fmt.Fprintln(w)
+				plotSamples(w, *rate, ds.getName()+" (p90)", ds.getLabels(), samplingTimeSpan, ds.p90.grab(), ds.bits)
+				fmt.Fprintln(w)
+				plotSamples(w, *rate, ds.getName()+" (p99)", ds.getLabels(), samplingTimeSpan, ds.p99.grab(), ds.bits)
+			}
+
+			return nil, nil
+		},
+	)
+}
+
+type metricJSONSample struct {
+	Name   string `json:"name" yaml:"name"`
+	Labels string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	M5     string `json:"5min" yaml:"5min"`
+	M30    string `json:"30min" yaml:"30min"`
+	M60    string `json:"60min" yaml:"60min"`
+	M120   string `json:"120min" yaml:"120min"`
+}
+
+func writeMetricsFromSamples(outw io.Writer, format string, re *regexp.Regexp, dc *sampler) error {
+	dc.mu.Lock()
+	defer dc.mu.Unlock()
+
+	sampledMetrics := slices.Collect(maps.Values(dc.metrics))
+	slices.SortFunc(sampledMetrics, func(a, b debugSamples) int {
+		return cmp.Or(
+			cmp.Compare(a.getName(), b.getName()),
+			cmp.Compare(a.getLabels(), b.getLabels()),
+		)
+	})
+
+	switch format {
+	case "json", "yaml":
+		var jsonMetrics []metricJSONSample
+		for _, ds := range sampledMetrics {
+			if re != nil && !re.MatchString(ds.getName()+ds.getLabels()) {
+				continue
+			}
+			m5, m30, m60, m120 := ds.get()
+			jsonMetrics = append(jsonMetrics, metricJSONSample{
+				Name:   ds.getName(),
+				Labels: ds.getLabels(),
+				M5:     m5, M30: m30, M60: m60, M120: m120,
+			})
+		}
+		if format == "json" {
+			enc := json.NewEncoder(outw)
+			enc.SetIndent("", "  ")
+			return enc.Encode(jsonMetrics)
+		} else {
+			enc := yaml.NewEncoder(outw)
+			return enc.Encode(jsonMetrics)
+		}
+	case "table":
+		w := tabwriter.NewWriter(outw, 5, 0, 3, ' ', 0)
+		defer w.Flush()
+		_, err := fmt.Fprintln(w, "Metric\tLabels\t5min\t30min\t60min\t120min")
+		if err != nil {
+			return err
+		}
+		for _, ds := range sampledMetrics {
+			if re != nil && !re.MatchString(ds.getName()+ds.getLabels()) {
+				continue
+			}
+			m5, m30, m60, m120 := ds.get()
+			_, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", ds.getName(), ds.getLabels(), m5, m30, m60, m120)
+			if err != nil {
+				return err
 			}
 		}
-		return 0.0, x
-
-	case dto.MetricType_HISTOGRAM:
-		h := m.GetHistogram()
-		p95 := getHistogramQuantile(h, 0.95)
-		return p95, prettyValue(p95) + suffix
+		return nil
 	default:
-		return -1, fmt.Sprintf("(?%s)", typ)
+		return fmt.Errorf("unknown format %q", format)
 	}
 }
 
@@ -177,7 +343,7 @@ func writeMetricsFromRegistry(w io.Writer, format string, re *regexp.Regexp, reg
 	case "yaml":
 		enc := yaml.NewEncoder(w)
 		return enc.Encode(jsonMetrics)
-	default:
+	case "table":
 		sort.Strings(lines)
 
 		tw := tabwriter.NewWriter(w, 5, 0, 3, ' ', 0)
@@ -191,9 +357,47 @@ func writeMetricsFromRegistry(w io.Writer, format string, re *regexp.Regexp, reg
 				return err
 			}
 		}
+		return nil
+	default:
+		return fmt.Errorf("unknown format %q", format)
+	}
+}
+
+// getMetricValue produces a single representative value out of the metric.
+func getMetricValue(name string, typ dto.MetricType, m *dto.Metric) (float64, string) {
+	suffix := ""
+	if strings.HasSuffix(name, "seconds") {
+		suffix = "s"
 	}
 
-	return nil
+	switch typ {
+	case dto.MetricType_COUNTER:
+		v := m.Counter.GetValue()
+		return v, fmt.Sprintf("%f", v)
+	case dto.MetricType_GAUGE:
+		v := m.Gauge.GetValue()
+		return v, fmt.Sprintf("%f", v)
+	case dto.MetricType_SUMMARY:
+		s := m.Summary
+		x := ""
+		for i, q := range s.Quantile {
+			x += fmt.Sprintf("p%d(%s%s)", int(100.0*(*q.Quantile)), prettyValue(*q.Value), suffix)
+			if i != len(s.Quantile)-1 {
+				x += " "
+			}
+		}
+		return 0.0, x
+
+	case dto.MetricType_HISTOGRAM:
+		b := convertHistogram(m.Histogram)
+		p50 := getHistogramQuantile(b, 0.50)
+		p90 := getHistogramQuantile(b, 0.90)
+		p99 := getHistogramQuantile(b, 0.99)
+		return p90, fmt.Sprintf("%s%s / %s%s / %s%s",
+			prettyValue(p50), suffix, prettyValue(p90), suffix, prettyValue(p99), suffix)
+	default:
+		return -1, fmt.Sprintf("(?%s)", typ)
+	}
 }
 
 func joinLabels(labels []*dto.LabelPair) string {
@@ -254,71 +458,4 @@ func chooseUnit(v float64) (string, float64) {
 		multp = 1000
 	}
 	return unit, multp
-}
-
-type metricJSONSample struct {
-	Name   string  `json:"name" yaml:"name"`
-	Labels string  `json:"labels,omitempty" yaml:"labels,omitempty"`
-	M1     float64 `json:"1min" yaml:"1min"`
-	M5     float64 `json:"5min" yaml:"5min"`
-	M15    float64 `json:"15min" yaml:"15min"`
-}
-
-func writeMetricsFromDebugCollector(outw io.Writer, format string, re *regexp.Regexp, dc *debugCollector) error {
-	dc.mu.Lock()
-	defer dc.mu.Unlock()
-
-	// Get and sort the keys so that output is deterministic.
-	sampleKeys := slices.Collect(maps.Keys(dc.samples))
-	slices.SortFunc(sampleKeys, func(a, b debugKey) int {
-		return cmp.Or(
-			cmp.Compare(a.name, b.name),
-			cmp.Compare(a.label, b.label),
-		)
-	})
-
-	switch format {
-	case "json", "yaml":
-		var jsonMetrics []metricJSONSample
-		for _, key := range sampleKeys {
-			bucket := dc.samples[key]
-			if re != nil && !re.MatchString(key.name) {
-				continue
-			}
-			jsonMetrics = append(jsonMetrics, metricJSONSample{
-				Name:   key.name,
-				Labels: key.label,
-				M1:     bucket.samples[0],
-				M5:     bucket.samples[4],
-				M15:    bucket.samples[14],
-			})
-		}
-		if format == "json" {
-			enc := json.NewEncoder(outw)
-			enc.SetIndent("", "  ")
-			return enc.Encode(jsonMetrics)
-		} else {
-			enc := yaml.NewEncoder(outw)
-			return enc.Encode(jsonMetrics)
-		}
-	case "table":
-		w := tabwriter.NewWriter(outw, 5, 0, 3, ' ', 0)
-		defer w.Flush()
-		_, err := fmt.Fprintln(w, "Metric\tLabels\t1min\t5min\t15min")
-		if err != nil {
-			return err
-		}
-
-		for _, key := range sampleKeys {
-			samples := dc.samples[key].samples
-			if re != nil && !re.MatchString(key.name) {
-				continue
-			}
-			_, err := fmt.Fprintf(w, "%s\t%s\t%f\t%f\t%f\n", key.name, key.label, samples[0], samples[4], samples[14])
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
