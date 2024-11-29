@@ -6,7 +6,6 @@ package policy
 import (
 	"fmt"
 	"iter"
-	"slices"
 	"strconv"
 
 	"github.com/hashicorp/go-hclog"
@@ -650,7 +649,7 @@ func (e *mapStateEntry) merge(entry *mapStateEntry) {
 
 	// merge DerivedFromRules
 	if len(entry.derivedFromRules) > 0 {
-		e.derivedFromRules.MergeSorted(entry.derivedFromRules)
+		e.derivedFromRules = labels.MergeSorted(e.derivedFromRules, entry.derivedFromRules)
 	}
 }
 
@@ -958,7 +957,6 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry mapStateEntry) b
 		// changes.
 		if _, added := changes.Adds[key]; !added {
 			// Clone to keep this entry separate from the one that may remain in 'keys'
-			entry.derivedFromRules = slices.Clone(entry.derivedFromRules)
 			entry.owners = entry.owners.Clone()
 
 			changes.old[key] = entry

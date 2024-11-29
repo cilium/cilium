@@ -1129,7 +1129,7 @@ func addL4Filter(policyCtx PolicyContext,
 	// we know about. New CachedSelectors are added.
 	for cs, newLabels := range filterToMerge.RuleOrigin {
 		if existingLabels, ok := existingFilter.RuleOrigin[cs]; ok {
-			existingFilter.RuleOrigin[cs] = existingLabels.MergeSorted(newLabels)
+			existingFilter.RuleOrigin[cs] = labels.MergeSorted(existingLabels, newLabels)
 		} else {
 			existingFilter.RuleOrigin[cs] = newLabels
 		}
@@ -1736,7 +1736,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		rulesBySelector := map[string][][]string{}
 		derivedFrom := labels.LabelArrayList{}
 		for sel, rules := range v.RuleOrigin {
-			derivedFrom.MergeSorted(rules)
+			derivedFrom = labels.MergeSorted(derivedFrom, rules)
 			rulesBySelector[sel.String()] = rules.GetModel()
 		}
 		ingress = append(ingress, &models.PolicyRule{
@@ -1751,7 +1751,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	l4.Egress.PortRules.ForEach(func(v *L4Filter) bool {
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
-			derivedFrom.MergeSorted(rules)
+			derivedFrom = labels.MergeSorted(derivedFrom, rules)
 		}
 		egress = append(egress, &models.PolicyRule{
 			Rule:             v.Marshal(),

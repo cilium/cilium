@@ -244,17 +244,11 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		// Copy to avoid polluting lists for the next cases.
-		a := tc.a.DeepCopy()
-		b := tc.b.DeepCopy()
-		a.Merge(b...)
-		require.EqualValues(t, tc.expected, a, tc.name)
-		require.EqualValues(t, a.Sort(), a, tc.name+" returned unsorted result")
-
-		a = tc.a.DeepCopy().Sort()
-		b = tc.b.DeepCopy().Sort()
-		a.MergeSorted(b)
-		require.EqualValues(t, tc.expected, a, tc.name+" MergeSorted")
-		require.EqualValues(t, a.Sort(), a, tc.name+" MergeSorted returned unsorted result")
+		a := tc.a.DeepCopy().Sort()
+		b := tc.b.DeepCopy().Sort()
+		res := MergeSorted(a, b)
+		require.EqualValues(t, tc.expected, res, tc.name+" MergeSorted")
+		res2 := res.DeepCopy()
+		require.EqualValues(t, res2.Sort(), res, tc.name+" MergeSorted returned unsorted result")
 	}
 }
