@@ -593,6 +593,10 @@ bpf:
   # CIDR filter.
   # @default -- `false`
   lbSourceRangeAllTypes: false
+  # -- (bool) Enable the option to define the load balancing algorithm on
+  # a per-service basis through service.cilium.io/lb-algorithm annotation.
+  # @default -- `false`
+  lbAlgorithmAnnotation: false
   # @schema
   # type: [null, boolean]
   # @schema

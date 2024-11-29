@@ -587,6 +587,9 @@
             "boolean"
           ]
         },
+        "lbAlgorithmAnnotation": {
+          "type": "boolean"
+        },
         "lbExternalClusterIP": {
           "type": "boolean"
         },

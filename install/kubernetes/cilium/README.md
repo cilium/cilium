@@ -144,6 +144,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.events.policyVerdict.enabled | bool | `true` | Enable policy verdict events. |
 | bpf.events.trace.enabled | bool | `true` | Enable trace events. |
 | bpf.hostLegacyRouting | bool | `false` | Configure whether direct routing mode should route traffic via host stack (true) or directly and more efficiently out of BPF (false) if the kernel supports it. The latter has the implication that it will also bypass netfilter in the host namespace. |
+| bpf.lbAlgorithmAnnotation | bool | `false` | Enable the option to define the load balancing algorithm on a per-service basis through service.cilium.io/lb-algorithm annotation. |
 | bpf.lbExternalClusterIP | bool | `false` | Allow cluster external access to ClusterIP services. |
 | bpf.lbMapMax | int | `65536` | Configure the maximum number of service entries in the load balancer maps. |
 | bpf.lbSourceRangeAllTypes | bool | `false` | Enable loadBalancerSourceRanges CIDR filtering for all service types, not just LoadBalancer services. The corresponding NodePort and ClusterIP (if enabled for cluster-external traffic) will also apply the CIDR filter. |
