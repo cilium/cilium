@@ -373,11 +373,13 @@ is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 {
 	__u8 type;
 
+	if (ip6->nexthdr != IPPROTO_ICMPV6)
+		return false;
+
 	if (icmp6_load_type(ctx, nh_off + sizeof(struct ipv6hdr), &type) < 0)
 		return false;
 
-	return ip6->nexthdr == IPPROTO_ICMPV6 &&
-	       (type == ICMP6_NS_MSG_TYPE || type == ICMP6_NA_MSG_TYPE);
+	return (type == ICMP6_NS_MSG_TYPE || type == ICMP6_NA_MSG_TYPE);
 }
 
 static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
