@@ -260,17 +260,17 @@ func (lbls Labels) All() iter.Seq[Label] {
 // optimizing for smallest memory use.
 const smallLabelsSize = 9
 
+// TODO: To replace LabelArray with the Labels type we need to marshal it
+// the same way. This however breaks the endpoint restoration on upgrade
+// as this changes the marshalling format.
+// Figure out what to do here.
+// One option is to have the separate LabelArray that just wraps Labels but
+// has custom MarshalJSON/UnmarshalJSON.
 func (lbls Labels) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
-	buf.WriteRune('{')
+	buf.WriteRune('[')
 	remaining := lbls.Len()
 	for l := range lbls.All() {
-		kb, err := json.Marshal(l.Key())
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(kb)
-		buf.WriteRune(':')
 		lb, err := l.MarshalJSON()
 		if err != nil {
 			return nil, err
@@ -281,7 +281,7 @@ func (lbls Labels) MarshalJSON() ([]byte, error) {
 			buf.WriteRune(',')
 		}
 	}
-	buf.WriteRune('}')
+	buf.WriteRune(']')
 	return buf.Bytes(), nil
 }
 
@@ -290,14 +290,19 @@ func (lbls *Labels) UnmarshalJSON(b []byte) error {
 	// as marshalling as it's mostly done when restoring endpoints.
 	// Hence we're just doing the straightforward thing and unmarshalling
 	// into a map first.
-	var m map[string]Label
-	if err := json.Unmarshal(b, &m); err != nil {
-		return err
+	var ls []Label
+	if err := json.Unmarshal(b, &ls); err != nil {
+		// Fall back to unmarshalling from a map.
+		var m map[string]Label
+		if err := json.Unmarshal(b, &m); err != nil {
+			return err
+		}
+		ls = slices.AppendSeq(make([]Label, 0, len(m)), maps.Values(m))
 	}
-	if len(m) == 0 {
+	if len(ls) == 0 {
 		*lbls = Labels{}
 	} else {
-		*lbls = NewLabels(slices.AppendSeq(make([]Label, 0, len(m)), maps.Values(m))...)
+		*lbls = NewLabels(ls...)
 	}
 	return nil
 }
