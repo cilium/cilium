@@ -119,7 +119,7 @@ const (
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
-	ToFQDNsMaxIPsPerHost = 50
+	ToFQDNsMaxIPsPerHost = 1000
 
 	// ToFQDNsMaxDeferredConnectionDeletes Maximum number of IPs to retain for
 	// expired DNS lookups with still-active connections
