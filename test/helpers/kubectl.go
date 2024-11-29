@@ -4736,7 +4736,7 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		rcVersion = fmt.Sprintf("v%s.0", GetCurrentK8SEnv())
 	}
 	res = kub.Exec(
-		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
+		fmt.Sprintf("curl -sSLo %s https://dl.k8s.io/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
 			path, rcVersion, path))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("failed to download kubectl")
