@@ -16,8 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// plotSamples plots the given samples as a line graph using the unicode braille characters.
-func plotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Duration, samples [numSamples]float32, sb sampleBitmap) {
+// PlotSamples plots the given samples as a line graph using the unicode braille characters.
+func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Duration, samples []float32, sb SampleBitmap) {
 	// Do not let panics propagate from here. Log the sample input that caused the panic.
 	defer func() {
 		if err := recover(); err != nil {
@@ -125,7 +125,7 @@ func plotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Dura
 	}
 
 	// Render the labels and the box.
-	writeText(0, originX-1, "┌"+strings.Repeat("─", width-originX-1)+"┐")
+	writeText(0, originX-1, "╭"+strings.Repeat("─", width-originX-1)+"╮")
 	writeText(1, 1, "%8s ┤", fmtY(maxY))
 	writeText(1, width-1, "│")
 	writeText(2, originX-1, "│")
@@ -140,7 +140,7 @@ func plotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Dura
 	writeText(6, width-1, "│")
 	writeText(7, 1, "%8s ┤", fmtY(minY))
 	writeText(7, width-1, "│")
-	writeText(8, originX-1, "└"+strings.Repeat("─", width-originX-1)+"┘")
+	writeText(8, originX-1, "╰"+strings.Repeat("─", width-originX-1)+"╯")
 	writeText(8, originX+3, "┬")
 	writeText(9, originX, "-%.0fmin", timeSpan.Minutes())
 	writeText(8, originX+3, "┬")
