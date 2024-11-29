@@ -205,7 +205,8 @@ func defaultCommands(confDir string, cmdDir string) []string {
 	commands = append(commands, routeCommands()...)
 	commands = append(commands, ethtoolCommands()...)
 	commands = append(commands, copyConfigCommands(confDir)...)
-	commands = append(commands, ciliumInfoCommands(cmdDir)...)
+	commands = append(commands, ciliumDbgCommands(cmdDir)...)
+	commands = append(commands, ciliumHealthCommands()...)
 	commands = append(commands, copyStateDirCommand(cmdDir)...)
 
 	tcCommands, err := tcInterfaceCommands()
@@ -365,10 +366,8 @@ func copyConfigCommands(confDir string) []string {
 	return commands
 }
 
-func ciliumInfoCommands(cmdDir string) []string {
-	// Most of the output should come via debuginfo but also adding
-	// these ones for skimming purposes
-	ciliumCommands := []string{
+func ciliumDbgCommands(cmdDir string) []string {
+	ciliumDbgCommands := []string{
 		fmt.Sprintf("cilium-dbg debuginfo --output=markdown,json -f --output-directory=%s", cmdDir),
 		"cilium-dbg metrics list",
 		"cilium-dbg shell -- metrics/html",
@@ -414,8 +413,6 @@ func ciliumInfoCommands(cmdDir string) []string {
 		"cilium-dbg recorder list",
 		"cilium-dbg status --verbose",
 		"cilium-dbg identity list",
-		"cilium-health status --verbose",
-		"cilium-health status -o json",
 		"cilium-dbg policy get",
 		"cilium-dbg policy selectors -o json",
 		"cilium-dbg node list",
@@ -435,7 +432,18 @@ func ciliumInfoCommands(cmdDir string) []string {
 		"cilium-dbg bpf frag list",
 	}
 
-	commands := toInfoCommands(ciliumCommands)
+	commands := toInfoCommands(ciliumDbgCommands)
+
+	return commands
+}
+
+func ciliumHealthCommands() []string {
+	ciliumHealthCommands := []string{
+		"cilium-health status --verbose",
+		"cilium-health status -o json",
+	}
+
+	commands := toInfoCommands(ciliumHealthCommands)
 
 	return commands
 }
