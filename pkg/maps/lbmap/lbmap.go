@@ -112,7 +112,6 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 				})
 				svcVal.SetFlags(flag.UInt16())
 			}
-			svcVal.SetLbAlg(uint8(p.LoadBalancingAlgorithm))
 			if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
 				if errors.Is(err, unix.E2BIG) {
 					return fmt.Errorf("Unable to update service entry %+v => %+v: "+
