@@ -432,9 +432,12 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg bpf frag list",
 	}
 
-	commands := toInfoCommands(ciliumDbgCommands)
+	if len(host) == 0 {
+		return ciliumDbgCommands
+	}
 
-	return commands
+	// Add the host flag if set
+	return withHostFlag(ciliumDbgCommands)
 }
 
 func ciliumHealthCommands() []string {
@@ -443,20 +446,19 @@ func ciliumHealthCommands() []string {
 		"cilium-health status -o json",
 	}
 
-	commands := toInfoCommands(ciliumHealthCommands)
+	if len(host) == 0 {
+		return ciliumHealthCommands
+	}
 
-	return commands
+	// Add the host flag if set
+	return withHostFlag(ciliumHealthCommands)
 }
 
-func toInfoCommands(infoCommands []string) []string {
+func withHostFlag(cmds []string) []string {
 	var commands []string
 
-	for _, cmd := range infoCommands {
-		// Add the host flag if set
-		if len(host) > 0 {
-			cmd = fmt.Sprintf("%s -H %s", cmd, host)
-		}
-		commands = append(commands, cmd)
+	for _, cmd := range cmds {
+		commands = append(commands, fmt.Sprintf("%s -H %s", cmd, host))
 	}
 
 	return commands
