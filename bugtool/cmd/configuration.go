@@ -142,7 +142,42 @@ var bpfMapsPath = []string{
 func defaultCommands(confDir string, cmdDir string) []string {
 	var commands []string
 	// Not expecting all of the commands to be available
-	commands = []string{
+	commands = append(commands, miscSystemCommands()...)
+
+	commands = append(commands, bpfMapDumpCommands(bpfMapsPath)...)
+
+	cgroup2fsMounts := cgroup2fsMounts()
+	for i := range cgroup2fsMounts {
+		commands = append(commands, []string{
+			fmt.Sprintf("bpftool cgroup tree %s", cgroup2fsMounts[i]),
+		}...)
+	}
+
+	// Commands that require variables and / or more configuration are added
+	// separately below
+	commands = append(commands, catCommands()...)
+	commands = append(commands, routeCommands()...)
+	commands = append(commands, ethtoolCommands()...)
+	commands = append(commands, copyConfigCommands(confDir)...)
+	commands = append(commands, ciliumDbgCommands(cmdDir)...)
+	commands = append(commands, ciliumHealthCommands()...)
+	commands = append(commands, copyStateDirCommand(cmdDir)...)
+	commands = append(commands, tcInterfaceCommands()...)
+
+	// We want to collect this twice: at the very beginning and at the
+	// very end of the bugtool collection, to see if the counters are
+	// increasing.
+	// The commands end up being the names of the files where their output
+	// is stored, so we can't have the two commands be the exact same or the
+	// second would overwrite. To avoid that, we use the -u flag in this second
+	// command; that flag is documented as being ignored.
+	commands = append(commands, "cat -u /proc/net/xfrm_stat")
+
+	return commands
+}
+
+func miscSystemCommands() []string {
+	return []string{
 		// We want to collect this twice: at the very beginning and at the
 		// very end of the bugtool collection, to see if the counters are
 		// increasing.
@@ -190,37 +225,6 @@ func defaultCommands(confDir string, cmdDir string) []string {
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
 	}
-
-	commands = append(commands, bpfMapDumpCommands(bpfMapsPath)...)
-
-	cgroup2fsMounts := cgroup2fsMounts()
-	for i := range cgroup2fsMounts {
-		commands = append(commands, []string{
-			fmt.Sprintf("bpftool cgroup tree %s", cgroup2fsMounts[i]),
-		}...)
-	}
-
-	// Commands that require variables and / or more configuration are added
-	// separately below
-	commands = append(commands, catCommands()...)
-	commands = append(commands, routeCommands()...)
-	commands = append(commands, ethtoolCommands()...)
-	commands = append(commands, copyConfigCommands(confDir)...)
-	commands = append(commands, ciliumDbgCommands(cmdDir)...)
-	commands = append(commands, ciliumHealthCommands()...)
-	commands = append(commands, copyStateDirCommand(cmdDir)...)
-	commands = append(commands, tcInterfaceCommands()...)
-
-	// We want to collect this twice: at the very beginning and at the
-	// very end of the bugtool collection, to see if the counters are
-	// increasing.
-	// The commands end up being the names of the files where their output
-	// is stored, so we can't have the two commands be the exact same or the
-	// second would overwrite. To avoid that, we use the -u flag in this second
-	// command; that flag is documented as being ignored.
-	commands = append(commands, "cat -u /proc/net/xfrm_stat")
-
-	return commands
 }
 
 func bpfMapDumpCommands(mapPaths []string) []string {
