@@ -61,3 +61,11 @@ func (m Metrics) AddCCNP(_ *v2.CiliumNetworkPolicy) {
 func (m Metrics) DelCCNP(_ *v2.CiliumNetworkPolicy) {
 	m.NPCCNPIngested.WithLabelValues(actionDel).Inc()
 }
+
+func (m Metrics) AddClusterMeshConfig(clusterMeshMode string, maxConnectedClusters string) {
+	m.ACLBClusterMeshEnabled.WithLabelValues(clusterMeshMode, maxConnectedClusters).Inc()
+}
+
+func (m Metrics) DelClusterMeshConfig(clusterMeshMode string, maxConnectedClusters string) {
+	m.ACLBClusterMeshEnabled.WithLabelValues(clusterMeshMode, maxConnectedClusters).Dec()
+}

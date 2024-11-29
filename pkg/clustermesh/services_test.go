@@ -118,6 +118,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          store,
+		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 	})
 	c.Assert(s.mesh, Not(IsNil))
 
