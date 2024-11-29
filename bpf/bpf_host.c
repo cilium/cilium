@@ -56,6 +56,7 @@
 #include "lib/vxlan.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
+ #define host_wg_encrypt_hook(ctx, proto) wg_maybe_redirect_to_encrypt(ctx, proto)
 
 /* Bit 0 is skipped for robustness, as it's used in some places to indicate from_host itself. */
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
@@ -1517,7 +1518,7 @@ skip_host_firewall:
 	 * is set before the redirect.
 	 */
 	if (!ctx_mark_is_wireguard(ctx)) {
-		ret = wg_maybe_redirect_to_encrypt(ctx, proto);
+		ret = host_wg_encrypt_hook(ctx, proto);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))
