@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unique"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
@@ -851,6 +852,9 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 					obj = d.Object
 				}
 
+				// Intern metadata in the object to reduce memory usage.
+				internObjectMeta(obj)
+
 				// In CI we detect if the objects were modified and panic
 				// (e.g. when KUBE_CACHE_MUTATION_DETECTOR is set)
 				// this is a no-op in production environments.
@@ -897,6 +901,32 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 	return clientState, &wrapperController{
 		Controller:            cache.New(cfg),
 		cacheMutationDetector: cacheMutationDetector,
+	}
+}
+
+func internObjectMeta(obj any) {
+	meta, err := meta.Accessor(obj)
+	if err != nil {
+		return
+	}
+
+	// Intern the name&namespace
+	meta.SetName(unique.Make(meta.GetName()).Value())
+	meta.SetNamespace(unique.Make(meta.GetNamespace()).Value())
+
+	// Intern the label keys and values
+	labels := meta.GetLabels()
+	for k, v := range labels {
+		k = unique.Make(k).Value()
+		v = unique.Make(v).Value()
+		labels[k] = v
+	}
+
+	// Intern annotation keys
+	annotations := meta.GetAnnotations()
+	for k, v := range annotations {
+		k = unique.Make(k).Value()
+		annotations[k] = v
 	}
 }
 

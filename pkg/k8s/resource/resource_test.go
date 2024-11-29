@@ -1212,6 +1212,12 @@ func BenchmarkResource(b *testing.B) {
 	assert.Equal(b, resource.Sync, ev.Kind)
 	ev.Done(nil)
 
+	labels := map[string]string{
+		"foo":  "bar",
+		"bar":  "baz",
+		"quux": "foo",
+	}
+
 	b.ResetTimer()
 
 	var wg sync.WaitGroup
@@ -1223,8 +1229,9 @@ func BenchmarkResource(b *testing.B) {
 			name := fmt.Sprintf("node-%d", i)
 			lw.events <- watch.Event{Type: watch.Added, Object: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: name,
-					UID:  types.UID(name),
+					Name:   name,
+					UID:    types.UID(name),
+					Labels: labels,
 				},
 			}}
 		}
@@ -1238,6 +1245,8 @@ func BenchmarkResource(b *testing.B) {
 		assert.Equal(b, resource.Upsert, ev.Kind)
 		ev.Done(nil)
 	}
+
+	b.StopTimer()
 
 	cancel()
 	for ev := range events {
