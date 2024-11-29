@@ -206,6 +206,7 @@ func defaultCommands(confDir string, cmdDir string) []string {
 	commands = append(commands, ethtoolCommands()...)
 	commands = append(commands, copyConfigCommands(confDir)...)
 	commands = append(commands, ciliumInfoCommands(cmdDir)...)
+	commands = append(commands, copyStateDirCommand(cmdDir)...)
 
 	tcCommands, err := tcInterfaceCommands()
 	if err != nil {
@@ -435,8 +436,6 @@ func ciliumInfoCommands(cmdDir string) []string {
 	}
 
 	commands := toInfoCommands(ciliumCommands)
-
-	commands = append(commands, copyStateDirCommand(cmdDir)...)
 
 	return commands
 }
