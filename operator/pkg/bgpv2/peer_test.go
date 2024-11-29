@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -22,6 +23,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/health"
+	healthTypes "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
@@ -35,6 +38,9 @@ type peerConfigTestFixture struct {
 	hive               *hive.Hive
 	fakeClientSet      *k8s_client.FakeClientset
 	peerConfigResource resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig]
+
+	db          *statedb.DB
+	healthTable statedb.Table[healthTypes.Status]
 }
 
 func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusReport bool) (*peerConfigTestFixture, func()) {
@@ -101,9 +107,13 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusRep
 				func(
 					fcs *k8s_client.FakeClientset,
 					p resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeerConfig],
+					db *statedb.DB,
+					h statedb.Table[healthTypes.Status],
 				) {
 					f.fakeClientSet = fcs
 					f.peerConfigResource = p
+					f.db = db
+					f.healthTable = h
 					f.fakeClientSet.CiliumFakeClientset.PrependWatchReactor(
 						"*",
 						reactorFn(f.fakeClientSet.CiliumFakeClientset.Tracker()),
@@ -281,5 +291,15 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 			return
 		}
 		assert.Empty(ct, pc.Status.Conditions, "Conditions are not cleared")
+
+		rtxn := f.db.ReadTxn()
+
+		o, _, found := f.healthTable.Get(rtxn, health.PrimaryIndex.Query(healthTypes.HealthID("test.job-cleanup-peer-config-status")))
+		if !assert.True(ct, found, "Health status for the job is not found") {
+			return
+		}
+
+		assert.Equal(ct, healthTypes.Level(healthTypes.LevelOK), o.Level)
+		assert.Equal(ct, "Cleanup job is done successfully", o.Message)
 	}, time.Second*3, time.Millisecond*100)
 }

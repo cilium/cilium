@@ -123,7 +123,7 @@ func (u *peerConfigStatusReconciler) reconcileStatus(ctx context.Context, health
 	}
 }
 
-func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, _ cell.Health) error {
+func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, health cell.Health) error {
 	pcs, err := u.peerConfigResource.Store(ctx)
 	if err != nil {
 		return err
@@ -174,14 +174,15 @@ func (u *peerConfigStatusReconciler) cleanupStatus(ctx context.Context, _ cell.H
 
 		remaining = remaining.Difference(removed)
 
-		if len(remaining) == 0 {
-			return false, nil
-		}
-
-		return true, nil
+		return len(remaining) == 0, nil
 	})
 
 	pcs.Release()
+
+	// We use OK here since the semantics of Stopped() in the OneShot job is still undefined.
+	if err == nil {
+		health.OK("Cleanup job is done successfully")
+	}
 
 	return err
 }
