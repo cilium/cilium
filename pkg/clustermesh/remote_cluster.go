@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -73,6 +74,13 @@ type remoteCluster struct {
 	synced synced
 
 	log logrus.FieldLogger
+
+	// featureMetrics will track which features are enabled with in clustermesh.
+	featureMetrics ClusterMeshMetrics
+
+	// featureMetricMaxClusters contains the max clusters defined for this
+	// clustermesh config.
+	featureMetricMaxClusters string
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config cmtypes.CiliumClusterConfig, ready chan<- error) {
@@ -87,6 +95,10 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		close(ready)
 		return
 	}
+
+	rc.featureMetrics.AddClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode), rc.featureMetricMaxClusters)
+
+	defer rc.featureMetrics.DelClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode), rc.featureMetricMaxClusters)
 
 	remoteIdentityCache, err := rc.remoteIdentityWatcher.WatchRemoteIdentities(rc.name, rc.clusterID, backend, config.Capabilities.Cached)
 	if err != nil {
@@ -266,4 +278,30 @@ func (s *synced) Services(ctx context.Context) error {
 // (i.e., node addresses, health, ingress, ...).
 func (s *synced) IPIdentities(ctx context.Context) error {
 	return s.Wait(ctx, s.ipcache, s.identities.WaitChannel(), s.nodes)
+}
+
+type ClusterMeshMetrics interface {
+	AddClusterMeshConfig(mode string, maxClusters string)
+	DelClusterMeshConfig(mode string, maxClusters string)
+}
+
+const (
+	ClusterMeshModeClusterMeshAPIServer       = "clustermesh-apiserver"
+	ClusterMeshModeETCD                       = "etcd"
+	ClusterMeshModeKVStoreMesh                = "kvstoremesh"
+	ClusterMeshModeClusterMeshAPIServerOrETCD = ClusterMeshModeClusterMeshAPIServer + "_or_" + ClusterMeshModeETCD
+)
+
+// ClusterMeshMode returns the mode of the local cluster.
+func ClusterMeshMode(rcc cmtypes.CiliumClusterConfig, identityMode string) string {
+	switch {
+	case rcc.Capabilities.Cached:
+		return ClusterMeshModeKVStoreMesh
+	case identityMode == option.IdentityAllocationModeCRD:
+		return ClusterMeshModeClusterMeshAPIServer
+	case identityMode == option.IdentityAllocationModeKVstore:
+		return ClusterMeshModeETCD
+	default:
+		return ClusterMeshModeClusterMeshAPIServerOrETCD
+	}
 }

@@ -122,6 +122,7 @@ func TestClusterMesh(t *testing.T) {
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          storeFactory,
+		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 		Logger:                logrus.New(),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
