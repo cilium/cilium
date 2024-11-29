@@ -54,7 +54,7 @@ func TestSampler(t *testing.T) {
 		gauge.Set(float64(i + 1))
 		histogram.Observe(1.0 / float64(i))
 	}
-	var expected [numSamples]float32
+	expected := make([]float32, numSamples)
 	for i := range numSamples {
 		expected[i] = float32(211 - i - 1)
 	}

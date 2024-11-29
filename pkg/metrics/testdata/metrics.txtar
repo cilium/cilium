@@ -12,10 +12,6 @@ metrics ^test
 metrics -o=actual ^test
 cmp all actual
 
-# Show only enabled metrics
-metrics -e -o=actual ^test
-cmp enabled actual
-
 # Show sampled metrics
 metrics -s -o=actual ^test
 cmp sampled actual
@@ -39,26 +35,17 @@ cmp sampled.yaml actual
 -- all --
 Metric           Labels   Value
 test_A                    1.000000
-test_B                    2.000000
-test_C_seconds   lbl=a    10ms / 800ms / 980ms
--- enabled --
-Metric           Labels   Value
-test_A                    1.000000
 test_C_seconds   lbl=a    10ms / 800ms / 980ms
 -- sampled --
-Metric           Labels   1min                   30min          60min
-test_A                    1                      0              0
-test_B                    2                      0              0
-test_C_seconds   lbl=a    10ms / 800ms / 980ms   0s / 0s / 0s   0s / 0s / 0s
+Metric           Labels   5min                   30min          60min          120min
+test_A                    1                      0              0              0
+test_B                    2                      0              0              0
+test_C_seconds   lbl=a    10ms / 800ms / 980ms   0s / 0s / 0s   0s / 0s / 0s   0s / 0s / 0s
 -- all.json --
 [
   {
     "name": "test_A",
     "value": 1
-  },
-  {
-    "name": "test_B",
-    "value": 2
   },
   {
     "labels": {
@@ -72,52 +59,302 @@ test_C_seconds   lbl=a    10ms / 800ms / 980ms   0s / 0s / 0s   0s / 0s / 0s
 - labels: {}
   name: test_A
   value: 1
-- labels: {}
-  name: test_B
-  value: 2
 - labels:
     lbl: a
   name: test_C_seconds
   value: 0.8
 -- sampled.json --
-[
-  {
-    "name": "test_A",
-    "1min": "1",
-    "30min": "0",
-    "60min": "0",
-    "120min": "0"
-  },
-  {
-    "name": "test_B",
-    "1min": "2",
-    "30min": "0",
-    "60min": "0",
-    "120min": "0"
-  },
-  {
-    "name": "test_C_seconds",
-    "labels": "lbl=a",
-    "1min": "10ms / 800ms / 980ms",
-    "30min": "0s / 0s / 0s",
-    "60min": "0s / 0s / 0s",
-    "120min": "0s / 0s / 0s"
-  }
-]
+{
+  "nsamples": 24,
+  "interval_seconds": 300,
+  "samples": [
+    {
+      "name": "test_A",
+      "gaugeOrCounter": {
+        "samples": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "latest": "1"
+    },
+    {
+      "name": "test_B",
+      "gaugeOrCounter": {
+        "samples": [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "latest": "2"
+    },
+    {
+      "name": "test_C_seconds",
+      "labels": "lbl=a",
+      "histogram": {
+        "p50": [
+          0.01,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "p90": [
+          0.8,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "p99": [
+          0.98,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "latest": "10ms / 800ms / 980ms"
+    }
+  ]
+}
 -- sampled.yaml --
-- name: test_A
-  1min: "1"
-  30min: "0"
-  60min: "0"
-  120min: "0"
-- name: test_B
-  1min: "2"
-  30min: "0"
-  60min: "0"
-  120min: "0"
-- name: test_C_seconds
-  labels: lbl=a
-  1min: 10ms / 800ms / 980ms
-  30min: 0s / 0s / 0s
-  60min: 0s / 0s / 0s
-  120min: 0s / 0s / 0s
+nsamples: 24
+interval_seconds: 300
+samples:
+    - name: test_A
+      gaugeOrCounter:
+        samples:
+            - 1
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+      latest: "1"
+    - name: test_B
+      gaugeOrCounter:
+        samples:
+            - 2
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+      latest: "2"
+    - name: test_C_seconds
+      labels: lbl=a
+      histogram:
+        p50:
+            - 0.01
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+        p90:
+            - 0.8
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+        p99:
+            - 0.98
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+            - 0
+      latest: 10ms / 800ms / 980ms

@@ -218,27 +218,18 @@ func plotCommand(dc *sampler) script.Cmd {
 
 			switch ds := ds.(type) {
 			case *gaugeOrCounterSamples:
-				plotSamples(w, *rate, ds.getName(), ds.getLabels(), samplingTimeSpan, ds.samples.grab(), ds.bits)
+				PlotSamples(w, *rate, ds.getName(), ds.getLabels(), samplingTimeSpan, ds.samples.grab(), ds.bits)
 			case *histogramSamples:
-				plotSamples(w, *rate, ds.getName()+" (p50)", ds.getLabels(), samplingTimeSpan, ds.p50.grab(), ds.bits)
+				PlotSamples(w, *rate, ds.getName()+" (p50)", ds.getLabels(), samplingTimeSpan, ds.p50.grab(), ds.bits)
 				fmt.Fprintln(w)
-				plotSamples(w, *rate, ds.getName()+" (p90)", ds.getLabels(), samplingTimeSpan, ds.p90.grab(), ds.bits)
+				PlotSamples(w, *rate, ds.getName()+" (p90)", ds.getLabels(), samplingTimeSpan, ds.p90.grab(), ds.bits)
 				fmt.Fprintln(w)
-				plotSamples(w, *rate, ds.getName()+" (p99)", ds.getLabels(), samplingTimeSpan, ds.p99.grab(), ds.bits)
+				PlotSamples(w, *rate, ds.getName()+" (p99)", ds.getLabels(), samplingTimeSpan, ds.p99.grab(), ds.bits)
 			}
 
 			return nil, nil
 		},
 	)
-}
-
-type metricJSONSample struct {
-	Name   string `json:"name" yaml:"name"`
-	Labels string `json:"labels,omitempty" yaml:"labels,omitempty"`
-	M5     string `json:"5min" yaml:"5min"`
-	M30    string `json:"30min" yaml:"30min"`
-	M60    string `json:"60min" yaml:"60min"`
-	M120   string `json:"120min" yaml:"120min"`
 }
 
 func writeMetricsFromSamples(outw io.Writer, format string, re *regexp.Regexp, dc *sampler) error {
@@ -255,25 +246,23 @@ func writeMetricsFromSamples(outw io.Writer, format string, re *regexp.Regexp, d
 
 	switch format {
 	case "json", "yaml":
-		var jsonMetrics []metricJSONSample
+		dump := JSONSampleDump{
+			NumSamples:      numSamples,
+			IntervalSeconds: int(samplingInterval.Seconds()),
+		}
 		for _, ds := range sampledMetrics {
 			if re != nil && !re.MatchString(ds.getName()+ds.getLabels()) {
 				continue
 			}
-			m5, m30, m60, m120 := ds.get()
-			jsonMetrics = append(jsonMetrics, metricJSONSample{
-				Name:   ds.getName(),
-				Labels: ds.getLabels(),
-				M5:     m5, M30: m30, M60: m60, M120: m120,
-			})
+			dump.Samples = append(dump.Samples, ds.getJSON())
 		}
 		if format == "json" {
 			enc := json.NewEncoder(outw)
 			enc.SetIndent("", "  ")
-			return enc.Encode(jsonMetrics)
+			return enc.Encode(dump)
 		} else {
 			enc := yaml.NewEncoder(outw)
-			return enc.Encode(jsonMetrics)
+			return enc.Encode(dump)
 		}
 	case "table":
 		w := tabwriter.NewWriter(outw, 5, 0, 3, ' ', 0)

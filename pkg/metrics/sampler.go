@@ -102,24 +102,25 @@ func (k *metricKey) fqName() string {
 	return s[start : start+end]
 }
 
-// sampleBitmap tracks which of the 'numSamples' actually exists.
+// SampleBitmap tracks which of the 'numSamples' actually exists.
 // For histograms we only mark it sampled when the counts have changed.
-type sampleBitmap uint64
+type SampleBitmap uint64
 
-func (sb *sampleBitmap) mark(b bool) {
+func (sb *SampleBitmap) mark(b bool) {
 	*sb <<= 1
 	if b {
 		*sb |= 1
 	}
 }
 
-func (sb sampleBitmap) exists(index int) bool {
+func (sb SampleBitmap) exists(index int) bool {
 	return (sb>>index)&1 == 1
 }
 
 type debugSamples interface {
 	getName() string
 	getLabels() string
+	getJSON() JSONSamples
 
 	get() (m5, m30, m60, m120 string)
 	getUpdatedAt() time.Time
@@ -145,7 +146,7 @@ type gaugeOrCounterSamples struct {
 
 	// pos points to index where the next sample goes.
 	// the latest sample is pos-1.
-	bits sampleBitmap
+	bits SampleBitmap
 }
 
 type sampleRing struct {
@@ -158,7 +159,8 @@ func (r *sampleRing) push(sample float32) {
 	r.pos = (r.pos + 1) % numSamples
 }
 
-func (r *sampleRing) grab() (samples [numSamples]float32) {
+func (r *sampleRing) grab() []float32 {
+	var samples [numSamples]float32
 	pos := r.pos - 1
 	if pos < 0 {
 		pos = numSamples - 1
@@ -170,11 +172,22 @@ func (r *sampleRing) grab() (samples [numSamples]float32) {
 			pos = numSamples - 1
 		}
 	}
-	return
+	return samples[:]
 }
 
 func (g *gaugeOrCounterSamples) getUpdatedAt() time.Time {
 	return g.updatedAt
+}
+
+func (g *gaugeOrCounterSamples) getJSON() JSONSamples {
+	samples := g.samples.grab()
+	return JSONSamples{
+		Name:   g.name,
+		Labels: g.labels,
+		GaugeOrCounter: &JSONGaugeOrCounter{
+			Samples: samples[:],
+		},
+	}
 }
 
 func (g *gaugeOrCounterSamples) get() (m1, m30, m60, m120 string) {
@@ -189,7 +202,7 @@ type histogramSamples struct {
 	baseSamples
 	prev          []histogramBucket
 	p50, p90, p99 sampleRing
-	bits          sampleBitmap
+	bits          SampleBitmap
 	isSeconds     bool
 }
 
@@ -215,6 +228,19 @@ func (h *histogramSamples) get() (m5, m30, m60, m120 string) {
 
 func (h *histogramSamples) getUpdatedAt() time.Time {
 	return h.updatedAt
+}
+
+func (h *histogramSamples) getJSON() JSONSamples {
+	p50, p90, p99 := h.p50.grab(), h.p90.grab(), h.p99.grab()
+	return JSONSamples{
+		Name:   h.name,
+		Labels: h.labels,
+		Histogram: &JSONHistogram{
+			P50: p50[:],
+			P90: p90[:],
+			P99: p99[:],
+		},
+	}
 }
 
 // cleanup runs every hour to remove samples that have not been updated
