@@ -1,0 +1,123 @@
+hive start
+
+# Wait for metrics collection to start
+metrics -o metrics.out -s test_
+* grep 'test_C_.*800ms' metrics.out
+
+# Output to log, with and without regexp
+metrics
+metrics ^test
+
+# Output to file and validate
+metrics -o=actual ^test
+cmp all actual
+
+# Show only enabled metrics
+metrics -e -o=actual ^test
+cmp enabled actual
+
+# Show sampled metrics
+metrics -s -o=actual ^test
+cmp sampled actual
+
+# Show in json format
+metrics -o=actual -format=json ^test
+cmp all.json actual
+
+# Show in yaml format
+metrics -o=actual -format=yaml ^test
+cmp all.yaml actual
+
+# Show samples in json format
+metrics -s -o=actual -format=json ^test
+cmp sampled.json actual
+
+# Show samples in yaml format
+metrics -s -o=actual -format=yaml ^test
+cmp sampled.yaml actual
+
+-- all --
+Metric           Labels   Value
+test_A                    1.000000
+test_B                    2.000000
+test_C_seconds   lbl=a    10ms / 800ms / 980ms
+-- enabled --
+Metric           Labels   Value
+test_A                    1.000000
+test_C_seconds   lbl=a    10ms / 800ms / 980ms
+-- sampled --
+Metric           Labels   1min                   30min          60min
+test_A                    1                      0              0
+test_B                    2                      0              0
+test_C_seconds   lbl=a    10ms / 800ms / 980ms   0s / 0s / 0s   0s / 0s / 0s
+-- all.json --
+[
+  {
+    "name": "test_A",
+    "value": 1
+  },
+  {
+    "name": "test_B",
+    "value": 2
+  },
+  {
+    "labels": {
+      "lbl": "a"
+    },
+    "name": "test_C_seconds",
+    "value": 0.8
+  }
+]
+-- all.yaml --
+- labels: {}
+  name: test_A
+  value: 1
+- labels: {}
+  name: test_B
+  value: 2
+- labels:
+    lbl: a
+  name: test_C_seconds
+  value: 0.8
+-- sampled.json --
+[
+  {
+    "name": "test_A",
+    "1min": "1",
+    "30min": "0",
+    "60min": "0",
+    "120min": "0"
+  },
+  {
+    "name": "test_B",
+    "1min": "2",
+    "30min": "0",
+    "60min": "0",
+    "120min": "0"
+  },
+  {
+    "name": "test_C_seconds",
+    "labels": "lbl=a",
+    "1min": "10ms / 800ms / 980ms",
+    "30min": "0s / 0s / 0s",
+    "60min": "0s / 0s / 0s",
+    "120min": "0s / 0s / 0s"
+  }
+]
+-- sampled.yaml --
+- name: test_A
+  1min: "1"
+  30min: "0"
+  60min: "0"
+  120min: "0"
+- name: test_B
+  1min: "2"
+  30min: "0"
+  60min: "0"
+  120min: "0"
+- name: test_C_seconds
+  labels: lbl=a
+  1min: 10ms / 800ms / 980ms
+  30min: 0s / 0s / 0s
+  60min: 0s / 0s / 0s
+  120min: 0s / 0s / 0s

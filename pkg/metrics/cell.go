@@ -24,8 +24,8 @@ var Cell = cell.Module("metrics", "Metrics",
 		FlushLoggingMetrics()
 	}),
 	cell.Provide(
-		newMetricsCommand,
-		newDebugCollector,
+		metricsCommands,
+		newSampler,
 	),
 )
 

@@ -24,6 +24,7 @@ import (
 type testMetrics struct {
 	A metric.Gauge
 	B metric.Counter
+	C metric.Vec[metric.Observer]
 }
 
 func newTestMetrics() *testMetrics {
@@ -38,6 +39,10 @@ func newTestMetrics() *testMetrics {
 			Name:      "B",
 			Disabled:  true,
 		}),
+		C: metric.NewHistogramVec(metric.HistogramOpts{
+			Namespace: "test",
+			Name:      "C_seconds",
+		}, []string{"lbl"}),
 	}
 }
 
@@ -57,6 +62,11 @@ func TestMetricsCommand(t *testing.T) {
 				cell.Invoke(func(m *testMetrics) {
 					m.A.Add(1)
 					m.B.Add(2)
+					o := m.C.WithLabelValues("a")
+					o.Observe(0.01)
+					o.Observe(0.01)
+					o.Observe(0.1)
+					o.Observe(1.0)
 				}),
 			)
 			t.Cleanup(func() {
