@@ -150,6 +150,7 @@ func TestClusterMesh(t *testing.T) {
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          storeFactory,
+		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 	// cluster2 is the cluster which is tested with sync canaries

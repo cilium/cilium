@@ -155,8 +155,10 @@ func TestRemoteClusterRun(t *testing.T) {
 					Metrics:               NewMetrics(),
 					StoreFactory:          store,
 					ClusterInfo:           types.ClusterInfo{MaxConnectedClusters: 255},
+					FeatureMetrics:        NewClusterMeshMetricsNoop(),
 				},
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
+				FeatureMetrics: NewClusterMeshMetricsNoop(),
 			}
 			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)
@@ -235,4 +237,16 @@ func TestIPCacheWatcherOpts(t *testing.T) {
 			assert.Len(t, rc.ipCacheWatcherOpts(tt.config), tt.expected)
 		})
 	}
+}
+
+type clusterMeshMetricsNoop struct{}
+
+func (m clusterMeshMetricsNoop) AddClusterMeshConfig(mode string, maxClusters string) {
+}
+
+func (m clusterMeshMetricsNoop) DelClusterMeshConfig(mode string, maxClusters string) {
+}
+
+func NewClusterMeshMetricsNoop() ClusterMeshMetrics {
+	return &clusterMeshMetricsNoop{}
 }

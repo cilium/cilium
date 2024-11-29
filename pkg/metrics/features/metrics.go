@@ -4,8 +4,13 @@
 package features
 
 import (
+	"fmt"
+
+	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -62,6 +67,8 @@ type Metrics struct {
 	ACLBInternalTrafficPolicyIngested        metric.Vec[metric.Counter]
 	ACLBCiliumEnvoyConfigIngested            metric.Vec[metric.Counter]
 	ACLBCiliumClusterwideEnvoyConfigIngested metric.Vec[metric.Counter]
+
+	ACLBClusterMeshEnabled metric.Vec[metric.Gauge]
 }
 
 const (
@@ -98,6 +105,15 @@ const (
 	advConnExtEnvoyProxyEmbedded   = "embedded"
 	actionAdd                      = "add"
 	actionDel                      = "delete"
+
+	advConnClusterMeshMaxConnectedClusters255 = defaults.MaxConnectedClusters
+	advConnClusterMeshMaxConnectedClusters511 = types.ClusterIDExt511
+
+	advConnClusterMeshModeAPIServer       = clustermesh.ClusterMeshModeClusterMeshAPIServer
+	advConnClusterMeshModeETCD            = clustermesh.ClusterMeshModeETCD
+	advConnClusterMeshModeKVStoreMesh     = clustermesh.ClusterMeshModeKVStoreMesh
+	advConnClusterMeshModeAPIServerOrETCD = clustermesh.ClusterMeshModeClusterMeshAPIServerOrETCD
+	advConnClusterMeshModeUndefined       = clustermesh.ClusterMeshModeUndefined
 )
 
 var (
@@ -184,6 +200,19 @@ var (
 	defaultActions = []string{
 		actionAdd,
 		actionDel,
+	}
+
+	defaultClusterMeshMode = []string{
+		advConnClusterMeshModeAPIServer,
+		advConnClusterMeshModeETCD,
+		advConnClusterMeshModeKVStoreMesh,
+		advConnClusterMeshModeAPIServerOrETCD,
+		advConnClusterMeshModeUndefined,
+	}
+
+	defaultClusterMeshMaxConnectedClusters = []string{
+		fmt.Sprintf("%d", advConnClusterMeshMaxConnectedClusters255),
+		fmt.Sprintf("%d", advConnClusterMeshMaxConnectedClusters511),
 	}
 )
 
@@ -812,6 +841,34 @@ func NewMetrics(withDefaults bool) Metrics {
 					}
 					return metric.NewValues(
 						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		ACLBClusterMeshEnabled: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Mode of the active Cluster Mesh connections/peers",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "clustermesh_enabled",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultClusterMeshMode...,
+					)
+				}(),
+			},
+			{
+				Name: "max_connected_clusters", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultClusterMeshMaxConnectedClusters...,
 					)
 				}(),
 			},
