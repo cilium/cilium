@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -72,7 +71,7 @@ func cgroup2fsMounts() []string {
 	return mounts
 }
 
-func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
+func defaultCommands(confDir string, cmdDir string) []string {
 	var commands []string
 	// Not expecting all of the commands to be available
 	commands = []string{
@@ -205,8 +204,8 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	commands = append(commands, catCommands()...)
 	commands = append(commands, routeCommands()...)
 	commands = append(commands, ethtoolCommands()...)
-	commands = append(commands, copyConfigCommands(confDir, k8sPods)...)
-	commands = append(commands, ciliumInfoCommands(cmdDir, k8sPods)...)
+	commands = append(commands, copyConfigCommands(confDir)...)
+	commands = append(commands, ciliumInfoCommands(cmdDir)...)
 
 	tcCommands, err := tcInterfaceCommands()
 	if err != nil {
@@ -224,7 +223,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 	// command; that flag is documented as being ignored.
 	commands = append(commands, "cat -u /proc/net/xfrm_stat")
 
-	return k8sCommands(commands, k8sPods)
+	return commands
 }
 
 func bpfMapDumpCommands(mapPaths []string) []string {
@@ -263,7 +262,6 @@ func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 	var content []byte
 	var err error
 	content, err = os.ReadFile(path)
-
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +311,7 @@ func catCommands() []string {
 		}
 		commands = append(commands, fmt.Sprintf("cat %s", f))
 	}
-	// TODO: handle K8s case as well.
+
 	return commands
 }
 
@@ -330,7 +328,7 @@ func routeCommands() []string {
 	return commands
 }
 
-func copyConfigCommands(confDir string, k8sPods []string) []string {
+func copyConfigCommands(confDir string) []string {
 	commands := []string{}
 	// Location is a convenience structure to avoid too many long lines
 	type Location struct {
@@ -345,54 +343,31 @@ func copyConfigCommands(confDir string, k8sPods []string) []string {
 		{"/proc/config.gz", fmt.Sprintf("%s/kernel-config.gz", confDir)},
 	}
 
-	// The following lines copy the kernel configuration. This code is
-	// duplicated for the non Kubernetes case. The variables preventing
-	// them to be one block is the pod prefix and namespace used in the
-	// path. This should be refactored.
-	if len(k8sPods) == 0 {
-		kernel, _ := execCommand("uname -r")
-		kernel = bytes.TrimSpace(kernel)
-		// Append the boot config for the current kernel
-		l := Location{fmt.Sprintf("/boot/config-%s", kernel),
-			fmt.Sprintf("%s/kernel-config-%s", confDir, kernel)}
-		locations = append(locations, l)
-
-		// Use the locations to create command strings
-		for _, location := range locations {
-			if _, err := os.Stat(location.Src); os.IsNotExist(err) {
-				continue
-			}
-			commands = append(commands, fmt.Sprintf("cp %s %s", location.Src, location.Dst))
-		}
-	} else {
-		// If there are multiple pods, we want to get all of the kernel
-		// configs. Therefore we need copy commands for all the pods.
-		for _, pod := range k8sPods {
-			prompt := podPrefix(pod, "uname -r")
-			kernel, _ := execCommand(prompt)
-			kernel = bytes.TrimSpace(kernel)
-			l := Location{fmt.Sprintf("/boot/config-%s", kernel),
-				fmt.Sprintf("%s/kernel-config-%s", confDir, kernel)}
-			locations = append(locations, l)
-
-			// The location is mostly the same but the command is
-			// prepended with 'kubectl` and the path contains the
-			// namespace and pod. For ex:
-			// kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-243785589.tar /tmp/cilium-bugtool-243785589.tar
-			for _, location := range locations {
-				kubectlArg := fmt.Sprintf("%s/%s:%s", k8sNamespace, pod, location.Src)
-				cmd := fmt.Sprintf("%s %s %s %s", "kubectl", "cp", kubectlArg, location.Dst)
-				commands = append(commands, cmd)
-			}
-		}
+	// The following lines copy the kernel configuration.
+	kernel, _ := execCommand("uname -r")
+	kernel = bytes.TrimSpace(kernel)
+	// Append the boot config for the current kernel
+	l := Location{
+		fmt.Sprintf("/boot/config-%s", kernel),
+		fmt.Sprintf("%s/kernel-config-%s", confDir, kernel),
 	}
+	locations = append(locations, l)
+
+	// Use the locations to create command strings
+	for _, location := range locations {
+		if _, err := os.Stat(location.Src); os.IsNotExist(err) {
+			continue
+		}
+		commands = append(commands, fmt.Sprintf("cp %s %s", location.Src, location.Dst))
+	}
+
 	return commands
 }
 
-func ciliumInfoCommands(cmdDir string, k8sPods []string) []string {
+func ciliumInfoCommands(cmdDir string) []string {
 	// Most of the output should come via debuginfo but also adding
 	// these ones for skimming purposes
-	commands := []string{
+	ciliumCommands := []string{
 		fmt.Sprintf("cilium-dbg debuginfo --output=markdown,json -f --output-directory=%s", cmdDir),
 		"cilium-dbg metrics list",
 		"cilium-dbg shell -- metrics/html",
@@ -459,112 +434,30 @@ func ciliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium-dbg bpf frag list",
 	}
 
-	return append(k8sPerPodCopyCommands(commands, k8sPods), k8sPerPodCopyStateDir(cmdDir, k8sPods)...)
+	commands := toInfoCommands(ciliumCommands)
+
+	commands = append(commands, copyStateDirCommand(cmdDir)...)
+
+	return commands
 }
 
-func k8sPerPodCopyCommands(infoCommands []string, k8sPods []string) []string {
+func toInfoCommands(infoCommands []string) []string {
 	var commands []string
 
-	if len(k8sPods) == 0 { // Assuming this is a non k8s deployment
-		for _, cmd := range infoCommands {
-			// Add the host flag if set
-			if len(host) > 0 {
-				cmd = fmt.Sprintf("%s -H %s", cmd, host)
-			}
-			commands = append(commands, cmd)
+	for _, cmd := range infoCommands {
+		// Add the host flag if set
+		if len(host) > 0 {
+			cmd = fmt.Sprintf("%s -H %s", cmd, host)
 		}
-	} else { // Found k8s pods
-		for _, pod := range k8sPods {
-			for _, cmd := range infoCommands {
-				// Add the host flag if set
-				if len(host) > 0 {
-					cmd = fmt.Sprintf("%s -H %s", cmd, host)
-				}
-				commands = append(commands, podPrefix(pod, cmd))
-			}
-		}
+		commands = append(commands, cmd)
 	}
 
 	return commands
 }
 
-func k8sPerPodCopyStateDir(cmdDir string, k8sPods []string) []string {
+func copyStateDirCommand(cmdDir string) []string {
 	stateDir := filepath.Join(defaults.RuntimePath, defaults.StateDir)
 
-	if len(k8sPods) == 0 { // Assuming this is a non k8s deployment
-		dst := filepath.Join(cmdDir, defaults.StateDir)
-		return []string{fmt.Sprintf("cp -r %s %s", stateDir, dst)}
-	}
-
-	commands := make([]string, 0, len(k8sPods))
-
-	// Found k8s pods
-	for _, pod := range k8sPods {
-		dst := filepath.Join(cmdDir, fmt.Sprintf("%s-%s", pod, defaults.StateDir))
-		kubectlArg := fmt.Sprintf("-c %s %s/%s:%s", ciliumAgentContainerName, k8sNamespace, pod, stateDir)
-		// kubectl cp kube-system/cilium-xrzwr:/var/run/cilium/state cilium-xrzwr-state
-		commands = append(commands, fmt.Sprintf("kubectl cp %s %s", kubectlArg, dst))
-	}
-
-	return commands
-}
-
-func k8sCommands(allCommands []string, pods []string) []string {
-	// These commands do not require a pod argument
-	var commands = []string{
-		"kubectl get nodes -o wide",
-		"kubectl describe nodes",
-		"kubectl get pods,svc --all-namespaces",
-		"kubectl version",
-		fmt.Sprintf("kubectl get cm cilium-config -n %s", k8sNamespace),
-	}
-
-	if len(pods) == 0 {
-		return append(allCommands, commands...)
-	}
-
-	commands = append(commands, k8sPerPodCommands(allCommands, pods)...)
-	return append(commands, k8sPodInfo(pods)...)
-}
-
-func k8sPerPodCommands(allCommands []string, pods []string) []string {
-	commands := make([]string, 0, len(pods)*len(allCommands))
-
-	// Prepare to run all the commands inside of the pod(s)
-	for _, pod := range pods {
-		for _, cmd := range allCommands {
-			// Add the host flag if set
-			if strings.HasPrefix(cmd, "cilium") &&
-				!strings.Contains(cmd, "-H") && len(host) > 0 {
-				cmd = fmt.Sprintf("%s -H %s", cmd, host)
-			}
-
-			if !strings.Contains(cmd, "kubectl exec") && !strings.Contains(cmd, "kubectl cp") {
-				cmd = podPrefix(pod, cmd)
-			}
-			commands = append(commands, cmd)
-		}
-	}
-
-	return commands
-}
-
-func k8sPodInfo(pods []string) []string {
-	// get current logs, previous logs and describe for each pod
-	commands := make([]string, 0, len(pods)*3)
-
-	for _, pod := range pods {
-		// Retrieve current version of pod logs
-		cmd := fmt.Sprintf("kubectl -n %s logs --timestamps %s", k8sNamespace, pod)
-		commands = append(commands, cmd)
-
-		// Retrieve previous version of pod logs
-		cmd = fmt.Sprintf("kubectl -n %s logs --timestamps -p %s", k8sNamespace, pod)
-		commands = append(commands, cmd)
-
-		cmd = fmt.Sprintf("kubectl -n %s describe pod %s", k8sNamespace, pod)
-		commands = append(commands, cmd)
-	}
-
-	return commands
+	dst := filepath.Join(cmdDir, defaults.StateDir)
+	return []string{fmt.Sprintf("cp -r %s %s", stateDir, dst)}
 }
