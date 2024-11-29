@@ -145,13 +145,7 @@ func defaultCommands(confDir string, cmdDir string) []string {
 	commands = append(commands, miscSystemCommands()...)
 
 	commands = append(commands, bpfMapDumpCommands(bpfMapsPath)...)
-
-	cgroup2fsMounts := cgroup2fsMounts()
-	for i := range cgroup2fsMounts {
-		commands = append(commands, []string{
-			fmt.Sprintf("bpftool cgroup tree %s", cgroup2fsMounts[i]),
-		}...)
-	}
+	commands = append(commands, bpfCgroupCommands()...)
 
 	// Commands that require variables and / or more configuration are added
 	// separately below
@@ -225,6 +219,20 @@ func miscSystemCommands() []string {
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
 	}
+}
+
+func bpfCgroupCommands() []string {
+	cgroup2fsMounts := cgroup2fsMounts()
+
+	commands := []string{}
+
+	for i := range cgroup2fsMounts {
+		commands = append(commands, []string{
+			fmt.Sprintf("bpftool cgroup tree %s", cgroup2fsMounts[i]),
+		}...)
+	}
+
+	return commands
 }
 
 func bpfMapDumpCommands(mapPaths []string) []string {
