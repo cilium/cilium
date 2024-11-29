@@ -208,13 +208,7 @@ func defaultCommands(confDir string, cmdDir string) []string {
 	commands = append(commands, ciliumDbgCommands(cmdDir)...)
 	commands = append(commands, ciliumHealthCommands()...)
 	commands = append(commands, copyStateDirCommand(cmdDir)...)
-
-	tcCommands, err := tcInterfaceCommands()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to generate per interface tc commands: %s\n", err)
-	} else {
-		commands = append(commands, tcCommands...)
-	}
+	commands = append(commands, tcInterfaceCommands()...)
 
 	// We want to collect this twice: at the very beginning and at the
 	// very end of the bugtool collection, to see if the counters are
@@ -275,10 +269,11 @@ func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 
 // Listing tc filter/chain/classes requires specific interface names.
 // Commands are generated per-interface.
-func tcInterfaceCommands() ([]string, error) {
+func tcInterfaceCommands() []string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return nil, fmt.Errorf("could not list network interfaces: %w", err)
+		fmt.Fprintf(os.Stderr, "Failed to generate per interface tc commands: %s\n", fmt.Errorf("could not list network interfaces: %w", err))
+		return nil
 	}
 	commands := []string{}
 	for _, iface := range ifaces {
@@ -288,7 +283,7 @@ func tcInterfaceCommands() ([]string, error) {
 			fmt.Sprintf("tc chain show dev %s", iface.Name),
 			fmt.Sprintf("tc class show dev %s", iface.Name))
 	}
-	return commands, nil
+	return commands
 }
 
 func catCommands() []string {
