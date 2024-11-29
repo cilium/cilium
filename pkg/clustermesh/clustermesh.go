@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync"
 
@@ -76,9 +77,10 @@ type Configuration struct {
 	// with remote clusters, to ensure their uniqueness.
 	ClusterIDsManager clusterIDsManager
 
-	Metrics       Metrics
-	CommonMetrics common.Metrics
-	StoreFactory  store.Factory
+	Metrics        Metrics
+	CommonMetrics  common.Metrics
+	StoreFactory   store.Factory
+	FeatureMetrics ClusterMeshMetrics
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -118,6 +120,9 @@ type ClusterMesh struct {
 	// syncTimeoutLogOnce ensures that the warning message triggered upon failure
 	// waiting for remote clusters synchronization is output only once.
 	syncTimeoutLogOnce sync.Once
+
+	// FeatureMetrics will track which features are enabled with in clustermesh.
+	FeatureMetrics ClusterMeshMetrics
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
@@ -134,6 +139,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		globalServices: newGlobalServiceCache(
 			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterInfo.Name, nodeName),
 		),
+		FeatureMetrics: c.FeatureMetrics,
 	}
 
 	cm.common = common.NewClusterMesh(common.Configuration{
@@ -154,12 +160,14 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 
 func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
-		name:         name,
-		mesh:         cm,
-		usedIDs:      cm.conf.ClusterIDsManager,
-		status:       status,
-		storeFactory: cm.conf.StoreFactory,
-		synced:       newSynced(),
+		name:                     name,
+		mesh:                     cm,
+		usedIDs:                  cm.conf.ClusterIDsManager,
+		status:                   status,
+		storeFactory:             cm.conf.StoreFactory,
+		synced:                   newSynced(),
+		featureMetrics:           cm.FeatureMetrics,
+		featureMetricMaxClusters: fmt.Sprintf("%d", cm.conf.ClusterInfo.MaxConnectedClusters),
 	}
 	rc.remoteNodes = cm.conf.StoreFactory.NewWatchStore(
 		name,
