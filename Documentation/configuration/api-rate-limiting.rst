@@ -54,7 +54,7 @@ API Call                   Config Name
 ``PUT /endpoint/{id}``     ``endpoint-create``
 ``DELETE /endpoint/{id}``  ``endpoint-delete``
 ``GET /endpoint/{id}/*``   ``endpoint-get``
-``PATCH /endpoint/{id}*``  ``endponit-patch``
+``PATCH /endpoint/{id}*``  ``endpoint-patch``
 ``GET /endpoint``          ``endpoint-list``
 ========================== ====================
 
