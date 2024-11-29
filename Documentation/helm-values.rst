@@ -376,6 +376,10 @@
      - Configure whether direct routing mode should route traffic via host stack (true) or directly and more efficiently out of BPF (false) if the kernel supports it. The latter has the implication that it will also bypass netfilter in the host namespace.
      - bool
      - ``false``
+   * - :spelling:ignore:`bpf.lbAlgorithmAnnotation`
+     - Enable the option to define the load balancing algorithm on a per-service basis through service.cilium.io/lb-algorithm annotation.
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.lbExternalClusterIP`
      - Allow cluster external access to ClusterIP services.
      - bool

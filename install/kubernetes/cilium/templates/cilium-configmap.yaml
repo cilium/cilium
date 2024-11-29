@@ -448,6 +448,9 @@ data:
 {{- if hasKey .Values.bpf "lbSourceRangeAllTypes" }}
   bpf-lb-source-range-all-types: {{ .Values.bpf.lbSourceRangeAllTypes | quote }}
 {{- end }}
+{{- if hasKey .Values.bpf "lbAlgorithmAnnotation" }}
+  bpf-lb-algorithm-annotation: {{ .Values.bpf.lbAlgorithmAnnotation | quote }}
+{{- end }}
 
   bpf-events-drop-enabled: {{ .Values.bpf.events.drop.enabled | quote }}
   bpf-events-policy-verdict-enabled: {{ .Values.bpf.events.policyVerdict.enabled | quote }}
