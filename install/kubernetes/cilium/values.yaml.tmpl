@@ -3556,7 +3556,7 @@ dnsProxy:
   # -- Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
   enableDnsCompression: true
   # -- Maximum number of IPs to maintain per FQDN name for each endpoint.
-  endpointMaxIpPerHostname: 50
+  endpointMaxIpPerHostname: 1000
   # -- Time during which idle but previously active connections with expired DNS lookups are still considered alive.
   idleConnectionGracePeriod: 0s
   # -- Maximum number of IPs to retain for expired DNS lookups with still-active connections.

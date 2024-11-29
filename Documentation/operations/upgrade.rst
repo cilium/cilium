@@ -371,6 +371,10 @@ Helm Options
 * The ``metallb-bgp`` integration Helm options ``bgp.enabled``, ``bgp.announce.podCIDR``, and
   ``bgp.announce.loadbalancerIP`` have been removed. Users are now required to use Cilium BGP
   control plane options available under ``bgpControlPlane`` for BGP announcements.
+* The default value of ``dnsProxy.endpointMaxIpPerHostname`` and its
+  corresponding agent option has been increased from 50 to 1000 to reflect
+  improved scaling of toFQDNs policies and to better handle domains which return
+  a large number of IPs with short TTLs.
 
 Agent Options
 ~~~~~~~~~~~~~
