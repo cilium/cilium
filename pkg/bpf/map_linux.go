@@ -906,6 +906,14 @@ func startingChunkSize(maxEntries int) int {
 //
 // If the iteration fails, then the Err() function will return the error that caused the failure.
 func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ...BatchIteratorOpt[KT, VT, KP, VP]) iter.Seq2[KP, VP] {
+	switch bi.m.Type() {
+	case ebpf.Hash, ebpf.LRUHash:
+		break
+	default:
+		bi.err = fmt.Errorf("unsupported map type %s, must be one either hash or lru-hash types", bi.m.Type())
+		return nil
+	}
+
 	bi.chunkSize = startingChunkSize(int(bi.m.MaxEntries()))
 
 	for _, opt := range opts {
