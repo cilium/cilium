@@ -47,7 +47,7 @@ func BenchmarkMapBatchLookup(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		count, err := m.Count()
+		count, err := m.Count(context.TODO())
 		assert.NoError(b, err)
 		assert.Greater(b, count, option.CTMapEntriesGlobalAnyDefault)
 	}
@@ -761,7 +761,7 @@ func TestCount(t *testing.T) {
 	cache := populateFakeDataCTMap4(t, m, size)
 	initial := len(cache)
 
-	batchCount, err := m.Count()
+	batchCount, err := m.Count(context.TODO())
 	assert.Equal(t, initial, batchCount)
 	assert.NoError(t, err)
 
@@ -772,7 +772,7 @@ func TestCount(t *testing.T) {
 		}
 		delete(cache, k)
 
-		batchCount, err := m.Count()
+		batchCount, err := m.Count(context.TODO())
 		assert.Equal(t, len(cache), batchCount)
 		assert.NoError(t, err)
 
@@ -782,7 +782,7 @@ func TestCount(t *testing.T) {
 		}
 	}
 
-	batchCount, err = m.Count()
+	batchCount, err = m.Count(context.TODO())
 	assert.Equal(t, len(cache), batchCount)
 	assert.NoError(t, err)
 
