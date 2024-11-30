@@ -222,7 +222,7 @@ func TestCtGcIcmp(t *testing.T) {
 	}
 	mcast, next, complete := stream.Multicast[GCEvent]()
 	mcast.Observe(context.Background(), NatMapNext4, func(err error) {})
-	stats := doGC4(ctMap, filter, next)
+	stats := doGCForFamily(ctMap, filter, next, nil, false)
 	complete(nil)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
@@ -336,7 +336,7 @@ func TestCtGcTcp(t *testing.T) {
 	}
 	mcast, next, complete := stream.Multicast[GCEvent]()
 	mcast.Observe(context.Background(), NatMapNext4, func(err error) {})
-	stats := doGC4(ctMap, filter, next)
+	stats := doGCForFamily(ctMap, filter, next, nil, false)
 	complete(nil)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
@@ -430,7 +430,7 @@ func TestCtGcDsr(t *testing.T) {
 	}
 	mcast, next, complete := stream.Multicast[GCEvent]()
 	mcast.Observe(context.Background(), NatMapNext4, func(err error) {})
-	stats := doGC4(ctMap, filter, next)
+	stats := doGCForFamily(ctMap, filter, next, nil, false)
 	complete(nil)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
