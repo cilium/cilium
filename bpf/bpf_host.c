@@ -1275,18 +1275,7 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 		int ret = DROP_UNSUPPORTED_L2;
 		__u32 id = WORLD_ID;
 		__u32 sec_label = SECLABEL;
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-		switch (proto) {
-		case bpf_htons(ETH_P_IP):
-			id = WORLD_IPV4_ID;
-			sec_label = SECLABEL_IPV4;
-			break;
-		case bpf_htons(ETH_P_IPV6):
-			id = WORLD_IPV6_ID;
-			sec_label = SECLABEL_IPV6;
-			break;
-		}
-#endif
+
 		return send_drop_notify(ctx, sec_label, id, TRACE_EP_ID_UNKNOWN, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
