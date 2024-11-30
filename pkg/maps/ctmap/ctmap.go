@@ -111,7 +111,7 @@ type CtMap interface {
 	Path() (string, error)
 	DumpEntries() (string, error)
 	DumpWithCallback(bpf.DumpCallback) error
-	Count() (int, error)
+	Count(context.Context) (int, error)
 	Update(key bpf.MapKey, value bpf.MapValue) error
 }
 
@@ -290,65 +290,13 @@ func (m *Map) DumpEntries() (string, error) {
 }
 
 // Count batch dumps the Map m and returns the count of the entries.
-func (m *Map) Count() (count int, err error) {
-	global := m.mapType.isGlobal()
-	v4 := m.mapType.isIPv4()
-	switch {
-	case global && v4:
-		return countBatch[CtKey4Global](m)
-	case global && !v4:
-		return countBatch[CtKey6Global](m)
-	case !global && v4:
-		return countBatch[CtKey4](m)
-	case !global && !v4:
-		return countBatch[CtKey6](m)
-	}
-	return
-}
-
-func countBatch[T any](m *Map) (count int, err error) {
-	// If we have a hash map of N = 2^n elements, then the first collision is
-	// expected [at random] when we insert around sqrt(2*N) elements. For
-	// example, for a map of size 1024, this is around 45 elements. In normal
-	// life input is not uniformly distributed, so there could be more
-	// collisions.
-	//
-	// In practice, we can expect maximum collision lengths (# of elements in a
-	// bucket ~= chunkSize) to be around 30-40. So anything like chunk_size=10%
-	// of map size should be pretty safe. If the chunkSize is not enough, then
-	// the kernel returns ENOSPC. In this case, it is possible to just set
-	// chunkSize *= 2 and try again. However, with the current chunkSize of
-	// 4096, we observe no issues dumping the maximum size of a CT map. As
-	// explained a bit below, 4096 was an optimal number considering idle
-	// memory usage and benchmarks (see commit msg).
-	//
-	// Credits to Anton for the above explanation of htab maps.
-	const chunkSize uint32 = 4096
-
-	// We can reuse the following buffers as the batch lookup does not care for
-	// the contents of the map. This saves on redundant memory allocations.
-	//
-	// The following is the number of KiB total that is allocated by Go for the
-	// following buffers based on the data type:
-	//   >>> (14*4096) / 1024 # CT IPv4 map key
-	//   56.0
-	//   >>> (38*4096) / 1024 # CT IPv6 map key
-	//   152.0
-	//   >>> (56*4096) / 1024 # CT map value
-	//   224.0
-	kout := make([]T, chunkSize)
-	vout := make([]CtEntry, chunkSize)
-
-	var cursor ebpf.MapBatchCursor
-	for {
-		c, batchErr := m.BatchLookup(&cursor, kout, vout, nil)
-		count += c
-		if batchErr != nil {
-			if errors.Is(batchErr, ebpf.ErrKeyNotExist) {
-				return count, nil // end of map, we're done iterating
-			}
-			return count, batchErr
-		}
+func (m *Map) Count(ctx context.Context) (count int, err error) {
+	if m.mapType.isIPv4() {
+		iter := bpf.NewBatchIterator[tuple.TupleKey4, CtEntry](&m.Map)
+		return bpf.CountAll(ctx, iter)
+	} else {
+		iter := bpf.NewBatchIterator[tuple.TupleKey6, CtEntry](&m.Map)
+		return bpf.CountAll(ctx, iter)
 	}
 }
 
@@ -895,6 +843,8 @@ func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (inte
 	return
 }
 
+const ctmapPressureInterval = 30 * time.Second
+
 // CalculateCTMapPressure is a controller that calculates the BPF CT map
 // pressure and pubishes it as part of the BPF map pressure metric.
 func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
@@ -919,7 +869,9 @@ func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
 				}
 				defer m.Close()
 
-				count, err := m.Count()
+				ctx, cancelCtx := context.WithTimeout(ctx, ctmapPressureInterval)
+				defer cancelCtx()
+				count, err := m.Count(ctx)
 				if errors.Is(err, ebpf.ErrNotSupported) {
 					// We don't have batch ops, so cancel context to kill this
 					// controller.
