@@ -2511,6 +2511,9 @@ type ConnectionNotification struct {
 	// The ID of the endpoint service.
 	ServiceId *string
 
+	// The Region for the endpoint service.
+	ServiceRegion *string
+
 	// The ID of the VPC endpoint.
 	VpcEndpointId *string
 
@@ -7789,6 +7792,8 @@ type InstanceRequirements struct {
 	//   - For instance types with Amazon Web Services CPUs, specify
 	//   amazon-web-services .
 	//
+	//   - For instance types with Apple CPUs, specify apple .
+	//
 	// Don't confuse the CPU manufacturer with the CPU architecture. Instances will be
 	// launched with a compatible CPU architecture based on the Amazon Machine Image
 	// (AMI) that you specify in your launch template.
@@ -8155,6 +8160,8 @@ type InstanceRequirementsRequest struct {
 	//
 	//   - For instance types with Amazon Web Services CPUs, specify
 	//   amazon-web-services .
+	//
+	//   - For instance types with Apple CPUs, specify apple .
 	//
 	// Don't confuse the CPU manufacturer with the CPU architecture. Instances will be
 	// launched with a compatible CPU architecture based on the Amazon Machine Image
@@ -10177,8 +10184,12 @@ type LaunchTemplateCapacityReservationSpecificationRequest struct {
 	// Indicates the instance's Capacity Reservation preferences. Possible preferences
 	// include:
 	//
+	//   - capacity-reservations-only - The instance will only run in a Capacity
+	//   Reservation or Capacity Reservation group. If capacity isn't available, the
+	//   instance will fail to launch.
+	//
 	//   - open - The instance can run in any open Capacity Reservation that has
-	//   matching attributes (instance type, platform, Availability Zone).
+	//   matching attributes (instance type, platform, Availability Zone, tenancy).
 	//
 	//   - none - The instance avoids running in a Capacity Reservation even if one is
 	//   available. The instance runs in On-Demand capacity.
@@ -16186,6 +16197,10 @@ type ServiceConfiguration struct {
 	// Information about the endpoint service private DNS name configuration.
 	PrivateDnsNameConfiguration *PrivateDnsNameConfiguration
 
+	// Indicates whether consumers can access the service from a Region other than the
+	// Region where the service is hosted.
+	RemoteAccessEnabled *bool
+
 	// The ID of the service.
 	ServiceId *string
 
@@ -16200,6 +16215,9 @@ type ServiceConfiguration struct {
 
 	// The supported IP address types.
 	SupportedIpAddressTypes []ServiceConnectivityType
+
+	// The supported Regions.
+	SupportedRegions []SupportedRegionDetail
 
 	// The tags assigned to the service.
 	Tags []Tag
@@ -16247,6 +16265,9 @@ type ServiceDetail struct {
 
 	// The name of the service.
 	ServiceName *string
+
+	// The Region where the service is hosted.
+	ServiceRegion *string
 
 	// The type of service.
 	ServiceType []ServiceTypeDetail
@@ -16305,6 +16326,14 @@ type SlotStartTimeRangeRequest struct {
 
 // Describes a snapshot.
 type Snapshot struct {
+
+	// Only for snapshot copies created with time-based snapshot copy operations.
+	//
+	// The completion duration requested for the time-based snapshot copy operation.
+	CompletionDurationMinutes *int32
+
+	// The time stamp when the snapshot was completed.
+	CompletionTime *time.Time
 
 	// The data encryption key identifier for the snapshot. This value is a unique
 	// identifier that corresponds to the data encryption key that was used to encrypt
@@ -16372,6 +16401,20 @@ type Snapshot struct {
 
 	// Any tags assigned to the snapshot.
 	Tags []Tag
+
+	// Only for snapshot copies.
+	//
+	// Indicates whether the snapshot copy was created with a standard or time-based
+	// snapshot copy operation. Time-based snapshot copy operations complete within the
+	// completion duration specified in the request. Standard snapshot copy operations
+	// are completed on a best-effort basis.
+	//
+	//   - standard - The snapshot copy was created with a standard snapshot copy
+	//   operation.
+	//
+	//   - time-based - The snapshot copy was created with a time-based snapshot copy
+	//   operation.
+	TransferType TransferType
 
 	// The ID of the volume that was used to create the snapshot. Snapshots created by
 	// the CopySnapshotaction have an arbitrary volume ID that should not be used for any purpose.
@@ -17930,6 +17973,19 @@ type SuccessfulQueuedPurchaseDeletion struct {
 
 	// The ID of the Reserved Instance.
 	ReservedInstancesId *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes a supported Region.
+type SupportedRegionDetail struct {
+
+	// The Region code.
+	Region *string
+
+	// The service state. The possible values are Pending , Available , Deleting ,
+	// Deleted , Failed , and Closed .
+	ServiceState *string
 
 	noSmithyDocumentSerde
 }
@@ -20628,6 +20684,9 @@ type VpcEndpoint struct {
 	// The name of the service to which the endpoint is associated.
 	ServiceName *string
 
+	// The Region where the service is hosted.
+	ServiceRegion *string
+
 	// The state of the endpoint.
 	State State
 
@@ -20681,6 +20740,9 @@ type VpcEndpointConnection struct {
 
 	// The ID of the Amazon Web Services account that owns the VPC endpoint.
 	VpcEndpointOwner *string
+
+	// The Region of the endpoint.
+	VpcEndpointRegion *string
 
 	// The state of the VPC endpoint.
 	VpcEndpointState State

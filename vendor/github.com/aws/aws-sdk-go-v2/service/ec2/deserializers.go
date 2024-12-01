@@ -71802,6 +71802,19 @@ func awsEc2query_deserializeDocumentConnectionNotification(v **types.ConnectionN
 				sv.ServiceId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("serviceRegion", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ServiceRegion = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("vpcEndpointId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -124913,6 +124926,22 @@ func awsEc2query_deserializeDocumentServiceConfiguration(v **types.ServiceConfig
 				return err
 			}
 
+		case strings.EqualFold("remoteAccessEnabled", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.RemoteAccessEnabled = ptr.Bool(xtv)
+			}
+
 		case strings.EqualFold("serviceId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -124961,6 +124990,12 @@ func awsEc2query_deserializeDocumentServiceConfiguration(v **types.ServiceConfig
 		case strings.EqualFold("supportedIpAddressTypeSet", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentSupportedIpAddressTypes(&sv.SupportedIpAddressTypes, nodeDecoder); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("supportedRegionSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentSupportedRegionSet(&sv.SupportedRegions, nodeDecoder); err != nil {
 				return err
 			}
 
@@ -125200,6 +125235,19 @@ func awsEc2query_deserializeDocumentServiceDetail(v **types.ServiceDetail, decod
 			{
 				xtv := string(val)
 				sv.ServiceName = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("serviceRegion", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ServiceRegion = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("serviceType", t.Name.Local):
@@ -125457,6 +125505,40 @@ func awsEc2query_deserializeDocumentSnapshot(v **types.Snapshot, decoder smithyx
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("completionDurationMinutes", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.CompletionDurationMinutes = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("completionTime", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				t, err := smithytime.ParseDateTime(xtv)
+				if err != nil {
+					return err
+				}
+				sv.CompletionTime = ptr.Time(t)
+			}
+
 		case strings.EqualFold("dataEncryptionKeyId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -125667,6 +125749,19 @@ func awsEc2query_deserializeDocumentSnapshot(v **types.Snapshot, decoder smithyx
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
 				return err
+			}
+
+		case strings.EqualFold("transferType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransferType = types.TransferType(xtv)
 			}
 
 		case strings.EqualFold("volumeId", t.Name.Local):
@@ -131291,6 +131386,136 @@ func awsEc2query_deserializeDocumentSupportedIpAddressTypesUnwrapped(v *[]types.
 			xtv := string(val)
 			mv = types.ServiceConnectivityType(xtv)
 		}
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentSupportedRegionDetail(v **types.SupportedRegionDetail, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.SupportedRegionDetail
+	if *v == nil {
+		sv = &types.SupportedRegionDetail{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("region", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.Region = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("serviceState", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ServiceState = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentSupportedRegionSet(v *[]types.SupportedRegionDetail, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.SupportedRegionDetail
+	if *v == nil {
+		sv = make([]types.SupportedRegionDetail, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.SupportedRegionDetail
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentSupportedRegionDetail(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentSupportedRegionSetUnwrapped(v *[]types.SupportedRegionDetail, decoder smithyxml.NodeDecoder) error {
+	var sv []types.SupportedRegionDetail
+	if *v == nil {
+		sv = make([]types.SupportedRegionDetail, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.SupportedRegionDetail
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentSupportedRegionDetail(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
 		sv = append(sv, mv)
 	}
 	*v = sv
@@ -146026,6 +146251,19 @@ func awsEc2query_deserializeDocumentVpcEndpoint(v **types.VpcEndpoint, decoder s
 				sv.ServiceName = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("serviceRegion", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ServiceRegion = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("state", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -146230,6 +146468,19 @@ func awsEc2query_deserializeDocumentVpcEndpointConnection(v **types.VpcEndpointC
 			{
 				xtv := string(val)
 				sv.VpcEndpointOwner = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("vpcEndpointRegion", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.VpcEndpointRegion = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("vpcEndpointState", t.Name.Local):
@@ -153379,6 +153630,40 @@ func awsEc2query_deserializeOpDocumentCreateSnapshotOutput(v **CreateSnapshotOut
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("completionDurationMinutes", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.CompletionDurationMinutes = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("completionTime", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				t, err := smithytime.ParseDateTime(xtv)
+				if err != nil {
+					return err
+				}
+				sv.CompletionTime = ptr.Time(t)
+			}
+
 		case strings.EqualFold("dataEncryptionKeyId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -153589,6 +153874,19 @@ func awsEc2query_deserializeOpDocumentCreateSnapshotOutput(v **CreateSnapshotOut
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
 				return err
+			}
+
+		case strings.EqualFold("transferType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.TransferType = types.TransferType(xtv)
 			}
 
 		case strings.EqualFold("volumeId", t.Name.Local):

@@ -49,6 +49,8 @@ type DescribeVpcEndpointServicesInput struct {
 	//
 	//   - service-name - The name of the service.
 	//
+	//   - service-region - The Region of the service.
+	//
 	//   - service-type - The type of service ( Interface | Gateway |
 	//   GatewayLoadBalancer ).
 	//
@@ -75,6 +77,9 @@ type DescribeVpcEndpointServicesInput struct {
 
 	// The service names.
 	ServiceNames []string
+
+	// The service Regions.
+	ServiceRegions []string
 
 	noSmithyDocumentSerde
 }

@@ -90,6 +90,9 @@ type CreateVpcEndpointInput struct {
 	// default security group for the VPC.
 	SecurityGroupIds []string
 
+	// The Region where the service is hosted. The default is the current Region.
+	ServiceRegion *string
+
 	// The subnet configurations for the endpoint.
 	SubnetConfigurations []types.SubnetConfiguration
 

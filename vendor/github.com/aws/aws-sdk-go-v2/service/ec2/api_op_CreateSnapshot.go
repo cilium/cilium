@@ -110,6 +110,14 @@ type CreateSnapshotInput struct {
 // Describes a snapshot.
 type CreateSnapshotOutput struct {
 
+	// Only for snapshot copies created with time-based snapshot copy operations.
+	//
+	// The completion duration requested for the time-based snapshot copy operation.
+	CompletionDurationMinutes *int32
+
+	// The time stamp when the snapshot was completed.
+	CompletionTime *time.Time
+
 	// The data encryption key identifier for the snapshot. This value is a unique
 	// identifier that corresponds to the data encryption key that was used to encrypt
 	// the original volume or snapshot copy. Because data encryption keys are inherited
@@ -176,6 +184,20 @@ type CreateSnapshotOutput struct {
 
 	// Any tags assigned to the snapshot.
 	Tags []types.Tag
+
+	// Only for snapshot copies.
+	//
+	// Indicates whether the snapshot copy was created with a standard or time-based
+	// snapshot copy operation. Time-based snapshot copy operations complete within the
+	// completion duration specified in the request. Standard snapshot copy operations
+	// are completed on a best-effort basis.
+	//
+	//   - standard - The snapshot copy was created with a standard snapshot copy
+	//   operation.
+	//
+	//   - time-based - The snapshot copy was created with a time-based snapshot copy
+	//   operation.
+	TransferType types.TransferType
 
 	// The ID of the volume that was used to create the snapshot. Snapshots created by
 	// the CopySnapshotaction have an arbitrary volume ID that should not be used for any purpose.
