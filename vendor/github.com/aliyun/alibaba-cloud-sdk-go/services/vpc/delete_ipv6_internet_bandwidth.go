@@ -72,7 +72,9 @@ func (client *Client) DeleteIpv6InternetBandwidthWithCallback(request *DeleteIpv
 type DeleteIpv6InternetBandwidthRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken             string           `position:"Query" name:"ClientToken"`
 	Ipv6InternetBandwidthId string           `position:"Query" name:"Ipv6InternetBandwidthId"`
+	DryRun                  requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
 	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`

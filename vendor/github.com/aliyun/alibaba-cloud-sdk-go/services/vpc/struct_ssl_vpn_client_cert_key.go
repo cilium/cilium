@@ -24,4 +24,5 @@ type SslVpnClientCertKey struct {
 	SslVpnServerId     string `json:"SslVpnServerId" xml:"SslVpnServerId"`
 	Name               string `json:"Name" xml:"Name"`
 	RegionId           string `json:"RegionId" xml:"RegionId"`
+	ResourceGroupId    string `json:"ResourceGroupId" xml:"ResourceGroupId"`
 }

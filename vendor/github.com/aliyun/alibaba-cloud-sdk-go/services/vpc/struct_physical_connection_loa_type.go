@@ -27,5 +27,7 @@ type PhysicalConnectionLOAType struct {
 	InstanceId           string `json:"InstanceId" xml:"InstanceId"`
 	LineType             string `json:"LineType" xml:"LineType"`
 	CompanyName          string `json:"CompanyName" xml:"CompanyName"`
+	LineServiceProvider  string `json:"LineServiceProvider" xml:"LineServiceProvider"`
+	LineSPContactInfo    string `json:"LineSPContactInfo" xml:"LineSPContactInfo"`
 	PMInfo               PMInfo `json:"PMInfo" xml:"PMInfo"`
 }

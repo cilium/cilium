@@ -74,6 +74,7 @@ type DescribeSslVpnClientCertsRequest struct {
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
 	SslVpnServerId       string           `position:"Query" name:"SslVpnServerId"`
+	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
 	PageSize             requests.Integer `position:"Query" name:"PageSize"`
 	SslVpnClientCertId   string           `position:"Query" name:"SslVpnClientCertId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`

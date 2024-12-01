@@ -75,6 +75,7 @@ type DescribePublicIpAddressRequest struct {
 	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
 	ResourceUid          requests.Integer `position:"Query" name:"ResourceUid"`
 	PageSize             requests.Integer `position:"Query" name:"PageSize"`
+	IpVersion            string           `position:"Query" name:"IpVersion"`
 	Bandwidth            string           `position:"Query" name:"Bandwidth"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`

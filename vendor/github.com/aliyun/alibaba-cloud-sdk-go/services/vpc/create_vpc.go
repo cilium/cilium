@@ -75,6 +75,7 @@ type CreateVpcRequest struct {
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	EnableIpv6           requests.Boolean `position:"Query" name:"EnableIpv6"`
 	Description          string           `position:"Query" name:"Description"`
+	Ipv4CidrMask         requests.Integer `position:"Query" name:"Ipv4CidrMask"`
 	VpcName              string           `position:"Query" name:"VpcName"`
 	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
 	Ipv4IpamPoolId       string           `position:"Query" name:"Ipv4IpamPoolId"`
@@ -82,6 +83,7 @@ type CreateVpcRequest struct {
 	UserCidr             string           `position:"Query" name:"UserCidr"`
 	Tag                  *[]CreateVpcTag  `position:"Query" name:"Tag"  type:"Repeated"`
 	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
+	EnableDnsHostname    requests.Boolean `position:"Query" name:"EnableDnsHostname"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`

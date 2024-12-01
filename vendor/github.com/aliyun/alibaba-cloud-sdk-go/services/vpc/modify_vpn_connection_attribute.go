@@ -96,12 +96,14 @@ type ModifyVpnConnectionAttributeRequest struct {
 // ModifyVpnConnectionAttributeTunnelOptionsSpecification is a repeated param struct in ModifyVpnConnectionAttributeRequest
 type ModifyVpnConnectionAttributeTunnelOptionsSpecification struct {
 	TunnelIpsecConfig   ModifyVpnConnectionAttributeTunnelOptionsSpecificationTunnelIpsecConfig `name:"TunnelIpsecConfig" type:"Struct"`
+	Role                string                                                                  `name:"Role"`
 	TunnelBgpConfig     ModifyVpnConnectionAttributeTunnelOptionsSpecificationTunnelBgpConfig   `name:"TunnelBgpConfig" type:"Struct"`
 	RemoteCaCertificate string                                                                  `name:"RemoteCaCertificate"`
 	TunnelId            string                                                                  `name:"TunnelId"`
 	TunnelIkeConfig     ModifyVpnConnectionAttributeTunnelOptionsSpecificationTunnelIkeConfig   `name:"TunnelIkeConfig" type:"Struct"`
 	EnableNatTraversal  string                                                                  `name:"EnableNatTraversal"`
 	EnableDpd           string                                                                  `name:"EnableDpd"`
+	CustomerGatewayId   string                                                                  `name:"CustomerGatewayId"`
 }
 
 // ModifyVpnConnectionAttributeTunnelOptionsSpecificationTunnelIpsecConfig is a repeated param struct in ModifyVpnConnectionAttributeRequest
@@ -148,6 +150,7 @@ type ModifyVpnConnectionAttributeResponse struct {
 	Name                       string                                                   `json:"Name" xml:"Name"`
 	EnableDpd                  bool                                                     `json:"EnableDpd" xml:"EnableDpd"`
 	EnableTunnelsBgp           bool                                                     `json:"EnableTunnelsBgp" xml:"EnableTunnelsBgp"`
+	ResourceGroupId            string                                                   `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	IkeConfig                  IkeConfig                                                `json:"IkeConfig" xml:"IkeConfig"`
 	IpsecConfig                IpsecConfig                                              `json:"IpsecConfig" xml:"IpsecConfig"`
 	VcoHealthCheck             VcoHealthCheck                                           `json:"VcoHealthCheck" xml:"VcoHealthCheck"`

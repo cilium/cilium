@@ -23,6 +23,7 @@ type EgressAclEntry struct {
 	Port                string `json:"Port" xml:"Port"`
 	NetworkAclEntryName string `json:"NetworkAclEntryName" xml:"NetworkAclEntryName"`
 	EntryType           string `json:"EntryType" xml:"EntryType"`
+	IpVersion           string `json:"IpVersion" xml:"IpVersion"`
 	Policy              string `json:"Policy" xml:"Policy"`
 	Description         string `json:"Description" xml:"Description"`
 }
