@@ -321,7 +321,7 @@ jobs:
           # it without performing an upgrade, we use skip-upgrade: 'true'
           # - name: '17'
           #   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #   kernel: 'bpf-20241125.013357'
+          #   kernel: 'bpf-20241129.013349'
           #   misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
           #   skip-upgrade: 'true'
 
