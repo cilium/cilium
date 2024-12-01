@@ -10,10 +10,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies the attributes of your VPC endpoint service configuration. You can
-// change the Network Load Balancers or Gateway Load Balancers for your service,
-// and you can specify whether acceptance is required for requests to connect to
-// your endpoint service through an interface VPC endpoint.
+// Modifies the attributes of the specified VPC endpoint service configuration.
 //
 // If you set or modify the private DNS name, you must prove that you own the
 // private DNS domain name.
@@ -39,20 +36,23 @@ type ModifyVpcEndpointServiceConfigurationInput struct {
 	// This member is required.
 	ServiceId *string
 
-	// Indicates whether requests to create an endpoint to your service must be
+	// Indicates whether requests to create an endpoint to the service must be
 	// accepted.
 	AcceptanceRequired *bool
 
-	// The Amazon Resource Names (ARNs) of Gateway Load Balancers to add to your
+	// The Amazon Resource Names (ARNs) of Gateway Load Balancers to add to the
 	// service configuration.
 	AddGatewayLoadBalancerArns []string
 
-	// The Amazon Resource Names (ARNs) of Network Load Balancers to add to your
+	// The Amazon Resource Names (ARNs) of Network Load Balancers to add to the
 	// service configuration.
 	AddNetworkLoadBalancerArns []string
 
-	// The IP address types to add to your service configuration.
+	// The IP address types to add to the service configuration.
 	AddSupportedIpAddressTypes []string
+
+	// The supported Regions to add to the service configuration.
+	AddSupportedRegions []string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -64,11 +64,11 @@ type ModifyVpcEndpointServiceConfigurationInput struct {
 	// endpoint service.
 	PrivateDnsName *string
 
-	// The Amazon Resource Names (ARNs) of Gateway Load Balancers to remove from your
+	// The Amazon Resource Names (ARNs) of Gateway Load Balancers to remove from the
 	// service configuration.
 	RemoveGatewayLoadBalancerArns []string
 
-	// The Amazon Resource Names (ARNs) of Network Load Balancers to remove from your
+	// The Amazon Resource Names (ARNs) of Network Load Balancers to remove from the
 	// service configuration.
 	RemoveNetworkLoadBalancerArns []string
 
@@ -76,8 +76,11 @@ type ModifyVpcEndpointServiceConfigurationInput struct {
 	// service.
 	RemovePrivateDnsName *bool
 
-	// The IP address types to remove from your service configuration.
+	// The IP address types to remove from the service configuration.
 	RemoveSupportedIpAddressTypes []string
+
+	// The supported Regions to remove from the service configuration.
+	RemoveSupportedRegions []string
 
 	noSmithyDocumentSerde
 }

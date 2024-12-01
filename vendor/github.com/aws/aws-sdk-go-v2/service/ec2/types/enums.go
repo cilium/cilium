@@ -8505,6 +8505,25 @@ func (TrafficType) Values() []TrafficType {
 	}
 }
 
+type TransferType string
+
+// Enum values for TransferType
+const (
+	TransferTypeTimeBased TransferType = "time-based"
+	TransferTypeStandard  TransferType = "standard"
+)
+
+// Values returns all known values for TransferType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransferType) Values() []TransferType {
+	return []TransferType{
+		"time-based",
+		"standard",
+	}
+}
+
 type TransitGatewayAssociationState string
 
 // Enum values for TransitGatewayAssociationState

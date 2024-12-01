@@ -118,6 +118,12 @@ type DescribeNetworkInterfacesInput struct {
 	//
 	//   - network-interface-id - The ID of the network interface.
 	//
+	//   - operator.managed - A Boolean that indicates whether this is a managed
+	//   network interface.
+	//
+	//   - operator.principal - The principal that manages the network interface. Only
+	//   valid for managed network interfaces, where managed is true .
+	//
 	//   - owner-id - The Amazon Web Services account ID of the network interface owner.
 	//
 	//   - private-dns-name - The private DNS name of the network interface (IPv4).

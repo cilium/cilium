@@ -310,6 +310,13 @@ type DescribeInstancesInput struct {
 	//
 	//   - network-interface.network-interface-id - The ID of the network interface.
 	//
+	//   - network-interface.operator.managed - A Boolean that indicates whether the
+	//   instance has a managed network interface.
+	//
+	//   - network-interface.operator.principal - The principal that manages the
+	//   network interface. Only valid for instances with managed network interfaces,
+	//   where managed is true .
+	//
 	//   - network-interface.outpost-arn - The ARN of the Outpost.
 	//
 	//   - network-interface.owner-id - The ID of the owner of the network interface.
@@ -343,6 +350,12 @@ type DescribeInstancesInput struct {
 	//   interface.
 	//
 	//   - network-interface.vpc-id - The ID of the VPC for the network interface.
+	//
+	//   - operator.managed - A Boolean that indicates whether this is a managed
+	//   instance.
+	//
+	//   - operator.principal - The principal that manages the instance. Only valid for
+	//   managed instances, where managed is true .
 	//
 	//   - outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
 	//

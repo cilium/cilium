@@ -56998,6 +56998,11 @@ func awsEc2query_serializeOpDocumentCopySnapshotInput(v *CopySnapshotInput, valu
 	object := value.Object()
 	_ = object
 
+	if v.CompletionDurationMinutes != nil {
+		objectKey := object.Key("CompletionDurationMinutes")
+		objectKey.Integer(*v.CompletionDurationMinutes)
+	}
+
 	if v.Description != nil {
 		objectKey := object.Key("Description")
 		objectKey.String(*v.Description)
@@ -60579,6 +60584,11 @@ func awsEc2query_serializeOpDocumentCreateVpcEndpointInput(v *CreateVpcEndpointI
 		objectKey.String(*v.ServiceName)
 	}
 
+	if v.ServiceRegion != nil {
+		objectKey := object.Key("ServiceRegion")
+		objectKey.String(*v.ServiceRegion)
+	}
+
 	if v.SubnetConfigurations != nil {
 		objectKey := object.FlatKey("SubnetConfiguration")
 		if err := awsEc2query_serializeDocumentSubnetConfigurationsList(v.SubnetConfigurations, objectKey); err != nil {
@@ -60654,6 +60664,13 @@ func awsEc2query_serializeOpDocumentCreateVpcEndpointServiceConfigurationInput(v
 	if v.SupportedIpAddressTypes != nil {
 		objectKey := object.FlatKey("SupportedIpAddressType")
 		if err := awsEc2query_serializeDocumentValueStringList(v.SupportedIpAddressTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.SupportedRegions != nil {
+		objectKey := object.FlatKey("SupportedRegion")
+		if err := awsEc2query_serializeDocumentValueStringList(v.SupportedRegions, objectKey); err != nil {
 			return err
 		}
 	}
@@ -67771,6 +67788,13 @@ func awsEc2query_serializeOpDocumentDescribeVpcEndpointServicesInput(v *Describe
 		}
 	}
 
+	if v.ServiceRegions != nil {
+		objectKey := object.FlatKey("ServiceRegion")
+		if err := awsEc2query_serializeDocumentValueStringList(v.ServiceRegions, objectKey); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -73337,6 +73361,13 @@ func awsEc2query_serializeOpDocumentModifyVpcEndpointServiceConfigurationInput(v
 		}
 	}
 
+	if v.AddSupportedRegions != nil {
+		objectKey := object.FlatKey("AddSupportedRegion")
+		if err := awsEc2query_serializeDocumentValueStringList(v.AddSupportedRegions, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.DryRun != nil {
 		objectKey := object.Key("DryRun")
 		objectKey.Boolean(*v.DryRun)
@@ -73369,6 +73400,13 @@ func awsEc2query_serializeOpDocumentModifyVpcEndpointServiceConfigurationInput(v
 	if v.RemoveSupportedIpAddressTypes != nil {
 		objectKey := object.FlatKey("RemoveSupportedIpAddressType")
 		if err := awsEc2query_serializeDocumentValueStringList(v.RemoveSupportedIpAddressTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.RemoveSupportedRegions != nil {
+		objectKey := object.FlatKey("RemoveSupportedRegion")
+		if err := awsEc2query_serializeDocumentValueStringList(v.RemoveSupportedRegions, objectKey); err != nil {
 			return err
 		}
 	}
