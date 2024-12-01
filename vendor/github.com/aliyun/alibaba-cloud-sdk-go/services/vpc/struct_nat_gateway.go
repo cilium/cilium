@@ -40,11 +40,13 @@ type NatGateway struct {
 	PrivateLinkEnabled        bool                                     `json:"PrivateLinkEnabled" xml:"PrivateLinkEnabled"`
 	PrivateLinkMode           string                                   `json:"PrivateLinkMode" xml:"PrivateLinkMode"`
 	EipBindMode               string                                   `json:"EipBindMode" xml:"EipBindMode"`
+	EnableSessionLog          string                                   `json:"EnableSessionLog" xml:"EnableSessionLog"`
 	ForwardTableIds           ForwardTableIdsInDescribeNatGateways     `json:"ForwardTableIds" xml:"ForwardTableIds"`
 	SnatTableIds              SnatTableIdsInDescribeNatGateways        `json:"SnatTableIds" xml:"SnatTableIds"`
 	FullNatTableIds           FullNatTableIdsInDescribeNatGateways     `json:"FullNatTableIds" xml:"FullNatTableIds"`
 	BandwidthPackageIds       BandwidthPackageIdsInDescribeNatGateways `json:"BandwidthPackageIds" xml:"BandwidthPackageIds"`
 	NatGatewayPrivateInfo     NatGatewayPrivateInfo                    `json:"NatGatewayPrivateInfo" xml:"NatGatewayPrivateInfo"`
+	AccessMode                AccessMode                               `json:"AccessMode" xml:"AccessMode"`
 	IpLists                   IpLists                                  `json:"IpLists" xml:"IpLists"`
 	Tags                      TagsInDescribeNatGateways                `json:"Tags" xml:"Tags"`
 }

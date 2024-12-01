@@ -35,6 +35,8 @@ type Vpc struct {
 	DhcpOptionsSetId       string                            `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
 	Ipv6CidrBlock          string                            `json:"Ipv6CidrBlock" xml:"Ipv6CidrBlock"`
 	CenStatus              string                            `json:"CenStatus" xml:"CenStatus"`
+	EnabledIpv6            bool                              `json:"EnabledIpv6" xml:"EnabledIpv6"`
+	DnsHostnameStatus      string                            `json:"DnsHostnameStatus" xml:"DnsHostnameStatus"`
 	VSwitchIds             VSwitchIdsInDescribeVpcs          `json:"VSwitchIds" xml:"VSwitchIds"`
 	SecondaryCidrBlocks    SecondaryCidrBlocksInDescribeVpcs `json:"SecondaryCidrBlocks" xml:"SecondaryCidrBlocks"`
 	UserCidrs              UserCidrsInDescribeVpcs           `json:"UserCidrs" xml:"UserCidrs"`

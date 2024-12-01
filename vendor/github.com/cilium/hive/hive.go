@@ -335,7 +335,7 @@ func (h *Hive) Start(log *slog.Logger, ctx context.Context) error {
 
 	defer close(h.fatalOnTimeout(ctx))
 
-	log.Info("Starting")
+	log.Info("Starting hive")
 	start := time.Now()
 	err := h.lifecycle.Start(log, ctx)
 	if err == nil {

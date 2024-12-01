@@ -74,12 +74,14 @@ type ModifySnatEntryRequest struct {
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	SnatIp               string           `position:"Query" name:"SnatIp"`
+	EipAffinity          requests.Integer `position:"Query" name:"EipAffinity"`
 	SnatEntryId          string           `position:"Query" name:"SnatEntryId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	SnatTableId          string           `position:"Query" name:"SnatTableId"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	SnatEntryName        string           `position:"Query" name:"SnatEntryName"`
+	NetworkInterfaceId   string           `position:"Query" name:"NetworkInterfaceId"`
 }
 
 // ModifySnatEntryResponse is the response struct for api ModifySnatEntry

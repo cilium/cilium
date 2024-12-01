@@ -97,12 +97,15 @@ type GetNatGatewayAttributeResponse struct {
 	Name                   string                 `json:"Name" xml:"Name"`
 	PrivateLinkEnabled     bool                   `json:"PrivateLinkEnabled" xml:"PrivateLinkEnabled"`
 	PrivateLinkMode        string                 `json:"PrivateLinkMode" xml:"PrivateLinkMode"`
+	EnableSessionLog       bool                   `json:"EnableSessionLog" xml:"EnableSessionLog"`
 	ForwardTable           ForwardTable           `json:"ForwardTable" xml:"ForwardTable"`
 	SnatTable              SnatTable              `json:"SnatTable" xml:"SnatTable"`
 	FullNatTable           FullNatTable           `json:"FullNatTable" xml:"FullNatTable"`
 	BillingConfig          BillingConfig          `json:"BillingConfig" xml:"BillingConfig"`
 	PrivateInfo            PrivateInfo            `json:"PrivateInfo" xml:"PrivateInfo"`
 	DeletionProtectionInfo DeletionProtectionInfo `json:"DeletionProtectionInfo" xml:"DeletionProtectionInfo"`
+	LogDelivery            LogDelivery            `json:"LogDelivery" xml:"LogDelivery"`
+	AccessMode             AccessMode             `json:"AccessMode" xml:"AccessMode"`
 	IpList                 []IpListItem           `json:"IpList" xml:"IpList"`
 }
 

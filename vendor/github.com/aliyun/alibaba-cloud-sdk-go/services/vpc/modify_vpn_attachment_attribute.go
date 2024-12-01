@@ -71,51 +71,97 @@ func (client *Client) ModifyVpnAttachmentAttributeWithCallback(request *ModifyVp
 // ModifyVpnAttachmentAttributeRequest is the request struct for api ModifyVpnAttachmentAttribute
 type ModifyVpnAttachmentAttributeRequest struct {
 	*requests.RpcRequest
-	IkeConfig            string           `position:"Query" name:"IkeConfig"`
-	AutoConfigRoute      requests.Boolean `position:"Query" name:"AutoConfigRoute"`
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	IpsecConfig          string           `position:"Query" name:"IpsecConfig"`
-	BgpConfig            string           `position:"Query" name:"BgpConfig"`
-	NetworkType          string           `position:"Query" name:"NetworkType"`
-	HealthCheckConfig    string           `position:"Query" name:"HealthCheckConfig"`
-	CustomerGatewayId    string           `position:"Query" name:"CustomerGatewayId"`
-	LocalSubnet          string           `position:"Query" name:"LocalSubnet"`
-	RemoteCaCert         string           `position:"Query" name:"RemoteCaCert"`
-	RemoteSubnet         string           `position:"Query" name:"RemoteSubnet"`
-	EffectImmediately    requests.Boolean `position:"Query" name:"EffectImmediately"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	EnableDpd            requests.Boolean `position:"Query" name:"EnableDpd"`
-	VpnConnectionId      string           `position:"Query" name:"VpnConnectionId"`
-	Name                 string           `position:"Query" name:"Name"`
-	EnableNatTraversal   requests.Boolean `position:"Query" name:"EnableNatTraversal"`
+	IkeConfig                  string                                                    `position:"Query" name:"IkeConfig"`
+	AutoConfigRoute            requests.Boolean                                          `position:"Query" name:"AutoConfigRoute"`
+	ResourceOwnerId            requests.Integer                                          `position:"Query" name:"ResourceOwnerId"`
+	ClientToken                string                                                    `position:"Query" name:"ClientToken"`
+	IpsecConfig                string                                                    `position:"Query" name:"IpsecConfig"`
+	BgpConfig                  string                                                    `position:"Query" name:"BgpConfig"`
+	NetworkType                string                                                    `position:"Query" name:"NetworkType"`
+	HealthCheckConfig          string                                                    `position:"Query" name:"HealthCheckConfig"`
+	CustomerGatewayId          string                                                    `position:"Query" name:"CustomerGatewayId"`
+	LocalSubnet                string                                                    `position:"Query" name:"LocalSubnet"`
+	RemoteCaCert               string                                                    `position:"Query" name:"RemoteCaCert"`
+	EnableTunnelsBgp           requests.Boolean                                          `position:"Query" name:"EnableTunnelsBgp"`
+	RemoteSubnet               string                                                    `position:"Query" name:"RemoteSubnet"`
+	EffectImmediately          requests.Boolean                                          `position:"Query" name:"EffectImmediately"`
+	ResourceOwnerAccount       string                                                    `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount               string                                                    `position:"Query" name:"OwnerAccount"`
+	EnableDpd                  requests.Boolean                                          `position:"Query" name:"EnableDpd"`
+	TunnelOptionsSpecification *[]ModifyVpnAttachmentAttributeTunnelOptionsSpecification `position:"Body" name:"TunnelOptionsSpecification"  type:"Repeated"`
+	VpnConnectionId            string                                                    `position:"Query" name:"VpnConnectionId"`
+	Name                       string                                                    `position:"Query" name:"Name"`
+	EnableNatTraversal         requests.Boolean                                          `position:"Query" name:"EnableNatTraversal"`
+}
+
+// ModifyVpnAttachmentAttributeTunnelOptionsSpecification is a repeated param struct in ModifyVpnAttachmentAttributeRequest
+type ModifyVpnAttachmentAttributeTunnelOptionsSpecification struct {
+	TunnelIpsecConfig   ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelIpsecConfig `name:"TunnelIpsecConfig" type:"Struct"`
+	TunnelBgpConfig     ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelBgpConfig   `name:"TunnelBgpConfig" type:"Struct"`
+	RemoteCaCertificate string                                                                  `name:"RemoteCaCertificate"`
+	TunnelId            string                                                                  `name:"TunnelId"`
+	TunnelIkeConfig     ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelIkeConfig   `name:"TunnelIkeConfig" type:"Struct"`
+	EnableNatTraversal  string                                                                  `name:"EnableNatTraversal"`
+	TunnelIndex         string                                                                  `name:"TunnelIndex"`
+	EnableDpd           string                                                                  `name:"EnableDpd"`
+	CustomerGatewayId   string                                                                  `name:"CustomerGatewayId"`
+}
+
+// ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelIpsecConfig is a repeated param struct in ModifyVpnAttachmentAttributeRequest
+type ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelIpsecConfig struct {
+	IpsecPfs      string `name:"IpsecPfs"`
+	IpsecLifetime string `name:"IpsecLifetime"`
+	IpsecAuthAlg  string `name:"IpsecAuthAlg"`
+	IpsecEncAlg   string `name:"IpsecEncAlg"`
+}
+
+// ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelBgpConfig is a repeated param struct in ModifyVpnAttachmentAttributeRequest
+type ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelBgpConfig struct {
+	LocalAsn   string `name:"LocalAsn"`
+	TunnelCidr string `name:"TunnelCidr"`
+	LocalBgpIp string `name:"LocalBgpIp"`
+}
+
+// ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelIkeConfig is a repeated param struct in ModifyVpnAttachmentAttributeRequest
+type ModifyVpnAttachmentAttributeTunnelOptionsSpecificationTunnelIkeConfig struct {
+	IkeVersion  string `name:"IkeVersion"`
+	IkeMode     string `name:"IkeMode"`
+	IkeAuthAlg  string `name:"IkeAuthAlg"`
+	Psk         string `name:"Psk"`
+	IkePfs      string `name:"IkePfs"`
+	IkeLifetime string `name:"IkeLifetime"`
+	LocalId     string `name:"LocalId"`
+	IkeEncAlg   string `name:"IkeEncAlg"`
+	RemoteId    string `name:"RemoteId"`
 }
 
 // ModifyVpnAttachmentAttributeResponse is the response struct for api ModifyVpnAttachmentAttribute
 type ModifyVpnAttachmentAttributeResponse struct {
 	*responses.BaseResponse
-	VpnConnectionId    string         `json:"VpnConnectionId" xml:"VpnConnectionId"`
-	CustomerGatewayId  string         `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
-	VpnGatewayId       string         `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	Name               string         `json:"Name" xml:"Name"`
-	Description        string         `json:"Description" xml:"Description"`
-	LocalSubnet        string         `json:"LocalSubnet" xml:"LocalSubnet"`
-	RemoteSubnet       string         `json:"RemoteSubnet" xml:"RemoteSubnet"`
-	CreateTime         int64          `json:"CreateTime" xml:"CreateTime"`
-	EffectImmediately  bool           `json:"EffectImmediately" xml:"EffectImmediately"`
-	Status             string         `json:"Status" xml:"Status"`
-	EnableDpd          bool           `json:"EnableDpd" xml:"EnableDpd"`
-	EnableNatTraversal bool           `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
-	AttachType         string         `json:"AttachType" xml:"AttachType"`
-	NetworkType        string         `json:"NetworkType" xml:"NetworkType"`
-	AttachInstanceId   string         `json:"AttachInstanceId" xml:"AttachInstanceId"`
-	Spec               string         `json:"Spec" xml:"Spec"`
-	RequestId          string         `json:"RequestId" xml:"RequestId"`
-	IkeConfig          IkeConfig      `json:"IkeConfig" xml:"IkeConfig"`
-	IpsecConfig        IpsecConfig    `json:"IpsecConfig" xml:"IpsecConfig"`
-	VcoHealthCheck     VcoHealthCheck `json:"VcoHealthCheck" xml:"VcoHealthCheck"`
-	VpnBgpConfig       VpnBgpConfig   `json:"VpnBgpConfig" xml:"VpnBgpConfig"`
+	VpnConnectionId            string                                        `json:"VpnConnectionId" xml:"VpnConnectionId"`
+	CustomerGatewayId          string                                        `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
+	VpnGatewayId               string                                        `json:"VpnGatewayId" xml:"VpnGatewayId"`
+	Name                       string                                        `json:"Name" xml:"Name"`
+	Description                string                                        `json:"Description" xml:"Description"`
+	LocalSubnet                string                                        `json:"LocalSubnet" xml:"LocalSubnet"`
+	RemoteSubnet               string                                        `json:"RemoteSubnet" xml:"RemoteSubnet"`
+	CreateTime                 int64                                         `json:"CreateTime" xml:"CreateTime"`
+	EffectImmediately          bool                                          `json:"EffectImmediately" xml:"EffectImmediately"`
+	Status                     string                                        `json:"Status" xml:"Status"`
+	EnableDpd                  bool                                          `json:"EnableDpd" xml:"EnableDpd"`
+	EnableNatTraversal         bool                                          `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
+	AttachType                 string                                        `json:"AttachType" xml:"AttachType"`
+	NetworkType                string                                        `json:"NetworkType" xml:"NetworkType"`
+	AttachInstanceId           string                                        `json:"AttachInstanceId" xml:"AttachInstanceId"`
+	Spec                       string                                        `json:"Spec" xml:"Spec"`
+	ResourceGroupId            string                                        `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	EnableTunnelsBgp           bool                                          `json:"EnableTunnelsBgp" xml:"EnableTunnelsBgp"`
+	RequestId                  string                                        `json:"RequestId" xml:"RequestId"`
+	IkeConfig                  IkeConfig                                     `json:"IkeConfig" xml:"IkeConfig"`
+	IpsecConfig                IpsecConfig                                   `json:"IpsecConfig" xml:"IpsecConfig"`
+	VcoHealthCheck             VcoHealthCheck                                `json:"VcoHealthCheck" xml:"VcoHealthCheck"`
+	VpnBgpConfig               VpnBgpConfig                                  `json:"VpnBgpConfig" xml:"VpnBgpConfig"`
+	TunnelOptionsSpecification []TunnelOptionsInModifyVpnAttachmentAttribute `json:"TunnelOptionsSpecification" xml:"TunnelOptionsSpecification"`
 }
 
 // CreateModifyVpnAttachmentAttributeRequest creates a request to invoke ModifyVpnAttachmentAttribute API

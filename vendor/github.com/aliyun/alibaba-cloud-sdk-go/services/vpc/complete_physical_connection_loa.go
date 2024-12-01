@@ -74,6 +74,9 @@ type CompletePhysicalConnectionLOARequest struct {
 	LineCode             string           `position:"Query" name:"LineCode"`
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
+	LineSPContactInfo    string           `position:"Query" name:"LineSPContactInfo"`
+	FinishWork           requests.Boolean `position:"Query" name:"FinishWork"`
+	LineServiceProvider  string           `position:"Query" name:"LineServiceProvider"`
 	LineLabel            string           `position:"Query" name:"LineLabel"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`

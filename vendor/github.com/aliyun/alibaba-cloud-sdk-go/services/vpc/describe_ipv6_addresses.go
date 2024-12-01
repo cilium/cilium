@@ -71,22 +71,32 @@ func (client *Client) DescribeIpv6AddressesWithCallback(request *DescribeIpv6Add
 // DescribeIpv6AddressesRequest is the request struct for api DescribeIpv6Addresses
 type DescribeIpv6AddressesRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Ipv6InternetBandwidthId string           `position:"Query" name:"Ipv6InternetBandwidthId"`
-	NetworkType             string           `position:"Query" name:"NetworkType"`
-	IncludeReservationData  requests.Boolean `position:"Query" name:"IncludeReservationData"`
-	PageNumber              requests.Integer `position:"Query" name:"PageNumber"`
-	AssociatedInstanceType  string           `position:"Query" name:"AssociatedInstanceType"`
-	PageSize                requests.Integer `position:"Query" name:"PageSize"`
-	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
-	VSwitchId               string           `position:"Query" name:"VSwitchId"`
-	Ipv6AddressId           string           `position:"Query" name:"Ipv6AddressId"`
-	VpcId                   string           `position:"Query" name:"VpcId"`
-	Name                    string           `position:"Query" name:"Name"`
-	Ipv6Address             string           `position:"Query" name:"Ipv6Address"`
-	AssociatedInstanceId    string           `position:"Query" name:"AssociatedInstanceId"`
+	ResourceOwnerId         requests.Integer            `position:"Query" name:"ResourceOwnerId"`
+	ServiceManaged          requests.Boolean            `position:"Query" name:"ServiceManaged"`
+	Ipv6InternetBandwidthId string                      `position:"Query" name:"Ipv6InternetBandwidthId"`
+	NetworkType             string                      `position:"Query" name:"NetworkType"`
+	IncludeReservationData  requests.Boolean            `position:"Query" name:"IncludeReservationData"`
+	PageNumber              requests.Integer            `position:"Query" name:"PageNumber"`
+	ResourceGroupId         string                      `position:"Query" name:"ResourceGroupId"`
+	AssociatedInstanceType  string                      `position:"Query" name:"AssociatedInstanceType"`
+	PageSize                requests.Integer            `position:"Query" name:"PageSize"`
+	AddressType             string                      `position:"Query" name:"AddressType"`
+	Tag                     *[]DescribeIpv6AddressesTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount    string                      `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount            string                      `position:"Query" name:"OwnerAccount"`
+	OwnerId                 requests.Integer            `position:"Query" name:"OwnerId"`
+	VSwitchId               string                      `position:"Query" name:"VSwitchId"`
+	Ipv6AddressId           string                      `position:"Query" name:"Ipv6AddressId"`
+	VpcId                   string                      `position:"Query" name:"VpcId"`
+	Name                    string                      `position:"Query" name:"Name"`
+	Ipv6Address             string                      `position:"Query" name:"Ipv6Address"`
+	AssociatedInstanceId    string                      `position:"Query" name:"AssociatedInstanceId"`
+}
+
+// DescribeIpv6AddressesTag is a repeated param struct in DescribeIpv6AddressesRequest
+type DescribeIpv6AddressesTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeIpv6AddressesResponse is the response struct for api DescribeIpv6Addresses

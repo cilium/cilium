@@ -74,6 +74,7 @@ type DescribeVpnConnectionsRequest struct {
 	ResourceOwnerId      requests.Integer             `position:"Query" name:"ResourceOwnerId"`
 	CustomerGatewayId    string                       `position:"Query" name:"CustomerGatewayId"`
 	PageNumber           requests.Integer             `position:"Query" name:"PageNumber"`
+	ResourceGroupId      string                       `position:"Query" name:"ResourceGroupId"`
 	PageSize             requests.Integer             `position:"Query" name:"PageSize"`
 	Tag                  *[]DescribeVpnConnectionsTag `position:"Query" name:"Tag"  type:"Repeated"`
 	ResourceOwnerAccount string                       `position:"Query" name:"ResourceOwnerAccount"`
@@ -92,11 +93,11 @@ type DescribeVpnConnectionsTag struct {
 // DescribeVpnConnectionsResponse is the response struct for api DescribeVpnConnections
 type DescribeVpnConnectionsResponse struct {
 	*responses.BaseResponse
-	PageSize       int            `json:"PageSize" xml:"PageSize"`
-	RequestId      string         `json:"RequestId" xml:"RequestId"`
-	PageNumber     int            `json:"PageNumber" xml:"PageNumber"`
-	TotalCount     int            `json:"TotalCount" xml:"TotalCount"`
-	VpnConnections VpnConnections `json:"VpnConnections" xml:"VpnConnections"`
+	PageSize       int                                    `json:"PageSize" xml:"PageSize"`
+	RequestId      string                                 `json:"RequestId" xml:"RequestId"`
+	PageNumber     int                                    `json:"PageNumber" xml:"PageNumber"`
+	TotalCount     int                                    `json:"TotalCount" xml:"TotalCount"`
+	VpnConnections VpnConnectionsInDescribeVpnConnections `json:"VpnConnections" xml:"VpnConnections"`
 }
 
 // CreateDescribeVpnConnectionsRequest creates a request to invoke DescribeVpnConnections API

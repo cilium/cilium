@@ -22,6 +22,7 @@ type TrafficMirrorFilter struct {
 	TrafficMirrorFilterId          string              `json:"TrafficMirrorFilterId" xml:"TrafficMirrorFilterId"`
 	TrafficMirrorFilterName        string              `json:"TrafficMirrorFilterName" xml:"TrafficMirrorFilterName"`
 	ResourceGroupId                string              `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	CreationTime                   string              `json:"CreationTime" xml:"CreationTime"`
 	IngressRules                   []TrafficMirrorRule `json:"IngressRules" xml:"IngressRules"`
 	EgressRules                    []TrafficMirrorRule `json:"EgressRules" xml:"EgressRules"`
 	Tags                           []Tag               `json:"Tags" xml:"Tags"`

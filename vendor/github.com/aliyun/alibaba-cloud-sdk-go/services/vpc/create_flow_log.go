@@ -74,6 +74,7 @@ type CreateFlowLogRequest struct {
 	ResourceOwnerId      requests.Integer    `position:"Query" name:"ResourceOwnerId"`
 	Description          string              `position:"Query" name:"Description"`
 	ResourceGroupId      string              `position:"Query" name:"ResourceGroupId"`
+	IpVersion            string              `position:"Query" name:"IpVersion"`
 	Tag                  *[]CreateFlowLogTag `position:"Query" name:"Tag"  type:"Repeated"`
 	ResourceId           string              `position:"Query" name:"ResourceId"`
 	ProjectName          string              `position:"Query" name:"ProjectName"`

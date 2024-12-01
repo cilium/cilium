@@ -34,6 +34,7 @@ type FlowLog struct {
 	ResourceGroupId            string                 `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	FlowLogDeliverStatus       string                 `json:"FlowLogDeliverStatus" xml:"FlowLogDeliverStatus"`
 	FlowLogDeliverErrorMessage string                 `json:"FlowLogDeliverErrorMessage" xml:"FlowLogDeliverErrorMessage"`
+	IpVersion                  string                 `json:"IpVersion" xml:"IpVersion"`
 	TrafficPath                TrafficPath            `json:"TrafficPath" xml:"TrafficPath"`
 	Tags                       TagsInDescribeFlowLogs `json:"Tags" xml:"Tags"`
 }

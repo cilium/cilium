@@ -17,18 +17,23 @@ package vpc
 
 // Ipv6Address is a nested struct in vpc response
 type Ipv6Address struct {
-	VpcId                  string                `json:"VpcId" xml:"VpcId"`
-	Status                 string                `json:"Status" xml:"Status"`
-	Ipv6AddressId          string                `json:"Ipv6AddressId" xml:"Ipv6AddressId"`
-	AllocationTime         string                `json:"AllocationTime" xml:"AllocationTime"`
-	Ipv6AddressName        string                `json:"Ipv6AddressName" xml:"Ipv6AddressName"`
-	AssociatedInstanceType string                `json:"AssociatedInstanceType" xml:"AssociatedInstanceType"`
-	AssociatedInstanceId   string                `json:"AssociatedInstanceId" xml:"AssociatedInstanceId"`
-	NetworkType            string                `json:"NetworkType" xml:"NetworkType"`
-	Ipv6Address            string                `json:"Ipv6Address" xml:"Ipv6Address"`
-	Ipv6Isp                string                `json:"Ipv6Isp" xml:"Ipv6Isp"`
-	VSwitchId              string                `json:"VSwitchId" xml:"VSwitchId"`
-	Ipv6GatewayId          string                `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
-	RealBandwidth          int                   `json:"RealBandwidth" xml:"RealBandwidth"`
-	Ipv6InternetBandwidth  Ipv6InternetBandwidth `json:"Ipv6InternetBandwidth" xml:"Ipv6InternetBandwidth"`
+	VpcId                  string                      `json:"VpcId" xml:"VpcId"`
+	Status                 string                      `json:"Status" xml:"Status"`
+	Ipv6AddressId          string                      `json:"Ipv6AddressId" xml:"Ipv6AddressId"`
+	AllocationTime         string                      `json:"AllocationTime" xml:"AllocationTime"`
+	Ipv6AddressName        string                      `json:"Ipv6AddressName" xml:"Ipv6AddressName"`
+	Ipv6AddressDescription string                      `json:"Ipv6AddressDescription" xml:"Ipv6AddressDescription"`
+	AssociatedInstanceType string                      `json:"AssociatedInstanceType" xml:"AssociatedInstanceType"`
+	AssociatedInstanceId   string                      `json:"AssociatedInstanceId" xml:"AssociatedInstanceId"`
+	NetworkType            string                      `json:"NetworkType" xml:"NetworkType"`
+	Ipv6Address            string                      `json:"Ipv6Address" xml:"Ipv6Address"`
+	AddressType            string                      `json:"AddressType" xml:"AddressType"`
+	Ipv6Isp                string                      `json:"Ipv6Isp" xml:"Ipv6Isp"`
+	VSwitchId              string                      `json:"VSwitchId" xml:"VSwitchId"`
+	Ipv6GatewayId          string                      `json:"Ipv6GatewayId" xml:"Ipv6GatewayId"`
+	RealBandwidth          int                         `json:"RealBandwidth" xml:"RealBandwidth"`
+	ResourceGroupId        string                      `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	ServiceManaged         int                         `json:"ServiceManaged" xml:"ServiceManaged"`
+	Ipv6InternetBandwidth  Ipv6InternetBandwidth       `json:"Ipv6InternetBandwidth" xml:"Ipv6InternetBandwidth"`
+	Tags                   TagsInDescribeIpv6Addresses `json:"Tags" xml:"Tags"`
 }

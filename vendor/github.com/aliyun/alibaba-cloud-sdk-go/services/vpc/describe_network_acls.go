@@ -78,6 +78,7 @@ type DescribeNetworkAclsRequest struct {
 	NetworkAclId         string                     `position:"Query" name:"NetworkAclId"`
 	ResourceId           string                     `position:"Query" name:"ResourceId"`
 	ResourceOwnerAccount string                     `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                     `position:"Query" name:"OwnerAccount"`
 	NetworkAclName       string                     `position:"Query" name:"NetworkAclName"`
 	OwnerId              requests.Integer           `position:"Query" name:"OwnerId"`
 	ResourceType         string                     `position:"Query" name:"ResourceType"`

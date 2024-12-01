@@ -71,17 +71,18 @@ func (client *Client) ModifyRouteTableAttributesWithCallback(request *ModifyRout
 // ModifyRouteTableAttributesRequest is the request struct for api ModifyRouteTableAttributes
 type ModifyRouteTableAttributesRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Description          string           `position:"Query" name:"Description"`
-	RouteTableName       string           `position:"Query" name:"RouteTableName"`
-	ResourceUid          requests.Integer `position:"Query" name:"ResourceUid"`
-	RouteTableId         string           `position:"Query" name:"RouteTableId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	Bandwidth            string           `position:"Query" name:"Bandwidth"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	KbpsBandwidth        string           `position:"Query" name:"KbpsBandwidth"`
-	ResourceBid          string           `position:"Query" name:"ResourceBid"`
+	ResourceOwnerId        requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	Description            string           `position:"Query" name:"Description"`
+	RouteTableName         string           `position:"Query" name:"RouteTableName"`
+	ResourceUid            requests.Integer `position:"Query" name:"ResourceUid"`
+	RouteTableId           string           `position:"Query" name:"RouteTableId"`
+	ResourceOwnerAccount   string           `position:"Query" name:"ResourceOwnerAccount"`
+	Bandwidth              string           `position:"Query" name:"Bandwidth"`
+	OwnerAccount           string           `position:"Query" name:"OwnerAccount"`
+	RoutePropagationEnable requests.Boolean `position:"Query" name:"RoutePropagationEnable"`
+	OwnerId                requests.Integer `position:"Query" name:"OwnerId"`
+	KbpsBandwidth          string           `position:"Query" name:"KbpsBandwidth"`
+	ResourceBid            string           `position:"Query" name:"ResourceBid"`
 }
 
 // ModifyRouteTableAttributesResponse is the response struct for api ModifyRouteTableAttributes
