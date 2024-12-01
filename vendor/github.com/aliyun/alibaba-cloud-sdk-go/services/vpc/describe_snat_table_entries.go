@@ -72,6 +72,7 @@ func (client *Client) DescribeSnatTableEntriesWithCallback(request *DescribeSnat
 type DescribeSnatTableEntriesRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	NetworkInterfaceIds  *[]string        `position:"Query" name:"NetworkInterfaceIds"  type:"Repeated"`
 	SourceCIDR           string           `position:"Query" name:"SourceCIDR"`
 	SnatIp               string           `position:"Query" name:"SnatIp"`
 	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`

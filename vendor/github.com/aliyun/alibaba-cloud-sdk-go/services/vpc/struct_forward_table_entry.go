@@ -26,4 +26,5 @@ type ForwardTableEntry struct {
 	IpProtocol       string `json:"IpProtocol" xml:"IpProtocol"`
 	ExternalPort     string `json:"ExternalPort" xml:"ExternalPort"`
 	ExternalIp       string `json:"ExternalIp" xml:"ExternalIp"`
+	NatGatewayId     string `json:"NatGatewayId" xml:"NatGatewayId"`
 }

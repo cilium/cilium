@@ -74,8 +74,10 @@ type UnassociateNetworkAclRequest struct {
 	ResourceOwnerId      requests.Integer                 `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string                           `position:"Query" name:"ClientToken"`
 	NetworkAclId         string                           `position:"Query" name:"NetworkAclId"`
+	DryRun               requests.Boolean                 `position:"Query" name:"DryRun"`
 	Resource             *[]UnassociateNetworkAclResource `position:"Query" name:"Resource"  type:"Repeated"`
 	ResourceOwnerAccount string                           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer                 `position:"Query" name:"OwnerId"`
 }
 

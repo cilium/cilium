@@ -89,6 +89,7 @@ type DescribeVcoRouteEntriesResponse struct {
 	PageSize        int              `json:"PageSize" xml:"PageSize"`
 	RequestId       string           `json:"RequestId" xml:"RequestId"`
 	VcoRouteEntries []VcoRouteEntrie `json:"VcoRouteEntries" xml:"VcoRouteEntries"`
+	VpnRouteCounts  []VpnRouteCount  `json:"VpnRouteCounts" xml:"VpnRouteCounts"`
 }
 
 // CreateDescribeVcoRouteEntriesRequest creates a request to invoke DescribeVcoRouteEntries API

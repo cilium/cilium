@@ -24,5 +24,6 @@ type CustomerGateway struct {
 	CreateTime        int64                          `json:"CreateTime" xml:"CreateTime"`
 	Name              string                         `json:"Name" xml:"Name"`
 	AuthKey           string                         `json:"AuthKey" xml:"AuthKey"`
+	ResourceGroupId   string                         `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	Tags              TagsInDescribeCustomerGateways `json:"Tags" xml:"Tags"`
 }

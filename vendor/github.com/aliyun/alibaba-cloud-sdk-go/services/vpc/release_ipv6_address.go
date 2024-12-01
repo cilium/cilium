@@ -20,21 +20,21 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
 )
 
-// ModifyIpv6GatewaySpec invokes the vpc.ModifyIpv6GatewaySpec API synchronously
-func (client *Client) ModifyIpv6GatewaySpec(request *ModifyIpv6GatewaySpecRequest) (response *ModifyIpv6GatewaySpecResponse, err error) {
-	response = CreateModifyIpv6GatewaySpecResponse()
+// ReleaseIpv6Address invokes the vpc.ReleaseIpv6Address API synchronously
+func (client *Client) ReleaseIpv6Address(request *ReleaseIpv6AddressRequest) (response *ReleaseIpv6AddressResponse, err error) {
+	response = CreateReleaseIpv6AddressResponse()
 	err = client.DoAction(request, response)
 	return
 }
 
-// ModifyIpv6GatewaySpecWithChan invokes the vpc.ModifyIpv6GatewaySpec API asynchronously
-func (client *Client) ModifyIpv6GatewaySpecWithChan(request *ModifyIpv6GatewaySpecRequest) (<-chan *ModifyIpv6GatewaySpecResponse, <-chan error) {
-	responseChan := make(chan *ModifyIpv6GatewaySpecResponse, 1)
+// ReleaseIpv6AddressWithChan invokes the vpc.ReleaseIpv6Address API asynchronously
+func (client *Client) ReleaseIpv6AddressWithChan(request *ReleaseIpv6AddressRequest) (<-chan *ReleaseIpv6AddressResponse, <-chan error) {
+	responseChan := make(chan *ReleaseIpv6AddressResponse, 1)
 	errChan := make(chan error, 1)
 	err := client.AddAsyncTask(func() {
 		defer close(responseChan)
 		defer close(errChan)
-		response, err := client.ModifyIpv6GatewaySpec(request)
+		response, err := client.ReleaseIpv6Address(request)
 		if err != nil {
 			errChan <- err
 		} else {
@@ -49,14 +49,14 @@ func (client *Client) ModifyIpv6GatewaySpecWithChan(request *ModifyIpv6GatewaySp
 	return responseChan, errChan
 }
 
-// ModifyIpv6GatewaySpecWithCallback invokes the vpc.ModifyIpv6GatewaySpec API asynchronously
-func (client *Client) ModifyIpv6GatewaySpecWithCallback(request *ModifyIpv6GatewaySpecRequest, callback func(response *ModifyIpv6GatewaySpecResponse, err error)) <-chan int {
+// ReleaseIpv6AddressWithCallback invokes the vpc.ReleaseIpv6Address API asynchronously
+func (client *Client) ReleaseIpv6AddressWithCallback(request *ReleaseIpv6AddressRequest, callback func(response *ReleaseIpv6AddressResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
-		var response *ModifyIpv6GatewaySpecResponse
+		var response *ReleaseIpv6AddressResponse
 		var err error
 		defer close(result)
-		response, err = client.ModifyIpv6GatewaySpec(request)
+		response, err = client.ReleaseIpv6Address(request)
 		callback(response, err)
 		result <- 1
 	})
@@ -68,37 +68,37 @@ func (client *Client) ModifyIpv6GatewaySpecWithCallback(request *ModifyIpv6Gatew
 	return result
 }
 
-// ModifyIpv6GatewaySpecRequest is the request struct for api ModifyIpv6GatewaySpec
-type ModifyIpv6GatewaySpecRequest struct {
+// ReleaseIpv6AddressRequest is the request struct for api ReleaseIpv6Address
+type ReleaseIpv6AddressRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Spec                 string           `position:"Query" name:"Spec"`
+	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Ipv6GatewayId        string           `position:"Query" name:"Ipv6GatewayId"`
+	Ipv6AddressId        string           `position:"Query" name:"Ipv6AddressId"`
 }
 
-// ModifyIpv6GatewaySpecResponse is the response struct for api ModifyIpv6GatewaySpec
-type ModifyIpv6GatewaySpecResponse struct {
+// ReleaseIpv6AddressResponse is the response struct for api ReleaseIpv6Address
+type ReleaseIpv6AddressResponse struct {
 	*responses.BaseResponse
 	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
-// CreateModifyIpv6GatewaySpecRequest creates a request to invoke ModifyIpv6GatewaySpec API
-func CreateModifyIpv6GatewaySpecRequest() (request *ModifyIpv6GatewaySpecRequest) {
-	request = &ModifyIpv6GatewaySpecRequest{
+// CreateReleaseIpv6AddressRequest creates a request to invoke ReleaseIpv6Address API
+func CreateReleaseIpv6AddressRequest() (request *ReleaseIpv6AddressRequest) {
+	request = &ReleaseIpv6AddressRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Vpc", "2016-04-28", "ModifyIpv6GatewaySpec", "vpc", "openAPI")
+	request.InitWithApiInfo("Vpc", "2016-04-28", "ReleaseIpv6Address", "vpc", "openAPI")
 	request.Method = requests.POST
 	return
 }
 
-// CreateModifyIpv6GatewaySpecResponse creates a response to parse from ModifyIpv6GatewaySpec response
-func CreateModifyIpv6GatewaySpecResponse() (response *ModifyIpv6GatewaySpecResponse) {
-	response = &ModifyIpv6GatewaySpecResponse{
+// CreateReleaseIpv6AddressResponse creates a response to parse from ReleaseIpv6Address response
+func CreateReleaseIpv6AddressResponse() (response *ReleaseIpv6AddressResponse) {
+	response = &ReleaseIpv6AddressResponse{
 		BaseResponse: &responses.BaseResponse{},
 	}
 	return

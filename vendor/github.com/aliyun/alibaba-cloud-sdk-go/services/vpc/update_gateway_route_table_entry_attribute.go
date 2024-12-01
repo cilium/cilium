@@ -81,6 +81,7 @@ type UpdateGatewayRouteTableEntryAttributeRequest struct {
 	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
 	DestinationCidrBlock    string           `position:"Query" name:"DestinationCidrBlock"`
 	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
+	GatewayRouteTableId     string           `position:"Query" name:"GatewayRouteTableId"`
 	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
 	Name                    string           `position:"Query" name:"Name"`
 }

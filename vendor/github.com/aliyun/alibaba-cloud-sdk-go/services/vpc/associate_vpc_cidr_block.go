@@ -80,6 +80,7 @@ type AssociateVpcCidrBlockRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	IPv6CidrBlock        string           `position:"Query" name:"IPv6CidrBlock"`
+	SecondaryCidrMask    requests.Integer `position:"Query" name:"SecondaryCidrMask"`
 	SecondaryCidrBlock   string           `position:"Query" name:"SecondaryCidrBlock"`
 	VpcId                string           `position:"Query" name:"VpcId"`
 }

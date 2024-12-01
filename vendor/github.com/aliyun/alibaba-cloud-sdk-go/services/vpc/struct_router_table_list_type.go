@@ -17,19 +17,20 @@ package vpc
 
 // RouterTableListType is a nested struct in vpc response
 type RouterTableListType struct {
-	VpcId           string                             `json:"VpcId" xml:"VpcId"`
-	CreationTime    string                             `json:"CreationTime" xml:"CreationTime"`
-	Status          string                             `json:"Status" xml:"Status"`
-	RouterId        string                             `json:"RouterId" xml:"RouterId"`
-	AssociateType   string                             `json:"AssociateType" xml:"AssociateType"`
-	RouteTableId    string                             `json:"RouteTableId" xml:"RouteTableId"`
-	OwnerId         int64                              `json:"OwnerId" xml:"OwnerId"`
-	Description     string                             `json:"Description" xml:"Description"`
-	RouteTableType  string                             `json:"RouteTableType" xml:"RouteTableType"`
-	ResourceGroupId string                             `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	RouterType      string                             `json:"RouterType" xml:"RouterType"`
-	RouteTableName  string                             `json:"RouteTableName" xml:"RouteTableName"`
-	VSwitchIds      VSwitchIdsInDescribeRouteTableList `json:"VSwitchIds" xml:"VSwitchIds"`
-	GatewayIds      GatewayIds                         `json:"GatewayIds" xml:"GatewayIds"`
-	Tags            TagsInDescribeRouteTableList       `json:"Tags" xml:"Tags"`
+	VpcId                  string                             `json:"VpcId" xml:"VpcId"`
+	CreationTime           string                             `json:"CreationTime" xml:"CreationTime"`
+	Status                 string                             `json:"Status" xml:"Status"`
+	RouterId               string                             `json:"RouterId" xml:"RouterId"`
+	AssociateType          string                             `json:"AssociateType" xml:"AssociateType"`
+	RouteTableId           string                             `json:"RouteTableId" xml:"RouteTableId"`
+	OwnerId                int64                              `json:"OwnerId" xml:"OwnerId"`
+	Description            string                             `json:"Description" xml:"Description"`
+	RouteTableType         string                             `json:"RouteTableType" xml:"RouteTableType"`
+	ResourceGroupId        string                             `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	RouterType             string                             `json:"RouterType" xml:"RouterType"`
+	RouteTableName         string                             `json:"RouteTableName" xml:"RouteTableName"`
+	RoutePropagationEnable bool                               `json:"RoutePropagationEnable" xml:"RoutePropagationEnable"`
+	VSwitchIds             VSwitchIdsInDescribeRouteTableList `json:"VSwitchIds" xml:"VSwitchIds"`
+	GatewayIds             GatewayIds                         `json:"GatewayIds" xml:"GatewayIds"`
+	Tags                   TagsInDescribeRouteTableList       `json:"Tags" xml:"Tags"`
 }

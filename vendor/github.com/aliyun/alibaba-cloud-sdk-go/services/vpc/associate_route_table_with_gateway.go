@@ -75,6 +75,7 @@ type AssociateRouteTableWithGatewayRequest struct {
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	GatewayId            string           `position:"Query" name:"GatewayId"`
 	RouteTableId         string           `position:"Query" name:"RouteTableId"`
+	GatewayType          string           `position:"Query" name:"GatewayType"`
 	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`

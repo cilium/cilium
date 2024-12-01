@@ -91,6 +91,7 @@ type ModifyCustomerGatewayAttributeResponse struct {
 	CustomerGatewayId string `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
 	CreateTime        int64  `json:"CreateTime" xml:"CreateTime"`
 	Name              string `json:"Name" xml:"Name"`
+	ResourceGroupId   string `json:"ResourceGroupId" xml:"ResourceGroupId"`
 }
 
 // CreateModifyCustomerGatewayAttributeRequest creates a request to invoke ModifyCustomerGatewayAttribute API

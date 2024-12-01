@@ -83,32 +83,35 @@ type DescribeVpcAttributeRequest struct {
 // DescribeVpcAttributeResponse is the response struct for api DescribeVpcAttribute
 type DescribeVpcAttributeResponse struct {
 	*responses.BaseResponse
-	CreationTime         string                                    `json:"CreationTime" xml:"CreationTime"`
-	Status               string                                    `json:"Status" xml:"Status"`
-	VpcId                string                                    `json:"VpcId" xml:"VpcId"`
-	IsDefault            bool                                      `json:"IsDefault" xml:"IsDefault"`
-	ClassicLinkEnabled   bool                                      `json:"ClassicLinkEnabled" xml:"ClassicLinkEnabled"`
-	OwnerId              int64                                     `json:"OwnerId" xml:"OwnerId"`
-	RegionId             string                                    `json:"RegionId" xml:"RegionId"`
-	VpcName              string                                    `json:"VpcName" xml:"VpcName"`
-	VRouterId            string                                    `json:"VRouterId" xml:"VRouterId"`
-	DhcpOptionsSetStatus string                                    `json:"DhcpOptionsSetStatus" xml:"DhcpOptionsSetStatus"`
-	CidrBlock            string                                    `json:"CidrBlock" xml:"CidrBlock"`
-	RequestId            string                                    `json:"RequestId" xml:"RequestId"`
-	Description          string                                    `json:"Description" xml:"Description"`
-	NetworkAclNum        string                                    `json:"NetworkAclNum" xml:"NetworkAclNum"`
-	ResourceGroupId      string                                    `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	DhcpOptionsSetId     string                                    `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
-	Ipv6CidrBlock        string                                    `json:"Ipv6CidrBlock" xml:"Ipv6CidrBlock"`
-	SupportIpv4Gateway   bool                                      `json:"SupportIpv4Gateway" xml:"SupportIpv4Gateway"`
-	Ipv4GatewayId        string                                    `json:"Ipv4GatewayId" xml:"Ipv4GatewayId"`
-	VSwitchIds           VSwitchIdsInDescribeVpcAttribute          `json:"VSwitchIds" xml:"VSwitchIds"`
-	UserCidrs            UserCidrsInDescribeVpcAttribute           `json:"UserCidrs" xml:"UserCidrs"`
-	SecondaryCidrBlocks  SecondaryCidrBlocksInDescribeVpcAttribute `json:"SecondaryCidrBlocks" xml:"SecondaryCidrBlocks"`
-	AssociatedCens       AssociatedCensInDescribeVpcAttribute      `json:"AssociatedCens" xml:"AssociatedCens"`
-	CloudResources       CloudResourcesInDescribeVpcAttribute      `json:"CloudResources" xml:"CloudResources"`
-	Ipv6CidrBlocks       Ipv6CidrBlocksInDescribeVpcAttribute      `json:"Ipv6CidrBlocks" xml:"Ipv6CidrBlocks"`
-	Tags                 TagsInDescribeVpcAttribute                `json:"Tags" xml:"Tags"`
+	CreationTime                 string                                    `json:"CreationTime" xml:"CreationTime"`
+	Status                       string                                    `json:"Status" xml:"Status"`
+	VpcId                        string                                    `json:"VpcId" xml:"VpcId"`
+	IsDefault                    bool                                      `json:"IsDefault" xml:"IsDefault"`
+	ClassicLinkEnabled           bool                                      `json:"ClassicLinkEnabled" xml:"ClassicLinkEnabled"`
+	OwnerId                      int64                                     `json:"OwnerId" xml:"OwnerId"`
+	RegionId                     string                                    `json:"RegionId" xml:"RegionId"`
+	VpcName                      string                                    `json:"VpcName" xml:"VpcName"`
+	VRouterId                    string                                    `json:"VRouterId" xml:"VRouterId"`
+	DhcpOptionsSetStatus         string                                    `json:"DhcpOptionsSetStatus" xml:"DhcpOptionsSetStatus"`
+	CidrBlock                    string                                    `json:"CidrBlock" xml:"CidrBlock"`
+	RequestId                    string                                    `json:"RequestId" xml:"RequestId"`
+	Description                  string                                    `json:"Description" xml:"Description"`
+	NetworkAclNum                string                                    `json:"NetworkAclNum" xml:"NetworkAclNum"`
+	ResourceGroupId              string                                    `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	DhcpOptionsSetId             string                                    `json:"DhcpOptionsSetId" xml:"DhcpOptionsSetId"`
+	Ipv6CidrBlock                string                                    `json:"Ipv6CidrBlock" xml:"Ipv6CidrBlock"`
+	SupportIpv4Gateway           bool                                      `json:"SupportIpv4Gateway" xml:"SupportIpv4Gateway"`
+	Ipv4GatewayId                string                                    `json:"Ipv4GatewayId" xml:"Ipv4GatewayId"`
+	EnabledIpv6                  bool                                      `json:"EnabledIpv6" xml:"EnabledIpv6"`
+	DnsHostnameStatus            string                                    `json:"DnsHostnameStatus" xml:"DnsHostnameStatus"`
+	VSwitchIds                   VSwitchIdsInDescribeVpcAttribute          `json:"VSwitchIds" xml:"VSwitchIds"`
+	UserCidrs                    UserCidrsInDescribeVpcAttribute           `json:"UserCidrs" xml:"UserCidrs"`
+	SecondaryCidrBlocks          SecondaryCidrBlocksInDescribeVpcAttribute `json:"SecondaryCidrBlocks" xml:"SecondaryCidrBlocks"`
+	AssociatedCens               AssociatedCensInDescribeVpcAttribute      `json:"AssociatedCens" xml:"AssociatedCens"`
+	CloudResources               CloudResourcesInDescribeVpcAttribute      `json:"CloudResources" xml:"CloudResources"`
+	Ipv6CidrBlocks               Ipv6CidrBlocksInDescribeVpcAttribute      `json:"Ipv6CidrBlocks" xml:"Ipv6CidrBlocks"`
+	Tags                         TagsInDescribeVpcAttribute                `json:"Tags" xml:"Tags"`
+	AssociatedPropagationSources AssociatedPropagationSources              `json:"AssociatedPropagationSources" xml:"AssociatedPropagationSources"`
 }
 
 // CreateDescribeVpcAttributeRequest creates a request to invoke DescribeVpcAttribute API

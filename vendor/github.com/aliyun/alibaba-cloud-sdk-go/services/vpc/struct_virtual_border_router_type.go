@@ -51,6 +51,10 @@ type VirtualBorderRouterType struct {
 	PhysicalConnectionId             string                                       `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
 	Bandwidth                        int                                          `json:"Bandwidth" xml:"Bandwidth"`
 	ResourceGroupId                  string                                       `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	EcrId                            string                                       `json:"EcrId" xml:"EcrId"`
+	SitelinkEnable                   bool                                         `json:"SitelinkEnable" xml:"SitelinkEnable"`
+	EcrAttatchStatus                 string                                       `json:"EcrAttatchStatus" xml:"EcrAttatchStatus"`
+	EcrOwnerId                       string                                       `json:"EcrOwnerId" xml:"EcrOwnerId"`
 	AssociatedPhysicalConnections    AssociatedPhysicalConnections                `json:"AssociatedPhysicalConnections" xml:"AssociatedPhysicalConnections"`
 	AssociatedCens                   AssociatedCensInDescribeVirtualBorderRouters `json:"AssociatedCens" xml:"AssociatedCens"`
 	Tags                             TagsInDescribeVirtualBorderRouters           `json:"Tags" xml:"Tags"`

@@ -76,7 +76,9 @@ type UpdateNetworkAclEntriesRequest struct {
 	ClientToken             string                                      `position:"Query" name:"ClientToken"`
 	NetworkAclId            string                                      `position:"Query" name:"NetworkAclId"`
 	UpdateIngressAclEntries requests.Boolean                            `position:"Query" name:"UpdateIngressAclEntries"`
+	DryRun                  requests.Boolean                            `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount    string                                      `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount            string                                      `position:"Query" name:"OwnerAccount"`
 	UpdateEgressAclEntries  requests.Boolean                            `position:"Query" name:"UpdateEgressAclEntries"`
 	OwnerId                 requests.Integer                            `position:"Query" name:"OwnerId"`
 	IngressAclEntries       *[]UpdateNetworkAclEntriesIngressAclEntries `position:"Query" name:"IngressAclEntries"  type:"Repeated"`
@@ -91,6 +93,7 @@ type UpdateNetworkAclEntriesEgressAclEntries struct {
 	Description         string `name:"Description"`
 	Protocol            string `name:"Protocol"`
 	DestinationCidrIp   string `name:"DestinationCidrIp"`
+	IpVersion           string `name:"IpVersion"`
 	Port                string `name:"Port"`
 }
 
@@ -101,6 +104,7 @@ type UpdateNetworkAclEntriesIngressAclEntries struct {
 	NetworkAclEntryName string `name:"NetworkAclEntryName"`
 	Policy              string `name:"Policy"`
 	SourceCidrIp        string `name:"SourceCidrIp"`
+	IpVersion           string `name:"IpVersion"`
 	Description         string `name:"Description"`
 	Protocol            string `name:"Protocol"`
 	Port                string `name:"Port"`

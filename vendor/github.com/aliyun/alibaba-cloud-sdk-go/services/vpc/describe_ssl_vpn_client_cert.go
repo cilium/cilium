@@ -93,6 +93,7 @@ type DescribeSslVpnClientCertResponse struct {
 	SslVpnClientCertId string `json:"SslVpnClientCertId" xml:"SslVpnClientCertId"`
 	SslVpnServerId     string `json:"SslVpnServerId" xml:"SslVpnServerId"`
 	Name               string `json:"Name" xml:"Name"`
+	ResourceGroupId    string `json:"ResourceGroupId" xml:"ResourceGroupId"`
 }
 
 // CreateDescribeSslVpnClientCertRequest creates a request to invoke DescribeSslVpnClientCert API

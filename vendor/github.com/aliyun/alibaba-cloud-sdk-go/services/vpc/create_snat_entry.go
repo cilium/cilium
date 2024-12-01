@@ -82,6 +82,7 @@ type CreateSnatEntryRequest struct {
 	SnatTableId          string           `position:"Query" name:"SnatTableId"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	SnatEntryName        string           `position:"Query" name:"SnatEntryName"`
+	NetworkInterfaceId   string           `position:"Query" name:"NetworkInterfaceId"`
 }
 
 // CreateSnatEntryResponse is the response struct for api CreateSnatEntry

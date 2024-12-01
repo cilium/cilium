@@ -30,6 +30,7 @@ type TrafficMirrorSession struct {
 	TrafficMirrorFilterId              string   `json:"TrafficMirrorFilterId" xml:"TrafficMirrorFilterId"`
 	TrafficMirrorSessionName           string   `json:"TrafficMirrorSessionName" xml:"TrafficMirrorSessionName"`
 	ResourceGroupId                    string   `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	CreationTime                       string   `json:"CreationTime" xml:"CreationTime"`
 	TrafficMirrorSourceIds             []string `json:"TrafficMirrorSourceIds" xml:"TrafficMirrorSourceIds"`
 	Tags                               []Tag    `json:"Tags" xml:"Tags"`
 }

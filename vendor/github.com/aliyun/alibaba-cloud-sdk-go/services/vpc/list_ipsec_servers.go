@@ -74,6 +74,7 @@ type ListIpsecServersRequest struct {
 	ResourceOwnerId requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	VpnGatewayId    string           `position:"Query" name:"VpnGatewayId"`
 	CallerBid       string           `position:"Query" name:"callerBid"`
+	ResourceGroupId string           `position:"Query" name:"ResourceGroupId"`
 	NextToken       string           `position:"Query" name:"NextToken"`
 	IpsecServerName string           `position:"Query" name:"IpsecServerName"`
 	MaxResults      requests.Integer `position:"Query" name:"MaxResults"`

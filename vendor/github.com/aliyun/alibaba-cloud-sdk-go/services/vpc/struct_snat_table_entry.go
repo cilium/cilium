@@ -17,11 +17,14 @@ package vpc
 
 // SnatTableEntry is a nested struct in vpc response
 type SnatTableEntry struct {
-	Status          string `json:"Status" xml:"Status"`
-	SnatEntryName   string `json:"SnatEntryName" xml:"SnatEntryName"`
-	SourceVSwitchId string `json:"SourceVSwitchId" xml:"SourceVSwitchId"`
-	SourceCIDR      string `json:"SourceCIDR" xml:"SourceCIDR"`
-	SnatEntryId     string `json:"SnatEntryId" xml:"SnatEntryId"`
-	SnatTableId     string `json:"SnatTableId" xml:"SnatTableId"`
-	SnatIp          string `json:"SnatIp" xml:"SnatIp"`
+	Status             string `json:"Status" xml:"Status"`
+	SnatEntryName      string `json:"SnatEntryName" xml:"SnatEntryName"`
+	SourceVSwitchId    string `json:"SourceVSwitchId" xml:"SourceVSwitchId"`
+	SourceCIDR         string `json:"SourceCIDR" xml:"SourceCIDR"`
+	SnatEntryId        string `json:"SnatEntryId" xml:"SnatEntryId"`
+	SnatTableId        string `json:"SnatTableId" xml:"SnatTableId"`
+	SnatIp             string `json:"SnatIp" xml:"SnatIp"`
+	NatGatewayId       string `json:"NatGatewayId" xml:"NatGatewayId"`
+	EipAffinity        string `json:"EipAffinity" xml:"EipAffinity"`
+	NetworkInterfaceId string `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
 }

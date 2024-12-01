@@ -78,6 +78,7 @@ type CreateSslVpnServerRequest struct {
 	EnableMultiFactorAuth requests.Boolean `position:"Query" name:"EnableMultiFactorAuth"`
 	IDaaSInstanceId       string           `position:"Query" name:"IDaaSInstanceId"`
 	Cipher                string           `position:"Query" name:"Cipher"`
+	IDaaSApplicationId    string           `position:"Query" name:"IDaaSApplicationId"`
 	ClientIpPool          string           `position:"Query" name:"ClientIpPool"`
 	ResourceOwnerAccount  string           `position:"Query" name:"ResourceOwnerAccount"`
 	Compress              requests.Boolean `position:"Query" name:"Compress"`

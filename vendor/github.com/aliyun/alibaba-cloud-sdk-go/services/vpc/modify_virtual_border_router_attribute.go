@@ -91,6 +91,7 @@ type ModifyVirtualBorderRouterAttributeRequest struct {
 	OwnerAccount                  string           `position:"Query" name:"OwnerAccount"`
 	OwnerId                       requests.Integer `position:"Query" name:"OwnerId"`
 	MinRxInterval                 requests.Integer `position:"Query" name:"MinRxInterval"`
+	SitelinkEnable                requests.Boolean `position:"Query" name:"SitelinkEnable"`
 	LocalIpv6GatewayIp            string           `position:"Query" name:"LocalIpv6GatewayIp"`
 	Name                          string           `position:"Query" name:"Name"`
 }

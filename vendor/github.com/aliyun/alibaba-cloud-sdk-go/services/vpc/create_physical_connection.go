@@ -89,6 +89,7 @@ type CreatePhysicalConnectionRequest struct {
 	OwnerId                       requests.Integer               `position:"Query" name:"OwnerId"`
 	LineOperator                  string                         `position:"Query" name:"LineOperator"`
 	Name                          string                         `position:"Query" name:"Name"`
+	DeviceAdvancedCapacity        *[]string                      `position:"Query" name:"DeviceAdvancedCapacity"  type:"Repeated"`
 }
 
 // CreatePhysicalConnectionTag is a repeated param struct in CreatePhysicalConnectionRequest

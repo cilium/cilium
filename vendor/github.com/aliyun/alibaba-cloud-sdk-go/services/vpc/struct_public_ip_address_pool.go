@@ -17,20 +17,24 @@ package vpc
 
 // PublicIpAddressPool is a nested struct in vpc response
 type PublicIpAddressPool struct {
-	PublicIpAddressPoolId string              `json:"PublicIpAddressPoolId" xml:"PublicIpAddressPoolId"`
-	RegionId              string              `json:"RegionId" xml:"RegionId"`
-	CreationTime          string              `json:"CreationTime" xml:"CreationTime"`
-	Isp                   string              `json:"Isp" xml:"Isp"`
-	Name                  string              `json:"Name" xml:"Name"`
-	Status                string              `json:"Status" xml:"Status"`
-	Description           string              `json:"Description" xml:"Description"`
-	TotalIpNum            int                 `json:"TotalIpNum" xml:"TotalIpNum"`
-	UsedIpNum             int                 `json:"UsedIpNum" xml:"UsedIpNum"`
-	IpAddressRemaining    bool                `json:"IpAddressRemaining" xml:"IpAddressRemaining"`
-	UserType              bool                `json:"UserType" xml:"UserType"`
-	OwnerId               int64               `json:"OwnerId" xml:"OwnerId"`
-	ShareType             string              `json:"ShareType" xml:"ShareType"`
-	ResourceGroupId       string              `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	PublicIpCidrBlockList []PublicIpCidrBlock `json:"PublicIpCidrBlockList" xml:"PublicIpCidrBlockList"`
-	Tags                  []Tag               `json:"Tags" xml:"Tags"`
+	PublicIpAddressPoolId   string              `json:"PublicIpAddressPoolId" xml:"PublicIpAddressPoolId"`
+	RegionId                string              `json:"RegionId" xml:"RegionId"`
+	CreationTime            string              `json:"CreationTime" xml:"CreationTime"`
+	Isp                     string              `json:"Isp" xml:"Isp"`
+	Name                    string              `json:"Name" xml:"Name"`
+	Status                  string              `json:"Status" xml:"Status"`
+	Description             string              `json:"Description" xml:"Description"`
+	TotalIpNum              int                 `json:"TotalIpNum" xml:"TotalIpNum"`
+	UsedIpNum               int                 `json:"UsedIpNum" xml:"UsedIpNum"`
+	IpAddressRemaining      bool                `json:"IpAddressRemaining" xml:"IpAddressRemaining"`
+	UserType                string              `json:"UserType" xml:"UserType"`
+	OwnerId                 int64               `json:"OwnerId" xml:"OwnerId"`
+	ShareType               string              `json:"ShareType" xml:"ShareType"`
+	ResourceGroupId         string              `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	BizType                 string              `json:"BizType" xml:"BizType"`
+	BusinessStatus          string              `json:"BusinessStatus" xml:"BusinessStatus"`
+	Zones                   []string            `json:"Zones" xml:"Zones"`
+	SecurityProtectionTypes []string            `json:"SecurityProtectionTypes" xml:"SecurityProtectionTypes"`
+	PublicIpCidrBlockList   []PublicIpCidrBlock `json:"PublicIpCidrBlockList" xml:"PublicIpCidrBlockList"`
+	Tags                    []Tag               `json:"Tags" xml:"Tags"`
 }

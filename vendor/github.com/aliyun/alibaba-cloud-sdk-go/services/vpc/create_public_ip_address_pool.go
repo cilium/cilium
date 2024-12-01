@@ -71,17 +71,20 @@ func (client *Client) CreatePublicIpAddressPoolWithCallback(request *CreatePubli
 // CreatePublicIpAddressPoolRequest is the request struct for api CreatePublicIpAddressPool
 type CreatePublicIpAddressPoolRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer                `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string                          `position:"Query" name:"ClientToken"`
-	Isp                  string                          `position:"Query" name:"Isp"`
-	Description          string                          `position:"Query" name:"Description"`
-	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
-	Tag                  *[]CreatePublicIpAddressPoolTag `position:"Query" name:"Tag"  type:"Repeated"`
-	DryRun               requests.Boolean                `position:"Query" name:"DryRun"`
-	ResourceOwnerAccount string                          `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string                          `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer                `position:"Query" name:"OwnerId"`
-	Name                 string                          `position:"Query" name:"Name"`
+	ResourceOwnerId         requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	ClientToken             string                          `position:"Query" name:"ClientToken"`
+	Isp                     string                          `position:"Query" name:"Isp"`
+	Description             string                          `position:"Query" name:"Description"`
+	ResourceGroupId         string                          `position:"Query" name:"ResourceGroupId"`
+	Tag                     *[]CreatePublicIpAddressPoolTag `position:"Query" name:"Tag"  type:"Repeated"`
+	DryRun                  requests.Boolean                `position:"Query" name:"DryRun"`
+	ResourceOwnerAccount    string                          `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount            string                          `position:"Query" name:"OwnerAccount"`
+	Zones                   *[]string                       `position:"Query" name:"Zones"  type:"Repeated"`
+	OwnerId                 requests.Integer                `position:"Query" name:"OwnerId"`
+	BizType                 string                          `position:"Query" name:"BizType"`
+	Name                    string                          `position:"Query" name:"Name"`
+	SecurityProtectionTypes *[]string                       `position:"Query" name:"SecurityProtectionTypes"  type:"Repeated"`
 }
 
 // CreatePublicIpAddressPoolTag is a repeated param struct in CreatePublicIpAddressPoolRequest
@@ -96,6 +99,7 @@ type CreatePublicIpAddressPoolResponse struct {
 	PulbicIpAddressPoolId string `json:"PulbicIpAddressPoolId" xml:"PulbicIpAddressPoolId"`
 	RequestId             string `json:"RequestId" xml:"RequestId"`
 	ResourceGroupId       string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	PublicIpAddressPoolId string `json:"PublicIpAddressPoolId" xml:"PublicIpAddressPoolId"`
 }
 
 // CreateCreatePublicIpAddressPoolRequest creates a request to invoke CreatePublicIpAddressPool API

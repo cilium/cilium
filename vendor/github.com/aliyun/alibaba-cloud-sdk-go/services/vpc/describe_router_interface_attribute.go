@@ -124,6 +124,7 @@ type DescribeRouterInterfaceAttributeResponse struct {
 	HasReservationData              string                                 `json:"HasReservationData" xml:"HasReservationData"`
 	AccessPointId                   string                                 `json:"AccessPointId" xml:"AccessPointId"`
 	ResourceGroupId                 string                                 `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	FastLinkMode                    string                                 `json:"FastLinkMode" xml:"FastLinkMode"`
 	Tags                            TagsInDescribeRouterInterfaceAttribute `json:"Tags" xml:"Tags"`
 }
 

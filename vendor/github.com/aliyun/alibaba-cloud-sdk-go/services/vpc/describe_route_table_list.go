@@ -84,6 +84,7 @@ type DescribeRouteTableListRequest struct {
 	RouterType           string                       `position:"Query" name:"RouterType"`
 	RouterId             string                       `position:"Query" name:"RouterId"`
 	VpcId                string                       `position:"Query" name:"VpcId"`
+	RouteTableType       string                       `position:"Query" name:"RouteTableType"`
 }
 
 // DescribeRouteTableListTag is a repeated param struct in DescribeRouteTableListRequest

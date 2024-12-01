@@ -74,9 +74,13 @@ type ModifyRouteEntryRequest struct {
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	RouteEntryName       string           `position:"Query" name:"RouteEntryName"`
 	Description          string           `position:"Query" name:"Description"`
+	NewNextHopId         string           `position:"Query" name:"NewNextHopId"`
+	RouteTableId         string           `position:"Query" name:"RouteTableId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	DestinationCidrBlock string           `position:"Query" name:"DestinationCidrBlock"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	NewNextHopType       string           `position:"Query" name:"NewNextHopType"`
 	RouteEntryId         string           `position:"Query" name:"RouteEntryId"`
 }
 

@@ -25,6 +25,7 @@ type RouteEntry struct {
 	RouteTableId             string                        `json:"RouteTableId" xml:"RouteTableId"`
 	RouteEntryName           string                        `json:"RouteEntryName" xml:"RouteEntryName"`
 	InstanceId               string                        `json:"InstanceId" xml:"InstanceId"`
+	Origin                   string                        `json:"Origin" xml:"Origin"`
 	RouteEntryId             string                        `json:"RouteEntryId" xml:"RouteEntryId"`
 	Status                   string                        `json:"Status" xml:"Status"`
 	DestinationCidrBlock     string                        `json:"DestinationCidrBlock" xml:"DestinationCidrBlock"`
@@ -35,4 +36,5 @@ type RouteEntry struct {
 	NextHopOppsiteRegionId   string                        `json:"NextHopOppsiteRegionId" xml:"NextHopOppsiteRegionId"`
 	Type                     string                        `json:"Type" xml:"Type"`
 	NextHops                 NextHopsInDescribeRouteTables `json:"NextHops" xml:"NextHops"`
+	RoutePublishTargets      []RoutePublishTarget          `json:"RoutePublishTargets" xml:"RoutePublishTargets"`
 }

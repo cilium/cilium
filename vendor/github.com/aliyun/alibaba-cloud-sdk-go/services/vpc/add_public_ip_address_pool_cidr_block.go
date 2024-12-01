@@ -86,6 +86,7 @@ type AddPublicIpAddressPoolCidrBlockRequest struct {
 type AddPublicIpAddressPoolCidrBlockResponse struct {
 	*responses.BaseResponse
 	RequestId string `json:"RequestId" xml:"RequestId"`
+	CidrBlock string `json:"CidrBlock" xml:"CidrBlock"`
 }
 
 // CreateAddPublicIpAddressPoolCidrBlockRequest creates a request to invoke AddPublicIpAddressPoolCidrBlock API

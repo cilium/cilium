@@ -55,6 +55,7 @@ type EipAddress struct {
 	PublicIpAddressPoolId         string                                        `json:"PublicIpAddressPoolId" xml:"PublicIpAddressPoolId"`
 	VpcId                         string                                        `json:"VpcId" xml:"VpcId"`
 	Zone                          string                                        `json:"Zone" xml:"Zone"`
+	BizType                       string                                        `json:"BizType" xml:"BizType"`
 	AvailableRegions              AvailableRegions                              `json:"AvailableRegions" xml:"AvailableRegions"`
 	SecurityProtectionTypes       SecurityProtectionTypesInDescribeEipAddresses `json:"SecurityProtectionTypes" xml:"SecurityProtectionTypes"`
 	OperationLocks                OperationLocksInDescribeEipAddresses          `json:"OperationLocks" xml:"OperationLocks"`

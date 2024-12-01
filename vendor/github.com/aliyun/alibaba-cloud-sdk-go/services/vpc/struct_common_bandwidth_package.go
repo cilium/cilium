@@ -38,6 +38,8 @@ type CommonBandwidthPackage struct {
 	Name                          string                                                   `json:"Name" xml:"Name"`
 	ISP                           string                                                   `json:"ISP" xml:"ISP"`
 	HasReservationData            string                                                   `json:"HasReservationData" xml:"HasReservationData"`
+	BizType                       string                                                   `json:"BizType" xml:"BizType"`
+	Zone                          string                                                   `json:"Zone" xml:"Zone"`
 	SecurityProtectionTypes       SecurityProtectionTypesInDescribeCommonBandwidthPackages `json:"SecurityProtectionTypes" xml:"SecurityProtectionTypes"`
 	PublicIpAddresses             PublicIpAddressesInDescribeCommonBandwidthPackages       `json:"PublicIpAddresses" xml:"PublicIpAddresses"`
 	Tags                          TagsInDescribeCommonBandwidthPackages                    `json:"Tags" xml:"Tags"`

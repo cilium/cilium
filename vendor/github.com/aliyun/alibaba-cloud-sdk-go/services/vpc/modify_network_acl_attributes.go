@@ -75,7 +75,9 @@ type ModifyNetworkAclAttributesRequest struct {
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	Description          string           `position:"Query" name:"Description"`
 	NetworkAclId         string           `position:"Query" name:"NetworkAclId"`
+	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	NetworkAclName       string           `position:"Query" name:"NetworkAclName"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 }

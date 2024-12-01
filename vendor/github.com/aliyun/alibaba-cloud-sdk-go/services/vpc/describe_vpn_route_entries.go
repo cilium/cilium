@@ -84,11 +84,12 @@ type DescribeVpnRouteEntriesRequest struct {
 // DescribeVpnRouteEntriesResponse is the response struct for api DescribeVpnRouteEntries
 type DescribeVpnRouteEntriesResponse struct {
 	*responses.BaseResponse
-	PageSize        int             `json:"PageSize" xml:"PageSize"`
-	RequestId       string          `json:"RequestId" xml:"RequestId"`
-	PageNumber      int             `json:"PageNumber" xml:"PageNumber"`
-	TotalCount      int             `json:"TotalCount" xml:"TotalCount"`
-	VpnRouteEntries VpnRouteEntries `json:"VpnRouteEntries" xml:"VpnRouteEntries"`
+	PageSize        int                                     `json:"PageSize" xml:"PageSize"`
+	RequestId       string                                  `json:"RequestId" xml:"RequestId"`
+	PageNumber      int                                     `json:"PageNumber" xml:"PageNumber"`
+	TotalCount      int                                     `json:"TotalCount" xml:"TotalCount"`
+	VpnRouteEntries VpnRouteEntries                         `json:"VpnRouteEntries" xml:"VpnRouteEntries"`
+	VpnRouteCounts  VpnRouteCountsInDescribeVpnRouteEntries `json:"VpnRouteCounts" xml:"VpnRouteCounts"`
 }
 
 // CreateDescribeVpnRouteEntriesRequest creates a request to invoke DescribeVpnRouteEntries API

@@ -105,6 +105,7 @@ type DescribeVpnConnectionResponse struct {
 	TransitRouterName          string                                            `json:"TransitRouterName" xml:"TransitRouterName"`
 	CrossAccountAuthorized     bool                                              `json:"CrossAccountAuthorized" xml:"CrossAccountAuthorized"`
 	EnableTunnelsBgp           bool                                              `json:"EnableTunnelsBgp" xml:"EnableTunnelsBgp"`
+	ResourceGroupId            string                                            `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	IkeConfig                  IkeConfig                                         `json:"IkeConfig" xml:"IkeConfig"`
 	IpsecConfig                IpsecConfig                                       `json:"IpsecConfig" xml:"IpsecConfig"`
 	VcoHealthCheck             VcoHealthCheck                                    `json:"VcoHealthCheck" xml:"VcoHealthCheck"`

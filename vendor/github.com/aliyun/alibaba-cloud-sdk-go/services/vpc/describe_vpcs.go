@@ -73,6 +73,7 @@ type DescribeVpcsRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer   `position:"Query" name:"ResourceOwnerId"`
 	VpcOwnerId           requests.Integer   `position:"Query" name:"VpcOwnerId"`
+	EnableIpv6           requests.Boolean   `position:"Query" name:"EnableIpv6"`
 	PageNumber           requests.Integer   `position:"Query" name:"PageNumber"`
 	VpcName              string             `position:"Query" name:"VpcName"`
 	ResourceGroupId      string             `position:"Query" name:"ResourceGroupId"`

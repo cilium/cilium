@@ -17,8 +17,6 @@ package vpc
 
 // TunnelBgpConfigInModifyVpnConnectionAttribute is a nested struct in vpc response
 type TunnelBgpConfigInModifyVpnConnectionAttribute struct {
-	BgpStatus  string `json:"BgpStatus" xml:"BgpStatus"`
-	EnableBgp  bool   `json:"EnableBgp" xml:"EnableBgp"`
 	LocalAsn   int64  `json:"LocalAsn" xml:"LocalAsn"`
 	LocalBgpIp string `json:"LocalBgpIp" xml:"LocalBgpIp"`
 	PeerAsn    int64  `json:"PeerAsn" xml:"PeerAsn"`

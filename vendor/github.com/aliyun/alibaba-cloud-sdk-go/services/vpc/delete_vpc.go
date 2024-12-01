@@ -72,6 +72,7 @@ func (client *Client) DeleteVpcWithCallback(request *DeleteVpcRequest, callback 
 type DeleteVpcRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string           `position:"Query" name:"ClientToken"`
 	ForceDelete          requests.Boolean `position:"Query" name:"ForceDelete"`
 	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`

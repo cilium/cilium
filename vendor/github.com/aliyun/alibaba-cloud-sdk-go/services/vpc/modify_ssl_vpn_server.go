@@ -79,6 +79,7 @@ type ModifySslVpnServerRequest struct {
 	EnableMultiFactorAuth requests.Boolean `position:"Query" name:"EnableMultiFactorAuth"`
 	IDaaSInstanceId       string           `position:"Query" name:"IDaaSInstanceId"`
 	Cipher                string           `position:"Query" name:"Cipher"`
+	IDaaSApplicationId    string           `position:"Query" name:"IDaaSApplicationId"`
 	ClientIpPool          string           `position:"Query" name:"ClientIpPool"`
 	ResourceOwnerAccount  string           `position:"Query" name:"ResourceOwnerAccount"`
 	Compress              requests.Boolean `position:"Query" name:"Compress"`
@@ -109,6 +110,9 @@ type ModifySslVpnServerResponse struct {
 	EnableMultiFactorAuth bool   `json:"EnableMultiFactorAuth" xml:"EnableMultiFactorAuth"`
 	ClientIpPool          string `json:"ClientIpPool" xml:"ClientIpPool"`
 	Proto                 string `json:"Proto" xml:"Proto"`
+	ResourceGroupId       string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	IDaaSApplicationId    string `json:"IDaaSApplicationId" xml:"IDaaSApplicationId"`
+	IDaaSInstanceVersion  string `json:"IDaaSInstanceVersion" xml:"IDaaSInstanceVersion"`
 }
 
 // CreateModifySslVpnServerRequest creates a request to invoke ModifySslVpnServer API

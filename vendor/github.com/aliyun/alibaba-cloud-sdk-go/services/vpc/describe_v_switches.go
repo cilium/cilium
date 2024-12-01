@@ -72,6 +72,7 @@ func (client *Client) DescribeVSwitchesWithCallback(request *DescribeVSwitchesRe
 type DescribeVSwitchesRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer        `position:"Query" name:"ResourceOwnerId"`
+	EnableIpv6           requests.Boolean        `position:"Query" name:"EnableIpv6"`
 	PageNumber           requests.Integer        `position:"Query" name:"PageNumber"`
 	ResourceGroupId      string                  `position:"Query" name:"ResourceGroupId"`
 	PageSize             requests.Integer        `position:"Query" name:"PageSize"`

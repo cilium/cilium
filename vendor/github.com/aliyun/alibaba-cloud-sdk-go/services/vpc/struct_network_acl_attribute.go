@@ -17,16 +17,16 @@ package vpc
 
 // NetworkAclAttribute is a nested struct in vpc response
 type NetworkAclAttribute struct {
-	NetworkAclName    string                              `json:"NetworkAclName" xml:"NetworkAclName"`
-	RegionId          string                              `json:"RegionId" xml:"RegionId"`
-	NetworkAclId      string                              `json:"NetworkAclId" xml:"NetworkAclId"`
-	CreationTime      string                              `json:"CreationTime" xml:"CreationTime"`
-	Status            string                              `json:"Status" xml:"Status"`
-	VpcId             string                              `json:"VpcId" xml:"VpcId"`
-	OwnerId           int64                               `json:"OwnerId" xml:"OwnerId"`
-	Description       string                              `json:"Description" xml:"Description"`
-	IngressAclEntries IngressAclEntriesInCreateNetworkAcl `json:"IngressAclEntries" xml:"IngressAclEntries"`
-	Tags              TagsInDescribeNetworkAclAttributes  `json:"Tags" xml:"Tags"`
-	EgressAclEntries  EgressAclEntriesInCreateNetworkAcl  `json:"EgressAclEntries" xml:"EgressAclEntries"`
-	Resources         ResourcesInCreateNetworkAcl         `json:"Resources" xml:"Resources"`
+	CreationTime      string                                         `json:"CreationTime" xml:"CreationTime"`
+	OwnerId           int64                                          `json:"OwnerId" xml:"OwnerId"`
+	NetworkAclName    string                                         `json:"NetworkAclName" xml:"NetworkAclName"`
+	RegionId          string                                         `json:"RegionId" xml:"RegionId"`
+	NetworkAclId      string                                         `json:"NetworkAclId" xml:"NetworkAclId"`
+	Status            string                                         `json:"Status" xml:"Status"`
+	VpcId             string                                         `json:"VpcId" xml:"VpcId"`
+	Description       string                                         `json:"Description" xml:"Description"`
+	IngressAclEntries IngressAclEntriesInCreateNetworkAcl            `json:"IngressAclEntries" xml:"IngressAclEntries"`
+	Tags              TagsInDescribeNetworkAclAttributes             `json:"Tags" xml:"Tags"`
+	EgressAclEntries  EgressAclEntriesInDescribeNetworkAclAttributes `json:"EgressAclEntries" xml:"EgressAclEntries"`
+	Resources         ResourcesInCreateNetworkAcl                    `json:"Resources" xml:"Resources"`
 }

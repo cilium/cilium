@@ -29,6 +29,7 @@ type PrefixList struct {
 	PrefixListStatus      string   `json:"PrefixListStatus" xml:"PrefixListStatus"`
 	RegionId              string   `json:"RegionId" xml:"RegionId"`
 	ResourceGroupId       string   `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	PrefixListType        string   `json:"PrefixListType" xml:"PrefixListType"`
 	CidrBlocks            []string `json:"CidrBlocks" xml:"CidrBlocks"`
 	Tags                  []Tag    `json:"Tags" xml:"Tags"`
 }

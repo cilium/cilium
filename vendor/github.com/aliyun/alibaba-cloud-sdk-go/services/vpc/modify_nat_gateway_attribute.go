@@ -71,17 +71,25 @@ func (client *Client) ModifyNatGatewayAttributeWithCallback(request *ModifyNatGa
 // ModifyNatGatewayAttributeRequest is the request struct for api ModifyNatGatewayAttribute
 type ModifyNatGatewayAttributeRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId           requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	SecurityProtectionEnabled requests.Boolean `position:"Query" name:"SecurityProtectionEnabled"`
-	Description               string           `position:"Query" name:"Description"`
-	IcmpReplyEnabled          requests.Boolean `position:"Query" name:"IcmpReplyEnabled"`
-	NatGatewayId              string           `position:"Query" name:"NatGatewayId"`
-	ResourceOwnerAccount      string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount              string           `position:"Query" name:"OwnerAccount"`
-	PrivateLinkMode           string           `position:"Query" name:"PrivateLinkMode"`
-	OwnerId                   requests.Integer `position:"Query" name:"OwnerId"`
-	Name                      string           `position:"Query" name:"Name"`
-	EipBindMode               string           `position:"Query" name:"EipBindMode"`
+	ResourceOwnerId           requests.Integer                     `position:"Query" name:"ResourceOwnerId"`
+	SecurityProtectionEnabled requests.Boolean                     `position:"Query" name:"SecurityProtectionEnabled"`
+	Description               string                               `position:"Query" name:"Description"`
+	LogDelivery               ModifyNatGatewayAttributeLogDelivery `position:"Query" name:"LogDelivery"  type:"Struct"`
+	IcmpReplyEnabled          requests.Boolean                     `position:"Query" name:"IcmpReplyEnabled"`
+	NatGatewayId              string                               `position:"Query" name:"NatGatewayId"`
+	ResourceOwnerAccount      string                               `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount              string                               `position:"Query" name:"OwnerAccount"`
+	PrivateLinkMode           string                               `position:"Query" name:"PrivateLinkMode"`
+	OwnerId                   requests.Integer                     `position:"Query" name:"OwnerId"`
+	EnableSessionLog          requests.Boolean                     `position:"Query" name:"EnableSessionLog"`
+	Name                      string                               `position:"Query" name:"Name"`
+	EipBindMode               string                               `position:"Query" name:"EipBindMode"`
+}
+
+// ModifyNatGatewayAttributeLogDelivery is a repeated param struct in ModifyNatGatewayAttributeRequest
+type ModifyNatGatewayAttributeLogDelivery struct {
+	LogDeliveryType string `name:"LogDeliveryType"`
+	LogDestination  string `name:"LogDestination"`
 }
 
 // ModifyNatGatewayAttributeResponse is the response struct for api ModifyNatGatewayAttribute
