@@ -44,7 +44,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@d3ecfd83003f3e9c98ba125ca14933401d44918f # main
+        uses: cilium/scale-tests-action/install-kops@6fa546f61baa9b8d6db9ce885bed89876b82d2c7 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
