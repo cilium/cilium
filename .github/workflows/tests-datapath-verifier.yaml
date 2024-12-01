@@ -105,7 +105,7 @@ jobs:
           - kernel: '6.6-20241107.001101'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20241125.013357'
+          - kernel: 'bpf-next-20241129.013349'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
