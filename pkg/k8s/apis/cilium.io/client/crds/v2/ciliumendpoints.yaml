@@ -206,8 +206,7 @@ spec:
                     \n swagger:model EndpointStatusChange"
                   properties:
                     code:
-                      description: 'Code indicate type of status change Enum: [ok
-                        failed]'
+                      description: 'Code indicate type of status change Enum: ["ok","failed"]'
                       type: string
                     message:
                       description: Status message
@@ -234,8 +233,7 @@ spec:
                       description: Layer 4 port number
                       type: integer
                     protocol:
-                      description: 'Layer 4 protocol Enum: [TCP UDP SCTP ICMP ICMPV6
-                        ANY]'
+                      description: 'Layer 4 protocol Enum: ["TCP","UDP","SCTP","ICMP","ICMPV6","ANY"]'
                       type: string
                   type: object
                 type: array

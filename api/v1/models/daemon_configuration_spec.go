@@ -27,7 +27,7 @@ type DaemonConfigurationSpec struct {
 	Options ConfigurationMap `json:"options,omitempty"`
 
 	// The policy-enforcement mode
-	// Enum: [default always never]
+	// Enum: ["default","always","never"]
 	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
 

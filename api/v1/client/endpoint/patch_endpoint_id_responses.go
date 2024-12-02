@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -111,11 +112,11 @@ func (o *PatchEndpointIDOK) Code() int {
 }
 
 func (o *PatchEndpointIDOK) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdOK ", 200)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdOK", 200)
 }
 
 func (o *PatchEndpointIDOK) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdOK ", 200)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdOK", 200)
 }
 
 func (o *PatchEndpointIDOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -168,11 +169,13 @@ func (o *PatchEndpointIDInvalid) Code() int {
 }
 
 func (o *PatchEndpointIDInvalid) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdInvalid %s", 400, payload)
 }
 
 func (o *PatchEndpointIDInvalid) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdInvalid %s", 400, payload)
 }
 
 func (o *PatchEndpointIDInvalid) GetPayload() models.Error {
@@ -233,11 +236,11 @@ func (o *PatchEndpointIDForbidden) Code() int {
 }
 
 func (o *PatchEndpointIDForbidden) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdForbidden ", 403)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdForbidden", 403)
 }
 
 func (o *PatchEndpointIDForbidden) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdForbidden ", 403)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdForbidden", 403)
 }
 
 func (o *PatchEndpointIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -289,11 +292,11 @@ func (o *PatchEndpointIDNotFound) Code() int {
 }
 
 func (o *PatchEndpointIDNotFound) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdNotFound ", 404)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdNotFound", 404)
 }
 
 func (o *PatchEndpointIDNotFound) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdNotFound ", 404)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdNotFound", 404)
 }
 
 func (o *PatchEndpointIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -345,11 +348,11 @@ func (o *PatchEndpointIDTooManyRequests) Code() int {
 }
 
 func (o *PatchEndpointIDTooManyRequests) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdTooManyRequests ", 429)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdTooManyRequests", 429)
 }
 
 func (o *PatchEndpointIDTooManyRequests) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdTooManyRequests ", 429)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdTooManyRequests", 429)
 }
 
 func (o *PatchEndpointIDTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -402,11 +405,13 @@ func (o *PatchEndpointIDFailed) Code() int {
 }
 
 func (o *PatchEndpointIDFailed) Error() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdFailed %s", 500, payload)
 }
 
 func (o *PatchEndpointIDFailed) String() string {
-	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdFailed %s", 500, payload)
 }
 
 func (o *PatchEndpointIDFailed) GetPayload() models.Error {

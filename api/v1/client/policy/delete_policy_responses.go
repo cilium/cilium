@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -106,11 +107,13 @@ func (o *DeletePolicyOK) Code() int {
 }
 
 func (o *DeletePolicyOK) Error() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyOK %s", 200, payload)
 }
 
 func (o *DeletePolicyOK) String() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyOK %s", 200, payload)
 }
 
 func (o *DeletePolicyOK) GetPayload() *models.Policy {
@@ -174,11 +177,13 @@ func (o *DeletePolicyInvalid) Code() int {
 }
 
 func (o *DeletePolicyInvalid) Error() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyInvalid %s", 400, payload)
 }
 
 func (o *DeletePolicyInvalid) String() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyInvalid  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyInvalid %s", 400, payload)
 }
 
 func (o *DeletePolicyInvalid) GetPayload() models.Error {
@@ -239,11 +244,11 @@ func (o *DeletePolicyForbidden) Code() int {
 }
 
 func (o *DeletePolicyForbidden) Error() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyForbidden ", 403)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyForbidden", 403)
 }
 
 func (o *DeletePolicyForbidden) String() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyForbidden ", 403)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyForbidden", 403)
 }
 
 func (o *DeletePolicyForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -295,11 +300,11 @@ func (o *DeletePolicyNotFound) Code() int {
 }
 
 func (o *DeletePolicyNotFound) Error() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyNotFound ", 404)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyNotFound", 404)
 }
 
 func (o *DeletePolicyNotFound) String() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyNotFound ", 404)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyNotFound", 404)
 }
 
 func (o *DeletePolicyNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -352,11 +357,13 @@ func (o *DeletePolicyFailure) Code() int {
 }
 
 func (o *DeletePolicyFailure) Error() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyFailure %s", 500, payload)
 }
 
 func (o *DeletePolicyFailure) String() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyFailure %s", 500, payload)
 }
 
 func (o *DeletePolicyFailure) GetPayload() models.Error {

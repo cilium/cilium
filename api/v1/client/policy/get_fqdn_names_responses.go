@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetFqdnNamesOK) Code() int {
 }
 
 func (o *GetFqdnNamesOK) Error() string {
-	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesOK %s", 200, payload)
 }
 
 func (o *GetFqdnNamesOK) String() string {
-	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesOK %s", 200, payload)
 }
 
 func (o *GetFqdnNamesOK) GetPayload() *models.NameManager {
@@ -156,11 +159,13 @@ func (o *GetFqdnNamesBadRequest) Code() int {
 }
 
 func (o *GetFqdnNamesBadRequest) Error() string {
-	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesBadRequest %s", 400, payload)
 }
 
 func (o *GetFqdnNamesBadRequest) String() string {
-	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesBadRequest %s", 400, payload)
 }
 
 func (o *GetFqdnNamesBadRequest) GetPayload() models.Error {

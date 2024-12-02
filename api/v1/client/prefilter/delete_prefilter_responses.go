@@ -9,6 +9,7 @@ package prefilter
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -100,11 +101,13 @@ func (o *DeletePrefilterOK) Code() int {
 }
 
 func (o *DeletePrefilterOK) Error() string {
-	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterOK %s", 200, payload)
 }
 
 func (o *DeletePrefilterOK) String() string {
-	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterOK %s", 200, payload)
 }
 
 func (o *DeletePrefilterOK) GetPayload() *models.Prefilter {
@@ -167,11 +170,11 @@ func (o *DeletePrefilterForbidden) Code() int {
 }
 
 func (o *DeletePrefilterForbidden) Error() string {
-	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterForbidden ", 403)
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterForbidden", 403)
 }
 
 func (o *DeletePrefilterForbidden) String() string {
-	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterForbidden ", 403)
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterForbidden", 403)
 }
 
 func (o *DeletePrefilterForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -224,11 +227,13 @@ func (o *DeletePrefilterInvalidCIDR) Code() int {
 }
 
 func (o *DeletePrefilterInvalidCIDR) Error() string {
-	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterInvalidCIdR  %+v", 461, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterInvalidCIdR %s", 461, payload)
 }
 
 func (o *DeletePrefilterInvalidCIDR) String() string {
-	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterInvalidCIdR  %+v", 461, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterInvalidCIdR %s", 461, payload)
 }
 
 func (o *DeletePrefilterInvalidCIDR) GetPayload() models.Error {
@@ -290,11 +295,13 @@ func (o *DeletePrefilterFailure) Code() int {
 }
 
 func (o *DeletePrefilterFailure) Error() string {
-	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterFailure %s", 500, payload)
 }
 
 func (o *DeletePrefilterFailure) String() string {
-	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterFailure %s", 500, payload)
 }
 
 func (o *DeletePrefilterFailure) GetPayload() models.Error {

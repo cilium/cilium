@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -100,11 +101,13 @@ func (o *GetEndpointIDHealthzOK) Code() int {
 }
 
 func (o *GetEndpointIDHealthzOK) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzOK %s", 200, payload)
 }
 
 func (o *GetEndpointIDHealthzOK) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzOK %s", 200, payload)
 }
 
 func (o *GetEndpointIDHealthzOK) GetPayload() *models.EndpointHealth {
@@ -167,11 +170,11 @@ func (o *GetEndpointIDHealthzInvalid) Code() int {
 }
 
 func (o *GetEndpointIDHealthzInvalid) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzInvalid ", 400)
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzInvalid", 400)
 }
 
 func (o *GetEndpointIDHealthzInvalid) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzInvalid ", 400)
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzInvalid", 400)
 }
 
 func (o *GetEndpointIDHealthzInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -223,11 +226,11 @@ func (o *GetEndpointIDHealthzNotFound) Code() int {
 }
 
 func (o *GetEndpointIDHealthzNotFound) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzNotFound", 404)
 }
 
 func (o *GetEndpointIDHealthzNotFound) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzNotFound", 404)
 }
 
 func (o *GetEndpointIDHealthzNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -279,11 +282,11 @@ func (o *GetEndpointIDHealthzTooManyRequests) Code() int {
 }
 
 func (o *GetEndpointIDHealthzTooManyRequests) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzTooManyRequests", 429)
 }
 
 func (o *GetEndpointIDHealthzTooManyRequests) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzTooManyRequests", 429)
 }
 
 func (o *GetEndpointIDHealthzTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
