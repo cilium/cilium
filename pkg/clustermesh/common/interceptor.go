@@ -11,6 +11,8 @@ import (
 
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	"google.golang.org/grpc"
+
+	"github.com/cilium/cilium/pkg/kvstore"
 )
 
 var (
@@ -79,7 +81,7 @@ func validateReply(cl *clusterLock, reply any) error {
 		case cl.errors <- err:
 		default:
 		}
-		return err
+		return fmt.Errorf("%w: %w", kvstore.ErrOperationAbortedByInterceptor, err)
 	}
 	return nil
 }

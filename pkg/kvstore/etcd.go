@@ -69,6 +69,11 @@ const (
 // exist or it was expired.
 var ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
 
+// ErrOperationAbortedByInterceptor is an error that can be used by custom
+// interceptors to signal that the given operation has been intentionally
+// aborted, and should not be logged as an error.
+var ErrOperationAbortedByInterceptor = errors.New("operation aborted")
+
 type etcdModule struct {
 	opts   backendOptions
 	config *client.Config
@@ -771,10 +776,10 @@ func (e *etcdClient) watch(ctx context.Context, prefix string, events emitter) {
 	listSignalSent := false
 
 	scopedLog := e.logger.WithField(fieldPrefix, prefix)
-	scopedLog.Debug("Starting watcher...")
+	scopedLog.Info("Starting watcher")
 
 	defer func() {
-		scopedLog.Debug("Stopped watcher")
+		scopedLog.Info("Stopped watcher")
 		events.close()
 	}()
 
@@ -819,6 +824,11 @@ reList:
 		}
 		lr.Done()
 		errLimiter.Reset()
+
+		scopedLog.WithFields(logrus.Fields{
+			logfields.Count: len(kvs),
+			fieldRev:        revision,
+		}).Info("Successfully listed keys before starting watcher")
 
 		for _, key := range kvs {
 			t := EventTypeCreate
@@ -869,7 +879,7 @@ reList:
 		}
 
 	recreateWatcher:
-		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
+		scopedLog.WithField(fieldRev, nextRev).Info("Starting to watch prefix")
 
 		lr, err = e.limiter.Wait(ctx)
 		if err != nil {
@@ -902,12 +912,18 @@ reList:
 				scopedLog := scopedLog.WithField(fieldRev, r.Header.Revision)
 
 				if err := r.Err(); err != nil {
-					// We tried to watch on a compacted
-					// revision that may no longer exist,
-					// recreate the watcher and try to
-					// watch on the next possible revision
-					if errors.Is(err, v3rpcErrors.ErrCompacted) {
-						scopedLog.WithError(Hint(err)).Debug("Tried watching on compacted revision")
+					switch {
+					case errors.Is(err, ErrOperationAbortedByInterceptor):
+						// Aborted on purpose by a custom interceptor.
+						scopedLog.WithError(Hint(err)).Debug("Etcd watcher aborted")
+					case errors.Is(err, v3rpcErrors.ErrCompacted):
+						// We tried to watch on a compacted
+						// revision that may no longer exist,
+						// recreate the watcher and try to
+						// watch on the next possible revision
+						scopedLog.WithError(Hint(err)).Info("Tried watching on compacted revision. Triggering relist of all keys")
+					default:
+						scopedLog.WithError(Hint(err)).Info("Etcd watcher errored. Triggering relist of all keys")
 					}
 
 					// mark all local keys in state for
