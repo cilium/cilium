@@ -72,6 +72,10 @@ runs:
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
             --set='${{ inputs.misc }}'"
 
+          if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
+            DEFAULTS+=" --values=${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml"
+          fi
+
           IMAGE=""
           if [ "${{ inputs.image-tag }}" != "" ]; then
             IMAGE="--helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
