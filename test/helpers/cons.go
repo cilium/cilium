@@ -253,6 +253,7 @@ const (
 	cantRecreateMasterKey      = "unable to re-create missing master key"                                // cf. https://github.com/cilium/cilium/issues/29738
 	cantUpdateCRDIdentity      = "Unable update CRD identity information with a reference for this node" // cf. https://github.com/cilium/cilium/issues/29739
 	cantDeleteFromPolicyMap    = "cilium_call_policy: delete: key does not exist"                        // cf. https://github.com/cilium/cilium/issues/29754
+	mutationDetector           = "Mutation detector is enabled, this will result in memory leakage."     // cf. https://github.com/cilium/cilium/issues/35929
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
 
@@ -316,7 +317,7 @@ var badLogMessages = map[string][]string{
 		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, legacyBGPFeature,
 		etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP, routerIPReallocated,
 		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
-		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs},
+		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs, mutationDetector},
 }
 
 var ciliumCLICommands = map[string]string{
