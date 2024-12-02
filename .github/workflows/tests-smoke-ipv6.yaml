@@ -47,6 +47,8 @@ jobs:
               - '!(test|Documentation)/**'
 
   conformance-test-ipv6:
+    env:
+      job_name: "Conformance Smoke Test with IPv6"
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-24.04
