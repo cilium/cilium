@@ -98,30 +98,36 @@ jobs:
       - name: Install cilium chart
         id: install-cilium
         run: |
-          helm install cilium ./install/kubernetes/cilium \
-             --wait \
-             --namespace kube-system \
-             --set nodeinit.enabled=true \
-             --set kubeProxyReplacement=false \
-             --set socketLB.enabled=false \
-             --set externalIPs.enabled=true \
-             --set nodePort.enabled=true \
-             --set hostPort.enabled=true \
-             --set bpf.masquerade=false \
-             --set ipam.mode=kubernetes \
-             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-             --set image.tag=${{ steps.vars.outputs.tag }} \
-             --set image.pullPolicy=IfNotPresent \
-             --set image.useDigest=false \
-             --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-             --set operator.image.suffix=-ci \
-             --set operator.image.tag=${{ steps.vars.outputs.tag }} \
-             --set operator.image.pullPolicy=IfNotPresent \
-             --set operator.image.useDigest=false \
-             --set prometheus.enabled=true \
-             --set operator.prometheus.enabled=true \
-             --set hubble.enabled=true \
-             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+          HELM_ARGS="\
+            --wait \
+            --namespace kube-system \
+            --set nodeinit.enabled=true \
+            --set kubeProxyReplacement=false \
+            --set socketLB.enabled=false \
+            --set externalIPs.enabled=true \
+            --set nodePort.enabled=true \
+            --set hostPort.enabled=true \
+            --set bpf.masquerade=false \
+            --set ipam.mode=kubernetes \
+            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --set image.tag=${{ steps.vars.outputs.tag }} \
+            --set image.pullPolicy=IfNotPresent \
+            --set image.useDigest=false \
+            --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --set operator.image.suffix=-ci \
+            --set operator.image.tag=${{ steps.vars.outputs.tag }} \
+            --set operator.image.pullPolicy=IfNotPresent \
+            --set operator.image.useDigest=false \
+            --set prometheus.enabled=true \
+            --set operator.prometheus.enabled=true \
+            --set hubble.enabled=true \
+            --set hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\""
+
+          if [ -f ".github/actions/helm-default/ci-required-values.yaml" ]; then
+            HELM_ARGS+=" --values=.github/actions/helm-default/ci-required-values.yaml"
+          fi
+
+          helm install cilium ./install/kubernetes/cilium $HELM_ARGS
 
           kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
           kubectl rollout -n kube-system status deploy/coredns --timeout=5m
