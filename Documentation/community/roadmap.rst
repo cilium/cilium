@@ -127,7 +127,7 @@ There are several advanced networking features currently in beta, several of
 these are already in production use with a set of adopters. We expect the
 following features to graduate to stable:
 
-* :ref:`BGP<bgp>`
+* :ref:`BGP<bgp_control_plane>`
 * :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
 * :ref:`Multi-Pool IPAM<ipam_crd_multi_pool>`
 * :ref:`Node-to-node WireGuard encryption<node-node-wg>`

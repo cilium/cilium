@@ -4,6 +4,7 @@
 "gettingstarted/hubble_cli.rst" "observability/hubble/hubble-cli.rst"
 "gettingstarted/hubble_intro.rst" "observability/hubble/index.rst"
 "gettingstarted/hubble_setup.rst" "observability/hubble/setup.rst"
+"network/bgp.rst" "network/bgp-toc.rst"
 "network/egress-gateway.rst" "network/egress-gateway/egress-gateway.rst"
 "observability/hubble-exporter.rst" "observability/hubble/configuration/export.rst"
 "bpf/architecture.rst" "reference-guides/bpf/architecture.rst"

@@ -15,6 +15,5 @@ BGP
 
    bgp-control-plane/bgp-control-plane
    lb-ipam
-   bgp
    kube-router
    bird
