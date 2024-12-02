@@ -21,11 +21,7 @@ runs:
     - id: set-defaults
       shell: bash
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ ${{ github.event.pull_request }} ] ; then
-          SHA="${{ inputs.image-tag }}"
-        else
-          SHA="${{ github.sha }}"
-        fi
+        SHA="${{ inputs.image-tag }}"
 
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
           --helm-set=debug.enabled=true \
