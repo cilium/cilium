@@ -4,6 +4,8 @@
 package features
 
 import (
+	"os"
+
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
 	garpTypes "github.com/cilium/cilium/pkg/datapath/garp/types"
@@ -13,6 +15,11 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+)
+
+var (
+	// withDefaults will set enable all default metrics in the agent.
+	withDefaults = os.Getenv("CILIUM_FEATURE_METRICS_WITH_DEFAULTS")
 )
 
 // Cell will retrieve information from all other cells /
@@ -29,7 +36,10 @@ var Cell = cell.Module(
 		},
 	),
 	cell.Metric(func() Metrics {
-		return NewMetrics(true)
+		if withDefaults != "" {
+			return NewMetrics(true)
+		}
+		return NewMetrics(false)
 	}),
 )
 
