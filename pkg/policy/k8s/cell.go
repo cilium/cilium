@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -110,7 +109,6 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		cnpCache:       make(map[resource.Key]*types.SlimCNP),
 		cidrGroupCache: make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup),
 		cidrGroupCIDRs: make(map[string]sets.Set[netip.Prefix]),
-		cidrGroupRefs:  make(counter.Counter[string]),
 
 		toServicesPolicies: make(map[resource.Key]struct{}),
 		cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
