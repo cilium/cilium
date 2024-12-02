@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
+	metaCache "github.com/cilium/cilium/pkg/container/cache"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -856,6 +857,9 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 				// this is a no-op in production environments.
 				cacheMutationDetector.AddObject(obj)
 
+				// Deduplicate the strings in the object metadata to reduce memory consumption.
+				dedupMetadata(obj)
+
 				key := NewKey(obj)
 
 				switch d.Type {
@@ -898,6 +902,18 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 		Controller:            cache.New(cfg),
 		cacheMutationDetector: cacheMutationDetector,
 	}
+}
+
+// dedupMetadata deduplicates the allocated strings in the metadata using the container/cache package.
+func dedupMetadata(obj any) {
+	meta, err := meta.Accessor(obj)
+	if err != nil {
+		return
+	}
+	meta.SetName(metaCache.Strings.Get(meta.GetName()))
+	meta.SetNamespace(metaCache.Strings.Get(meta.GetNamespace()))
+	meta.SetLabels(metaCache.StringMaps.Get(meta.GetLabels()))
+	meta.SetAnnotations(metaCache.StringMaps.Get(meta.GetAnnotations()))
 }
 
 func getUID(obj k8sRuntime.Object) types.UID {
