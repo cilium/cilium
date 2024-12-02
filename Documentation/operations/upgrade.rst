@@ -334,6 +334,7 @@ communicating via the proxy must reconnect to re-establish connections.
   removed in a future release.
 * The Cilium status API now reports the KVStore subsystem with ``Disabled`` state when disabled,
   instead of ``OK`` state and ``Disabled`` message.
+* Support for ``metallb-bgp``, deprecated since 1.14, has been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -343,6 +344,9 @@ Removed Options
 * The previously deprecated built-in WireGuard userspace-mode fallback (Helm ``wireguard.userspaceFallback``)
   has been removed. Users of WireGuard transparent encryption are required to use a Linux kernel with
   WireGuard support.
+* The previously deprecated ``metallb-bgp`` flags ``bgp-config-path``, ``bgp-announce-lb-ip``
+  and ``bgp-announce-pod-cidr`` have been removed. Users are now required to use Cilium BGP
+  control plane for BGP advertisements.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -364,6 +368,9 @@ Helm Options
   to validate certificates with expirations longer than 825 days.
 * The Helm option ``hubble.relay.dialTimeout`` has been deprecated (now a no-op)
   and will be removed in Cilium 1.18.
+* The ``metallb-bgp`` integration Helm options ``bgp.enabled``, ``bgp.announce.podCIDR``, and
+  ``bgp.announce.loadbalancerIP`` have been removed. Users are now required to use Cilium BGP
+  control plane options available under ``bgpControlPlane`` for BGP announcements.
 
 Agent Options
 ~~~~~~~~~~~~~
