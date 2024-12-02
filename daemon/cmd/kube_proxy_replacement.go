@@ -62,9 +62,13 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 	if option.Config.EnableNodePort {
 		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.NodePortMode != option.NodePortModeDSR &&
-			option.Config.NodePortMode != option.NodePortModeHybrid &&
-			option.Config.NodePortMode != option.NodePortModeAnnotation {
+			option.Config.NodePortMode != option.NodePortModeHybrid {
 			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
+		}
+
+		if option.Config.LoadBalancerModeAnnotation &&
+			option.Config.NodePortMode == option.NodePortModeHybrid {
+			return fmt.Errorf("The value --%s=%s is not supported as default under annotation mode", option.NodePortMode, option.Config.NodePortMode)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
@@ -80,7 +84,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
 
-		if option.Config.NodePortMode == option.NodePortModeAnnotation &&
+		if option.Config.LoadBalancerModeAnnotation &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP {
 			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
@@ -208,7 +212,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		option.Config.EnableHealthDatapath =
 			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 				(option.Config.NodePortMode == option.NodePortModeDSR ||
-					option.Config.NodePortMode == option.NodePortModeAnnotation) &&
+					option.Config.LoadBalancerModeAnnotation) &&
 				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
 	}
 

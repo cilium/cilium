@@ -142,7 +142,6 @@ var (
 	defaultNodePortModes = []string{
 		option.NodePortModeSNAT,
 		option.NodePortModeDSR,
-		option.NodePortModeAnnotation,
 		option.NodePortModeHybrid,
 	}
 

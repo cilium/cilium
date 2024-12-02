@@ -257,6 +257,10 @@ const (
 	// Alias to NodePortMode
 	LoadBalancerMode = "bpf-lb-mode"
 
+	// LoadBalancerModeAnnotation tells whether controller should check service
+	// level annotation for configuring bpf loadbalancing method (snat vs dsr).
+	LoadBalancerModeAnnotation = "bpf-lb-mode-annotation"
+
 	// Alias to DSR dispatch method
 	LoadBalancerDSRDispatch = "bpf-lb-dsr-dispatch"
 
@@ -1208,10 +1212,6 @@ const (
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
 
-	// NodePortModeAnnotation is a dual mode of dsr and snat, specified through the
-	// service.cilium.io/dispatch annotation on the K8s service object
-	NodePortModeAnnotation = "annotation"
-
 	// NodePortAlgRandom is for randomly selecting a backend
 	NodePortAlgRandom = "random"
 
@@ -1860,6 +1860,10 @@ type DaemonConfig struct {
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode string
+
+	// LoadBalancerModeAnnotation tells whether controller should check service
+	// level annotation for configuring bpf load balancing algorithm.
+	LoadBalancerModeAnnotation bool
 
 	// NodePortAlg indicates which backend selection algorithm is used
 	// ("random" or "maglev")
@@ -2529,7 +2533,7 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 func (c *DaemonConfig) LoadBalancerUsesDSR() bool {
 	return c.NodePortMode == NodePortModeDSR ||
 		c.NodePortMode == NodePortModeHybrid ||
-		c.NodePortMode == NodePortModeAnnotation
+		c.LoadBalancerModeAnnotation
 }
 
 // KVstoreEnabledWithoutPodNetworkSupport returns whether Cilium is configured to connect
@@ -3301,6 +3305,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
 	c.NodePortMode = vp.GetString(LoadBalancerMode)
+	c.LoadBalancerModeAnnotation = vp.GetBool(LoadBalancerModeAnnotation)
 	c.NodePortAlg = vp.GetString(LoadBalancerAlgorithm)
 	c.LoadBalancerAlgorithmAnnotation = vp.GetBool(LoadBalancerAlgorithmAnnotation)
 	// If old settings were explicitly set by the user, then have them
