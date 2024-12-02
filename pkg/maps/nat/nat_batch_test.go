@@ -35,7 +35,7 @@ func TestDumpBatch4(t *testing.T) {
 		err := m.Update(mapKey, mapValue)
 		assert.NoError(t, err)
 	}
-	count, err := m.DumpBatch4(func(tk tuple.TupleKey4, ne NatEntry4) {})
+	count, err := m.DumpBatch4(func(tk *tuple.TupleKey4, ne *NatEntry4) {})
 	assert.NoError(t, err)
 	assert.Equal(t, 1024+1, count)
 }

@@ -908,7 +908,7 @@ func TestErrorResolver(t *testing.T) {
 			require.NoError(t, m.CreateUnpinned(), "Failed to create map")
 			require.NoError(t, m.Update(&key1, &val1), "Failed to insert element in map")
 
-			// Let's attempt to insert a second element in the map, which will fail because the map can only hold one
+			// Let's attempt to insert a second element in the map, which will fail because the map can only hoVld one
 			require.Error(t, m.Update(&key2, &val2), "Map insertion should have failed")
 
 			// Let's now remove one of the two elements (the actual assertion depends on which element is to be removed)
@@ -943,7 +943,7 @@ func TestErrorResolver(t *testing.T) {
 func TestBatchIterator(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	runTest := func(size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestKey, TestValue]) {
+	runTest := func(size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]) {
 		m := NewMap("cilium_test",
 			ebpf.Hash,
 			&TestKey{},
@@ -962,9 +962,7 @@ func TestBatchIterator(t *testing.T) {
 		ks := sets.New[int]()
 		vs := sets.New[int]()
 
-		iter := BatchIterator[TestKey, TestValue]{
-			m: m,
-		}
+		iter := NewBatchIterator[TestKey, TestValue](m)
 		count := 0
 		for k, v := range iter.IterateAll(context.TODO(), opts...) {
 			count++
@@ -985,7 +983,7 @@ func TestBatchIterator(t *testing.T) {
 	for _, test := range []struct {
 		mapSize int
 		size    int
-		opts    []BatchIteratorOpt[TestKey, TestValue]
+		opts    []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]
 	}{
 		{10, 10, nil},
 		{1024, 1024, nil},
@@ -994,7 +992,7 @@ func TestBatchIterator(t *testing.T) {
 		{
 			size:    1 << 12,
 			mapSize: 1 << 13,
-			opts: []BatchIteratorOpt[TestKey, TestValue]{
+			opts: []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]{
 				WithMaxRetries[TestKey, TestValue](13), WithStartingChunkSize[TestKey, TestValue](1)},
 		},
 		{
@@ -1008,7 +1006,7 @@ func TestBatchIterator(t *testing.T) {
 		{
 			size:    1 << 12,
 			mapSize: 1 << 12,
-			opts: []BatchIteratorOpt[TestKey, TestValue]{
+			opts: []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]{
 				WithMaxRetries[TestKey, TestValue](1), WithStartingChunkSize[TestKey, TestValue](1 << 13)},
 		},
 	} {
