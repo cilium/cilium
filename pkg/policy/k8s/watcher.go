@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/counter"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -55,10 +54,6 @@ type policyWatcher struct {
 	// cidrGroupCIDRs is the set of CIDRs upserted in to the ipcache
 	// for a given cidrgroup
 	cidrGroupCIDRs map[string]sets.Set[netip.Prefix]
-
-	// cidrGroupRefs is the number of policies that reference a given
-	// cidr group. Groups with no references may not be inserted in to the ipcache.
-	cidrGroupRefs counter.Counter[string]
 
 	// toServicesPolicies is the set of policies that contain ToServices references
 	toServicesPolicies map[resource.Key]struct{}
