@@ -206,7 +206,7 @@ jobs:
         id: default_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ inputs.SHA }}
+          image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set up job variables
