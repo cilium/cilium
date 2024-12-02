@@ -297,8 +297,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		case option.DSRDispatchGeneve:
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeGeneve
 		}
-		if option.Config.NodePortMode == option.NodePortModeHybrid ||
-			option.Config.NodePortMode == option.NodePortModeAnnotation {
+		if option.Config.NodePortMode == option.NodePortModeHybrid {
 			//nolint:staticcheck
 			features.NodePort.Mode = strings.Title(option.Config.NodePortMode)
 		}

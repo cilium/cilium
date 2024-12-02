@@ -342,12 +342,15 @@ func Test_ParseNodeAddressType(t *testing.T) {
 }
 
 func TestParseNodeWithService(t *testing.T) {
-	prevAnnotateK8sNode := option.Config.AnnotateK8sNode
-	option.Config.AnnotateK8sNode = false
+	oldAnnotateK8sNode := option.Config.AnnotateK8sNode
+	oldDefaultLbMode := option.Config.NodePortMode
 	oldDefaultLbAlg := option.Config.NodePortAlg
+	option.Config.AnnotateK8sNode = false
+	option.Config.NodePortMode = option.NodePortModeSNAT
 	option.Config.NodePortAlg = option.NodePortAlgRandom
 	defer func() {
-		option.Config.AnnotateK8sNode = prevAnnotateK8sNode
+		option.Config.AnnotateK8sNode = oldAnnotateK8sNode
+		option.Config.NodePortMode = oldDefaultLbMode
 		option.Config.NodePortAlg = oldDefaultLbAlg
 	}()
 
