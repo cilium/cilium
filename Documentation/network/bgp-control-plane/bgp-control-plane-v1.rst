@@ -177,7 +177,7 @@ PodCIDR prefixes assigned to the local node.
 
 .. _bgp_control_plane_multipool_ipam:
 
-MutliPool IPAM
+MultiPool IPAM
 ^^^^^^^^^^^^^^
 
 When :ref:`MultiPool IPAM <ipam_crd_multi_pool>` is used, specify the
