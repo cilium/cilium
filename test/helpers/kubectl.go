@@ -112,8 +112,10 @@ var (
 		"etcd.leaseTTL":          "30s",
 		"ipv4.enabled":           "true",
 		"ipv6.enabled":           "true",
-		// "extraEnv[0].name":              "KUBE_CACHE_MUTATION_DETECTOR",
-		// "extraEnv[0].value":             "true",
+		"extraEnv[0].name":       "KUBE_CACHE_MUTATION_DETECTOR",
+		"extraEnv[0].value":      "'true'",
+		"extraEnv[1].name":       "CILIUM_FEATURE_METRICS_WITH_DEFAULTS",
+		"extraEnv[1].value":      "'true'",
 
 		// We need CNP node status to know when a policy is being enforced
 		"enableCnpStatusUpdates": "true",
@@ -2704,7 +2706,14 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 	optionsString := ""
 
 	for k, v := range options {
-		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		switch {
+		case v == "true" || v == "false":
+			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		case v == "'true'" || v == "'false'":
+			optionsString += fmt.Sprintf(" --set-string %s=%s ", k, v)
+		default:
+			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		}
 	}
 
 	return kub.ExecMiddle(fmt.Sprintf("helm %s %s %s "+
@@ -4324,7 +4333,14 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 	optionsString := ""
 
 	for k, v := range options {
-		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		switch {
+		case v == "true" || v == "false":
+			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		case v == "'true'" || v == "'false'":
+			optionsString += fmt.Sprintf(" --set-string %s=%s ", k, v)
+		default:
+			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		}
 	}
 
 	return kub.ExecMiddle("helm template --validate " +
