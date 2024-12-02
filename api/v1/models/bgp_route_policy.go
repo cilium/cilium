@@ -34,7 +34,7 @@ type BgpRoutePolicy struct {
 	Statements []*BgpRoutePolicyStatement `json:"statements"`
 
 	// Type of the route policy
-	// Enum: [export import]
+	// Enum: ["export","import"]
 	Type string `json:"type,omitempty"`
 }
 

@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *GetEndpointIDConfigOK) Code() int {
 }
 
 func (o *GetEndpointIDConfigOK) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigOK %s", 200, payload)
 }
 
 func (o *GetEndpointIDConfigOK) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigOK %s", 200, payload)
 }
 
 func (o *GetEndpointIDConfigOK) GetPayload() *models.EndpointConfigurationStatus {
@@ -161,11 +164,11 @@ func (o *GetEndpointIDConfigNotFound) Code() int {
 }
 
 func (o *GetEndpointIDConfigNotFound) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigNotFound", 404)
 }
 
 func (o *GetEndpointIDConfigNotFound) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigNotFound ", 404)
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigNotFound", 404)
 }
 
 func (o *GetEndpointIDConfigNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -217,11 +220,11 @@ func (o *GetEndpointIDConfigTooManyRequests) Code() int {
 }
 
 func (o *GetEndpointIDConfigTooManyRequests) Error() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigTooManyRequests", 429)
 }
 
 func (o *GetEndpointIDConfigTooManyRequests) String() string {
-	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigTooManyRequests ", 429)
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigTooManyRequests", 429)
 }
 
 func (o *GetEndpointIDConfigTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

@@ -9,6 +9,7 @@ package recorder
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -99,11 +100,11 @@ func (o *DeleteRecorderIDOK) Code() int {
 }
 
 func (o *DeleteRecorderIDOK) Error() string {
-	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdOK ", 200)
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdOK", 200)
 }
 
 func (o *DeleteRecorderIDOK) String() string {
-	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdOK ", 200)
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdOK", 200)
 }
 
 func (o *DeleteRecorderIDOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -155,11 +156,11 @@ func (o *DeleteRecorderIDForbidden) Code() int {
 }
 
 func (o *DeleteRecorderIDForbidden) Error() string {
-	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdForbidden ", 403)
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdForbidden", 403)
 }
 
 func (o *DeleteRecorderIDForbidden) String() string {
-	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdForbidden ", 403)
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdForbidden", 403)
 }
 
 func (o *DeleteRecorderIDForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -211,11 +212,11 @@ func (o *DeleteRecorderIDNotFound) Code() int {
 }
 
 func (o *DeleteRecorderIDNotFound) Error() string {
-	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdNotFound ", 404)
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdNotFound", 404)
 }
 
 func (o *DeleteRecorderIDNotFound) String() string {
-	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdNotFound ", 404)
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdNotFound", 404)
 }
 
 func (o *DeleteRecorderIDNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -268,11 +269,13 @@ func (o *DeleteRecorderIDFailure) Code() int {
 }
 
 func (o *DeleteRecorderIDFailure) Error() string {
-	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdFailure %s", 500, payload)
 }
 
 func (o *DeleteRecorderIDFailure) String() string {
-	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdFailure %s", 500, payload)
 }
 
 func (o *DeleteRecorderIDFailure) GetPayload() models.Error {
