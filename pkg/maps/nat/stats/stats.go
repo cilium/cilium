@@ -250,7 +250,7 @@ func (m *Stats) countNat(ctx context.Context) error {
 	var errs error
 	if m.natMap4 != nil {
 		tupleToPortCount := make(map[SNATTuple4]uint16, 128)
-		_, err := m.natMap4.DumpBatch4(func(k tuple.TupleKey4, _ nat.NatEntry4) {
+		_, err := m.natMap4.DumpBatch4(func(k *tuple.TupleKey4, _ *nat.NatEntry4) {
 			key := *k.ToHost().(*tuple.TupleKey4)
 			if flagsIsIn(key.Flags) &&
 				(key.NextHeader == u8proto.TCP || key.NextHeader == u8proto.ICMP ||
@@ -279,7 +279,7 @@ func (m *Stats) countNat(ctx context.Context) error {
 	}
 	if m.natMap6 != nil {
 		tupleToPortCount := make(map[SNATTuple6]uint16, 128)
-		_, err := m.natMap6.DumpBatch6(func(k tuple.TupleKey6, _ nat.NatEntry6) {
+		_, err := m.natMap6.DumpBatch6(func(k *tuple.TupleKey6, _ *nat.NatEntry6) {
 			key := *k.ToHost().(*tuple.TupleKey6)
 			if flagsIsIn(key.Flags) &&
 				(key.NextHeader == u8proto.TCP || key.NextHeader == u8proto.ICMPv6 ||
