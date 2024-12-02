@@ -5,6 +5,7 @@ package tuple
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -16,13 +17,25 @@ import (
 // TupleKey6 represents the key for IPv6 entries in the local BPF conntrack map.
 // Address field names are correct for return traffic, i.e., they are reversed
 // compared to the original direction traffic.
-type TupleKey6 struct {
-	DestAddr   types.IPv6      `align:"daddr"`
-	SourceAddr types.IPv6      `align:"saddr"`
-	DestPort   uint16          `align:"dport"`
-	SourcePort uint16          `align:"sport"`
-	NextHeader u8proto.U8proto `align:"nexthdr"`
-	Flags      uint8           `align:"flags"`
+type TupleKey6 tupleKey[types.IPv6]
+
+func (t *TupleKey6) GetDestAddr() netip.Addr {
+	return t.DestAddr.Addr()
+}
+
+func (t *TupleKey6) GetDestPort() uint16 {
+	return t.DestPort
+}
+
+func (t *TupleKey6) GetSourceAddr() netip.Addr {
+	return t.SourceAddr.Addr()
+}
+func (t *TupleKey6) GetSourcePort() uint16 {
+	return t.SourcePort
+}
+
+func (t *TupleKey6) GetNextHeader() u8proto.U8proto {
+	return t.NextHeader
 }
 
 // ToNetwork converts TupleKey6 ports to network byte order.
