@@ -4,10 +4,17 @@
 package features
 
 import (
+	"os"
+
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
+)
+
+var (
+	// withDefaults will set enable all default metrics in the operator.
+	withDefaults = os.Getenv("CILIUM_FEATURE_METRICS_WITH_DEFAULTS")
 )
 
 // Cell will retrieve information from all other cells /
@@ -24,7 +31,10 @@ var Cell = cell.Module(
 		},
 	),
 	cell.Metric(func() Metrics {
-		return NewMetrics(true)
+		if withDefaults != "" {
+			return NewMetrics(true)
+		}
+		return NewMetrics(false)
 	}),
 )
 
