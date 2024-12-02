@@ -100,7 +100,7 @@ func NewMap(name string, family IPFamily, entries int) *Map {
 }
 
 // DumpBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
-func (m *Map) DumpBatch4(fn func(tuple.TupleKey4, NatEntry4)) (count int, err error) {
+func (m *Map) DumpBatch4(fn func(*tuple.TupleKey4, *NatEntry4)) (count int, err error) {
 	if m.family != IPv4 {
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
@@ -114,7 +114,7 @@ func (m *Map) DumpBatch4(fn func(tuple.TupleKey4, NatEntry4)) (count int, err er
 }
 
 // DumpBatch6 uses batch iteration to walk the map and applies fn for each batch of entries.
-func (m *Map) DumpBatch6(fn func(tuple.TupleKey6, NatEntry6)) (count int, err error) {
+func (m *Map) DumpBatch6(fn func(*tuple.TupleKey6, *NatEntry6)) (count int, err error) {
 	if m.family != IPv6 {
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}

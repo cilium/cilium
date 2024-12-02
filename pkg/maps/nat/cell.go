@@ -109,12 +109,12 @@ var Cell = cell.Module(
 // to hive.
 type NatMap4 interface {
 	NatMap
-	DumpBatch4(func(tuple.TupleKey4, NatEntry4)) (count int, err error)
+	DumpBatch4(func(*tuple.TupleKey4, *NatEntry4)) (count int, err error)
 }
 
 // NatMap6 describes ipv6 nat map behaviors, used for providing map
 // to hive.
 type NatMap6 interface {
 	NatMap
-	DumpBatch6(func(tuple.TupleKey6, NatEntry6)) (count int, err error)
+	DumpBatch6(func(*tuple.TupleKey6, *NatEntry6)) (count int, err error)
 }
