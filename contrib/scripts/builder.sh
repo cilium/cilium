@@ -26,10 +26,21 @@ if [ -n "${BUILDER_CCACHE_DIR:-}" ]; then
     ARGS+=(-v "${BUILDER_CCACHE_DIR}:/root/.ccache")
 fi
 
+if [ -n "${BUILDER_USE_PWD:-}" ]; then
+    # realpath might not be installed, so use a separate variable to get the
+    # absolute path of the repo only when $BUILDER_USE_PWD=true.
+    # We need the absolute path of the repo to mount it into the container so
+    # that make commands executing in a subdirectory
+    # (eg: make -C install/kubernetes) can find the root go.mod
+    ABS_REPO_ROOT=$(realpath "${REPO_ROOT}")
+    ARGS+=(-v "${PWD}:${PWD}" -w "${PWD}" -v "${ABS_REPO_ROOT}:${ABS_REPO_ROOT}")
+else
+    ARGS+=(-w "/go/src/github.com/cilium/cilium")
+fi
+
 docker run --rm \
   "${ARGS[@]}" \
 	-v "$REPO_ROOT":/go/src/github.com/cilium/cilium \
-	-w /go/src/github.com/cilium/cilium \
 	${DOCKER_ARGS:+"$DOCKER_ARGS"} \
 	"$CILIUM_BUILDER_IMAGE" \
 	"$@"
