@@ -6,7 +6,7 @@ SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 REPO_ROOT="$SCRIPT_PATH/../.."
 
 
-CILIUM_BUILDER_IMAGE=$(grep '^ARG CILIUM_BUILDER_IMAGE=' "$REPO_ROOT/images/cilium/Dockerfile" | cut -d '=' -f 2)
+CILIUM_BUILDER_IMAGE=${CILIUM_BUILDER_IMAGE:-$(grep '^ARG CILIUM_BUILDER_IMAGE=' "$REPO_ROOT/images/cilium/Dockerfile" | cut -d '=' -f 2)}
 
 ARGS=()
 
