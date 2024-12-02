@@ -1777,11 +1777,10 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	pod, k8sMetadata, err := resolveMetadata(ns, podName)
 	switch {
 	case err != nil:
-		if filterResolveMetadataError(err) == nil {
-			break
+		if filterResolveMetadataError(err) != nil {
+			e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
 		}
 
-		e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
 		fallthrough
 	case e.K8sUID != "" && e.K8sUID != string(pod.GetUID()):
 		if err == nil {

@@ -5,12 +5,16 @@ package endpoint
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/cilium/cilium/api/v1/models"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -20,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -783,4 +789,56 @@ func (e *Endpoint) getK8sPodLabels() labels.Labels {
 		}
 	}
 	return k8sEPPodLabels
+}
+
+func TestMetadataResolver(t *testing.T) {
+	s := setupEndpointSuite(t)
+
+	tests := []struct {
+		name            string
+		resolveMetadata MetadataResolverCB
+		assert          assert.ErrorAssertionFunc
+	}{
+		{
+			name: "pod not found",
+			resolveMetadata: func(ns, podName string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
+				return nil, nil, k8sErrors.NewNotFound(schema.GroupResource{Group: "core", Resource: "pod"}, "foo")
+			},
+			assert: assert.Error,
+		},
+		{
+			name: "pod uid mismatch",
+			resolveMetadata: func(ns, podName string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
+				return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+					Namespace: "bar", Name: "foo", UID: "other",
+				}}, &K8sMetadata{IdentityLabels: labels.NewLabelsFromSortedList("k8s:foo=bar;k8s:qux=fred;")}, nil
+			},
+			assert: assert.Error,
+		},
+		{
+			name: "pod uid match",
+			resolveMetadata: func(ns, podName string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
+				return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+					Namespace: "bar", Name: "foo", UID: "uid",
+				}}, &K8sMetadata{IdentityLabels: labels.NewLabelsFromSortedList("k8s:foo=bar;k8s:qux=fred;")}, nil
+			},
+			assert: assert.NoError,
+		},
+	}
+
+	for _, restored := range []bool{false, true} {
+		for _, tt := range tests {
+			t.Run(fmt.Sprintf("%s (restored=%t)", tt.name, restored), func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				ep := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{},
+					testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
+				ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"
+
+				_, err := ep.metadataResolver(ctx, restored, true, labels.Labels{}, &fakeTypes.BandwidthManager{}, tt.resolveMetadata)
+				tt.assert(t, err)
+			})
+		}
+	}
 }
