@@ -13,6 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/container/cache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -315,9 +316,9 @@ func NewLabel(key string, value string, source string) Label {
 	}
 
 	l := Label{
-		Key:    key,
-		Value:  value,
-		Source: source,
+		Key:    cache.Strings.Get(key),
+		Value:  cache.Strings.Get(value),
+		Source: cache.Strings.Get(source),
 	}
 	if l.Source == LabelSourceCIDR {
 		c, err := LabelToPrefix(l.Key)
