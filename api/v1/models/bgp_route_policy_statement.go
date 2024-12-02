@@ -37,7 +37,7 @@ type BgpRoutePolicyStatement struct {
 	MatchPrefixes []*BgpRoutePolicyPrefixMatch `json:"match-prefixes"`
 
 	// RIB processing action taken on the matched route
-	// Enum: [none accept reject]
+	// Enum: ["none","accept","reject"]
 	RouteAction string `json:"route-action,omitempty"`
 
 	// BGP local preference value to be set on the matched route

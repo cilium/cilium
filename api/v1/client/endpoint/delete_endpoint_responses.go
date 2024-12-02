@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -103,11 +104,11 @@ func (o *DeleteEndpointOK) Code() int {
 }
 
 func (o *DeleteEndpointOK) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointOK ", 200)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointOK", 200)
 }
 
 func (o *DeleteEndpointOK) String() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointOK ", 200)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointOK", 200)
 }
 
 func (o *DeleteEndpointOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -160,11 +161,13 @@ func (o *DeleteEndpointErrors) Code() int {
 }
 
 func (o *DeleteEndpointErrors) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointErrors  %+v", 206, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointErrors %s", 206, payload)
 }
 
 func (o *DeleteEndpointErrors) String() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointErrors  %+v", 206, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointErrors %s", 206, payload)
 }
 
 func (o *DeleteEndpointErrors) GetPayload() int64 {
@@ -225,11 +228,11 @@ func (o *DeleteEndpointInvalid) Code() int {
 }
 
 func (o *DeleteEndpointInvalid) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointInvalid ", 400)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointInvalid", 400)
 }
 
 func (o *DeleteEndpointInvalid) String() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointInvalid ", 400)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointInvalid", 400)
 }
 
 func (o *DeleteEndpointInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -281,11 +284,11 @@ func (o *DeleteEndpointNotFound) Code() int {
 }
 
 func (o *DeleteEndpointNotFound) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointNotFound ", 404)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointNotFound", 404)
 }
 
 func (o *DeleteEndpointNotFound) String() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointNotFound ", 404)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointNotFound", 404)
 }
 
 func (o *DeleteEndpointNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -337,11 +340,11 @@ func (o *DeleteEndpointTooManyRequests) Code() int {
 }
 
 func (o *DeleteEndpointTooManyRequests) Error() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointTooManyRequests ", 429)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointTooManyRequests", 429)
 }
 
 func (o *DeleteEndpointTooManyRequests) String() string {
-	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointTooManyRequests ", 429)
+	return fmt.Sprintf("[DELETE /endpoint][%d] deleteEndpointTooManyRequests", 429)
 }
 
 func (o *DeleteEndpointTooManyRequests) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

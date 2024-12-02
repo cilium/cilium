@@ -9,6 +9,7 @@ package connectivity
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -94,11 +95,13 @@ func (o *PutStatusProbeOK) Code() int {
 }
 
 func (o *PutStatusProbeOK) Error() string {
-	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeOK %s", 200, payload)
 }
 
 func (o *PutStatusProbeOK) String() string {
-	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeOK %s", 200, payload)
 }
 
 func (o *PutStatusProbeOK) GetPayload() *models.HealthStatusResponse {
@@ -161,11 +164,11 @@ func (o *PutStatusProbeForbidden) Code() int {
 }
 
 func (o *PutStatusProbeForbidden) Error() string {
-	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeForbidden ", 403)
+	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeForbidden", 403)
 }
 
 func (o *PutStatusProbeForbidden) String() string {
-	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeForbidden ", 403)
+	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeForbidden", 403)
 }
 
 func (o *PutStatusProbeForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -218,11 +221,13 @@ func (o *PutStatusProbeFailed) Code() int {
 }
 
 func (o *PutStatusProbeFailed) Error() string {
-	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeFailed %s", 500, payload)
 }
 
 func (o *PutStatusProbeFailed) String() string {
-	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeFailed  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeFailed %s", 500, payload)
 }
 
 func (o *PutStatusProbeFailed) GetPayload() models.Error {

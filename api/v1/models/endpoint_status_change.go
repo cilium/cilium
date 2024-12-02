@@ -26,7 +26,7 @@ import (
 type EndpointStatusChange struct {
 
 	// Code indicate type of status change
-	// Enum: [ok failed]
+	// Enum: ["ok","failed"]
 	Code string `json:"code,omitempty"`
 
 	// Status message

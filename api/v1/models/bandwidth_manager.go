@@ -26,7 +26,7 @@ import (
 type BandwidthManager struct {
 
 	// congestion control
-	// Enum: [cubic bbr]
+	// Enum: ["cubic","bbr"]
 	CongestionControl string `json:"congestionControl,omitempty"`
 
 	// devices

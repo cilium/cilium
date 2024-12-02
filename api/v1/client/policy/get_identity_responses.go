@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -100,11 +101,13 @@ func (o *GetIdentityOK) Code() int {
 }
 
 func (o *GetIdentityOK) Error() string {
-	return fmt.Sprintf("[GET /identity][%d] getIdentityOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /identity][%d] getIdentityOK %s", 200, payload)
 }
 
 func (o *GetIdentityOK) String() string {
-	return fmt.Sprintf("[GET /identity][%d] getIdentityOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /identity][%d] getIdentityOK %s", 200, payload)
 }
 
 func (o *GetIdentityOK) GetPayload() []*models.Identity {
@@ -165,11 +168,11 @@ func (o *GetIdentityNotFound) Code() int {
 }
 
 func (o *GetIdentityNotFound) Error() string {
-	return fmt.Sprintf("[GET /identity][%d] getIdentityNotFound ", 404)
+	return fmt.Sprintf("[GET /identity][%d] getIdentityNotFound", 404)
 }
 
 func (o *GetIdentityNotFound) String() string {
-	return fmt.Sprintf("[GET /identity][%d] getIdentityNotFound ", 404)
+	return fmt.Sprintf("[GET /identity][%d] getIdentityNotFound", 404)
 }
 
 func (o *GetIdentityNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -222,11 +225,13 @@ func (o *GetIdentityUnreachable) Code() int {
 }
 
 func (o *GetIdentityUnreachable) Error() string {
-	return fmt.Sprintf("[GET /identity][%d] getIdentityUnreachable  %+v", 520, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /identity][%d] getIdentityUnreachable %s", 520, payload)
 }
 
 func (o *GetIdentityUnreachable) String() string {
-	return fmt.Sprintf("[GET /identity][%d] getIdentityUnreachable  %+v", 520, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /identity][%d] getIdentityUnreachable %s", 520, payload)
 }
 
 func (o *GetIdentityUnreachable) GetPayload() models.Error {
@@ -288,11 +293,13 @@ func (o *GetIdentityInvalidStorageFormat) Code() int {
 }
 
 func (o *GetIdentityInvalidStorageFormat) Error() string {
-	return fmt.Sprintf("[GET /identity][%d] getIdentityInvalidStorageFormat  %+v", 521, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /identity][%d] getIdentityInvalidStorageFormat %s", 521, payload)
 }
 
 func (o *GetIdentityInvalidStorageFormat) String() string {
-	return fmt.Sprintf("[GET /identity][%d] getIdentityInvalidStorageFormat  %+v", 521, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /identity][%d] getIdentityInvalidStorageFormat %s", 521, payload)
 }
 
 func (o *GetIdentityInvalidStorageFormat) GetPayload() models.Error {
