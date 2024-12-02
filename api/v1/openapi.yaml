@@ -2320,7 +2320,6 @@ definitions:
                 - SNAT
                 - DSR
                 - Hybrid
-                - Annotation
               dsrMode:
                 type: string
                 enum:
