@@ -5,10 +5,12 @@ package metrics
 
 import (
 	"cmp"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"maps"
 	"math"
@@ -32,6 +34,7 @@ func metricsCommands(r *Registry, dc *sampler) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
 		"metrics":      metricsCommand(r, dc),
 		"metrics/plot": plotCommand(dc),
+		"metrics/html": htmlCommand(dc),
 	})
 }
 
@@ -154,7 +157,7 @@ func plotCommand(dc *sampler) script.Cmd {
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			flags := flag.NewFlagSet("metrics", flag.ContinueOnError)
+			flags := flag.NewFlagSet("metrics/plot", flag.ContinueOnError)
 			flags.SetOutput(s.LogWriter())
 			file := flags.String("o", "", "Output file")
 			rate := flags.Bool("rate", false, "Plot the rate of change")
@@ -228,6 +231,65 @@ func plotCommand(dc *sampler) script.Cmd {
 			}
 
 			return nil, nil
+		},
+	)
+}
+
+//go:embed dump.html.tmpl
+var htmlTemplate string
+
+func htmlCommand(dc *sampler) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Produce a HTML file from the sampled metrics",
+			Args:    "[-o=file]",
+			Detail:  []string{},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			flags := flag.NewFlagSet("metrics/html", flag.ContinueOnError)
+			flags.SetOutput(s.LogWriter())
+			file := flags.String("o", "", "Output file")
+			if err := flags.Parse(args); err != nil {
+				if errors.Is(err, flag.ErrHelp) {
+					return nil, nil
+				}
+				return nil, err
+			}
+
+			var w io.Writer
+			if *file != "" {
+				f, err := os.OpenFile(s.Path(*file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+				if err != nil {
+					return nil, err
+				}
+				w = f
+				defer f.Close()
+			} else {
+				w = s.LogWriter()
+			}
+
+			dc.mu.Lock()
+			defer dc.mu.Unlock()
+
+			dump := JSONSampleDump{
+				NumSamples:      numSamples,
+				IntervalSeconds: int(samplingInterval.Seconds()),
+			}
+			for _, ds := range dc.metrics {
+				dump.Samples = append(dump.Samples, ds.getJSON())
+			}
+			slices.SortFunc(dump.Samples, func(a, b JSONSamples) int {
+				return cmp.Or(
+					cmp.Compare(a.Name, b.Name),
+					cmp.Compare(a.Labels, b.Labels),
+				)
+			})
+
+			tmpl, err := template.New("metrics.html").Parse(htmlTemplate)
+			if err != nil {
+				return nil, err
+			}
+			return nil, tmpl.Execute(w, &dump)
 		},
 	)
 }

@@ -187,6 +187,7 @@ func (g *gaugeOrCounterSamples) getJSON() JSONSamples {
 		GaugeOrCounter: &JSONGaugeOrCounter{
 			Samples: samples[:],
 		},
+		Latest: prettyValue(float64(samples[0])),
 	}
 }
 
@@ -232,6 +233,10 @@ func (h *histogramSamples) getUpdatedAt() time.Time {
 
 func (h *histogramSamples) getJSON() JSONSamples {
 	p50, p90, p99 := h.p50.grab(), h.p90.grab(), h.p99.grab()
+	suffix := ""
+	if h.isSeconds {
+		suffix = "s"
+	}
 	return JSONSamples{
 		Name:   h.name,
 		Labels: h.labels,
@@ -240,6 +245,10 @@ func (h *histogramSamples) getJSON() JSONSamples {
 			P90: p90[:],
 			P99: p99[:],
 		},
+		Latest: fmt.Sprintf("%s%s / %s%s / %s%s",
+			prettyValue(float64(p50[0])),
+			suffix, prettyValue(float64(p90[0])),
+			suffix, prettyValue(float64(p99[0])), suffix),
 	}
 }
 

@@ -24,4 +24,5 @@ type JSONSamples struct {
 	Labels         string              `json:"labels,omitempty" yaml:"labels,omitempty"`
 	GaugeOrCounter *JSONGaugeOrCounter `json:"gaugeOrCounter,omitempty" yaml:"gaugeOrCounter,omitempty"`
 	Histogram      *JSONHistogram      `json:"histogram,omitempty" yaml:"histogram,omitempty"`
+	Latest         string              `json:"latest" yaml:"latest"`
 }
