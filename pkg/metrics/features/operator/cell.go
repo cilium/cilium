@@ -5,6 +5,7 @@ package features
 
 import (
 	"log/slog"
+	"os"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -15,6 +16,11 @@ import (
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/pkg/metrics"
+)
+
+var (
+	// withDefaults will set enable all default metrics in the operator.
+	withDefaults = os.Getenv("CILIUM_FEATURE_METRICS_WITH_DEFAULTS")
 )
 
 // Cell will retrieve information from all other cells /
@@ -31,7 +37,10 @@ var Cell = cell.Module(
 		},
 	),
 	metrics.Metric(func() Metrics {
-		return NewMetrics(true)
+		if withDefaults != "" {
+			return NewMetrics(true)
+		}
+		return NewMetrics(false)
 	}),
 )
 
