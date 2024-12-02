@@ -1,0 +1,11 @@
+hive start
+
+# Wait for metrics collection to start
+metrics -o metrics.out -s test_
+* grep 'test_C_.*800ms' metrics.out
+
+# Dump the metrics HTML and do a small sanity check to see that
+# the test metrics are present.
+metrics/html -o out.html
+grep 'test_C.*800ms' out.html
+
