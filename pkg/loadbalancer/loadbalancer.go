@@ -56,9 +56,20 @@ const (
 type SVCForwardingMode string
 
 const (
-	SVCForwardingModeDSR  = SVCForwardingMode("dsr")
-	SVCForwardingModeSNAT = SVCForwardingMode("snat")
+	SVCForwardingModeUndef = SVCForwardingMode("undef")
+	SVCForwardingModeDSR   = SVCForwardingMode("dsr")
+	SVCForwardingModeSNAT  = SVCForwardingMode("snat")
 )
+
+func ToSVCForwardingMode(s string) SVCForwardingMode {
+	if s == option.NodePortModeDSR {
+		return SVCForwardingModeDSR
+	}
+	if s == option.NodePortModeSNAT {
+		return SVCForwardingModeSNAT
+	}
+	return SVCForwardingModeUndef
+}
 
 type SVCLoadBalancingAlgorithm uint8
 

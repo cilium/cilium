@@ -67,16 +67,17 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	return serviceAffinityNone
 }
 
-func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) loadbalancer.SVCForwardingMode {
+func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {
 	if value, ok := annotation.Get(svc, annotation.ServiceForwardingMode); ok {
-		tmp := loadbalancer.SVCForwardingMode(strings.ToLower(value))
-		if tmp == loadbalancer.SVCForwardingModeDSR || tmp == loadbalancer.SVCForwardingModeSNAT {
-			return tmp
+		val := loadbalancer.ToSVCForwardingMode(strings.ToLower(value))
+		if val != loadbalancer.SVCForwardingModeUndef {
+			return val, nil
 		}
+		return loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode), fmt.Errorf("Value %q is not supported for %q", val, annotation.ServiceForwardingMode)
 	}
-
-	return loadbalancer.SVCForwardingModeSNAT
+	return loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode), nil
 }
+
 func getAnnotationServiceLoadBalancingAlgorithm(svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
 	if value, ok := annotation.Get(svc, annotation.ServiceLoadBalancingAlgorithm); ok {
 		val := loadbalancer.ToSVCLoadBalancingAlgorithm(strings.ToLower(value))
@@ -85,7 +86,6 @@ func getAnnotationServiceLoadBalancingAlgorithm(svc *slim_corev1.Service) (loadb
 		}
 		return loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg), fmt.Errorf("Value %q is not supported for %q", val, annotation.ServiceLoadBalancingAlgorithm)
 	}
-
 	return loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg), nil
 }
 
@@ -269,19 +269,30 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		svc.GetNamespace(), svcType)
 
 	svcInfo.SourceRangesPolicy = getAnnotationServiceSourceRangesPolicy(svc)
-	svcInfo.ForwardingMode = getAnnotationServiceForwardingMode(svc)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.ServiceAffinity = getAnnotationServiceAffinity(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
+	svcInfo.ForwardingMode = loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode)
 	if option.Config.LoadBalancerAlgorithmAnnotation {
 		var err error
+
+		svcInfo.ForwardingMode, err = getAnnotationServiceForwardingMode(svc)
+		if err != nil {
+			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v",
+				annotation.ServiceForwardingMode, svcInfo.ForwardingMode)
+		}
+	}
+
+	svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg)
+	if option.Config.LoadBalancerAlgorithmAnnotation {
+		var err error
+
 		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(svc)
 		if err != nil {
-			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v", annotation.ServiceLoadBalancingAlgorithm, svcInfo.LoadBalancerAlgorithm)
+			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v",
+				annotation.ServiceLoadBalancingAlgorithm, svcInfo.LoadBalancerAlgorithm)
 		}
-	} else {
-		svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg)
 	}
 
 	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {

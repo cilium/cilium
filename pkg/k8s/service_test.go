@@ -350,9 +350,12 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 }
 
 func TestParseService(t *testing.T) {
+	oldDefaultLbMode := option.Config.NodePortMode
 	oldDefaultLbAlg := option.Config.NodePortAlg
+	option.Config.NodePortMode = option.NodePortModeSNAT
 	option.Config.NodePortAlg = option.NodePortAlgRandom
 	defer func() {
+		option.Config.NodePortMode = oldDefaultLbMode
 		option.Config.NodePortAlg = oldDefaultLbAlg
 	}()
 	objMeta := slim_metav1.ObjectMeta{
