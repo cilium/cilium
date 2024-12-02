@@ -236,6 +236,9 @@ const (
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting = "enable-host-legacy-routing"
 
+	// EnableEndpointDirectRouting enables direct routing for each endpoint
+	EnableEndpointDirectRouting = "enable-endpoint-direct-routing"
+
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
@@ -1851,6 +1854,9 @@ type DaemonConfig struct {
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting bool
 
+	// EnableEndpointDirectRouting enables direct routing for each endpoint
+	EnableEndpointDirectRouting bool
+
 	// NodePortNat46X64 indicates whether NAT46 / NAT64 can be used.
 	NodePortNat46X64 bool
 
@@ -2851,6 +2857,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableSVCSourceRangeCheck = vp.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = vp.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
+	c.EnableEndpointDirectRouting = vp.GetBool(EnableEndpointDirectRouting)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
