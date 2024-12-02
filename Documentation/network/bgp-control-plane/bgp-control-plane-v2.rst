@@ -460,7 +460,7 @@ Pod CIDR prefixes assigned to the local node.
 
 .. _bgp-adverts-multipool:
 
-MutliPool IPAM
+MultiPool IPAM
 ~~~~~~~~~~~~~~
 
 When :ref:`MultiPool IPAM <ipam_crd_multi_pool>` is used, specify the
