@@ -27,16 +27,16 @@ $ cilium-dbg shell
 cilium> help db
 (shows help for 'db' command)
 
-cilium> db tables
+cilium> db
 (shows all registered tables)
 
-cilium> db show health
+cilium> db/show health
 (shows contents of health table)
 
-$ cilium-dbg shell -- db show health
+$ cilium-dbg shell -- db/show health
 (shows contents of health table)
 
-$ cilium-dbg shell -- db show -format=json health
+$ cilium-dbg shell -- db/show -format=json health
 (shows contents as JSON)
 `)
 	},

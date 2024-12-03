@@ -2,22 +2,22 @@
 
 # Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
-db initialized
+db/initialized
 
 # Start with clean state.
-db cmp services services_empty.table
-db cmp ciliumenvoyconfigs cec_empty.table
+db/cmp services services_empty.table
+db/cmp ciliumenvoyconfigs cec_empty.table
 
 # Set up the services and endpoints
 k8s add service.yaml endpointslice.yaml
-db cmp services services.table
+db/cmp services services.table
 
 # Add the CiliumClusterwideEnvoyConfig and wait for it to be ingested.
 k8s add ccec.yaml
-db cmp ciliumenvoyconfigs cec.table
+db/cmp ciliumenvoyconfigs cec.table
 
 # Check that both services are now redirected to proxy.
-db cmp services services_redirected.table
+db/cmp services services_redirected.table
 
 # Check that right updates towards Envoy happened.
 envoy envoy.out
@@ -26,7 +26,7 @@ envoy envoy.out
 # Test the processing other way around, e.g. CEC exists before
 # the service.
 k8s delete service.yaml endpointslice.yaml
-db cmp services services_empty.table
+db/cmp services services_empty.table
 
 # Backends towards Envoy should be updated.
 envoy envoy.out
@@ -34,7 +34,7 @@ envoy envoy.out
 
 # Add back the service and endpoints
 k8s add service.yaml endpointslice.yaml
-db cmp services services_redirected.table
+db/cmp services services_redirected.table
 
 # Check again that updates happened.
 envoy envoy.out
@@ -42,8 +42,8 @@ envoy envoy.out
 
 # Cleanup. Remove CEC and check that proxy redirect is gone.
 k8s delete ccec.yaml
-db cmp services services.table
-db cmp ciliumenvoyconfigs cec_empty.table
+db/cmp services services.table
+db/cmp ciliumenvoyconfigs cec_empty.table
 
 # The listener should now be deleted.
 envoy envoy.out

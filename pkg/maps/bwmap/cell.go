@@ -15,7 +15,7 @@ import (
 // Cell manages the cilium_throttle BPF map for implementing per-endpoint
 // bandwidth management. The cell provides RWTable[Edt] to which per
 // endpoint bandwidth limits can be inserted. Use [NewEdt] to create the
-// object. The table can be inspected with "cilium-dbg shell -- db show bandwidth-edts".
+// object. The table can be inspected with "cilium-dbg shell -- db/show bandwidth-edts".
 // A reconciler is registered that reconciles the table with the cilium_throttle
 // map.
 var Cell = cell.Module(

@@ -60,11 +60,18 @@ var TablesCell = cell.Module(
 		NewWriter,
 
 		// Provide direct read-only access to the tables.
-		statedb.RWTable[*Service].ToTable,
-		statedb.RWTable[*Frontend].ToTable,
-		statedb.RWTable[*Backend].ToTable,
+		toReadOnlyTable[*Service],
+		toReadOnlyTable[*Frontend],
+		toReadOnlyTable[*Backend],
 	),
 )
+
+func toReadOnlyTable[T any](tbl statedb.RWTable[T]) statedb.Table[T] {
+	if tbl == nil {
+		return nil
+	}
+	return tbl
+}
 
 type resourceIn struct {
 	cell.In

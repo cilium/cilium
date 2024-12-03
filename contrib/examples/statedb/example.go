@@ -117,7 +117,7 @@ func (e *exampleController) loop(ctx context.Context, health cell.Health) error 
 		wtxn.Commit()
 
 		// Report the health of the job. This can be inspected with
-		// "cilium-dbg status --all-health" or with "cilium-dbg shell -- db show health".
+		// "cilium-dbg status --all-health" or with "cilium-dbg shell -- db/show health".
 		health.OK(fmt.Sprintf("%d examples inserted", id))
 	}
 }

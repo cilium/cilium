@@ -4,20 +4,20 @@
 hive start
 
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
-db initialized
+db/initialized
 
 k8s add service.yaml endpointslice.yaml
-db cmp services services.table
-db cmp frontends frontends.table
-db cmp backends backends.table 
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table 
 
 lb-maps cmp lbmaps.dump
 
 # Cleanup
 k8s delete service.yaml endpointslice.yaml 
-db cmp services services_empty.table
-db cmp frontends frontends_empty.table
-db cmp backends backends_empty.table
+db/cmp services services_empty.table
+db/cmp frontends frontends_empty.table
+db/cmp backends backends_empty.table
 
 #####
 
