@@ -3206,6 +3206,15 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			EnableCiliumEndpointSlice, c.EnableCiliumEndpointSlice, DisableCiliumEndpointCRDName)
 	}
 
+	// To support K8s NetworkPolicy
+	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
+	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
+	c.EnableNodeSelectorLabels = vp.GetBool(EnableNodeSelectorLabels)
+	c.NodeLabels = vp.GetStringSlice(NodeLabels)
+
+	c.EnableCiliumNetworkPolicy = vp.GetBool(EnableCiliumNetworkPolicy)
+	c.EnableCiliumClusterwideNetworkPolicy = vp.GetBool(EnableCiliumClusterwideNetworkPolicy)
+
 	c.IdentityAllocationMode = vp.GetString(IdentityAllocationMode)
 	switch c.IdentityAllocationMode {
 	// This is here for tests. Some call Populate without the normal init
@@ -3270,15 +3279,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Enable BGP control plane status reporting
 	c.EnableBGPControlPlaneStatusReport = vp.GetBool(EnableBGPControlPlaneStatusReport)
-
-	// To support K8s NetworkPolicy
-	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
-	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
-	c.EnableNodeSelectorLabels = vp.GetBool(EnableNodeSelectorLabels)
-	c.NodeLabels = vp.GetStringSlice(NodeLabels)
-
-	c.EnableCiliumNetworkPolicy = vp.GetBool(EnableCiliumNetworkPolicy)
-	c.EnableCiliumClusterwideNetworkPolicy = vp.GetBool(EnableCiliumClusterwideNetworkPolicy)
 
 	// Parse node label patterns
 	nodeLabelPatterns := vp.GetStringSlice(ExcludeNodeLabelPatterns)
