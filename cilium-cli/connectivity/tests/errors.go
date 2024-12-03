@@ -303,7 +303,7 @@ const (
 	mutationDetectorKlog      stringMatcher = "Mutation detector is enabled, this will result in memory leakage."     // cf. https://github.com/cilium/cilium/issues/35929
 	hubbleFailedCreatePeer    stringMatcher = "Failed to create peer client for peers synchronization"                // cf. https://github.com/cilium/cilium/issues/35930
 	fqdnDpUpdatesTimeout      stringMatcher = "Timed out waiting for datapath updates of FQDN IP information"         // cf. https://github.com/cilium/cilium/issues/35931
-	longNetpolUpdate          stringMatcher = "took longer than 100ms to update network policy"                       // cf. https://github.com/cilium/cilium/issues/36067
+	longNetpolUpdate          stringMatcher = "onConfigUpdate(): Worker threads took longer than"                     // cf. https://github.com/cilium/cilium/issues/36067
 	failedToGetEpLabels       stringMatcher = "Failed to get identity labels for endpoint"                            // cf. https://github.com/cilium/cilium/issues/36068
 	failedCreategRPCClient    stringMatcher = "Failed to create gRPC client"                                          // cf. https://github.com/cilium/cilium/issues/36070
 	unableReallocateIngressIP stringMatcher = "unable to re-allocate ingress IPv6"                                    // cf. https://github.com/cilium/cilium/issues/36072
