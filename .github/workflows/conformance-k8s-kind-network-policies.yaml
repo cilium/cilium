@@ -126,7 +126,7 @@ jobs:
         id: default_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ github.event.pull_request.head.sha }}
+          image-tag: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up job variables
         id: vars
