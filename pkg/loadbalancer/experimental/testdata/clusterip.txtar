@@ -11,7 +11,9 @@ db/cmp services services.table
 db/cmp frontends frontends.table
 db/cmp backends backends.table 
 
-lb-maps cmp lbmaps.dump
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
 
 # Cleanup
 k8s delete service.yaml endpointslice.yaml 
@@ -98,7 +100,7 @@ ports:
   port: 80
   protocol: TCP
 
--- lbmaps.dump --
+-- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80 STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
 SVC: ID=1 ADDR=10.96.50.104:80 SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable

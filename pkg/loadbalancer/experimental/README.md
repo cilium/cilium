@@ -62,7 +62,7 @@ Once running the state can be inspected with:
   > db/show backends
   > db/show services
   > db/prefix health agent.controlplane.loadbalancer-experimental
-  > lb-maps dump
+  > lbmaps/dump
 ```
 ## Integration testing
 
