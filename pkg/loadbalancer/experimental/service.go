@@ -187,7 +187,10 @@ const (
 	ServiceTableName = "services"
 )
 
-func NewServicesTable(db *statedb.DB) (statedb.RWTable[*Service], error) {
+func NewServicesTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Service], error) {
+	if !cfg.EnableExperimentalLB {
+		return nil, nil
+	}
 	tbl, err := statedb.NewTable(
 		ServiceTableName,
 		serviceNameIndex,

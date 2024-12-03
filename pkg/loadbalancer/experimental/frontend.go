@@ -168,7 +168,10 @@ const (
 	FrontendTableName = "frontends"
 )
 
-func NewFrontendsTable(db *statedb.DB) (statedb.RWTable[*Frontend], error) {
+func NewFrontendsTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Frontend], error) {
+	if !cfg.EnableExperimentalLB {
+		return nil, nil
+	}
 	tbl, err := statedb.NewTable(
 		FrontendTableName,
 		frontendAddressIndex,
