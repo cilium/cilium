@@ -124,7 +124,7 @@ Install Cilium
             --namespace kube-system \\
             --set eni.enabled=true \\
             --set ipam.mode=eni \\
-            --set egressMasqueradeInterfaces=eth0 \\
+            --set egressMasqueradeInterfaces=eth+ \\
             --set routingMode=native
 
        .. note::
@@ -163,8 +163,10 @@ Install Cilium
                      && iptables -t nat -F AWS-CONNMARK-CHAIN-1
 
          Some Linux distributions use a different interface naming convention.
-         If you use masquerading with the option ``egressMasqueradeInterfaces=eth0``,
-         remember to replace ``eth0`` with the proper interface name.
+         If you use masquerading with the option ``egressMasqueradeInterfaces=eth+``,
+         remember to replace ``eth+`` with the proper interface name. For
+         reference, Amazon Linux 2 uses ``eth+``, whereas Amazon Linux 2023 uses
+         ``ens+``. Mixed node clusters are not supported currently.
 
     .. group-tab:: OpenShift
 
