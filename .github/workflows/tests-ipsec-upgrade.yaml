@@ -347,7 +347,7 @@ jobs:
           CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
           if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
             CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
-          fi        
+          fi
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
       - name: Setup conn-disrupt-test before upgrading (${{ join(matrix.*, ', ') }})
