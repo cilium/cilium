@@ -580,6 +580,9 @@
             "integer"
           ]
         },
+        "lbModeAnnotation": {
+          "type": "boolean"
+        },
         "lbSourceRangeAllTypes": {
           "type": "boolean"
         },
