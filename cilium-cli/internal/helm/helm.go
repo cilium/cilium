@@ -209,6 +209,24 @@ func ListVersions() ([]semver.Version, error) {
 	return versions, nil
 }
 
+// GetDefaultVersionString returns the default Cilium version to install.
+func GetDefaultVersionString() string {
+	versions, err := ListVersions()
+	if err != nil {
+		// Can't do much if cilium-cli can't find Cilium versions. Time to panic.
+		panic(err)
+	}
+	// Start from the latest version
+	for i := len(versions) - 1; i >= 0; i-- {
+		// Skip pre-releases
+		if versions[i].Pre != nil {
+			continue
+		}
+		return fmt.Sprintf("v%s", versions[i].String())
+	}
+	panic("there is no Cilium version to install")
+}
+
 // ResolveHelmChartVersion resolves Helm chart version based on --version, --chart-directory, and --repository flags.
 func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string) (semver.Version, *chart.Chart, error) {
 	// If repository is empty, set it to the default Helm repository ("https://helm.cilium.io") for backward compatibility.
