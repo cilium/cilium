@@ -292,12 +292,6 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	int ret = CTX_ACT_OK;
 	__u16 proto;
-#ifdef ENABLE_IPV4
-	__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
-#endif
-#ifdef ENABLE_IPV6
-	union v6addr ipv6_localhost = { .addr[15] = 1,};
-#endif
 
 	/**
 	 * For reply traffic to egress proxy for a local endpoint, we skip the
@@ -313,10 +307,10 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 	if (!validate_ethertype(ctx, &proto))
 		return DROP_UNSUPPORTED_L2;
 
-	ret = DROP_UNKNOWN_L3;
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6): {
+		union v6addr ipv6_localhost = { .addr[15] = 1,};
 		struct ipv6_ct_tuple tuple;
 
 		ret = extract_tuple6(ctx, &tuple);
@@ -328,6 +322,7 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
+		__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
 		struct ipv4_ct_tuple tuple;
 
 		ret = extract_tuple4(ctx, &tuple);
@@ -339,6 +334,7 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 	}
 #endif /* ENABLE_IPV4 */
 	default:
+		ret = DROP_UNKNOWN_L3;
 		break;
 	}
 
