@@ -92,10 +92,6 @@ type AzureParameters struct {
 	IsBYOCNI             bool
 }
 
-type AWSParameters struct {
-	AwsNodeImageFamily string
-}
-
 type Parameters struct {
 	Namespace             string
 	Writer                io.Writer
@@ -106,7 +102,6 @@ type Parameters struct {
 	DatapathMode          string
 	IPv4NativeRoutingCIDR string
 	Azure                 AzureParameters
-	AWS                   AWSParameters
 
 	// HelmChartDirectory points to the location of a helm chart directory.
 	// Useful to test from upstream where a helm release is not available yet.
@@ -229,11 +224,6 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 			}
 		}
 	case k8s.KindEKS:
-		// detect AWS AMI type
-		if err := k.awsRetrieveNodeImageFamily(); err != nil {
-			return err
-		}
-
 		// setup chaining mode
 		if err := k.awsSetupChainingMode(ctx, helmValues); err != nil {
 			return err
