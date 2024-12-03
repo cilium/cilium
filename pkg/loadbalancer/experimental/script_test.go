@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -45,10 +46,17 @@ func TestScript(t *testing.T) {
 	maglevTableSize := 1021
 	require.NoError(t, maglev.Init(maglev.DefaultHashSeed, uint64(maglevTableSize)), "maglev.Init")
 
+	// Since the maglev implementation is still a global varible, run the tests sequentially
+	// (will be fixed by https://github.com/cilium/cilium/pull/35885).
+	var maglevLock lock.Mutex
+
 	log := hivetest.Logger(t)
 	scripttest.Test(t,
 		context.Background(),
 		func(t testing.TB, args []string) *script.Engine {
+			maglevLock.Lock()
+			t.Cleanup(maglevLock.Unlock)
+
 			h := hive.New(
 				client.FakeClientCell,
 				daemonk8s.ResourcesCell,
