@@ -18,6 +18,7 @@ type RuleFeatures struct {
 	MutualAuth        bool
 	TLSInspection     bool
 	SNIAllowList      bool
+	ToFQDNs           bool
 }
 
 func (m Metrics) AddRule(r api.Rule) {
@@ -28,6 +29,9 @@ func (m Metrics) AddRule(r api.Rule) {
 	}
 	if rf.DNS {
 		m.NPDNSIngested.WithLabelValues(actionAdd).Inc()
+	}
+	if rf.ToFQDNs {
+		m.NPToFQDNsIngested.WithLabelValues(actionAdd).Inc()
 	}
 	if rf.HTTP {
 		m.NPHTTPIngested.WithLabelValues(actionAdd).Inc()
@@ -63,6 +67,9 @@ func (m Metrics) DelRule(r api.Rule) {
 	}
 	if rf.DNS {
 		m.NPDNSIngested.WithLabelValues(actionDel).Inc()
+	}
+	if rf.ToFQDNs {
+		m.NPToFQDNsIngested.WithLabelValues(actionDel).Inc()
 	}
 	if rf.HTTP {
 		m.NPHTTPIngested.WithLabelValues(actionDel).Inc()
@@ -180,16 +187,16 @@ func ruleType(r api.Rule) RuleFeatures {
 	if !(rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth) {
 		for _, e := range r.Egress {
 			ruleTypeEgressCommon(&rf, e.EgressCommonRule)
-			if !rf.allFeaturesPortRules() {
+			if !(rf.allFeaturesPortRules() && rf.ToFQDNs) {
 				if len(e.ToFQDNs) > 0 {
-					rf.DNS = true
+					rf.ToFQDNs = true
 				}
 				ruleTypePortRules(&rf, e.ToPorts)
 			}
 			if e.Authentication != nil {
 				rf.MutualAuth = true
 			}
-			if rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth {
+			if rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth && rf.ToFQDNs {
 				break
 			}
 		}

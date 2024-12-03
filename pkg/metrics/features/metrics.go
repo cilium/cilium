@@ -43,6 +43,7 @@ type Metrics struct {
 
 	NPL3Ingested                metric.Vec[metric.Counter]
 	NPDNSIngested               metric.Vec[metric.Counter]
+	NPToFQDNsIngested           metric.Vec[metric.Counter]
 	NPHTTPIngested              metric.Vec[metric.Counter]
 	NPHTTPHeaderMatchesIngested metric.Vec[metric.Counter]
 	NPOtherL7Ingested           metric.Vec[metric.Counter]
@@ -506,6 +507,24 @@ func NewMetrics(withDefaults bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "dns_policies_total",
+		}, metric.Labels{
+			{
+				Name: "action", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		NPToFQDNsIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			Help:      "ToFQDNs Policies have been ingested since the agent started",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemNP,
+			Name:      "fqdn_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {
