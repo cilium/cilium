@@ -178,10 +178,11 @@ func (k *K8sInstaller) listVersions() error {
 	if err != nil {
 		return err
 	}
+	defaultVersion := helm.GetDefaultVersionString()
 	// Iterate backwards to print the newest version first.
 	for i := len(versions) - 1; i >= 0; i-- {
 		version := "v" + versions[i].String()
-		if version == defaults.Version {
+		if version == defaultVersion {
 			fmt.Println(version, "(default)")
 		} else {
 			fmt.Println(version)
