@@ -19,6 +19,7 @@ func Test_ruleType(t *testing.T) {
 	type metrics struct {
 		npL3Ingested                float64
 		npDNSIngested               float64
+		npToFQDNsIngested           float64
 		npHTTPIngested              float64
 		npHTTPHeaderMatchesIngested float64
 		npOtherL7Ingested           float64
@@ -233,10 +234,10 @@ func Test_ruleType(t *testing.T) {
 			},
 			want: wanted{
 				wantRF: RuleFeatures{
-					DNS: true,
+					ToFQDNs: true,
 				},
 				wantMetrics: metrics{
-					npDNSIngested: 1,
+					npToFQDNsIngested: 1,
 				},
 			},
 		},
@@ -414,6 +415,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPL3Ingested.WithLabelValues(actionDel).Get(), "NPL3Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDNSIngested, metrics.NPDNSIngested.WithLabelValues(actionAdd).Get(), "NPDNSIngested different")
 			assert.Equalf(t, float64(0), metrics.NPDNSIngested.WithLabelValues(actionDel).Get(), "NPDNSIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npToFQDNsIngested, metrics.NPToFQDNsIngested.WithLabelValues(actionAdd).Get(), "NPToFQDNsIngested different")
+			assert.Equalf(t, float64(0), metrics.NPToFQDNsIngested.WithLabelValues(actionDel).Get(), "NPToFQDNsIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPIngested, metrics.NPHTTPIngested.WithLabelValues(actionAdd).Get(), "NPHTTPIngested different")
 			assert.Equalf(t, float64(0), metrics.NPHTTPIngested.WithLabelValues(actionDel).Get(), "NPHTTPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionAdd).Get(), "NPHTTPHeaderMatchesIngested different")
@@ -437,6 +440,8 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionDel).Get(), "NPL3Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDNSIngested, metrics.NPDNSIngested.WithLabelValues(actionAdd).Get(), "NPDNSIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDNSIngested, metrics.NPDNSIngested.WithLabelValues(actionDel).Get(), "NPDNSIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npToFQDNsIngested, metrics.NPToFQDNsIngested.WithLabelValues(actionAdd).Get(), "NPToFQDNsIngested different")
+			assert.Equalf(t, tt.want.wantMetrics.npToFQDNsIngested, metrics.NPToFQDNsIngested.WithLabelValues(actionDel).Get(), "NPToFQDNsIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPIngested, metrics.NPHTTPIngested.WithLabelValues(actionAdd).Get(), "NPHTTPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPIngested, metrics.NPHTTPIngested.WithLabelValues(actionDel).Get(), "NPHTTPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionAdd).Get(), "NPHTTPHeaderMatchesIngested different")
