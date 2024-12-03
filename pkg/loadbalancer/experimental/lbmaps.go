@@ -9,13 +9,9 @@ import (
 	"math/rand/v2"
 	"os"
 	"reflect"
-	"strings"
 	"unsafe"
 
-	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/script"
-	"github.com/pmezard/go-difflib/difflib"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -24,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 type lbmapsParams struct {
@@ -109,109 +104,6 @@ func newLBMapsConfig(dcfg *option.DaemonConfig) (cfg LBMapsConfig) {
 	return
 }
 
-const (
-	lbmapsCompareRetries       = 20
-	lbmapsCompareRetryInterval = 50 * time.Millisecond
-)
-
-func newLBMapsCommand(m LBMaps) hive.ScriptCmdOut {
-	if f, ok := m.(*FaultyLBMaps); ok {
-		m = f.impl
-	}
-
-	var snapshot *mapSnapshots
-	errUsage := fmt.Errorf("%w: expected 'cmp', 'dump', 'snapshot' or 'restore'", script.ErrUsage)
-	return hive.NewScriptCmd(
-		"lb-maps",
-		script.Command(
-			script.CmdUsage{
-				Summary: "interact with load-balancing BPF maps",
-				Args:    "cmd (args...)",
-				Detail: []string{
-					"Supported commands:",
-					"  cmp <file>:   Compare the maps against a file. Retries.",
-					"  dump <file>:  Dump maps to stdout or file if specified",
-					"  snapshot:     Snapshot the maps",
-					"  restore:      Restore from snapshot",
-				},
-			},
-			func(s *script.State, args ...string) (script.WaitFunc, error) {
-				if len(args) < 1 {
-					return nil, errUsage
-				}
-
-				switch args[0] {
-				case "dump":
-					return func(s *script.State) (stdout string, stderr string, err error) {
-						out := DumpLBMaps(
-							m,
-							loadbalancer.L3n4Addr{},
-							false,
-							nil,
-						)
-						data := strings.Join(out, "\n") + "\n"
-						if len(args) == 2 {
-							err = os.WriteFile(s.Path(args[1]), []byte(data), 0644)
-						} else {
-							stdout = data
-						}
-						return
-					}, nil
-				case "cmp":
-					if len(args) != 2 {
-						return nil, errUsage
-					}
-					b, err := os.ReadFile(s.Path(args[1]))
-					if err != nil {
-						return nil, fmt.Errorf("read %q: %w", args[1], err)
-					}
-
-					expected := difflib.SplitLines(string(b))
-
-					var diff string
-					for range lbmapsCompareRetries {
-						actual := DumpLBMaps(
-							m,
-							loadbalancer.L3n4Addr{},
-							false,
-							nil,
-						)
-						diff, _ = difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
-							A:        difflib.SplitLines(strings.Join(actual, "\n") + "\n"),
-							B:        expected,
-							FromFile: "<actual>",
-							ToFile:   args[1],
-							Context:  2,
-						})
-						if len(diff) == 0 {
-							return nil, nil
-						}
-						select {
-						case <-s.Context().Done():
-							break
-						case <-time.After(lbmapsCompareRetryInterval):
-						}
-					}
-					return nil, fmt.Errorf("mismatch:\n%s", diff)
-
-				case "snapshot":
-					s := snapshotMaps(m)
-					snapshot = &s
-					return nil, nil
-				case "restore":
-					if snapshot == nil {
-						return nil, fmt.Errorf("no snapshot to restore")
-					}
-					snapshot.restore(m)
-					return nil, nil
-				default:
-					return nil, errUsage
-				}
-			},
-		),
-	)
-}
-
 type serviceMaps interface {
 	UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValue) error
 	DeleteService(key lbmap.ServiceKey) error
@@ -260,7 +152,7 @@ type LBMaps interface {
 	maglevMaps
 
 	// TODO rest of the maps:
-	// Maglev, SockRevNat, SkipLB
+	// SockRevNat, SkipLB
 	IsEmpty() bool
 }
 
@@ -1092,6 +984,8 @@ type mapKeyValue struct {
 type mapSnapshot = []mapKeyValue
 
 type mapSnapshots struct {
+	mu lock.Mutex
+
 	services mapSnapshot
 	backends mapSnapshot
 	revNat   mapSnapshot
@@ -1099,58 +993,65 @@ type mapSnapshots struct {
 	srcRange mapSnapshot
 }
 
-func snapshotMaps(lbmaps LBMaps) (s mapSnapshots) {
+func (s *mapSnapshots) snapshot(lbmaps LBMaps) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
 		s.services = append(s.services, mapKeyValue{svcKey, svcValue})
 	}
 	if err := lbmaps.DumpService(svcCB); err != nil {
-		panic(err)
+		return fmt.Errorf("DumpService: %w", err)
 	}
 
 	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
 		s.backends = append(s.backends, mapKeyValue{beKey, beValue})
 	}
 	if err := lbmaps.DumpBackend(beCB); err != nil {
-		panic(err)
+		return fmt.Errorf("DumpBackend: %w", err)
 	}
 
 	revCB := func(revKey lbmap.RevNatKey, revValue lbmap.RevNatValue) {
 		s.revNat = append(s.revNat, mapKeyValue{revKey, revValue})
 	}
 	if err := lbmaps.DumpRevNat(revCB); err != nil {
-		panic(err)
+		return fmt.Errorf("DumpRevNat: %w", err)
 	}
 
 	affCB := func(affKey *lbmap.AffinityMatchKey, affValue *lbmap.AffinityMatchValue) {
 		s.affinity = append(s.revNat, mapKeyValue{affKey, affValue})
 	}
 	if err := lbmaps.DumpAffinityMatch(affCB); err != nil {
-		panic(err)
+		return fmt.Errorf("DumpAffinityMatch: %w", err)
 	}
 
 	srcRangeCB := func(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) {
 		s.srcRange = append(s.srcRange, mapKeyValue{key, value})
 	}
 	if err := lbmaps.DumpSourceRange(srcRangeCB); err != nil {
-		panic(err)
+		return fmt.Errorf("DumpSourceRange: %w", err)
 	}
-	return
+	return nil
 }
 
-func (s *mapSnapshots) restore(lbmaps LBMaps) {
+func (s *mapSnapshots) restore(lbmaps LBMaps) (err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for _, kv := range s.services {
-		lbmaps.UpdateService(kv.key.(lbmap.ServiceKey), kv.value.(lbmap.ServiceValue))
+		err = errors.Join(err, lbmaps.UpdateService(kv.key.(lbmap.ServiceKey), kv.value.(lbmap.ServiceValue)))
 	}
 	for _, kv := range s.backends {
-		lbmaps.UpdateBackend(kv.key.(lbmap.BackendKey), kv.value.(lbmap.BackendValue))
+		err = errors.Join(err, lbmaps.UpdateBackend(kv.key.(lbmap.BackendKey), kv.value.(lbmap.BackendValue)))
 	}
 	for _, kv := range s.revNat {
-		lbmaps.UpdateRevNat(kv.key.(lbmap.RevNatKey), kv.value.(lbmap.RevNatValue))
+		err = errors.Join(err, lbmaps.UpdateRevNat(kv.key.(lbmap.RevNatKey), kv.value.(lbmap.RevNatValue)))
 	}
 	for _, kv := range s.affinity {
-		lbmaps.UpdateAffinityMatch(kv.key.(*lbmap.AffinityMatchKey), kv.value.(*lbmap.AffinityMatchValue))
+		err = errors.Join(err, lbmaps.UpdateAffinityMatch(kv.key.(*lbmap.AffinityMatchKey), kv.value.(*lbmap.AffinityMatchValue)))
 	}
 	for _, kv := range s.srcRange {
-		lbmaps.UpdateSourceRange(kv.key.(lbmap.SourceRangeKey), kv.value.(*lbmap.SourceRangeValue))
+		err = errors.Join(err, lbmaps.UpdateSourceRange(kv.key.(lbmap.SourceRangeKey), kv.value.(*lbmap.SourceRangeValue)))
 	}
+	return
 }

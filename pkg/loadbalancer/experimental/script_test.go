@@ -4,11 +4,8 @@
 package experimental
 
 import (
-	"bufio"
 	"context"
 	"maps"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -30,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestScript(t *testing.T) {
@@ -51,8 +49,11 @@ func TestScript(t *testing.T) {
 	var maglevLock lock.Mutex
 
 	log := hivetest.Logger(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
 	scripttest.Test(t,
-		context.Background(),
+		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			maglevLock.Lock()
 			t.Cleanup(maglevLock.Unlock)
@@ -93,12 +94,8 @@ func TestScript(t *testing.T) {
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
 
-			// Parse and process the "#! --flag=true" magic line.
-			_, scriptFile, _ := strings.Cut(t.Name(), "/")
-			if args := parseArgsLine("testdata/" + scriptFile); len(args) > 0 {
-				require.NoError(t, flags.Parse(args), "flags.Parse")
-				t.Logf("Parsed arguments: %v", args)
-			}
+			// Parse the shebang arguments in the script.
+			require.NoError(t, flags.Parse(args), "flags.Parse")
 
 			t.Cleanup(func() {
 				assert.NoError(t, h.Stop(log, context.TODO()))
@@ -111,17 +108,4 @@ func TestScript(t *testing.T) {
 				Cmds: cmds,
 			}
 		}, []string{}, "testdata/*.txtar")
-}
-
-func parseArgsLine(file string) []string {
-	f, err := os.Open(file)
-	if err != nil {
-		panic(err)
-	}
-	b, _, _ := bufio.NewReader(f).ReadLine()
-	if strings.HasPrefix(string(b), "#! ") {
-		line := string(b[3:])
-		return strings.Split(line, " ")
-	}
-	return nil
 }

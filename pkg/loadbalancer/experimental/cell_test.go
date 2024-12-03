@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // TestCell checks that 'Cell' can be instantiated with the defaults and it
@@ -26,6 +27,7 @@ func TestCell(t *testing.T) {
 		client.FakeClientCell,
 		daemonk8s.ResourcesCell,
 		Cell,
+		cell.Provide(source.NewSources),
 		cell.Provide(
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,

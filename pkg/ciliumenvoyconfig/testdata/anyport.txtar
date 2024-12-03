@@ -20,7 +20,7 @@ db/cmp ciliumenvoyconfigs cec.table
 db/cmp services services_redirected.table
 
 # Check BPF maps. The service should have L7 redirect set.
-lbmaps/dump lbmaps.out
+lb/maps-dump lbmaps.out
 * cmp lbmaps.out lbmaps.expected
 
 # Check that right updates towards Envoy happened.
