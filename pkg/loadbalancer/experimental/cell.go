@@ -37,7 +37,9 @@ var Cell = cell.Module(
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
 	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
-	cell.Provide(newLBMapsCommand),
+
+	// Provide the 'lb/' script commands for debugging and testing.
+	cell.Provide(scriptCommands),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
