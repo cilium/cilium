@@ -239,7 +239,7 @@ type NodeNeighbors interface {
 	NodeNeighDiscoveryEnabled() bool
 
 	// NodeNeighborRefresh is called to refresh node neighbor table
-	NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node, refresh bool) error
+	NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) error
 
 	// NodeCleanNeighbors cleans all neighbor entries for the direct routing device
 	// and the encrypt interface.
@@ -250,7 +250,7 @@ type NodeNeighbors interface {
 	// be added, for example, for external service backends.
 	InsertMiscNeighbor(newNode *nodeTypes.Node)
 
-	// DeleteMiscNeighbor delets a eighbor entry for the address passed via oldNode.
+	// DeleteMiscNeighbor deletes a neighbor entry for the address passed via oldNode.
 	// This is needed to delete the entries which have been inserted at an earlier
 	// point in time through InsertMiscNeighbor.
 	DeleteMiscNeighbor(oldNode *nodeTypes.Node)
