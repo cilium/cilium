@@ -301,7 +301,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test '!egress-gateway' \
+            --test '!egress-gateway' --test "pod-to-pod-with-l7-policy-encryption" \
             --flush-ct
 
       - name: Features tested after running all other tests
@@ -383,7 +383,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test '!egress-gateway' \
+            --test '!egress-gateway' --test "pod-to-pod-with-l7-policy-encryption" \
             --flush-ct $TEST
 
       - name: Features tested after running all other tests after rotating ipsec keys
