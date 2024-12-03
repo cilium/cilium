@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -466,8 +468,35 @@ func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(
 	return nil
 }
 
+var (
+	batchAPISupported     bool
+	batchAPISupportedOnce sync.Once
+)
+
+func isBatchAPISupported() bool {
+	batchAPISupportedOnce.Do(func() {
+		err := probes.HaveBatchAPI()
+		batchAPISupported = !errors.Is(err, probes.ErrNotSupported)
+		if !batchAPISupported {
+			log.WithError(err).Info("kernel does not support batch iteration for ctmap gc")
+		}
+	})
+	return batchAPISupported
+}
+
 func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *Map, stats *gcStats, filterCallback func(key bpf.MapKey, value bpf.MapValue)) error {
-	return m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
+	// Note: We can drop this once the minimum supported kernel version has batch iteration (i.e. >=5.6).
+	if !isBatchAPISupported() {
+		return m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
+	}
+
+	ctx := context.Background()
+	iter := bpf.NewBatchIterator[KT, VT, KP, VP](&m.Map)
+	for k, v := range iter.IterateAll(ctx) {
+		filterCallback(k, v)
+	}
+	stats.Completed = true
+	return iter.Err()
 }
 
 var _ tupleKeyAccessor = &tuple.TupleKey4{}
