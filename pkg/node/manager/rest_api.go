@@ -4,7 +4,6 @@
 package manager
 
 import (
-	"context"
 	"math/rand/v2"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -186,33 +185,6 @@ func (c *clusterNodesClient) NodeValidateImplementation(node nodeTypes.Node) err
 func (c *clusterNodesClient) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
 	// no-op
 	return nil
-}
-
-func (c *clusterNodesClient) NodeNeighDiscoveryEnabled() bool {
-	// no-op
-	return false
-}
-
-func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node, refresh bool) error {
-	return nil
-}
-
-func (c *clusterNodesClient) NodeCleanNeighbors(migrateOnly bool) {
-	// no-op
-}
-
-func (c *clusterNodesClient) GetNodeIP(_ uint16) string {
-	// no-op
-	return ""
-}
-
-func (c *clusterNodesClient) DumpNodeIDs() []*models.NodeID {
-	// no-op
-	return nil
-}
-
-func (c *clusterNodesClient) RestoreNodeIDs() {
-	// no-op
 }
 
 func (h *getClusterNodesRestApiHandler) cleanupClients() {
