@@ -243,9 +243,11 @@ func (m *Map[K, V]) UnmarshalJSON(data []byte) error {
 
 func (m Map[K, V]) MarshalYAML() (any, error) {
 	kvs := make([]mapKVPair[K, V], 0, m.Len())
-	iter := m.tree.Iterator()
-	for _, kv, ok := iter.Next(); ok; _, kv, ok = iter.Next() {
-		kvs = append(kvs, kv)
+	if m.tree != nil {
+		iter := m.tree.Iterator()
+		for _, kv, ok := iter.Next(); ok; _, kv, ok = iter.Next() {
+			kvs = append(kvs, kv)
+		}
 	}
 	return kvs, nil
 }
