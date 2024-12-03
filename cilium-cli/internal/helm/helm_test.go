@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/blang/semver/v4"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 )
@@ -134,4 +135,11 @@ func TestParseVals(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetDefaultVersionString(t *testing.T) {
+	versionString := GetDefaultVersionString()
+	version, err := semver.ParseTolerant(versionString)
+	assert.NoError(t, err)
+	assert.Nil(t, version.Pre)
 }

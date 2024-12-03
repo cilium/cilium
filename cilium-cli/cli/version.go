@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -38,7 +39,7 @@ func newCmdVersion() *cobra.Command {
 		Long:  `Displays information about the version of this software.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			fmt.Printf("cilium-cli: %s compiled with %v on %v/%v\n", defaults.CLIVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
-			fmt.Printf("cilium image (default): %s\n", defaults.Version)
+			fmt.Printf("cilium image (default): %s\n", helm.GetDefaultVersionString())
 			fmt.Printf("cilium image (stable): %s\n", getLatestStableVersion())
 			if clientOnly {
 				return nil

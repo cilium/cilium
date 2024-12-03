@@ -18,11 +18,12 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium/cilium-cli/install"
+	"github.com/cilium/cilium/cilium-cli/internal/helm"
 )
 
 // addCommonInstallFlags adds install command flags that are shared between install and upgrade commands.
 func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
-	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
+	cmd.Flags().StringVar(&params.Version, "version", helm.GetDefaultVersionString(), "Cilium version to install")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | native | aws-eni | gke | azure | aks-byocni } (default: autodetected).")
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
 	cmd.Flags().BoolVar(&params.NodesWithoutCilium, "nodes-without-cilium", false, "Configure the affinities to avoid scheduling Cilium components on nodes labeled with cilium.io/no-schedule. It is assumed that the infrastructure has set up routing on these nodes to provide connectivity within the Cilium cluster.")
