@@ -372,6 +372,10 @@
      - Configure the maximum number of service entries in the load balancer maps.
      - int
      - ``65536``
+   * - :spelling:ignore:`bpf.lbModeAnnotation`
+     - Enable the option to define the load balancing mode (SNAT or DSR) on a per-service basis through service.cilium.io/forwarding-mode annotation.
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.lbSourceRangeAllTypes`
      - Enable loadBalancerSourceRanges CIDR filtering for all service types, not just LoadBalancer services. The corresponding NodePort and ClusterIP (if enabled for cluster-external traffic) will also apply the CIDR filter.
      - bool

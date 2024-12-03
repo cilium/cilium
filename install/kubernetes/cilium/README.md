@@ -143,6 +143,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.lbAlgorithmAnnotation | bool | `false` | Enable the option to define the load balancing algorithm on a per-service basis through service.cilium.io/lb-algorithm annotation. |
 | bpf.lbExternalClusterIP | bool | `false` | Allow cluster external access to ClusterIP services. |
 | bpf.lbMapMax | int | `65536` | Configure the maximum number of service entries in the load balancer maps. |
+| bpf.lbModeAnnotation | bool | `false` | Enable the option to define the load balancing mode (SNAT or DSR) on a per-service basis through service.cilium.io/forwarding-mode annotation. |
 | bpf.lbSourceRangeAllTypes | bool | `false` | Enable loadBalancerSourceRanges CIDR filtering for all service types, not just LoadBalancer services. The corresponding NodePort and ClusterIP (if enabled for cluster-external traffic) will also apply the CIDR filter. |
 | bpf.mapDynamicSizeRatio | float64 | `0.0025` | Configure auto-sizing for all BPF maps based on available memory. ref: https://docs.cilium.io/en/stable/network/ebpf/maps/ |
 | bpf.masquerade | bool | `false` | Enable native IP masquerade support in eBPF |
