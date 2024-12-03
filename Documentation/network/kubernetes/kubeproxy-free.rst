@@ -672,7 +672,7 @@ Annotation-based DSR and SNAT Mode
 **********************************
 
 Cilium also supports an annotation-based DSR and SNAT mode, that is, services
-are exposed by default via SNAT, and on-demand as DSR:
+can be exposed by default via SNAT and on-demand as DSR (or vice versa):
 
 .. code-block:: yaml
 
@@ -697,9 +697,13 @@ connections.
 The above example installs the Kubernetes service only as type ``LoadBalancer``,
 that is, without the corresponding ``NodePort`` and ``ClusterIP`` services, and
 uses the configured DSR method to forward the packets instead of default SNAT.
+The Helm setting ``loadBalancer.mode=snat`` defines the default as SNAT in this
+example. A ``loadBalancer.mode=dsr`` would have switched the default to DSR instead
+and then ``service.cilium.io/forwarding-mode: snat`` annotation can be used to
+switch to SNAT instead.
 
 A Helm example configuration in a kube-proxy-free environment with DSR enabled in
-annotation mode would look as follows:
+annotation mode with SNAT default would look as follows:
 
 .. parsed-literal::
 
@@ -707,7 +711,8 @@ annotation mode would look as follows:
         --namespace kube-system \\
         --set routingMode=native \\
         --set kubeProxyReplacement=true \\
-        --set loadBalancer.mode=annotation \\
+        --set loadBalancer.mode=snat \\
+        --set bpf.lbModeAnnotation=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
