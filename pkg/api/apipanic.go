@@ -4,9 +4,11 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"runtime/debug"
+	"syscall"
 
 	"github.com/sirupsen/logrus"
 
@@ -24,12 +26,17 @@ func (h *APIPanicHandler) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
 			fields := logrus.Fields{
-				"panic_message": r,
-				"url":           req.URL.String(),
-				"method":        req.Method,
-				"client":        req.RemoteAddr,
+				"url":    req.URL.String(),
+				"method": req.Method,
+				"client": req.RemoteAddr,
 			}
-			log.WithFields(fields).Warn("Cilium API handler panicked")
+
+			if err, ok := r.(error); ok && errors.Is(err, syscall.EPIPE) {
+				log.WithError(err).WithFields(fields).Debug("Failed to write API response: client connection closed")
+				return
+			}
+
+			log.WithFields(fields).WithField("panic_message", r).Warn("Cilium API handler panicked")
 			if logging.DefaultLogger.IsLevelEnabled(logrus.DebugLevel) {
 				os.Stdout.Write(debug.Stack())
 			}
