@@ -39,7 +39,8 @@ import (
 )
 
 const sysdumpLogFile = "cilium-sysdump.log"
-const helmReleaseName = "cilium"
+const ciliumHelmReleaseName = "cilium"
+const tetragonHelmReleaseName = "tetragon"
 
 // Options groups together the set of options required to collect a sysdump.
 type Options struct {
@@ -57,6 +58,8 @@ type Options struct {
 	CiliumEnvoyLabelSelector string
 	// The release name of Cilium Helm chart.
 	CiliumHelmReleaseName string
+	// The release name of Tetragon Helm chart.
+	TetragonHelmReleaseName string
 	// The labels used to target Cilium Node Init daemon set. Usually, this label is same as CiliumNodeInitLabelSelector.
 	CiliumNodeInitDaemonSetSelector string
 	// The labels used to target Cilium Node Init pods.
@@ -225,10 +228,17 @@ func NewCollector(
 	}
 
 	if c.Options.CiliumHelmReleaseName == "" {
-		c.log("ℹ️ Using default Cilium Helm release name: %q", helmReleaseName)
-		c.Options.CiliumHelmReleaseName = helmReleaseName
+		c.log("ℹ️ Using default Cilium Helm release name: %q", ciliumHelmReleaseName)
+		c.Options.CiliumHelmReleaseName = ciliumHelmReleaseName
 	} else {
 		c.log("ℹ️ Cilium Helm release name: %q", c.Options.CiliumHelmReleaseName)
+	}
+
+	if c.Options.TetragonHelmReleaseName == "" {
+		c.log("ℹ️ Using default Tetragon Helm release name: %q", tetragonHelmReleaseName)
+		c.Options.TetragonHelmReleaseName = tetragonHelmReleaseName
+	} else {
+		c.log("ℹ️ Tetragon Helm release name: %q", c.Options.TetragonHelmReleaseName)
 	}
 
 	if c.Options.CiliumSPIRENamespace == "" {
@@ -1617,7 +1627,7 @@ func (c *Collector) Run() error {
 	helmTasks := []Task{
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting Helm metadata from the release",
+			Description:     "Collecting Helm metadata from the Cilium release",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetHelmMetadata(ctx, c.Options.CiliumHelmReleaseName, c.Options.CiliumNamespace)
@@ -1632,7 +1642,22 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting Helm values from the release",
+			Description:     "Collecting Helm metadata from the Tetragon release",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetHelmMetadata(ctx, c.Options.TetragonHelmReleaseName, c.Options.TetragonNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to get the helm metadata from the release: %w", err)
+				}
+				if err := c.WriteString(tetragonHelmMetadataFileName, v); err != nil {
+					return fmt.Errorf("failed to write the helm metadata to the file: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting Helm values from the Cilium release",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetHelmValues(ctx, c.Options.CiliumHelmReleaseName, c.Options.CiliumNamespace)
@@ -1640,6 +1665,21 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("failed to get the helm values from the release: %w", err)
 				}
 				if err := c.WriteString(ciliumHelmValuesFileName, v); err != nil {
+					return fmt.Errorf("failed to write the helm values to the file: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting Helm values from the Tetragon release",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetHelmValues(ctx, c.Options.TetragonHelmReleaseName, c.Options.TetragonNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to get the helm values from the release: %w", err)
+				}
+				if err := c.WriteString(tetragonHelmValuesFileName, v); err != nil {
 					return fmt.Errorf("failed to write the helm values to the file: %w", err)
 				}
 				return nil
@@ -3163,6 +3203,9 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 	cmd.Flags().StringVar(&options.CiliumHelmReleaseName,
 		optionPrefix+"cilium-helm-release-name", "",
 		"The Cilium Helm release name for which to get values. If not provided then the --helm-release-name global flag is used (if provided)")
+	cmd.Flags().StringVar(&options.TetragonHelmReleaseName,
+		optionPrefix+"tetragon-helm-release-name", "",
+		"The Tetragon Helm release name for which to get values.")
 	cmd.Flags().StringVar(&options.CiliumOperatorLabelSelector,
 		optionPrefix+"cilium-operator-label-selector", DefaultCiliumOperatorLabelSelector,
 		"The labels used to target Cilium operator pods")
