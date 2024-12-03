@@ -171,18 +171,17 @@ type manager struct {
 }
 
 type nodeQueueEntry struct {
-	node    *nodeTypes.Node
-	refresh bool
+	node *nodeTypes.Node
 }
 
 // Enqueue add a node to a controller managed queue which sets up the neighbor link.
-func (m *manager) Enqueue(n *nodeTypes.Node, refresh bool) {
+func (m *manager) Enqueue(n *nodeTypes.Node) {
 	if n == nil {
 		log.WithFields(logrus.Fields{
 			logfields.LogSubsys: "enqueue",
 		}).Warn("Skipping nodeNeighbor insert: No node given")
 	}
-	m.nodeNeighborQueue.push(&nodeQueueEntry{node: n, refresh: refresh})
+	m.nodeNeighborQueue.push(&nodeQueueEntry{node: n})
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -851,8 +850,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 //
 // The removal logic in this function should mirror the upsert logic in NodeUpdated.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
-	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix) {
-
+	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix,
+) {
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
 		// See comment in NodeUpdated().
@@ -1132,7 +1131,7 @@ func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
 
 					log.Debugf("Refreshing node neighbor link for %s", e.node.Name)
 					hr := sc.NewScope(e.node.Name)
-					if err := nh.NodeNeighborRefresh(ctx, *e.node, e.refresh); err != nil {
+					if err := nh.NodeNeighborRefresh(ctx, *e.node); err != nil {
 						hr.Degraded("Failed node neighbor link update", err)
 						errs = errors.Join(errs, err)
 					} else {
@@ -1174,7 +1173,7 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 						// [0; ARPPingRefreshPeriod/2) period.
 						n := rand.Int64N(int64(m.conf.ARPPingRefreshPeriod / 2))
 						time.Sleep(time.Duration(n))
-						m.Enqueue(e, false)
+						m.Enqueue(e)
 					}(ctx, &entryNode)
 				}
 				return nil
