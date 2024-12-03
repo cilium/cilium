@@ -838,3 +838,80 @@ func populateFakeDataCTMap4(tb testing.TB, m CtMap, size int) map[*CtKey4Global]
 
 	return cache
 }
+
+func BenchmarkCtGcTcpXL(t *testing.B) {
+	benchmarkCtGc(t, 1<<24) // max size
+}
+
+func BenchmarkCtGcTcpL(t *testing.B) {
+	benchmarkCtGc(t, 1<<22)
+}
+
+func BenchmarkCtGcTcpM(t *testing.B) {
+	benchmarkCtGc(t, 1<<17)
+}
+
+func benchmarkCtGc(t *testing.B, size int) {
+	for range t.N {
+		t.StopTimer()
+		setupCTMap(t)
+		// Init maps
+		natMap := nat.NewMap("cilium_nat_any4_test", nat.IPv4, size)
+		err := natMap.OpenOrCreate()
+		assert.NoError(t, err)
+		defer natMap.Map.Unpin()
+
+		ctMapName := MapNameTCP4Global + "_test"
+		mapInfo[mapTypeIPv4TCPGlobal] = mapAttributes{
+			natMap: natMap, natMapLock: mapInfo[mapTypeIPv4TCPGlobal].natMapLock,
+		}
+
+		prev := option.Config.CTMapEntriesGlobalTCP
+		option.Config.CTMapEntriesGlobalTCP = size
+		defer func() {
+			option.Config.CTMapEntriesGlobalTCP = prev
+		}()
+		ctMap := newMap(ctMapName, mapTypeIPv4TCPGlobal)
+		err = ctMap.OpenOrCreate()
+		assert.NoError(t, err)
+		defer ctMap.Map.Unpin()
+
+		t.Logf("populating test map (size=%d)", size)
+		for i := range size {
+			var dest types.IPv4
+			dest[0] = byte(i >> 24)
+			dest[1] = byte(i >> 16)
+			dest[2] = byte(i >> 8)
+			dest[3] = byte(i)
+			ctKey := &CtKey4Global{
+				tuple.TupleKey4Global{
+					TupleKey4: tuple.TupleKey4{
+						SourceAddr: types.IPv4{192, 168, 61, 12},
+						DestAddr:   dest,
+						SourcePort: 0x3195,
+						DestPort:   0x50,
+						NextHeader: u8proto.TCP,
+						Flags:      tuple.TUPLE_F_OUT,
+					},
+				},
+			}
+			ctVal := &CtEntry{
+				Packets:  1,
+				Bytes:    216,
+				Lifetime: 2,
+			}
+			err = ctMap.Map.Update(ctKey, ctVal)
+			assert.NoError(t, err)
+		}
+		// GC and check whether NAT entries have been collected
+		filter := GCFilter{
+			RemoveExpired: true,
+			Time:          1,
+		}
+
+		t.Logf("starting gc")
+		defer t.Logf("done gc pass!")
+		t.StartTimer()
+		doGCForFamily(ctMap, filter, func(g GCEvent) {}, nil, false)
+	}
+}
