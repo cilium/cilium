@@ -565,7 +565,7 @@ github.com/cilium/statedb/index
 github.com/cilium/statedb/internal
 github.com/cilium/statedb/part
 github.com/cilium/statedb/reconciler
-# github.com/cilium/stream v0.0.0-20240816054136-71321e385273
+# github.com/cilium/stream v0.0.0-20241203114243-53c3e5d79744
 ## explicit; go 1.21.0
 github.com/cilium/stream
 # github.com/cilium/workerpool v1.2.0

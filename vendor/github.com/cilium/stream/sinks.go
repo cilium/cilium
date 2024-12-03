@@ -144,6 +144,35 @@ func ToChannel[T any](ctx context.Context, src Observable[T], opts ...ToChannelO
 	return items
 }
 
+// ToTruncatingChannel is like ToChannel but with a local buffer to decouple the
+// source observable from the observer.
+// It is useful when the source observable cannot be delayed by a slow consumer
+// and it is safe for the consumer to lose intermediate items while busy.
+func ToTruncatingChannel[T any](ctx context.Context, src Observable[T], opts ...ToChannelOpt) <-chan T {
+	items := ToChannel(ctx, src, opts...)
+	out := make(chan T)
+	go func() {
+		defer close(out)
+		var (
+			ch  chan T
+			buf T
+		)
+		for {
+			select {
+			case v, ok := <-items:
+				if !ok {
+					return
+				}
+				buf = v
+				ch = out
+			case ch <- buf:
+				ch = nil
+			}
+		}
+	}()
+	return out
+}
+
 // Discard discards all items from 'src'.
 func Discard[T any](ctx context.Context, src Observable[T]) {
 	src.Observe(ctx,
