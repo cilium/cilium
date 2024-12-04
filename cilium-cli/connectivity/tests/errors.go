@@ -81,7 +81,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string) check.Sc
 	if slices.Contains(checkLevels, defaults.LogLevelError) {
 		errorMsgsWithExceptions["level=error"] = errorLogExceptions
 	}
-	if slices.Contains(checkLevels, defaults.LogLevelWarning) {
+	if slices.Contains(checkLevels, defaults.LogLevelWarning) && ciliumVersion.GE(semver.MustParse("1.17.0")) {
 		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
 	return &noErrorsInLogs{errorMsgsWithExceptions}
