@@ -1333,10 +1333,6 @@ func initEnv(vp *viper.Viper) {
 		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
 	}
 
-	if option.Config.TunnelingEnabled() && option.Config.EnableAutoDirectRouting {
-		log.Fatalf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName)
-	}
-
 	initClockSourceOption()
 
 	if option.Config.EnableSRv6 {
@@ -1402,9 +1398,6 @@ func initEnv(vp *viper.Viper) {
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMMultiPool {
-		if option.Config.TunnelingEnabled() {
-			log.Fatalf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM)
-		}
 		if option.Config.EnableIPSec {
 			log.Fatalf("Cannot specify IPAM mode %s with %s.", option.Config.IPAM, option.EnableIPSecName)
 		}
