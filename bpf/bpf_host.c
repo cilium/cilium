@@ -1259,37 +1259,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	return ret;
 }
 
-/**
- * handle_netdev
- * @ctx		The packet context for this program
- * @from_host	True if the packet is from the local host
- *
- * Handle netdev traffic coming towards the Cilium-managed network.
- */
-static __always_inline int
-handle_netdev(struct __ctx_buff *ctx, const bool from_host)
-{
-	__u16 proto;
-	if (!validate_ethertype(ctx, &proto)) {
-#ifdef ENABLE_HOST_FIREWALL
-		int ret = DROP_UNSUPPORTED_L2;
-		__u32 id = WORLD_ID;
-		__u32 sec_label = SECLABEL;
-
-		return send_drop_notify(ctx, sec_label, id, TRACE_EP_ID_UNKNOWN, ret,
-					CTX_ACT_DROP, METRIC_EGRESS);
-#else
-		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN,
-				  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_UNKNOWN, 0);
-		/* Pass unknown traffic to the stack */
-		return CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
-	}
-
-	return do_netdev(ctx, proto, from_host);
-}
-
 /*
  * from-netdev is attached as a tc ingress filter to one or more physical devices
  * managed by Cilium (e.g., eth0). This program is only attached when:
@@ -1302,6 +1271,7 @@ __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 src_id = 0;
+	__be16 proto = 0;
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
@@ -1344,7 +1314,25 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		return ret;
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
-	return handle_netdev(ctx, false);
+	if (!validate_ethertype(ctx, &proto)) {
+#ifdef ENABLE_HOST_FIREWALL
+		__u32 id = WORLD_ID;
+		__u32 sec_label = SECLABEL;
+
+		ret = DROP_UNSUPPORTED_L2;
+
+		return send_drop_notify(ctx, sec_label, id, TRACE_EP_ID_UNKNOWN, ret,
+					CTX_ACT_DROP, METRIC_EGRESS);
+#else
+		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN,
+				  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_UNKNOWN, 0);
+		/* Pass unknown traffic to the stack */
+		return CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
+	}
+
+	return do_netdev(ctx, proto, false);
 
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
@@ -1357,11 +1345,31 @@ drop_err:
 __section_entry
 int cil_from_host(struct __ctx_buff *ctx)
 {
+	__be16 proto = 0;
+
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
 	 */
 	edt_set_aggregate(ctx, 0);
-	return handle_netdev(ctx, true);
+
+	if (!validate_ethertype(ctx, &proto)) {
+#ifdef ENABLE_HOST_FIREWALL
+		int ret = DROP_UNSUPPORTED_L2;
+		__u32 id = WORLD_ID;
+		__u32 sec_label = SECLABEL;
+
+		return send_drop_notify(ctx, sec_label, id, TRACE_EP_ID_UNKNOWN, ret,
+					CTX_ACT_DROP, METRIC_EGRESS);
+#else
+		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN,
+				  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_UNKNOWN, 0);
+		/* Pass unknown traffic to the stack */
+		return CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
+	}
+
+	return do_netdev(ctx, proto, true);
 }
 
 /*
