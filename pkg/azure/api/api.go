@@ -428,6 +428,13 @@ func parseSubnet(subnet *armnetwork.Subnet) (s *ipamTypes.Subnet) {
 		s.CIDR = c
 		if subnet.Properties.IPConfigurations != nil {
 			s.AvailableAddresses = c.AvailableIPs() - len(subnet.Properties.IPConfigurations)
+		} else {
+			// Azure currently returns nil for subnet IPConfigs if the subnet has a large number of existing IPConfigs.
+			// API / SDK is supposed to return a IpConfigurationsNextLink which can be used to make an additional
+			// call to get all IPConfigs. This field however seems to be missing from the API spec.
+			// Since we cannot fall back to other subnets anyway, assume all IPs are available.
+			// TODO: Update this once there's an official recommendation from Azure.
+			s.AvailableAddresses = c.AvailableIPs()
 		}
 	}
 
