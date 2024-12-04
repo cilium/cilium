@@ -775,6 +775,10 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(tab, "  - LoadBalancer:\t%s \n", lb)
 		fmt.Fprintf(tab, "  - externalIPs:\t%s \n", eIP)
 		fmt.Fprintf(tab, "  - HostPort:\t%s\n", hPort)
+		fmt.Fprintf(tab, "  Annotations:\n")
+		for _, annotation := range sr.KubeProxyReplacement.Features.Annotations {
+			fmt.Fprintf(tab, "  - %s\n", annotation)
+		}
 		tab.Flush()
 	}
 
