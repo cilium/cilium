@@ -935,6 +935,9 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 						 &ext_err);
 	}
 
+	if ((ctx->mark & 0xFFFF) == MARK_MAGIC_TO_PROXY)
+		return CTX_ACT_OK;
+
 	/* Catch errors from both handle_ipv4 and invoke_tailcall_if here. */
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,

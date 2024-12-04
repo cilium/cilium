@@ -2521,6 +2521,8 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 #if defined(ENABLE_L7_LB)
 	if (lb4_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
+		__be16 proxy_port = (__be16)svc->l7_lb_proxy_port;
+
 		/* We cannot redirect from the XDP layer to cilium_host.
 		 * Therefore, let the bpf_host to handle the L7 ingress
 		 * request.
@@ -2529,10 +2531,18 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
-				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
+				  bpf_ntohs(proxy_port),
 				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor);
-		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4,
-							  (__be16)svc->l7_lb_proxy_port);
+
+# if defined(IS_BPF_HOST) && !defined(ENABLE_TPROXY)
+		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
+		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
+		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
+
+		return CTX_ACT_REDIRECT;
+# endif
+
+		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
 	}
 #endif
 	if (lb4_to_lb6_service(svc)) {
