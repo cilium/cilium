@@ -34,10 +34,12 @@ ARG MODIFIERS
 # as that will mess with caching for incremental builds!
 #
 WORKDIR /go/src/github.com/cilium/cilium
+# We must override NOSTRIP=1 to ensure binaries include debug symbols for extraction. They will be stripped subsequently
+# in accordance with the supplied/default NOSTRIP setting. See "Extract debug symbols" below.
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
-    make GOARCH=${TARGETARCH} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} PKG_BUILD=1 ${MODIFIERS} \
+    make GOARCH=${TARGETARCH} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} PKG_BUILD=1 ${MODIFIERS} NOSTRIP=1 \
     build-container install-container-binary
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
