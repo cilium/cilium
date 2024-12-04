@@ -1316,13 +1316,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 
 	if (!validate_ethertype(ctx, &proto)) {
 #ifdef ENABLE_HOST_FIREWALL
-		__u32 id = WORLD_ID;
-		__u32 sec_label = SECLABEL;
-
 		ret = DROP_UNSUPPORTED_L2;
-
-		return send_drop_notify(ctx, sec_label, id, TRACE_EP_ID_UNKNOWN, ret,
-					CTX_ACT_DROP, METRIC_EGRESS);
+		goto drop_err;
 #else
 		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN,
