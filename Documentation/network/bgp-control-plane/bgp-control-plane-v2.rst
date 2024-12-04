@@ -736,6 +736,80 @@ Similarly, ``internalTrafficPolicy`` is considered for ``ClusterIP`` advertiseme
     and ignores the configuration of ``.spec.internalTrafficPolicy``.
 
 
+Overlapping Advertisements
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When configuring ``CiliumBGPAdvertisement``, it is possible that two or more
+advertisements match the same Service. Prior to Cilium 1.18, overlapping matches 
+were not expected and the last sequential match was used. Today, overlapping 
+advertisement selectors are supported. Overlap handling varies by attribute:
+
+* Communities: the union of elements is taken across all matches
+* Local Preference: the largest value is selected
+
+As an example, below we have two advertisements which each define a selector 
+match. One matches on the label ``vpc1`` while the other on ``vpc2``.
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumBGPAdvertisement
+    metadata:
+      name: bgp-advertisements
+      labels:
+        advertise: bgp
+    spec:
+      advertisements:
+        - advertisementType: "Service"
+          service:
+            addresses:
+              - LoadBalancerIP
+          selector:
+            matchExpressions:
+              - { key: vpc1, operator: In, values: [ "true" ] }
+          attributes:
+            communities:
+              large: [ "1111:1111:1111" ]
+        - advertisementType: "Service"
+          service:
+            addresses:
+              - LoadBalancerIP
+          selector:
+            matchExpressions:
+              - { key: vpc2, operator: In, values: [ "true" ] }
+          attributes:
+            communities:
+              large: [ "2222:2222:2222" ]
+
+We have a deployment named ``hello-world`` which exposes a ``LoadBalancer`` 
+Service. Initially, there were no labels configured. This resulted in no matches, and
+no BGP advertisements.
+
+.. code-block:: shell-session
+
+    kubectl get deployment
+    NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+    hello-world   1/1     1            1           42m
+
+    kubectl get service hello-world --show-labels
+    NAME          TYPE           CLUSTER-IP   EXTERNAL-IP   PORT(S)          AGE   LABELS
+    hello-world   LoadBalancer   10.2.65.71   <pending>     8080:30569/TCP   43m   app=hello-world
+
+
+Labels were then configured using:
+
+.. code-block:: shell-session
+
+    kubectl label service hello-world vpc1=true
+    kubectl label service hello-world vpc1=true
+
+The resulting BGP advertisement set both communities ``1111:1111:1111`` and ``2222:2222:2222``.
+All possible combinations of communities (``Standard``, ``Large``, ``WellKnown``) are 
+supported. Had Local Preference been set, it would have been the largest value observed 
+across all matches. This is in line with `RFC4271 <https://datatracker.ietf.org/doc/rfc4271/>`_ 
+which states *The higher degree of preference MUST be preferred.*
+
+
 .. _bgp-override:
 
 BGP Configuration Override
