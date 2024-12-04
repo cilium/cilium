@@ -245,6 +245,7 @@ jobs:
           gcloud version
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
@@ -345,11 +346,19 @@ jobs:
           json-filename: "${{ env.job_name }}"
 
       - name: Get sysdump
-        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
         run: |
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
           sudo chmod +r cilium-sysdump-final.zip
+
+      - name: Upload sysdump
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: cilium-sysdump
+          path: cilium-sysdump-final.zip
+          retention-days: 5
 
       - name: Upload features tested
         if: ${{ always() }}
