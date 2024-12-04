@@ -176,8 +176,5 @@ With the ``enable-masquerade-to-route-source: "true"`` option, Cilium will,
 by default, use interfaces listed in the ``devices`` field as the egress masquerade interfaces 
 when ``egress-masquerade-interfaces`` is empty. When ``egress-masquerade-interfaces`` is set, 
 it takes precedence over ``devices`` to choose which network interface should perform masquerading.
-
-.. note::
-
    with ``enable-masquerade-to-route-source: "true"`` option ,
    you can set egress-masquerade-interfaces as a list such as ``eth1 eth2 eth3``.
