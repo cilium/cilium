@@ -197,7 +197,11 @@ func (w *Watcher) Watch() <-chan struct{} {
 
 // Stop watching the files.
 func (w *Watcher) Stop() {
-	close(w.stop)
+	select {
+	case <-w.stop:
+	default:
+		close(w.stop)
+	}
 }
 
 // newFsWatcher returns a fswatcher.Watcher watching over the given files.
