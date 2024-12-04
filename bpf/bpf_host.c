@@ -1270,7 +1270,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
-	__u32 src_id = 0;
+	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
@@ -1319,7 +1319,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		ret = DROP_UNSUPPORTED_L2;
 		goto drop_err;
 #else
-		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, UNKNOWN_ID,
+		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN,
 				  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_UNKNOWN, 0);
 		/* Pass unknown traffic to the stack */
