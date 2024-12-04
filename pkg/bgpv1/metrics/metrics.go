@@ -19,16 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-const (
-	LabelVRouter     = "vrouter"
-	LabelNeighbor    = "neighbor"
-	LabelNeighborAsn = "neighbor_asn"
-	LabelAfi         = "afi"
-	LabelSafi        = "safi"
-
-	metricsSubsystem = "bgp_control_plane"
-)
-
 type collector struct {
 	SessionState          *prometheus.Desc
 	TotalAdvertisedRoutes *prometheus.Desc
@@ -61,19 +51,19 @@ func RegisterCollector(in collectorIn) {
 	}
 	in.Registry.MustRegister(&collector{
 		SessionState: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metricsSubsystem, "session_state"),
+			prometheus.BuildFQName(metrics.Namespace, types.MetricsSubsystem, "session_state"),
 			"Current state of the BGP session with the peer, Up = 1 or Down = 0",
-			[]string{LabelVRouter, LabelNeighbor, LabelNeighborAsn}, nil,
+			[]string{types.LabelVRouter, types.LabelNeighbor, types.LabelNeighborAsn}, nil,
 		),
 		TotalAdvertisedRoutes: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metricsSubsystem, "advertised_routes"),
+			prometheus.BuildFQName(metrics.Namespace, types.MetricsSubsystem, "advertised_routes"),
 			"Number of routes advertised to the peer",
-			[]string{LabelVRouter, LabelNeighbor, LabelNeighborAsn, LabelAfi, LabelSafi}, nil,
+			[]string{types.LabelVRouter, types.LabelNeighbor, types.LabelNeighborAsn, types.LabelAfi, types.LabelSafi}, nil,
 		),
 		TotalReceivedRoutes: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, metricsSubsystem, "received_routes"),
+			prometheus.BuildFQName(metrics.Namespace, types.MetricsSubsystem, "received_routes"),
 			"Number of routes received from the peer",
-			[]string{LabelVRouter, LabelNeighbor, LabelNeighborAsn, LabelAfi, LabelSafi}, nil,
+			[]string{types.LabelVRouter, types.LabelNeighbor, types.LabelNeighborAsn, types.LabelAfi, types.LabelSafi}, nil,
 		),
 		in: in,
 	})
