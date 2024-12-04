@@ -2430,6 +2430,10 @@ definitions:
           bpfSocketLBHostnsOnly:
             description: flag bpf-lb-sock-hostns-only
             type: boolean
+          annotations:
+            type: array
+            items:
+              type: string
   AllocationMap:
     description: |
       Map of allocated IPs

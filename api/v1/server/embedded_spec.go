@@ -3723,6 +3723,12 @@ func init() {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
+            "annotations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "bpfSocketLBHostnsOnly": {
               "description": "flag bpf-lb-sock-hostns-only",
               "type": "boolean"
@@ -9525,6 +9531,12 @@ func init() {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
+            "annotations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "bpfSocketLBHostnsOnly": {
               "description": "flag bpf-lb-sock-hostns-only",
               "type": "boolean"
@@ -9712,6 +9724,12 @@ func init() {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "annotations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "bpfSocketLBHostnsOnly": {
           "description": "flag bpf-lb-sock-hostns-only",
           "type": "boolean"
