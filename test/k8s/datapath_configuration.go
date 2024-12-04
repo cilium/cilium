@@ -655,7 +655,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	SkipContextIf(helpers.DoesNotRunOnNetNextKernel, "High-scale IPcache", func() {
+	// Quarantine waiting for https://github.com/cilium/cilium/pull/36373 before deleting the test
+	SkipContextIf(func() bool { return helpers.DoesNotRunOnNetNextKernel() || helpers.SkipQuarantined() }, "High-scale IPcache", func() {
 		const hsIPcacheFile = "high-scale-ipcache.yaml"
 
 		AfterEach(func() {
