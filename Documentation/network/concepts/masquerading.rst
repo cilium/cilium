@@ -174,3 +174,9 @@ primary interface address. The latter is then only considered as a catch-all
 fallback, and for the default routes. For these advanced cases the user needs
 to ensure that there are no overlapping destination CIDRs as routes on the
 relevant masquerading interfaces.
+
+With the ``enable-masquerade-to-route-source: "true"`` option, Cilium will, 
+by default, use interfaces listed in the ``devices`` field as the egress masquerade interfaces 
+when ``egress-masquerade-interfaces`` is empty. When ``egress-masquerade-interfaces`` is set, 
+it takes precedence over ``devices`` to choose which network interface should perform masquerading.
+You can set ``egress-masquerade-interfaces`` to match multiple interfaces like this: ``eth+ ens+``.
