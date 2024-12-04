@@ -38,6 +38,7 @@ type BGPParams struct {
 	DaemonConfig *option.DaemonConfig
 	JobGroup     job.Group
 	Health       cell.Health
+	Metrics      *BGPOperatorMetrics
 
 	// resource tracking
 	ClusterConfigResource      resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
@@ -53,6 +54,7 @@ type BGPResourceManager struct {
 	lc        cell.Lifecycle
 	jobs      job.Group
 	health    cell.Health
+	metrics   *BGPOperatorMetrics
 
 	// For BGP Cluster Config
 	clusterConfig           resource.Resource[*cilium_api_v2alpha1.CiliumBGPClusterConfig]
@@ -88,6 +90,7 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 		jobs:      p.JobGroup,
 		lc:        p.LC,
 		health:    p.Health,
+		metrics:   p.Metrics,
 
 		reconcileCh:        make(chan struct{}, 1),
 		bgpClusterSyncCh:   make(chan struct{}, 1),
