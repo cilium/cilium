@@ -1094,21 +1094,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
-#ifdef ENABLE_IPSEC
-	if (!from_host) {
-		/* If the packet needs decryption, we want to send it straight to the
-		 * stack. There's no need to run service handling logic, host firewall,
-		 * etc. on an encrypted packet.
-		 * In all other cases (packet doesn't need decryption or already
-		 * decrypted), we want to run all subsequent logic here. We therefore
-		 * ignore the return value from do_decrypt.
-		 */
-		do_decrypt(ctx, proto);
-		if (ctx->mark == MARK_MAGIC_DECRYPT)
-			return CTX_ACT_OK;
-	}
-#endif
-
 	if (from_host) {
 		__u32 magic;
 
@@ -1326,6 +1311,19 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
 	}
+
+#ifdef ENABLE_IPSEC
+	/* If the packet needs decryption, we want to send it straight to the
+	 * stack. There's no need to run service handling logic, host firewall,
+	 * etc. on an encrypted packet.
+	 * In all other cases (packet doesn't need decryption or already
+	 * decrypted), we want to run all subsequent logic here. We therefore
+	 * ignore the return value from do_decrypt.
+	 */
+	do_decrypt(ctx, proto);
+	if (ctx->mark == MARK_MAGIC_DECRYPT)
+		return CTX_ACT_OK;
+#endif
 
 	return do_netdev(ctx, proto, false);
 
