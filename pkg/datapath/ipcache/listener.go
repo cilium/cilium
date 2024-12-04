@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -42,13 +43,17 @@ type BPFListener struct {
 
 	// monitorNotify is used to notify the monitor about ipcache updates
 	monitorNotify monitorNotify
+
+	// tunnelConf holds the tunneling configuration.
+	tunnelConf tunnel.Config
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(m Map, mn monitorNotify) *BPFListener {
+func NewListener(m Map, mn monitorNotify, tunnelConf tunnel.Config) *BPFListener {
 	return &BPFListener{
 		bpfMap:        m,
 		monitorNotify: mn,
+		tunnelConf:    tunnelConf,
 	}
 }
 
@@ -129,9 +134,17 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 			// the local host, then the ipcache should be populated
 			// with the hostIP so that this traffic can be guided
 			// to a tunnel endpoint destination.
-			nodeIPv4 := node.GetIPv4()
-			if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(nodeIPv4) {
-				tunnelEndpoint = ip4
+			switch l.tunnelConf.UnderlayProtocol() {
+			case tunnel.IPv4:
+				nodeIPv4 := node.GetIPv4()
+				if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(nodeIPv4) {
+					tunnelEndpoint = ip4
+				}
+			case tunnel.IPv6:
+				nodeIPv6 := node.GetIPv6()
+				if !newHostIP.Equal(nodeIPv6) {
+					tunnelEndpoint = newHostIP
+				}
 			}
 		}
 		value := ipcacheMap.NewValue(uint32(newID.ID), tunnelEndpoint, encryptKey,
