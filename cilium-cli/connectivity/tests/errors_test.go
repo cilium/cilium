@@ -26,11 +26,13 @@ level=error msg="bar"
 
 	for _, tt := range []struct {
 		levels        []string
+		version       semver.Version
 		wantLen       int
 		wantLogsCount map[string]int
 	}{
 		{
 			levels:  defaults.LogCheckLevels,
+			version: semver.MustParse("1.17.0"),
 			wantLen: 2,
 			wantLogsCount: map[string]int{
 				`level=error msg="bar"`:   2,
@@ -38,7 +40,16 @@ level=error msg="bar"
 			},
 		},
 		{
+			levels:  defaults.LogCheckLevels,
+			version: semver.MustParse("1.16.99"),
+			wantLen: 1,
+			wantLogsCount: map[string]int{
+				`level=error msg="bar"`: 2,
+			},
+		},
+		{
 			levels:  []string{defaults.LogLevelError},
+			version: semver.MustParse("1.17.0"),
 			wantLen: 1,
 			wantLogsCount: map[string]int{
 				`level=error msg="bar"`: 2,
@@ -46,11 +57,12 @@ level=error msg="bar"
 		},
 		{
 			levels:        []string{},
+			version:       semver.MustParse("1.17.0"),
 			wantLen:       0,
 			wantLogsCount: map[string]int{},
 		},
 	} {
-		s := NoErrorsInLogs(semver.MustParse("1.15.0"), tt.levels).(*noErrorsInLogs)
+		s := NoErrorsInLogs(tt.version, tt.levels).(*noErrorsInLogs)
 		fails := s.findUniqueFailures(errs)
 		assert.Len(t, fails, tt.wantLen)
 		for wantMsg, wantCount := range tt.wantLogsCount {
