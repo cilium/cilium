@@ -1248,13 +1248,20 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []netip.Addr, TT
 		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
 		switch ans := ans.(type) {
 		case *dns.A:
-			// Parsing of the DNS message does the IP validation for us.
-			responseIPs = append(responseIPs, netipx.MustFromStdIP(ans.A))
+			ip, ok := netipx.FromStdIP(ans.A)
+			if !ok {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in A record")
+			}
+			responseIPs = append(responseIPs, ip)
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 		case *dns.AAAA:
-			responseIPs = append(responseIPs, netipx.MustFromStdIP(ans.AAAA))
+			ip, ok := netipx.FromStdIP(ans.AAAA)
+			if !ok {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in AAAA record")
+			}
+			responseIPs = append(responseIPs, ip)
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
