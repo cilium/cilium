@@ -13,6 +13,17 @@ import (
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
+// BGP metric labels
+const (
+	LabelVRouter     = "vrouter"
+	LabelNeighbor    = "neighbor"
+	LabelNeighborAsn = "neighbor_asn"
+	LabelAfi         = "afi"
+	LabelSafi        = "safi"
+
+	MetricsSubsystem = "bgp_control_plane"
+)
+
 // BGPGlobal contains high level BGP configuration for given instance.
 type BGPGlobal struct {
 	ASN                   uint32
