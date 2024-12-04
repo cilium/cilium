@@ -165,6 +165,7 @@ kprobe:br_forward
 }
 
 // Trace TCP connections established by the L7 proxy, even if the source address belongs to the host.
+// Ignore connections with the destination address outside pod CIDRs.
 kprobe:tcp_connect
 {
   if (strncmp(comm, "wrk:", 4) != 0) {
@@ -173,6 +174,19 @@ kprobe:tcp_connect
 
   $sk = ((struct sock *) arg0);
   $inet_family = $sk->__sk_common.skc_family;
+  $dst_is_pod = false;
+
+  if ($inet_family == AF_INET) {
+    $dst_is_pod = (bswap($sk->__sk_common.skc_daddr) & MASK4) == CIDR4;
+  }
+
+  if ($inet_family == AF_INET6) {
+    $dst_is_pod = bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) == CIDR6;
+  }
+
+  if (!$dst_is_pod) {
+    return
+  }
 
   if ($inet_family == AF_INET) {
     @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
