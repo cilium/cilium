@@ -108,12 +108,12 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
-		packetOffset = monitor.DropNotifyLen
 		dn = &monitor.DropNotify{}
 		if err := monitor.DecodeDropNotify(data, dn); err != nil {
 			return fmt.Errorf("failed to parse drop: %w", err)
 		}
 		eventSubType = dn.SubType
+		packetOffset = (int)(dn.DataOffset())
 	case monitorAPI.MessageTypeTrace:
 		tn = &monitor.TraceNotify{}
 		if err := monitor.DecodeTraceNotify(data, tn); err != nil {

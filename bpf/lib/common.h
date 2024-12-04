@@ -568,12 +568,16 @@ enum {
 	.source		= EVENT_SOURCE,	\
 	.hash		= get_hash(ctx)   /* Avoids hash recalculation, assumes hash has been already calculated */
 
-#define __notify_pktcap_hdr(o, c)	\
+#define __notify_pktcap_hdr(o, c, v)	\
 	.len_orig	= (o),		\
 	.len_cap	= (c),		\
-	.version	= NOTIFY_CAPTURE_VER
+	.version	= (v)
 
-/* Capture notifications version. Must be incremented when format changes. */
+/* Base capture notifications version.
+ * Must be incremented when the format of NOTIFY_CAPTURE_HDR changes.
+ *
+ * Individual notify messages may evolve independently, specifying their own versions.
+ */
 #define NOTIFY_CAPTURE_VER 1
 
 #ifndef TRACE_PAYLOAD_LEN
