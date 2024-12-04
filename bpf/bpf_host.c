@@ -1348,15 +1348,17 @@ int cil_from_host(struct __ctx_buff *ctx)
 	edt_set_aggregate(ctx, 0);
 
 	if (!validate_ethertype(ctx, &proto)) {
+		__u32 dst_sec_identity = UNKNOWN_ID;
+		__u32 src_sec_identity = HOST_ID;
+
 #ifdef ENABLE_HOST_FIREWALL
 		int ret = DROP_UNSUPPORTED_L2;
-		__u32 id = WORLD_ID;
-		__u32 sec_label = SECLABEL;
 
-		return send_drop_notify(ctx, sec_label, id, TRACE_EP_ID_UNKNOWN, ret,
+		return send_drop_notify(ctx, src_sec_identity, dst_sec_identity,
+					TRACE_EP_ID_UNKNOWN, ret,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
-		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, UNKNOWN_ID,
+		send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity, dst_sec_identity,
 				  TRACE_EP_ID_UNKNOWN,
 				  TRACE_IFINDEX_UNKNOWN, TRACE_REASON_UNKNOWN, 0);
 		/* Pass unknown traffic to the stack */
