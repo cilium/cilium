@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -19,6 +20,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newSecretResource),
 	cell.Invoke(registerBGPResourceManager),
 	cell.Invoke(registerPeerConfigStatusReconciler),
+	metrics.Metric(NewBGPOperatorMetrics),
 )
 
 func newSecretResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {

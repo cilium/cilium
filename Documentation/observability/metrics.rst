@@ -636,6 +636,19 @@ Exported Metrics
 
 All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
 
+.. _metrics_bgp_control_plane_operator:
+
+BGP Control Plane Operator
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+================================== ======================= ======== ======================================================================
+Name                               Labels                  Default  Description
+================================== ======================= ======== ======================================================================
+``cluster_config_error_count``     ``bgp_cluster_config``  Enabled  Number of errors returned per BGP cluster configuration reconciliation
+================================== ======================= ======== ======================================================================
+
+All metrics are enabled only when the BGP Control Plane is enabled.
+
 .. _ipam_metrics:
 
 IPAM
