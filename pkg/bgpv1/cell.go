@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
-	"github.com/cilium/cilium/pkg/bgpv1/metrics"
+	bgp_metrics "github.com/cilium/cilium/pkg/bgpv1/metrics"
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -95,9 +96,11 @@ var Cell = cell.Module(
 	cell.Invoke(
 		// Invoke bgp controller to trigger the constructor.
 		func(*agent.Controller) {},
-		// Register the metrics collector
-		metrics.RegisterCollector,
+		// Register the bgp_metrics collector
+		bgp_metrics.RegisterCollector,
 	),
+
+	metrics.Metric(manager.NewBGPManagerMetrics),
 )
 
 func newBGPPeeringPolicyResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy] {

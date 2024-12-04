@@ -57,6 +57,7 @@ type bgpRouterManagerParams struct {
 	JobGroup         job.Group
 	DaemonConfig     *option.DaemonConfig
 	ConfigMode       *mode.ConfigMode
+	Metrics          *BGPManagerMetrics
 	Reconcilers      []reconciler.ConfigReconciler   `group:"bgp-config-reconciler"`
 	ReconcilersV2    []reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
 	StateReconcilers []reconcilerv2.StateReconciler  `group:"bgp-state-reconciler-v2"`
@@ -146,6 +147,9 @@ type BGPRouterManager struct {
 
 	// state management
 	state State
+
+	// internal metrics
+	metrics *BGPManagerMetrics
 }
 
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
@@ -178,6 +182,8 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 			reconcileSignal:        make(chan struct{}, 1),
 			instanceDeletionSignal: make(chan string),
 		},
+
+		metrics: params.Metrics,
 	}
 
 	params.JobGroup.Add(
@@ -931,15 +937,18 @@ func (m *BGPRouterManager) reconcileBGPConfigV2(ctx context.Context,
 	newc *v2alpha1api.CiliumBGPNodeInstance,
 	ciliumNode *v2api.CiliumNode) error {
 
+	reconcileStart := time.Now()
 	for _, r := range m.ConfigReconcilers {
 		if err := r.Reconcile(ctx, reconcilerv2.ReconcileParams{
 			BGPInstance:   i,
 			DesiredConfig: newc,
 			CiliumNode:    ciliumNode,
 		}); err != nil {
+			m.metrics.ReconcileErrorCount.WithLabelValues(newc.Name).Inc()
 			return err
 		}
 	}
+	m.metrics.ReconcileRunDuration.WithLabelValues(newc.Name).Observe(time.Since(reconcileStart).Seconds())
 	i.Config = newc
 	return nil
 }
