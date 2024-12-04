@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -69,40 +70,8 @@ func main() {
 	}
 
 	overwritesPath := path.Join(*sysctlD, *ciliumOverwrites)
-	f, err := os.OpenFile(overwritesPath, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		fmt.Printf("unable to create cilium sysctl overwrites config: %s\n", err)
-		return
-	}
-	defer f.Close()
-
-	currentContents, err := safeio.ReadAllLimit(f, safeio.MB)
-	if err != nil {
-		fmt.Printf("read config: %s\n", err)
-		return
-	}
-
-	if string(currentContents) == sysctlConfig {
-		fmt.Println("sysctl config up-to-date, nothing to do")
-		return
-	}
-
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
-		fmt.Printf("error while seeking to start of sysctl config: %s\n", err)
-		return
-	}
-
-	// Truncate the whole file
-	err = f.Truncate(0)
-	if err != nil {
-		fmt.Printf("error while truncating sysctl config: %s\n", err)
-		return
-	}
-
-	_, err = fmt.Fprint(f, sysctlConfig)
-	if err != nil {
-		fmt.Printf("error while writing to sysctl config: %s\n", err)
+	if err := writeConfig(overwritesPath); err != nil {
+		fmt.Println(err)
 		return
 	}
 
@@ -138,4 +107,46 @@ func main() {
 	}
 
 	fmt.Printf("systemd unit '%s' restarted\n", *sysctlUnit)
+}
+
+// Open/create file at `overwritesPath`, ensure its contents are `sysctlConfig`. The file is flushed
+// and closed on return.
+func writeConfig(overwritesPath string) error {
+	f, err := os.OpenFile(overwritesPath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("unable to create cilium sysctl overwrites config: %w\n", err)
+	}
+	defer f.Close()
+
+	currentContents, err := safeio.ReadAllLimit(f, safeio.MB)
+	if err != nil {
+		return fmt.Errorf("read config: %w\n", err)
+	}
+
+	if string(currentContents) == sysctlConfig {
+		return errors.New("sysctl config up-to-date, nothing to do")
+	}
+
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("error while seeking to start of sysctl config: %w\n", err)
+	}
+
+	// Truncate the whole file
+	err = f.Truncate(0)
+	if err != nil {
+		return fmt.Errorf("error while truncating sysctl config: %w\n", err)
+	}
+
+	_, err = fmt.Fprint(f, sysctlConfig)
+	if err != nil {
+		return fmt.Errorf("error while writing to sysctl config: %w\n", err)
+	}
+
+	err = f.Sync()
+	if err != nil {
+		return fmt.Errorf("error while syncing config: %w\n", err)
+	}
+
+	return nil
 }
