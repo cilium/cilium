@@ -683,17 +683,17 @@ for debugging what is going on inside them, for example:
 .. code-block:: shell-session
 
     # ls /sys/fs/bpf/tc/globals/
-    cilium_calls_15124  cilium_calls_48896        cilium_ct4_global       cilium_lb4_rr_seq       cilium_lb6_services  cilium_policy_25729  cilium_policy_60670       cilium_proxy6
-    cilium_calls_25729  cilium_calls_60670        cilium_ct6_global       cilium_lb4_services     cilium_lxc           cilium_policy_3978   cilium_policy_reserved_1  cilium_reserved_policy
-    cilium_calls_3978   cilium_calls_netdev_ns_1  cilium_events           cilium_lb6_reverse_nat  cilium_policy        cilium_policy_4314   cilium_policy_reserved_2  cilium_tunnel_map
-    cilium_calls_4314   cilium_calls_overlay_2    cilium_lb4_reverse_nat  cilium_lb6_rr_seq       cilium_policy_15124  cilium_policy_48896  cilium_proxy4
-    # bpf-map info /sys/fs/bpf/tc/globals/cilium_policy_15124
+    cilium_calls_15124  cilium_calls_48896        cilium_ct4_global       cilium_lb4_rr_seq       cilium_lb6_services  cilium_policy_v2_25729  cilium_policy_v2_60670       cilium_proxy6
+    cilium_calls_25729  cilium_calls_60670        cilium_ct6_global       cilium_lb4_services     cilium_lxc           cilium_policy_v2_3978   cilium_policy_v2_reserved_1  cilium_reserved_policy
+    cilium_calls_3978   cilium_calls_netdev_ns_1  cilium_events           cilium_lb6_reverse_nat  cilium_policy        cilium_policy_v2_4314   cilium_policy_v2_reserved_2  cilium_tunnel_map
+    cilium_calls_4314   cilium_calls_overlay_2    cilium_lb4_reverse_nat  cilium_lb6_rr_seq       cilium_policy_v2_15124  cilium_policy_v2_48896  cilium_proxy4
+    # bpf-map info /sys/fs/bpf/tc/globals/cilium_policy_v2_15124
     Type:           Hash
     Key size:       8
     Value size:     24
     Max entries:    1024
     Flags:          0x0
-    # bpf-map dump /sys/fs/bpf/tc/globals/cilium_policy_15124
+    # bpf-map dump /sys/fs/bpf/tc/globals/cilium_policy_v2_15124
     Key:
     00000000  6a 01 00 00 82 23 06 00                           |j....#..|
     Value:

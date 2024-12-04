@@ -31,7 +31,7 @@ const (
 	// MapName is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
 	// with that identity on that port for that direction.
-	MapName = "cilium_policy_"
+	MapName = "cilium_policy_v2_"
 
 	// PolicyCallMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
