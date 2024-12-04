@@ -163,6 +163,7 @@ option ``egress-masquerade-interfaces: eth0`` can be used.
    ``eth+``, all interfaces matching the prefix ``eth`` will be used for
    masquerading.
 
+
 For the advanced case where the routing layer would select different source addresses
 depending on the destination CIDR, the option ``enable-masquerade-to-route-source: "true"``
 can be used in order to masquerade to the source addresses rather than to the
@@ -170,3 +171,13 @@ primary interface address. The latter is then only considered as a catch-all
 fallback, and for the default routes. For these advanced cases the user needs
 to ensure that there are no overlapping destination CIDRs as routes on the
 relevant masquerading interfaces.
+
+With the ``enable-masquerade-to-route-source: "true"`` option, Cilium will, 
+by default, use interfaces listed in the ``devices`` field as the egress masquerade interfaces 
+when ``egress-masquerade-interfaces`` is empty. When ``egress-masquerade-interfaces`` is set, 
+it takes precedence over ``devices`` to restrict which network interface should perform masquerading.
+
+.. note::
+
+   with ``enable-masquerade-to-route-source: "true"`` option ,
+   you can set egress-masquerade-interfaces as a list such as ``eth1 eth2 eth3``.
