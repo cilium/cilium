@@ -1196,11 +1196,17 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
 		switch ans := ans.(type) {
 		case *dns.A:
+			if len(ans.A) != 4 {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in A record")
+			}
 			responseIPs = append(responseIPs, ans.A)
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 		case *dns.AAAA:
+			if len(ans.AAAA) != 16 {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in AAAA record")
+			}
 			responseIPs = append(responseIPs, ans.AAAA)
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
