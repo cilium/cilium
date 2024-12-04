@@ -15,11 +15,12 @@ import (
 
 // BGP metric labels
 const (
-	LabelVRouter     = "vrouter"
-	LabelNeighbor    = "neighbor"
-	LabelNeighborAsn = "neighbor_asn"
-	LabelAfi         = "afi"
-	LabelSafi        = "safi"
+	LabelClusterConfig = "bgp_cluster_config"
+	LabelVRouter       = "vrouter"
+	LabelNeighbor      = "neighbor"
+	LabelNeighborAsn   = "neighbor_asn"
+	LabelAfi           = "afi"
+	LabelSafi          = "safi"
 
 	MetricsSubsystem = "bgp_control_plane"
 )
