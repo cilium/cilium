@@ -6,12 +6,14 @@ package types
 import "context"
 
 type FakeRouter struct {
-	paths map[string]*Path
+	paths    map[string]*Path
+	policies map[string]*RoutePolicy
 }
 
 func NewFakeRouter() Router {
 	return &FakeRouter{
-		paths: make(map[string]*Path),
+		paths:    make(map[string]*Path),
+		policies: make(map[string]*RoutePolicy),
 	}
 }
 
@@ -46,10 +48,12 @@ func (f *FakeRouter) WithdrawPath(ctx context.Context, p PathRequest) error {
 }
 
 func (f *FakeRouter) AddRoutePolicy(ctx context.Context, p RoutePolicyRequest) error {
+	f.policies[p.Policy.Name] = p.Policy
 	return nil
 }
 
 func (f *FakeRouter) RemoveRoutePolicy(ctx context.Context, p RoutePolicyRequest) error {
+	delete(f.policies, p.Policy.Name)
 	return nil
 }
 
@@ -69,7 +73,11 @@ func (f *FakeRouter) GetRoutes(ctx context.Context, r *GetRoutesRequest) (*GetRo
 }
 
 func (f *FakeRouter) GetRoutePolicies(ctx context.Context) (*GetRoutePoliciesResponse, error) {
-	return nil, nil
+	var policies []*RoutePolicy
+	for _, policy := range f.policies {
+		policies = append(policies, policy)
+	}
+	return &GetRoutePoliciesResponse{Policies: policies}, nil
 }
 
 func (f *FakeRouter) GetBGP(ctx context.Context) (GetBGPResponse, error) {

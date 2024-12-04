@@ -197,6 +197,106 @@ func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types
 	return policy, nil
 }
 
+// MergeRoutePolicies evaluates two instances of RoutePolicy{} and returns a single RoutePolicy{} representing
+// the merger of the two.  The merge operation focuses on each policy's Statements.  Statements define one or more
+// Actions, and these actions may include setting BGP Communities, Local Preference, and others.  Statements are
+// keyed by their Conditions, which define the BGP Neighbor, AF, and Prefixes it applies to.
+//
+// The merge operation evaluates Actions across only those statements with the same key. For these Statements,
+// the merge takes the union of all BGP Communities set.  When differing Local Preference values are set, the
+// higher value is selected.
+func MergeRoutePolicies(policyA *types.RoutePolicy, policyB *types.RoutePolicy) (*types.RoutePolicy, error) {
+	if policyA == nil || policyB == nil {
+		return nil, fmt.Errorf("route policy is nil")
+	}
+	if policyA.Name != policyB.Name {
+		return nil, fmt.Errorf("route policy names do not match")
+	}
+	if policyA.Type != policyB.Type {
+		return nil, fmt.Errorf("route policy types do not match")
+	}
+
+	mergedPolicy := &types.RoutePolicy{
+		Name:       policyA.Name,
+		Type:       policyA.Type,
+		Statements: []*types.RoutePolicyStatement{},
+	}
+
+	// Maps a string key representing the unique combination of RoutePolicyConditions{} to a RoutePolicyStatement{}.
+	// When multiple instances of the same key are observed, the existing RoutePolicyStatement{} will be updated to
+	// reflect the union of attributes set.
+	mergedPolicyStatements := map[string]*types.RoutePolicyStatement{}
+
+	// Extract the first policy's statements and attributes
+	mergedPolicyStatements = mergePolicy(policyA, mergedPolicyStatements)
+
+	// Extract and merge the second policy's statements and attributes
+	mergedPolicyStatements = mergePolicy(policyB, mergedPolicyStatements)
+
+	for _, mergedStatement := range mergedPolicyStatements {
+		mergedPolicy.Statements = append(mergedPolicy.Statements, mergedStatement)
+	}
+
+	// Deduplicate communities
+	for _, statement := range mergedPolicy.Statements {
+		if len(statement.Actions.AddCommunities) != 0 {
+			uniqueCommunities := sets.NewString(statement.Actions.AddCommunities...).List()
+			statement.Actions.AddCommunities = uniqueCommunities
+		}
+		if len(statement.Actions.AddLargeCommunities) != 0 {
+			uniqueLargeCommunities := sets.NewString(statement.Actions.AddLargeCommunities...).List()
+			statement.Actions.AddLargeCommunities = uniqueLargeCommunities
+		}
+	}
+
+	return mergedPolicy, nil
+}
+
+func mergePolicy(
+	policy *types.RoutePolicy,
+	inputPolicyStatements map[string]*types.RoutePolicyStatement,
+) (outputPolicyStatements map[string]*types.RoutePolicyStatement) {
+
+	// This function aims to be purely functional.  Here, we are creating a copy of the input to hold the result
+	// of the merge operation.
+	outputPolicyStatements = map[string]*types.RoutePolicyStatement{}
+	for key, value := range inputPolicyStatements {
+		outputPolicyStatements[key] = value
+	}
+
+	for _, statement := range policy.Statements {
+		key := statement.Conditions.String()
+		if _, found := outputPolicyStatements[key]; !found {
+			outputPolicyStatements[key] = &types.RoutePolicyStatement{
+				Actions:    statement.Actions,
+				Conditions: statement.Conditions,
+			}
+		} else {
+			if len(statement.Actions.AddCommunities) > 0 {
+				outputPolicyStatements[key].Actions.AddCommunities = append(
+					outputPolicyStatements[key].Actions.AddCommunities, statement.Actions.AddCommunities...)
+			}
+			if len(statement.Actions.AddLargeCommunities) > 0 {
+				outputPolicyStatements[key].Actions.AddLargeCommunities = append(
+					outputPolicyStatements[key].Actions.AddLargeCommunities, statement.Actions.AddLargeCommunities...)
+			}
+
+			// RFC 4271 states "The higher degree of preference MUST be preferred."
+			if statement.Actions.SetLocalPreference != nil {
+				if outputPolicyStatements[key].Actions.SetLocalPreference == nil {
+					// This is the first with Local Preference set
+					outputPolicyStatements[key].Actions.SetLocalPreference = statement.Actions.SetLocalPreference
+				} else if *statement.Actions.SetLocalPreference > *outputPolicyStatements[key].Actions.SetLocalPreference {
+					// This statement's Local Preference is better than the previous best, use this one.
+					outputPolicyStatements[key].Actions.SetLocalPreference = statement.Actions.SetLocalPreference
+				}
+			}
+		}
+	}
+
+	return outputPolicyStatements
+}
+
 func getCommunities(advert v2alpha1.BGPAdvertisement) (standard, large []string, err error) {
 	standard, err = mergeAndDedupCommunities(advert)
 	if err != nil {
