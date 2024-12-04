@@ -163,7 +163,6 @@ option ``egress-masquerade-interfaces: eth0`` can be used.
    ``eth+``, all interfaces matching the prefix ``eth`` will be used for
    masquerading.
 
-
 For the advanced case where the routing layer would select different source addresses
 depending on the destination CIDR, the option ``enable-masquerade-to-route-source: "true"``
 can be used in order to masquerade to the source addresses rather than to the
