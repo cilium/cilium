@@ -946,18 +946,12 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	})
 }
 
-// AnnotationsResolverCB provides an implementation for resolving the pod
-// annotations.
-type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err error)
-type AnnotationsResolverCBBW func(ns, podName string) (bw string, prio string, err error)
-
-// UpdateNoTrackRules updates the NOTRACK iptable rules for this endpoint. If anno
-// is empty, then any existing NOTRACK rules will be removed. If anno cannot be parsed,
-// we remove existing NOTRACK rules too if there's any.
-func (e *Endpoint) UpdateNoTrackRules(annoCB AnnotationsResolverCB) {
+// UpdateNoTrackRules updates the NOTRACK iptable rules for this endpoint. If noTrackPort
+// is empty, then any existing NOTRACK rules will be removed.
+func (e *Endpoint) UpdateNoTrackRules(noTrackPort string) {
 	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointNoTrackEvent{
-		ep:     e,
-		annoCB: annoCB,
+		ep:      e,
+		portStr: noTrackPort,
 	}))
 	if err != nil {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint notrack event")
@@ -973,11 +967,12 @@ func (e *Endpoint) UpdateNoTrackRules(annoCB AnnotationsResolverCB) {
 
 // UpdateBandwidthPolicy updates the egress bandwidth of this endpoint to
 // progagate the throttle rate to the BPF data path.
-func (e *Endpoint) UpdateBandwidthPolicy(bwm dptypes.BandwidthManager, annoCB AnnotationsResolverCBBW) {
+func (e *Endpoint) UpdateBandwidthPolicy(bwm dptypes.BandwidthManager, bandwidthEgress, priority string) {
 	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyBandwidthEvent{
-		bwm:    bwm,
-		ep:     e,
-		annoCB: annoCB,
+		bwm:             bwm,
+		ep:              e,
+		bandwidthEgress: bandwidthEgress,
+		priority:        priority,
 	}))
 	if err != nil {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy bandwidth event")

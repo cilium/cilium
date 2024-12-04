@@ -494,23 +494,15 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 
 		if annotationsChanged {
 			if annoChangedBandwidth {
-				podEP.UpdateBandwidthPolicy(k.bandwidthManager, func(ns, podName string) (bandwidthEgress string, priority string, err error) {
-					p, err := k.GetCachedPod(ns, podName)
-					if err != nil {
-						return "", "", nil
-					}
-					return p.ObjectMeta.Annotations[bandwidth.EgressBandwidth], p.Annotations[bandwidth.Priority], nil
-				})
+				podEP.UpdateBandwidthPolicy(k.bandwidthManager,
+					newK8sPod.Annotations[bandwidth.EgressBandwidth],
+					newK8sPod.Annotations[bandwidth.Priority])
 			}
 			if annoChangedNoTrack {
-				podEP.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
-					p, err := k.GetCachedPod(ns, podName)
-					if err != nil {
-						return "", nil
-					}
-					value, _ := annotation.Get(p, annotation.NoTrack, annotation.NoTrackAlias)
-					return value, nil
-				})
+				podEP.UpdateNoTrackRules(func() string {
+					value, _ := annotation.Get(newK8sPod, annotation.NoTrack, annotation.NoTrackAlias)
+					return value
+				}())
 			}
 			realizePodAnnotationUpdate(podEP)
 		}
