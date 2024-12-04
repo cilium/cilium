@@ -116,7 +116,7 @@ jobs:
             --set prometheus.enabled=true \
             --set operator.prometheus.enabled=true \
             --set hubble.enabled=true \
-            --set hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\""
+            --set=hubble.metrics.enabled={dns,drop,tcp,flow,port-distribution,icmp,http}"
 
           if [ -f ".github/actions/helm-default/ci-required-values.yaml" ]; then
             HELM_ARGS+=" --values=.github/actions/helm-default/ci-required-values.yaml"
