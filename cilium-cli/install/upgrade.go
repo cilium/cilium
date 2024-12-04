@@ -29,14 +29,15 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Clien
 	}
 
 	upgradeParams := helm.UpgradeParameters{
-		Namespace:    k.params.Namespace,
-		Name:         k.params.HelmReleaseName,
-		Chart:        k.chart, // k.chart was initialized in NewK8sInstaller, based on Version and HelmChartDirectory
-		Values:       vals,
-		ResetValues:  k.params.HelmResetValues,
-		ReuseValues:  k.params.HelmReuseValues,
-		Wait:         k.params.Wait,
-		WaitDuration: k.params.WaitDuration,
+		Namespace:            k.params.Namespace,
+		Name:                 k.params.HelmReleaseName,
+		Chart:                k.chart, // k.chart was initialized in NewK8sInstaller, based on Version and HelmChartDirectory
+		Values:               vals,
+		ResetValues:          k.params.HelmResetValues,
+		ReuseValues:          k.params.HelmReuseValues,
+		ResetThenReuseValues: k.params.HelmResetThenReuseValues,
+		Wait:                 k.params.Wait,
+		WaitDuration:         k.params.WaitDuration,
 
 		// In addition to the DryRun i/o, we need to tell Helm not to execute the upgrade
 		DryRun:           k.params.DryRun,

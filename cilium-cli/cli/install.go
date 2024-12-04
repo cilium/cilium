@@ -194,6 +194,8 @@ cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 
 	addCommonInstallFlags(cmd, &params)
 	addCommonHelmFlags(cmd, &params)
+	cmd.Flags().BoolVar(&params.HelmResetThenReuseValues, "reset-then-reuse-values", true,
+		"When upgrading, reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --set and -f. If '--reset-values' or '--reuse-values' is specified, this is ignored")
 	cmd.Flags().BoolVar(&params.HelmResetValues, "reset-values", false,
 		"When upgrading, reset the helm values to the ones built into the chart")
 	cmd.Flags().BoolVar(&params.HelmReuseValues, "reuse-values", false,

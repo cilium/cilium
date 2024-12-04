@@ -285,6 +285,8 @@ type UpgradeParameters struct {
 	ResetValues bool
 	// --reuse-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
 	ReuseValues bool
+	// --reset-then-reuse-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
+	ResetThenReuseValues bool
 	// Wait determines if Helm actions will wait for completion
 	Wait bool
 	// WaitDuration is the timeout for helm operations
@@ -317,6 +319,7 @@ func Upgrade(
 
 	helmClient := action.NewUpgrade(actionConfig)
 	helmClient.Namespace = params.Namespace
+	helmClient.ResetThenReuseValues = params.ResetThenReuseValues
 	helmClient.ResetValues = params.ResetValues
 	helmClient.ReuseValues = params.ReuseValues
 	helmClient.Wait = params.Wait

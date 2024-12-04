@@ -131,6 +131,10 @@ type Parameters struct {
 	// specified by other flags. This options take precedence over the HelmResetValues option.
 	HelmReuseValues bool
 
+	// HelmResetThenReuseValues if true, will reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --set and -f.
+	// If '--reset-values' or '--reuse-values' is specified, this is ignored
+	HelmResetThenReuseValues bool
+
 	// DryRun writes resources to be installed to stdout without actually installing them. For Helm
 	// installation mode only.
 	DryRun bool
