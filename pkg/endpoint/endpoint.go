@@ -1788,21 +1788,14 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 
 	e.SetPod(pod)
 	e.SetK8sMetadata(k8sMetadata.ContainerPorts)
-	e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
-		po, _, err := resolveMetadata(ns, podName)
-		if err != nil {
-			return "", filterResolveMetadataError(err)
-		}
-		value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
-		return value, nil
-	})
-	e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, prio string, err error) {
-		_, k8sMetadata, err := resolveMetadata(ns, podName)
-		if err != nil {
-			return "", "", filterResolveMetadataError(err)
-		}
-		return k8sMetadata.Annotations[bandwidth.EgressBandwidth], k8sMetadata.Annotations[bandwidth.Priority], nil
-	})
+	e.UpdateNoTrackRules(func() string {
+		value, _ := annotation.Get(pod, annotation.NoTrack, annotation.NoTrackAlias)
+		return value
+	}())
+	e.UpdateBandwidthPolicy(bwm,
+		k8sMetadata.Annotations[bandwidth.EgressBandwidth],
+		k8sMetadata.Annotations[bandwidth.Priority],
+	)
 
 	// If 'baseLabels' are not set then 'controllerBaseLabels' only contains
 	// labels from k8s. Thus, we should only replace the labels that have their
