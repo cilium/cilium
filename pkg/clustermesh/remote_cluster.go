@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -61,6 +62,9 @@ type remoteCluster struct {
 
 	// synced tracks the initial synchronization with the remote cluster.
 	synced synced
+
+	// featureMetrics will track which features are enabled with in clustermesh.
+	featureMetrics ClusterMeshMetrics
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
@@ -80,6 +84,9 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	if config != nil {
 		capabilities = config.Capabilities
 	}
+	rc.featureMetrics.AddClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode))
+
+	defer rc.featureMetrics.DelClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode))
 
 	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, backend, capabilities.Cached)
 	if err != nil {
@@ -261,4 +268,33 @@ func (s *synced) wait(ctx context.Context, chs ...<-chan struct{}) error {
 
 func (s *synced) stop() {
 	close(s.stopped)
+}
+
+type ClusterMeshMetrics interface {
+	AddClusterMeshConfig(mode string)
+	DelClusterMeshConfig(mode string)
+}
+
+const (
+	ClusterMeshModeClusterMeshAPIServer       = "clustermesh-apiserver"
+	ClusterMeshModeETCD                       = "etcd"
+	ClusterMeshModeKVStoreMesh                = "kvstoremesh"
+	ClusterMeshModeClusterMeshAPIServerOrETCD = ClusterMeshModeClusterMeshAPIServer + "_or_" + ClusterMeshModeETCD
+	ClusterMeshModeUndefined                  = "undefined"
+)
+
+// ClusterMeshMode returns the mode of the local cluster.
+func ClusterMeshMode(rcc *cmtypes.CiliumClusterConfig, identityMode string) string {
+	switch {
+	case rcc == nil:
+		return ClusterMeshModeUndefined
+	case rcc.Capabilities.Cached:
+		return ClusterMeshModeKVStoreMesh
+	case identityMode == option.IdentityAllocationModeCRD:
+		return ClusterMeshModeClusterMeshAPIServer
+	case identityMode == option.IdentityAllocationModeKVstore:
+		return ClusterMeshModeETCD
+	default:
+		return ClusterMeshModeClusterMeshAPIServerOrETCD
+	}
 }

@@ -68,6 +68,7 @@ type Configuration struct {
 
 	Metrics         Metrics
 	InternalMetrics internal.Metrics
+	FeatureMetrics  ClusterMeshMetrics
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -100,6 +101,8 @@ type ClusterMesh struct {
 
 	// nodeName is the name of the local node. This is used for logging and metrics
 	nodeName string
+
+	FeatureMetrics ClusterMeshMetrics
 }
 
 type ClusterMeshUsedIDs struct {
@@ -149,6 +152,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		globalServices: newGlobalServiceCache(
 			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterName, nodeName),
 		),
+		FeatureMetrics: c.FeatureMetrics,
 	}
 
 	cm.internal = internal.NewClusterMesh(internal.Configuration{
@@ -169,11 +173,12 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 
 func (cm *ClusterMesh) newRemoteCluster(name string, status internal.StatusFunc) internal.RemoteCluster {
 	rc := &remoteCluster{
-		name:    name,
-		mesh:    cm,
-		usedIDs: cm.usedIDs,
-		status:  status,
-		synced:  newSynced(),
+		name:           name,
+		mesh:           cm,
+		usedIDs:        cm.usedIDs,
+		status:         status,
+		synced:         newSynced(),
+		featureMetrics: cm.FeatureMetrics,
 	}
 
 	rc.remoteNodes = store.NewRestartableWatchStore(

@@ -147,6 +147,7 @@ func TestClusterMesh(t *testing.T) {
 		IPCache:               ipc,
 		Metrics:               newMetrics(),
 		InternalMetrics:       internal.MetricsProvider(subsystem)(),
+		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 
