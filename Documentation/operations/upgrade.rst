@@ -351,6 +351,7 @@ Removed Options
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
+* The high-scale mode for ipcache has been deprecated and will be removed in v1.18.
 * The hubble-relay flag ``--dial-timeout`` has been deprecated (now a no-op)
   and will be removed in Cilium 1.18.
 
