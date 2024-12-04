@@ -115,6 +115,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		IPCache:               ipc,
 		Metrics:               newMetrics(),
 		InternalMetrics:       internal.MetricsProvider(subsystem)(),
+		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 	})
 	c.Assert(s.mesh, Not(IsNil))
 

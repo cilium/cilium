@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -50,6 +51,9 @@ var Cell = cell.Module(
 			return m
 		},
 		func(m Metrics) watchers.CNPMetrics {
+			return m
+		},
+		func(m Metrics) clustermesh.ClusterMeshMetrics {
 			return m
 		},
 	),

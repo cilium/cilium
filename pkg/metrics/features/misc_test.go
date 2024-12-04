@@ -4,9 +4,11 @@
 package features
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -281,7 +283,46 @@ func TestCCNP(t *testing.T) {
 
 			assert.Equalf(t, tt.want.wantMetrics.npCCNPIngested, metrics.NPCCNPIngested.WithLabelValues(actionAdd).Get(), "NPCCNPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npCCNPIngested, metrics.NPCCNPIngested.WithLabelValues(actionDel).Get(), "NPCCNPIngested different")
+		})
+	}
+}
 
+func TestClusterMesh(t *testing.T) {
+	type testCase struct {
+		name string
+		mode string
+	}
+	var tests []testCase
+	for _, mode := range defaultClusterMeshMode {
+		tests = append(tests, testCase{
+			name: fmt.Sprintf("ClusterMesh %s", mode),
+			mode: mode,
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			// Check that only the expected mode's counter is incremented
+			for _, mode := range defaultClusterMeshMode {
+
+				metrics := NewMetrics(true)
+				metrics.AddClusterMeshConfig(tt.mode)
+
+				counter, err := metrics.ACLBClusterMeshEnabled.GetMetricWithLabelValues(mode)
+				require.NoError(t, err)
+
+				counterValue := counter.Get()
+				if mode == tt.mode {
+					assert.Equal(t, float64(1), counterValue, "Expected mode %s to be incremented", mode)
+				} else {
+					assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+				}
+				metrics.DelClusterMeshConfig(tt.mode)
+
+				counterValue = counter.Get()
+				assert.Equal(t, float64(0), counterValue, "Expected mode %s to remain at 0", mode)
+			}
 		})
 	}
 }

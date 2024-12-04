@@ -149,9 +149,11 @@ func TestRemoteClusterRun(t *testing.T) {
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
 					Metrics:               newMetrics(),
+					FeatureMetrics:        NewClusterMeshMetricsNoop(),
 				},
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
 				usedIDs:        newClusterMeshUsedIDs(),
+				FeatureMetrics: NewClusterMeshMetricsNoop(),
 			}
 			rc := cm.newRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)
@@ -195,4 +197,16 @@ func TestRemoteClusterRun(t *testing.T) {
 			require.Equal(t, tt.srccfg != nil && tt.srccfg.Capabilities.SyncedCanaries, remoteClient.syncedCanariesWatched)
 		})
 	}
+}
+
+type clusterMeshMetricsNoop struct{}
+
+func (m clusterMeshMetricsNoop) AddClusterMeshConfig(mode string) {
+}
+
+func (m clusterMeshMetricsNoop) DelClusterMeshConfig(mode string) {
+}
+
+func NewClusterMeshMetricsNoop() ClusterMeshMetrics {
+	return &clusterMeshMetricsNoop{}
 }

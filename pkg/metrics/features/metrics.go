@@ -4,6 +4,7 @@
 package features
 
 import (
+	"github.com/cilium/cilium/pkg/clustermesh"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -59,6 +60,8 @@ type Metrics struct {
 	ACLBInternalTrafficPolicyIngested        metric.Vec[metric.Counter]
 	ACLBCiliumEnvoyConfigIngested            metric.Vec[metric.Counter]
 	ACLBCiliumClusterwideEnvoyConfigIngested metric.Vec[metric.Counter]
+
+	ACLBClusterMeshEnabled metric.Vec[metric.Gauge]
 }
 
 const (
@@ -95,6 +98,12 @@ const (
 	advConnExtEnvoyProxyEmbedded   = "embedded"
 	actionAdd                      = "add"
 	actionDel                      = "delete"
+
+	advConnClusterMeshModeAPIServer       = clustermesh.ClusterMeshModeClusterMeshAPIServer
+	advConnClusterMeshModeETCD            = clustermesh.ClusterMeshModeETCD
+	advConnClusterMeshModeKVStoreMesh     = clustermesh.ClusterMeshModeKVStoreMesh
+	advConnClusterMeshModeAPIServerOrETCD = clustermesh.ClusterMeshModeClusterMeshAPIServerOrETCD
+	advConnClusterMeshModeUndefined       = clustermesh.ClusterMeshModeUndefined
 )
 
 var (
@@ -175,6 +184,14 @@ var (
 	defaultActions = []string{
 		actionAdd,
 		actionDel,
+	}
+
+	defaultClusterMeshMode = []string{
+		advConnClusterMeshModeAPIServer,
+		advConnClusterMeshModeETCD,
+		advConnClusterMeshModeKVStoreMesh,
+		advConnClusterMeshModeAPIServerOrETCD,
+		advConnClusterMeshModeUndefined,
 	}
 )
 
@@ -785,6 +802,24 @@ func NewMetrics(withDefaults bool) Metrics {
 					}
 					return metric.NewValues(
 						defaultActions...,
+					)
+				}(),
+			},
+		}),
+
+		ACLBClusterMeshEnabled: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Help:      "Mode of the active Cluster Mesh connections/peers",
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemACLB,
+			Name:      "clustermesh_enabled",
+		}, metric.Labels{
+			{
+				Name: "mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultClusterMeshMode...,
 					)
 				}(),
 			},
