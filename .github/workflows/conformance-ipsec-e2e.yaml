@@ -273,36 +273,13 @@ jobs:
 
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
-      # We need to run the egress gateway tests before checking for unencrypted
-      # packets because redirected pod->world traffic will otherwise be
-      # detected as wrongly unencrypted (when that's expected).
-      - name: Run egress gateway tests (${{ join(matrix.*, ', ') }})
-        if: ${{ matrix.egress-gateway == 'true' }}
-        shell: bash
-        run: |
-          mkdir -p cilium-junits
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test egress-gateway \
-            --flush-ct
-
-      - name: Features tested after egress gateway tests
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested after egress gateway tests"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - egress-gateway"
-
       - name: Start unencrypted packets check
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "true"
 
-      - name: Run all other tests (${{ join(matrix.*, ', ') }})
+      - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -312,14 +289,13 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test '!egress-gateway' \
             --flush-ct
 
-      - name: Features tested after running all other tests
+      - name: Features tested
         uses: ./.github/actions/feature-status
         with:
-          title: "Summary of all features tested after all other tests"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - other tests"
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
 
       - name: Assert that no unencrypted packets are leaked
         uses: ./.github/actions/bpftrace/check
@@ -349,29 +325,6 @@ jobs:
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-check
 
-      # We need to run the egress gateway tests before checking for unencrypted
-      # packets because redirected pod->world traffic will otherwise be
-      # detected as wrongly unencrypted (when that's expected).
-      - name: Run egress gateway tests (${{ join(matrix.*, ', ') }})
-        if: ${{ matrix.egress-gateway == 'true' }}
-        shell: bash
-        run: |
-          mkdir -p cilium-junits
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test egress-gateway \
-            --flush-ct
-
-      - name: Features tested after egress gateway tests after rotating ipsec keys
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested after egress gateway tests after rotating ipsec keys"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - egress-gateway after rotating keys"
-
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
         with:
@@ -394,14 +347,13 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --test '!egress-gateway' \
             --flush-ct $TEST
 
-      - name: Features tested after running all other tests after rotating ipsec keys
+      - name: Features tested
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested after all other tests after rotating ipsec keys"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - other tests after rotating keys"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - after rotating keys"
 
       - name: Assert that no unencrypted packets are leaked during tests
         uses: ./.github/actions/bpftrace/check
