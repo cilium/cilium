@@ -473,33 +473,12 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	e.ctCleaned = true
 
-	// Synchronously try to update PolicyMap for this endpoint. If any
-	// part of updating the PolicyMap fails, bail out.
-	// Unfortunately, this means that the map will be in an inconsistent
-	// state with the current program (if it exists) for this endpoint.
-	// GH-3897 would fix this by creating a new map to do an atomic swap
-	// with the old one.
-	//
-	// This must be done after allocating the new redirects, to update the
-	// policy map with the new proxy ports.
-	stats.mapSync.Start()
-	// Nothing to do if the desired policy is already fully realized.
-	if e.realizedPolicy != e.desiredPolicy {
-		if e.realizedPolicy.Empty() {
-			// Realized policy is empty, sync with the dump from the datapath
-			var policyMapDump policy.MapStateMap
-			policyMapDump, err = e.dumpPolicyMapToMapStateMap()
-			if err != nil {
-				return 0, err
-			}
-			_, _, err = e.syncPolicyMapWith(policyMapDump, false)
-		} else {
-			err = e.syncPolicyMap()
+	if !datapathRegenCtxt.policyMapSyncDone {
+		err = e.policyMapSync(datapathRegenCtxt.policyMapDump, stats)
+		if err != nil {
+			return 0, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %w", err)
 		}
-	}
-	stats.mapSync.End(err == nil)
-	if err != nil {
-		return 0, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %w", err)
+		datapathRegenCtxt.policyMapSyncDone = true
 	}
 
 	// Initialize (if not done yet) the DNS history trigger to allow DNS proxy to trigger
@@ -508,6 +487,32 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	e.initDNSHistoryTrigger()
 
 	return datapathRegenCtxt.epInfoCache.revision, err
+}
+
+// Synchronously try to update PolicyMap for this endpoint. If any
+// part of updating the PolicyMap fails, bail out.
+// Unfortunately, this means that the map will be in an inconsistent
+// state with the current program (if it exists) for this endpoint.
+// GH-3897 would fix this by creating a new map to do an atomic swap
+// with the old one.
+//
+// This must be done after allocating the new redirects, to update the
+// policy map with the new proxy ports.
+//
+// Sync is done against 'policyMapDump' if non-empty, otherwise it is done against e.realizedPolicy
+// e.mutex must be held!
+func (e *Endpoint) policyMapSync(policyMapDump policy.MapStateMap, stats *regenerationStatistics) (err error) {
+	stats.mapSync.Start()
+	// Nothing to do if the desired policy is already fully realized.
+	if e.realizedPolicy != e.desiredPolicy {
+		if len(policyMapDump) > 0 {
+			_, _, err = e.syncPolicyMapWith(policyMapDump, false)
+		} else {
+			err = e.syncPolicyMap()
+		}
+	}
+	stats.mapSync.End(err == nil)
+	return err
 }
 
 func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error) {
@@ -675,6 +680,24 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		if err != nil {
 			return err
 		}
+	}
+
+	// Collect a dump of the bpf policymap if needed for the sync.
+	if e.realizedPolicy != e.desiredPolicy && e.realizedPolicy.Empty() {
+		datapathRegenCtxt.policyMapDump, err = e.dumpPolicyMapToMapStateMap()
+		if err != nil {
+			return fmt.Errorf("policymap dump failed: %w", err)
+		}
+
+		// Sync policy map before bpf compilation if the bpf policymap is empty.
+		// This allows for upgrades and downgrades from versions using a different policy map
+		if len(datapathRegenCtxt.policyMapDump) == 0 {
+			err = e.policyMapSync(nil, stats)
+			if err != nil {
+				return fmt.Errorf("policymap synchronization failed: %w", err)
+			}
+		}
+		datapathRegenCtxt.policyMapSyncDone = true
 	}
 
 	if e.isProperty(PropertySkipBPFRegeneration) {
