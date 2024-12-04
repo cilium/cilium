@@ -28,9 +28,9 @@ func setupPolicyMapPrivilegedTestSuite(tb testing.TB) *PolicyMap {
 		tb.Fatal(err)
 	}
 
-	testMap := newMap("cilium_policy_test")
+	testMap := newMap("cilium_policy_v2_test")
 
-	_ = os.RemoveAll(bpf.MapPath("cilium_policy_test"))
+	_ = os.RemoveAll(bpf.MapPath("cilium_policy_v2_test"))
 	err := testMap.CreateUnpinned()
 	require.NoError(tb, err)
 

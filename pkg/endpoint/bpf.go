@@ -768,7 +768,7 @@ func (e *Endpoint) InitMap() error {
 
 // deleteMaps deletes the endpoint's entry from the global
 // cilium_(egress)call_policy maps and removes endpoint-specific cilium_calls_,
-// cilium_policy_ and cilium_ct{4,6}_ map pins.
+// cilium_policy_v2_ and cilium_ct{4,6}_ map pins.
 //
 // Call this after the endpoint's tc hook has been detached.
 func (e *Endpoint) deleteMaps() []error {

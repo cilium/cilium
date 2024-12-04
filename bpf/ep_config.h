@@ -41,7 +41,7 @@ DEFINE_U64(ENDPOINT_NETNS_COOKIE, 0xFFFFFFFFFFFFFFFF);
 
 #define HOST_EP_ID 0x1092
 
-#define POLICY_MAP test_cilium_policy_65535
+#define POLICY_MAP test_cilium_policy_v2_65535
 
 #ifndef SKIP_DEBUG
 #define DEBUG
