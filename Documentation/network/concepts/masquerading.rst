@@ -175,7 +175,7 @@ relevant masquerading interfaces.
 With the ``enable-masquerade-to-route-source: "true"`` option, Cilium will, 
 by default, use interfaces listed in the ``devices`` field as the egress masquerade interfaces 
 when ``egress-masquerade-interfaces`` is empty. When ``egress-masquerade-interfaces`` is set, 
-it takes precedence over ``devices`` to restrict which network interface should perform masquerading.
+it takes precedence over ``devices`` to choose which network interface should perform masquerading.
 
 .. note::
 
