@@ -1,0 +1,145 @@
+name: bgp-lb-ipam
+topology:
+  kinds:
+    linux:
+      cmd: bash
+  nodes:
+    router0:
+      kind: linux
+      image: frrouting/frr:v8.2.2
+      labels:
+        app: frr
+      exec:
+      # NAT everything in here to go outside of the lab
+      - iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+      # Loopback IP (IP address of the router itself)
+      - ip addr add 10.0.0.0/32 dev lo
+      # Terminate rest of the 10.0.0.0/8 in here
+      - ip route add blackhole 10.0.0.0/8 
+      # Boiler plate to make FRR work
+      - touch /etc/frr/vtysh.conf
+      - touch /var/log/frr.log
+      - chown frr:frr /var/log/frr.log
+      - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
+      - /usr/lib/frr/frrinit.sh start
+      # FRR configuration
+      - >-
+         vtysh -c 'conf t'
+         -c 'log file /var/log/frr.log'
+         -c 'frr defaults datacenter'
+         -c 'router bgp 65000'
+         -c '  bgp router-id 10.0.0.0'
+         -c '  no bgp ebgp-requires-policy'
+         -c '  neighbor ROUTERS peer-group'
+         -c '  neighbor ROUTERS remote-as external'
+         -c '  neighbor ROUTERS default-originate'
+         -c '  neighbor net0 interface peer-group ROUTERS'
+         -c '  neighbor net1 interface peer-group ROUTERS'
+         -c '  address-family ipv4 unicast'
+         -c '    redistribute connected'
+         -c '  exit-address-family'
+         -c '!'
+    tor0:
+      kind: linux
+      image: frrouting/frr:v8.2.2
+      labels:
+        app: frr
+      exec:
+      - ip link del eth0
+      - ip addr add 10.0.0.1/32 dev lo
+      - ip addr add 10.0.1.1/24 dev net1
+      - ip addr add 10.0.2.1/24 dev net2
+      - touch /etc/frr/vtysh.conf
+      - touch /var/log/frr.log
+      - chown frr:frr /var/log/frr.log
+      - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
+      - /usr/lib/frr/frrinit.sh start
+      - >-
+         vtysh -c 'conf t'
+         -c 'log file /var/log/frr.log'
+         -c 'frr defaults datacenter'
+         -c 'router bgp 65010'
+         -c '  bgp router-id 10.0.0.1'
+         -c '  no bgp ebgp-requires-policy'
+         -c '  neighbor ROUTERS peer-group'
+         -c '  neighbor ROUTERS remote-as external'
+         -c '  neighbor SERVERS peer-group'
+         -c '  neighbor SERVERS remote-as internal'
+         -c '  neighbor net0 interface peer-group ROUTERS'
+         -c '  neighbor 10.0.1.2 peer-group SERVERS'
+         -c '  neighbor 10.0.2.2 peer-group SERVERS'
+         -c '  address-family ipv4 unicast'
+         -c '    redistribute connected'
+         -c '  exit-address-family'
+         -c '!'
+    tor1:
+      kind: linux
+      image: frrouting/frr:v8.2.2
+      labels:
+        app: frr
+      exec:
+      - ip link del eth0
+      - ip addr add 10.0.0.2/32 dev lo
+      - ip addr add 10.0.3.1/24 dev net1
+      - ip addr add 10.0.4.1/24 dev net2
+      - touch /etc/frr/vtysh.conf
+      - touch /var/log/frr.log
+      - chown frr:frr /var/log/frr.log
+      - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
+      - /usr/lib/frr/frrinit.sh start
+      - >-
+         vtysh -c 'conf t'
+         -c 'log file /var/log/frr.log'
+         -c 'frr defaults datacenter'
+         -c 'router bgp 65011'
+         -c '  bgp router-id 10.0.0.2'
+         -c '  bgp bestpath as-path multipath-relax'
+         -c '  no bgp ebgp-requires-policy'
+         -c '  neighbor ROUTERS peer-group'
+         -c '  neighbor ROUTERS remote-as external'
+         -c '  neighbor SERVERS peer-group'
+         -c '  neighbor SERVERS remote-as internal'
+         -c '  neighbor net0 interface peer-group ROUTERS'
+         -c '  neighbor 10.0.3.2 peer-group SERVERS'
+         -c '  neighbor 10.0.4.2 peer-group SERVERS'
+         -c '  address-family ipv4 unicast'
+         -c '    redistribute connected'
+         -c '  exit-address-family'
+         -c '!'
+    server0:
+      kind: linux
+      image: nicolaka/netshoot:latest
+      network-mode: container:bgp-lb-ipam-control-plane
+      exec:
+      # Cilium currently doesn't support BGP Unnumbered
+      - ip addr add 10.0.1.2/24 dev net0
+      # Cilium currently doesn't support importing routes
+      - ip route replace default via 10.0.1.1
+    server1:
+      kind: linux
+      image: nicolaka/netshoot:latest
+      network-mode: container:bgp-lb-ipam-worker
+      exec:
+      - ip addr add 10.0.2.2/24 dev net0
+      - ip route replace default via 10.0.2.1
+    server2:
+      kind: linux
+      image: nicolaka/netshoot:latest
+      network-mode: container:bgp-lb-ipam-worker2
+      exec:
+      - ip addr add 10.0.3.2/24 dev net0
+      - ip route replace default via 10.0.3.1
+    server3:
+      kind: linux
+      image: nicolaka/netshoot:latest
+      network-mode: container:bgp-lb-ipam-worker3
+      exec:
+      - ip addr add 10.0.4.2/24 dev net0
+      - ip route replace default via 10.0.4.1
+  links:
+  - endpoints: ["router0:net0", "tor0:net0"]
+  - endpoints: ["router0:net1", "tor1:net0"]
+  - endpoints: ["tor0:net1", "server0:net0"]
+  - endpoints: ["tor0:net2", "server1:net0"]
+  - endpoints: ["tor1:net1", "server2:net0"]
+  - endpoints: ["tor1:net2", "server3:net0"]
