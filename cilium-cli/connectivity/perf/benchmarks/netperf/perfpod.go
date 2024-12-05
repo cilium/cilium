@@ -111,7 +111,7 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 }
 
 func buildExecCommand(test string, sip string, duration time.Duration, args []string) []string {
-	exec := []string{"/usr/local/bin/netperf", "-H", sip, "-l", duration.String(), "-t", test, "--", "-R", "1"}
+	exec := []string{"/usr/local/bin/netperf", "-H", sip, "-l", strconv.Itoa(int(duration.Seconds())), "-t", test, "--", "-R", "1"}
 	exec = append(exec, args...)
 
 	return exec
