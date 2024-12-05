@@ -337,8 +337,8 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
 	if err != nil {
-		// This error is ok because all these values are used for reporting, or filling in the cache.
-		log.WithError(err).Error("cannot extract DNS message details")
+		log.WithError(err).WithField(logfields.DNSName, qname).Error("cannot extract DNS message details")
+		return fmt.Errorf("failed to extract DNS message details: %w", err)
 	}
 
 	var serverPort uint16
