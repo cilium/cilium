@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_config: .github/kind-config.yaml
+  kind_config: .github/kind-config-dual.yaml
 
 jobs:
   installation-and-connectivity:
@@ -62,6 +62,7 @@ jobs:
             --helm-set=loadBalancer.l7.backend=envoy \
             --helm-set=tls.secretsBackend=k8s \
             --helm-set=envoy.enabled=false \
+            --helm-set=ipv6.enabled=true \
             --wait=false"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=5 --hubble=false --collect-sysdump-on-failure"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
