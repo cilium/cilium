@@ -139,12 +139,11 @@ jobs:
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
 
-          # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
             tunnel: 'disabled'
             ipFamily: 'dual'
             encryption: 'ipsec'
-            kube-proxy: 'iptables'
+            kube-proxy: 'none'
             mode: 'kvstoremesh'
             tls-auto-method: certmanager
             cm-auth-mode-1: 'cluster'
@@ -166,7 +165,6 @@ jobs:
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
 
-          # IPsec encryption cannot be used with BPF NodePort.
           - name: '5'
             tunnel: 'disabled'
             ipFamily: 'dual'
@@ -201,7 +199,6 @@ jobs:
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
 
-          # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
             tunnel: 'vxlan'
             ipFamily: 'dual'
