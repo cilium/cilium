@@ -608,7 +608,7 @@ func (d *Daemon) handleOutdatedPodInformer(
 		if ep.K8sUID == "" {
 			// If the CNI did not set the UID, then don't retry and just exit
 			// out of the loop to proceed as normal.
-			return true, nil
+			return true, err2
 		}
 
 		if pod != nil && ep.K8sUID != string(pod.GetUID()) {
