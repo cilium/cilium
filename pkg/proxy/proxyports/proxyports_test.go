@@ -15,6 +15,13 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+func (p *ProxyPorts) noRedirects(pp *ProxyPort) bool {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	return pp.nRedirects == 0
+}
+
 func TestPortAllocator(t *testing.T) {
 	testRunDir := t.TempDir()
 	socketDir := envoy.GetSocketDir(testRunDir)
@@ -62,7 +69,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, port, port1a)
 
 	require.Eventually(t, func() bool {
-		return pp.nRedirects == 0
+		return p.noRedirects(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
@@ -115,7 +122,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return pp.nRedirects == 0
+		return p.noRedirects(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	require.Equal(t, 0, pp.nRedirects)
@@ -158,7 +165,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return pp.nRedirects == 0
+		return p.noRedirects(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	require.Equal(t, 0, pp.nRedirects)
