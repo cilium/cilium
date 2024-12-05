@@ -489,10 +489,6 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 	return nil
 }
 
-func formatServiceAddr(a *flowpb.ServiceUpsertNotificationAddr) string {
-	return net.JoinHostPort(a.GetIp(), strconv.Itoa(int(a.GetPort())))
-}
-
 func getAgentEventDetails(e *flowpb.AgentEvent, timeLayout string) string {
 	switch e.GetType() {
 	case flowpb.AgentEventType_AGENT_EVENT_UNKNOWN:
@@ -544,38 +540,6 @@ func getAgentEventDetails(e *flowpb.AgentEvent, timeLayout string) string {
 			}
 			fmt.Fprintf(&sb, ", encrypt key: %d", i.GetEncryptKey())
 			return sb.String()
-		}
-	case flowpb.AgentEventType_SERVICE_UPSERTED:
-		if svc := e.GetServiceUpsert(); svc != nil {
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "id: %d", svc.GetId())
-			if fe := svc.GetFrontendAddress(); fe != nil {
-				fmt.Fprintf(&sb, ", frontend: %s", formatServiceAddr(fe))
-			}
-			if bes := svc.GetBackendAddresses(); len(bes) != 0 {
-				backends := make([]string, 0, len(bes))
-				for _, a := range bes {
-					backends = append(backends, formatServiceAddr(a))
-				}
-				fmt.Fprintf(&sb, ", backends: [%s]", strings.Join(backends, ","))
-			}
-			if t := svc.GetType(); t != "" {
-				fmt.Fprintf(&sb, ", type: %s", t)
-			}
-			if tp := svc.GetTrafficPolicy(); tp != "" {
-				fmt.Fprintf(&sb, ", traffic policy: %s", tp)
-			}
-			if ns := svc.GetNamespace(); ns != "" {
-				fmt.Fprintf(&sb, ", namespace: %s", ns)
-			}
-			if n := svc.GetName(); n != "" {
-				fmt.Fprintf(&sb, ", name: %s", n)
-			}
-			return sb.String()
-		}
-	case flowpb.AgentEventType_SERVICE_DELETED:
-		if s := e.GetServiceDelete(); s != nil {
-			return fmt.Sprintf("id: %d", s.GetId())
 		}
 	}
 	return "UNKNOWN"

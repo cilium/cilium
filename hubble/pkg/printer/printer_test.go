@@ -942,48 +942,6 @@ func TestPrinter_AgentEventDetails(t *testing.T) {
 			},
 			want: "cidr: 10.0.1.2/32, identity: 42, old host ip: 192.168.1.23, encrypt key: 0",
 		},
-		{
-			name: "service upsert",
-			ev: &flowpb.AgentEvent{
-				Type: flowpb.AgentEventType_SERVICE_UPSERTED,
-				Notification: &flowpb.AgentEvent_ServiceUpsert{
-					ServiceUpsert: &flowpb.ServiceUpsertNotification{
-						Id: 42,
-						FrontendAddress: &flowpb.ServiceUpsertNotificationAddr{
-							Ip:   "10.0.0.42",
-							Port: 8008,
-						},
-						BackendAddresses: []*flowpb.ServiceUpsertNotificationAddr{
-							{
-								Ip:   "192.168.1.23",
-								Port: 80,
-							},
-							{
-								Ip:   "2001:db8:85a3:::8a2e:370:1337",
-								Port: 8080,
-							},
-						},
-						Type:          "foobar",
-						TrafficPolicy: "pol1",
-						Namespace:     "bar",
-						Name:          "foo",
-					},
-				},
-			},
-			want: "id: 42, frontend: 10.0.0.42:8008, backends: [192.168.1.23:80,[2001:db8:85a3:::8a2e:370:1337]:8080], type: foobar, traffic policy: pol1, namespace: bar, name: foo",
-		},
-		{
-			name: "service delete",
-			ev: &flowpb.AgentEvent{
-				Type: flowpb.AgentEventType_SERVICE_DELETED,
-				Notification: &flowpb.AgentEvent_ServiceDelete{
-					ServiceDelete: &flowpb.ServiceDeleteNotification{
-						Id: 42,
-					},
-				},
-			},
-			want: "id: 42",
-		},
 	}
 
 	for _, tt := range tests {

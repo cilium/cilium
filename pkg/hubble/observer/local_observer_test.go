@@ -353,9 +353,6 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 				ipcacheUpdate := response.GetAgentEvent().GetIpcacheUpdate()
 				assert.NotNil(t, ipcacheUpdate)
 				assert.Equal(t, cidr, ipcacheUpdate.GetCidr())
-			case flowpb.AgentEventType_SERVICE_DELETED:
-				serviceDelete := response.GetAgentEvent().GetServiceDelete()
-				assert.NotNil(t, serviceDelete)
 			default:
 				assert.Fail(t, "unexpected agent event", ev)
 			}
@@ -383,10 +380,8 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 		var msg monitorAPI.AgentNotifyMessage
 		if i == 0 {
 			msg = monitorAPI.StartMessage(time.Unix(42, 1))
-		} else if i%2 == 1 {
-			msg = monitorAPI.IPCacheUpsertedMessage(cidr, uint32(i), nil, net.ParseIP("10.1.5.4"), nil, 0xff, "default", "foobar")
 		} else {
-			msg = monitorAPI.ServiceDeleteMessage(uint32(i))
+			msg = monitorAPI.IPCacheUpsertedMessage(cidr, uint32(i), nil, net.ParseIP("10.1.5.4"), nil, 0xff, "default", "foobar")
 		}
 		m <- &observerTypes.MonitorEvent{
 			Timestamp: ts,

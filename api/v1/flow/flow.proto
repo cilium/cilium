@@ -753,8 +753,9 @@ message AgentEvent {
         EndpointUpdateNotification endpoint_update = 104;
         // used for IPCACHE_UPSERTED and IPCACHE_DELETED
         IPCacheNotification ipcache_update = 105;
-        ServiceUpsertNotification service_upsert = 106;
-        ServiceDeleteNotification service_delete = 107;
+        // service events have been deprecated and no longer emitted.
+        ServiceUpsertNotification service_upsert = 106 [deprecated=true];
+        ServiceDeleteNotification service_delete = 107 [deprecated=true];
     }
 }
 
