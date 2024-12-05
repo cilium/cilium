@@ -17,6 +17,9 @@ const (
 	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
 	ClusterMeshHealthPort = 80
 
+	// EnableGops is the default value for option.EnableGops
+	EnableGops = true
+
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
 

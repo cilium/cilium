@@ -93,7 +93,7 @@ var (
 		cell.Config(pprofConfig),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
-		gops.Cell(defaults.GopsPortAgent),
+		gops.Cell(defaults.EnableGops, defaults.GopsPortAgent),
 
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,

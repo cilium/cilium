@@ -159,6 +159,9 @@ const (
 	// GopsPort is the TCP port for the gops server.
 	GopsPort = "gops-port"
 
+	// EnableGops run the gops server
+	EnableGops = "enable-gops"
+
 	// FixedIdentityMapping is the key-value for the fixed identity mapping
 	// which allows to use reserved label for fixed identities
 	FixedIdentityMapping = "fixed-identity-mapping"

@@ -101,7 +101,7 @@ var (
 		}),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
-		gops.Cell(defaults.GopsPortOperator),
+		gops.Cell(defaults.EnableGops, defaults.GopsPortOperator),
 
 		// Provides a Kubernetes client and ClientBuilderFunc that can be used by other cells to create a client.
 		client.Cell,
