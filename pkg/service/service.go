@@ -1993,6 +1993,10 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) ([]lb.BackendID, [
 	return obsoleteBackendIDs, obsoleteBackends
 }
 
+// maxBackendsInMonitorNotifyEvent caps the number of backends to include in the monitor notify event.
+// This avoids constructing large events when service has lots of backends and churn.
+const maxBackendsInMonitorNotifyEvent = 20
+
 func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []*lb.Backend,
 	svcType lb.SVCType, svcExtTrafficPolicy, svcIntTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string,
 ) {
@@ -2002,8 +2006,11 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 		Port: frontend.Port,
 	}
 
-	be := make([]monitorAPI.ServiceUpsertNotificationAddr, 0, len(backends))
-	for _, backend := range backends {
+	numBackendsToInclude := min(maxBackendsInMonitorNotifyEvent, len(backends))
+	numBackendsOmitted := len(backends) - numBackendsToInclude
+
+	be := make([]monitorAPI.ServiceUpsertNotificationAddr, 0, numBackendsToInclude)
+	for _, backend := range backends[:numBackendsToInclude] {
 		b := monitorAPI.ServiceUpsertNotificationAddr{
 			IP:   backend.AddrCluster.AsNetIP(),
 			Port: backend.Port,
@@ -2011,7 +2018,7 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 		be = append(be, b)
 	}
 
-	msg := monitorAPI.ServiceUpsertMessage(id, fe, be, string(svcType), string(svcExtTrafficPolicy), string(svcIntTrafficPolicy), svcName, svcNamespace)
+	msg := monitorAPI.ServiceUpsertMessage(id, fe, be, numBackendsOmitted, string(svcType), string(svcExtTrafficPolicy), string(svcIntTrafficPolicy), svcName, svcNamespace)
 	s.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, msg)
 }
 
