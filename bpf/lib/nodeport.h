@@ -2537,7 +2537,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 # if defined(IS_BPF_HOST) && !defined(ENABLE_TPROXY)
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
-		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
+		ctx->mark = MARK_MAGIC_TO_PROXY | (0 << 16);
 
 		return CTX_ACT_REDIRECT;
 # endif
