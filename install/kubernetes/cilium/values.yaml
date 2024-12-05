@@ -823,6 +823,13 @@ ciliumEndpointSlice:
   # identity groups together CiliumEndpoints that share the same identity.
   # fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
   sliceMode: identity
+# @schema
+# enum: ["agent", "operator", "both"]
+# @schema
+# -- Control whether CiliumIdentities are created by the agent ("agent"), the operator ("operator") or both ("both").
+# "Both" should be used only to migrate between "agent" and "operator".
+# Operator-managed identities is a beta feature.
+identityManagementMode: "agent"
 envoyConfig:
   # -- Enable CiliumEnvoyConfig CRD
   # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
