@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -817,23 +818,21 @@ func TestMetadataResolver(t *testing.T) {
 	}{
 		{
 			name: "pod not found",
-			resolveMetadata: func(ns, podName string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
+			resolveMetadata: func(ns, podName, uid string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
 				return nil, nil, k8sErrors.NewNotFound(schema.GroupResource{Group: "core", Resource: "pod"}, "foo")
 			},
 			assert: assert.Error,
 		},
 		{
 			name: "pod uid mismatch",
-			resolveMetadata: func(ns, podName string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
-				return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
-					Namespace: "bar", Name: "foo", UID: "other",
-				}}, &K8sMetadata{IdentityLabels: labels.NewLabelsFromSortedList("k8s:foo=bar;k8s:qux=fred;")}, nil
+			resolveMetadata: func(ns, podName, uid string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
+				return nil, nil, errors.New("uid mismatch")
 			},
 			assert: assert.Error,
 		},
 		{
 			name: "pod uid match",
-			resolveMetadata: func(ns, podName string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
+			resolveMetadata: func(ns, podName, uid string) (pod *corev1.Pod, k8sMetadata *K8sMetadata, err error) {
 				return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 					Namespace: "bar", Name: "foo", UID: "uid",
 				}}, &K8sMetadata{IdentityLabels: labels.NewLabelsFromSortedList("k8s:foo=bar;k8s:qux=fred;")}, nil
