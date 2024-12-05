@@ -178,15 +178,25 @@ func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Resp
 // The returned pod is deepcopied which means the its fields can be written
 // into.
 func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
-	ns, p, err := d.endpointMetadataFetcher.Fetch(nsName, podName)
+	p, err := d.endpointMetadataFetcher.FetchPod(nsName, podName)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	metadata, err := d.fetchK8sMetadataForEndpointFromPod(p)
+	return p, metadata, err
+}
+
+func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
+	ns, err := d.endpointMetadataFetcher.FetchNamespace(p.Namespace)
+	if err != nil {
+		return nil, err
 	}
 
 	containerPorts, lbls, annotations := k8s.GetPodMetadata(ns, p)
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
-	return p, &endpoint.K8sMetadata{
+	return &endpoint.K8sMetadata{
 		ContainerPorts: containerPorts,
 		IdentityLabels: identityLabels,
 		InfoLabels:     infoLabels,
@@ -198,16 +208,12 @@ type cachedEndpointMetadataFetcher struct {
 	k8sWatcher *watchers.K8sWatcher
 }
 
-func (cemf *cachedEndpointMetadataFetcher) Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error) {
-	p, err := cemf.k8sWatcher.GetCachedPod(nsName, podName)
-	if err != nil {
-		return nil, nil, err
-	}
-	ns, err := cemf.k8sWatcher.GetCachedNamespace(nsName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ns, p, err
+func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
+	return cemf.k8sWatcher.GetCachedNamespace(nsName)
+}
+
+func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
+	return cemf.k8sWatcher.GetCachedPod(nsName, podName)
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
@@ -454,9 +460,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 				err = errors.Join(err, err2)
 			} else {
 				pod = newPod
-				// Clear the error so the code can proceed below as we've
-				// succeeded here.
-				err = nil
+				// Clear the error so the code can proceed below, if the metadata
+				// retrieval succeeds correctly.
+				k8sMetadata, err = d.fetchK8sMetadataForEndpointFromPod(pod)
 			}
 		}
 

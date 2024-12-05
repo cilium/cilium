@@ -904,5 +904,6 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 }
 
 type endpointMetadataFetcher interface {
-	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
+	FetchNamespace(nsName string) (*slim_corev1.Namespace, error)
+	FetchPod(nsName, podName string) (*slim_corev1.Pod, error)
 }
