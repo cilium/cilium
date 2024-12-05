@@ -297,6 +297,11 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 	pinger.Timeout = probeDeadline
 	pinger.Count = nReqs
 	pinger.Interval = 100 * time.Millisecond
+	pinger.OnRecv = func(pkt *probing.Packet) {
+		// As we already received response,
+		// no need to send out more pings.
+		pinger.Stop()
+	}
 	pinger.OnFinish = func(stats *probing.Statistics) {
 		if stats.PacketsRecv > 0 && len(stats.Rtts) > 0 {
 			if debugLogsEnabled {
@@ -309,7 +314,7 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 		}
 	}
 	pinger.SetPrivileged(true)
-	err = pinger.Run()
+	err = pinger.RunWithContext(ctx)
 	if err != nil {
 		scopedLog.Debugf("Failed to run pinger for IP %s: %v", ip, err)
 		result.Status = err.Error()
