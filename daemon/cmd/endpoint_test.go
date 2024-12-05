@@ -208,6 +208,9 @@ func (f *fetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
 }
 
 func TestHandleOutdatedPodInformer(t *testing.T) {
+	defer func(current time.Duration) { handleOutdatedPodInformerRetryPeriod = current }(handleOutdatedPodInformerRetryPeriod)
+	handleOutdatedPodInformerRetryPeriod = 1 * time.Millisecond
+
 	require.NoError(t, labelsfilter.ParseLabelPrefixCfg(nil, nil, ""))
 
 	notFoundErr := k8sErrors.NewNotFound(schema.GroupResource{Group: "core", Resource: "pod"}, "foo")
