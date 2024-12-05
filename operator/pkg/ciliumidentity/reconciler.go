@@ -86,9 +86,13 @@ func newReconciler(
 	if err != nil {
 		return nil, err
 	}
-	cesStore, err := ciliumEndpointSlice.Store(ctx)
-	if err != nil {
-		return nil, err
+
+	var cesStore resource.Store[*v2alpha1.CiliumEndpointSlice]
+	if cesEnabled {
+		cesStore, err = ciliumEndpointSlice.Store(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	r := &reconciler{
