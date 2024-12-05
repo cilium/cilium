@@ -58,6 +58,8 @@ jobs:
     runs-on: ubuntu-24.04
     name: Installation and Migration Test
     timeout-minutes: 70
+    env:
+      job_name: "Installation and Migration Test"
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
