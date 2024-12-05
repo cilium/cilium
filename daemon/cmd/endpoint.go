@@ -183,11 +183,7 @@ func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName string) (*slim_core
 		return nil, nil, err
 	}
 
-	containerPorts, lbls, annotations, err := k8s.GetPodMetadata(ns, p)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	containerPorts, lbls, annotations := k8s.GetPodMetadata(ns, p)
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
 	return p, &endpoint.K8sMetadata{

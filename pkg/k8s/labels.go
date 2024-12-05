@@ -19,7 +19,7 @@ const UseOriginalSourceAddressLabel = "cilium.io/use-original-source-address"
 
 // GetPodMetadata returns the labels and annotations of the pod with the given
 // namespace / name.
-func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string, retAnno map[string]string, retErr error) {
+func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string, retAnno map[string]string) {
 	namespace := pod.Namespace
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: namespace,
@@ -35,5 +35,5 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 		containerPorts = append(containerPorts, containers.Ports...)
 	}
 
-	return containerPorts, labels, annotations, nil
+	return containerPorts, labels, annotations
 }
