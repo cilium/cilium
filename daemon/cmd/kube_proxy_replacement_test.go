@@ -215,7 +215,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			},
 		},
 
-		// KPR false: all options disabled exception socket LB tracing
+		// KPR false: all options disabled
 		{
 			"kpr-disabled",
 			func(cfg *kprConfig) {
@@ -229,7 +229,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 				enableSessionAffinity:   false,
 				enableIPSec:             false,
 				enableHostLegacyRouting: false,
-				enableSocketLBTracing:   true,
+				enableSocketLBTracing:   false,
 				expectedErrorRegex:      "",
 			},
 		},
