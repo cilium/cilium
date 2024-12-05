@@ -144,7 +144,7 @@ subsystems which integrate with eBPF. Therefore, host systems are required to
 run a recent Linux kernel to run a Cilium agent. More recent kernels may
 provide additional eBPF functionality that Cilium will automatically detect and
 use on agent start. For this version of Cilium, it is recommended to use kernel
-4.19.57 or later (or equivalent such as 4.18 on RHEL8). For a list of features
+5.4 or later (or equivalent such as 4.18 on RHEL8). For a list of features
 that require newer kernels, see :ref:`advanced_features`.
 
 In order for the eBPF feature to be enabled properly, the following kernel
