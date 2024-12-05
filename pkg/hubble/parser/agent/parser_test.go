@@ -284,6 +284,7 @@ func TestDecodeAgentEvent(t *testing.T) {
 						Port: 7077,
 					},
 				},
+				0, // backends omitted
 				"ClusterIP",
 				"myTrafficPolicyExt",
 				"myTrafficPolicyInt",
