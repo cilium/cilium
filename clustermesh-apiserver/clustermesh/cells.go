@@ -42,7 +42,7 @@ var Cell = cell.Module(
 	cell.Config(pprofConfig),
 	controller.Cell,
 
-	gops.Cell(defaults.GopsPortApiserver),
+	gops.Cell(defaults.EnableGops, defaults.GopsPortApiserver),
 
 	k8sClient.Cell,
 	cmk8s.ResourcesCell,

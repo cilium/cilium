@@ -17,25 +17,30 @@ import (
 
 // Cell creates the cell for the gops agent, a tool to list and diagnose Go processes.
 // See https://github.com/google/gops.
-func Cell(defaultPort uint16) cell.Cell {
+func Cell(enable bool, defaultPort uint16) cell.Cell {
 	return cell.Module(
 		"gops",
 		"Gops Agent",
 
-		cell.Config(GopsConfig{GopsPort: defaultPort}),
+		cell.Config(GopsConfig{EnableGops: enable, GopsPort: defaultPort}),
 		cell.Invoke(registerGopsHooks),
 	)
 }
 
 type GopsConfig struct {
-	GopsPort uint16 // Port for gops server to listen on
+	EnableGops bool
+	GopsPort   uint16 // Port for gops server to listen on
 }
 
 func (def GopsConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint16(option.GopsPort, def.GopsPort, "Port for gops server to listen on")
+	flags.Bool(option.EnableGops, def.EnableGops, "Enable gops server")
 }
 
 func registerGopsHooks(lc cell.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {
+	if !cfg.EnableGops {
+		return
+	}
 	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
 	addrField := logrus.Fields{"address": addr, logfields.LogSubsys: "gops"}
 	log = log.WithFields(addrField)
