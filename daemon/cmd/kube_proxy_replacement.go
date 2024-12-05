@@ -234,6 +234,11 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		option.Config.EnableSocketLBTracing = false
 	}
 
+	if !option.Config.EnableSocketLB {
+		option.Config.EnableSocketLBTracing = false
+		option.Config.EnableSocketLBPeer = false
+	}
+
 	if option.Config.DryMode {
 		return nil
 	}
