@@ -1079,7 +1079,7 @@ healthChecking: true
 # -- TCP port for the agent health API. This is not the port for cilium-health.
 healthPort: 9879
 # -- Number of ICMP requests sent for each health check before marking a node or endpoint unreachable.
-healthCheckICMPFailureThreshold: 3
+healthCheckICMPFailureThreshold: 1
 # -- Configure the host firewall.
 hostFirewall:
   # -- Enables the enforcement of host policies in the eBPF datapath.
