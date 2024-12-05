@@ -1,0 +1,70 @@
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: rack0
+spec:
+  nodeSelector:
+    matchLabels:
+      rack: rack0
+  bgpInstances:
+    - name: "cilium-rack0"
+      localASN: 65010
+      peers:
+        - name: "peer-65010"
+          peerASN: 65010
+          peerAddress: "10.0.0.1"
+          peerConfigRef:
+            name: "peer-config"
+
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: rack1
+spec:
+  nodeSelector:
+    matchLabels:
+      rack: rack1
+  bgpInstances:
+    - name: "cilium-rack1"
+      localASN: 65011
+      peers:
+        - name: "peer-65011"
+          peerASN: 65011
+          peerAddress: "10.0.0.2"
+          peerConfigRef:
+            name: "peer-config"
+
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPPeerConfig
+metadata:
+  name: peer-config
+spec:
+  families:
+    - afi: ipv6
+      safi: unicast
+    - afi: ipv4
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise: "bgp"
+
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPAdvertisement
+metadata:
+  name: bgp-advertisements
+  labels:
+    advertise: bgp
+spec:
+  advertisements:
+    - advertisementType: "Service"
+      service:
+        addresses:
+          - LoadBalancerIP
+      selector:
+        matchExpressions:
+          - { key: color, operator: In, values: [ red, blue, yellow ] }
+      
