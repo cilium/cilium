@@ -362,11 +362,11 @@ Now try to query the Hubble server without providing any client certificate:
 .. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system deployment/hubble-cli -- \
-    hubble observe --server ${IP?}:4244 \
+    hubble observe --server tls://${IP?}:4244 \
         --tls-server-name ${SERVERNAME?} \
         --tls-ca-cert-files /var/lib/hubble-relay/tls/hubble-server-ca.crt
 
-    failed to connect to '172.18.0.2:4244': context deadline exceeded: connection error: desc = "transport: authentication handshake failed: mTLS client certificate requested, but not provided"
+    failed to connect to '172.18.0.2:4244': context deadline exceeded: connection error: desc = "error reading server preface: remote error: tls: certificate requiredd"
     command terminated with exit code 1
 
 You can also try to connect without TLS:
