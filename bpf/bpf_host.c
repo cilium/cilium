@@ -144,6 +144,7 @@ static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    __u32 ipcache_srcid __maybe_unused,
 	    const bool from_host __maybe_unused,
+	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
 #ifdef ENABLE_HOST_FIREWALL
@@ -180,7 +181,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		if (!ctx_skip_nodeport(ctx)) {
 			bool is_dsr = false;
 
-			ret = nodeport_lb6(ctx, ip6, secctx, ext_err, &is_dsr);
+			ret = nodeport_lb6(ctx, ip6, secctx, punt_to_stack, ext_err, &is_dsr);
 			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
 			 * place after L7 LB has processed the packet, so we
@@ -188,6 +189,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			 * TC_ACT_REDIRECT.
 			 */
 			if (ret < 0 || ret == TC_ACT_REDIRECT)
+				return ret;
+			if (*punt_to_stack)
 				return ret;
 		}
 	}
@@ -445,13 +448,18 @@ static __always_inline int
 tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	bool punt_to_stack = false;
 	int ret;
 	__s8 ext_err = 0;
 
-	ret = handle_ipv6(ctx, src_sec_identity, ipcache_srcid, from_host, &ext_err);
+	ret = handle_ipv6(ctx, src_sec_identity, ipcache_srcid, from_host,
+			  &punt_to_stack, &ext_err);
 
 	/* TC_ACT_REDIRECT is not an error, but it means we should stop here. */
 	if (ret == CTX_ACT_OK) {
+		if (punt_to_stack)
+			return ret;
+
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		if (from_host)
 			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
@@ -588,6 +596,7 @@ static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    __u32 ipcache_srcid __maybe_unused,
 	    const bool from_host __maybe_unused,
+	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
 #ifdef ENABLE_HOST_FIREWALL
@@ -615,7 +624,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		if (!ctx_skip_nodeport(ctx)) {
 			bool __maybe_unused is_dsr = false;
 
-			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, ext_err, &is_dsr);
+			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, punt_to_stack,
+					       ext_err, &is_dsr);
 #ifdef ENABLE_IPV6
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
@@ -630,6 +640,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			 * TC_ACT_REDIRECT.
 			 */
 			if (ret < 0 || ret == TC_ACT_REDIRECT)
+				return ret;
+			if (*punt_to_stack)
 				return ret;
 		}
 	}
@@ -915,13 +927,18 @@ static __always_inline int
 tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	bool punt_to_stack = false;
 	int ret;
 	__s8 ext_err = 0;
 
-	ret = handle_ipv4(ctx, src_sec_identity, ipcache_srcid, from_host, &ext_err);
+	ret = handle_ipv4(ctx, src_sec_identity, ipcache_srcid, from_host,
+			  &punt_to_stack, &ext_err);
 
 	/* TC_ACT_REDIRECT is not an error, but it means we should stop here. */
 	if (ret == CTX_ACT_OK) {
+		if (punt_to_stack)
+			return ret;
+
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		if (from_host)
 			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
