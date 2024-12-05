@@ -847,7 +847,6 @@ func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup, callba
 func (s *xdsServer) upsertRoute(name string, conf *envoy_config_route.RouteConfiguration, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.routeMutator.Upsert(RouteTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
 }
 
@@ -855,7 +854,6 @@ func (s *xdsServer) upsertRoute(name string, conf *envoy_config_route.RouteConfi
 func (s *xdsServer) deleteRoute(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.routeMutator.Delete(RouteTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
@@ -863,7 +861,6 @@ func (s *xdsServer) deleteRoute(name string, wg *completion.WaitGroup) xds.Ackin
 func (s *xdsServer) upsertCluster(name string, conf *envoy_config_cluster.Cluster, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.clusterMutator.Upsert(ClusterTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
 }
 
@@ -871,7 +868,6 @@ func (s *xdsServer) upsertCluster(name string, conf *envoy_config_cluster.Cluste
 func (s *xdsServer) deleteCluster(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.clusterMutator.Delete(ClusterTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
@@ -879,7 +875,6 @@ func (s *xdsServer) deleteCluster(name string, wg *completion.WaitGroup) xds.Ack
 func (s *xdsServer) upsertEndpoint(name string, conf *envoy_config_endpoint.ClusterLoadAssignment, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.endpointMutator.Upsert(EndpointTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
 }
 
@@ -887,7 +882,6 @@ func (s *xdsServer) upsertEndpoint(name string, conf *envoy_config_endpoint.Clus
 func (s *xdsServer) deleteEndpoint(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.endpointMutator.Delete(EndpointTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
@@ -895,7 +889,6 @@ func (s *xdsServer) deleteEndpoint(name string, wg *completion.WaitGroup) xds.Ac
 func (s *xdsServer) upsertSecret(name string, conf *envoy_config_tls.Secret, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.secretMutator.Upsert(SecretTypeURL, name, conf, []string{"127.0.0.1"}, wg, nil)
 }
 
@@ -903,7 +896,6 @@ func (s *xdsServer) upsertSecret(name string, conf *envoy_config_tls.Secret, wg 
 func (s *xdsServer) deleteSecret(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// 'callback' is not called if there is no change and this configuration has already been acked.
 	return s.secretMutator.Delete(SecretTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 }
 
