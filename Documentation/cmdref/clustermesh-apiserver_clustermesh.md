@@ -20,6 +20,7 @@ clustermesh-apiserver clustermesh [flags]
       --crd-wait-timeout duration                    Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                        Enable debugging mode
       --enable-external-workloads                    Enable support for external workloads (default true)
+      --enable-gops                                  Enable gops server (default true)
       --enable-k8s                                   Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                     Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                    Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
