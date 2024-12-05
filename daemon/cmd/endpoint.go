@@ -16,6 +16,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -595,6 +596,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	return ep, 0, nil
 }
 
+// handleOutdatedPodInformerRetryPeriod allows to configure the retry period for
+// testing purposes.
+var handleOutdatedPodInformerRetryPeriod = 100 * time.Millisecond
+
 func (d *Daemon) handleOutdatedPodInformer(
 	ctx context.Context,
 	ep *endpoint.Endpoint,
@@ -602,7 +607,7 @@ func (d *Daemon) handleOutdatedPodInformer(
 	var once sync.Once
 
 	// Average attempt is every 100ms.
-	err = resiliency.Retry(ctx, 2*time.Second, 20, func(_ context.Context, _ int) (bool, error) {
+	err = resiliency.Retry(ctx, handleOutdatedPodInformerRetryPeriod, 20, func(_ context.Context, _ int) (bool, error) {
 		var err2 error
 		pod, k8sMetadata, err2 = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
 		if ep.K8sUID == "" {
@@ -619,10 +624,14 @@ func (d *Daemon) handleOutdatedPodInformer(
 				}).Warn("Detected outdated Pod UID during Endpoint creation. Endpoint creation cannot proceed with an outdated Pod store. Attempting to fetch latest Pod.")
 			})
 
-			return false, podStoreOutdatedErr
+			return false, nil
 		}
 		return true, err2
 	})
+
+	if wait.Interrupted(err) {
+		return nil, nil, podStoreOutdatedErr
+	}
 
 	return pod, k8sMetadata, err
 }
