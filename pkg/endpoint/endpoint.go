@@ -1735,33 +1735,20 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		return false, nil
 	}
 
-	filterResolveMetadataError := func(err error) error {
-		if restoredEndpoint && k8sErrors.IsNotFound(err) {
-			e.getLogger().WithError(err).Info("Unable to resolve metadata during endpoint restoration. Is the pod still running?")
-			return nil
-		}
-
-		return err
-	}
-
 	// copy the base labels into this local variable
 	// so that we don't override 'baseLabels'.
 	controllerBaseLabels := labels.NewFrom(baseLabels)
 
 	ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 
-	pod, k8sMetadata, err := resolveMetadata(ns, podName)
-	switch {
-	case err != nil:
-		if filterResolveMetadataError(err) != nil {
+	pod, k8sMetadata, err := resolveMetadata(ns, podName, e.K8sUID)
+	if err != nil {
+		if restoredEndpoint && k8sErrors.IsNotFound(err) {
+			e.Logger(resolveLabels).WithError(err).Info("Unable to resolve metadata during endpoint restoration. Is the pod still running?")
+		} else {
 			e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
 		}
 
-		fallthrough
-	case e.K8sUID != "" && e.K8sUID != string(pod.GetUID()):
-		if err == nil {
-			err = errors.New("metadata resolver: pod store out-of-date")
-		}
 		// If we were unable to fetch the k8s endpoints then
 		// we will mark the endpoint with the init identity.
 		if !restoredEndpoint {
@@ -1817,7 +1804,7 @@ type K8sMetadata struct {
 
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, k8sMetadata *K8sMetadata, err error)
+type MetadataResolverCB func(ns, podName, uid string) (pod *slim_corev1.Pod, k8sMetadata *K8sMetadata, err error)
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the

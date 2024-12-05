@@ -177,11 +177,16 @@ func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Resp
 // fetchK8sMetadataForEndpoint wraps the k8s package to fetch and provide
 // endpoint metadata. It implements endpoint.MetadataResolverCB.
 // The returned pod is deepcopied which means the its fields can be written
-// into.
-func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+// into. Returns an error If a uid is given, and the uid of the retrieved
+// pod does not match it.
+func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
 	p, err := d.endpointMetadataFetcher.FetchPod(nsName, podName)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if uid != "" && uid != string(p.GetUID()) {
+		return nil, nil, podStoreOutdatedErr
 	}
 
 	metadata, err := d.fetchK8sMetadataForEndpointFromPod(p)
@@ -609,14 +614,14 @@ func (d *Daemon) handleOutdatedPodInformer(
 	// Average attempt is every 100ms.
 	err = resiliency.Retry(ctx, handleOutdatedPodInformerRetryPeriod, 20, func(_ context.Context, _ int) (bool, error) {
 		var err2 error
-		pod, k8sMetadata, err2 = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
+		pod, k8sMetadata, err2 = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName, ep.K8sUID)
 		if ep.K8sUID == "" {
 			// If the CNI did not set the UID, then don't retry and just exit
 			// out of the loop to proceed as normal.
 			return true, err2
 		}
 
-		if pod != nil && ep.K8sUID != string(pod.GetUID()) {
+		if errors.Is(err2, podStoreOutdatedErr) {
 			once.Do(func() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
