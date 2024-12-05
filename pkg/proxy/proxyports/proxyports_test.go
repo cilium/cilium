@@ -61,8 +61,9 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, port, port1a)
 
-	// Wait past the time the proxy port is released
-	time.Sleep(15 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		return pp.nRedirects == 0
+	}, 100*time.Millisecond, time.Millisecond)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
 	port1b, _, err := p.GetProxyPort("listener1")
@@ -112,7 +113,11 @@ func TestPortAllocator(t *testing.T) {
 	// 2nd release decreases the count to zero
 	err = p.releaseProxyPort("listener1", time.Microsecond)
 	require.NoError(t, err)
-	time.Sleep(time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		return pp.nRedirects == 0
+	}, 100*time.Millisecond, time.Millisecond)
+
 	require.Equal(t, 0, pp.nRedirects)
 	require.False(t, pp.configured)
 	require.Equal(t, uint16(0), pp.ProxyPort)
@@ -151,7 +156,11 @@ func TestPortAllocator(t *testing.T) {
 	// Release marks the port as unallocated
 	err = p.releaseProxyPort("listener1", time.Microsecond)
 	require.NoError(t, err)
-	time.Sleep(time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		return pp.nRedirects == 0
+	}, 100*time.Millisecond, time.Millisecond)
+
 	require.Equal(t, 0, pp.nRedirects)
 	require.False(t, pp.configured)
 	require.Equal(t, uint16(0), pp.ProxyPort)
