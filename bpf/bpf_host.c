@@ -1662,15 +1662,14 @@ int cil_to_host(struct __ctx_buff *ctx)
 	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
-
-		ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
-		ret = ctx_redirect_to_proxy_first(ctx, port);
-		if (IS_ERR(ret))
-			goto out;
 		/* We already traced this in the previous prog with more
 		 * background context, skip trace here.
 		 */
 		traced = true;
+
+		ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
+		ret = ctx_redirect_to_proxy_first(ctx, port);
+		goto out;
 	}
 
 #ifdef ENABLE_IPSEC
