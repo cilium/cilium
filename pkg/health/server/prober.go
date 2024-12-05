@@ -296,6 +296,7 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 
 	pinger.Timeout = probeDeadline
 	pinger.Count = nReqs
+	pinger.Interval = 100 * time.Millisecond
 	pinger.OnFinish = func(stats *probing.Statistics) {
 		if stats.PacketsRecv > 0 && len(stats.Rtts) > 0 {
 			if debugLogsEnabled {
