@@ -12,6 +12,10 @@ import (
 	"github.com/cilium/statedb/index"
 )
 
+const (
+	neighborIndexSize = 4 /* LinkIndex */ + 16 /* IP */ + 1 /* IP bit length */
+)
+
 var (
 	NeighborIDIndex = statedb.Index[*Neighbor, NeighborID]{
 		Name: "ID",
@@ -33,7 +37,7 @@ var (
 			if n == 0 {
 				return index.Key{}, fmt.Errorf("bad key, expected \"<link>:<ip>\"")
 			}
-			out := []byte{}
+			out := make([]byte, 0, neighborIndexSize)
 			if n > 0 {
 				out = binary.BigEndian.AppendUint32(out, linkIndex)
 				n--
@@ -45,6 +49,7 @@ var (
 				}
 				addrBytes := addr.As16()
 				out = append(out, addrBytes[:]...)
+				out = append(out, byte(addr.BitLen()))
 			}
 			return out, nil
 		},
@@ -85,10 +90,12 @@ type NeighborID struct {
 }
 
 func (id NeighborID) Key() index.Key {
-	key := make([]byte, 0, 4 /* LinkIndex */ +16 /* IP */)
+	key := make([]byte, 0, neighborIndexSize)
 	key = binary.BigEndian.AppendUint32(key, uint32(id.LinkIndex))
-	addrBytes := id.IPAddr.AsSlice()
-	return append(key, addrBytes[:]...)
+	addrBytes := id.IPAddr.As16()
+	key = append(key, addrBytes[:]...)
+	key = append(key, byte(id.IPAddr.BitLen()))
+	return key
 }
 
 type Neighbor struct {
