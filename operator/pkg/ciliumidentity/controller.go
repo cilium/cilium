@@ -24,6 +24,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -90,9 +91,15 @@ type Controller struct {
 }
 
 func registerController(p params) {
+	isOperatorManageCIDsEnabled := cmp.Or(
+		p.Config.IdentityManagementMode == option.IdentityManagementModeOperator,
+		p.Config.IdentityManagementMode == option.IdentityManagementModeBoth,
+		p.Config.EnableOperatorManageCIDs, // backwards-compatibility with deprecated operator-manages-identities flag.
+	)
+
 	if cmp.Or(
 		!p.Clientset.IsEnabled(),
-		!p.Config.EnableOperatorManageCIDs,
+		!isOperatorManageCIDsEnabled,
 		p.SharedCfg.DisableNetworkPolicy,
 	) {
 		return
