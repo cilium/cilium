@@ -160,7 +160,7 @@ type Listener struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=100
 	// +kubebuilder:validation:Optional
-	Priority uint16 `json:"priority"`
+	Priority uint8 `json:"priority"`
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7

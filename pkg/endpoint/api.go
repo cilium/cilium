@@ -392,13 +392,13 @@ func getIdentities(ep *policy.EndpointPolicy) (ingIdentities, ingDenyIdentities,
 			continue
 		}
 		if key.TrafficDirection() == trafficdirection.Ingress {
-			if entry.IsDeny {
+			if entry.IsDeny() {
 				ingDenyIdentities = append(ingDenyIdentities, int64(key.Identity))
 			} else {
 				ingIdentities = append(ingIdentities, int64(key.Identity))
 			}
 		} else {
-			if entry.IsDeny {
+			if entry.IsDeny() {
 				egDenyIdentities = append(egDenyIdentities, int64(key.Identity))
 			} else {
 				egIdentities = append(egIdentities, int64(key.Identity))

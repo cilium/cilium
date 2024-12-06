@@ -347,19 +347,19 @@ var (
 	mapKeyAllowAllE_ = EgressKey()
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newAllowEntry().withLabels(lbls)
+		return allowEntry().withLabels(lbls)
 	}
 	mapEntryL7ExplicitAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
-		return newAllowEntry().withLabels(lbls).withExplicitAuth(at)
+		return allowEntry().withLabels(lbls).withExplicitAuth(at)
 	}
 	mapEntryL7DerivedAuth_ = func(at AuthType, lbls ...labels.LabelArray) mapStateEntry {
-		return newAllowEntry().withLabels(lbls).withDerivedAuth(at)
+		return allowEntry().withLabels(lbls).withDerivedAuth(at)
 	}
 	mapEntryL7Deny = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newDenyEntry().withLabels(lbls)
+		return denyEntry().withLabels(lbls)
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) mapStateEntry {
-		return newAllowEntry().withLabels(lbls).withProxyPort(1)
+		return allowEntry().withLabels(lbls).withProxyPort(1)
 	}
 )
 
@@ -414,7 +414,9 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	// because this test suite doesn't have a notion of traffic direction, so
 	// the extra egress allow-all is technically correct, but omitted from the
 	// expected output that's asserted against for the sake of brevity.
-	epp.policyMapState.delete(mapKeyAllowAllE_)
+	if entry, ok := epp.policyMapState.get(mapKeyAllowAllE_); ok && !entry.IsDeny() {
+		epp.policyMapState.delete(mapKeyAllowAllE_)
+	}
 	epp.Ready()
 	epp.Detach()
 
@@ -1358,28 +1360,13 @@ var (
 	mapKeyL3WorldEgressIPv4   = EgressKey().WithIdentity(worldReservedIDIPv4)
 	mapKeyL3WorldEgressIPv6   = EgressKey().WithIdentity(worldReservedIDIPv6)
 
-	mapEntryDeny = mapStateEntry{
-		MapStateEntry: MapStateEntry{
-			ProxyPort: 0,
-			IsDeny:    true,
-		},
-		derivedFromRules: labels.LabelArrayList{nil},
-	}
-	mapEntryAllow = mapStateEntry{
-		MapStateEntry: MapStateEntry{
-			ProxyPort: 0,
-		},
-		derivedFromRules: labels.LabelArrayList{nil},
-	}
+	AllowEntry    = types.AllowEntry()
+	DenyEntry     = types.DenyEntry()
+	mapEntryDeny  = NewMapStateEntry(DenyEntry, labels.LabelArrayList{nil})
+	mapEntryAllow = NewMapStateEntry(AllowEntry, labels.LabelArrayList{nil})
 
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
-	mapEntryWorldDenyWithLabels = mapStateEntry{
-		MapStateEntry: MapStateEntry{
-			ProxyPort: 0,
-			IsDeny:    true,
-		},
-		derivedFromRules: worldLabelArrayList,
-	}
+	mapEntryWorldDenyWithLabels = NewMapStateEntry(DenyEntry, worldLabelArrayList)
 
 	worldIPIdentity = localIdentity(16324)
 	worldIPCIDR     = api.CIDR("192.0.2.3/32")
@@ -1894,7 +1881,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 // allowsKey returns returns true if 'ms' allows "traffic" with 'key'
 func (ms *mapState) allowsKey(key Key) bool {
 	entry, _ := ms.Lookup(key)
-	return !entry.IsDeny
+	return !entry.IsDeny()
 }
 
 func TestEgressPortRangePrecedence(t *testing.T) {

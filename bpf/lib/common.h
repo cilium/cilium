@@ -403,13 +403,15 @@ struct policy_entry {
 			lpm_prefix_length:5; /* map key protocol and dport prefix length */
 	__u8		auth_type:7,
 			has_explicit_auth_type:1;
-	__u32		pad1;
+	__u8		proxy_port_priority;
+	__u8		pad1;
+	__u16	        pad2;
 	__u64		packets;
 	__u64		bytes;
 };
 
 /*
- * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_bits' when none of the protocol or
+ * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_length' when none of the protocol or
  * dport bits in the key are wildcarded.
  */
 #define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */

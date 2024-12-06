@@ -342,14 +342,15 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 		entry := fmt.Sprintf("%d %d/%s", pa.label, pa.port, u8p.String())
 		if add {
 			var (
-				authReq   policyTypes.AuthRequirement // never set
-				proxyPort uint16                      // never set
-				err       error
+				proxyPortPriority policyTypes.ProxyPortPriority // never set
+				authReq           policyTypes.AuthRequirement   // never set
+				proxyPort         uint16                        // never set
+				err               error
 			)
 			if pa.isDeny {
 				err = policyMap.Deny(pa.trafficDirection, pa.label, u8p, pa.port, policymap.SinglePortPrefixLen)
 			} else {
-				err = policyMap.Allow(pa.trafficDirection, pa.label, u8p, pa.port, policymap.SinglePortPrefixLen, authReq, proxyPort)
+				err = policyMap.Allow(pa.trafficDirection, pa.label, u8p, pa.port, policymap.SinglePortPrefixLen, proxyPortPriority, authReq, proxyPort)
 			}
 			if err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)

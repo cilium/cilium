@@ -45,7 +45,7 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		keys := newMapState()
 		key := Key{}
-		entry := mapStateEntry{}
+		entry := NewMapStateEntry(AllowEntry, nil)
 		ff := fuzz.NewConsumer(data)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
