@@ -578,6 +578,13 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			for r := range routes {
 				dc.params.RouteTable.Delete(txn, r)
 			}
+
+			// Remove all neighbors for the device. For a deleted device netlink does not
+			// always send complete set of neighbor delete messages.
+			neighbors := dc.params.NeighborTable.List(txn, tables.NeighborLinkIndex.Query(d.Index))
+			for n := range neighbors {
+				dc.params.NeighborTable.Delete(txn, n)
+			}
 		} else if deviceUpdated {
 			// Create or update the device.
 			_, _, err := dc.params.DeviceTable.Insert(txn, d)
