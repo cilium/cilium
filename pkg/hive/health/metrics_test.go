@@ -17,16 +17,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive/health/types"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+const (
+	degradedModuleID = "test"
+	okModuleID       = "test2"
 )
 
 func Test_Metrics(t *testing.T) {
-	const degradedModuleID = "test"
-	const okModuleID = "test2"
 
 	var db *statedb.DB
 	var table statedb.Table[types.Status]
-	resChan := make(chan map[types.Level]uint64)
-	degradedModuleCount := make(chan map[string]uint64)
+	publishAsserted := make(chan struct{})
 	// Using upstream hive here to avoid import cycles and be able to inject the right metric
 	// publishing func for the test.
 	h := hive.New(
@@ -48,10 +51,9 @@ func Test_Metrics(t *testing.T) {
 		cell.Module("health-metrics-test", "hive module health metrics test",
 			cell.Provide(newMetrics),
 			cell.Invoke(func(p metricPublisherParams) {
-				// Writes the updates to a chan to synchronise with the test.
 				publish := func(stats map[types.Level]uint64, idToStatus map[string]uint64) {
-					resChan <- stats
-					degradedModuleCount <- idToStatus
+					assertPublish(t, table, db, stats, idToStatus)
+					publishAsserted <- struct{}{}
 				}
 
 				p.JobGroup.Add(job.OneShot("module-status-metrics",
@@ -93,10 +95,14 @@ func Test_Metrics(t *testing.T) {
 		err = h.Stop(tlog, context.TODO())
 		require.NoError(t, err)
 	})
+	select {
+	case <-publishAsserted:
+	case <-time.After(1 * time.Second):
+		t.Error("Timeout waiting for assertion")
+	}
+}
 
-	// Metrics as they would be published
-	resMetrics := <-resChan
-	idToStatusMetrics := <-degradedModuleCount
+func assertPublish(t *testing.T, table statedb.Table[types.Status], db *statedb.DB, resMetrics map[types.Level]uint64, idToStatusMetrics map[string]uint64) {
 	it := table.All(db.ReadTxn())
 	ok, degraded, stopped := count(it)
 
