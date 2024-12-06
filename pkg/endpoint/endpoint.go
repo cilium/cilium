@@ -1780,8 +1780,8 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		return value
 	}())
 	e.UpdateBandwidthPolicy(bwm,
-		k8sMetadata.Annotations[bandwidth.EgressBandwidth],
-		k8sMetadata.Annotations[bandwidth.Priority],
+		pod.Annotations[bandwidth.EgressBandwidth],
+		pod.Annotations[bandwidth.Priority],
 	)
 
 	// If 'baseLabels' are not set then 'controllerBaseLabels' only contains
@@ -1803,7 +1803,6 @@ type K8sMetadata struct {
 	ContainerPorts []slim_corev1.ContainerPort
 	IdentityLabels labels.Labels
 	InfoLabels     labels.Labels
-	Annotations    map[string]string
 }
 
 // MetadataResolverCB provides an implementation for resolving the endpoint

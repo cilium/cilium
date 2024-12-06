@@ -199,14 +199,13 @@ func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoi
 		return nil, err
 	}
 
-	containerPorts, lbls, annotations := k8s.GetPodMetadata(ns, p)
+	containerPorts, lbls := k8s.GetPodMetadata(ns, p)
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
 	return &endpoint.K8sMetadata{
 		ContainerPorts: containerPorts,
 		IdentityLabels: identityLabels,
 		InfoLabels:     infoLabels,
-		Annotations:    annotations,
 	}, nil
 }
 
@@ -479,21 +478,21 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
 			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
 			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
-			if _, ok := k8sMetadata.Annotations[bandwidth.IngressBandwidth]; ok {
+			if _, ok := pod.Annotations[bandwidth.IngressBandwidth]; ok {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(k8sMetadata.Annotations),
+					logfields.Annotations: logfields.Repr(pod.Annotations),
 				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
 					bandwidth.IngressBandwidth)
 			}
-			if _, ok := k8sMetadata.Annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
+			if _, ok := pod.Annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(k8sMetadata.Annotations),
+					logfields.Annotations: logfields.Repr(pod.Annotations),
 				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					bandwidth.EgressBandwidth)
 			}
-			if hwAddr, ok := k8sMetadata.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
+			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
 				m, err := mac.ParseMAC(hwAddr)
 				if err != nil {
 					log.WithField(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName).
