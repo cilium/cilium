@@ -714,8 +714,9 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 
 		// Bail if covered by a deny key or a key with a higher proxy port priority.
 		//
-		// This can be skipped if no rules have denies or proxy redirects
-		if features.contains(denyRules | redirectRules) {
+		// This can be skipped if no rules have proxy redirects, non-zero precedence,
+		// and there are no deny rules.
+		if features.contains(precedenceFeatures) {
 			for _, v := range ms.BroaderOrEqualKeys(newKey) {
 				if v.IsDeny() || v.ProxyPortPriority > newEntry.ProxyPortPriority {
 					return
@@ -725,8 +726,8 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 
 		// Delete covered allow entries with lower proxy port priority.
 		//
-		// This is only needed if the newEntry has a proxy port priority greater than zero.
-		if newEntry.ProxyPortPriority > 0 {
+		// This can be skipped if all rules have the same precedence
+		if features.contains(precedenceFeatures) {
 			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 				if !v.IsDeny() && v.ProxyPortPriority < newEntry.ProxyPortPriority {
 					ms.deleteKeyWithChanges(k, changes)
