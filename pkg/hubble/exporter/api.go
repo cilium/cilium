@@ -35,6 +35,9 @@ type FlowLogConfig struct {
 	FieldMask      FieldMask   `json:"fieldMask,omitempty" yaml:"fieldMask,omitempty"`
 	IncludeFilters FlowFilters `json:"includeFilters,omitempty" yaml:"includeFilters,omitempty"`
 	ExcludeFilters FlowFilters `json:"excludeFilters,omitempty" yaml:"excludeFilters,omitempty"`
+	FileMaxSizeMB  int         `json:"fileMaxSizeMb,omitempty" yaml:"fileMaxSizeMb,omitempty"`
+	FileMaxBackups int         `json:"fileMaxBackups,omitempty" yaml:"fileMaxBackups,omitempty"`
+	FileCompress   bool        `json:"fileCompress,omitempty" yaml:"fileCompress,omitempty"`
 	End            *time.Time  `json:"end,omitempty" yaml:"end,omitempty"`
 }
 
@@ -59,6 +62,18 @@ func (f *FlowLogConfig) equals(other *FlowLogConfig) bool {
 	}
 
 	if !f.ExcludeFilters.equals(other.ExcludeFilters) {
+		return false
+	}
+
+	if f.FileMaxSizeMB != other.FileMaxSizeMB {
+		return false
+	}
+
+	if f.FileMaxBackups != other.FileMaxBackups {
+		return false
+	}
+
+	if f.FileCompress != other.FileCompress {
 		return false
 	}
 
