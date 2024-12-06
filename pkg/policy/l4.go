@@ -1426,6 +1426,10 @@ const (
 	redirectRules
 	authRules
 
+	// if any of the precedenceFeatures is set, then we need to scan for policy overrides due to
+	// precedence differences between rules.
+	precedenceFeatures policyFeatures = denyRules | redirectRules
+
 	allFeatures policyFeatures = ^policyFeatures(0)
 )
 
