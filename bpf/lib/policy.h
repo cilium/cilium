@@ -29,17 +29,24 @@ __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *
 	if (unlikely(policy->deny))
 		return DROP_POLICY_DENY;
 
+	/* The chosen 'policy' has higher proxy port priority or if on the same it has more
+	 * specific L4 match, or if also the L4 are equally specific, then the chosen policy has
+	 * an L3 match, which is considered to be more specific.
+	 * If proxy port priority is the same, then by definition either both have a proxy
+	 * redirect or neither has one, so we do not need to check if the other policy has a proxy
+	 * redirect or not.
+	 */
 	*proxy_port = policy->proxy_port;
 
 	auth_type = policy->auth_type;
-	if (unlikely(!policy->has_explicit_auth_type &&
-		     policy2 && policy2->auth_type > auth_type)) {
-		/* Both L4-only and L3/4 policy matched, and the chosen more specific one does not
-		 * have an explicit auth type: Propagate the auth type from the more general policy
-		 * if its (explicit or propagated) auth_type is greater than the propagated
-		 * auth_type of the chosen policy (policy entry may have an auth_type propagated
-		 * from another entry with en explicit auth type. Numerically greater value has
-		 * precedence in that case).
+	if (unlikely(policy2 && policy2->auth_type > auth_type &&
+		     !policy->has_explicit_auth_type)) {
+		/* Both L4-only and L3/4 policy matched, the chosen more specific one does not have
+		 * an explicit auth type: Propagate the auth type from the more general policy if
+		 * its (explicit or propagated) auth_type is greater than the propagated auth_type
+		 * of the chosen policy (policy entry may have an auth_type propagated from another
+		 * entry with en explicit auth type. Numerically greater value has precedence in
+		 * that case).
 		 */
 		auth_type = policy2->auth_type;
 	}
@@ -111,45 +118,47 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 #endif /* ALLOW_ICMP_FRAG_NEEDED || ENABLE_ICMP_RULE */
 
 	/* Policy match precedence when both L3 and L4-only lookups find a matching policy:
-	 * 1. If either entry is deny it is selected.
-	 * 2. The entry with longer prefix length is selected out of the two allow entries.
-	 * 3. Otherwise the allow entry with non-wildcard L3 is chosen.
+
+	 * 1. Deny policy, if any, is selected.
+	 * 2. Policy with higher proxy port pririty is selected. This includes giving precedence
+	 *    to proxy redirect over non-proxy redirect, and proxy port priority.
+	 * 3. The entry with longer prefix length is selected out of the two allow entries.
+	 * 4. Otherwise the allow entry with non-wildcard L3 is chosen.
 	 */
 
 	/* Note: Untracked fragments always have zero ports in the tuple so they can
 	 * only match entries that have fully wildcarded ports.
 	 */
 
-	/* L3/L4 lookup. */
+	/* L3 lookup: an exact match on L3 identity and LPM match on L4 proto and port. */
 	policy = map_lookup_elem(map, &key);
 
-	/* policy can be chosen without the 2nd lookup if it is a deny policy */
+	/* L3 policy can be chosen without the 2nd lookup if it is a deny. */
 	if (likely(policy && policy->deny)) {
 		l4policy = NULL;
 		goto check_policy;
 	}
 
-	/* L4-only lookup. */
+	/* L4-only lookup: a wildcard match on L3 identity and LPM match on L4 proto and port. */
 	key.sec_label = 0;
 	l4policy = map_lookup_elem(map, &key);
 
 	/* The found l4policy is chosen if:
-	 * - there is no full L3/L4 policy match, or
-	 * - L4-only policy is deny, or
-	 * - L4-only policy has longer LPM prefix length than the L3/L4 policy
+	 * - only l4 policy was found, or if both policies are found, and:
+	 * 1. It is a deny policy, or
+	 * 2. proxy port priority is equal and L4-only policy has longer LPM prefix length
+	 *    than the L3 policy
 	 */
-	if (likely(l4policy &&
-		   (!policy || l4policy->deny ||
-		    l4policy->lpm_prefix_length > policy->lpm_prefix_length))) {
+	if (l4policy &&
+	    (l4policy->deny || !policy ||
+	     l4policy->proxy_port_priority > policy->proxy_port_priority ||
+	     (l4policy->proxy_port_priority == policy->proxy_port_priority &&
+	      l4policy->lpm_prefix_length > policy->lpm_prefix_length)))
 		goto check_l4_policy;
-	}
 
-	/* Otherwise there is no L4-only policy, or it is an allow policy with the same prefix
-	 * length as the L3/L4 policy, if one was found.
-	 */
-	if (likely(policy)) {
+	/* 4. Otherwise select L3 policy if found. */
+	if (likely(policy))
 		goto check_policy;
-	}
 
 	if (is_untracked_fragment)
 		return DROP_FRAG_NOSUPPORT;

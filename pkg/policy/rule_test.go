@@ -2815,26 +2815,26 @@ func TestMergeListenerReference(t *testing.T) {
 	err := ps.mergeListenerReference(ps)
 	require.NoError(t, err)
 	require.Equal(t, "", ps.Listener)
-	require.Equal(t, uint16(0), ps.Priority)
+	require.Equal(t, uint8(0), ps.Priority)
 
 	// Listener reference remains when the other has none
 	ps0 := &PerSelectorPolicy{Listener: "listener0"}
 	err = ps0.mergeListenerReference(ps)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps0.Listener)
-	require.Equal(t, uint16(0), ps0.Priority)
+	require.Equal(t, uint8(0), ps0.Priority)
 
 	// Listener reference is propagated when there is none to begin with
 	err = ps.mergeListenerReference(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps.Listener)
-	require.Equal(t, uint16(0), ps.Priority)
+	require.Equal(t, uint8(0), ps.Priority)
 
 	// A listener is not changed when there is no change
 	err = ps0.mergeListenerReference(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps0.Listener)
-	require.Equal(t, uint16(0), ps0.Priority)
+	require.Equal(t, uint8(0), ps0.Priority)
 
 	// Cannot merge two different listeners with the default (zero) priority
 	ps0a := &PerSelectorPolicy{Listener: "listener0a"}
@@ -2850,24 +2850,24 @@ func TestMergeListenerReference(t *testing.T) {
 	err = ps1.mergeListenerReference(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps1.Listener)
-	require.Equal(t, uint16(1), ps1.Priority)
+	require.Equal(t, uint8(1), ps1.Priority)
 
 	err = ps0.mergeListenerReference(ps1)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps0.Listener)
-	require.Equal(t, uint16(1), ps0.Priority)
+	require.Equal(t, uint8(1), ps0.Priority)
 
 	// Listener with the lower priority value takes precedence
 	ps2 := &PerSelectorPolicy{Listener: "listener2", Priority: 2}
 	err = ps1.mergeListenerReference(ps2)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps1.Listener)
-	require.Equal(t, uint16(1), ps1.Priority)
+	require.Equal(t, uint8(1), ps1.Priority)
 
 	err = ps2.mergeListenerReference(ps1)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps2.Listener)
-	require.Equal(t, uint16(1), ps2.Priority)
+	require.Equal(t, uint8(1), ps2.Priority)
 
 	// Cannot merge two different listeners with the same priority
 	ps12 := &PerSelectorPolicy{Listener: "listener1", Priority: 2}
@@ -2882,10 +2882,10 @@ func TestMergeListenerReference(t *testing.T) {
 	err = ps2.mergeListenerReference(ps23)
 	require.NoError(t, err)
 	require.Equal(t, "listener2", ps2.Listener)
-	require.Equal(t, uint16(2), ps2.Priority)
+	require.Equal(t, uint8(2), ps2.Priority)
 
 	err = ps23.mergeListenerReference(ps2)
 	require.NoError(t, err)
 	require.Equal(t, "listener2", ps23.Listener)
-	require.Equal(t, uint16(2), ps23.Priority)
+	require.Equal(t, uint8(2), ps23.Priority)
 }
