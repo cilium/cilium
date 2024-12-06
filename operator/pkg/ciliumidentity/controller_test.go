@@ -29,6 +29,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -114,8 +115,16 @@ func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumI
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
 		cell.Provide(func() config {
-			return config{
-				EnableOperatorManageCIDs: operatorManagingCID,
+			if operatorManagingCID {
+				return config{
+					IdentityManagementMode:   option.IdentityManagementModeOperator,
+					EnableOperatorManageCIDs: true, // deprecated
+				}
+			} else {
+				return config{
+					IdentityManagementMode:   option.IdentityManagementModeAgent,
+					EnableOperatorManageCIDs: false, // deprecated
+				}
 			}
 		}),
 		cell.Provide(func() SharedConfig {
