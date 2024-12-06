@@ -17,6 +17,13 @@
     You have successfully installed {{ title .Chart.Name }}.
 {{- end }}
 
+{{- $warnings := include "cilium.warnings" . }}
+{{- if $warnings }}
+
+WARNINGS:
+{{ $warnings }}
+{{- end }}
+
 Your release version is {{ .Chart.Version }}.
 
 For any further help, visit https://docs.cilium.io/en/v{{ (semver .Chart.Version).Major }}.{{ (semver .Chart.Version).Minor }}/gettinghelp

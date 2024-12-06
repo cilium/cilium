@@ -1,0 +1,13 @@
+{{- define "cilium.warnings" }}
+{{- /* TODO: move this warning to a validation failure once v1.18 is released */ -}}
+{{- if or
+  (hasKey .Values.hubble.export "fileMaxSizeMb")
+  (hasKey .Values.hubble.export "fileMaxBackups")
+  (hasKey .Values.hubble.export "fileCompress")
+-}}
+- We detected that one or more Hubble export options under 'hubble.export' are currently set
+  ('fileMaxSizeMb', 'fileMaxBackups', 'fileCompress'). Please note that these have moved to
+  their corresponding exporter type ('hubble.export.static', 'hubble.export.dynamic.config.content')
+  and will be removed in v1.19.
+{{- end -}}
+{{- end -}}

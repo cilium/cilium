@@ -982,10 +982,12 @@ data:
 {{- end }}
 {{- end }}
 {{- if .Values.hubble.export }}
-  hubble-export-file-max-size-mb: {{ .Values.hubble.export.fileMaxSizeMb | quote }}
-  hubble-export-file-max-backups: {{ .Values.hubble.export.fileMaxBackups | quote }}
-  hubble-export-file-compress: {{ .Values.hubble.export.fileCompress | quote }}
 {{- if .Values.hubble.export.static.enabled }}
+  {{- /* hubble export configurations moved, use default to make upgrades seemless */ -}}
+  {{- /* TODO: remove default once v1.18 is released, remove warning in warnings.txt and add failure validation in validate.yaml */ -}}
+  hubble-export-file-max-size-mb: {{ default .Values.hubble.export.fileMaxSizeMb .Values.hubble.export.static.fileMaxSizeMb | quote }}
+  hubble-export-file-max-backups: {{ default .Values.hubble.export.fileMaxBackups .Values.hubble.export.static.fileMaxBackups | quote }}
+  hubble-export-file-compress: {{ default .Values.hubble.export.fileCompress .Values.hubble.export.static.fileCompress | quote }}
   hubble-export-file-path: {{ .Values.hubble.export.static.filePath | quote }}
   hubble-export-fieldmask: {{ .Values.hubble.export.static.fieldMask | join " " | quote }}
   hubble-export-allowlist: {{ .Values.hubble.export.static.allowList | join " " | quote }}

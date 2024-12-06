@@ -27,7 +27,7 @@ func TestDynamicExporterLifecycle(t *testing.T) {
 	fileName := "testdata/valid-flowlogs-config.yaml"
 
 	// when
-	sut := NewDynamicExporter(logrus.New(), fileName, 5, 1)
+	sut := NewDynamicExporter(logrus.New(), fileName)
 
 	// then
 	assert.Len(t, sut.managedExporters, 3)
