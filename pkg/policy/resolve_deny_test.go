@@ -432,7 +432,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, nil)
 	policy.Ready()
 
-	rule1MapStateEntry := newDenyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(td.wildcardCachedSelector)
+	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(td.wildcardCachedSelector)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -589,7 +589,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := newDenyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(cachedSelectorTest)
+	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(cachedSelectorTest)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
