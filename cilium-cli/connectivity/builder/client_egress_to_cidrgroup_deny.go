@@ -15,6 +15,7 @@ func (t clientEgressToCidrgroupDeny) build(ct *check.ConnectivityTest, templates
 	// This policy denies L3 traffic to ExternalCIDR except ExternalIP/32
 	// It does so using a CiliumCIDRGroup
 	newTest("client-egress-to-cidrgroup-deny", ct).
+		WithCiliumVersion(">=1.17.0").
 		WithCiliumPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
 		WithCiliumPolicy(templates["clientEgressToCIDRGroupExternalDenyPolicyYAML"]).
 		WithScenarios(
