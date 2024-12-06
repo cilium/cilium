@@ -298,6 +298,15 @@ Removed Options
 
 * The previously deprecated high-scale mode for ipcache has been removed.
 
+Helm Options
+~~~~~~~~~~~~
+
+* The Helm options ``hubble.export.fileMaxSizeMb``, ``hubble.export.fileMaxBackups``
+  and ``hubble.export.fileCompress`` have been deprecated in favor of their corresponding exporter
+  type options and will be removed in Cilium 1.19. More specifically, the static exporter options
+  are now located under ``hubble.export.static`` and the dynamic exporter options that generate
+  a configmap containing the exporter configuration are now under ``hubble.export.dynamic.config.content``.
+
 .. _1.17_upgrade_notes:
 
 1.17 Upgrade Notes
