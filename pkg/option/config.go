@@ -1201,6 +1201,9 @@ const (
 	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature.
 	EnableCiliumEndpointSlice = "enable-cilium-endpoint-slice"
 
+	// IdentityManagementMode controls whether CiliumIdentities are managed by cilium-agent, cilium-operator, or both.
+	IdentityManagementMode = "identity-management-mode"
+
 	// EnableExternalWorkloads enables the support for external workloads.
 	EnableExternalWorkloads = "enable-external-workloads"
 
@@ -1267,6 +1270,16 @@ const (
 
 	// PprofPortAgent is the default value for pprof in the agent
 	PprofPortAgent = 6060
+
+	// IdentityManagementModeAgent means cilium-agent is solely responsible for managing CiliumIdentity.
+	IdentityManagementModeAgent = "agent"
+
+	// IdentityManagementModeOperator means cilium-operator is solely responsible for managing CiliumIdentity.
+	IdentityManagementModeOperator = "operator"
+
+	// IdentityManagementModeBoth means cilium-agent and cilium-operator both manage identities
+	// (used only during migration between "agent" and "operator").
+	IdentityManagementModeBoth = "both"
 )
 
 // getEnvName returns the environment variable to be used for the given option name.
