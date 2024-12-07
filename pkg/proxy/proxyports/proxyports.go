@@ -62,6 +62,9 @@ type ProxyPort struct {
 	// acknowledged yet. This is reset to false when the underlying proxy listener
 	// is removed.
 	configured bool
+	// acknowledged is true when the proxy port has been successfully acknowledged
+	// An acknowledged port is not reset even if a NACK is received later.
+	acknowledged bool
 	// rulesPort contains the proxy port value configured to the datapath rules and
 	// is non-zero when a proxy has been successfully created and the
 	// (new, if after restart) datapath rules have been created.
@@ -294,13 +297,6 @@ func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string, pp *ProxyPor
 	return p.ackProxyPort(ctx, name, pp)
 }
 
-// AddReference takes a reference on a proxy port that was previously acknowledged
-func (p *ProxyPorts) AddReference(pp *ProxyPort) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	pp.nRedirects++
-}
-
 // ackProxyPort() increases proxy port reference count and creates or updates the datapath rules.
 // Each call must eventually be paired with a corresponding releaseProxyPort() call
 // to keep the use count up-to-date.
@@ -330,6 +326,7 @@ func (p *ProxyPorts) ackProxyPort(ctx context.Context, name string, pp *ProxyPor
 		// trigger writing proxy ports to file
 		p.Trigger.Trigger()
 	}
+	pp.acknowledged = true
 	scopedLog.Debugf("AckProxyPort: acked proxy port %d (%v)", pp.ProxyPort, *pp)
 	return nil
 }
@@ -353,14 +350,12 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 	// Static proxy port is not released, dynamic proxy ports are released after a delay if
 	// still on last reference count
 	if !pp.isStatic && pp.nRedirects == 0 {
-		pp.nRedirects = 1 // keep the last reference during the delay
 		go func() {
 			time.Sleep(portReuseWait)
 
 			p.mutex.Lock()
 			defer p.mutex.Unlock()
 
-			pp.nRedirects--
 			if pp.nRedirects == 0 {
 				log.WithField(fieldProxyRedirectID, name).Debugf("Delayed release of proxy port %d", pp.ProxyPort)
 				p.reset(pp)
@@ -399,12 +394,12 @@ func (p *ProxyPorts) GetRulesPort(pp *ProxyPort) uint16 {
 	return pp.rulesPort
 }
 
-// Reset() frees the port, if it's redirect count has reached zero.
+// ResetUnacknowledged() frees the port if it has not been acknowledged yet
 // A static port is not reset.
-func (p *ProxyPorts) Reset(pp *ProxyPort) {
+func (p *ProxyPorts) ResetUnacknowledged(pp *ProxyPort) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if !pp.isStatic && pp.nRedirects == 0 {
+	if !pp.isStatic && !pp.acknowledged {
 		p.reset(pp)
 	}
 }
@@ -421,12 +416,15 @@ func (p *ProxyPorts) reset(pp *ProxyPort) {
 	// tried next time
 	pp.ProxyPort = 0
 	pp.configured = false
+	pp.acknowledged = false
 }
 
 // FindByType returns a ProxyPort matching the given type, listener name, and direction, if
 // found.
+// Adds reference cound to the returned ProxyPort to prevent it being concurrently released.
+// Reference must be released with ReleaseProxyPort.
 // Must NOT be called with mutex held!
-func (p *ProxyPorts) FindByType(l7Type types.ProxyType, listener string, ingress bool) (string, *ProxyPort) {
+func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener string, ingress bool) (string, *ProxyPort) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -436,6 +434,7 @@ func (p *ProxyPorts) FindByType(l7Type types.ProxyType, listener string, ingress
 		// CRD proxy ports are dynamically created, look up by name
 		// 'ingress' is always false for CRD type
 		if pp, ok := p.proxyPorts[listener]; ok && pp.ProxyType == types.ProxyTypeCRD && !pp.Ingress {
+			pp.nRedirects++
 			return listener, pp
 		}
 		log.Debugf("findProxyPortByType: can not find crd listener %s from %v", listener, p.proxyPorts)
@@ -452,6 +451,7 @@ func (p *ProxyPorts) FindByType(l7Type types.ProxyType, listener string, ingress
 	// proxyPorts is small enough to not bother indexing it.
 	for name, pp := range p.proxyPorts {
 		if pp.ProxyType == portType && pp.Ingress == ingress {
+			pp.nRedirects++
 			return name, pp
 		}
 	}
@@ -483,7 +483,7 @@ func (p *ProxyPorts) StoreProxyPorts(ctx context.Context) error {
 	p.mutex.Lock()
 	// only retain acknowledged, non-zero ports
 	for name, pp := range p.proxyPorts {
-		if pp.configured && pp.ProxyPort > 0 {
+		if pp.acknowledged {
 			portsMap[name] = pp
 		}
 	}

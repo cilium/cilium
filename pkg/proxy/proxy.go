@@ -169,13 +169,12 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	}
 
 	// Create a new redirect
-	port, err, newRedirectFinalizeFunc, newRedirectRevertFunc := p.createNewRedirect(ctx, l4, id, epID, wg)
+	port, err, newRedirectRevertFunc := p.createNewRedirect(ctx, l4, id, epID, wg)
 	if err != nil {
 		p.revertStackUnlocked(revertStack)
 		return 0, fmt.Errorf("failed to create new redirect: %w", err), nil, nil
 	}
 
-	finalizeList.Append(newRedirectFinalizeFunc)
 	revertStack.Push(newRedirectRevertFunc)
 
 	return port, nil, finalizeList.Finalize, revertStack.Revert
@@ -192,16 +191,17 @@ func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress 
 func (p *Proxy) createNewRedirect(
 	ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup,
 ) (
-	uint16, error, revert.FinalizeFunc, revert.RevertFunc,
+	uint16, error, revert.RevertFunc,
 ) {
 	scopedLog := log.
 		WithField(fieldProxyRedirectID, id).
 		WithField(logfields.Listener, l4.GetListener()).
 		WithField("l7parser", l4.GetL7Parser())
 
-	ppName, pp := p.proxyPorts.FindByType(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
+	// FindByTypeWithReference takes a reference on the proxy port which must be eventually released
+	ppName, pp := p.proxyPorts.FindByTypeWithReference(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
 	if pp == nil {
-		return 0, proxyTypeNotFoundError(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress()), nil, nil
+		return 0, proxyTypeNotFoundError(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress()), nil
 	}
 
 	redirect := newRedirect(epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
@@ -236,7 +236,7 @@ func (p *Proxy) createNewRedirect(
 		} else {
 			// Release proxy port if NACK was received. Do not release a port that has
 			// already been successfully acknowledged or that it statically configured.
-			p.proxyPorts.Reset(pp)
+			p.proxyPorts.ResetUnacknowledged(pp)
 		}
 	}
 
@@ -268,7 +268,8 @@ func (p *Proxy) createNewRedirect(
 			WithError(err).
 			WithField(logfields.ProxyPort, pp.ProxyPort).
 			Error("Unable to create proxy")
-		return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil, nil
+		p.proxyPorts.ReleaseProxyPort(ppName)
+		return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil
 	}
 
 	scopedLog.
@@ -280,23 +281,18 @@ func (p *Proxy) createNewRedirect(
 	p.updateRedirectMetrics()
 
 	revertFunc := func() error {
-		// Proxy port refcount has not been incremented yet, so it must not be decremented
-		// when reverting. Undo what we have done above.
+		// Undo what we have done above.
 		p.mutex.Lock()
 		delete(p.redirects, id)
 		p.updateRedirectMetrics()
+		p.proxyPorts.ReleaseProxyPort(ppName)
 		p.mutex.Unlock()
 		redirect.implementation.Close()
 		return nil
 	}
 
-	// Increase the reference count only when ACK is received
-	finalizeFunc := func() {
-		p.proxyPorts.AddReference(pp)
-	}
-
 	// Must return the proxy port when successful
-	return pp.ProxyPort, nil, finalizeFunc, revertFunc
+	return pp.ProxyPort, nil, revertFunc
 }
 
 func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup, cb func(err error)) error {

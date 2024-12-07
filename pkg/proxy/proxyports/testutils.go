@@ -22,7 +22,7 @@ func proxyPortsForTest() (*ProxyPorts, func()) {
 	p := NewProxyPorts(10000, 20000, mockDatapathUpdater)
 	triggerDone := make(chan struct{})
 	p.Trigger, _ = trigger.NewTrigger(trigger.Parameters{
-		MinInterval:  10 * time.Second,
+		MinInterval:  10 * time.Millisecond,
 		TriggerFunc:  func(reasons []string) {},
 		ShutdownFunc: func() { close(triggerDone) },
 	})
