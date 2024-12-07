@@ -101,7 +101,6 @@ func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) 
 		// svcEndpoints caches the selected endpoints in case they are
 		// referenced more than once by this CNP
 		svcEndpoints := newServiceEndpoints(svcID, svc, eps)
-		svcEndpoints.enableHighScaleIPcache = p.config.EnableHighScaleIPcache
 		// This extracts the selected service endpoints from the rule
 		// and translates it to a ToCIDRSet
 		numMatches := svcEndpoints.processRule(cnp.Spec)

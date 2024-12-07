@@ -824,7 +824,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, 0, vtep->tunnel_endpoint,
+			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
 								secctx, WORLD_IPV4_ID,
 								WORLD_IPV4_ID, &trace);
 		}
@@ -1272,15 +1272,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		ctx_snat_done_set(ctx);
 #endif
 #endif
-
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
-	ret = decapsulate_overlay(ctx, &src_id);
-	if (IS_ERR(ret))
-		goto drop_err;
-
-	if (ret == CTX_ACT_REDIRECT)
-		return ret;
-#endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
 	if (!validate_ethertype(ctx, &proto)) {
 #ifdef ENABLE_HOST_FIREWALL
