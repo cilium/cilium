@@ -70,6 +70,8 @@ type ProxyPort struct {
 	// is non-zero when a proxy has been successfully created and the
 	// (new, if after restart) datapath rules have been created.
 	rulesPort uint16
+	// cancel for delayed release. Call if non-nil when a new reference is taken to cancel out a pending delayed release
+	releaseCancel func()
 }
 
 type proxyPortsMap map[string]*ProxyPort
@@ -272,6 +274,14 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	return pp.ProxyPort, nil
 }
 
+func (pp *ProxyPort) addReference() {
+	pp.nRedirects++
+	if pp.releaseCancel != nil {
+		pp.releaseCancel()
+		pp.releaseCancel = nil
+	}
+}
+
 // AckProxyPortWithReference() marks the proxy of the given type as successfully
 // created and creates or updates the datapath rules accordingly.
 // Takes a reference on the proxy port.
@@ -284,7 +294,7 @@ func (p *ProxyPorts) AckProxyPortWithReference(ctx context.Context, name string)
 	}
 	err := p.ackProxyPort(ctx, name, pp) // creates datapath rules
 	if err == nil {
-		pp.nRedirects++
+		pp.addReference()
 	}
 	return err
 }
@@ -350,20 +360,26 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 
 	// Static proxy port is not released, dynamic proxy ports are released after a delay if
 	// still on last reference count
-	if !pp.isStatic && pp.nRedirects == 0 {
+	if !pp.isStatic && pp.nRedirects == 0 && pp.releaseCancel == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		pp.releaseCancel = cancel
+
 		go func() {
-			time.Sleep(portReuseWait)
+			select {
+			case <-time.After(portReuseWait):
+				p.mutex.Lock()
+				defer p.mutex.Unlock()
 
-			p.mutex.Lock()
-			defer p.mutex.Unlock()
+				if pp.nRedirects == 0 {
+					pp.releaseCancel = nil
+					log.WithField(fieldProxyRedirectID, name).Debugf("Delayed release of proxy port %d", pp.ProxyPort)
+					p.reset(pp)
 
-			if pp.nRedirects == 0 {
-				log.WithField(fieldProxyRedirectID, name).Debugf("Delayed release of proxy port %d", pp.ProxyPort)
-				p.reset(pp)
-
-				// Leave the datapath rules behind on the hope that they get reused
-				// later.  This becomes possible when we are able to keep the proxy
-				// listeners configured also when there are no redirects.
+					// Leave the datapath rules behind on the hope that they get reused
+					// later.  This becomes possible when we are able to keep the proxy
+					// listeners configured also when there are no redirects.
+				}
+			case <-ctx.Done():
 			}
 		}()
 	}
@@ -435,7 +451,7 @@ func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener st
 		// CRD proxy ports are dynamically created, look up by name
 		// 'ingress' is always false for CRD type
 		if pp, ok := p.proxyPorts[listener]; ok && pp.ProxyType == types.ProxyTypeCRD && !pp.Ingress {
-			pp.nRedirects++
+			pp.addReference()
 			return listener, pp
 		}
 		log.Debugf("findProxyPortByType: can not find crd listener %s from %v", listener, p.proxyPorts)
@@ -452,7 +468,7 @@ func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener st
 	// proxyPorts is small enough to not bother indexing it.
 	for name, pp := range p.proxyPorts {
 		if pp.ProxyType == portType && pp.Ingress == ingress {
-			pp.nRedirects++
+			pp.addReference()
 			return name, pp
 		}
 	}
