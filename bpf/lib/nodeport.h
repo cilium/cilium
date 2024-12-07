@@ -335,10 +335,10 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
-	if (!info || info->tunnel_endpoint == 0)
+	if (!info || info->tunnel_endpoint.ip4 == 0)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	tunnel_endpoint = info->tunnel_endpoint;
+	tunnel_endpoint = info->tunnel_endpoint.ip4;
 	dst_sec_identity = info->sec_identity;
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
@@ -907,8 +907,8 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			struct remote_endpoint_info *info;
 
 			info = lookup_ip6_remote_endpoint(dst, 0);
-			if (info && info->tunnel_endpoint && !info->flag_skip_tunnel) {
-				tunnel_endpoint = info->tunnel_endpoint;
+			if (info && info->tunnel_endpoint.ip4 && !info->flag_skip_tunnel) {
+				tunnel_endpoint = info->tunnel_endpoint.ip4;
 				dst_sec_identity = info->sec_identity;
 				goto encap_redirect;
 			}
@@ -1122,8 +1122,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
-	if (info && info->tunnel_endpoint != 0 && !info->flag_skip_tunnel) {
-		tunnel_endpoint = info->tunnel_endpoint;
+	if (info && info->tunnel_endpoint.ip4 != 0 && !info->flag_skip_tunnel) {
+		tunnel_endpoint = info->tunnel_endpoint.ip4;
 		dst_sec_identity = info->sec_identity;
 
 		BPF_V6(target.addr, ROUTER_IP);
@@ -1617,10 +1617,10 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 #endif
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-	if (!info || info->tunnel_endpoint == 0)
+	if (!info || info->tunnel_endpoint.ip4 == 0)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	tunnel_endpoint = info->tunnel_endpoint;
+	tunnel_endpoint = info->tunnel_endpoint.ip4;
 	dst_sec_identity = info->sec_identity;
 
 	if (ip4->protocol == IPPROTO_TCP) {
@@ -2161,8 +2161,8 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			struct remote_endpoint_info *info;
 
 			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-			if (info && info->tunnel_endpoint && !info->flag_skip_tunnel) {
-				tunnel_endpoint = info->tunnel_endpoint;
+			if (info && info->tunnel_endpoint.ip4 && !info->flag_skip_tunnel) {
+				tunnel_endpoint = info->tunnel_endpoint.ip4;
 				dst_sec_identity = info->sec_identity;
 			}
 		}
@@ -2410,8 +2410,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 #ifdef TUNNEL_MODE
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
-	if (info && info->tunnel_endpoint != 0 && !info->flag_skip_tunnel) {
-		tunnel_endpoint = info->tunnel_endpoint;
+	if (info && info->tunnel_endpoint.ip4 != 0 && !info->flag_skip_tunnel) {
+		tunnel_endpoint = info->tunnel_endpoint.ip4;
 		dst_sec_identity = info->sec_identity;
 
 		target.addr = IPV4_GATEWAY;

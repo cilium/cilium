@@ -470,7 +470,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		info = lookup_ip6_remote_endpoint(daddr, 0);
 		if (info && info->sec_identity) {
 			*dst_sec_identity = info->sec_identity;
-			tunnel_endpoint = info->tunnel_endpoint;
+			tunnel_endpoint = info->tunnel_endpoint.ip4;
 			encrypt_key = get_min_encrypt_key(info->key);
 			skip_tunnel = info->flag_skip_tunnel;
 		} else {
@@ -917,7 +917,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
 		if (info && info->sec_identity) {
 			*dst_sec_identity = info->sec_identity;
-			tunnel_endpoint = info->tunnel_endpoint;
+			tunnel_endpoint = info->tunnel_endpoint.ip4;
 			encrypt_key = get_min_encrypt_key(info->key);
 			skip_tunnel = info->flag_skip_tunnel;
 		} else {
@@ -1613,7 +1613,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV6, src_label,
-						      sep->tunnel_endpoint, auth_type);
+						      sep->tunnel_endpoint.ip4, auth_type);
 			}
 		}
 
@@ -1961,7 +1961,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV4, src_label,
-						      sep->tunnel_endpoint, auth_type);
+						      sep->tunnel_endpoint.ip4, auth_type);
 			}
 		}
 		/* Emit verdict if drop or if allow for CT_NEW. */
