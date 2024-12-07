@@ -15,17 +15,12 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 )
 
 var _ = Describe("K8sDatapathConfig", func() {
-	const (
-		bpffsDir string = defaults.BPFFSRoot + "/" + defaults.TCGlobalsPath + "/"
-	)
-
 	var (
 		kubectl    *helpers.Kubectl
 		monitorLog = "monitor-aggregation.log"
@@ -652,53 +647,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 			testHostFirewall(kubectl)
-		})
-	})
-
-	// Quarantine waiting for https://github.com/cilium/cilium/pull/36373 before deleting the test
-	SkipContextIf(func() bool { return helpers.DoesNotRunOnNetNextKernel() || helpers.SkipQuarantined() }, "High-scale IPcache", func() {
-		const hsIPcacheFile = "high-scale-ipcache.yaml"
-
-		AfterEach(func() {
-			hsIPcacheYAML := helpers.ManifestGet(kubectl.BasePath(), hsIPcacheFile)
-			_ = kubectl.Delete(hsIPcacheYAML)
-		})
-
-		testHighScaleIPcache := func(tunnelProto string, epRoutesConfig string) {
-			options := map[string]string{
-				"highScaleIPcache.enabled":    "true",
-				"routingMode":                 "native",
-				"bpf.monitorAggregation":      "none",
-				"ipv6.enabled":                "false",
-				"wellKnownIdentities.enabled": "true",
-				"tunnelProtocol":              tunnelProto,
-				"endpointRoutes.enabled":      epRoutesConfig,
-			}
-			if !helpers.RunsOnGKE() {
-				options["autoDirectNodeRoutes"] = "true"
-			}
-			if helpers.RunsWithKubeProxy() {
-				options["kubeProxyReplacement"] = "false"
-			} else if helpers.RunsWithKubeProxyReplacement() {
-				options["loadBalancer.mode"] = "dsr"
-				options["loadBalancer.dsrDispatch"] = "geneve"
-			}
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-
-			cmd := fmt.Sprintf("bpftool map update pinned %scilium_world_cidrs4 key 0 0 0 0 0 0 0 0 value 1", bpffsDir)
-			kubectl.CiliumExecMustSucceedOnAll(context.TODO(), cmd)
-
-			hsIPcacheYAML := helpers.ManifestGet(kubectl.BasePath(), hsIPcacheFile)
-			kubectl.Create(hsIPcacheYAML).ExpectSuccess("Unable to create resource %q", hsIPcacheYAML)
-
-			// We need a longer timeout here because of the larger number of
-			// pods that need to be deployed.
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l type=client", 2*helpers.HelperTimeout)
-			Expect(err).ToNot(HaveOccurred(), "Client pods not ready after timeout")
-		}
-
-		It("Test ingress policy enforcement with GENEVE and endpoint routes", func() {
-			testHighScaleIPcache("geneve", "true")
 		})
 	})
 
