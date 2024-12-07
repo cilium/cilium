@@ -255,7 +255,7 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 
 	/* Send the packet to egress gateway node through a tunnel. */
-	return __encap_and_redirect_with_nodeid(ctx, 0, gateway_ip,
+	return __encap_and_redirect_with_nodeid(ctx, gateway_ip,
 						src_sec_identity, dst_sec_identity,
 						NOT_VTEP_DST, trace);
 }

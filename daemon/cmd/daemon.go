@@ -675,11 +675,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.WithError(err).Errorf(msg, option.Devices)
 			return nil, nil, fmt.Errorf(msg, option.Devices)
 		}
-		if option.Config.EnableHighScaleIPcache {
-			msg := "External facing device for high-scale IPcache could not be determined. Use --%s to specify."
-			log.WithError(err).Errorf(msg, option.Devices)
-			return nil, nil, fmt.Errorf(msg, option.Devices)
-		}
 	}
 
 	// Some of the k8s watchers rely on option flags set above (specifically
