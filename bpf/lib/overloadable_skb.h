@@ -286,7 +286,7 @@ static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
-		   __be16 src_port __maybe_unused, __u32 node_id,
+		   __be16 src_port __maybe_unused, __u32 tunnel_endpoint,
 		   __u32 seclabel, __u32 vni __maybe_unused,
 		   void *opt, __u32 opt_len)
 {
@@ -305,7 +305,7 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 		key.local_ipv4 = bpf_ntohl(src_ip);
 		key_size = sizeof(key);
 	}
-	key.remote_ipv4 = node_id;
+	key.remote_ipv4 = bpf_ntohl(tunnel_endpoint);
 	key.tunnel_ttl = IPDEFTTL;
 
 	ret = ctx_set_tunnel_key(ctx, &key, key_size, BPF_F_ZERO_CSUM_TX);
