@@ -15,11 +15,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func (p *ProxyPorts) noRedirects(pp *ProxyPort) bool {
+func (p *ProxyPorts) released(pp *ProxyPort) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	return pp.nRedirects == 0
+	return pp.nRedirects == 0 && pp.ProxyPort == 0 && !pp.configured && !pp.acknowledged
 }
 
 func TestPortAllocator(t *testing.T) {
@@ -64,15 +64,15 @@ func TestPortAllocator(t *testing.T) {
 	err = p.releaseProxyPort("listener1", 10*time.Millisecond)
 	require.NoError(t, err)
 
-	// Last reference is not released immediately
-	require.Equal(t, 1, pp.nRedirects)
+	// Proxy port is not released immediately
+	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, uint16(0), pp.ProxyPort)
 	port1a, _, err = p.GetProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, uint16(0), port1a)
 
 	require.Eventually(t, func() bool {
-		return p.noRedirects(pp)
+		return p.released(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
@@ -137,7 +137,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return p.noRedirects(pp)
+		return p.released(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	require.Equal(t, 0, pp.nRedirects)
@@ -183,7 +183,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return p.noRedirects(pp)
+		return p.released(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	require.Equal(t, 0, pp.nRedirects)
