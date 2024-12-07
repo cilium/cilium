@@ -97,20 +97,15 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  */
 static __always_inline int
 __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-			 __u8 encrypt_key __maybe_unused, __u32 seclabel,
-			 __u32 dstid, const struct trace_ctx *trace)
+			 __u8 encrypt_key, __u32 seclabel, __u32 dstid,
+			 const struct trace_ctx *trace)
 {
 	int ifindex __maybe_unused;
 	int ret __maybe_unused;
 
-#ifdef ENABLE_IPSEC
-	if (encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					 seclabel, false, false);
-#endif
-
-	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, 0, seclabel,
-					      dstid, trace);
+	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
+					      encrypt_key, seclabel, dstid,
+					      trace);
 }
 
 #if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
@@ -159,15 +154,15 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 					 seclabel, false, false);
 	}
 # endif
-	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, 0, seclabel, dstid,
-					      trace);
+	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,
+						dstid, NOT_VTEP_DST, trace);
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 }
 
 static __always_inline int
 encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
-			  __u8 encrypt_key __maybe_unused,
-			  __u32 seclabel, const struct trace_ctx *trace)
+			  __u8 encrypt_key, __u32 seclabel,
+			  const struct trace_ctx *trace)
 {
 	struct tunnel_value *tunnel;
 
@@ -175,14 +170,8 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-#ifdef ENABLE_IPSEC
-	if (encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, tunnel->ip4,
-					 seclabel, true, false);
-#endif
-
-	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, 0, seclabel, 0,
-					      trace);
+	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, encrypt_key,
+					      seclabel, 0, trace);
 }
 #endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
