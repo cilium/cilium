@@ -254,7 +254,7 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 	ip4->ttl = IPDEFTTL;
 	ip4->protocol = IPPROTO_UDP;
 	ip4->saddr = src_ip;
-	ip4->daddr = bpf_htonl(daddr);
+	ip4->daddr = daddr;
 	ip4->check = csum_fold(csum_diff(NULL, 0, ip4, sizeof(*ip4), 0));
 
 	eth->h_proto = bpf_htons(ETH_P_IP);

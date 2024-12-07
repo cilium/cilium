@@ -30,8 +30,6 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
 		    enum trace_reason ct_reason, __u32 monitor, int *ifindex)
 {
-	__u32 node_id;
-
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
 	 * received.
@@ -39,9 +37,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	if (seclabel == HOST_ID)
 		seclabel = LOCAL_NODE_ID;
 
-	node_id = bpf_ntohl(tunnel_endpoint);
-
-	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
+	cilium_dbg(ctx, DBG_ENCAP, tunnel_endpoint, seclabel);
 
 #if __ctx_is == __ctx_skb
 	*ifindex = ENCAP_IFINDEX;
@@ -52,7 +48,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
-	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni,
+	return ctx_set_encap_info(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni,
 				  NULL, 0);
 }
 
@@ -223,8 +219,6 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			enum trace_reason ct_reason,
 			__u32 monitor, int *ifindex)
 {
-	__u32 node_id;
-
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
 	 * received.
@@ -232,9 +226,7 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	if (seclabel == HOST_ID)
 		seclabel = LOCAL_NODE_ID;
 
-	node_id = bpf_ntohl(tunnel_endpoint);
-
-	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
+	cilium_dbg(ctx, DBG_ENCAP, tunnel_endpoint, seclabel);
 
 #if __ctx_is == __ctx_skb
 	*ifindex = ENCAP_IFINDEX;
@@ -245,7 +237,7 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
-	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni, opt,
+	return ctx_set_encap_info(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni, opt,
 				  opt_len);
 }
 
