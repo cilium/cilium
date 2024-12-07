@@ -117,9 +117,8 @@ include:
   # K8sDatapathConfig Iptables Skip conntrack for pod traffic
   # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
   # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR
-  # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with GENEVE and endpoint routes
   - focus: "f20-datapath-misc-3"
-    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig High-scale"
+    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6"
 
   ###
   # K8sAgentHubbleTest Hubble Observe Test FQDN Policy with Relay

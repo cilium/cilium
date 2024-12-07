@@ -1616,21 +1616,12 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	}
 #endif
 
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
- #ifdef IS_BPF_OVERLAY
-	src_sec_identity = ctx_load_meta(ctx, CB_DSR_SRC_LABEL);
- #endif
-
-	tunnel_endpoint = ip4->daddr;
-	dst_sec_identity = 0;
-#else
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (!info || info->tunnel_endpoint == 0)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	tunnel_endpoint = info->tunnel_endpoint;
 	dst_sec_identity = info->sec_identity;
-#endif
 
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
@@ -2665,7 +2656,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key->dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, key->address);
-		ctx_store_meta(ctx, CB_DSR_SRC_LABEL, src_sec_identity);
 		ctx_store_meta(ctx, CB_DSR_L3_OFF, l3_off);
 #endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR, ext_err);

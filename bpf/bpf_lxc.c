@@ -1215,7 +1215,7 @@ ct_recreate4:
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, 0, vtep->tunnel_endpoint,
+			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
 								SECLABEL_IPV4, WORLD_IPV4_ID,
 								WORLD_IPV4_ID, &trace);
 		}
@@ -1223,7 +1223,7 @@ ct_recreate4:
 skip_vtep:
 #endif
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
+#if defined(TUNNEL_MODE)
 	if (!skip_tunnel) {
 		struct tunnel_key key = {};
 
@@ -1280,7 +1280,7 @@ skip_vtep:
 			return ret;
 		}
 	}
-#endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
+#endif /* TUNNEL_MODE */
 
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
@@ -1335,7 +1335,7 @@ pass_to_stack:
 #endif
 	}
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
+#if defined(TUNNEL_MODE)
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity,
@@ -2384,22 +2384,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		sec_label = SECLABEL_IPV6;
-# ifdef ENABLE_HIGH_SCALE_IPCACHE
-	if (identity_is_world_ipv6(identity)) {
-		struct endpoint_info *ep;
-		void *data, *data_end;
-		struct ipv6hdr *ip6;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
-			ret = DROP_INVALID;
-			goto out;
-		}
-
-		ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
-		if (ep)
-			identity = ep->sec_id;
-	}
-# endif /* ENABLE_HIGH_SCALE_IPCACHE */
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS, &ext_err);
 		break;
@@ -2407,22 +2391,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		sec_label = SECLABEL_IPV4;
-# ifdef ENABLE_HIGH_SCALE_IPCACHE
-	if (identity_is_world_ipv4(identity)) {
-		struct endpoint_info *ep;
-		void *data, *data_end;
-		struct iphdr *ip4;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-			ret = DROP_INVALID;
-			goto out;
-		}
-
-		ep = __lookup_ip4_endpoint(ip4->saddr);
-		if (ep)
-			identity = ep->sec_id;
-	}
-# endif /* ENABLE_HIGH_SCALE_IPCACHE */
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS, &ext_err);
 		break;
