@@ -213,10 +213,10 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (!info || info->tunnel_endpoint == 0)
+		if (!info || info->tunnel_endpoint.ip4 == 0)
 			return false;
 
-		*tunnel_endpoint = info->tunnel_endpoint;
+		*tunnel_endpoint = info->tunnel_endpoint.ip4;
 		*dst_sec_identity = info->sec_identity;
 
 		return true;
@@ -437,10 +437,10 @@ bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6, __u32 *tunnel_e
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (!info || info->tunnel_endpoint == 0)
+		if (!info || info->tunnel_endpoint.ip4 == 0)
 			return false;
 
-		*tunnel_endpoint = info->tunnel_endpoint;
+		*tunnel_endpoint = info->tunnel_endpoint.ip4;
 		*dst_sec_identity = info->sec_identity;
 
 		return true;
