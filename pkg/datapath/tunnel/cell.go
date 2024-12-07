@@ -42,11 +42,5 @@ var Cell = cell.Module(
 				WithoutMTUAdaptation(),
 			)
 		},
-
-		// Enable tunnel configuration when High Scale IPCache is enabled (this is
-		// currently handled here, as the corresponding logic has not yet been modularized).
-		func(dcfg *option.DaemonConfig) EnablerOut {
-			return NewEnabler(dcfg.EnableHighScaleIPcache)
-		},
 	),
 )

@@ -500,28 +500,6 @@ skip_fib:
 			return ret;
 
 		*snat_done = true;
-
-#ifdef ENABLE_DSR
- #if defined(ENABLE_HIGH_SCALE_IPCACHE) &&				\
-     defined(IS_BPF_OVERLAY) &&						\
-     DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-		/* For HS IPCache, we also need to revDNAT the OuterSrcIP: */
-		if (ct_state.dsr_internal) {
-			struct bpf_tunnel_key key;
-
-			if (ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0)
-				return DROP_NO_TUNNEL_KEY;
-
-			/* kernel returns addresses in flipped locations: */
-			key.remote_ipv4 = key.local_ipv4;
-			key.local_ipv4 = bpf_ntohl(nat_info->address);
-
-			if (ctx_set_tunnel_key(ctx, &key, sizeof(key),
-					       BPF_F_ZERO_CSUM_TX) < 0)
-				return DROP_WRITE_ERROR;
-		}
- #endif
-#endif
 	}
 
 	return CTX_ACT_OK;

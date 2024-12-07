@@ -636,10 +636,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(vp, option.EnableIdentityMark)
 
-	flags.Bool(option.EnableHighScaleIPcache, defaults.EnableHighScaleIPcache, "Enable the high scale mode for ipcache")
-	option.BindEnv(vp, option.EnableHighScaleIPcache)
-	flags.MarkDeprecated(option.EnableHighScaleIPcache, "The high-scale mode for ipcache is deprecated and will be removed in v1.18.")
-
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(vp, option.EnableHostFirewall)
 
@@ -1372,24 +1368,6 @@ func initEnv(vp *viper.Viper) {
 	if option.Config.EnableHostFirewall {
 		if option.Config.EnableIPSec {
 			log.Fatal("IPSec cannot be used with the host firewall.")
-		}
-	}
-
-	if option.Config.EnableHighScaleIPcache {
-		if option.Config.TunnelingEnabled() {
-			log.Fatal("The high-scale IPcache mode requires native routing.")
-		}
-		if option.Config.EnableIPSec {
-			log.Fatal("IPsec is not supported in high scale IPcache mode.")
-		}
-		if option.Config.EnableIPv6 {
-			log.Fatal("The high-scale IPcache mode is not supported with IPv6.")
-		}
-		if !option.Config.EnableWellKnownIdentities {
-			log.Fatal("The high-scale IPcache mode requires well-known identities to be enabled.")
-		}
-		if err := probes.HaveOuterSourceIPSupport(); err != nil {
-			log.WithError(err).Fatal("The high scale IPcache mode needs support in the kernel to set the outer source IP address.")
 		}
 	}
 

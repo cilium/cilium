@@ -95,7 +95,6 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 				option.Config.EnableIPSec,
 				p.TunnelConfig.ShouldAdaptMTU(),
 				option.Config.EnableWireguard,
-				option.Config.EnableHighScaleIPcache && option.Config.EnableNodePort,
 			)
 
 			configuredMTU := option.Config.MTU

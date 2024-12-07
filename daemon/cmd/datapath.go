@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
-	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -169,12 +168,6 @@ func (d *Daemon) initMaps() error {
 		err := tunnel.TunnelMap().Unpin()
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("removing tunnel map: %w", err)
-		}
-	}
-
-	if option.Config.EnableHighScaleIPcache {
-		if err := worldcidrsmap.InitWorldCIDRsMap(); err != nil {
-			return fmt.Errorf("initializing world CIDRs map: %w", err)
 		}
 	}
 
