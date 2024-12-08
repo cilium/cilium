@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -23,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/defaults"
 	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lock"
@@ -886,6 +889,12 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		return err
 	}
 
+	l = l.WithFields(logrus.Fields{
+		types.LocalASNLogField:   localASN,
+		types.ListenPortLogField: localPort,
+		types.RouterIDLogField:   routerID,
+	})
+
 	globalConfig := types.ServerParameters{
 		Global: types.BGPGlobal{
 			ASN:        uint32(localASN),
@@ -1041,9 +1050,45 @@ func getLocalASN(config *v2alpha1api.CiliumBGPNodeInstance) (int64, error) {
 	return 0, fmt.Errorf("missing ASN in desired config")
 }
 
+// macToRouterID converts the lower 4 bytes of a MAC address to a router ID
+func macToRouterID(mac net.HardwareAddr) (string, error) {
+	macLen := len(mac)
+	if macLen < 4 {
+		return "", fmt.Errorf("MAC address too short: %v", mac)
+	}
+	// Use the last 4 bytes to generate the router ID
+	return fmt.Sprintf("%d.%d.%d.%d", mac[macLen-4], mac[macLen-3], mac[macLen-2], mac[macLen-1]), nil
+}
+
+// calcRouterIDFromMacAddress calculates a router ID from the lower 4 bytes of the MAC address
+func calcRouterIDFromMacAddress() (string, error) {
+	// Use cilium_host device
+	hostDeviceName := defaults.HostDevice
+
+	// Retrieve the network link for the host device
+	link, err := safenetlink.LinkByName(hostDeviceName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get device %s: %w", hostDeviceName, err)
+	}
+
+	// Get the MAC address
+	mac := link.Attrs().HardwareAddr
+	if mac == nil {
+		return "", fmt.Errorf("no MAC address found for device %s", hostDeviceName)
+	}
+
+	routerID, err := macToRouterID(mac)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate router ID from MAC address: %w", err)
+	} else {
+		return routerID, nil
+	}
+}
+
 // getRouterID returns the router ID for the given ASN. If the router ID is defined in the desired config, it will
 // be returned. Otherwise, the router ID will be resolved from the ciliumnode annotations. If the router ID is not
-// defined in the annotations, the node IP from cilium node will be returned.
+// defined in the annotations, the node IP from cilium node will be returned. If the node IP is not available, the
+// router ID will be calculated from the MAC address.
 func getRouterID(config *v2alpha1api.CiliumBGPNodeInstance, ciliumNode *v2api.CiliumNode, asn int64) (string, error) {
 	if config.RouterID != nil {
 		return *config.RouterID, nil
@@ -1054,17 +1099,25 @@ func getRouterID(config *v2alpha1api.CiliumBGPNodeInstance, ciliumNode *v2api.Ci
 	if err != nil {
 		return "", fmt.Errorf("failed to parse Node annotations for instance %v: %w", config.Name, err)
 	}
-
 	routerID, err := annoMap.ResolveRouterID(asn)
-	if err != nil {
-		if nodeIP := ciliumNode.GetIP(false); nodeIP == nil {
-			return "", fmt.Errorf("failed to get CiliumNode IP %v: %w", nodeIP, err)
-		} else {
-			routerID = nodeIP.String()
-		}
+	if err == nil {
+		return routerID, nil
 	}
 
-	return routerID, nil
+	// If there are no annotations about router-id, router-id will be allocated based on the allocation mode
+	// TODO: implmente other allocation modes
+	if option.Config.BGPRouterIDAllocationMode == defaults.BGPRouterIDAllocationMode {
+		if nodeIP := ciliumNode.GetIP(false); nodeIP != nil {
+			routerID = nodeIP.String()
+		} else {
+			routerID, err = calcRouterIDFromMacAddress()
+			if err != nil {
+				return "", err
+			}
+		}
+		return routerID, nil
+	}
+	return "", fmt.Errorf("no router-id found")
 }
 
 // getLocalPort returns the local port for the given ASN. If the local port is defined in the desired config, it will

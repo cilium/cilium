@@ -271,11 +271,19 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+     - ``{"enabled":false,"routerIDAllocation":{"mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
      - bool
      - ``false``
+   * - :spelling:ignore:`bgpControlPlane.routerIDAllocation`
+     - BGP router-id allocation mode
+     - object
+     - ``{"mode":"default"}``
+   * - :spelling:ignore:`bgpControlPlane.routerIDAllocation.mode`
+     - BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
+     - string
+     - ``"default"``
    * - :spelling:ignore:`bgpControlPlane.secretsNamespace`
      - SecretsNamespace is the namespace which BGP support will retrieve secrets from.
      - object

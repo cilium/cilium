@@ -460,6 +460,14 @@
         "enabled": {
           "type": "boolean"
         },
+        "routerIDAllocation": {
+          "properties": {
+            "mode": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "secretsNamespace": {
           "properties": {
             "create": {
