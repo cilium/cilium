@@ -11,28 +11,28 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Gets the current state of block public access for AMIs at the account level in
-// the specified Amazon Web Services Region.
-//
-// For more information, see [Block public access to your AMIs] in the Amazon EC2 User Guide.
-//
-// [Block public access to your AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html#block-public-access-to-amis
-func (c *Client) GetImageBlockPublicAccessState(ctx context.Context, params *GetImageBlockPublicAccessStateInput, optFns ...func(*Options)) (*GetImageBlockPublicAccessStateOutput, error) {
+// Gets the targets for the specified network CIDR endpoint for Verified Access.
+func (c *Client) GetVerifiedAccessEndpointTargets(ctx context.Context, params *GetVerifiedAccessEndpointTargetsInput, optFns ...func(*Options)) (*GetVerifiedAccessEndpointTargetsOutput, error) {
 	if params == nil {
-		params = &GetImageBlockPublicAccessStateInput{}
+		params = &GetVerifiedAccessEndpointTargetsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetImageBlockPublicAccessState", params, optFns, c.addOperationGetImageBlockPublicAccessStateMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetVerifiedAccessEndpointTargets", params, optFns, c.addOperationGetVerifiedAccessEndpointTargetsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*GetImageBlockPublicAccessStateOutput)
+	out := result.(*GetVerifiedAccessEndpointTargetsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type GetImageBlockPublicAccessStateInput struct {
+type GetVerifiedAccessEndpointTargetsInput struct {
+
+	// The ID of the network CIDR endpoint.
+	//
+	// This member is required.
+	VerifiedAccessEndpointId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -40,30 +40,24 @@ type GetImageBlockPublicAccessStateInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int32
+
+	// The token for the next page of results.
+	NextToken *string
+
 	noSmithyDocumentSerde
 }
 
-type GetImageBlockPublicAccessStateOutput struct {
+type GetVerifiedAccessEndpointTargetsOutput struct {
 
-	// The current state of block public access for AMIs at the account level in the
-	// specified Amazon Web Services Region.
-	//
-	// Possible values:
-	//
-	//   - block-new-sharing - Any attempt to publicly share your AMIs in the specified
-	//   Region is blocked.
-	//
-	//   - unblocked - Your AMIs in the specified Region can be publicly shared.
-	ImageBlockPublicAccessState *string
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
+	NextToken *string
 
-	// The entity that manages the state for block public access for AMIs. Possible
-	// values include:
-	//
-	//   - account - The state is managed by the account.
-	//
-	//   - declarative-policy - The state is managed by a declarative policy and can't
-	//   be modified by the account.
-	ManagedBy types.ManagedBy
+	// The Verified Access targets.
+	VerifiedAccessEndpointTargets []types.VerifiedAccessEndpointTarget
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -71,19 +65,19 @@ type GetImageBlockPublicAccessStateOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetVerifiedAccessEndpointTargetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpGetImageBlockPublicAccessState{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpGetVerifiedAccessEndpointTargets{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetImageBlockPublicAccessState{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetVerifiedAccessEndpointTargets{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "GetImageBlockPublicAccessState"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "GetVerifiedAccessEndpointTargets"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -135,7 +129,10 @@ func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *mi
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(options.Region), middleware.Before); err != nil {
+	if err = addOpGetVerifiedAccessEndpointTargetsValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetVerifiedAccessEndpointTargets(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -168,10 +165,10 @@ func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *mi
 	return nil
 }
 
-func newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opGetVerifiedAccessEndpointTargets(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "GetImageBlockPublicAccessState",
+		OperationName: "GetVerifiedAccessEndpointTargets",
 	}
 }

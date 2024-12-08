@@ -234,7 +234,7 @@ type CreateVolumeOutput struct {
 	// Indicates whether Amazon EBS Multi-Attach is enabled.
 	MultiAttachEnabled *bool
 
-	// The entity that manages the volume.
+	// The service provider that manages the volume.
 	Operator *types.OperatorResponse
 
 	// The Amazon Resource Name (ARN) of the Outpost.

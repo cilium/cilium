@@ -12,8 +12,8 @@ import (
 )
 
 // Describes the AMI that was used to launch an instance, even if the AMI is
-// deprecated, deregistered, or made private (no longer public or shared with your
-// account).
+// deprecated, deregistered, made private (no longer public or shared with your
+// account), or not allowed.
 //
 // If you specify instance IDs, the output includes information for only the
 // specified instances. If you specify filters, the output includes information for
@@ -67,6 +67,9 @@ type DescribeInstanceImageMetadataInput struct {
 	//
 	//   - instance-id - The ID of the instance.
 	//
+	//   - image-allowed - A Boolean that indicates whether the image meets the
+	//   criteria specified for Allowed AMIs.
+	//
 	//   - instance-state-name - The state of the instance ( pending | running |
 	//   shutting-down | terminated | stopping | stopped ).
 	//
@@ -76,6 +79,14 @@ type DescribeInstanceImageMetadataInput struct {
 	//   format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), for example,
 	//   2023-09-29T11:04:43.305Z . You can use a wildcard ( * ), for example,
 	//   2023-09-29T* , which matches an entire day.
+	//
+	//   - owner-alias - The owner alias ( amazon | aws-marketplace | aws-backup-vault
+	//   ). The valid aliases are defined in an Amazon-maintained list. This is not the
+	//   Amazon Web Services account alias that can be set using the IAM console. We
+	//   recommend that you use the Owner request parameter instead of this filter.
+	//
+	//   - owner-id - The Amazon Web Services account ID of the owner. We recommend
+	//   that you use the Owner request parameter instead of this filter.
 	//
 	//   - tag: - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,

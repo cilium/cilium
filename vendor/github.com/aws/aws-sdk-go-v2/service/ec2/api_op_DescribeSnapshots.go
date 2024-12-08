@@ -113,6 +113,9 @@ type DescribeSnapshotsInput struct {
 	//
 	//   - storage-tier - The storage tier of the snapshot ( archive | standard ).
 	//
+	//   - transfer-type - The type of operation used to create the snapshot (
+	//   time-based | standard ).
+	//
 	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
 	//   tag key in the filter name and the tag value as the filter value. For example,
 	//   to find all resources that have a tag with the key Owner and the value TeamA ,

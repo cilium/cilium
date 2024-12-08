@@ -11,28 +11,31 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Gets the current state of block public access for AMIs at the account level in
-// the specified Amazon Web Services Region.
+// Sets or replaces the criteria for Allowed AMIs.
 //
-// For more information, see [Block public access to your AMIs] in the Amazon EC2 User Guide.
+// The Allowed AMIs feature does not restrict the AMIs owned by your account.
+// Regardless of the criteria you set, the AMIs created by your account will always
+// be discoverable and usable by users in your account.
 //
-// [Block public access to your AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html#block-public-access-to-amis
-func (c *Client) GetImageBlockPublicAccessState(ctx context.Context, params *GetImageBlockPublicAccessStateInput, optFns ...func(*Options)) (*GetImageBlockPublicAccessStateOutput, error) {
+// For more information, see [Control the discovery and use of AMIs in Amazon EC2 with Allowed AMIs] in Amazon EC2 User Guide.
+//
+// [Control the discovery and use of AMIs in Amazon EC2 with Allowed AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-allowed-amis.html
+func (c *Client) ReplaceImageCriteriaInAllowedImagesSettings(ctx context.Context, params *ReplaceImageCriteriaInAllowedImagesSettingsInput, optFns ...func(*Options)) (*ReplaceImageCriteriaInAllowedImagesSettingsOutput, error) {
 	if params == nil {
-		params = &GetImageBlockPublicAccessStateInput{}
+		params = &ReplaceImageCriteriaInAllowedImagesSettingsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetImageBlockPublicAccessState", params, optFns, c.addOperationGetImageBlockPublicAccessStateMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ReplaceImageCriteriaInAllowedImagesSettings", params, optFns, c.addOperationReplaceImageCriteriaInAllowedImagesSettingsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*GetImageBlockPublicAccessStateOutput)
+	out := result.(*ReplaceImageCriteriaInAllowedImagesSettingsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type GetImageBlockPublicAccessStateInput struct {
+type ReplaceImageCriteriaInAllowedImagesSettingsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -40,30 +43,18 @@ type GetImageBlockPublicAccessStateInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The list of criteria that are evaluated to determine whether AMIs are
+	// discoverable and usable in the account in the specified Amazon Web Services
+	// Region.
+	ImageCriteria []types.ImageCriterionRequest
+
 	noSmithyDocumentSerde
 }
 
-type GetImageBlockPublicAccessStateOutput struct {
+type ReplaceImageCriteriaInAllowedImagesSettingsOutput struct {
 
-	// The current state of block public access for AMIs at the account level in the
-	// specified Amazon Web Services Region.
-	//
-	// Possible values:
-	//
-	//   - block-new-sharing - Any attempt to publicly share your AMIs in the specified
-	//   Region is blocked.
-	//
-	//   - unblocked - Your AMIs in the specified Region can be publicly shared.
-	ImageBlockPublicAccessState *string
-
-	// The entity that manages the state for block public access for AMIs. Possible
-	// values include:
-	//
-	//   - account - The state is managed by the account.
-	//
-	//   - declarative-policy - The state is managed by a declarative policy and can't
-	//   be modified by the account.
-	ManagedBy types.ManagedBy
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	ReturnValue *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -71,19 +62,19 @@ type GetImageBlockPublicAccessStateOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationReplaceImageCriteriaInAllowedImagesSettingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpGetImageBlockPublicAccessState{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpReplaceImageCriteriaInAllowedImagesSettings{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetImageBlockPublicAccessState{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpReplaceImageCriteriaInAllowedImagesSettings{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "GetImageBlockPublicAccessState"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "ReplaceImageCriteriaInAllowedImagesSettings"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -135,7 +126,7 @@ func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *mi
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opReplaceImageCriteriaInAllowedImagesSettings(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -168,10 +159,10 @@ func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *mi
 	return nil
 }
 
-func newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opReplaceImageCriteriaInAllowedImagesSettings(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "GetImageBlockPublicAccessState",
+		OperationName: "ReplaceImageCriteriaInAllowedImagesSettings",
 	}
 }

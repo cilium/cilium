@@ -11,28 +11,24 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Gets the current state of block public access for AMIs at the account level in
-// the specified Amazon Web Services Region.
-//
-// For more information, see [Block public access to your AMIs] in the Amazon EC2 User Guide.
-//
-// [Block public access to your AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html#block-public-access-to-amis
-func (c *Client) GetImageBlockPublicAccessState(ctx context.Context, params *GetImageBlockPublicAccessStateInput, optFns ...func(*Options)) (*GetImageBlockPublicAccessStateOutput, error) {
+// Describes the VPC resources, VPC endpoint services, Amazon Lattice services, or
+// service networks associated with the VPC endpoint.
+func (c *Client) DescribeVpcEndpointAssociations(ctx context.Context, params *DescribeVpcEndpointAssociationsInput, optFns ...func(*Options)) (*DescribeVpcEndpointAssociationsOutput, error) {
 	if params == nil {
-		params = &GetImageBlockPublicAccessStateInput{}
+		params = &DescribeVpcEndpointAssociationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetImageBlockPublicAccessState", params, optFns, c.addOperationGetImageBlockPublicAccessStateMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeVpcEndpointAssociations", params, optFns, c.addOperationDescribeVpcEndpointAssociationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*GetImageBlockPublicAccessStateOutput)
+	out := result.(*DescribeVpcEndpointAssociationsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type GetImageBlockPublicAccessStateInput struct {
+type DescribeVpcEndpointAssociationsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -40,30 +36,46 @@ type GetImageBlockPublicAccessStateInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The filters.
+	//
+	//   - vpc-endpoint-id - The ID of the VPC endpoint.
+	//
+	//   - associated-resource-accessibility - The association state. When the state is
+	//   accessible , it returns AVAILABLE . When the state is inaccessible , it
+	//   returns PENDING or FAILED .
+	//
+	//   - association-id - The ID of the VPC endpoint association.
+	//
+	//   - associated-resource-id - The ID of the associated resource configuration.
+	//
+	//   - service-network-arn - The Amazon Resource Name (ARN) of the associated
+	//   service network. Only VPC endpoints of type service network will be returned.
+	//
+	//   - resource-configuration-group-arn - The Amazon Resource Name (ARN) of the
+	//   resource configuration of type GROUP.
+	//
+	//   - service-network-resource-association-id - The ID of the association.
+	Filters []types.Filter
+
+	// The maximum page size.
+	MaxResults *int32
+
+	// The pagination token.
+	NextToken *string
+
+	// The IDs of the VPC endpoints.
+	VpcEndpointIds []string
+
 	noSmithyDocumentSerde
 }
 
-type GetImageBlockPublicAccessStateOutput struct {
+type DescribeVpcEndpointAssociationsOutput struct {
 
-	// The current state of block public access for AMIs at the account level in the
-	// specified Amazon Web Services Region.
-	//
-	// Possible values:
-	//
-	//   - block-new-sharing - Any attempt to publicly share your AMIs in the specified
-	//   Region is blocked.
-	//
-	//   - unblocked - Your AMIs in the specified Region can be publicly shared.
-	ImageBlockPublicAccessState *string
+	// The pagination token.
+	NextToken *string
 
-	// The entity that manages the state for block public access for AMIs. Possible
-	// values include:
-	//
-	//   - account - The state is managed by the account.
-	//
-	//   - declarative-policy - The state is managed by a declarative policy and can't
-	//   be modified by the account.
-	ManagedBy types.ManagedBy
+	// Details of the endpoint associations.
+	VpcEndpointAssociations []types.VpcEndpointAssociation
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -71,19 +83,19 @@ type GetImageBlockPublicAccessStateOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeVpcEndpointAssociationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpGetImageBlockPublicAccessState{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeVpcEndpointAssociations{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetImageBlockPublicAccessState{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDescribeVpcEndpointAssociations{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "GetImageBlockPublicAccessState"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeVpcEndpointAssociations"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -135,7 +147,7 @@ func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *mi
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpointAssociations(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -168,10 +180,10 @@ func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *mi
 	return nil
 }
 
-func newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeVpcEndpointAssociations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "GetImageBlockPublicAccessState",
+		OperationName: "DescribeVpcEndpointAssociations",
 	}
 }

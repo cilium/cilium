@@ -11,28 +11,28 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Gets the current state of block public access for AMIs at the account level in
-// the specified Amazon Web Services Region.
-//
-// For more information, see [Block public access to your AMIs] in the Amazon EC2 User Guide.
-//
-// [Block public access to your AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html#block-public-access-to-amis
-func (c *Client) GetImageBlockPublicAccessState(ctx context.Context, params *GetImageBlockPublicAccessStateInput, optFns ...func(*Options)) (*GetImageBlockPublicAccessStateOutput, error) {
+// Exports the client configuration for a Verified Access instance.
+func (c *Client) ExportVerifiedAccessInstanceClientConfiguration(ctx context.Context, params *ExportVerifiedAccessInstanceClientConfigurationInput, optFns ...func(*Options)) (*ExportVerifiedAccessInstanceClientConfigurationOutput, error) {
 	if params == nil {
-		params = &GetImageBlockPublicAccessStateInput{}
+		params = &ExportVerifiedAccessInstanceClientConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetImageBlockPublicAccessState", params, optFns, c.addOperationGetImageBlockPublicAccessStateMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ExportVerifiedAccessInstanceClientConfiguration", params, optFns, c.addOperationExportVerifiedAccessInstanceClientConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*GetImageBlockPublicAccessStateOutput)
+	out := result.(*ExportVerifiedAccessInstanceClientConfigurationOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type GetImageBlockPublicAccessStateInput struct {
+type ExportVerifiedAccessInstanceClientConfigurationInput struct {
+
+	// The ID of the Verified Access instance.
+	//
+	// This member is required.
+	VerifiedAccessInstanceId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -43,27 +43,25 @@ type GetImageBlockPublicAccessStateInput struct {
 	noSmithyDocumentSerde
 }
 
-type GetImageBlockPublicAccessStateOutput struct {
+type ExportVerifiedAccessInstanceClientConfigurationOutput struct {
 
-	// The current state of block public access for AMIs at the account level in the
-	// specified Amazon Web Services Region.
-	//
-	// Possible values:
-	//
-	//   - block-new-sharing - Any attempt to publicly share your AMIs in the specified
-	//   Region is blocked.
-	//
-	//   - unblocked - Your AMIs in the specified Region can be publicly shared.
-	ImageBlockPublicAccessState *string
+	// The device trust providers.
+	DeviceTrustProviders []types.DeviceTrustProviderType
 
-	// The entity that manages the state for block public access for AMIs. Possible
-	// values include:
-	//
-	//   - account - The state is managed by the account.
-	//
-	//   - declarative-policy - The state is managed by a declarative policy and can't
-	//   be modified by the account.
-	ManagedBy types.ManagedBy
+	// The Open VPN configuration.
+	OpenVpnConfigurations []types.VerifiedAccessInstanceOpenVpnClientConfiguration
+
+	// The Region.
+	Region *string
+
+	// The user identity trust provider.
+	UserTrustProvider *types.VerifiedAccessInstanceUserTrustProviderClientConfiguration
+
+	// The ID of the Verified Access instance.
+	VerifiedAccessInstanceId *string
+
+	// The version.
+	Version *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -71,19 +69,19 @@ type GetImageBlockPublicAccessStateOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationExportVerifiedAccessInstanceClientConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpGetImageBlockPublicAccessState{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpExportVerifiedAccessInstanceClientConfiguration{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetImageBlockPublicAccessState{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpExportVerifiedAccessInstanceClientConfiguration{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "GetImageBlockPublicAccessState"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "ExportVerifiedAccessInstanceClientConfiguration"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -135,7 +133,10 @@ func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *mi
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(options.Region), middleware.Before); err != nil {
+	if err = addOpExportVerifiedAccessInstanceClientConfigurationValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opExportVerifiedAccessInstanceClientConfiguration(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -168,10 +169,10 @@ func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *mi
 	return nil
 }
 
-func newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opExportVerifiedAccessInstanceClientConfiguration(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "GetImageBlockPublicAccessState",
+		OperationName: "ExportVerifiedAccessInstanceClientConfiguration",
 	}
 }
