@@ -1097,6 +1097,9 @@ const (
 	// EnableBGPControlPlaneStatusReport enables BGP Control Plane CRD status reporting
 	EnableBGPControlPlaneStatusReport = "enable-bgp-control-plane-status-report"
 
+	// BGP router-id allocation mode in ipv6 standalone environment
+	BGPRouterIDAllocationMode = "bgp-router-id-allocation-mode"
+
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -2193,6 +2196,9 @@ type DaemonConfig struct {
 
 	// Enables BGP control plane status reporting.
 	EnableBGPControlPlaneStatusReport bool
+
+	// BGPRouterIDAllocationMode is the mode to allocate the BGP router-id in ipv6 standalone environment.
+	BGPRouterIDAllocationMode string
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
@@ -3303,6 +3309,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Enable BGP control plane status reporting
 	c.EnableBGPControlPlaneStatusReport = vp.GetBool(EnableBGPControlPlaneStatusReport)
+
+	// BGP router-id allocation mode in IPv6 standalone environment
+	c.BGPRouterIDAllocationMode = vp.GetString(BGPRouterIDAllocationMode)
 
 	// Support failure-mode for policy map overflow
 	c.EnableEndpointLockdownOnPolicyOverflow = vp.GetBool(EnableEndpointLockdownOnPolicyOverflow)

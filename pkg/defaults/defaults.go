@@ -585,6 +585,9 @@ const (
 
 	// EnableSourceIPVerification is the default value for source ip validation
 	EnableSourceIPVerification = true
+
+	// BGPRouterIDAllocationMode is default BGP router-id allocation mode
+	BGPRouterIDAllocationMode = "default"
 )
 
 var (
