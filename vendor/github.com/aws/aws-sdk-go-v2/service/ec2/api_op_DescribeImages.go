@@ -29,6 +29,12 @@ import (
 // deregistered AMI are terminated, specifying the ID of the image will eventually
 // return an error indicating that the AMI ID cannot be found.
 //
+// When Allowed AMIs is set to enabled , only allowed images are returned in the
+// results, with the imageAllowed field set to true for each image. In audit-mode ,
+// the imageAllowed field is set to true for images that meet the account's
+// Allowed AMIs criteria, and false for images that don't meet the criteria. For
+// more information, see EnableAllowedImagesSettings.
+//
 // We strongly recommend using only paginated requests. Unpaginated requests are
 // susceptible to throttling and timeouts.
 //
@@ -108,6 +114,9 @@ type DescribeImagesInput struct {
 	//
 	//   - hypervisor - The hypervisor type ( ovm | xen ).
 	//
+	//   - image-allowed - A Boolean that indicates whether the image meets the
+	//   criteria specified for Allowed AMIs.
+	//
 	//   - image-id - The ID of the image.
 	//
 	//   - image-type - The image type ( machine | kernel | ramdisk ).
@@ -141,6 +150,10 @@ type DescribeImagesInput struct {
 	//
 	//   - root-device-type - The type of the root device volume ( ebs | instance-store
 	//   ).
+	//
+	//   - source-image-id - The ID of the source AMI from which the AMI was created.
+	//
+	//   - source-image-region - The Region of the source AMI.
 	//
 	//   - source-instance-id - The ID of the instance that the AMI was created from if
 	//   the AMI was created using CreateImage. This filter is applicable only if the AMI

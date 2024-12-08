@@ -1,3 +1,8 @@
+# v1.195.0 (2024-12-02)
+
+* **Feature**: Adds support for declarative policies that allow you to enforce desired configuration across an AWS organization through configuring account attributes. Adds support for Allowed AMIs that allows you to limit the use of AMIs in AWS accounts. Adds support for connectivity over non-HTTP protocols.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.194.0 (2024-11-26)
 
 * **Feature**: Adds support for Time-based Copy for EBS Snapshots and Cross Region PrivateLink. Time-based Copy ensures that EBS Snapshots are copied within and across AWS Regions in a specified timeframe. Cross Region PrivateLink enables customers to connect to VPC endpoint services hosted in other AWS Regions.
