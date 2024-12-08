@@ -460,6 +460,10 @@ bgpControlPlane:
     # It is recommended to enable status reporting in general, but if you have any issue
     # such as high API server load, you can disable it by setting this to false.
     enabled: true
+  # -- BGP router-id allocation mode
+  routerIDAllocation:
+    # -- BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
+    mode: "default"
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
