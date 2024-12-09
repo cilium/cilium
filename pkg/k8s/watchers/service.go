@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -156,45 +157,90 @@ func (k *K8sServiceWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lo
 }
 
 func (k *K8sServiceWatcher) k8sServiceHandler() {
-	eventHandler := func(event k8s.ServiceEvent) {
-		defer func(startTime time.Time) {
-			event.SWG.Done()
-			k.k8sServiceEventProcessed(event.Action.String(), startTime)
-		}(time.Now())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-		svc := event.Service
-
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.K8sSvcName:   event.ID.Name,
-			logfields.K8sNamespace: event.ID.Namespace,
-		})
-
-		if logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel) {
-			scopedLog.WithFields(logrus.Fields{
-				"action":        event.Action.String(),
-				"service":       event.Service.String(),
-				"old-service":   event.OldService.String(),
-				"endpoints":     event.Endpoints.String(),
-				"old-endpoints": event.OldEndpoints.String(),
-			}).Debug("Kubernetes service definition changed")
-		}
-
-		switch event.Action {
-		case k8s.UpdateService:
-			k.addK8sSVCs(event.ID, event.OldService, svc, event.Endpoints)
-		case k8s.DeleteService:
-			k.delK8sSVCs(event.ID, event.OldService)
-		}
+	type event struct {
+		k8s.ServiceEvent
+		doneFuncs []func()
 	}
+
+	bufferEvent := func(buf map[k8s.ServiceID]event, ev k8s.ServiceEvent) map[k8s.ServiceID]event {
+		if buf == nil {
+			buf = map[k8s.ServiceID]event{}
+		}
+
+		event := event{ServiceEvent: ev, doneFuncs: []func(){ev.SWG.Done}}
+		old, ok := buf[ev.ID]
+		if ok {
+			// Older event existed, reuse the "old" structures so that the event describes
+			// the full delta.
+			event.OldEndpoints = old.OldEndpoints
+			event.OldService = old.OldService
+			event.doneFuncs = append(old.doneFuncs, event.doneFuncs...)
+		}
+		buf[ev.ID] = event
+		return buf
+	}
+
+	// Collect events into a buffer to debounce repeated events for the same service.
+	// This has a big impact when there are many EndpointSlices for a single service as
+	// we'll collapse those into a single event and avoid the repeated service upserts.
+	events :=
+		stream.ToChannel(ctx,
+			stream.Buffer(
+				stream.FromChannel(k.k8sSvcCache.Events),
+				option.Config.K8sServiceDebounceBufferSize,
+				option.Config.K8sServiceDebounceWaitTime,
+				bufferEvent,
+			),
+		)
 	for {
 		select {
 		case <-k.stop:
-			return
-		case event, ok := <-k.k8sSvcCache.Events:
+			cancel()
+		case buf, ok := <-events:
 			if !ok {
 				return
 			}
-			eventHandler(event)
+			for _, ev := range buf {
+				k.processServiceEvent(ev.ServiceEvent)
+				for _, done := range ev.doneFuncs {
+					done()
+				}
+			}
+		}
+	}
+}
+
+func (k *K8sServiceWatcher) processServiceEvent(event k8s.ServiceEvent) {
+	defer func(startTime time.Time) {
+		k.k8sServiceEventProcessed(event.Action.String(), startTime)
+	}(time.Now())
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.K8sSvcName:   event.ID.Name,
+		logfields.K8sNamespace: event.ID.Namespace,
+	})
+
+	if logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel) {
+		scopedLog.WithFields(logrus.Fields{
+			"action":        event.Action.String(),
+			"service":       event.Service.String(),
+			"old-service":   event.OldService.String(),
+			"endpoints":     event.Endpoints.String(),
+			"old-endpoints": event.OldEndpoints.String(),
+		}).Debug("Kubernetes service definition changed")
+	}
+
+	switch event.Action {
+	case k8s.UpdateService:
+		k.addK8sSVCs(event.ID, event.OldService, event.Service, event.Endpoints)
+	case k8s.DeleteService:
+		// If [event.OldService] is nil then no upsert event was ever processed
+		// and we have nothing to delete.
+		if event.OldService != nil {
+			k.delK8sSVCs(event.ID, event.OldService)
 		}
 	}
 }
