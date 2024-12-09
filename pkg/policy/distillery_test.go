@@ -2049,6 +2049,6 @@ func (s *dummyPolicyStats) WaitingForPolicyRepository() *spanstat.SpanStat {
 	return &s.waitingForPolicyRepository
 }
 
-func (s *dummyPolicyStats) PolicyCalculation() *spanstat.SpanStat {
+func (s *dummyPolicyStats) SelectorPolicyCalculation() *spanstat.SpanStat {
 	return &s.policyCalculation
 }
