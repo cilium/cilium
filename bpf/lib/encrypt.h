@@ -128,8 +128,8 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 	set_identity_meta(ctx, seclabel);
 	if (use_meta)
 		set_encrypt_key_meta(ctx, spi, node_value->id);
-	else
-		set_encrypt_key_mark(ctx, spi, node_value->id);
+	set_encrypt_key_mark(ctx, spi, node_value->id);
+
 	return CTX_ACT_OK;
 }
 
