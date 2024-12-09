@@ -203,7 +203,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 	}})
 
 	state := traceState{}
-	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -214,7 +214,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 	expected.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -272,7 +272,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 	}})
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -283,7 +283,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 	expected.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -345,7 +345,7 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 	}})
 
 	state := traceState{}
-	resDeny, err := selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err := selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -361,7 +361,7 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 	t.Log(buffer)
 
 	state = traceState{}
-	resDeny, err = selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = selectDifferentEndpointsDenyAllL7.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -427,7 +427,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 	}})
 
 	state := traceState{}
-	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expectedDeny, resDeny)
@@ -438,7 +438,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 	expectedDeny.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -498,7 +498,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 	}})
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expectedDeny, resDeny)
@@ -509,7 +509,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 	expectedDeny.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -585,7 +585,7 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 	}})
 
 	state := traceState{}
-	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -596,7 +596,7 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 	expected.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)
@@ -666,7 +666,7 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 	}})
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.NotNil(t, resDeny)
 	require.EqualValues(t, expected, resDeny)
@@ -677,7 +677,7 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 	expected.Detach(td.sc)
 
 	state = traceState{}
-	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
+	resDeny, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap())
 	require.NoError(t, err)
 	require.Nil(t, resDeny)
 	require.Equal(t, 0, state.selectedRules)

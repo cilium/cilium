@@ -326,13 +326,13 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	require.False(t, eQABar.Allows(qaBarSecLblsCtx.ID))
 	require.False(t, eQABar.Allows(prodBarSecLblsCtx.ID))
 	require.True(t, eQABar.Allows(qaFooSecLblsCtx.ID))
-	require.False(t, eQABar.Allows(prodFooSecLblsCtx.ID))
+	require.True(t, eQABar.Allows(prodFooSecLblsCtx.ID))
 
 	eProdBar := ds.prepareEndpoint(t, prodBarSecLblsCtx, false)
 	require.False(t, eProdBar.Allows(0))
 	require.False(t, eProdBar.Allows(qaBarSecLblsCtx.ID))
 	require.False(t, eProdBar.Allows(prodBarSecLblsCtx.ID))
-	require.False(t, eProdBar.Allows(qaFooSecLblsCtx.ID))
+	require.True(t, eProdBar.Allows(qaFooSecLblsCtx.ID))
 	require.True(t, eProdBar.Allows(prodFooSecLblsCtx.ID))
 	require.True(t, eProdBar.Allows(prodFooJoeSecLblsCtx.ID))
 
@@ -345,10 +345,8 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	require.NotNil(t, qaBarNetworkPolicy)
 	expectedRemotePolicies := []uint32{
 		uint32(qaFooSecLblsCtx.ID),
-		// The prodFoo* identities are allowed by FromEndpoints but rejected by
-		// FromRequires, so they are not included in the remote policies:
-		// uint32(prodFooSecLblsCtx.ID),
-		// uint32(prodFooJoeSecLblsCtx.ID),
+		uint32(prodFooSecLblsCtx.ID),
+		uint32(prodFooJoeSecLblsCtx.ID),
 	}
 	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
 		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
@@ -386,9 +384,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	require.NotNil(t, prodBarNetworkPolicy)
 	expectedRemotePolicies = []uint32{
-		// The qaFoo identity is allowed by FromEndpoints but rejected by
-		// FromRequires, so it is not included in the remote policies:
-		// uint64(qaFooSecLblsCtx.ID),
+		uint32(qaFooSecLblsCtx.ID),
 		uint32(prodFooSecLblsCtx.ID),
 		uint32(prodFooJoeSecLblsCtx.ID),
 	}

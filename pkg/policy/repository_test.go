@@ -423,6 +423,7 @@ func TestAllowsIngress(t *testing.T) {
 					FromRequires: []api.EndpointSelector{
 						api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
 					},
+					FromEndpoints: []api.EndpointSelector{api.NewESFromLabels(labels.ParseSelectLabel("foo"))},
 				},
 			},
 		},
@@ -466,7 +467,7 @@ func TestAllowsIngress(t *testing.T) {
 
 	// groupB can't talk to groupA => Denied
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupB"),
+		From: labels.ParseSelectLabelArray("groupB"),
 		To:   labels.ParseSelectLabelArray("bar", "groupA"),
 	}))
 
@@ -999,17 +1000,13 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 					FromEndpoints: []api.EndpointSelector{
 						selBar1,
 					},
+					FromRequires: []api.EndpointSelector{selBar2},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
 					},
 				}},
-			},
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromRequires: []api.EndpointSelector{selBar2},
-				},
 			},
 		},
 	}
@@ -1102,13 +1099,7 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
 	require.NoError(t, err)
 
-	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
-		{
-			Key:      "any.id",
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values:   []string{"bar2"},
-		},
-	})
+	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, nil)
 	expectedSelector2 := api.NewESFromMatchRequirements(map[string]string{}, []slim_metav1.LabelSelectorRequirement{
 		{
 			Key:      "any.id",
@@ -2222,51 +2213,56 @@ Ingress verdict: denied
 				FromRequires: []api.EndpointSelector{
 					api.NewESFromLabels(labels.ParseSelectLabel("baz")),
 				},
+				FromEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+				},
 			},
 		}},
 	}
 	_, _, err = repo.mustAdd(l3rule)
 	require.NoError(t, err)
 
-	// foo=>bar is now denied due to the FromRequires
+	// show that new rule is constrained by requirement.
 	ctx = buildSearchCtx("foo", "bar", 0)
 	expectedOut = `
 Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
+    Allows from labels {"matchLabels":{"reserved:host":""}}
+    Allows from labels {"matchLabels":{"any:foo":""}}
+      Found all required labels
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    Allows from labels {"matchLabels":{"reserved:host":""}}
+    Allows from labels {"matchLabels":{"any:baz":""}}
+      No label match for [any:foo]
+* Rule {"matchLabels":{"any:bar":""}}: selected
     Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
     Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
       No label match for [any:foo]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-    Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-      No label match for [any:foo]
-* Rule {"matchLabels":{"any:bar":""}}: selected
 3/3 rules selected
-Found no allow rule
+Found allow rule
 Found no deny rule
-Ingress verdict: denied
+Ingress verdict: allowed
 `
-	repo.checkTrace(t, ctx, expectedOut, api.Denied)
+	repo.checkTrace(t, ctx, expectedOut, api.Allowed)
 
 	// baz=>bar is only denied because of the L4 policy
 	ctx = buildSearchCtx("baz", "bar", 0)
 	expectedOut = `
 Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-    Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+    Allows from labels {"matchLabels":{"reserved:host":""}}
+    Allows from labels {"matchLabels":{"any:foo":""}}
       No label match for [any:baz]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-    Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+    Allows from labels {"matchLabels":{"reserved:host":""}}
+    Allows from labels {"matchLabels":{"any:baz":""}}
       Found all required labels
       Allows port [{80 0 ANY}]
         No port match found
 * Rule {"matchLabels":{"any:bar":""}}: selected
+    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+    Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+      No label match for [any:baz]
 3/3 rules selected
 Found no allow rule
 Found no deny rule

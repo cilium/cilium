@@ -2008,7 +2008,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 
 			require.NoError(t, tr.Sanitize())
 			state := traceState{}
-			res, err := tr.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, NewL4PolicyMap(), nil, nil)
+			res, err := tr.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, NewL4PolicyMap())
 			require.NoError(t, err)
 			require.NotNil(t, res)
 

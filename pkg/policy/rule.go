@@ -559,7 +559,6 @@ func (r *rule) resolveIngressPolicy(
 	ctx *SearchContext,
 	state *traceState,
 	result L4PolicyMap,
-	requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement,
 ) (
 	L4PolicyMap, error,
 ) {
@@ -577,6 +576,10 @@ func (r *rule) resolveIngressPolicy(
 		ctx.PolicyTrace("    No ingress rules\n")
 	}
 	for _, ingressRule := range r.Ingress {
+		var requirements []slim_metav1.LabelSelectorRequirement
+		for _, requirement := range ingressRule.FromRequires {
+			requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+		}
 		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirements)
 		cnt, err := mergeIngress(policyCtx, ctx, fromEndpoints, ingressRule.Authentication, ingressRule.ToPorts, ingressRule.ICMPs, r.Rule.Labels.DeepCopy(), result)
 		if err != nil {
@@ -592,6 +595,10 @@ func (r *rule) resolveIngressPolicy(
 		policyCtx.SetDeny(oldDeny)
 	}()
 	for _, ingressRule := range r.IngressDeny {
+		var requirementsDeny []slim_metav1.LabelSelectorRequirement
+		for _, requirement := range ingressRule.FromRequires {
+			requirementsDeny = append(requirementsDeny, requirement.ConvertToLabelSelectorRequirementSlice()...)
+		}
 		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirementsDeny)
 		cnt, err := mergeIngress(policyCtx, ctx, fromEndpoints, nil, ingressRule.ToPorts, ingressRule.ICMPs, r.Rule.Labels.DeepCopy(), result)
 		if err != nil {
@@ -787,7 +794,6 @@ func (r *rule) resolveEgressPolicy(
 	ctx *SearchContext,
 	state *traceState,
 	result L4PolicyMap,
-	requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement,
 ) (
 	L4PolicyMap, error,
 ) {
@@ -805,6 +811,10 @@ func (r *rule) resolveEgressPolicy(
 		ctx.PolicyTrace("    No egress rules\n")
 	}
 	for _, egressRule := range r.Egress {
+		var requirements []slim_metav1.LabelSelectorRequirement
+		for _, requirement := range egressRule.ToRequires {
+			requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+		}
 		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirements)
 		cnt, err := mergeEgress(policyCtx, ctx, toEndpoints, egressRule.Authentication, egressRule.ToPorts, egressRule.ICMPs, r.Rule.Labels.DeepCopy(), result, egressRule.ToFQDNs)
 		if err != nil {
@@ -820,6 +830,10 @@ func (r *rule) resolveEgressPolicy(
 		policyCtx.SetDeny(oldDeny)
 	}()
 	for _, egressRule := range r.EgressDeny {
+		var requirementsDeny []slim_metav1.LabelSelectorRequirement
+		for _, requirement := range egressRule.ToRequires {
+			requirementsDeny = append(requirementsDeny, requirement.ConvertToLabelSelectorRequirementSlice()...)
+		}
 		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirementsDeny)
 		cnt, err := mergeEgress(policyCtx, ctx, toEndpoints, nil, egressRule.ToPorts, egressRule.ICMPs, r.Rule.Labels.DeepCopy(), result, nil)
 		if err != nil {

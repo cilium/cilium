@@ -36,7 +36,7 @@ func FuzzResolveEgressPolicy(f *testing.F) {
 		rule := &rule{Rule: r}
 		state := traceState{}
 		td := newTestData()
-		_, _ = rule.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap(), nil, nil)
+		_, _ = rule.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap())
 
 	})
 }
