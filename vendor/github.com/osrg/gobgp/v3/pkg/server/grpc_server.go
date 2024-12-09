@@ -261,8 +261,8 @@ func (s *server) ListPath(r *api.ListPathRequest, stream api.GobgpApi_ListPathSe
 	}
 	var sendErr error
 	err := s.bgpServer.ListPath(ctx, r, func(d *api.Destination) {
-		if uint64(len(l)) < batchSize {
-			l = append(l, d)
+		l = append(l, d)
+		if uint64(len(l)) <= batchSize {
 			return
 		}
 		if sendErr = send(); sendErr != nil {

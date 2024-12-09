@@ -31,7 +31,23 @@ const (
 	TraceLevel
 )
 
+const (
+	FieldFacility = "_facility"
+)
+
+var (
+	FacilityUnspecified interface{} = "unspecified"
+	FacilityConfig      interface{} = "config"
+)
+
 type Fields map[string]interface{}
+
+func (fields Fields) HasFacility(facility interface{}) bool {
+	if fieldsFacility, hasFacility := fields[FieldFacility]; hasFacility && fieldsFacility == facility {
+		return true
+	}
+	return false
+}
 
 type Logger interface {
 	Panic(msg string, fields Fields)
