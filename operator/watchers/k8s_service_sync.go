@@ -49,10 +49,10 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			"endpoints", event.Endpoints,
 			"old-service", event.OldService,
 			"old-endpoints", event.OldEndpoints,
-			"shared", event.Service.Shared,
+			"shared", svc.Shared,
 		)
 
-		if shared && !event.Service.Shared {
+		if shared && !svc.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			kvs.DeleteKey(ctx, &svc)
 			return
