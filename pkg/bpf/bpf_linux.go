@@ -12,6 +12,7 @@ import (
 	"path"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/features"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
@@ -165,4 +166,14 @@ func GetMtime() (uint64, error) {
 	}
 
 	return uint64(unix.TimespecToNsec(ts)), nil
+}
+
+func HasBatchOperations() bool {
+	// The StructOpsMap type merged into the same kernel
+	// as batch operations. It is a reasonable, but not
+	// full proof proxy for the existence of batch ops.
+	//
+	// todo: Add public feature check for batch operations
+	// in "cilium/ebpf/features" and use it here.
+	return features.HaveMapType(ebpf.StructOpsMap) == nil
 }

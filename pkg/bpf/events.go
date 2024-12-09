@@ -26,6 +26,8 @@ const (
 	// MapDeleteAll describes a map.DeleteAll event which is aggregated into a single event
 	// to minimize memory and subscription buffer usage.
 	MapDeleteAll
+	// MapBatchUpdate describes a map.BatchUpdate event.
+	MapBatchUpdate
 )
 
 var bpfEventBufferGCControllerGroup = controller.NewGroup("bpf-event-buffer-gc")
@@ -39,6 +41,8 @@ func (e Action) String() string {
 		return "delete"
 	case MapDeleteAll:
 		return "delete-all"
+	case MapBatchUpdate:
+		return "batch-update"
 	default:
 		return "unknown"
 	}
@@ -48,7 +52,7 @@ func (e Action) String() string {
 type Event struct {
 	Timestamp time.Time
 	action    Action
-	cacheEntry
+	cacheEntries
 }
 
 // GetAction returns the event action string.
@@ -56,32 +60,40 @@ func (e *Event) GetAction() string {
 	return e.action.String()
 }
 
-// GetKey returns the string representation of a event key.
+// GetKey returns the string representation of an event's keys.
 func (e Event) GetKey() string {
-	if e.cacheEntry.Key == nil {
+	if cL := len(e.cacheEntries); cL > 1 {
+		return fmt.Sprintf("[len:%d]", cL)
+	}
+	if len(e.cacheEntries) == 0 ||
+		e.cacheEntries[0] == nil || e.cacheEntries[0].Key == nil {
 		return "<nil>"
 	}
-	return e.cacheEntry.Key.String()
+	return e.cacheEntries[0].Key.String()
 }
 
 // GetValue returns the string representation of a event value.
 // Nil values (such as with deletes) are returned as a canonical
 // string representation.
 func (e Event) GetValue() string {
-	if e.cacheEntry.Value == nil {
+	if cL := len(e.cacheEntries); cL > 1 {
+		return fmt.Sprintf("[len:%d]", cL)
+	}
+	if len(e.cacheEntries) == 0 ||
+		e.cacheEntries[0] == nil || e.cacheEntries[0].Value == nil {
 		return "<nil>"
 	}
-	return e.cacheEntry.Value.String()
+	return e.cacheEntries[0].Value.String()
 }
 
 // GetLastError returns the last error for an event.
 func (e Event) GetLastError() error {
-	return e.cacheEntry.LastError
+	return e.cacheEntries[0].LastError
 }
 
 // GetDesiredAction returns the desired action enum for an event.
 func (e Event) GetDesiredAction() DesiredAction {
-	return e.cacheEntry.DesiredAction
+	return e.cacheEntries[0].DesiredAction
 }
 
 func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {

@@ -24,7 +24,7 @@ import (
 type MapEvent struct {
 
 	// Action type for event
-	// Enum: ["update","delete"]
+	// Enum: ["update","delete","batchupdate","batchdelete"]
 	Action string `json:"action,omitempty"`
 
 	// Desired action to be performed after this event

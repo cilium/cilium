@@ -3583,6 +3583,8 @@ definitions:
         enum:
         - update
         - delete
+        - batchupdate
+        - batchdelete
       desired-action:
         description: Desired action to be performed after this event
         type: string
