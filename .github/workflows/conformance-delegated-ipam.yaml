@@ -335,7 +335,8 @@ jobs:
 
       - name: Cilium connectivity test
         run: |
-          cilium connectivity test
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" --junit-property github_job_step="Run connectivity test"
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -355,7 +356,7 @@ jobs:
         if: ${{ !success() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: cilium-sysdump-out.zip
+          name: cilium-sysdumps-${{ join(matrix.*, '-') }}
           path: cilium-sysdump-*.zip
           retention-days: 5
 
@@ -363,7 +364,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: cilium-junits
+          name: cilium-junits-${{ join(matrix.*, '-') }}
           path: cilium-junits/*.xml
           retention-days: 5
 
