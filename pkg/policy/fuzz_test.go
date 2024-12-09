@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -45,7 +46,7 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		keys := newMapState()
 		key := Key{}
-		entry := NewMapStateEntry(AllowEntry, nil)
+		entry := NewMapStateEntry(types.AllowEntry(), nil)
 		ff := fuzz.NewConsumer(data)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
