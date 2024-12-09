@@ -287,6 +287,17 @@
       ]
     },
     {
+      // Do not ping helm/kind since the last version (1.10.0) has a bug which
+      // prevents it from downloading kubectl in older versions.
+      "enabled": false,
+      "matchDepNames": [
+        "helm/kind-action"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ]
+    },
+    {
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
