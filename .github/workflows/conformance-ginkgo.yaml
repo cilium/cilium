@@ -463,6 +463,7 @@ jobs:
 
       - name: Fetch features tested
         if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
+        continue-on-error: true
         uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
