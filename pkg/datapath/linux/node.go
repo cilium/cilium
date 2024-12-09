@@ -1001,29 +1001,40 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	oldIP4 := oldNode.GetNodeIP(false)
 	oldIP6 := oldNode.GetNodeIP(true)
 
+	oldAllIP4AllocCidrs := oldNode.GetIPv4AllocCIDRs()
+	oldAllIP6AllocCidrs := oldNode.GetIPv6AllocCIDRs()
+
 	var errs error
 	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(oldNode) {
 		if n.nodeConfig.EnableIPv4 {
-			if err := n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+			for _, cidr := range oldAllIP4AllocCidrs {
+				if err := n.deleteDirectRoute(cidr, oldIP4); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+				}
 			}
 		}
 		if n.nodeConfig.EnableIPv6 {
-			if err := n.deleteDirectRoute(oldNode.IPv6AllocCIDR, oldIP6); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+			for _, cidr := range oldAllIP6AllocCidrs {
+				if err := n.deleteDirectRoute(cidr, oldIP6); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+				}
 			}
 		}
 	}
 
 	if n.enableEncapsulation(oldNode) {
 		if n.nodeConfig.EnableIPv4 {
-			if err := n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv4: %w", err))
+			for _, cidr := range oldAllIP4AllocCidrs {
+				if err := n.deleteNodeRoute(cidr, false); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv4: %w", err))
+				}
 			}
 		}
 		if n.nodeConfig.EnableIPv6 {
-			if err := n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv6: %w", err))
+			for _, cidr := range oldAllIP6AllocCidrs {
+				if err := n.deleteNodeRoute(cidr, false); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv6: %w", err))
+				}
 			}
 		}
 	}
