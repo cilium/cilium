@@ -424,7 +424,7 @@ jobs:
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
           # - name: '23'
-          #   # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #   # <insert renovate dependency descriptor here>
           #   kernel: 'bpf-20241206.013345'
           #   misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
           #   skip-upgrade: 'true'
