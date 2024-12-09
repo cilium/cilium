@@ -48,11 +48,11 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			"endpoints":            event.Endpoints.String(),
 			"old-service":          event.OldService.String(),
 			"old-endpoints":        event.OldEndpoints.String(),
-			"shared":               event.Service.Shared,
+			"shared":               svc.Shared,
 		})
 		scopedLog.Debug("Kubernetes service definition changed")
 
-		if shared && !event.Service.Shared {
+		if shared && !svc.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			kvs.DeleteKey(ctx, &svc)
 			return

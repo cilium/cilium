@@ -211,6 +211,13 @@ const (
 	// K8sServiceCacheSize is service cache size for cilium k8s package.
 	K8sServiceCacheSize = "k8s-service-cache-size"
 
+	// K8sServiceDebounceBufferSize is the maximum number of service events to buffer.
+	K8sServiceDebounceBufferSize = "k8s-service-debounce-buffer-size"
+
+	// K8sServiceDebounceBufferWaitTime is the amount of time to wait before emitting
+	// the service event buffer.
+	K8sServiceDebounceWaitTime = "k8s-service-debounce-wait-time"
+
 	// K8sSyncTimeout is the timeout since last event was received to synchronize all resources with k8s.
 	K8sSyncTimeoutName = "k8s-sync-timeout"
 
@@ -1491,6 +1498,13 @@ type DaemonConfig struct {
 
 	// K8sServiceCacheSize is the service cache size for cilium k8s package.
 	K8sServiceCacheSize uint
+
+	// Number of distinct services to buffer at most.
+	K8sServiceDebounceBufferSize int
+
+	// The amount of time to wait to debounce service events before
+	// emitting the buffer.
+	K8sServiceDebounceWaitTime time.Duration
 
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
@@ -3067,6 +3081,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))
+	c.K8sServiceDebounceBufferSize = vp.GetInt(K8sServiceDebounceBufferSize)
+	c.K8sServiceDebounceWaitTime = vp.GetDuration(K8sServiceDebounceWaitTime)
 	c.K8sSyncTimeout = vp.GetDuration(K8sSyncTimeoutName)
 	c.AllocatorListTimeout = vp.GetDuration(AllocatorListTimeoutName)
 	c.K8sWatcherEndpointSelector = vp.GetString(K8sWatcherEndpointSelector)
