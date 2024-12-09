@@ -2,13 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.21
-// +build go1.21
+//go:build !go1.23
 
-package versions
+package checker
 
-import "go/build/constraint"
-
-func init() {
-	ConstraintGoVersion = constraint.GoVersion
-}
+// This type is a placeholder for go1.23's iter.Seq[*Action].
+type actionSeq func(yield func(*Action) bool)

@@ -112,7 +112,9 @@ func (s *VariableSpec) copy(cpy *CollectionSpec) *VariableSpec {
 		name:   s.name,
 		offset: s.offset,
 		size:   s.size,
-		t:      s.t,
+	}
+	if s.t != nil {
+		out.t = btf.Copy(s.t).(*btf.Var)
 	}
 
 	// Attempt to find a MapSpec with the same name in the copied CollectionSpec.

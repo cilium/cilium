@@ -661,7 +661,10 @@ func match(s *State, args []string, text, name string) error {
 	isGrep := name == "grep"
 
 	wantArgs := 1
-	if !isGrep && len(args) != wantArgs {
+	if isGrep {
+		wantArgs = 2
+	}
+	if len(args) != wantArgs {
 		return ErrUsage
 	}
 
@@ -672,16 +675,12 @@ func match(s *State, args []string, text, name string) error {
 	}
 
 	if isGrep {
-		if len(args) == 1 || args[1] == "-" {
-			text = s.stdout
-		} else {
-			name = args[1] // for error messages
-			data, err := os.ReadFile(s.Path(args[1]))
-			if err != nil {
-				return err
-			}
-			text = string(data)
+		name = args[1] // for error messages
+		data, err := os.ReadFile(s.Path(args[1]))
+		if err != nil {
+			return err
 		}
+		text = string(data)
 	}
 
 	if n > 0 {
@@ -716,11 +715,13 @@ func Help() Cmd {
 	return Command(
 		CmdUsage{
 			Summary: "log help text for commands and conditions",
-			Args:    "[-v] name...",
+			Args:    "[-v] (regexp)",
 			Detail: []string{
 				"To display help for a specific condition, enclose it in brackets: 'help [amd64]'.",
 				"To display complete documentation when listing all commands, pass the -v flag.",
+				"Commands can be filtered with a regexp: 'help ^db'",
 			},
+			RegexpArgs: firstNonFlag,
 		},
 		func(s *State, args ...string) (WaitFunc, error) {
 			if s.engine == nil {
@@ -757,7 +758,7 @@ func Help() Cmd {
 				if len(args) == 0 {
 					out.WriteString("\ncommands:\n\n")
 				}
-				s.engine.ListCmds(out, verbose, cmds...)
+				s.engine.ListCmds(out, verbose, strings.Join(cmds, " "))
 			}
 
 			wait := func(*State) (stdout, stderr string, err error) {
