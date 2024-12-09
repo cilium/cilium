@@ -222,6 +222,32 @@ func (p *Proxy) createNewRedirect(
 	// try first with the previous port, if any
 	p.proxyPorts.Restore(pp)
 
+	// Callback for Envoy ACK/NACK handling for the redirect.
+	// If we get a non-nil 'err' Envoy has NACKed the listener update, and the whole (endpoint)
+	// regeneration will also be reverted. Revert can happen for other reasons as well (such as
+	// bpf datapath compilation failure), and we do not want to churn proxy ports in that case.
+	// Not called for DNS redirects.
+	// This callbck is called before the finalize or revert function is called.
+	proxyCallback := func(err error) {
+		if err == nil {
+			// Enable datapath redirection for the proxy port if proxy creation
+			// was successful, even if the overall (endpoint) regeneration
+			// fails. This way there is less churm on the procy port allocation
+			// and datapath. Endpoint policy will no redirect to the new proxy
+			// implementation if regeneration fails.
+			err = p.proxyPorts.AckProxyPort(ctx, ppName, pp)
+			if err != nil {
+				scopedLog.
+					WithError(err).
+					Error("Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed")
+			}
+		} else {
+			// Release proxy port if NACK was received. Do not release a port that has
+			// already been successfully acknowledged or that it statically configured.
+			p.proxyPorts.Reset(pp)
+		}
+	}
+
 	var err error
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if err != nil {
@@ -238,7 +264,7 @@ func (p *Proxy) createNewRedirect(
 			break
 		}
 
-		err = p.createRedirectImpl(redirect, l4, wg)
+		err = p.createRedirectImpl(redirect, l4, wg, proxyCallback)
 		if err == nil {
 			break
 		}
@@ -266,10 +292,6 @@ func (p *Proxy) createNewRedirect(
 		// when reverting. Undo what we have done above.
 		p.mutex.Lock()
 		delete(p.redirects, id)
-
-		// Does not release static proxy ports
-		p.proxyPorts.Reset(pp)
-
 		p.updateRedirectMetrics()
 		p.mutex.Unlock()
 		implFinalizeFunc, _ := redirect.implementation.Close(wg)
@@ -281,14 +303,14 @@ func (p *Proxy) createNewRedirect(
 
 	// Increase the reference count only when ACK is received
 	finalizeFunc := func() {
-		p.proxyPorts.AckProxyPortWithReference(ctx, ppName)
+		p.proxyPorts.AddReference(pp)
 	}
 
 	// Must return the proxy port when successful
 	return pp.ProxyPort, nil, finalizeFunc, revertFunc
 }
 
-func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup) error {
+func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup, cb func(err error)) error {
 	var err error
 
 	switch l4.GetL7Parser() {
@@ -296,7 +318,7 @@ func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, wg *c
 		redir.implementation, err = p.dnsIntegration.createRedirect(redir, wg)
 		// 'cb' not called for DNS redirects, which have a static proxy port
 	default:
-		redir.implementation, err = p.envoyIntegration.createRedirect(redir, wg)
+		redir.implementation, err = p.envoyIntegration.createRedirect(redir, wg, cb)
 	}
 
 	return err
