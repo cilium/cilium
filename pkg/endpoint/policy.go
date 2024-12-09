@@ -240,7 +240,9 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	e.runlock()
 
 	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
+	stats.endpointPolicyCalculation.Start()
 	result.endpointPolicy = selectorPolicy.DistillPolicy(e, desiredRedirects)
+	stats.endpointPolicyCalculation.End(true)
 
 	return result, nil
 }
