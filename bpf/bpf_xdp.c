@@ -10,6 +10,8 @@
 
 #define SKIP_POLICY_MAP 1
 
+#define IS_BPF_XDP 1
+
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
  * bpf_lxc object file.
  */
