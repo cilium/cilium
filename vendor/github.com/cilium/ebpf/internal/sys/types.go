@@ -720,7 +720,7 @@ type ProgInfo struct {
 	Tag                  [8]uint8
 	JitedProgLen         uint32
 	XlatedProgLen        uint32
-	JitedProgInsns       uint64
+	JitedProgInsns       Pointer
 	XlatedProgInsns      Pointer
 	LoadTime             uint64
 	CreatedByUid         uint32
@@ -734,14 +734,14 @@ type ProgInfo struct {
 	NrJitedKsyms         uint32
 	NrJitedFuncLens      uint32
 	JitedKsyms           Pointer
-	JitedFuncLens        uint64
+	JitedFuncLens        Pointer
 	BtfId                BTFID
 	FuncInfoRecSize      uint32
 	FuncInfo             Pointer
 	NrFuncInfo           uint32
 	NrLineInfo           uint32
 	LineInfo             Pointer
-	JitedLineInfo        uint64
+	JitedLineInfo        Pointer
 	NrJitedLineInfo      uint32
 	LineInfoRecSize      uint32
 	JitedLineInfoRecSize uint32

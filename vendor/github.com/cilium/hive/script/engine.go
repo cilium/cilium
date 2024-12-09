@@ -58,6 +58,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -752,21 +753,34 @@ func checkStatus(cmd *command, err error) error {
 // ListCmds prints to w a list of the named commands,
 // annotating each with its arguments and a short usage summary.
 // If verbose is true, ListCmds prints full details for each command.
-//
-// Each of the name arguments should be a command name.
-// If no names are passed as arguments, ListCmds lists all the
-// commands registered in e.
-func (e *Engine) ListCmds(w io.Writer, verbose bool, names ...string) error {
-	if names == nil {
-		names = make([]string, 0, len(e.Cmds))
-		for name := range e.Cmds {
-			names = append(names, name)
+func (e *Engine) ListCmds(w io.Writer, verbose bool, regexMatch string) error {
+	var re *regexp.Regexp
+	if regexMatch != "" {
+		var err error
+		re, err = regexp.Compile(regexMatch)
+		if err != nil {
+			return err
 		}
-		sort.Strings(names)
 	}
+	names := make([]string, 0, len(e.Cmds))
+	for name := range e.Cmds {
+		names = append(names, name)
+	}
+	sort.Strings(names)
 
 	for _, name := range names {
-		cmd := e.Cmds[name]
+		if re != nil && !re.MatchString(name) {
+			continue
+		}
+		cmd, ok := e.Cmds[name]
+		if !ok {
+			_, err := fmt.Fprintf(w, "command %q is not registered\n", name)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+
 		usage := cmd.Usage()
 
 		suffix := ""
