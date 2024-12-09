@@ -183,3 +183,27 @@ steps:
       - name: Max
         query: max_over_time(count({__name__=~"cilium_.+"})[%v:])
       enableViolations: true
+
+  - Identifier: CiliumCPUUsage
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Average CPU Usage
+      metricVersion: v1
+      unit: cpu
+      enableViolations: true
+      queries:
+      - name: Max
+        query: max(avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:]))
+
+  - Identifier: CiliumMemUsage
+    Method: GenericPrometheusQuery
+    Params:
+      action: {{$action}}
+      metricName: Max Memory Usage
+      metricVersion: v1
+      unit: MB
+      enableViolations: true
+      queries:
+      - name: Max
+        query: max(max_over_time(cilium_process_resident_memory_bytes[%v:]) / 1e6)
