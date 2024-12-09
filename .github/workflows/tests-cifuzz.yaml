@@ -1,8 +1,13 @@
 name: CIFuzz
 on:
+  schedule:
+    # Run the Fuzzers every Monday at 7am
+    - cron: '0 7 * * 1'
+  workflow_dispatch: {}
   pull_request:
-    paths-ignore:
-      - 'Documentation/**'
+    paths:
+      - '.github/workflows/tests-cifuzz.yaml'
+      - '**/fuzz_test.go'
 permissions: read-all
 jobs:
   Fuzzing:
