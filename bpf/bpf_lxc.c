@@ -1809,6 +1809,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
+		ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
@@ -2166,6 +2167,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 		}
 
 		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
+		ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
