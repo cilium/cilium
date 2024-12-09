@@ -683,6 +683,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.IPv4NodeAddr)
 
 	flags.Bool(option.Restore, true, "Restores state, if possible, from previous daemon")
+	flags.MarkHidden(option.Restore)
 	option.BindEnv(vp, option.Restore)
 
 	flags.String(option.SocketPath, defaults.SockPath, "Sets daemon's socket path to listen for connections")
