@@ -59,8 +59,6 @@ Prerequisites
   this to NodePort or, since Cilium 1.16+, directly expose the Cilium L7 proxy
   on the :ref:`host network<gs_ingress_host_network_mode>`.
 
-.. include:: ingress-known-issues.rst
-
 .. include:: installation.rst
 
 .. include:: ingress-reference.rst
