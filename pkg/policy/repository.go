@@ -133,7 +133,7 @@ type PolicyRepository interface {
 
 type GetPolicyStatistics interface {
 	WaitingForPolicyRepository() *spanstat.SpanStat
-	PolicyCalculation() *spanstat.SpanStat
+	SelectorPolicyCalculation() *spanstat.SpanStat
 }
 
 // Repository is a list of policy rules which in combination form the security
@@ -840,15 +840,15 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 		return nil, rev
 	}
 
-	stats.PolicyCalculation().Start()
+	stats.SelectorPolicyCalculation().Start()
 	// This may call back in to the (locked) repository to generate the
 	// selector policy
 	sp, updated, err := r.policyCache.updateSelectorPolicy(id)
-	stats.PolicyCalculation().EndError(err)
+	stats.SelectorPolicyCalculation().EndError(err)
 
 	// If we hit cache, reset the statistics.
 	if !updated {
-		stats.PolicyCalculation().Reset()
+		stats.SelectorPolicyCalculation().Reset()
 	}
 
 	return sp, rev
