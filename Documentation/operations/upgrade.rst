@@ -335,6 +335,8 @@ communicating via the proxy must reconnect to re-establish connections.
 * The Cilium status API now reports the KVStore subsystem with ``Disabled`` state when disabled,
   instead of ``OK`` state and ``Disabled`` message.
 * Support for ``metallb-bgp``, deprecated since 1.14, has been removed.
+* Layer 7 policy support for Cassandra and Memcached have been deprecated and
+  their getting started guides have been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~
