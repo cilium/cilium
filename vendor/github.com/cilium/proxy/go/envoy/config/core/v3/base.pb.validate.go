@@ -801,7 +801,16 @@ func (m *Metadata) validate(all bool) error {
 			val := m.GetFilterMetadata()[key]
 			_ = val
 
-			// no validation rules for FilterMetadata[key]
+			if utf8.RuneCountInString(key) < 1 {
+				err := MetadataValidationError{
+					field:  fmt.Sprintf("FilterMetadata[%v]", key),
+					reason: "value length must be at least 1 runes",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
 
 			if all {
 				switch v := interface{}(val).(type) {
@@ -847,7 +856,16 @@ func (m *Metadata) validate(all bool) error {
 			val := m.GetTypedFilterMetadata()[key]
 			_ = val
 
-			// no validation rules for TypedFilterMetadata[key]
+			if utf8.RuneCountInString(key) < 1 {
+				err := MetadataValidationError{
+					field:  fmt.Sprintf("TypedFilterMetadata[%v]", key),
+					reason: "value length must be at least 1 runes",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
 
 			if all {
 				switch v := interface{}(val).(type) {
@@ -2456,6 +2474,73 @@ func (m *RetryPolicy) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for RetryOn
+
+	if all {
+		switch v := interface{}(m.GetRetryPriority()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RetryPolicyValidationError{
+					field:  "RetryPriority",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RetryPolicyValidationError{
+					field:  "RetryPriority",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRetryPriority()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RetryPolicyValidationError{
+				field:  "RetryPriority",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	for idx, item := range m.GetRetryHostPredicate() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RetryPolicyValidationError{
+						field:  fmt.Sprintf("RetryHostPredicate[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RetryPolicyValidationError{
+						field:  fmt.Sprintf("RetryHostPredicate[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RetryPolicyValidationError{
+					field:  fmt.Sprintf("RetryHostPredicate[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for HostSelectionRetryMaxAttempts
+
 	if len(errors) > 0 {
 		return RetryPolicyMultiError(errors)
 	}
@@ -3314,3 +3399,322 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ControlPlaneValidationError{}
+
+// Validate checks the field values on RetryPolicy_RetryPriority with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *RetryPolicy_RetryPriority) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RetryPolicy_RetryPriority with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RetryPolicy_RetryPriorityMultiError, or nil if none found.
+func (m *RetryPolicy_RetryPriority) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RetryPolicy_RetryPriority) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetName()) < 1 {
+		err := RetryPolicy_RetryPriorityValidationError{
+			field:  "Name",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	switch v := m.ConfigType.(type) {
+	case *RetryPolicy_RetryPriority_TypedConfig:
+		if v == nil {
+			err := RetryPolicy_RetryPriorityValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RetryPolicy_RetryPriorityValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RetryPolicy_RetryPriorityValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RetryPolicy_RetryPriorityValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
+	if len(errors) > 0 {
+		return RetryPolicy_RetryPriorityMultiError(errors)
+	}
+
+	return nil
+}
+
+// RetryPolicy_RetryPriorityMultiError is an error wrapping multiple validation
+// errors returned by RetryPolicy_RetryPriority.ValidateAll() if the
+// designated constraints aren't met.
+type RetryPolicy_RetryPriorityMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RetryPolicy_RetryPriorityMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RetryPolicy_RetryPriorityMultiError) AllErrors() []error { return m }
+
+// RetryPolicy_RetryPriorityValidationError is the validation error returned by
+// RetryPolicy_RetryPriority.Validate if the designated constraints aren't met.
+type RetryPolicy_RetryPriorityValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RetryPolicy_RetryPriorityValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RetryPolicy_RetryPriorityValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RetryPolicy_RetryPriorityValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RetryPolicy_RetryPriorityValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RetryPolicy_RetryPriorityValidationError) ErrorName() string {
+	return "RetryPolicy_RetryPriorityValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RetryPolicy_RetryPriorityValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRetryPolicy_RetryPriority.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RetryPolicy_RetryPriorityValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RetryPolicy_RetryPriorityValidationError{}
+
+// Validate checks the field values on RetryPolicy_RetryHostPredicate with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *RetryPolicy_RetryHostPredicate) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RetryPolicy_RetryHostPredicate with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// RetryPolicy_RetryHostPredicateMultiError, or nil if none found.
+func (m *RetryPolicy_RetryHostPredicate) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RetryPolicy_RetryHostPredicate) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetName()) < 1 {
+		err := RetryPolicy_RetryHostPredicateValidationError{
+			field:  "Name",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	switch v := m.ConfigType.(type) {
+	case *RetryPolicy_RetryHostPredicate_TypedConfig:
+		if v == nil {
+			err := RetryPolicy_RetryHostPredicateValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetTypedConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RetryPolicy_RetryHostPredicateValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RetryPolicy_RetryHostPredicateValidationError{
+						field:  "TypedConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RetryPolicy_RetryHostPredicateValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
+	if len(errors) > 0 {
+		return RetryPolicy_RetryHostPredicateMultiError(errors)
+	}
+
+	return nil
+}
+
+// RetryPolicy_RetryHostPredicateMultiError is an error wrapping multiple
+// validation errors returned by RetryPolicy_RetryHostPredicate.ValidateAll()
+// if the designated constraints aren't met.
+type RetryPolicy_RetryHostPredicateMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RetryPolicy_RetryHostPredicateMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RetryPolicy_RetryHostPredicateMultiError) AllErrors() []error { return m }
+
+// RetryPolicy_RetryHostPredicateValidationError is the validation error
+// returned by RetryPolicy_RetryHostPredicate.Validate if the designated
+// constraints aren't met.
+type RetryPolicy_RetryHostPredicateValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RetryPolicy_RetryHostPredicateValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RetryPolicy_RetryHostPredicateValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RetryPolicy_RetryHostPredicateValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RetryPolicy_RetryHostPredicateValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RetryPolicy_RetryHostPredicateValidationError) ErrorName() string {
+	return "RetryPolicy_RetryHostPredicateValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RetryPolicy_RetryHostPredicateValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRetryPolicy_RetryHostPredicate.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RetryPolicy_RetryHostPredicateValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RetryPolicy_RetryHostPredicateValidationError{}

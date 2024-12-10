@@ -416,6 +416,37 @@ func (m *QuicProtocolOptions) validate(all bool) error {
 
 	// no validation rules for ClientConnectionOptions
 
+	if d := m.GetIdleNetworkTimeout(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = QuicProtocolOptionsValidationError{
+				field:  "IdleNetworkTimeout",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lte := time.Duration(600*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(1*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur > lte {
+				err := QuicProtocolOptionsValidationError{
+					field:  "IdleNetworkTimeout",
+					reason: "value must be inside range [1s, 10m0s]",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
 	if len(errors) > 0 {
 		return QuicProtocolOptionsMultiError(errors)
 	}
@@ -2127,6 +2158,8 @@ func (m *Http3ProtocolOptions) validate(all bool) error {
 	}
 
 	// no validation rules for AllowExtendedConnect
+
+	// no validation rules for AllowMetadata
 
 	if len(errors) > 0 {
 		return Http3ProtocolOptionsMultiError(errors)

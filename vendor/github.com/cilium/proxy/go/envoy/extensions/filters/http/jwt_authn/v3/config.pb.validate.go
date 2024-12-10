@@ -59,6 +59,66 @@ func (m *JwtProvider) validate(all bool) error {
 
 	// no validation rules for Issuer
 
+	if all {
+		switch v := interface{}(m.GetSubjects()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, JwtProviderValidationError{
+					field:  "Subjects",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, JwtProviderValidationError{
+					field:  "Subjects",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSubjects()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return JwtProviderValidationError{
+				field:  "Subjects",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for RequireExpiration
+
+	if all {
+		switch v := interface{}(m.GetMaxLifetime()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, JwtProviderValidationError{
+					field:  "MaxLifetime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, JwtProviderValidationError{
+					field:  "MaxLifetime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxLifetime()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return JwtProviderValidationError{
+				field:  "MaxLifetime",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	// no validation rules for Forward
 
 	for idx, item := range m.GetFromHeaders() {
