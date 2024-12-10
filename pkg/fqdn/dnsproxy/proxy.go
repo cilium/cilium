@@ -1014,7 +1014,11 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
-	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, true, &stat)
+	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, true, &stat); err != nil {
+		scopedLog.WithError(err).Error("Failed to process DNS query")
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
 
 	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
 	// requests that were too large for UDP.
@@ -1093,7 +1097,11 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.Success = true
 
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
-	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, response, protocol, true, &stat)
+	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, response, protocol, true, &stat); err != nil {
+		scopedLog.WithField(logfields.Response, response).WithError(err).Error("Failed to process DNS response")
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
 
 	scopedLog.Debug("Responding to original DNS query")
 	// restore the ID to the one in the initial request so it matches what the requester expects.
