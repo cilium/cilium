@@ -148,7 +148,9 @@ func NewHubbleDynamicExporter(params hubbleExportersParams) (hubbleExportersOut,
 		return hubbleExportersOut{}, nil
 	}
 
-	dynamicExporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath)
+	exporterFactory := exporter.NewExporterFactory(params.Logger)
+	exporterConfigParser := exporter.NewExporterConfigParser(params.Logger)
+	dynamicExporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath, exporterFactory, exporterConfigParser)
 	params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, health cell.Health) error {
 		return dynamicExporter.Watch(ctx)
 	}))

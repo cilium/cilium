@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -51,7 +50,7 @@ var (
 	}, []string{})
 )
 
-func registerMetrics(exp *DynamicExporter) {
+func registerMetrics(exp *dynamicExporter) {
 	metrics.Registry.MustRegister(&dynamicExporterGaugeCollector{exporter: exp})
 	metrics.Registry.MustRegister(DynamicExporterReconfigurations)
 	metrics.Registry.MustRegister(DynamicExporterConfigHash)
@@ -60,7 +59,7 @@ func registerMetrics(exp *DynamicExporter) {
 
 type dynamicExporterGaugeCollector struct {
 	prometheus.Collector
-	exporter *DynamicExporter
+	exporter *dynamicExporter
 }
 
 // Describe sends the super-set of all possible descriptors of metrics
@@ -82,25 +81,19 @@ func (d *dynamicExporterGaugeCollector) Describe(ch chan<- *prometheus.Desc) {
 func (d *dynamicExporterGaugeCollector) Collect(ch chan<- prometheus.Metric) {
 	var activeExporters, inactiveExporters float64
 
-	d.exporter.mutex.RLock()
+	d.exporter.mu.RLock()
 	for name, me := range d.exporter.managedExporters {
 		var value float64
-		if me.config.End == nil || me.config.End.After(time.Now()) {
+		if me.config.IsActive() {
 			value = 1
 			activeExporters++
 		} else {
 			inactiveExporters++
 		}
-		ch <- prometheus.MustNewConstMetric(
-			individualExportersDesc, prometheus.GaugeValue, value, name,
-		)
+		ch <- prometheus.MustNewConstMetric(individualExportersDesc, prometheus.GaugeValue, value, name)
 	}
-	d.exporter.mutex.RUnlock()
+	d.exporter.mu.RUnlock()
 
-	ch <- prometheus.MustNewConstMetric(
-		exportersDesc, prometheus.GaugeValue, activeExporters, "active",
-	)
-	ch <- prometheus.MustNewConstMetric(
-		exportersDesc, prometheus.GaugeValue, inactiveExporters, "inactive",
-	)
+	ch <- prometheus.MustNewConstMetric(exportersDesc, prometheus.GaugeValue, activeExporters, "active")
+	ch <- prometheus.MustNewConstMetric(exportersDesc, prometheus.GaugeValue, inactiveExporters, "inactive")
 }
