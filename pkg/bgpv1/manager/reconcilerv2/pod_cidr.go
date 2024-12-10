@@ -202,9 +202,12 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(p ReconcileParams, desiredPe
 	desiredPolicies := make(RoutePolicyMap)
 
 	for peer, afAdverts := range desiredPeerAdverts {
-		peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+		peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 		if err != nil {
 			return nil, err
+		}
+		if !peerAddrExists {
+			return nil, nil
 		}
 
 		for family, adverts := range afAdverts {
