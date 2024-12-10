@@ -989,6 +989,7 @@ data:
 {{- if .Values.hubble.export }}
   hubble-export-file-max-size-mb: {{ .Values.hubble.export.fileMaxSizeMb | quote }}
   hubble-export-file-max-backups: {{ .Values.hubble.export.fileMaxBackups | quote }}
+  hubble-export-file-compress: {{ .Values.hubble.export.fileCompress | quote }}
 {{- if .Values.hubble.export.static.enabled }}
   hubble-export-file-path: {{ .Values.hubble.export.static.filePath | quote }}
   hubble-export-fieldmask: {{ .Values.hubble.export.static.fieldMask | join " " | quote }}

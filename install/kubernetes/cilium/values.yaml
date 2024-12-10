@@ -1840,6 +1840,8 @@ hubble:
     fileMaxSizeMb: 10
     # --- Defines max number of backup/rotated files.
     fileMaxBackups: 5
+    # --- Enable compression of rotated files.
+    fileCompress: false
     # --- Static exporter configuration.
     # Static exporter is bound to agent lifecycle.
     static:
