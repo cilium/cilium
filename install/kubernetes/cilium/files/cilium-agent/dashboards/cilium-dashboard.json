@@ -6875,8 +6875,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
-            "drawStyle": "bars",
-            "fillOpacity": 100,
+            "drawStyle": "line",
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -6894,7 +6894,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "normal"
+              "mode": "none"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -6915,118 +6915,9 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "bps"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Max per node processingTime"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#e24d42",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Max per node upstreamTime"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#58140c",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "avg(cilium_policy_l7_total{pod=~\"cilium.*\", rule=\"parse_errors\"})"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#bf1b00",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "parse errors"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#bf1b00",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Max per node processingTime"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Max per node upstreamTime"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "avg(cilium_policy_l7_total{pod=~\"cilium.*\", rule=\"parse_errors\"})"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "parse errors"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 5,
@@ -7034,12 +6925,10 @@
         "x": 0,
         "y": 120
       },
-      "id": 94,
+      "id": 114,
       "options": {
         "legend": {
-          "calcs": [
-            "mean"
-          ],
+          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -7056,26 +6945,14 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_sum{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod, scope)",
+          "expr": "sum(rate(cilium_drop_bytes_total{direction=\"INGRESS\", k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (reason) * 8",
           "format": "time_series",
-          "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{scope}}",
+          "legendFormat": "{{reason}}",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "avg(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"parse_errors\"}) by (pod)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "parse errors",
-          "refId": "B"
         }
       ],
-      "title": "Proxy response time (Avg)",
+      "title": "Dropped Ingress Traffic",
       "type": "timeseries"
     },
     {
@@ -7174,273 +7051,6 @@
         }
       ],
       "title": "Cilium drops Ingress",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "bars",
-            "fillOpacity": 100,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "links": [],
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Max per node processingTime"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#e24d42",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Max per node upstreamTime"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#58140c",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "parse errors"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#bf1b00",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "parse errors"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 0,
-        "y": 125
-      },
-      "id": 66,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.3.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max(rate(cilium_proxy_upstream_reply_seconds_sum{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod, scope)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Max {{scope}}",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max(rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"parse_errors\"}[1m])) by (pod)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "parse errors",
-          "refId": "A"
-        }
-      ],
-      "title": "Proxy response time (Max)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "links": [],
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 125
-      },
-      "id": 114,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.3.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "sum(rate(cilium_drop_bytes_total{direction=\"INGRESS\", k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (reason) * 8",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{reason}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Dropped Ingress Traffic",
       "type": "timeseries"
     },
     {
@@ -7623,7 +7233,7 @@
         "h": 5,
         "w": 12,
         "x": 0,
-        "y": 130
+        "y": 125
       },
       "id": 104,
       "options": {
@@ -7868,7 +7478,7 @@
         "h": 5,
         "w": 12,
         "x": 12,
-        "y": 130
+        "y": 125
       },
       "id": 102,
       "options": {
@@ -8042,7 +7652,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 135
+        "y": 130
       },
       "id": 33,
       "options": {
@@ -8219,7 +7829,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 135
+        "y": 130
       },
       "id": 100,
       "options": {
@@ -8414,7 +8024,7 @@
         "h": 5,
         "w": 12,
         "x": 12,
-        "y": 135
+        "y": 130
       },
       "id": 117,
       "options": {
@@ -8588,7 +8198,7 @@
         "h": 5,
         "w": 12,
         "x": 0,
-        "y": 140
+        "y": 135
       },
       "id": 85,
       "options": {
@@ -8664,7 +8274,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 145
+        "y": 140
       },
       "id": 73,
       "options": {
@@ -8746,7 +8356,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 146
+        "y": 141
       },
       "id": 55,
       "options": {
@@ -8846,7 +8456,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 146
+        "y": 141
       },
       "id": 115,
       "options": {
@@ -9007,7 +8617,7 @@
         "h": 5,
         "w": 12,
         "x": 0,
-        "y": 155
+        "y": 150
       },
       "id": 49,
       "options": {
@@ -9155,7 +8765,7 @@
         "h": 5,
         "w": 12,
         "x": 12,
-        "y": 155
+        "y": 150
       },
       "id": 51,
       "options": {
@@ -9198,7 +8808,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 160
+        "y": 155
       },
       "id": 74,
       "options": {
@@ -9326,7 +8936,7 @@
         "h": 5,
         "w": 12,
         "x": 0,
-        "y": 161
+        "y": 156
       },
       "id": 70,
       "options": {
@@ -9529,7 +9139,7 @@
         "h": 5,
         "w": 12,
         "x": 12,
-        "y": 161
+        "y": 156
       },
       "id": 68,
       "options": {
@@ -9574,7 +9184,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 166
+        "y": 161
       },
       "id": 60,
       "options": {
@@ -9697,7 +9307,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 167
+        "y": 162
       },
       "id": 163,
       "options": {
@@ -9836,7 +9446,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 167
+        "y": 162
       },
       "id": 165,
       "options": {
@@ -9975,7 +9585,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 174
+        "y": 169
       },
       "id": 168,
       "options": {
@@ -10117,7 +9727,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 174
+        "y": 169
       },
       "id": 166,
       "options": {
@@ -10258,7 +9868,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 182
+        "y": 177
       },
       "id": 172,
       "options": {
@@ -10399,7 +10009,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 182
+        "y": 177
       },
       "id": 174,
       "options": {
@@ -10540,7 +10150,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 188
+        "y": 183
       },
       "id": 175,
       "options": {
@@ -10681,7 +10291,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 188
+        "y": 183
       },
       "id": 173,
       "options": {
@@ -10781,7 +10391,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 196
+        "y": 191
       },
       "id": 108,
       "options": {
@@ -10925,7 +10535,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 196
+        "y": 191
       },
       "id": 119,
       "options": {
@@ -11069,7 +10679,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 203
+        "y": 198
       },
       "id": 109,
       "options": {
@@ -11213,7 +10823,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 203
+        "y": 198
       },
       "id": 122,
       "options": {
@@ -11311,7 +10921,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 210
+        "y": 205
       },
       "id": 118,
       "options": {
@@ -11409,7 +11019,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 210
+        "y": 205
       },
       "id": 120,
       "options": {
@@ -11507,7 +11117,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 217
+        "y": 212
       },
       "id": 121,
       "options": {
