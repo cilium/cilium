@@ -189,6 +189,90 @@ func TestDiff(t *testing.T) {
 	}
 }
 
+func TestIntersect(t *testing.T) {
+	testCases := []struct {
+		name     string
+		a        []string
+		b        []string
+		expected []string
+	}{
+		{
+			name:     "empty second slice",
+			a:        []string{"foo"},
+			b:        []string{},
+			expected: nil,
+		},
+		{
+			name:     "empty first slice",
+			a:        []string{},
+			b:        []string{"foo"},
+			expected: nil,
+		},
+		{
+			name:     "both empty",
+			a:        []string{},
+			b:        []string{},
+			expected: nil,
+		},
+		{
+			name:     "both nil",
+			a:        nil,
+			b:        nil,
+			expected: nil,
+		},
+		{
+			name:     "subset",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar", "baz"},
+			expected: []string{"foo", "bar"},
+		},
+		{
+			name:     "equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar"},
+			expected: []string{"foo", "bar"},
+		},
+		{
+			name:     "same size not equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "baz"},
+			expected: []string{"foo"},
+		},
+		{
+			name:     "smaller size",
+			a:        []string{"baz"},
+			b:        []string{"foo", "bar"},
+			expected: nil,
+		},
+		{
+			name:     "larger size",
+			a:        []string{"foo", "bar", "fizz"},
+			b:        []string{"fizz", "buzz"},
+			expected: []string{"fizz"},
+		},
+		{
+			name:     "subset with duplicates",
+			a:        []string{"foo", "foo", "bar"},
+			b:        []string{"foo", "bar"},
+			expected: []string{"foo", "bar"},
+		},
+		{
+			name:     "subset with more duplicates",
+			a:        []string{"foo", "foo", "foo", "bar", "bar"},
+			b:        []string{"foo", "foo", "bar"},
+			expected: []string{"foo", "bar"},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			intersect := Intersect(tc.a, tc.b)
+			assert.Equal(t, tc.expected, intersect)
+			intersect = Intersect(tc.b, tc.a)
+			assert.Equal(t, tc.expected, intersect)
+		})
+	}
+}
+
 func TestSubsetOf(t *testing.T) {
 	testCases := []struct {
 		name     string
