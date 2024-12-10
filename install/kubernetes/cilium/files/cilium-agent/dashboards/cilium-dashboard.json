@@ -6743,33 +6743,13 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"denied\"}[1m]))",
+          "editorMode": "code",
+          "expr": "sum by(rule, proxy_type) (rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\"}[1m]))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "denied",
+          "legendFormat": "{{proxy_type}} - {{rule}}",
+          "range": true,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "sum(rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"forwarded\"}[1m]))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "forwarded",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "sum(rate(cilium_policy_l7_total{k8s_app=\"cilium\", pod=~\"$pod\", rule=\"received\"}[1m]))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "received",
-          "refId": "C"
         }
       ],
       "title": "L7 forwarded request",
@@ -6780,6 +6760,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "description": "99th percentile of DNS proxy request processing latency, by span",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -6793,8 +6774,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
-            "drawStyle": "bars",
-            "fillOpacity": 100,
+            "drawStyle": "line",
+            "fillOpacity": 34,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -6803,16 +6784,19 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "normal"
+              "mode": "none"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -6826,78 +6810,12 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
-          "unit": "ops"
+          "unit": "s"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Max per node processingTime"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#e24d42",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Max per node upstreamTime"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#58140c",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "parse errors"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#bf1b00",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "parse errors"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "hidden"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 5,
@@ -6927,14 +6845,16 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_count{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod, scope)",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by(scope, le) (rate(cilium_proxy_upstream_reply_seconds_bucket{protocol_l7=\"dns\", k8s_app=\"cilium\", pod=~\"$pod\", scope!=\"totalTime\"}[5m]))) \n",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{scope}}",
+          "range": true,
           "refId": "B"
         }
       ],
-      "title": "DNS proxy requests",
+      "title": "DNS proxy request latency",
       "type": "timeseries"
     },
     {
