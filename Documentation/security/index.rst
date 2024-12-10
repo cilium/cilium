@@ -26,8 +26,6 @@ Securing Networks with Cilium
    kafka
    grpc
    elasticsearch
-   cassandra
-   memcached
    aws
    policy-creation
    host-firewall
