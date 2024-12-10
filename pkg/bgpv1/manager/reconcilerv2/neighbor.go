@@ -153,7 +153,8 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		}
 
 		if n.PeerAddress == nil {
-			return fmt.Errorf("peer %s does not have a PeerAddress", n.Name)
+			l.WithField(types.PeerLogField, n.Name).Debug("Peer does not have PeerAddress configured, skipping")
+			continue
 		}
 
 		var (
@@ -344,21 +345,24 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 	return result, true, nil
 }
 
-func GetPeerAddressFromConfig(conf *v2alpha1.CiliumBGPNodeInstance, peerName string) (netip.Addr, error) {
+// GetPeerAddressFromConfig returns peering address for the given peer from the provided BGPNodeInstance.
+// If no error is returned and "exists" is false, it means that PeerAddress is not present in peer configuration.
+func GetPeerAddressFromConfig(conf *v2alpha1.CiliumBGPNodeInstance, peerName string) (addr netip.Addr, exists bool, err error) {
 	if conf == nil {
-		return netip.Addr{}, fmt.Errorf("passed instance is nil")
+		return netip.Addr{}, false, fmt.Errorf("passed instance is nil")
 	}
 
 	for _, peer := range conf.Peers {
 		if peer.Name == peerName {
 			if peer.PeerAddress != nil {
-				return netip.ParseAddr(*peer.PeerAddress)
+				addr, err = netip.ParseAddr(*peer.PeerAddress)
+				return addr, true, err
 			} else {
-				return netip.Addr{}, fmt.Errorf("peer %s does not have a PeerAddress", peerName)
+				return netip.Addr{}, false, nil // PeerAddress not present in peer configuration
 			}
 		}
 	}
-	return netip.Addr{}, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
+	return netip.Addr{}, false, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
 }
 
 func (r *NeighborReconciler) neighborID(n *v2alpha1.CiliumBGPNodePeer) string {

@@ -351,9 +351,12 @@ func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, 
 
 func (r *PodIPPoolReconciler) getPodIPPoolPolicy(p ReconcileParams, peer string, family types.Family, pool *v2alpha1.CiliumPodIPPool, advert v2alpha1.BGPAdvertisement, lp map[string][]netip.Prefix) (*types.RoutePolicy, error) {
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil
 	}
 
 	// check if the pool selector matches the advertisement
