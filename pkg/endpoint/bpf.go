@@ -916,7 +916,17 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		//
 		// Once the endpoint has regenerated once, it is safe to call syncPolicyMaps
 		// arbitrarily.
-		if !firstRegen {
+		//
+		// Prepopulate the policymap if this is the first regen and the (dumped) realized
+		// policymap is empty. The map can be empty for two reasons:
+		//
+		// 1. This is a new endpoint without running bpf datapath. In this case it is safe
+		//    to prepopulate as there is no old bpf program trying to enforce this map yet.
+		//
+		// 2. The new map is for an existing endpoint and has a new name or different
+		//    spec. Also in this case the new map will only be used by the new bpf program
+		//    once it gets up and running. The old bpf program keeps using the old map.
+		if !firstRegen || e.realizedPolicy.GetPolicyMap().Len() == 0 {
 			stats.mapSync.Start()
 			err = e.syncPolicyMap()
 			stats.mapSync.End(err == nil)
