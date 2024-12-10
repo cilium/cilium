@@ -8358,6 +8358,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "description": "Endpoint policy calculation time by stage. Shows the 99th-percentile.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -8390,7 +8391,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -8411,7 +8412,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "s"
         },
         "overrides": [
           {
@@ -8515,36 +8516,16 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "min(cilium_policy_max_revision{k8s_app=\"cilium\", pod=~\"$pod\"}) by (pod)",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by(scope, le) (rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope=~\"proxyConfiguration|endpointPolicyCalculation|selectorPolicyCalculation|proxyPolicyCalculation\",k8s_app=\"cilium\",status=\"success\",pod=~\"$pod\"}[5m])))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "min",
+          "legendFormat": "__auto",
+          "range": true,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "avg(cilium_policy_max_revision{k8s_app=\"cilium\", pod=~\"$pod\"}) by (pod)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "avg",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max(cilium_policy_max_revision{k8s_app=\"cilium\", pod=~\"$pod\"}) by (pod)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "max",
-          "refId": "C"
         }
       ],
-      "title": "Policy Revision",
+      "title": "Policy Calculation Time",
       "type": "timeseries"
     },
     {
