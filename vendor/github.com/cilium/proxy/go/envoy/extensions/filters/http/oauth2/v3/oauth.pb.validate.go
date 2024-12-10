@@ -584,6 +584,69 @@ func (m *OAuth2Config) validate(all bool) error {
 		}
 	}
 
+	for idx, item := range m.GetDenyRedirectMatcher() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OAuth2ConfigValidationError{
+						field:  fmt.Sprintf("DenyRedirectMatcher[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OAuth2ConfigValidationError{
+						field:  fmt.Sprintf("DenyRedirectMatcher[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return OAuth2ConfigValidationError{
+					field:  fmt.Sprintf("DenyRedirectMatcher[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if all {
+		switch v := interface{}(m.GetDefaultRefreshTokenExpiresIn()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OAuth2ConfigValidationError{
+					field:  "DefaultRefreshTokenExpiresIn",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OAuth2ConfigValidationError{
+					field:  "DefaultRefreshTokenExpiresIn",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDefaultRefreshTokenExpiresIn()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OAuth2ConfigValidationError{
+				field:  "DefaultRefreshTokenExpiresIn",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return OAuth2ConfigMultiError(errors)
 	}

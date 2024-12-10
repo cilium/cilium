@@ -1059,6 +1059,8 @@ func (m *HttpConnectionManager) validate(all bool) error {
 
 	// no validation rules for AppendXForwardedPort
 
+	// no validation rules for AppendLocalOverload
+
 	if all {
 		switch v := interface{}(m.GetAddProxyProtocolConnectionState()).(type) {
 		case interface{ ValidateAll() error }:

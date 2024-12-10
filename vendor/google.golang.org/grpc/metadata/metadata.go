@@ -90,21 +90,6 @@ func Pairs(kv ...string) MD {
 	return md
 }
 
-// String implements the Stringer interface for pretty-printing a MD.
-// Ordering of the values is non-deterministic as it ranges over a map.
-func (md MD) String() string {
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "MD{")
-	for k, v := range md {
-		if sb.Len() > 3 {
-			fmt.Fprintf(&sb, ", ")
-		}
-		fmt.Fprintf(&sb, "%s=[%s]", k, strings.Join(v, ", "))
-	}
-	fmt.Fprintf(&sb, "}")
-	return sb.String()
-}
-
 // Len returns the number of items in md.
 func (md MD) Len() int {
 	return len(md)
@@ -228,11 +213,6 @@ func FromIncomingContext(ctx context.Context) (MD, bool) {
 // ValueFromIncomingContext returns the metadata value corresponding to the metadata
 // key from the incoming metadata if it exists. Keys are matched in a case insensitive
 // manner.
-//
-// # Experimental
-//
-// Notice: This API is EXPERIMENTAL and may be changed or removed in a
-// later release.
 func ValueFromIncomingContext(ctx context.Context, key string) []string {
 	md, ok := ctx.Value(mdIncomingKey{}).(MD)
 	if !ok {
@@ -243,7 +223,7 @@ func ValueFromIncomingContext(ctx context.Context, key string) []string {
 		return copyOf(v)
 	}
 	for k, v := range md {
-		// Case insenitive comparison: MD is a map, and there's no guarantee
+		// Case insensitive comparison: MD is a map, and there's no guarantee
 		// that the MD attached to the context is created using our helper
 		// functions.
 		if strings.EqualFold(k, key) {

@@ -188,6 +188,17 @@ func (m *LeastRequest) validate(all bool) error {
 		}
 	}
 
+	if _, ok := LeastRequest_SelectionMethod_name[int32(m.GetSelectionMethod())]; !ok {
+		err := LeastRequestValidationError{
+			field:  "SelectionMethod",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if len(errors) > 0 {
 		return LeastRequestMultiError(errors)
 	}
