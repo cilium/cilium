@@ -7755,6 +7755,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "description": "The time taken for new or updated network policy to be applied to all affected endpoints",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -7808,7 +7809,7 @@
               }
             ]
           },
-          "unit": "opm"
+          "unit": "s"
         },
         "overrides": [
           {
@@ -7969,10 +7970,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "min(rate(cilium_triggers_policy_update_total{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod) * 60",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(cilium_policy_implementation_delay_bucket{k8s_app=\"cilium\", pod=~\"$pod\"}[5m])))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "min trigger",
+          "legendFormat": "99%",
+          "range": true,
           "refId": "A"
         },
         {
@@ -7980,36 +7983,16 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "avg(rate(cilium_triggers_policy_update_total{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod) * 60",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum by(le) (rate(cilium_policy_implementation_delay_bucket{k8s_app=\"cilium\", pod=~\"$pod\"}[5m])))  ",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "average trigger",
+          "legendFormat": "50%",
+          "range": true,
           "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max(rate(cilium_triggers_policy_update_total{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "max trigger",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max(rate(cilium_triggers_policy_update_folds{k8s_app=\"cilium\", pod=~\"$pod\"}[1m])) by (pod) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "folds",
-          "refId": "D"
         }
       ],
-      "title": "Policy Trigger Runs",
+      "title": "Policy Apply Latency",
       "type": "timeseries"
     },
     {
