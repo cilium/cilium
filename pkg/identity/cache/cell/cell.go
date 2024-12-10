@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-cache-cell")
@@ -162,8 +163,9 @@ type identityAllocatorOwner struct {
 
 	// set of notification waitgroups to wait in for batched UpdatePolicyMaps,
 	// and a mutex to protect for writing
-	wgsLock lock.Mutex
-	wgs     []*sync.WaitGroup
+	wgsLock        lock.Mutex
+	wgs            []*sync.WaitGroup
+	firstStartTime time.Time // the start time for the first batched update
 
 	updatePolicyMaps job.Trigger
 }
@@ -183,6 +185,8 @@ func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted identity.Iden
 		return
 	}
 
+	start := time.Now()
+
 	log.WithFields(logrus.Fields{
 		logfields.AddedPolicyID:   slices.Collect(maps.Keys(added)),
 		logfields.DeletedPolicyID: slices.Collect(maps.Keys(deleted)),
@@ -201,6 +205,9 @@ func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted identity.Iden
 	// Direct endpoints to consume pending incremental updates.
 	iao.wgsLock.Lock()
 	iao.wgs = append(iao.wgs, wg)
+	if iao.firstStartTime.IsZero() {
+		iao.firstStartTime = start
+	}
 	iao.wgsLock.Unlock()
 	iao.updatePolicyMaps.Trigger()
 }
@@ -216,7 +223,9 @@ func (iao *identityAllocatorOwner) doUpdatePolicyMaps(ctx context.Context) error
 		return nil
 	}
 	wgs := iao.wgs
+	start := iao.firstStartTime
 	iao.wgs = nil
+	iao.firstStartTime = time.Time{}
 	iao.wgsLock.Unlock()
 
 	log.WithField(logfields.Count, len(wgs)).Info("Incremental policy update: waiting for endpoint notifications to complete")
@@ -244,6 +253,7 @@ func (iao *identityAllocatorOwner) doUpdatePolicyMaps(ctx context.Context) error
 	log.Info("Incremental policy update: triggering UpdatePolicyMaps for all endpoints")
 	updatedWG := iao.epmanager.UpdatePolicyMaps(ctx, noopWG)
 	updatedWG.Wait()
+	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("global").Observe(time.Since(start).Seconds())
 	return nil
 }
 
