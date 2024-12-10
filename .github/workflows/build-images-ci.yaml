@@ -54,6 +54,10 @@ jobs:
             dockerfile: ./images/operator/Dockerfile
             platforms: linux/amd64,linux/arm64
 
+          - name: hubble
+            dockerfile: ./images/hubble/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
           - name: hubble-relay
             dockerfile: ./images/hubble-relay/Dockerfile
             platforms: linux/amd64,linux/arm64

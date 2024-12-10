@@ -38,6 +38,11 @@ For other operators such as: aws, aks, generic, a copy of the same Dockerfile is
 used on all of them. Ideally we will re-use the same Dockerfile to build all the
 different operators.
 
+### [`hubble`](hubble/Dockerfile)
+
+This image includes only `hubble` CLI binary (plus CA certificates), no other
+binaries or libraries are included.
+
 ### [`hubble-relay`](hubble-relay/Dockerfile)
 
 This image includes only `hubble-relay` binary (plus CA certificates), no other

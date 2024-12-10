@@ -48,6 +48,9 @@ jobs:
           - name: operator-generic
             make-target: build-container-operator-generic
 
+          - name: hubble
+            make-target: -C hubble
+
           - name: hubble-relay
             make-target: build-container-hubble-relay
 

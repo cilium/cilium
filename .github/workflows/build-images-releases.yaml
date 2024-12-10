@@ -39,6 +39,9 @@ jobs:
           - name: operator-generic
             dockerfile: ./images/operator/Dockerfile
 
+          - name: hubble
+            dockerfile: ./images/hubble/Dockerfile
+
           - name: hubble-relay
             dockerfile: ./images/hubble-relay/Dockerfile
 

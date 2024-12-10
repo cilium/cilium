@@ -48,6 +48,9 @@ cilium-image: .buildx_builder
 operator-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh operator-dev images/operator $(PLATFORMS) $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
 
+hubble-image: .buildx_builder
+	ROOT_CONTEXT=true scripts/build-image.sh hubble-dev images/hubble $(PLATFORMS) $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
+
 hubble-relay-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh hubble-relay-dev images/hubble-relay $(PLATFORMS) $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
 

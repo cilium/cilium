@@ -439,6 +439,7 @@ Makefile* @cilium/build
 /images/builder/install-protoc.sh @cilium/sig-hubble-api
 /images/builder/install-protoplugins.sh @cilium/sig-hubble-api
 /images/builder/update-cilium-builder-image.sh @cilium/github-sec
+/images/hubble @cilium/sig-hubble
 /images/hubble-relay @cilium/sig-hubble
 /images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
 /install/kubernetes/ @cilium/sig-k8s @cilium/helm
