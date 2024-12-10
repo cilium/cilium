@@ -662,9 +662,12 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p ReconcileParams, peer
 	}
 
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPLoadBalancerIPAddr)
@@ -706,9 +709,12 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p ReconcileParams, peer
 
 func (r *ServiceReconciler) getExternalIPRoutePolicy(p ReconcileParams, peer string, family types.Family, svc *slim_corev1.Service, advert v2alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*types.RoutePolicy, error) {
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPExternalIPAddr)
@@ -760,9 +766,12 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p ReconcileParams, peer str
 
 func (r *ServiceReconciler) getClusterIPRoutePolicy(p ReconcileParams, peer string, family types.Family, svc *slim_corev1.Service, advert v2alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*types.RoutePolicy, error) {
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPClusterIPAddr)
