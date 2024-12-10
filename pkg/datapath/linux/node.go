@@ -275,32 +275,6 @@ func updateTunnelMapping(log *slog.Logger, prevCIDRs, curCIDRs []cmtypes.PrefixC
 	return nil
 }
 
-// cidrNodeMappingUpdateRequired returns true if the change from an old node
-// CIDR and node IP to a new node CIDR and node IP requires to insert/update
-// the new node CIDR.
-func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP net.IP, oldKey, newKey uint8) bool {
-	// No CIDR provided
-	if !newCIDR.IsValid() {
-		return false
-	}
-	// Newly announced CIDR
-	if !oldCIDR.IsValid() {
-		return true
-	}
-
-	// Change in node IP
-	if !oldIP.Equal(newIP) {
-		return true
-	}
-
-	if newKey != oldKey {
-		return true
-	}
-
-	// CIDR changed
-	return !oldCIDR.Equal(newCIDR)
-}
-
 func deleteTunnelMapping(log *slog.Logger, oldCIDR cmtypes.PrefixCluster, quietMode bool) error {
 	if !oldCIDR.IsValid() {
 		return nil
