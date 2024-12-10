@@ -400,6 +400,7 @@ Added Metrics
 * ``cilium_identity_cache_timer_duration``
 * ``cilium_identity_cache_timer_trigger_latency``
 * ``cilium_identity_cache_timer_trigger_folds``
+* ``cilium_policy_incremental_update_duration``
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
