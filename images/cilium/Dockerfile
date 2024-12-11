@@ -70,6 +70,10 @@ RUN set -xe && \
          mv -v ${0}.debug ${D}/${filename}.debug' \
       {} \;
 
+# Check debug symbols are present
+RUN for f in $(find /tmp/debug -type f -name '*.debug') ; do readelf -S ${f} | grep -q \\.symtab || \
+    (echo Debug symbols are missing in ${f} - possibly due to incorrect build parameters && false); done
+
 COPY images/cilium/init-container.sh \
      plugins/cilium-cni/install-plugin.sh \
      plugins/cilium-cni/cni-uninstall.sh \
