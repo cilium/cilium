@@ -22,6 +22,9 @@ level=error msg="bar"
 level=error error="Failed to update lock:..."
 level=warning msg="baz"
 level=error msg="bar"
+[debug][admin] request complete: path: /server_info
+[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()
+[critical][backtrace] Caught Aborted, suspect faulting address 0xd
 `
 
 	for _, tt := range []struct {
@@ -33,33 +36,42 @@ level=error msg="bar"
 		{
 			levels:  defaults.LogCheckLevels,
 			version: semver.MustParse("1.17.0"),
-			wantLen: 2,
+			wantLen: 4,
 			wantLogsCount: map[string]int{
 				`level=error msg="bar"`:   2,
 				`level=warning msg="baz"`: 1,
+				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
+				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
 			},
 		},
 		{
 			levels:  defaults.LogCheckLevels,
 			version: semver.MustParse("1.16.99"),
-			wantLen: 1,
+			wantLen: 3,
 			wantLogsCount: map[string]int{
 				`level=error msg="bar"`: 2,
+				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
+				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
 			},
 		},
 		{
 			levels:  []string{defaults.LogLevelError},
 			version: semver.MustParse("1.17.0"),
-			wantLen: 1,
+			wantLen: 3,
 			wantLogsCount: map[string]int{
 				`level=error msg="bar"`: 2,
+				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
+				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
 			},
 		},
 		{
-			levels:        []string{},
-			version:       semver.MustParse("1.17.0"),
-			wantLen:       0,
-			wantLogsCount: map[string]int{},
+			levels:  []string{},
+			version: semver.MustParse("1.17.0"),
+			wantLen: 2,
+			wantLogsCount: map[string]int{
+				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
+				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
+			},
 		},
 	} {
 		s := NoErrorsInLogs(tt.version, tt.levels).(*noErrorsInLogs)
