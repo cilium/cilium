@@ -120,7 +120,9 @@ func parseToCiliumIngressCommonRule(namespace string, es api.EndpointSelector, i
 	if ing.FromNodes != nil {
 		retRule.FromNodes = make([]api.EndpointSelector, len(ing.FromNodes))
 		for j, node := range ing.FromNodes {
-			retRule.FromNodes[j] = api.NewESFromK8sLabelSelector("", node.LabelSelector)
+			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
+			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
+			retRule.FromNodes[j] = es
 		}
 	}
 
@@ -239,7 +241,9 @@ func parseToCiliumEgressCommonRule(namespace string, es api.EndpointSelector, eg
 	if egr.ToNodes != nil {
 		retRule.ToNodes = make([]api.EndpointSelector, len(egr.ToNodes))
 		for j, node := range egr.ToNodes {
-			retRule.ToNodes[j] = api.NewESFromK8sLabelSelector("", node.LabelSelector)
+			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
+			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
+			retRule.ToNodes[j] = es
 		}
 	}
 
