@@ -15,3 +15,4 @@ Documentation/_static/* -diff
 pkg/k8s/client/clientset/** linguist-generated
 pkg/k8s/client/informers/** linguist-generated
 pkg/k8s/client/listers/** linguist-generated
+*.bt linguist-language=D
