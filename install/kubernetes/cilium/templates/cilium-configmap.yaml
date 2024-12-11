@@ -738,8 +738,6 @@ data:
 {{- end }}
 {{- if hasKey $socketLB "terminatePodConnections" }}
   bpf-lb-sock-terminate-pod-connections: {{ $socketLB.terminatePodConnections | quote }}
-{{- else if hasKey $socketLB "enabled" }}
-  bpf-lb-sock-terminate-pod-connections: {{ $socketLB.enabled | quote }}
 {{- end }}
 {{- if hasKey $socketLB "tracing" }}
   trace-sock: {{ $socketLB.tracing | quote }}
