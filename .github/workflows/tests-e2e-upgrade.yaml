@@ -642,7 +642,7 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          ./cilium-cli upgrade \
+          ./cilium-cli upgrade --reset-then-reuse-values=false \
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
@@ -692,7 +692,7 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          ./cilium-cli upgrade \
+          ./cilium-cli upgrade --reset-then-reuse-values=false \
             ${{ steps.cilium-stable-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
