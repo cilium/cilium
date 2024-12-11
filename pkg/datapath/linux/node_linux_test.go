@@ -696,6 +696,323 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 		require.NoError(t, err)
 		require.Nil(t, foundRoute)
 	}
+
+	ipv4PrimaryAllocCIDR := cidr.MustParseCIDR("1.1.1.0/24")
+	ipv4SecondaryAllocCIDRs := []*cidr.CIDR{
+		cidr.MustParseCIDR("2.2.2.0/24"),
+		cidr.MustParseCIDR("3.3.3.0/24"),
+		cidr.MustParseCIDR("4.4.4.0/24"),
+	}
+
+	ipv6PrimaryAllocCIDR := cidr.MustParseCIDR("3002:bbbb::/96")
+	ipv6SecondaryAllocCIDRs := []*cidr.CIDR{
+		cidr.MustParseCIDR("3002:cccc::/96"),
+		cidr.MustParseCIDR("3002:dddd::/96"),
+		cidr.MustParseCIDR("3002:eeee::/96"),
+	}
+
+	// nodev6: ipv4PrimaryAllocCIDR, ipv4SecondaryAllocCIDRs..., ipv6PrimaryAllocCIDR, ipv6SecondaryAllocCIDRs... => externalNodeIP1
+	nodev6 := nodeTypes.Node{
+		Name:      "node1",
+		ClusterID: 11,
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
+		},
+	}
+
+	if s.enableIPv4 {
+		nodev6.IPv4AllocCIDR = ipv4PrimaryAllocCIDR
+		nodev6.IPv4SecondaryAllocCIDRs = ipv4SecondaryAllocCIDRs
+
+	}
+
+	if s.enableIPv6 {
+		nodev6.IPv6AllocCIDR = ipv6PrimaryAllocCIDR
+		nodev6.IPv6SecondaryAllocCIDRs = ipv6SecondaryAllocCIDRs
+	}
+
+	err = linuxNodeHandler.NodeAdd(nodev6)
+	require.NoError(t, err)
+
+	if s.enableIPv4 {
+		// tunnel mapping for primary alloc CIDR
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ipv4PrimaryAllocCIDR.IP))
+		require.NoError(t, err)
+		require.True(t, underlayIP.Equal(externalNodeIP1))
+
+		// tunnel mapping for secondary alloc CIDRs
+		for _, cidr := range ipv4SecondaryAllocCIDRs {
+			underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.IP))
+			require.NoError(t, err)
+			require.True(t, underlayIP.Equal(externalNodeIP1))
+		}
+
+		// route for primary alloc CIDR
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ipv4PrimaryAllocCIDR, false)
+		require.NoError(t, err)
+		require.NotNil(t, foundRoute)
+
+		// routes for secondary alloc CIDRs
+		for _, cidr := range ipv4SecondaryAllocCIDRs {
+			foundRoute, err := linuxNodeHandler.lookupNodeRoute(cidr, false)
+			require.NoError(t, err)
+			require.NotNil(t, foundRoute)
+		}
+	}
+
+	if s.enableIPv6 {
+		// tunnel mapping for primary alloc CIDR
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ipv6PrimaryAllocCIDR.IP))
+		require.NoError(t, err)
+		require.True(t, underlayIP.Equal(externalNodeIP1))
+
+		// tunnel mapping for secondary alloc CIDRs
+		for _, cidr := range ipv6SecondaryAllocCIDRs {
+			underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.IP))
+			require.NoError(t, err)
+			require.True(t, underlayIP.Equal(externalNodeIP1))
+		}
+
+		// route for primary alloc CIDR
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ipv6PrimaryAllocCIDR, false)
+		require.NoError(t, err)
+		require.NotNil(t, foundRoute)
+
+		// routes for secondary alloc CIDRs
+		for _, cidr := range ipv6SecondaryAllocCIDRs {
+			foundRoute, err := linuxNodeHandler.lookupNodeRoute(cidr, false)
+			require.NoError(t, err)
+			require.NotNil(t, foundRoute)
+		}
+	}
+
+	// nodev7: ipv4PrimaryAllocCIDR, ipv4SecondaryAllocCIDRs..., ipv6PrimaryAllocCIDR, ipv6SecondaryAllocCIDRs... => externalNodeIP2
+	nodev7 := nodeTypes.Node{
+		Name:      "node1",
+		ClusterID: 11,
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNodeIP2, Type: nodeaddressing.NodeInternalIP},
+		},
+	}
+
+	if s.enableIPv4 {
+		nodev7.IPv4AllocCIDR = ipv4PrimaryAllocCIDR
+		nodev7.IPv4SecondaryAllocCIDRs = ipv4SecondaryAllocCIDRs
+
+	}
+
+	if s.enableIPv6 {
+		nodev7.IPv6AllocCIDR = ipv6PrimaryAllocCIDR
+		nodev7.IPv6SecondaryAllocCIDRs = ipv6SecondaryAllocCIDRs
+	}
+
+	err = linuxNodeHandler.NodeUpdate(nodev6, nodev7)
+	require.NoError(t, err)
+
+	if s.enableIPv4 {
+		// tunnel mapping for primary alloc CIDR
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ipv4PrimaryAllocCIDR.IP))
+		require.NoError(t, err)
+		require.True(t, underlayIP.Equal(externalNodeIP2))
+
+		// tunnel mapping for secondary alloc CIDRs
+		for _, cidr := range ipv4SecondaryAllocCIDRs {
+			underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.IP))
+			require.NoError(t, err)
+			require.True(t, underlayIP.Equal(externalNodeIP2))
+		}
+
+		// route for primary alloc CIDR
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ipv4PrimaryAllocCIDR, false)
+		require.NoError(t, err)
+		require.NotNil(t, foundRoute)
+
+		// routes for secondary alloc CIDRs
+		for _, cidr := range ipv4SecondaryAllocCIDRs {
+			foundRoute, err := linuxNodeHandler.lookupNodeRoute(cidr, false)
+			require.NoError(t, err)
+			require.NotNil(t, foundRoute)
+		}
+	}
+
+	if s.enableIPv6 {
+		// tunnel mapping for primary alloc CIDR
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ipv6PrimaryAllocCIDR.IP))
+		require.NoError(t, err)
+		require.True(t, underlayIP.Equal(externalNodeIP2))
+
+		// tunnel mapping for secondary alloc CIDRs
+		for _, cidr := range ipv6SecondaryAllocCIDRs {
+			underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.IP))
+			require.NoError(t, err)
+			require.True(t, underlayIP.Equal(externalNodeIP2))
+		}
+
+		// route for primary alloc CIDR
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ipv6PrimaryAllocCIDR, false)
+		require.NoError(t, err)
+		require.NotNil(t, foundRoute)
+
+		// routes for secondary alloc CIDRs
+		for _, cidr := range ipv6SecondaryAllocCIDRs {
+			foundRoute, err := linuxNodeHandler.lookupNodeRoute(cidr, false)
+			require.NoError(t, err)
+			require.NotNil(t, foundRoute)
+		}
+	}
+
+	// nodev8: announce new secondary CIDRs
+	nodev8 := nodeTypes.Node{
+		Name:      "node1",
+		ClusterID: 11,
+		IPAddresses: []nodeTypes.Address{
+			{IP: externalNodeIP2, Type: nodeaddressing.NodeInternalIP},
+		},
+	}
+
+	ipv4SecondaryAllocCIDRs = []*cidr.CIDR{
+		cidr.MustParseCIDR("3.3.3.0/24"),
+		cidr.MustParseCIDR("4.4.4.0/24"),
+		cidr.MustParseCIDR("5.5.5.0/24"),
+	}
+
+	ipv6SecondaryAllocCIDRs = []*cidr.CIDR{
+		cidr.MustParseCIDR("3002:dddd::/96"),
+		cidr.MustParseCIDR("3002:eeee::/96"),
+		cidr.MustParseCIDR("3002:ffff::/96"),
+	}
+
+	if s.enableIPv4 {
+		nodev8.IPv4AllocCIDR = ipv4PrimaryAllocCIDR
+		nodev8.IPv4SecondaryAllocCIDRs = ipv4SecondaryAllocCIDRs
+
+	}
+
+	if s.enableIPv6 {
+		nodev8.IPv6AllocCIDR = ipv6PrimaryAllocCIDR
+		nodev8.IPv6SecondaryAllocCIDRs = ipv6SecondaryAllocCIDRs
+	}
+
+	err = linuxNodeHandler.NodeUpdate(nodev7, nodev8)
+	require.NoError(t, err)
+
+	if s.enableIPv4 {
+		// tunnel mapping for primary alloc CIDR
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ipv4PrimaryAllocCIDR.IP))
+		require.NoError(t, err)
+		require.True(t, underlayIP.Equal(externalNodeIP2))
+
+		// alloc range "2.2.2.0/24" should fail
+		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.MustParseCIDR("2.2.2.0/24").IP))
+		require.Error(t, err)
+
+		// tunnel mapping for secondary alloc CIDRs
+		for _, cidr := range ipv4SecondaryAllocCIDRs {
+			underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.IP))
+			require.NoError(t, err)
+			require.True(t, underlayIP.Equal(externalNodeIP2))
+		}
+
+		// route for primary alloc CIDR
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ipv4PrimaryAllocCIDR, false)
+		require.NoError(t, err)
+		require.NotNil(t, foundRoute)
+
+		// node routes for "2.2.2.0/24" ranges should be gone
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(cidr.MustParseCIDR("2.2.2.0/24"), false)
+		require.NoError(t, err)
+		require.Nil(t, foundRoute)
+
+		// routes for secondary alloc CIDRs
+		for _, cidr := range ipv4SecondaryAllocCIDRs {
+			foundRoute, err := linuxNodeHandler.lookupNodeRoute(cidr, false)
+			require.NoError(t, err)
+			require.NotNil(t, foundRoute)
+		}
+	}
+
+	if s.enableIPv6 {
+		// tunnel mapping for primary alloc CIDR
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ipv6PrimaryAllocCIDR.IP))
+		require.NoError(t, err)
+		require.True(t, underlayIP.Equal(externalNodeIP2))
+
+		// alloc range "3002:cccc::/96" should fail
+		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.MustParseCIDR("3002:cccc::/96").IP))
+		require.Error(t, err)
+
+		// tunnel mapping for secondary alloc CIDRs
+		for _, cidr := range ipv6SecondaryAllocCIDRs {
+			underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.IP))
+			require.NoError(t, err)
+			require.True(t, underlayIP.Equal(externalNodeIP2))
+		}
+
+		// route for primary alloc CIDR
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ipv6PrimaryAllocCIDR, false)
+		require.NoError(t, err)
+		require.NotNil(t, foundRoute)
+
+		// node routes for "3002:cccc::/96" ranges should be gone
+		foundRoute, err = linuxNodeHandler.lookupNodeRoute(cidr.MustParseCIDR("3002:cccc::/96"), false)
+		require.NoError(t, err)
+		require.Nil(t, foundRoute)
+
+		// routes for secondary alloc CIDRs
+		for _, cidr := range ipv6SecondaryAllocCIDRs {
+			foundRoute, err := linuxNodeHandler.lookupNodeRoute(cidr, false)
+			require.NoError(t, err)
+			require.NotNil(t, foundRoute)
+		}
+	}
+
+	// delete nodev8
+	err = linuxNodeHandler.NodeDelete(nodev8)
+	require.NoError(t, err)
+
+	// all IPv4 alloc ranges should fail
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ipv4PrimaryAllocCIDR.IP))
+	require.Error(t, err)
+
+	for _, cidr := range ipv4SecondaryAllocCIDRs {
+		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.IP))
+		require.Error(t, err)
+	}
+
+	// all IPv6 alloc ranges should fail
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ipv6PrimaryAllocCIDR.IP))
+	require.Error(t, err)
+
+	for _, cidr := range ipv6SecondaryAllocCIDRs {
+		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(cidr.IP))
+		require.Error(t, err)
+	}
+
+	if s.enableIPv4 {
+		// all node routes for IPv4 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ipv4PrimaryAllocCIDR, false)
+		require.NoError(t, err)
+		require.Nil(t, foundRoute)
+
+		for _, cidr := range ipv4SecondaryAllocCIDRs {
+			foundRoute, err := linuxNodeHandler.lookupNodeRoute(cidr, false)
+			require.NoError(t, err)
+			require.Nil(t, foundRoute)
+		}
+	}
+
+	if s.enableIPv6 {
+		// all node routes for IPv6 ranges should be gone
+		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ipv6PrimaryAllocCIDR, false)
+		require.NoError(t, err)
+		require.Nil(t, foundRoute)
+
+		for _, cidr := range ipv6SecondaryAllocCIDRs {
+			foundRoute, err := linuxNodeHandler.lookupNodeRoute(cidr, false)
+			require.NoError(t, err)
+			require.Nil(t, foundRoute)
+		}
+	}
 }
 
 // Tests that the node ID BPF map is correctly updated during the lifecycle of
