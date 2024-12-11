@@ -718,6 +718,38 @@ pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 	return l4;
 }
 
+static __always_inline struct udphdr *
+pktgen__push_ipv6_udp_packet(struct pktgen *builder,
+			     __u8 *smac, __u8 *dmac,
+			     __u8 *saddr, __u8 *daddr,
+			     __be16 sport, __be16 dport)
+{
+	struct ipv6hdr *l3;
+	struct udphdr *l4;
+	struct ethhdr *l2;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_ipv6hdr(builder);
+	if (!l3)
+		return NULL;
+
+	ipv6hdr__set_addrs(l3, saddr, daddr);
+
+	l4 = pktgen__push_default_udphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->source = sport;
+	l4->dest = dport;
+
+	return l4;
+}
+
 static __always_inline struct icmp6hdr *
 pktgen__push_ipv6_icmp6_packet(struct pktgen *builder,
 			       __u8 *smac, __u8 *dmac,
