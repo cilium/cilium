@@ -417,9 +417,7 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 			continue
 		}
 		if _, found := srcRangeMap[prevCIDR.String()]; !found {
-			if err := m.Delete(srcRangeKey(prevCIDR, revNATID, ipv6)); err != nil {
-				return err
-			}
+			m.Delete(srcRangeKey(prevCIDR, revNATID, ipv6))
 		} else {
 			delete(srcRangeMap, prevCIDR.String())
 		}
