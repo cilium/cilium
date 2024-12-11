@@ -3090,9 +3090,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableWellKnownIdentities = vp.GetBool(EnableWellKnownIdentities)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
-	if masqInfs := vp.GetString(MasqueradeInterfaces); masqInfs != "" {
-		c.MasqueradeInterfaces = strings.Split(masqInfs, ",")
-	}
+	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
