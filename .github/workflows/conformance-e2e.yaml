@@ -330,7 +330,7 @@ jobs:
           mutual-auth: ${{ matrix.kvstore != 'true' }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
+        uses: cilium/cilium-cli@c52e8c38e6d6235bd8e6e961199a984275547d6f # v0.16.22
         with:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
