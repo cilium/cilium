@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.23.4
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.23.4
@@ -62,7 +62,7 @@ jobs:
           comment_on_pr: false
 
       - name: Install Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.23.4
@@ -83,7 +83,7 @@ jobs:
     name: Precheck
     steps:
       - name: Install Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.23.4
@@ -103,7 +103,7 @@ jobs:
     name: Generate API
     steps:
       - name: Install Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.23.4
@@ -123,7 +123,7 @@ jobs:
     name: Generate k8s API
     steps:
       - name: Install Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.23.4
