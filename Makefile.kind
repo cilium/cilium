@@ -256,6 +256,11 @@ kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli ## Buil
 			docker exec $${node_name} rm -f "${dst}/hubble"; \
 			docker cp "./hubble/hubble" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/hubble"; \
+			\
+			docker exec $${node_name} rm -f "${dst}/cilium-bugtool"; \
+			docker cp "./bugtool/cilium-bugtool" $${node_name}:"${dst}"; \
+			docker exec $${node_name} chmod +x "${dst}/cilium-bugtool"; \
+
 		done; \
 		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
 	done
