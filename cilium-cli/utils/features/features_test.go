@@ -56,6 +56,17 @@ func TestFeatureSetMatchRequirements(t *testing.T) {
 	if matches {
 		t.Errorf("features %v unexpectedly matched feature %v with mode %v", features, CNIChaining, cniMode)
 	}
+
+	matches, _ = features.MatchRequirements(RequireEnabled(CNIChaining), RequireModeIsNot(CNIChaining, "kubernetes"))
+	if !matches {
+		t.Errorf("expected features %v to match feature %v with mode different from kubernetes", features, CNIChaining)
+	}
+
+	matches, _ = features.MatchRequirements(RequireEnabled(CNIChaining), RequireModeIsNot(CNIChaining, "aws-cni"))
+	if matches {
+		t.Errorf("expected features %v to not match feature %v with mode different from aws-cni", features, CNIChaining)
+	}
+
 }
 
 func TestFeatureSet_extractFromVersionedConfigMap(t *testing.T) {
