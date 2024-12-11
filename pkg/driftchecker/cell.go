@@ -22,7 +22,7 @@ var Cell = cell.Module(
 )
 
 var defaultConfig = config{
-	EnableDriftChecker:      false,
+	EnableDriftChecker:      true,
 	IgnoreFlagsDriftChecker: []string{},
 }
 
