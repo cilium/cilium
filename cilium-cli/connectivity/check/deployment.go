@@ -1751,7 +1751,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					}
 					ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
 				}
-				if ct.Features[features.IPv4].Enabled {
+				if ct.Features[features.IPv6].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
 					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
 					if err != nil {
