@@ -469,6 +469,14 @@ func filterList(obj k8sRuntime.Object, restrictions k8sTesting.ListRestrictions)
 			}
 		}
 		obj.Items = items
+	case *corev1.ConfigMapList:
+		items := make([]corev1.ConfigMap, 0, len(obj.Items))
+		for i := range obj.Items {
+			if matchFieldSelector(&obj.Items[i], selector) {
+				items = append(items, obj.Items[i])
+			}
+		}
+		obj.Items = items
 	case *slim_corev1.NodeList:
 		items := make([]slim_corev1.Node, 0, len(obj.Items))
 		for i := range obj.Items {
