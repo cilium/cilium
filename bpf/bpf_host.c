@@ -1368,10 +1368,8 @@ int cil_from_host(struct __ctx_buff *ctx)
 		__u32 src_sec_identity = HOST_ID;
 
 #ifdef ENABLE_HOST_FIREWALL
-		int ret = DROP_UNSUPPORTED_L2;
-
 		return send_drop_notify(ctx, src_sec_identity, dst_sec_identity,
-					TRACE_EP_ID_UNKNOWN, ret,
+					TRACE_EP_ID_UNKNOWN, DROP_UNSUPPORTED_L2,
 					CTX_ACT_DROP, METRIC_EGRESS);
 #else
 		send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity, dst_sec_identity,
