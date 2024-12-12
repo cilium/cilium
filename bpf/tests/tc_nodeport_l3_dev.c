@@ -205,7 +205,7 @@ PKTGEN("tc", "ipv6_l3_to_l2_fast_redirect")
 int ipv6_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
+	struct udphdr *l4;
 	void *data;
 
 	/* Init packet builder */
@@ -218,7 +218,7 @@ int ipv6_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 	 * Therefore we workaround the issue by pushing L2 header in the PKTGEN
 	 * and stripping it in the SETUP.
 	 */
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+	l4 = pktgen__push_ipv6_udp_packet(&builder,
 					  (__u8 *)node_mac, (__u8 *)ep_mac,
 					  (__u8 *)TEST_IPV6_REMOTE,
 					  (__u8 *)TEST_IPV6_LOCAL,
@@ -268,7 +268,7 @@ int ipv6_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 	__u32 *status_code;
 	struct ethhdr *l2;
 	struct ipv6hdr *l3;
-	struct tcphdr *l4;
+	struct udphdr *l4;
 	__u8 *payload;
 
 	test_init();
@@ -310,24 +310,24 @@ int ipv6_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 
 	l4 = (void *)l3 + sizeof(struct ipv6hdr);
 
-	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+	if ((void *)l4 + sizeof(struct udphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
 	if (l4->source != tcp_src_one)
-		test_fatal("src TCP port was changed");
+		test_fatal("l4 src port was changed");
 
 	if (l4->dest != tcp_svc_one)
-		test_fatal("dst TCP port was changed");
+		test_fatal("l4 dst port was changed");
 
-	if (l4->check != bpf_htons(0xdfe3))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x71ad))
+		test_fatal("l4 checksum is invalid: %x", bpf_htons(l4->check));
 
-	payload = (void *)l4 + sizeof(struct tcphdr);
+	payload = (void *)l4 + sizeof(struct udphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
 		test_fatal("paylaod out of bounds\n");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
-		test_fatal("tcp payload was changed");
+		test_fatal("l4 payload was changed");
 
 	test_finish();
 }
