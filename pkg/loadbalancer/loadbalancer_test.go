@@ -406,6 +406,17 @@ func TestL3n4AddrID_Strings(t *testing.T) {
 			if strWithProtocol != tt.stringWithProtocol {
 				t.Errorf("L3n4AddrID.StringWithProtocol() = %s, want %s", strWithProtocol, tt.stringWithProtocol)
 			}
+
+			parsed, err := NewL3n4AddrFromString(strWithProtocol)
+			if err != nil {
+				t.Errorf("NewL3n4AddrFromString: %s", err)
+			}
+			if !parsed.DeepEqual(&f.L3n4Addr) {
+				t.Errorf("parsed=%v, want %v", parsed, f)
+			}
+			if parsed.StringWithProtocol() != strWithProtocol {
+				t.Errorf("parsed.StringWithProtocol=%s, want %s", parsed.StringWithProtocol(), strWithProtocol)
+			}
 		})
 	}
 }

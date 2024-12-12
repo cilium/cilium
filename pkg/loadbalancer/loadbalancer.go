@@ -35,6 +35,15 @@ const (
 	SVCTypeLocalRedirect = SVCType("LocalRedirect")
 )
 
+var SVCTypes = []SVCType{
+	SVCTypeHostPort,
+	SVCTypeClusterIP,
+	SVCTypeNodePort,
+	SVCTypeExternalIPs,
+	SVCTypeLoadBalancer,
+	SVCTypeLocalRedirect,
+}
+
 // SVCTrafficPolicy defines which backends are chosen
 type SVCTrafficPolicy string
 
@@ -44,6 +53,11 @@ const (
 	SVCTrafficPolicyLocal   = SVCTrafficPolicy("Local")
 )
 
+var SVCTrafficPolicies = []SVCTrafficPolicy{
+	SVCTrafficPolicyCluster,
+	SVCTrafficPolicyLocal,
+}
+
 // SVCNatPolicy defines whether we need NAT46/64 translation for backends
 type SVCNatPolicy string
 
@@ -52,6 +66,12 @@ const (
 	SVCNatPolicyNat46 = SVCNatPolicy("Nat46")
 	SVCNatPolicyNat64 = SVCNatPolicy("Nat64")
 )
+
+var SVCNatPolicies = []SVCNatPolicy{
+	SVCNatPolicyNone,
+	SVCNatPolicyNat46,
+	SVCNatPolicyNat64,
+}
 
 type SVCForwardingMode string
 
@@ -1065,6 +1085,64 @@ func NewL3n4AddrID(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber 
 // IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
 func (l *L3n4AddrID) IsIPv6() bool {
 	return l.L3n4Addr.IsIPv6()
+}
+
+// tokenize tokenizes string by ':' or '/', but with "[...]" escaped.
+// e.g. "baz:[:foo:]/bar -> [baz,:foo:,bar]
+func tokenize(s string) []string {
+	var (
+		tokens  []string
+		current []rune
+		quoted  bool
+	)
+	for _, c := range s {
+		switch {
+		case c == ':' && !quoted:
+			tokens = append(tokens, string(current))
+			current = nil
+		case c == '/' && !quoted:
+			tokens = append(tokens, string(current))
+			current = nil
+		case c == '[' && !quoted:
+			quoted = true
+		case c == ']' && quoted:
+			quoted = false
+		default:
+			current = append(current, c)
+		}
+	}
+	if len(current) > 0 {
+		tokens = append(tokens, string(current))
+	}
+	return tokens
+}
+
+func NewL3n4AddrFromString(s string) (*L3n4Addr, error) {
+	formatError := fmt.Errorf(
+		"invalid address %q, expected \"<ip>:<port>/<proto>(/i)\" "+
+			"e.g. 1.2.3.4:80/TCP (IPv4, external scope) or [2001::1]:443/TCP/i (IPv6, internal scope)", s)
+
+	tokens := tokenize(s)
+	if len(tokens) < 3 {
+		return nil, formatError
+	}
+	var model models.FrontendAddress
+	model.IP = tokens[0]
+	port, err := strconv.ParseUint(tokens[1], 10, 16)
+	if err != nil {
+		return nil, formatError
+	}
+	model.Port = uint16(port)
+	model.Protocol = tokens[2]
+	model.Scope = models.FrontendAddressScopeExternal
+	if len(tokens) == 4 {
+		if tokens[3] != "i" {
+			return nil, formatError
+		}
+		model.Scope = models.FrontendAddressScopeInternal
+	}
+
+	return NewL3n4AddrFromModel(&model)
 }
 
 func init() {
