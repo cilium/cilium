@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.15.12
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* bgp: fix race in bgp stores (Backport PR cilium/cilium#36071, Upstream PR cilium/cilium#35971, @harsimran-pabla)
+* cilium-health-ep controller is made to be more robust against successive failures. (Backport PR cilium/cilium#36071, Upstream PR cilium/cilium#35936, @jrajahalme)
+* gateway-api: Fix gateway checks for namespace (Backport PR cilium/cilium#36464, Upstream PR cilium/cilium#35452, @sayboras)
+* Unbreak the cilium-dbg preflight migrate-identity command (Backport PR cilium/cilium#36285, Upstream PR cilium/cilium#36089, @giorio94)
+
+**CI Changes:**
+* [v1.15] ci: modularize chart CI push workflow (cilium/cilium#35963, @ferozsalam)
+* [v1.15] gha: Upgrade helm/kind-action to the latest upstream (cilium/cilium#36415, @aanm)
+* gha: configure environment in build-images-base/image-digests job (Backport PR cilium/cilium#36464, Upstream PR cilium/cilium#36318, @giorio94)
+* github: Pass the workflow step timeout to go test (Backport PR cilium/cilium#36071, Upstream PR cilium/cilium#35814, @jrajahalme)
+* Remove unnecessary hubble port-forward commands (Backport PR cilium/cilium#36071, Upstream PR cilium/cilium#33523, @michi-covalent)
+
+**Misc Changes:**
+* [v1.15] docs: egress masquerade selector (cilium/cilium#36407, @nbusseneau)
+* [v1.15] images: bump cni plugins to v1.6.0 (cilium/cilium#36090, @ferozsalam)
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#36159, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#36280, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#36449, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#36156, @cilium-renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.19 (v1.15) (cilium/cilium#36157, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.22 (v1.15) (cilium/cilium#36506, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.16.4 (v1.15) (cilium/cilium#36146, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.9 docker digest to 147f428 (v1.15) (cilium/cilium#36223, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.10 (v1.15) (cilium/cilium#36446, @cilium-renovate[bot])
+* chore(deps): update old stable lvh-images (v1.15) (patch) (cilium/cilium#36158, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.7-1733138674-96535afceef9d9f5c28a96cabe4068bf4472d053 (v1.15) (cilium/cilium#36181, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.8-1733718623-70f73cfb053b8039d0541fdd0c120afc5f57a43d (v1.15) (cilium/cilium#36456, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.8-1733837904-eaae5aca0fb988583e5617170a65ac5aa51c0aa8 (v1.15) (cilium/cilium#36496, @cilium-renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to bpf-20241129.013349 (v1.15) (cilium/cilium#36281, @cilium-renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to bpf-20241206.013345 (v1.15) (cilium/cilium#36447, @cilium-renovate[bot])
+* docs: In k0s guide, remove dashes to fix invalid Bash variable names. (Backport PR cilium/cilium#36071, Upstream PR cilium/cilium#35923, @yilas)
+* docs: WireGuard doesn't require overlay port in Network Firewalls (Backport PR cilium/cilium#36285, Upstream PR cilium/cilium#36208, @julianwiedmann)
+* envoy: Configure internal_address_config to avoid warning log (Backport PR cilium/cilium#36017, Upstream PR cilium/cilium#35943, @sayboras)
+* fix(deps): update module golang.org/x/crypto to v0.31.0 [security] (v1.15) (cilium/cilium#36531, @cilium-renovate[bot])
+* images: Use cilium-builder image instead of golang to build hubble (Backport PR cilium/cilium#36313, Upstream PR cilium/cilium#35697, @learnitall)
+* Makefile: fix swagger definition for automatic renovate updates (Backport PR cilium/cilium#36071, Upstream PR cilium/cilium#35979, @aanm)
+* Update documentation for egress masquerading behavior (Backport PR cilium/cilium#36464, Upstream PR cilium/cilium#36267, @liyihuang)
+
+**Other Changes:**
+* [1.15] xdp: make cilium_calls_xdp map per-endpoint (cilium/cilium#36099, @ti-mo)
+* install: Update image digests for v1.15.11 (cilium/cilium#36046, @cilium-release-bot[bot])
+
 ## v1.15.11
 
 Summary of Changes
