@@ -5,7 +5,6 @@ package watchers
 
 import (
 	"context"
-	"errors"
 	"sync/atomic"
 	"time"
 
@@ -395,27 +394,7 @@ func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID 
 func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 	oldRuleCpy, newRuleCpy *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
 
-	_, err := oldRuleCpy.Parse()
-	if err != nil {
-		ns := oldRuleCpy.GetNamespace() // Disambiguates CNP & CCNP
-
-		// We want to ignore parsing errors for empty policies, otherwise the
-		// update to the new policy will be skipped.
-		switch {
-		case ns != "" && !errors.Is(err, cilium_v2.ErrEmptyCNP):
-			metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
-				Warn("Error parsing old CiliumNetworkPolicy rule")
-			return err
-		case ns == "" && !errors.Is(err, cilium_v2.ErrEmptyCCNP):
-			metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
-				Warn("Error parsing old CiliumClusterwideNetworkPolicy rule")
-			return err
-		}
-	}
-
-	_, err = newRuleCpy.Parse()
+	_, err := newRuleCpy.Parse()
 	if err != nil {
 		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
