@@ -171,26 +171,6 @@ type Repository struct {
 	metricsManager api.PolicyMetrics
 }
 
-// Lock acquiers the lock of the whole policy tree.
-func (p *Repository) Lock() {
-	p.mutex.Lock()
-}
-
-// Unlock releases the lock of the whole policy tree.
-func (p *Repository) Unlock() {
-	p.mutex.Unlock()
-}
-
-// RLock acquiers the read lock of the whole policy tree.
-func (p *Repository) RLock() {
-	p.mutex.RLock()
-}
-
-// RUnlock releases the read lock of the whole policy tree.
-func (p *Repository) RUnlock() {
-	p.mutex.RUnlock()
-}
-
 // GetSelectorCache() returns the selector cache used by the Repository
 func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
@@ -767,8 +747,8 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 // calculation.
 func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error) {
 	stats.WaitingForPolicyRepository().Start()
-	r.RLock()
-	defer r.RUnlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 	stats.WaitingForPolicyRepository().End(true)
 
 	rev := r.GetRevision()
@@ -802,8 +782,8 @@ func (p *Repository) ReplaceByResource(rules api.Rules, resource ipcachetypes.Re
 		return
 	}
 
-	p.Lock()
-	defer p.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 
 	affectedIDs = &set.Set[identity.NumericIdentity]{}
 	oldRules := maps.Clone(p.rulesByResource[resource]) // need to clone as `p.del()` mutates this
@@ -840,8 +820,8 @@ func (p *Repository) ReplaceByResource(rules api.Rules, resource ipcachetypes.Re
 // where the "key" is a list of labels, possibly multiple, that should be removed before
 // installing the new rules.
 func (p *Repository) ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int) {
-	p.Lock()
-	defer p.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 
 	var oldRules []*rule
 	affectedIDs = &set.Set[identity.NumericIdentity]{}
