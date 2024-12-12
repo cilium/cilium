@@ -1094,15 +1094,13 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 #endif
 
 static __always_inline int
-do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
+do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
+	  enum trace_point obs_point,  const bool __maybe_unused from_host)
 {
-	enum trace_point obs_point = from_host ? TRACE_FROM_HOST :
-					     TRACE_FROM_NETWORK;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	__u32 __maybe_unused identity = 0;
 	__u32 __maybe_unused ipcache_srcid = 0;
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
@@ -1111,39 +1109,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	__u8 __maybe_unused next_proto = 0;
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
-
-	if (from_host) {
-		__u32 magic;
-
-		magic = inherit_identity_from_host(ctx, &identity);
-		if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
-			obs_point = TRACE_FROM_PROXY;
-
-#if defined(ENABLE_L7_LB)
-		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-			/* extracted identity is actually the endpoint ID */
-			ret = tail_call_egress_policy(ctx, (__u16)identity);
-			return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP,
-						      METRIC_EGRESS);
-		}
-#endif
-
-#ifdef ENABLE_IPSEC
-		if (magic == MARK_MAGIC_ENCRYPT) {
-			send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
-					  TRACE_EP_ID_UNKNOWN,
-					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
-			ret = CTX_ACT_OK;
-# ifdef TUNNEL_MODE
-			ret = do_netdev_encrypt_encap(ctx, identity);
-			if (IS_ERR(ret))
-				return send_drop_notify_error(ctx, identity, ret,
-							      CTX_ACT_DROP, METRIC_EGRESS);
-# endif /* TUNNEL_MODE */
-			return ret;
-		}
-#endif /* ENABLE_IPSEC */
-	}
 
 	bpf_clear_meta(ctx);
 
@@ -1343,7 +1308,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 #endif
 
-	return do_netdev(ctx, proto, false);
+	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
 
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
@@ -1356,7 +1321,11 @@ drop_err:
 __section_entry
 int cil_from_host(struct __ctx_buff *ctx)
 {
+	enum trace_point obs_point = TRACE_FROM_HOST;
+	__u32 identity = UNKNOWN_ID;
+	int ret __maybe_unused;
 	__be16 proto = 0;
+	__u32 magic;
 
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
@@ -1380,7 +1349,38 @@ int cil_from_host(struct __ctx_buff *ctx)
 #endif /* ENABLE_HOST_FIREWALL */
 	}
 
-	return do_netdev(ctx, proto, true);
+	magic = inherit_identity_from_host(ctx, &identity);
+	if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
+		obs_point = TRACE_FROM_PROXY;
+
+#if defined(ENABLE_L7_LB)
+	if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+		/* extracted identity is actually the endpoint ID */
+		ret = tail_call_egress_policy(ctx, (__u16)identity);
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
+	}
+#endif
+
+#ifdef ENABLE_IPSEC
+	if (magic == MARK_MAGIC_ENCRYPT) {
+		ret = CTX_ACT_OK;
+
+		send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN,
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+
+# ifdef TUNNEL_MODE
+		ret = do_netdev_encrypt_encap(ctx, identity);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(ctx, identity, ret,
+						      CTX_ACT_DROP, METRIC_EGRESS);
+# endif /* TUNNEL_MODE */
+		return ret;
+	}
+#endif /* ENABLE_IPSEC */
+
+	return do_netdev(ctx, proto, identity, obs_point, true);
 }
 
 /*
