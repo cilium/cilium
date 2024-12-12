@@ -31,7 +31,12 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
-		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+		var svc serviceStore.ClusterService
+		if event.Action == k8s.UpdateService {
+			svc = k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+		} else if event.Action == k8s.DeleteService {
+			svc = k8s.NewClusterService(event.ID, event.OldService, event.OldEndpoints)
+		}
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
@@ -41,6 +46,8 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			"action":               event.Action.String(),
 			"service":              event.Service.String(),
 			"endpoints":            event.Endpoints.String(),
+			"old-service":          event.OldService.String(),
+			"old-endpoints":        event.OldEndpoints.String(),
 			"shared":               event.Service.Shared,
 		})
 		scopedLog.Debug("Kubernetes service definition changed")
