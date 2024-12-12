@@ -212,12 +212,6 @@
     {
       "enabled": false,
       "matchPackageNames": [
-        // All of these packages are maintained on a Cilium fork. Thus, we don't
-        // want to update them automatically.
-        "go.universe.tf/metallb",
-        "github.com/cilium/metallb",
-        // metallb is still using an old version of "github.com/mdlayher/arp"
-        "github.com/mdlayher/arp",
         "github.com/miekg/dns",
         "github.com/cilium/dns",
         "sigs.k8s.io/controller-tools",
