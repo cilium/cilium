@@ -35,8 +35,7 @@ struct nat_entry {
 	__u64 pad2;		/* Future use. */
 };
 
-#define SNAT_COLLISION_RETRIES		128
-#define SNAT_SIGNAL_THRES		64
+#define SNAT_SIGNAL_THRES		(SNAT_COLLISION_RETRIES / 2)
 
 #define snat_v4_needs_masquerade_hook(ctx, target) 0
 
@@ -120,6 +119,14 @@ struct {
 	__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
 } SNAT_MAPPING_IPV4 __section_maps_btf;
 
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SNAT_COLLISION_RETRIES + 1);
+} SNAT_ALLOC_RETRIES_IPV4 __section_maps_btf;
+
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct per_cluster_snat_mapping_ipv4_inner_map {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
@@ -200,7 +207,9 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 {
 	struct ipv4_ct_tuple rtuple = {};
 	struct ipv4_nat_entry rstate;
-	int ret, retries;
+	__u32 *retries_hist;
+	__u32 retries;
+	int ret;
 	__u16 port;
 
 	memset(&rstate, 0, sizeof(rstate));
@@ -238,11 +247,19 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 					       (__u16)get_prandom_u32());
 	}
 
+	retries_hist = map_lookup_elem(&SNAT_ALLOC_RETRIES_IPV4, &(__u32){retries});
+	if (retries_hist)
+		++*retries_hist;
+
 	/* Loop completed without finding a free port: */
 	ret = DROP_NAT_NO_MAPPING;
 	goto out;
 
 create_nat_entry:
+	retries_hist = map_lookup_elem(&SNAT_ALLOC_RETRIES_IPV4, &(__u32){retries});
+	if (retries_hist)
+		++*retries_hist;
+
 	ostate->to_sport = rtuple.dport;
 	ostate->common.created = rstate.common.created;
 
@@ -1044,7 +1061,7 @@ rewrite:
 				       tuple.daddr, state->to_daddr, IPV4_DADDR_OFF,
 				       tuple.dport, to_dport, port_off);
 }
-#else
+#else /* defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT) */
 static __always_inline __maybe_unused
 int snat_v4_nat(struct __ctx_buff *ctx __maybe_unused,
 		const struct ipv4_nat_target *target __maybe_unused)
@@ -1058,7 +1075,7 @@ int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 {
 	return CTX_ACT_OK;
 }
-#endif
+#endif /* defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT) */
 
 struct ipv6_nat_entry {
 	struct nat_entry common;
@@ -1091,6 +1108,13 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
 } SNAT_MAPPING_IPV6 __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(max_entries, SNAT_COLLISION_RETRIES + 1);
+} SNAT_ALLOC_RETRIES_IPV6 __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct {
@@ -1156,7 +1180,9 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 {
 	struct ipv6_ct_tuple rtuple = {};
 	struct ipv6_nat_entry rstate;
-	int ret, retries;
+	__u32 *retries_hist;
+	__u32 retries;
+	int ret;
 	__u16 port;
 
 	memset(&rstate, 0, sizeof(rstate));
@@ -1192,10 +1218,18 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       (__u16)get_prandom_u32());
 	}
 
+	retries_hist = map_lookup_elem(&SNAT_ALLOC_RETRIES_IPV6, &(__u32){retries});
+	if (retries_hist)
+		++*retries_hist;
+
 	ret = DROP_NAT_NO_MAPPING;
 	goto out;
 
 create_nat_entry:
+	retries_hist = map_lookup_elem(&SNAT_ALLOC_RETRIES_IPV6, &(__u32){retries});
+	if (retries_hist)
+		++*retries_hist;
+
 	ostate->to_sport = rtuple.dport;
 	ostate->common.created = rstate.common.created;
 
@@ -1783,7 +1817,7 @@ rewrite:
 				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
 				       tuple.dport, to_dport, port_off);
 }
-#else
+#else /* defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT) */
 static __always_inline __maybe_unused
 int snat_v6_nat(struct __ctx_buff *ctx __maybe_unused,
 		const struct ipv6_nat_target *target __maybe_unused)
@@ -1797,7 +1831,7 @@ int snat_v6_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 {
 	return CTX_ACT_OK;
 }
-#endif
+#endif /* defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT) */
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 static __always_inline int
