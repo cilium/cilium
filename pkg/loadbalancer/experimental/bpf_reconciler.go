@@ -260,11 +260,15 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	var revNatKey lbmap.RevNatKey
 
 	ip := fe.Address.AddrCluster.AsNetIP()
+	proto, err := u8proto.ParseProtocol(fe.Address.Protocol)
+	if err != nil {
+		return fmt.Errorf("invalid L4 protocol %q: %w", fe.Address.Protocol, err)
+	}
 	if fe.Address.IsIPv6() {
-		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, proto, fe.Address.Scope, 0)
 		revNatKey = lbmap.NewRevNat6Key(uint16(feID))
 	} else {
-		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, proto, fe.Address.Scope, 0)
 		revNatKey = lbmap.NewRevNat4Key(uint16(feID))
 	}
 
@@ -558,12 +562,17 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	var svcKey lbmap.ServiceKey
 	var svcVal lbmap.ServiceValue
 
+	proto, err := u8proto.ParseProtocol(fe.Address.Protocol)
+	if err != nil {
+		return fmt.Errorf("invalid L4 protocol %q: %w", fe.Address.Protocol, err)
+	}
+
 	ip := fe.Address.AddrCluster.AsNetIP()
 	if fe.Address.IsIPv6() {
-		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, proto, fe.Address.Scope, 0)
 		svcVal = &lbmap.Service6Value{}
 	} else {
-		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, proto, fe.Address.Scope, 0)
 		svcVal = &lbmap.Service4Value{}
 	}
 
@@ -790,14 +799,19 @@ func (ops *BPFOps) cleanupSlots(svcKey lbmap.ServiceKey, oldCount, newCount int)
 
 func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *Backend) (err error) {
 	var lbbe lbmap.Backend
+	proto, err := u8proto.ParseProtocol(be.L3n4Addr.Protocol)
+	if err != nil {
+		return fmt.Errorf("invalid L4 protocol %q: %w", be.L3n4Addr.Protocol, err)
+	}
+
 	if be.AddrCluster.Is6() {
-		lbbe, err = lbmap.NewBackend6V3(id, be.AddrCluster, be.Port, u8proto.ANY,
+		lbbe, err = lbmap.NewBackend6V3(id, be.AddrCluster, be.Port, proto,
 			be.State, be.ZoneID)
 		if err != nil {
 			return err
 		}
 	} else {
-		lbbe, err = lbmap.NewBackend4V3(id, be.AddrCluster, be.Port, u8proto.ANY,
+		lbbe, err = lbmap.NewBackend4V3(id, be.AddrCluster, be.Port, proto,
 			be.State, be.ZoneID)
 		if err != nil {
 			return err

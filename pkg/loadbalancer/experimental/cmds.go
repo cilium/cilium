@@ -10,8 +10,6 @@ import (
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb/reconciler"
-
-	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 func scriptCommands(cfg Config, m LBMaps, r reconciler.Reconciler[*Frontend]) hive.ScriptCmdsOut {
@@ -55,7 +53,6 @@ func lbmapDumpCommand(m LBMaps) script.Cmd {
 			return func(s *script.State) (stdout string, stderr string, err error) {
 				out := DumpLBMaps(
 					m,
-					loadbalancer.L3n4Addr{},
 					false,
 					nil,
 				)

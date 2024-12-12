@@ -115,11 +115,13 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 // solely defines the format.
 type MapDump = string
 
-// DumpLBMaps the load-balancing maps into a concise format for assertions in tests.
-func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, customIPString func(net.IP) string) (out []MapDump) {
-	out = []string{}
-
+func dumpLBMapsWithReplace(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []MapDump) {
 	replaceAddr := func(addr net.IP, port uint16) (s string) {
+		s = addr.String()
+		if addr.To4() == nil {
+			s = "[" + s + "]"
+		}
+		s = fmt.Sprintf("%s:%d", s, port)
 		if addr.IsUnspecified() {
 			s = "<zero>"
 			return
@@ -131,25 +133,32 @@ func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, c
 			s = "<nodePort>"
 		case nodePortAddrs[1].String():
 			s = "<nodePort>"
-		default:
-			if customIPString != nil {
-				s = customIPString(addr)
-			} else {
-				s = addr.String()
-			}
+		}
+		return
+	}
+	return DumpLBMaps(lbmaps, sanitizeIDs, replaceAddr)
+}
+
+// DumpLBMaps the load-balancing maps into a concise format for assertions in tests.
+func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint16) string) (out []MapDump) {
+	out = []string{}
+
+	if customizeAddr == nil {
+		customizeAddr = func(addr net.IP, port uint16) (s string) {
+			s = addr.String()
 			if addr.To4() == nil {
 				s = "[" + s + "]"
 			}
-			s = fmt.Sprintf("%s:%d", s, port)
+			return fmt.Sprintf("%s:%d", s, port)
 		}
-		return
 	}
 
 	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
 		svcKey = svcKey.ToHost()
 		svcValue = svcValue.ToHost()
 		addr := svcKey.GetAddress()
-		addrS := replaceAddr(addr, svcKey.GetPort())
+		addrS := customizeAddr(addr, svcKey.GetPort())
+		addrS += "/" + loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 		if svcKey.GetScope() == loadbalancer.ScopeInternal {
 			addrS += "/i"
 		}
@@ -172,7 +181,8 @@ func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, c
 	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
 		beValue = beValue.ToHost()
 		addr := beValue.GetAddress()
-		addrS := replaceAddr(addr, beValue.GetPort())
+		addrS := customizeAddr(addr, beValue.GetPort())
+		addrS += "/" + loadbalancer.NewL4TypeFromNumber(beValue.GetProtocol())
 		stateS, _ := loadbalancer.GetBackendStateFromFlags(beValue.GetFlags()).String()
 		out = append(out, fmt.Sprintf("BE: ID=%s ADDR=%s STATE=%s",
 			sanitizeID(beKey.GetID(), sanitizeIDs),
@@ -192,10 +202,10 @@ func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, c
 
 		switch v := revValue.(type) {
 		case *lbmap.RevNat4Value:
-			addr = replaceAddr(v.Address.IP(), v.Port)
+			addr = customizeAddr(v.Address.IP(), v.Port)
 
 		case *lbmap.RevNat6Value:
-			addr = replaceAddr(v.Address.IP(), v.Port)
+			addr = customizeAddr(v.Address.IP(), v.Port)
 		}
 
 		out = append(out, fmt.Sprintf("REV: ID=%s ADDR=%s",

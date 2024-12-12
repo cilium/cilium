@@ -185,7 +185,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 			}
 		}
 		if !cleanedUp {
-			dump := experimental.DumpLBMaps(bo.LBMaps, loadbalancer.L3n4Addr{}, false, nil)
+			dump := experimental.DumpLBMaps(bo.LBMaps, false, nil)
 			panic(fmt.Sprintf("Expected BPF maps to be empty, instead they contain %d entries:\n%s", len(dump), strings.Join(dump, "\n")))
 		}
 		fmt.Println("ok.")
