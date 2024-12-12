@@ -75,6 +75,7 @@ runs:
     - shell: bash
       id: derive-config
       run: |
+        CILIUM_ENVOY_REF=$(sed -E -e 's/^ARG CILIUM_ENVOY_IMAGE=([^ ]*)/\1/p;d' < ./images/cilium/Dockerfile)
         DEFAULTS="--wait \
             --chart-directory=${{ inputs.chart-dir }} \
             --helm-set=debug.enabled=true \
@@ -85,6 +86,7 @@ runs:
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
+            --helm-set=envoy.image.override=$CILIUM_ENVOY_REF \
             --set='${{ inputs.misc }}'"
 
           if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
