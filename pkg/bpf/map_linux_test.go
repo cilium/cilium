@@ -40,6 +40,7 @@ type TestLPMKey struct {
 type TestValue struct {
 	Value uint32
 }
+type TestValues []TestValue
 
 func (k *TestKey) String() string { return fmt.Sprintf("key=%d", k.Key) }
 func (k *TestKey) New() MapKey    { return &TestKey{} }
@@ -49,6 +50,7 @@ func (k *TestLPMKey) New() MapKey    { return &TestLPMKey{} }
 
 func (v *TestValue) String() string { return fmt.Sprintf("value=%d", v.Value) }
 func (v *TestValue) New() MapValue  { return &TestValue{} }
+func (k *TestValue) NewSlice() any  { return &TestValues{} }
 
 func setup(tb testing.TB) *Map {
 	testutils.PrivilegedTest(tb)
@@ -65,6 +67,32 @@ func setup(tb testing.TB) *Map {
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 	).WithCache()
+
+	err = testMap.OpenOrCreate()
+	require.NoError(tb, err, "Failed to create map")
+
+	tb.Cleanup(func() {
+		require.NoError(tb, testMap.Close())
+	})
+
+	return testMap
+}
+
+func setupPerCPU(tb testing.TB) *Map {
+	testutils.PrivilegedTest(tb)
+
+	CheckOrMountFS("")
+
+	err := rlimit.RemoveMemlock()
+	require.NoError(tb, err)
+
+	testMap := NewMap("cilium_test_percpu",
+		ebpf.PerCPUArray,
+		&TestKey{},
+		&TestValue{},
+		3,
+		0,
+	)
 
 	err = testMap.OpenOrCreate()
 	require.NoError(tb, err, "Failed to create map")
@@ -506,6 +534,55 @@ func TestDump(t *testing.T) {
 		"key=105": {"value=205"},
 		"key=106": {"value=206"},
 	}, dump5)
+}
+
+func TestDumpPerCPU(t *testing.T) {
+	testMap := setupPerCPU(t)
+
+	key1 := &TestKey{Key: 0}
+	value1 := &TestValue{Value: 205}
+	key2 := &TestKey{Key: 2}
+	value2 := &TestValue{Value: 206}
+
+	func() {
+		testMap.lock.Lock()
+		defer testMap.lock.Unlock()
+		err := testMap.m.Update(key1, []any{value1}, ebpf.UpdateAny)
+		require.NoError(t, err)
+		err = testMap.m.Update(key2, []any{value1}, ebpf.UpdateAny)
+		require.NoError(t, err)
+		err = testMap.m.Update(key2, []any{value2}, ebpf.UpdateAny)
+		require.NoError(t, err)
+	}()
+
+	dump := map[string][]uint32{}
+	customCb := func(key MapKey, values any) {
+		var value uint32
+		for _, v := range *values.(*TestValues) {
+			if value == 0 && v.Value != 0 {
+				value = v.Value
+			} else if value != 0 {
+				require.Equal(t, uint32(0), v.Value)
+			}
+		}
+		dump[key.String()] = append(dump[key.String()], value)
+	}
+	testMap.DumpPerCPUWithCallback(customCb)
+	require.Equal(t, map[string][]uint32{
+		"key=0": {205},
+		"key=1": {0},
+		"key=2": {206},
+	}, dump)
+
+	require.NoError(t, testMap.ClearAll())
+
+	dump = map[string][]uint32{}
+	testMap.DumpPerCPUWithCallback(customCb)
+	require.Equal(t, map[string][]uint32{
+		"key=0": {0},
+		"key=1": {0},
+		"key=2": {0},
+	}, dump)
 }
 
 // TestDumpReliablyWithCallbackOverlapping attempts to test that DumpReliablyWithCallback
