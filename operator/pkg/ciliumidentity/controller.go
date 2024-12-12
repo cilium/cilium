@@ -237,16 +237,18 @@ func (c *Controller) processNextItem() bool {
 	if quit {
 		return false
 	}
+	qItem := item.(QueuedItem)
 	defer c.resourceQueue.Done(item)
 	processingStartTime := time.Now()
+	enqueueTime, exists := c.enqueueTimeTracker.GetAndReset(qItem.Key().String())
 
-	qItem := item.(QueuedItem)
 	err := qItem.Reconcile(c.reconciler)
 	if err != nil {
 		retries := c.resourceQueue.NumRequeues(item)
 		c.logger.Warn("Failed to process resource item", logfields.Key, qItem.Key().String(), "retries", retries, "maxRetries", maxProcessRetries, logfields.Error, err)
 
 		if retries < maxProcessRetries {
+			c.enqueueTimeTracker.Track(qItem.Key().String())
 			c.resourceQueue.AddRateLimited(item)
 			return true
 		}
@@ -255,7 +257,6 @@ func (c *Controller) processNextItem() bool {
 		c.logger.Error("Dropping item from resource queue, exceeded maxRetries", logfields.Key, qItem.Key().String(), "maxRetries", maxProcessRetries, logfields.Error, err)
 	}
 
-	enqueueTime, exists := c.enqueueTimeTracker.GetAndReset(qItem.Key().String())
 	if exists {
 		enqueuedLatency := processingStartTime.Sub(enqueueTime).Seconds()
 		processingLatency := time.Since(processingStartTime).Seconds()
