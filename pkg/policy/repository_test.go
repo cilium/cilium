@@ -65,6 +65,11 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
 	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 
+	// lal takes a single label and returns a []labels.LabelArray containing only that label
+	lal := func(lbl labels.Label) []labels.LabelArray {
+		return []labels.LabelArray{{lbl}}
+	}
+
 	fooIngressRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
 		Ingress: []api.IngressRule{
@@ -178,7 +183,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
 	require.ElementsMatch(t, matchingRules.AsPolicyRules(), api.Rules{&fooIngressRule1, &fooIngressRule2})
 
-	_, _, numDeleted := repo.deleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
+	_, _, numDeleted := repo.ReplaceByLabels(nil, lal(fooIngressRule1Label))
 	require.Equal(t, 1, numDeleted)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
@@ -186,7 +191,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
 	require.EqualValues(t, fooIngressRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooIngressRule2Label})
+	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooIngressRule2Label))
 	require.Equal(t, 1, numDeleted)
 
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
@@ -200,7 +205,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, ing, "ingress policy enforcement should not apply since no ingress rules select")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
 	require.EqualValues(t, fooEgressRule1, matchingRules[0].Rule, "returned matching rules did not match")
-	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
+	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressRule1Label))
 	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.mustAdd(fooEgressRule2)
@@ -210,7 +215,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
 	require.EqualValues(t, fooEgressRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooEgressRule2Label})
+	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressRule2Label))
 	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.mustAdd(combinedRule)
@@ -219,7 +224,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules selects")
 	require.EqualValues(t, combinedRule, matchingRules[0].Rule, "returned matching rules did not match")
-	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{combinedLabel})
+	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(combinedLabel))
 	require.Equal(t, 1, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
@@ -259,90 +264,6 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, ingress)
 	require.False(t, egress)
 
-}
-
-func TestAddSearchDelete(t *testing.T) {
-	td := newTestData()
-	repo := td.repo
-
-	lbls1 := labels.LabelArray{
-		labels.ParseLabel("tag1"),
-		labels.ParseLabel("tag2"),
-	}
-	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
-		Labels:           lbls1,
-	}
-	rule1.Sanitize()
-	rule2 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Labels:           lbls1,
-	}
-	rule2.Sanitize()
-	lbls2 := labels.LabelArray{labels.ParseSelectLabel("tag3")}
-	rule3 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Labels:           lbls2,
-	}
-	rule3.Sanitize()
-
-	nextRevision := uint64(1)
-
-	require.Equal(t, nextRevision, repo.GetRevision())
-	nextRevision++
-
-	// add rule1,rule2
-	rev, _, err := repo.mustAdd(rule1)
-	require.NoError(t, err)
-	require.Equal(t, nextRevision, rev)
-	nextRevision++
-	rev, _, err = repo.mustAdd(rule2)
-	require.NoError(t, err)
-	require.Equal(t, nextRevision, rev)
-	nextRevision++
-
-	// rule3 should not be in there yet
-	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{}, repo.searchRLocked(lbls2))
-	repo.mutex.RUnlock()
-
-	// add rule3
-	rev, _, err = repo.mustAdd(rule3)
-	require.NoError(t, err)
-	require.Equal(t, nextRevision, rev)
-	nextRevision++
-
-	// search rule1,rule2
-	repo.mutex.RLock()
-	require.ElementsMatch(t, api.Rules{&rule1, &rule2}, repo.searchRLocked(lbls1))
-	require.ElementsMatch(t, api.Rules{&rule3}, repo.searchRLocked(lbls2))
-	repo.mutex.RUnlock()
-
-	// delete rule1, rule2
-	rev, n := repo.deleteByLabels(lbls1)
-	require.Equal(t, 2, n)
-	require.Equal(t, nextRevision, rev)
-	nextRevision++
-
-	// delete rule1, rule2 again has no effect
-	rev, n = repo.deleteByLabels(lbls1)
-	require.Equal(t, 0, n)
-	require.Equal(t, nextRevision-1, rev)
-
-	// rule3 can still be found
-	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{&rule3}, repo.searchRLocked(lbls2))
-	repo.mutex.RUnlock()
-
-	// delete rule3
-	rev, n = repo.deleteByLabels(lbls2)
-	require.Equal(t, 1, n)
-	require.Equal(t, nextRevision, rev)
-
-	// rule1 is gone
-	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{}, repo.searchRLocked(lbls2))
-	repo.mutex.RUnlock()
 }
 
 func BenchmarkParseLabel(b *testing.B) {
@@ -2346,9 +2267,7 @@ func TestIterate(t *testing.T) {
 
 	require.Equal(t, numRules-numModified, numWithEgress)
 
-	repo.mutex.Lock()
-	_, _, numDeleted := repo.deleteByLabelsLocked(labels.LabelArray{lbls[0]})
-	repo.mutex.Unlock()
+	_, _, numDeleted := repo.ReplaceByLabels(nil, []labels.LabelArray{{lbls[0]}})
 	require.Equal(t, 1, numDeleted)
 
 	numWithEgress = 0

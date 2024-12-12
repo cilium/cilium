@@ -519,36 +519,6 @@ func (p *Repository) Iterate(f func(rule *api.Rule)) {
 	}
 }
 
-// deleteByLabelsLocked deletes all rules in the policy repository which
-// contain the specified labels. Returns the revision of the policy repository
-// after deleting the rules, as well as now many rules were deleted.
-func (p *Repository) deleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
-	deletedRules := ruleSlice{}
-
-	for key, r := range p.rules {
-		if r.Labels.Contains(lbls) {
-			deletedRules = append(deletedRules, r)
-			p.del(key)
-		}
-	}
-	l := len(deletedRules)
-
-	if l > 0 {
-		p.BumpRevision()
-	}
-
-	return deletedRules, p.GetRevision(), l
-}
-
-// deleteByLabels deletes all rules in the policy repository which contain the
-// specified labels
-func (p *Repository) deleteByLabels(lbls labels.LabelArray) (uint64, int) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	_, rev, numDeleted := p.deleteByLabelsLocked(lbls)
-	return rev, numDeleted
-}
-
 // JSONMarshalRules returns a slice of policy rules as string in JSON
 // representation
 func JSONMarshalRules(rules api.Rules) string {
@@ -557,37 +527,6 @@ func JSONMarshalRules(rules api.Rules) string {
 		return err.Error()
 	}
 	return string(b)
-}
-
-// GetRulesMatching returns whether any of the rules in a repository contain a
-// rule with labels matching the labels in the provided LabelArray.
-//
-// Must be called with p.mutex held
-func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool, egressMatch bool) {
-	ingressMatch = false
-	egressMatch = false
-	for _, r := range p.rules {
-		rulesMatch := r.getSelector().Matches(lbls)
-		if rulesMatch {
-			if len(r.Ingress) > 0 {
-				ingressMatch = true
-			}
-			if len(r.IngressDeny) > 0 {
-				ingressMatch = true
-			}
-			if len(r.Egress) > 0 {
-				egressMatch = true
-			}
-			if len(r.EgressDeny) > 0 {
-				egressMatch = true
-			}
-		}
-
-		if ingressMatch && egressMatch {
-			return
-		}
-	}
-	return
 }
 
 // GetRevision returns the revision of the policy repository
