@@ -21,5 +21,5 @@ func (t nodeToNodeEncryption) build(ct *check.ConnectivityTest, _ map[string]str
 				features.RequireEnabled(features.EncryptionPod),
 				features.RequireEnabled(features.EncryptionNode),
 			),
-		)
+		).WithFeatureRequirements(features.RequireModeIsNot(features.EncryptionPod, "ipsec"))
 }
