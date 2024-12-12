@@ -155,11 +155,12 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
-	if e.SecurityIdentity != nil {
-		if len(e.SecurityIdentity.Labels) == 0 {
+	securityIdentity, _ := e.GetSecurityIdentity()
+	if securityIdentity != nil {
+		if len(securityIdentity.Labels) == 0 {
 			fmt.Fprintf(fw, " * - %s\n", "(no labels)")
 		} else {
-			for _, v := range e.SecurityIdentity.Labels {
+			for _, v := range securityIdentity.Labels {
 				fmt.Fprintf(fw, " * - %s\n", v.String())
 			}
 		}
@@ -648,7 +649,8 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 
 	// Apply pending policy map changes so that desired map is up-to-date before
 	// syncing the maps below.
-	if e.SecurityIdentity != nil {
+	securityIdentity, _ := e.GetSecurityIdentity()
+	if securityIdentity != nil {
 		_ = e.updateAndOverrideEndpointOptions(nil)
 
 		// Apply incremental changes to desiredPolicy and Configure the new network policy

@@ -117,13 +117,13 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		endpoints[i] = &endpoint.Endpoint{
 			ID:   uint16(i),
 			IPv4: netip.MustParseAddr(fmt.Sprintf("10.96.%d.%d", i/256, i%256)),
-			SecurityIdentity: &identity.Identity{
-				ID: identity.NumericIdentity(i % int(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))),
-			},
 			DNSZombies: &fqdn.DNSZombieMappings{
 				Mutex: lock.Mutex{},
 			},
 		}
+		endpoints[i].SetSecurityIdentity(&identity.Identity{
+			ID: identity.NumericIdentity(i % int(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))),
+		})
 		ep := endpoints[i]
 		ep.UpdateLogger(nil)
 		ep.DNSHistory = fqdn.NewDNSCache(0)

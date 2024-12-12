@@ -233,7 +233,8 @@ func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.Client
 	localEPs := m.endpointManager.GetEndpoints()
 	matched := false
 	for _, ep := range localEPs {
-		if ep.SecurityIdentity != nil && ep.SecurityIdentity.ID == id {
+		securityIdentity, _ := ep.GetSecurityIdentity()
+		if securityIdentity != nil && securityIdentity.ID == id {
 			matched = true
 			break
 		}

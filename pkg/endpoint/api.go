@@ -240,6 +240,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		spec.Options = *e.Options.GetMutableModel()
 	}
 
+	securityIdentity, _ := e.GetSecurityIdentity()
 	mdl := &models.Endpoint{
 		ID:   int64(e.ID),
 		Spec: spec,
@@ -247,7 +248,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			// FIXME GH-3280 When we begin implementing revision numbers this will
 			// diverge from models.Endpoint.Spec to reflect the in-datapath config
 			Realized:            spec,
-			Identity:            identitymodel.CreateModel(e.SecurityIdentity),
+			Identity:            identitymodel.CreateModel(securityIdentity),
 			Labels:              lblMdl,
 			Networking:          e.getModelNetworkingRLocked(),
 			ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
@@ -423,7 +424,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		return nil
 	}
 
-	if e.SecurityIdentity == nil {
+	securityIdentity, _ := e.GetSecurityIdentity()
+	if securityIdentity == nil {
 		return nil
 	}
 
@@ -449,7 +451,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	}
 
 	mdl := &models.EndpointPolicy{
-		ID: int64(e.SecurityIdentity.ID),
+		ID: int64(securityIdentity.ID),
 		// This field should be removed.
 		Build:                    int64(e.policyRevision),
 		PolicyRevision:           int64(e.policyRevision),
@@ -469,7 +471,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	}
 
 	desiredMdl := &models.EndpointPolicy{
-		ID: int64(e.SecurityIdentity.ID),
+		ID: int64(securityIdentity.ID),
 		// This field should be removed.
 		Build:                    int64(e.nextPolicyRevision),
 		PolicyRevision:           int64(e.nextPolicyRevision),
@@ -580,7 +582,8 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 
 	// If desired state is waiting-for-identity but identity is already
 	// known, bump it to ready state immediately to force re-generation
-	if newEp.state == StateWaitingForIdentity && e.SecurityIdentity != nil {
+	securityIdentiy, _ := e.GetSecurityIdentity()
+	if newEp.state == StateWaitingForIdentity && securityIdentiy != nil {
 		e.setState(StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
 		changed = true
 	}

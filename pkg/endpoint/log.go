@@ -110,8 +110,9 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		logfields.CEPName:                e.GetK8sNamespaceAndCEPName(),
 	}
 
-	if e.SecurityIdentity != nil {
-		f[logfields.Identity] = e.SecurityIdentity.ID.StringID()
+	securityIdentity, _ := e.GetSecurityIdentity()
+	if securityIdentity != nil {
+		f[logfields.Identity] = securityIdentity.ID.StringID()
 	}
 
 	// Inherit properties from default logger.
@@ -179,8 +180,9 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 			logfields.K8sPodName:             e.GetK8sNamespaceAndPodName(),
 		}
 
-		if e.SecurityIdentity != nil {
-			f[logfields.Identity] = e.SecurityIdentity.ID
+		securityIdentity, _ := e.GetSecurityIdentity()
+		if securityIdentity != nil {
+			f[logfields.Identity] = securityIdentity.ID
 		}
 
 		policyLogger = policyLogger.WithFields(f)

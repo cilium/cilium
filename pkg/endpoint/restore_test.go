@@ -68,7 +68,7 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 	ep.IPv6 = netip.AddrFrom16([16]byte{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.ifIndex = 1
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
-	ep.SecurityIdentity = identity
+	ep.SetSecurityIdentity(identity)
 	ep.OpLabels = labels.NewOpLabels()
 	ep.NetNsCookie = 1234
 	return ep

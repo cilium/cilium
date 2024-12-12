@@ -857,3 +857,32 @@ func TestMetadataResolver(t *testing.T) {
 		}
 	}
 }
+
+func TestGetSecurityIdentity(t *testing.T) {
+	s := setupEndpointSuite(t)
+
+	t.Run("Endpoint with SecurityIdentity set", func(t *testing.T) {
+		e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{},
+			testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 123, StateWaitingForIdentity)
+		newIdentity := &identity.Identity{
+			ID:     1001,
+			Labels: labels.NewLabelsFromSortedList("k8s:foo=bar;k8s:qux=fred;"),
+		}
+
+		e.SetSecurityIdentity(newIdentity)
+
+		secIdentity, err := e.GetSecurityIdentity()
+		require.NoError(t, err)
+		require.Equal(t, newIdentity, secIdentity)
+	})
+
+	t.Run("Endpoint with SecurityIdentity nil", func(t *testing.T) {
+		e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{},
+			testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), 123, StateWaitingForIdentity)
+		e.SetSecurityIdentity(nil)
+
+		secIdentity, err := e.GetSecurityIdentity()
+		require.NoError(t, err)
+		require.Nil(t, secIdentity)
+	})
+}

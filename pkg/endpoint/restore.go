@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
@@ -322,8 +323,9 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 
 	e.setState(StateRestoring, "Synchronizing endpoint labels with KVStore")
 
-	if e.SecurityIdentity != nil {
-		if oldSecID := e.SecurityIdentity.ID; id.ID != oldSecID {
+	securityIdentity, _ := e.GetSecurityIdentity()
+	if securityIdentity != nil {
+		if oldSecID := securityIdentity.ID; id.ID != oldSecID {
 			log.WithFields(logrus.Fields{
 				logfields.EndpointID:              e.ID,
 				logfields.IdentityLabels + ".old": oldSecID,
@@ -383,7 +385,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 // restoring an Endpoint after cilium-agent restarts.
 func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 
-	return &serializableEndpoint{
+	endpoint := serializableEndpoint{
 		ID:                       e.ID,
 		ContainerName:            e.GetContainerName(),
 		ContainerID:              e.GetContainerID(),
@@ -400,7 +402,6 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		IPv4:                     e.IPv4,
 		IPv4IPAMPool:             e.IPv4IPAMPool,
 		NodeMAC:                  e.nodeMAC,
-		SecurityIdentity:         e.SecurityIdentity,
 		Options:                  e.Options,
 		DNSRules:                 e.DNSRules,
 		DNSRulesV2:               e.DNSRulesV2,
@@ -414,6 +415,9 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		Properties:               e.properties,
 		NetnsCookie:              e.NetNsCookie,
 	}
+	securityIdentity, _ := e.GetSecurityIdentity()
+	endpoint.SecurityIdentity.Store(securityIdentity)
+	return &endpoint
 }
 
 // serializableEndpoint contains the fields from an Endpoint which are needed to be
@@ -485,7 +489,7 @@ type serializableEndpoint struct {
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
 	// the endpoint's labels.
-	SecurityIdentity *identity.Identity `json:"SecLabel"`
+	SecurityIdentity atomic.Pointer[identity.Identity]
 
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
@@ -575,7 +579,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.IPv4 = r.IPv4
 	ep.IPv4IPAMPool = r.IPv4IPAMPool
 	ep.nodeMAC = r.NodeMAC
-	ep.SecurityIdentity = r.SecurityIdentity
+	ep.SetSecurityIdentity(r.SecurityIdentity.Load())
 	ep.DNSRules = r.DNSRules
 	ep.DNSRulesV2 = r.DNSRulesV2
 	ep.DNSHistory = r.DNSHistory

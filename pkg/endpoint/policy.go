@@ -168,7 +168,8 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 
 	// No point in calculating policy if endpoint does not have an identity yet.
-	if e.SecurityIdentity == nil {
+	securityIdentity, _ := e.GetSecurityIdentity()
+	if securityIdentity == nil {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
 		e.unlock()
 		return nil, nil
@@ -176,7 +177,6 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	// Copy out some values we care about, then unlock
 	forcePolicyCompute := e.forcePolicyCompute
-	securityIdentity := e.SecurityIdentity
 
 	// We are computing policy; set this to false.
 	// We do this now, not in setDesiredPolicy(), because if another caller
@@ -268,7 +268,8 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult, datapathRegenCtxt *datapathRegenerationContext) error {
 	// nil result means endpoint had no identity while policy was calculated
 	if res == nil {
-		if e.SecurityIdentity != nil {
+		securityIdentity, _ := e.GetSecurityIdentity()
+		if securityIdentity != nil {
 			e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
 			return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
 		}
@@ -866,12 +867,13 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 
-				if e.SecurityIdentity == nil {
+				securityIdentity, _ := e.GetSecurityIdentity()
+				if securityIdentity == nil {
 					e.runlock()
 					return nil
 				}
 
-				ID := e.SecurityIdentity.ID
+				ID := securityIdentity.ID
 				hostIP, ok := netipx.FromStdIP(node.GetIPv4())
 				if !ok {
 					return controller.NewExitReason("Failed to convert node IPv4 address")
@@ -907,9 +909,10 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 // Caller triggers policy regeneration if needed.
 // Called with e.mutex Lock()ed
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool) {
+	oldIdentityPtr, _ := e.GetSecurityIdentity()
 	oldIdentity := "no identity"
-	if e.SecurityIdentity != nil {
-		oldIdentity = e.SecurityIdentity.StringID()
+	if oldIdentityPtr != nil {
+		oldIdentity = oldIdentityPtr.StringID()
 	}
 
 	// Current security identity for endpoint is its old identity - delete its
@@ -919,9 +922,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 		// TODO - GH-9354.
 		e.owner.AddIdentity(identity)
 	} else {
-		e.owner.RemoveOldAddNewIdentity(e.SecurityIdentity, identity)
+		e.owner.RemoveOldAddNewIdentity(oldIdentityPtr, identity)
 	}
-	e.SecurityIdentity = identity
+	e.SetSecurityIdentity(identity)
 	e.replaceIdentityLabels(labels.LabelSourceAny, identity.Labels)
 
 	// Sets endpoint state to ready if was waiting for identity

@@ -40,11 +40,11 @@ func (f *fakeEndpointGetter) GetEndpoints() []*endpoint.Endpoint {
 	ep := []*endpoint.Endpoint{}
 
 	for _, id := range []identity.NumericIdentity{id1000, id1001, idbad1} {
-		ep = append(ep, &endpoint.Endpoint{
-			SecurityIdentity: &identity.Identity{
-				ID: id,
-			},
+		e := &endpoint.Endpoint{}
+		e.SetSecurityIdentity(&identity.Identity{
+			ID: id,
 		})
+		ep = append(ep, e)
 	}
 
 	return ep

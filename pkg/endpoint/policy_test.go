@@ -67,9 +67,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	podID := addIdentity("pod")
 
 	ep := Endpoint{
-		SecurityIdentity: podID,
-		policyGetter:     &mockPolicyGetter{repo},
+		policyGetter: &mockPolicyGetter{repo},
 	}
+	ep.SetSecurityIdentity(podID)
 	ep.UpdateLogger(nil)
 
 	podSelectLabel := labels.ParseSelectLabel("pod")
