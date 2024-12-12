@@ -253,8 +253,6 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		clientEgressL7Method{},
 		clientEgressL7{},
 		clientEgressL7NamedPort{},
-		clientEgressL7TlsDenyWithoutHeaders{},
-		clientEgressL7TlsHeaders{},
 		clientEgressTlsSni{},
 		clientEgressL7SetHeader{},
 		echoIngressAuthAlwaysFail{},
@@ -289,6 +287,8 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 	tests := []testBuilder{
 		hostFirewallIngress{},
 		hostFirewallEgress{},
+		clientEgressL7TlsDenyWithoutHeaders{},
+		clientEgressL7TlsHeaders{},
 	}
 	return injectTests(tests, ct)
 }
