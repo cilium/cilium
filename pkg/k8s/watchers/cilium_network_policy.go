@@ -242,6 +242,13 @@ func (k *K8sWatcher) onUpsert(
 		return nil
 	}
 
+	// check that CIDRGroupRef is not used in combination with ExceptCIDRs in a CIDRRule
+	if err := validateCIDRRules(cnp); err != nil {
+		log.WithError(err).WithField(logfields.Object, logfields.Repr(cnp)).
+			Warn("Error validating CiliumNetworkPolicy CIDR rules")
+		return err
+	}
+
 	// check if this cnp was referencing or is now referencing at least one non-empty
 	// CiliumCIDRGroup and update the relevant metric accordingly.
 	cidrGroupRefs := getCIDRGroupRefs(cnp)
