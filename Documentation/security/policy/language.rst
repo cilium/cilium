@@ -545,8 +545,8 @@ toCIDR
   the respective destination endpoints.
 
 toCIDRSet
-  List of destination prefixes/CIDRs that are allowed to talk to all endpoints
-  selected by the ``endpointSelector``, along with an optional list of
+  List of destination prefixes/CIDRs that endpoints selected by
+  ``endpointSelector`` are allowed to talk to, along with an optional list of
   prefixes/CIDRs per source prefix/CIDR that are subnets of the destination
   prefix/CIDR to which communication is not allowed.
 
