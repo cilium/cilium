@@ -34,13 +34,13 @@ const (
 // the interface name to the tunneling interface name, if the route goes
 // through "cilium_host" and tunneling is enabled.
 //
-// For WireGuard w/ tunneling we run the cmd with $DST_IP set to serverHost IP.
+// For encrypted overlay traffic we run the cmd with $DST_IP set to serverHost IP.
 // We cannot listen on the tunneling netdev, because the datapath first passes
-// a packet to the tunnel netdev, and only afterwards redirects to the WG netdev
-// for the encryption.
+// a packet to the tunnel netdev, and only afterwards redirects the packet for
+// encryption.
 func getInterNodeIface(ctx context.Context, t *check.Test,
 	client, clientHost, server, serverHost *check.Pod, ipFam features.IPFamily,
-	wgEncap bool) string {
+	encryptedOverlay bool) string {
 
 	tunnelEnabled := false
 	tunnelMode := ""
@@ -64,7 +64,7 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 		ipRouteGetCmd = fmt.Sprintf("%s iif cilium_host", ipRouteGetCmd)
 	}
 
-	if enc, ok := t.Context().Feature(features.EncryptionPod); wgEncap && ok && enc.Enabled && enc.Mode == "wireguard" {
+	if enc, ok := t.Context().Feature(features.EncryptionPod); encryptedOverlay && ok && enc.Enabled {
 		ipRouteGetCmd = fmt.Sprintf("ip -o route get %s", serverHost.Address(ipFam))
 	}
 
@@ -81,7 +81,7 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 
 	device := strings.TrimRight(dev.String(), "\n\r")
 
-	if tunnelEnabled && !wgEncap {
+	if tunnelEnabled && !encryptedOverlay {
 		// When tunneling is enabled, and the traffic is routed to the cilium IP space
 		// we want to capture on the tunnel interface.
 		if device == defaults.HostDevice {
@@ -109,7 +109,7 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 // any unencrypted VXLAN pkt is leaked on a native device.
 func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod,
 	server, serverHost *check.Pod,
-	ipFam features.IPFamily, reqType requestType, wgEncap bool) string {
+	ipFam features.IPFamily, reqType requestType, encryptedOverlay bool) string {
 
 	tunnelEnabled := false
 	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok && tunnelStatus.Enabled {
@@ -129,7 +129,7 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 		t.Fatalf("Invalid request type: %d", reqType)
 	}
 
-	if enc, ok := t.Context().Feature(features.EncryptionPod); wgEncap && tunnelEnabled && ok &&
+	if enc, ok := t.Context().Feature(features.EncryptionPod); encryptedOverlay && tunnelEnabled && ok &&
 		enc.Enabled && enc.Mode == "wireguard" {
 
 		// Captures the following:
@@ -180,6 +180,58 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	filter = fmt.Sprintf("%s and dst host %s", filter, dstIP)
 
 	return filter
+}
+
+// isEncryptedOverlay determines if Encryption is running in tunnel mode and
+// if so, whether the overlay traffic is encrypted before leaving the host, as
+// opposed to the encryption occurring after the tunnel encapsulation.
+//
+// If encrypted overlay is detected the encryption mode string is returned as
+// well, otherwise its an empty string.
+//
+// In v1.14, it's an opt-in, and controlled by --wireguard-encapsulate.
+// In v1.15, it's enabled, and it's not possible to opt-out.
+// In v1.18, IPsec uses VXLAN-in-ESP (VinE) traffic, not possible to opt-out.
+func isEncryptedOverlay(t *check.Test) (bool, string) {
+	// TODO: this is set to true just for testing in this draft PR.
+	// Uncomment the line below and remove the hardcoded true boolean when
+	// v1.17 is cut and this branch is rebased.
+	// ipsecMandatoryVersion := versioncheck.MustCompile(">=1.18.0")(t.Context().CiliumVersion)
+	ipsecMandatoryVersion := true
+
+	wireguardMandatorVersion := versioncheck.MustCompile(">=1.15.0")(t.Context().CiliumVersion)
+
+	tunnelModeStatus, tunnelModeStatusOK := t.Context().Feature(features.Tunnel)
+	podEncryptionStatus, podEncryptionStatusOK := t.Context().Feature(features.EncryptionPod)
+	wireguardEncap, wireguardEncapOK := t.Context().Feature(features.WireguardEncapsulate)
+
+	// if we aren't in tunnel mode, no point in any further checks
+	if !tunnelModeStatusOK || !tunnelModeStatus.Enabled {
+		return false, ""
+	}
+
+	// if pod encryption mode is not enabled, no point in any further checks
+	if !podEncryptionStatusOK {
+		return false, ""
+	}
+
+	encryptionMode := podEncryptionStatus.Mode
+
+	switch encryptionMode {
+	case "ipsec":
+		if ipsecMandatoryVersion {
+			return true, encryptionMode
+		}
+	case "wireguard":
+		if wireguardMandatorVersion {
+			return true, encryptionMode
+		}
+
+		if wireguardEncapOK && wireguardEncap.Enabled {
+			return true, encryptionMode
+		}
+	}
+	return false, ""
 }
 
 // isWgEncap checks whether packets are encapsulated before encrypting with WG.
@@ -246,8 +298,8 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 		t.Debugf("%s test running in sanity mode, expecting unencrypted packets", s.Name())
 	}
 
-	wgEncap := isWgEncap(t)
-	if wgEncap {
+	encryptedOverlay, _ := isEncryptedOverlay(t)
+	if encryptedOverlay {
 		t.Debug("Encapsulation before WG encryption")
 	}
 
@@ -259,16 +311,16 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 			t.Debugf("Inactive IPv6 test with IPSec, see https://github.com/cilium/cilium/issues/35485")
 			return
 		}
-		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true, wgEncap)
+		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true, encryptedOverlay)
 	})
 }
 
 func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	client, server, clientHost *check.Pod, serverHost *check.Pod,
-	reqType requestType, ipFam features.IPFamily, assertNoLeaks, biDirCheck, wgEncap bool,
+	reqType requestType, ipFam features.IPFamily, assertNoLeaks, biDirCheck, encryptedOverlay bool,
 ) {
-	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType, wgEncap)
-	srcIface := getInterNodeIface(ctx, t, client, clientHost, server, serverHost, ipFam, wgEncap)
+	srcFilter := getFilter(ctx, t, client, clientHost, server, serverHost, ipFam, reqType, encryptedOverlay)
+	srcIface := getInterNodeIface(ctx, t, client, clientHost, server, serverHost, ipFam, encryptedOverlay)
 
 	snifferMode := sniff.ModeAssert
 	if !assertNoLeaks {
@@ -282,8 +334,8 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 
 	var dstSniffer *sniff.Sniffer
 	if biDirCheck {
-		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType, wgEncap)
-		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam, wgEncap)
+		dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType, encryptedOverlay)
+		dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam, encryptedOverlay)
 
 		dstSniffer, err = sniff.Sniff(ctx, s.Name(), serverHost, dstIface, dstFilter, snifferMode, t)
 		if err != nil {
