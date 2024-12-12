@@ -249,3 +249,47 @@ func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 		spec.Ingress[i].FromCIDRSet = append(oldRules, newRules...)
 	}
 }
+
+func validateCIDRRules(cnp *types.SlimCNP) error {
+	for _, spec := range append(cnp.Specs, cnp.Spec) {
+		if spec == nil {
+			continue
+		}
+		for _, ingress := range spec.Ingress {
+			for _, rule := range ingress.FromCIDRSet {
+				if err := validateCIDRRule(rule); err != nil {
+					return err
+				}
+			}
+		}
+		for _, ingress := range spec.IngressDeny {
+			for _, rule := range ingress.FromCIDRSet {
+				if err := validateCIDRRule(rule); err != nil {
+					return err
+				}
+			}
+		}
+		for _, ingress := range spec.Egress {
+			for _, rule := range ingress.ToCIDRSet {
+				if err := validateCIDRRule(rule); err != nil {
+					return err
+				}
+			}
+		}
+		for _, ingress := range spec.EgressDeny {
+			for _, rule := range ingress.ToCIDRSet {
+				if err := validateCIDRRule(rule); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func validateCIDRRule(rule api.CIDRRule) error {
+	if rule.CIDRGroupRef != "" && len(rule.ExceptCIDRs) > 0 {
+		return errors.New("ExceptCIDRs cannot be used in combination with CIDRGroupRef")
+	}
+	return nil
+}
