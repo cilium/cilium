@@ -280,8 +280,8 @@ NewCoreFile=$(kubectl get cm -n kube-system coredns -o jsonpath='{.data.Corefile
 kubectl patch configmap/coredns -n kube-system --type merge -p '{"data":{"Corefile": "'"$NewCoreFile"'"}}'
 
 set +e
-kubectl taint nodes --all node-role.kubernetes.io/control-plane-
-kubectl taint nodes --all node-role.kubernetes.io/master-
+kubectl taint nodes --all node-role.kubernetes.io/control-plane- 2>/dev/null
+kubectl taint nodes --all node-role.kubernetes.io/master- 2>/dev/null
 set -e
 
 # Set start of unprivileged port range to 1024
