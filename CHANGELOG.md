@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.14.18
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* cilium-health-ep controller is made to be more robust against successive failures. (Backport PR cilium/cilium#36074, Upstream PR cilium/cilium#35936, @jrajahalme)
+* Unbreak the cilium-dbg preflight migrate-identity command (Backport PR cilium/cilium#36284, Upstream PR cilium/cilium#36089, @giorio94)
+
+**CI Changes:**
+* [v1.14] ci: modularize chart CI push workflow (cilium/cilium#35964, @ferozsalam)
+* [v1.14] gha: Upgrade helm/kind-action to the latest upstream (cilium/cilium#36416, @aanm)
+* gha: configure environment in build-images-base/image-digests job (Backport PR cilium/cilium#36465, Upstream PR cilium/cilium#36318, @giorio94)
+* github: Pass the workflow step timeout to go test (Backport PR cilium/cilium#36074, Upstream PR cilium/cilium#35814, @jrajahalme)
+* Remove unnecessary hubble port-forward commands (Backport PR cilium/cilium#36074, Upstream PR cilium/cilium#33523, @michi-covalent)
+
+**Misc Changes:**
+* [v1.14] docs: egress masquerade selector (cilium/cilium#36408, @nbusseneau)
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#36163, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#36282, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.14) (cilium/cilium#36160, @cilium-renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.19 (v1.14) (cilium/cilium#36161, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.22 (v1.14) (cilium/cilium#36507, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.16.4 (v1.14) (cilium/cilium#36147, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.9 docker digest to 147f428 (v1.14) (cilium/cilium#36224, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.10 (v1.14) (cilium/cilium#36455, @cilium-renovate[bot])
+* chore(deps): update old stable lvh-images (v1.14) (patch) (cilium/cilium#36162, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.7-1733138674-96535afceef9d9f5c28a96cabe4068bf4472d053 (v1.14) (cilium/cilium#36182, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.8-1733718623-70f73cfb053b8039d0541fdd0c120afc5f57a43d (v1.14) (cilium/cilium#36457, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.8-1733837904-eaae5aca0fb988583e5617170a65ac5aa51c0aa8 (v1.14) (cilium/cilium#36497, @cilium-renovate[bot])
+* docs: In k0s guide, remove dashes to fix invalid Bash variable names. (Backport PR cilium/cilium#36074, Upstream PR cilium/cilium#35923, @yilas)
+* envoy: Configure internal_address_config to avoid warning log (Backport PR cilium/cilium#36202, Upstream PR cilium/cilium#35943, @sayboras)
+* fix(deps): update module golang.org/x/crypto to v0.31.0 [security] (v1.14) (cilium/cilium#36532, @cilium-renovate[bot])
+* images: bump cni plugins to v1.6.0 (Backport PR cilium/cilium#36088, Upstream PR cilium/cilium#36075, @ferozsalam)
+* Makefile: fix swagger definition for automatic renovate updates (Backport PR cilium/cilium#36074, Upstream PR cilium/cilium#35979, @aanm)
+
+**Other Changes:**
+* [1.14] xdp: make cilium_calls_xdp map per-endpoint (cilium/cilium#36098, @ti-mo)
+* install: Update image digests for v1.14.17 (cilium/cilium#36045, @cilium-release-bot[bot])
+
 ## v1.14.17
 
 Summary of Changes
