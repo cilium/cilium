@@ -137,6 +137,7 @@ evaluating Cilium identities:
 - reserved:.*
 - io\.kubernetes\.pod\.namespace
 - io\.cilium\.k8s.namespace\.labels
+- io\.cilium\.k8s\.policy\.cluster
 - app\.kubernetes\.io
 
 Note that ``io.kubernetes.pod.namespace`` is already included in default
