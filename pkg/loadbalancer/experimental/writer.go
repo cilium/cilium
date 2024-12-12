@@ -265,6 +265,9 @@ func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], fe
 		if be.L3n4Addr.IsIPv6() != fe.Address.IsIPv6() {
 			continue
 		}
+		if fe.Address.Protocol != be.Protocol {
+			continue
+		}
 		if fe.PortName != "" {
 			// A backend with specific port name requested. Look up what this backend
 			// is called for this service.
