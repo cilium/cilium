@@ -66,8 +66,12 @@ func (c checker) watchTableChanges(ctx context.Context) error {
 		tableKeys, channel := dynamicconfig.WatchAllKeys(c.db.ReadTxn(), c.dct)
 		// Wait for table initialization
 		if len(tableKeys) == 0 {
-			<-channel
-			continue
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-channel:
+				continue
+			}
 		}
 
 		deltas := c.computeDelta(tableKeys, c.cla)
