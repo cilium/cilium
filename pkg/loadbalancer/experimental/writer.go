@@ -252,6 +252,9 @@ func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], no
 			if be.L3n4Addr.IsIPv6() != isIPv6 {
 				continue
 			}
+			if fe.Address.Protocol != be.Protocol {
+				continue
+			}
 			if onlyLocal && len(be.NodeName) != 0 && be.NodeName != nodeName {
 				continue
 			}
