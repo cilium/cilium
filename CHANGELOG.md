@@ -1,5 +1,92 @@
 # Changelog
 
+## v1.16.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* hubble: Stop building 32-bit binaries (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35974, @michi-covalent)
+
+**Bugfixes:**
+* Address potential connectivity disruption when using either L7 / DNS Network policies in combination with per-endpoint routes and hostLegacyRouting, or L7 / DNS network policies in combination with IPsec network encryption. (Backport PR cilium/cilium#36540, Upstream PR cilium/cilium#36484, @julianwiedmann)
+* bgp: fix race in bgp stores (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35971, @harsimran-pabla)
+* BGPv1: Fix race by reconciliation of services with externalTrafficPolicy=Local by populating locally available services after performing service diff (Backport PR cilium/cilium#36286, Upstream PR cilium/cilium#36230, @rastislavs)
+* BGPv2: Fix race by reconciliation of services with externalTrafficPolicy=Local by populating locally available services after performing service diff (Backport PR cilium/cilium#36286, Upstream PR cilium/cilium#36165, @rastislavs)
+* Cilium agent now waits until endpoints have restored before starting accepting new xDS streams. (Backport PR cilium/cilium#36049, Upstream PR cilium/cilium#35984, @jrajahalme)
+* Cilium no longer keeps old DNS-IP mappings alive while reaping newer ones, leading to spurious drops in connections to domains with many IPs associated. (Backport PR cilium/cilium#36462, Upstream PR cilium/cilium#36252, @bimmlerd)
+* cilium-health-ep controller is made to be more robust against successive failures. (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35936, @jrajahalme)
+* DNS proxy port is no longer released when endpoint with a DNS policy fails to regenerate successfully. A potential deadlock between CEC/CCEC parser and endpoint policy update is removed. (Backport PR cilium/cilium#36468, Upstream PR cilium/cilium#36142, @jrajahalme)
+* Envoy "initial fetch timeout" warnings are now demoted to info level, as they are expected to happen during Cilium Agent restart. (Backport PR cilium/cilium#36049, Upstream PR cilium/cilium#36060, @jrajahalme)
+* Fix an issue where pod-to-world traffic goes up stack when BPF host routing is enabled with tunnel. (Backport PR cilium/cilium#35861, Upstream PR cilium/cilium#35098, @jschwinger233)
+* Fix identity leak for kvstore identity mode (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#34893, @odinuge)
+* Fix potential Cilium agent panic during endpoint restoration, occurring if the corresponding pod gets deleted while the agent is restarting. This regression only affects Cilium v1.16.4. (Backport PR cilium/cilium#36302, Upstream PR cilium/cilium#36292, @giorio94)
+* gateway-api: Fix gateway checks for namespace (Backport PR cilium/cilium#36462, Upstream PR cilium/cilium#35452, @sayboras)
+* gha: Remove hostLegacyRouting in clustermesh (Backport PR cilium/cilium#36357, Upstream PR cilium/cilium#35418, @sayboras)
+* helm: Use an absolute FQDN for the Hubble peer-service endpoint to avoid incorrect DNS resolution outside the cluster (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#36005, @devodev)
+* hubble: consistently use v as prefix for the Hubble version (Backport PR cilium/cilium#36286, Upstream PR cilium/cilium#35891, @rolinh)
+* iptables: Fix data race in iptables manager (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35902, @pippolo84)
+* lrp: update LRP services with stale backends on agent restart (Backport PR cilium/cilium#36106, Upstream PR cilium/cilium#36036, @ysksuzuki)
+* policy: Fix bug that allowed port ranges to be attached to L7 policies, which is not permitted. (cilium/cilium#36050, @nathanjsweet)
+* Unbreak the cilium-dbg preflight migrate-identity command (Backport PR cilium/cilium#36286, Upstream PR cilium/cilium#36089, @giorio94)
+* Use `strconv.Itoa` instead of `string()` for the correct behavior when converting `kafka.ErrorCode` from `int32` to `string`. Add relevant unit tests for Kafka plugin and handler. (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35856, @nddq)
+
+**CI Changes:**
+* [v1.16] ci: modularize chart CI push workflow (cilium/cilium#35958, @ferozsalam)
+* gh: conformance-clustermesh: test with IPsec + BPF NodePort (Backport PR cilium/cilium#36462, Upstream PR cilium/cilium#36384, @julianwiedmann)
+* gha: configure environment in build-images-base/image-digests job (Backport PR cilium/cilium#36462, Upstream PR cilium/cilium#36318, @giorio94)
+* node_local_store: prevent racey tests while using mock node store. (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35945, @tommyp1ckles)
+* Remove unnecessary hubble port-forward commands (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#33523, @michi-covalent)
+
+**Misc Changes:**
+* [v1.16] docs: egress masquerade selector (cilium/cilium#36333, @viktor-kurchenko)
+* [v1.16] images: bump cni plugins to v1.6.0 (cilium/cilium#36092, @ferozsalam)
+* bugtool: dump tail-call map for bpf_wireguard (Backport PR cilium/cilium#36286, Upstream PR cilium/cilium#36183, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36155, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36275, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36443, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (patch) (cilium/cilium#36277, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#35546, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#36152, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#36279, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#36444, @cilium-renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.19 (v1.16) (cilium/cilium#36153, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.9 docker digest to 147f428 (v1.16) (cilium/cilium#36222, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.10 (v1.16) (cilium/cilium#36441, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.7-1732605705-2aa20ee3acb68cd38d57669af19508bea8f0ba62 (v1.16) (cilium/cilium#36180, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.30.8-1733837904-eaae5aca0fb988583e5617170a65ac5aa51c0aa8 (v1.16) (cilium/cilium#36495, @cilium-renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to bpf-20241129.013349 (v1.16) (cilium/cilium#36278, @cilium-renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to bpf-20241206.013345 (v1.16) (cilium/cilium#36442, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#36154, @cilium-renovate[bot])
+* docs: Add the tls:// prefix before the IP address (Backport PR cilium/cilium#36286, Upstream PR cilium/cilium#36118, @liyihuang)
+* docs: Fix typo in multi-pool section title (Backport PR cilium/cilium#36312, Upstream PR cilium/cilium#36305, @joestringer)
+* docs: In k0s guide, remove dashes to fix invalid Bash variable names. (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35923, @yilas)
+* docs: lrp: fix kernel version requirement for skipRedirectFromBackend (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35921, @ysksuzuki)
+* docs: system-requirements: require 5.4 kernel (Backport PR cilium/cilium#36462, Upstream PR cilium/cilium#36386, @julianwiedmann)
+* docs: WireGuard doesn't require overlay port in Network Firewalls (Backport PR cilium/cilium#36286, Upstream PR cilium/cilium#36208, @julianwiedmann)
+* Endpoint populate new policymap early if empty (Backport PR cilium/cilium#36479, Upstream PR cilium/cilium#36361, @jrajahalme)
+* envoy: Configure internal_address_config to avoid warning log (Backport PR cilium/cilium#36015, Upstream PR cilium/cilium#35943, @sayboras)
+* envoy: Pass tofqdns-proxy-response-max-delay to Envoy (Backport PR cilium/cilium#36468, Upstream PR cilium/cilium#36330, @jrajahalme)
+* fix(deps): update module golang.org/x/crypto to v0.31.0 [security] (v1.16) (cilium/cilium#36530, @cilium-renovate[bot])
+* Fixed BGP documentation (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35953, @seadog007)
+* images: Use cilium-builder image instead of golang to build hubble (Backport PR cilium/cilium#36312, Upstream PR cilium/cilium#35697, @learnitall)
+* lrp: fix kernel version requirement in warning log (Backport PR cilium/cilium#36286, Upstream PR cilium/cilium#36141, @ysksuzuki)
+* Makefile: fix swagger definition for automatic renovate updates (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35979, @aanm)
+* proxy: Take proxy port reference for new redirects immediately (Backport PR cilium/cilium#36468, Upstream PR cilium/cilium#36435, @jrajahalme)
+* proxyports: Resolve data races in test (Backport PR cilium/cilium#36468, Upstream PR cilium/cilium#36399, @jrajahalme)
+* proxyports: Sleep a bit longer in tests (Backport PR cilium/cilium#36468, Upstream PR cilium/cilium#36389, @jrajahalme)
+* Remove duplicated watch on services and endpoint in the cilium-agent (Backport PR cilium/cilium#36066, Upstream PR cilium/cilium#35838, @MrFreezeex)
+* Rework error handling logic in neighbor discovery (Backport PR cilium/cilium#36093, Upstream PR cilium/cilium#35144, @pippolo84)
+* Silence spurious clustermesh-related warnings (Backport PR cilium/cilium#36225, Upstream PR cilium/cilium#35867, @giorio94)
+* Update documentation for egress masquerading behavior (Backport PR cilium/cilium#36462, Upstream PR cilium/cilium#36267, @liyihuang)
+
+**Other Changes:**
+* [1.16] ci/ipsec-upgrade: increase cilium status wait duration (cilium/cilium#36082, @harsimran-pabla)
+* [v1.16] cilium, service: Fix checkLBSrcRange propagation to LB map (cilium/cilium#36511, @borkmann)
+* install: Update image digests for v1.16.4 (cilium/cilium#36047, @cilium-release-bot[bot])
+* jrajahalme/v1.16 cilium cli (cilium/cilium#36541, @jrajahalme)
+* Revert "workflows/ipsec: Cover Ingress" (cilium/cilium#36116, @harsimran-pabla)
+
 ## v1.16.4
 
 Summary of Changes
