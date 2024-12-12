@@ -19,7 +19,7 @@ func (t clientEgressL7TlsHeaders) build(ct *check.ConnectivityTest, templates ma
 }
 
 func clientEgressL7TlsHeadersTest(ct *check.ConnectivityTest, templates map[string]string, portRanges bool) {
-	testName := "client-egress-l7-tls-headers"
+	testName := "seq-client-egress-l7-tls-headers"
 	yamlFile := templates["clientEgressL7TLSPolicyYAML"]
 	if portRanges {
 		testName = "client-egress-l7-tls-headers-port-range"
