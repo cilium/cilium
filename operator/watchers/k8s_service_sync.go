@@ -32,7 +32,12 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWGDone()
 
-		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+		var svc serviceStore.ClusterService
+		if event.Action == k8s.UpdateService {
+			svc = k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+		} else if event.Action == k8s.DeleteService {
+			svc = k8s.NewClusterService(event.ID, event.OldService, event.OldEndpoints)
+		}
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
@@ -42,6 +47,8 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			"action", event.Action,
 			"service", event.Service,
 			"endpoints", event.Endpoints,
+			"old-service", event.OldService,
+			"old-endpoints", event.OldEndpoints,
 			"shared", event.Service.Shared,
 		)
 

@@ -183,7 +183,7 @@ func (k *K8sServiceWatcher) k8sServiceHandler() {
 		case k8s.UpdateService:
 			k.addK8sSVCs(event.ID, event.OldService, svc, event.Endpoints)
 		case k8s.DeleteService:
-			k.delK8sSVCs(event.ID, event.Service)
+			k.delK8sSVCs(event.ID, event.OldService)
 		}
 	}
 	for {
