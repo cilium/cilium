@@ -2329,64 +2329,6 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "with IngressDeny CIDRGroupRef and ExceptCIDRs rules",
-			cnp: &types.SlimCNP{
-				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "cilium.io/v2",
-						Kind:       "CiliumNetworkPolicy",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-policy",
-						Namespace: "test-namespace",
-					},
-					Spec: &api.Rule{
-						IngressDeny: []api.IngressDenyRule{
-							{
-								IngressCommonRule: api.IngressCommonRule{
-									FromCIDRSet: api.CIDRRuleSlice{
-										{
-											CIDRGroupRef: "cidr-group-1",
-											ExceptCIDRs:  []api.CIDR{"10.96.0.0/12", "10.112.0.0/12"},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			cidrsSets: map[string][]api.CIDR{
-				"cidr-group-1": {"10.0.0.0/8"},
-			},
-			expected: &types.SlimCNP{
-				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "cilium.io/v2",
-						Kind:       "CiliumNetworkPolicy",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-policy",
-						Namespace: "test-namespace",
-					},
-					Spec: &api.Rule{
-						IngressDeny: []api.IngressDenyRule{
-							{
-								IngressCommonRule: api.IngressCommonRule{
-									FromCIDRSet: api.CIDRRuleSlice{
-										{
-											Cidr:        "10.0.0.0/8",
-											ExceptCIDRs: []api.CIDR{"10.96.0.0/12", "10.112.0.0/12"},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 
 	for _, tc := range testCases {
@@ -2394,6 +2336,327 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 			translateCIDRGroupRefs(tc.cnp, tc.cidrsSets)
 			if !reflect.DeepEqual(tc.cnp, tc.expected) {
 				t.Fatalf("expected translated cnp to be\n%v\n, got\n%v\n", tc.expected, tc.cnp)
+			}
+		})
+	}
+}
+
+func TestValidateCIDRRules(t *testing.T) {
+	testCases := [...]struct {
+		name        string
+		cnp         *types.SlimCNP
+		shouldError bool
+	}{
+		{
+			name: "nil Spec and Specs",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{},
+			},
+			shouldError: false,
+		},
+		{
+			name: "Valid CIDR rules",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Spec: &api.Rule{
+						Ingress: []api.IngressRule{
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr:        api.CIDR("10.0.0.0/8"),
+											ExceptCIDRs: []api.CIDR{"10.96.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+						IngressDeny: []api.IngressDenyRule{
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr:        api.CIDR("10.0.0.0/8"),
+											ExceptCIDRs: []api.CIDR{"10.96.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr:        api.CIDR("10.0.0.0/8"),
+											ExceptCIDRs: []api.CIDR{"10.96.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+						EgressDeny: []api.EgressDenyRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											Cidr:        api.CIDR("10.0.0.0/8"),
+											ExceptCIDRs: []api.CIDR{"10.96.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+					},
+					Specs: api.Rules{
+						&api.Rule{
+							Ingress: []api.IngressRule{
+								{
+									IngressCommonRule: api.IngressCommonRule{
+										FromCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr:        api.CIDR("10.0.0.0/8"),
+												ExceptCIDRs: []api.CIDR{"10.96.0.0/12"},
+											},
+										},
+									},
+								},
+							},
+							IngressDeny: []api.IngressDenyRule{
+								{
+									IngressCommonRule: api.IngressCommonRule{
+										FromCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr:        api.CIDR("10.0.0.0/8"),
+												ExceptCIDRs: []api.CIDR{"10.96.0.0/12"},
+											},
+										},
+									},
+								},
+							},
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr:        api.CIDR("10.0.0.0/8"),
+												ExceptCIDRs: []api.CIDR{"10.96.0.0/12"},
+											},
+										},
+									},
+								},
+							},
+							EgressDeny: []api.EgressDenyRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												Cidr:        api.CIDR("10.0.0.0/8"),
+												ExceptCIDRs: []api.CIDR{"10.96.0.0/12"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: false,
+		},
+		{
+			name: "Invalid rule in Ingress Spec",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Spec: &api.Rule{
+						Ingress: []api.IngressRule{
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-test",
+											ExceptCIDRs:  []api.CIDR{"10.96.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: true,
+		},
+		{
+			name: "Invalid rule in Ingress Specs",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Specs: api.Rules{
+						&api.Rule{
+							Ingress: []api.IngressRule{
+								{
+									IngressCommonRule: api.IngressCommonRule{
+										FromCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-test",
+												ExceptCIDRs:  []api.CIDR{"10.96.0.0/12"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: true,
+		},
+		{
+			name: "Invalid rule in IngressDeny Spec",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Spec: &api.Rule{
+						IngressDeny: []api.IngressDenyRule{
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-test",
+											ExceptCIDRs:  []api.CIDR{"10.96.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: true,
+		},
+		{
+			name: "Invalid rule in IngressDeny Specs",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Specs: api.Rules{
+						&api.Rule{
+							IngressDeny: []api.IngressDenyRule{
+								{
+									IngressCommonRule: api.IngressCommonRule{
+										FromCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-test",
+												ExceptCIDRs:  []api.CIDR{"10.96.0.0/12"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: true,
+		},
+		{
+			name: "Invalid rule in Egress Spec",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Spec: &api.Rule{
+						Egress: []api.EgressRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-test",
+											ExceptCIDRs:  []api.CIDR{"10.96.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: true,
+		},
+		{
+			name: "Invalid rule in Egress Specs",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Specs: api.Rules{
+						&api.Rule{
+							Egress: []api.EgressRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-test",
+												ExceptCIDRs:  []api.CIDR{"10.96.0.0/12"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: true,
+		},
+		{
+			name: "Invalid rule in EgressDeny Spec",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Spec: &api.Rule{
+						EgressDeny: []api.EgressDenyRule{
+							{
+								EgressCommonRule: api.EgressCommonRule{
+									ToCIDRSet: api.CIDRRuleSlice{
+										{
+											CIDRGroupRef: "cidr-group-test",
+											ExceptCIDRs:  []api.CIDR{"10.96.0.0/12"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: true,
+		},
+		{
+			name: "Invalid rule in EgressDeny Specs",
+			cnp: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					Specs: api.Rules{
+						&api.Rule{
+							EgressDeny: []api.EgressDenyRule{
+								{
+									EgressCommonRule: api.EgressCommonRule{
+										ToCIDRSet: api.CIDRRuleSlice{
+											{
+												CIDRGroupRef: "cidr-group-test",
+												ExceptCIDRs:  []api.CIDR{"10.96.0.0/12"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldError: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateCIDRRules(tc.cnp)
+			if err != nil && !tc.shouldError {
+				t.Fatalf("unexpected error while checking CIDRRules in CNP: %s", err)
+			}
+			if err == nil && tc.shouldError {
+				t.Fatal("expected error while checking CIDRRules in CNP, got nil")
 			}
 		})
 	}
