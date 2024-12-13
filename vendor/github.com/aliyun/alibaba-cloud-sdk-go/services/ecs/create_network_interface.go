@@ -93,6 +93,7 @@ type CreateNetworkInterfaceRequest struct {
 	SecurityGroupId                 string                                                `position:"Query" name:"SecurityGroupId"`
 	Description                     string                                                `position:"Query" name:"Description"`
 	Ipv6PrefixCount                 requests.Integer                                      `position:"Query" name:"Ipv6PrefixCount"`
+	SourceDestCheck                 requests.Boolean                                      `position:"Query" name:"SourceDestCheck"`
 	InstanceType                    string                                                `position:"Query" name:"InstanceType"`
 	TxQueueSize                     requests.Integer                                      `position:"Query" name:"TxQueueSize"`
 	DeleteOnRelease                 requests.Boolean                                      `position:"Query" name:"DeleteOnRelease"`
@@ -151,6 +152,7 @@ type CreateNetworkInterfaceResponse struct {
 	ResourceGroupId      string                                   `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	ZoneId               string                                   `json:"ZoneId" xml:"ZoneId"`
 	PrivateIpAddress     string                                   `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
+	SourceDestCheck      bool                                     `json:"SourceDestCheck" xml:"SourceDestCheck"`
 	SecurityGroupIds     SecurityGroupIdsInCreateNetworkInterface `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	PrivateIpSets        PrivateIpSetsInCreateNetworkInterface    `json:"PrivateIpSets" xml:"PrivateIpSets"`
 	Tags                 TagsInCreateNetworkInterface             `json:"Tags" xml:"Tags"`

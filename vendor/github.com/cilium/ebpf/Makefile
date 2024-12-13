@@ -39,7 +39,6 @@ TARGETS := \
 	testdata/subprog_reloc \
 	testdata/fwd_decl \
 	testdata/kconfig \
-	testdata/kconfig_config \
 	testdata/ksym \
 	testdata/kfunc \
 	testdata/invalid-kfunc \

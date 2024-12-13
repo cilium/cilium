@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spf13/pflag"
 	"golang.org/x/tools/txtar"
 )
 
@@ -36,6 +37,7 @@ type State struct {
 	stdout  string            // standard output from last 'go' command; for 'stdout' command
 	stderr  string            // standard error from last 'go' command; for 'stderr' command
 
+	Flags       *pflag.FlagSet
 	DoUpdate    bool
 	FileUpdates map[string]string
 

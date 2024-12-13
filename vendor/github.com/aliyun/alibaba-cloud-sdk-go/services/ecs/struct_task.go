@@ -17,11 +17,15 @@ package ecs
 
 // Task is a nested struct in ecs response
 type Task struct {
-	CreationTime  string `json:"CreationTime" xml:"CreationTime"`
-	TaskStatus    string `json:"TaskStatus" xml:"TaskStatus"`
-	FinishedTime  string `json:"FinishedTime" xml:"FinishedTime"`
-	SupportCancel string `json:"SupportCancel" xml:"SupportCancel"`
-	TaskId        string `json:"TaskId" xml:"TaskId"`
-	TaskAction    string `json:"TaskAction" xml:"TaskAction"`
-	ResourceId    string `json:"ResourceId" xml:"ResourceId"`
+	CreationTime  string      `json:"CreationTime" xml:"CreationTime"`
+	TaskStatus    string      `json:"TaskStatus" xml:"TaskStatus"`
+	FinishedTime  string      `json:"FinishedTime" xml:"FinishedTime"`
+	SupportCancel string      `json:"SupportCancel" xml:"SupportCancel"`
+	TaskId        string      `json:"TaskId" xml:"TaskId"`
+	TaskAction    string      `json:"TaskAction" xml:"TaskAction"`
+	ResourceId    string      `json:"ResourceId" xml:"ResourceId"`
+	Source        string      `json:"Source" xml:"Source"`
+	FailedReason  string      `json:"FailedReason" xml:"FailedReason"`
+	TaskGroupId   string      `json:"TaskGroupId" xml:"TaskGroupId"`
+	ResourceIds   ResourceIds `json:"ResourceIds" xml:"ResourceIds"`
 }

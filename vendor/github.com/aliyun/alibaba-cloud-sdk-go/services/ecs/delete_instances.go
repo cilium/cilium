@@ -85,7 +85,8 @@ type DeleteInstancesRequest struct {
 // DeleteInstancesResponse is the response struct for api DeleteInstances
 type DeleteInstancesResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
+	RequestId   string `json:"RequestId" xml:"RequestId"`
+	TaskGroupId string `json:"TaskGroupId" xml:"TaskGroupId"`
 }
 
 // CreateDeleteInstancesRequest creates a request to invoke DeleteInstances API

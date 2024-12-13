@@ -71,14 +71,15 @@ func (client *Client) CreateSavingsPlanWithCallback(request *CreateSavingsPlanRe
 // CreateSavingsPlanRequest is the request struct for api CreateSavingsPlan
 type CreateSavingsPlanRequest struct {
 	*requests.RpcRequest
-	Period             string    `position:"Query" name:"Period"`
-	ResourceId         *[]string `position:"Query" name:"ResourceId"  type:"Repeated"`
-	InstanceTypeFamily string    `position:"Query" name:"InstanceTypeFamily"`
-	PlanType           string    `position:"Query" name:"PlanType"`
-	PeriodUnit         string    `position:"Query" name:"PeriodUnit"`
-	OfferingType       string    `position:"Query" name:"OfferingType"`
-	ChargeType         string    `position:"Query" name:"ChargeType"`
-	CommittedAmount    string    `position:"Query" name:"CommittedAmount"`
+	InstanceTypeFamilyGroup string    `position:"Query" name:"InstanceTypeFamilyGroup"`
+	PlanType                string    `position:"Query" name:"PlanType"`
+	CommittedAmount         string    `position:"Query" name:"CommittedAmount"`
+	Period                  string    `position:"Query" name:"Period"`
+	ResourceId              *[]string `position:"Query" name:"ResourceId"  type:"Repeated"`
+	InstanceTypeFamily      string    `position:"Query" name:"InstanceTypeFamily"`
+	PeriodUnit              string    `position:"Query" name:"PeriodUnit"`
+	OfferingType            string    `position:"Query" name:"OfferingType"`
+	ChargeType              string    `position:"Query" name:"ChargeType"`
 }
 
 // CreateSavingsPlanResponse is the response struct for api CreateSavingsPlan

@@ -17,9 +17,12 @@ package ecs
 
 // CpuOptions is a nested struct in ecs response
 type CpuOptions struct {
-	CoreCount              int                    `json:"CoreCount" xml:"CoreCount"`
-	Numa                   string                 `json:"Numa" xml:"Numa"`
-	TopologyType           string                 `json:"TopologyType" xml:"TopologyType"`
-	ThreadsPerCore         int                    `json:"ThreadsPerCore" xml:"ThreadsPerCore"`
-	SupportedTopologyTypes SupportedTopologyTypes `json:"SupportedTopologyTypes" xml:"SupportedTopologyTypes"`
+	Core                     int                    `json:"Core" xml:"Core"`
+	HyperThreadingAdjustable bool                   `json:"HyperThreadingAdjustable" xml:"HyperThreadingAdjustable"`
+	CoreCount                int                    `json:"CoreCount" xml:"CoreCount"`
+	CoreFactor               int                    `json:"CoreFactor" xml:"CoreFactor"`
+	Numa                     string                 `json:"Numa" xml:"Numa"`
+	TopologyType             string                 `json:"TopologyType" xml:"TopologyType"`
+	ThreadsPerCore           int                    `json:"ThreadsPerCore" xml:"ThreadsPerCore"`
+	SupportedTopologyTypes   SupportedTopologyTypes `json:"SupportedTopologyTypes" xml:"SupportedTopologyTypes"`
 }

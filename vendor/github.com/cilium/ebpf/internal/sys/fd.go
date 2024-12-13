@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/ebpf/internal/testutils/fdtrace"
 	"github.com/cilium/ebpf/internal/unix"
@@ -117,4 +119,44 @@ func (fd *FD) File(name string) *os.File {
 	}
 
 	return os.NewFile(uintptr(fd.disown()), name)
+}
+
+// ObjGetTyped wraps [ObjGet] with a readlink call to extract the type of the
+// underlying bpf object.
+func ObjGetTyped(attr *ObjGetAttr) (*FD, ObjType, error) {
+	fd, err := ObjGet(attr)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	typ, err := readType(fd)
+	if err != nil {
+		_ = fd.Close()
+		return nil, 0, fmt.Errorf("reading fd type: %w", err)
+	}
+
+	return fd, typ, nil
+}
+
+// readType returns the bpf object type of the file descriptor by calling
+// readlink(3). Returns an error if the file descriptor does not represent a bpf
+// object.
+func readType(fd *FD) (ObjType, error) {
+	s, err := os.Readlink(filepath.Join("/proc/self/fd/", fd.String()))
+	if err != nil {
+		return 0, fmt.Errorf("readlink fd %d: %w", fd.Int(), err)
+	}
+
+	s = strings.TrimPrefix(s, "anon_inode:")
+
+	switch s {
+	case "bpf-map":
+		return BPF_TYPE_MAP, nil
+	case "bpf-prog":
+		return BPF_TYPE_PROG, nil
+	case "bpf-link":
+		return BPF_TYPE_LINK, nil
+	}
+
+	return 0, fmt.Errorf("unknown type %s of fd %d", s, fd.Int())
 }

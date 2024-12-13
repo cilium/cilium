@@ -906,16 +906,22 @@ func marshalProgram(p *Program, length int) ([]byte, error) {
 	return buf, nil
 }
 
-// LoadPinnedProgram loads a Program from a BPF file.
+// LoadPinnedProgram loads a Program from a pin (file) on the BPF virtual
+// filesystem.
 //
 // Requires at least Linux 4.11.
 func LoadPinnedProgram(fileName string, opts *LoadPinOptions) (*Program, error) {
-	fd, err := sys.ObjGet(&sys.ObjGetAttr{
+	fd, typ, err := sys.ObjGetTyped(&sys.ObjGetAttr{
 		Pathname:  sys.NewStringPointer(fileName),
 		FileFlags: opts.Marshal(),
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if typ != sys.BPF_TYPE_PROG {
+		_ = fd.Close()
+		return nil, fmt.Errorf("%s is not a Program", fileName)
 	}
 
 	info, err := newProgramInfoFromFd(fd)

@@ -73,6 +73,7 @@ type ImportImageRequest struct {
 	*requests.RpcRequest
 	DiskDeviceMapping    *[]ImportImageDiskDeviceMapping `position:"Query" name:"DiskDeviceMapping"  type:"Repeated"`
 	ResourceOwnerId      requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                          `position:"Query" name:"ClientToken"`
 	Description          string                          `position:"Query" name:"Description"`
 	Platform             string                          `position:"Query" name:"Platform"`
 	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
@@ -104,6 +105,7 @@ type ImportImageDiskDeviceMapping struct {
 // ImportImageFeatures is a repeated param struct in ImportImageRequest
 type ImportImageFeatures struct {
 	NvmeSupport string `name:"NvmeSupport"`
+	ImdsSupport string `name:"ImdsSupport"`
 }
 
 // ImportImageTag is a repeated param struct in ImportImageRequest

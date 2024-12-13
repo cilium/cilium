@@ -88,6 +88,7 @@ type ModifyImageAttributeRequest struct {
 // ModifyImageAttributeFeatures is a repeated param struct in ModifyImageAttributeRequest
 type ModifyImageAttributeFeatures struct {
 	NvmeSupport string `name:"NvmeSupport"`
+	ImdsSupport string `name:"ImdsSupport"`
 }
 
 // ModifyImageAttributeResponse is the response struct for api ModifyImageAttribute

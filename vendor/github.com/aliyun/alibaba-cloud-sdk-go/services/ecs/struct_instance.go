@@ -94,6 +94,7 @@ type Instance struct {
 	HibernationOptions              HibernationOptions                   `json:"HibernationOptions" xml:"HibernationOptions"`
 	DedicatedInstanceAttribute      DedicatedInstanceAttribute           `json:"DedicatedInstanceAttribute" xml:"DedicatedInstanceAttribute"`
 	PrivateDnsNameOptions           PrivateDnsNameOptions                `json:"PrivateDnsNameOptions" xml:"PrivateDnsNameOptions"`
+	AdditionalInfo                  AdditionalInfo                       `json:"AdditionalInfo" xml:"AdditionalInfo"`
 	ImageOptions                    ImageOptions                         `json:"ImageOptions" xml:"ImageOptions"`
 	EipAddress                      EipAddressInDescribeInstances        `json:"EipAddress" xml:"EipAddress"`
 	MetadataOptions                 MetadataOptions                      `json:"MetadataOptions" xml:"MetadataOptions"`

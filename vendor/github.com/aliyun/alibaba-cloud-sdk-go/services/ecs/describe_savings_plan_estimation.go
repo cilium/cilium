@@ -71,25 +71,28 @@ func (client *Client) DescribeSavingsPlanEstimationWithCallback(request *Describ
 // DescribeSavingsPlanEstimationRequest is the request struct for api DescribeSavingsPlanEstimation
 type DescribeSavingsPlanEstimationRequest struct {
 	*requests.RpcRequest
-	ResourceId   string `position:"Query" name:"ResourceId"`
-	Period       string `position:"Query" name:"Period"`
-	PlanType     string `position:"Query" name:"PlanType"`
-	PeriodUnit   string `position:"Query" name:"PeriodUnit"`
-	OfferingType string `position:"Query" name:"OfferingType"`
+	ResourceId         string `position:"Query" name:"ResourceId"`
+	Period             string `position:"Query" name:"Period"`
+	PlanType           string `position:"Query" name:"PlanType"`
+	InstanceTypeScope  string `position:"Query" name:"InstanceTypeScope"`
+	PeriodUnit         string `position:"Query" name:"PeriodUnit"`
+	OfferingType       string `position:"Query" name:"OfferingType"`
+	EstimationResource string `position:"Query" name:"EstimationResource"`
 }
 
 // DescribeSavingsPlanEstimationResponse is the response struct for api DescribeSavingsPlanEstimation
 type DescribeSavingsPlanEstimationResponse struct {
 	*responses.BaseResponse
-	RequestId          string `json:"RequestId" xml:"RequestId"`
-	ResourceId         string `json:"ResourceId" xml:"ResourceId"`
-	InstanceTypeFamily string `json:"InstanceTypeFamily" xml:"InstanceTypeFamily"`
-	CommittedAmount    string `json:"CommittedAmount" xml:"CommittedAmount"`
-	Currency           string `json:"Currency" xml:"Currency"`
-	OfferingType       string `json:"OfferingType" xml:"OfferingType"`
-	PeriodUnit         string `json:"PeriodUnit" xml:"PeriodUnit"`
-	Period             int    `json:"Period" xml:"Period"`
-	PlanType           string `json:"PlanType" xml:"PlanType"`
+	RequestId               string `json:"RequestId" xml:"RequestId"`
+	ResourceId              string `json:"ResourceId" xml:"ResourceId"`
+	InstanceTypeFamily      string `json:"InstanceTypeFamily" xml:"InstanceTypeFamily"`
+	CommittedAmount         string `json:"CommittedAmount" xml:"CommittedAmount"`
+	Currency                string `json:"Currency" xml:"Currency"`
+	OfferingType            string `json:"OfferingType" xml:"OfferingType"`
+	PeriodUnit              string `json:"PeriodUnit" xml:"PeriodUnit"`
+	Period                  int    `json:"Period" xml:"Period"`
+	PlanType                string `json:"PlanType" xml:"PlanType"`
+	InstanceTypeFamilyGroup string `json:"InstanceTypeFamilyGroup" xml:"InstanceTypeFamilyGroup"`
 }
 
 // CreateDescribeSavingsPlanEstimationRequest creates a request to invoke DescribeSavingsPlanEstimation API
