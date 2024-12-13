@@ -1115,7 +1115,7 @@ github.com/mattn/go-runewidth
 # github.com/mattn/go-shellwords v1.0.12
 ## explicit; go 1.13
 github.com/mattn/go-shellwords
-# github.com/mdlayher/arp v0.0.0-20220221190821-c37aaafac7f9
+# github.com/mdlayher/arp v0.0.0-20220512170110-6706a2966875
 ## explicit; go 1.12
 github.com/mdlayher/arp
 # github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118
