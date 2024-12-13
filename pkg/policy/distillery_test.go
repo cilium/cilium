@@ -1880,7 +1880,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 
 // allowsKey returns returns true if 'ms' allows "traffic" with 'key'
 func (ms *mapState) allowsKey(key Key) bool {
-	entry, _ := ms.Lookup(key)
+	entry, _ := ms.lookup(key)
 	return !entry.IsDeny()
 }
 
