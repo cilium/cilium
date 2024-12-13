@@ -161,10 +161,10 @@ func (g *DoubleWriteMetricReporter) compareCRDAndKVStoreIdentities(ctx context.C
 	onlyInCrdSample := onlyInCrd[:min(onlyInCrdCount, maxPrintedDiffIDs)]
 	onlyInKVStoreSample := onlyInKVStore[:min(onlyInKVStoreCount, maxPrintedDiffIDs)]
 
-	g.metrics.IdentityCRDTotalCount.Set(float64(len(crdIdentityIds)))
-	g.metrics.IdentityKVStoreTotalCount.Set(float64(len(kvstoreIdentityIds)))
-	g.metrics.IdentityCRDOnlyCount.Set(float64(onlyInCrdCount))
-	g.metrics.IdentityKVStoreOnlyCount.Set(float64(onlyInKVStoreCount))
+	g.metrics.IdentityCRDTotal.Set(float64(len(crdIdentityIds)))
+	g.metrics.IdentityKVStoreTotal.Set(float64(len(kvstoreIdentityIds)))
+	g.metrics.IdentityCRDOnlyTotal.Set(float64(onlyInCrdCount))
+	g.metrics.IdentityKVStoreOnlyTotal.Set(float64(onlyInKVStoreCount))
 
 	if onlyInCrdCount == 0 && onlyInKVStoreCount == 0 {
 		g.logger.Info("CRD and KVStore identities are in sync")
