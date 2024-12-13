@@ -301,6 +301,9 @@ func toNodeBGPInstance(clusterBGPInstances []v2alpha1.CiliumBGPInstance, overrid
 			if overrideBGPInstance.Name == clusterBGPInstance.Name {
 				nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
 				nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
+				if overrideBGPInstance.LocalASN != nil {
+					nodeBGPInstance.LocalASN = overrideBGPInstance.LocalASN
+				}
 				override = overrideBGPInstance
 				break
 			}

@@ -545,6 +545,11 @@ func (in *CiliumBGPNodeConfigInstanceOverride) DeepCopyInto(out *CiliumBGPNodeCo
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.LocalASN != nil {
+		in, out := &in.LocalASN, &out.LocalASN
+		*out = new(int64)
+		**out = **in
+	}
 	return
 }
 

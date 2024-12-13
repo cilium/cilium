@@ -64,6 +64,7 @@ var (
 				Name:      "cluster-1-instance-65001",
 				RouterID:  ptr.To[string]("10.10.10.10"),
 				LocalPort: ptr.To[int32](5400),
+				LocalASN:  ptr.To[int64](65010),
 				Peers: []cilium_api_v2alpha1.CiliumBGPNodeConfigPeerOverride{
 					{
 						Name:         "cluster-1-instance-65002-peer-10.0.0.2",
@@ -76,7 +77,7 @@ var (
 
 	expectedNodeWithOverride1 = cilium_api_v2alpha1.CiliumBGPNodeInstance{
 		Name:      "cluster-1-instance-65001",
-		LocalASN:  ptr.To[int64](65001),
+		LocalASN:  ptr.To[int64](65010),
 		RouterID:  ptr.To[string]("10.10.10.10"),
 		LocalPort: ptr.To[int32](5400),
 		Peers: []cilium_api_v2alpha1.CiliumBGPNodePeer{

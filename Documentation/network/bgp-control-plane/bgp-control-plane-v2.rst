@@ -33,7 +33,7 @@ the cluster based on its ``nodeSelector`` field. Each ``CiliumBGPClusterConfig``
 more BGP instances, which are uniquely identified by their ``name`` field.
 
 A BGP instance can have one or more peers. Each peer is uniquely identified by its ``name`` field. The Peer
-autonomous number and peer address are defined by the ``peerASN`` and ``peerAddress`` fields,
+autonomous system number and peer address are defined by the ``peerASN`` and ``peerAddress`` fields,
 respectively. The configuration of the peers is defined by the ``peerConfigRef`` field, which is a reference
 to a peer configuration resource. ``Group`` and ``kind`` in ``peerConfigRef`` are optional and default to
 ``cilium.io`` and ``CiliumBGPPeerConfig``, respectively.
@@ -744,8 +744,8 @@ BGP Configuration Override
 The ``CiliumBGPNodeConfigOverride`` resource can be used to override some of the auto-generated configuration
 on a per-node basis.
 
-Here is an example of the ``CiliumBGPNodeConfigOverride`` resource, that sets Router ID and local address
-used in each peer for the node with a name ``bgpv2-cplane-dev-multi-homing-worker``.
+Here is an example of the ``CiliumBGPNodeConfigOverride`` resource, that sets Router ID, local address and
+local autonomous system number used in each peer for the node with a name ``bgpv2-cplane-dev-multi-homing-worker``.
 
 .. code-block:: yaml
 
@@ -758,6 +758,7 @@ used in each peer for the node with a name ``bgpv2-cplane-dev-multi-homing-worke
         - name: "instance-65000"
           routerID: "192.168.10.1"
           localPort: 1790
+          localASN: 65010
           peers:
             - name: "peer-65000-tor1"
               localAddress: fd00:10:0:2::2
@@ -802,6 +803,14 @@ BGP peering should be setup.
 
 To configure the source address, the ``peers[*].localAddress`` field can be set. It should be an
 address configured on one of the links on the node.
+
+Local ASN
+---------
+
+It is possible to override the Autonomous System Number (ASN) of a node using the field ``LocalASN`` of the
+``CiliumBGPNodeConfigOverride`` resource. When this field is not defined, the ``LocalASN`` from the matching
+``CiliumBGPClusterConfig`` is used as local ASN for the node. This customization allows individual nodes to
+operate with a different ASN when required by the network design.
 
 Sample Configurations
 =====================

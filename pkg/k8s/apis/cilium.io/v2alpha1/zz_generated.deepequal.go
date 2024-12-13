@@ -560,6 +560,14 @@ func (in *CiliumBGPNodeConfigInstanceOverride) DeepEqual(other *CiliumBGPNodeCon
 		}
 	}
 
+	if (in.LocalASN == nil) != (other.LocalASN == nil) {
+		return false
+	} else if in.LocalASN != nil {
+		if *in.LocalASN != *other.LocalASN {
+			return false
+		}
+	}
+
 	return true
 }
 

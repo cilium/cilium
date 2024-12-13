@@ -77,6 +77,13 @@ type CiliumBGPNodeConfigInstanceOverride struct {
 	// +listType=map
 	// +listMapKey=name
 	Peers []CiliumBGPNodeConfigPeerOverride `json:"peers,omitempty"`
+
+	// LocalASN is the ASN to use for this BGP instance.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4294967295
+	LocalASN *int64 `json:"localASN,omitempty"`
 }
 
 // CiliumBGPNodeConfigPeerOverride defines configuration options which can be overridden for a specific peer.
