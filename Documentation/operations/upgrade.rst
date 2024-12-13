@@ -330,7 +330,7 @@ communicating via the proxy must reconnect to re-establish connections.
 * For IPsec, support for a single key has been removed. Per-tunnel keys will
   now be used regardless of the presence of the ``+`` sign in the secret.
 * The option to run a synchronous probe using ``cilium-health status --probe`` is no longer supported,
-  and is now a hidden option that returns the results of the most recent cached probe. It will be 
+  and is now a hidden option that returns the results of the most recent cached probe. It will be
   removed in a future release.
 * The Cilium status API now reports the KVStore subsystem with ``Disabled`` state when disabled,
   instead of ``OK`` state and ``Disabled`` message.
@@ -411,7 +411,7 @@ Removed Metrics
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
-The metrics prefix of all Envoy NPDS (NetworkPolicy discovery service) metrics 
+The metrics prefix of all Envoy NPDS (NetworkPolicy discovery service) metrics
 has been renamed from ``envoy_cilium_policymap_<node-ip>_<node-id>_`` to ``envoy_cilium_npds_``.
 
 * ``envoy_cilium_policymap_<node-ip>_<node-id>_control_plane_rate_limit_enforced`` -> ``envoy_cilium_npds_control_plane_rate_limit_enforced``
@@ -425,6 +425,10 @@ has been renamed from ``envoy_cilium_policymap_<node-ip>_<node-id>_`` to ``envoy
 * ``envoy_cilium_policymap_<node-ip>_<node-id>_update_time`` -> ``envoy_cilium_npds_update_time``
 * ``envoy_cilium_policymap_<node-ip>_<node-id>_update_duration`` -> ``envoy_cilium_npds_update_duration``
 * ``envoy_cilium_policymap_<node-ip>_<node-id>_version`` -> ``envoy_cilium_npds_version``
+* ``doublewrite_identity_crd_total_count`` has been renamed to ``doublewrite_identity_crd_total``
+* ``doublewrite_identity_kvstore_total_count`` has been renamed to ``doublewrite_identity_kvstore_total``
+* ``doublewrite_identity_crd_only_count`` has been renamed to ``doublewrite_identity_crd_only_total``
+* ``doublewrite_identity_kvstore_only_count`` has been renamed to ``doublewrite_identity_kvstore_only_total``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
