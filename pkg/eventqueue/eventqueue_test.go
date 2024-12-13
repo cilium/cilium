@@ -18,14 +18,14 @@ func TestNewEventQueue(t *testing.T) {
 	require.NotNil(t, q.close)
 	require.NotNil(t, q.events)
 	require.NotNil(t, q.drain)
-	require.Equal(t, q.name, "")
-	require.Equal(t, cap(q.events), 1)
+	require.Equal(t, "", q.name)
+	require.Equal(t, 1, cap(q.events))
 }
 
 func TestNewEventQueueBuffered(t *testing.T) {
 	q := NewEventQueueBuffered("foo", 25)
-	require.Equal(t, q.name, "foo")
-	require.Equal(t, cap(q.events), 25)
+	require.Equal(t, "foo", q.name)
+	require.Equal(t, 25, cap(q.events))
 }
 
 func TestNilEventQueueOperations(t *testing.T) {
@@ -68,7 +68,7 @@ func TestNilEvent(t *testing.T) {
 	q := NewEventQueue()
 	res, err := q.Enqueue(nil)
 	require.Nil(t, res)
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestNewEvent(t *testing.T) {
@@ -89,7 +89,7 @@ func TestEventCancelAfterQueueClosed(t *testing.T) {
 	q.Run()
 	ev := NewEvent(&DummyEvent{})
 	_, err := q.Enqueue(ev)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Event should not have been cancelled since queue was not closed.
 	require.False(t, ev.WasCancelled())
@@ -97,7 +97,7 @@ func TestEventCancelAfterQueueClosed(t *testing.T) {
 
 	ev = NewEvent(&DummyEvent{})
 	_, err = q.Enqueue(ev)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.True(t, ev.WasCancelled())
 }
 
@@ -128,13 +128,13 @@ func TestDrain(t *testing.T) {
 
 	ev := NewEvent(nh1)
 	_, err := q.Enqueue(ev)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ev2 := NewEvent(nh2)
 	ev3 := NewEvent(nh3)
 
 	_, err = q.Enqueue(ev2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	var (
 		rcvChan <-chan interface{}
@@ -145,7 +145,7 @@ func TestDrain(t *testing.T) {
 
 	go func() {
 		rcvChan, err2 = q.Enqueue(ev3)
-		require.Nil(t, err2)
+		require.NoError(t, err2)
 		enq <- struct{}{}
 	}()
 
@@ -181,7 +181,7 @@ func TestEnqueueTwice(t *testing.T) {
 
 	ev := NewEvent(&DummyEvent{})
 	res, err := q.Enqueue(ev)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	select {
 	case <-res:
 	case <-time.After(5 * time.Second):
@@ -190,7 +190,7 @@ func TestEnqueueTwice(t *testing.T) {
 
 	res, err = q.Enqueue(ev)
 	require.Nil(t, res)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	q.Stop()
 	q.WaitToBeDrained()
@@ -208,7 +208,7 @@ func TestForcefulDraining(t *testing.T) {
 	ev := NewEvent(&DummyEvent{})
 	res, err := q.Enqueue(ev)
 	require.NotNil(t, res)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	q.Stop()
 	q.WaitToBeDrained()

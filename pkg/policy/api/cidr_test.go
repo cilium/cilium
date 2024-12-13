@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -26,15 +27,15 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 	esWorldIPv6 := NewESFromLabels(labelWorldIPv6)
 
 	labelAllV4, err := labels.IPStringToLabel("0.0.0.0/0")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	v4World := NewESFromLabels(labelAllV4)
 
 	labelAllV6, err := labels.IPStringToLabel("::/0")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	v6World := NewESFromLabels(labelAllV6)
 
 	labelOtherCIDR, err := labels.IPStringToLabel("192.168.128.0/24")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	esOtherCIDR := NewESFromLabels(labelOtherCIDR)
 
 	tt := []struct {
@@ -217,5 +218,96 @@ continueTest:
 			// prefixes are not supposed to match the regex.
 			require.Equal(t, "unexpectedly matched CIDR.OneOf[*].Pattern", input)
 		}
+	}
+}
+
+func TestGetAsEndpointSelectorsWithExceptions(t *testing.T) {
+
+	tt := []struct {
+		name             string
+		rule             CIDRRule
+		matchesLabels    []string
+		notMatchesLabels []string
+	}{
+		{
+			name: "no exclude",
+			rule: CIDRRule{
+				Cidr: "1.0.0.0/24",
+			},
+			matchesLabels:    []string{"cidr:1.0.0.0/24", "cidr:1.0.0.0/25"},
+			notMatchesLabels: []string{"cidr:2.0.0.0/24"},
+		},
+		{
+			name: "exclude-cidr",
+			rule: CIDRRule{
+				Cidr:        "1.0.0.0/24",
+				ExceptCIDRs: []CIDR{"1.0.0.4/30"},
+			},
+			matchesLabels:    []string{"cidr:1.0.0.0/24", "cidr:1.0.0.0/25", "cidr:1.0.0.1/32"},
+			notMatchesLabels: []string{"cidr:2.0.0.0/24", "cidr:1.0.0.4/30", "cidr:1.0.0.4/32", "cidr:1.0.0.5/32"},
+		},
+		{
+			name: "cidrgroup-exclude-cidr",
+			rule: CIDRRule{
+				CIDRGroupRef: "testing",
+				ExceptCIDRs:  []CIDR{"1.0.0.4/30"},
+			},
+			matchesLabels: []string{
+				"cidrgroup:io.cilium.policy.cidrgroupname/testing",
+				"cidrgroup:io.cilium.policy.cidrgroupname/testing;cidr:1.0.0.0/8",
+			},
+			notMatchesLabels: []string{"cidr:2.0.0.0/24",
+				"cidrgroup:io.cilium.policy.cidrgroupname/testing;cidr:1.0.0.4/30",
+				"cidrgroup:io.cilium.policy.cidrgroupname/testing;cidr:1.0.0.4/32",
+				"cidrgroup:io.cilium.policy.cidrgroupname/testing;cidr:1.0.0.5/32",
+			},
+		},
+		{
+			name: "cidrgroup-ref",
+			rule: CIDRRule{
+				CIDRGroupSelector: &v1.LabelSelector{
+					MatchLabels: map[string]string{
+						"foo": "bar",
+					},
+				},
+			},
+			matchesLabels:    []string{"cidrgroup:foo=bar"},
+			notMatchesLabels: []string{"cidr:1.1.1.1/32"},
+		},
+		{
+			name: "cidrgroup-ref-except",
+			rule: CIDRRule{
+				CIDRGroupSelector: &v1.LabelSelector{
+					MatchLabels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				ExceptCIDRs: []CIDR{"1.0.0.4/30"},
+			},
+			matchesLabels: []string{"cidrgroup:foo=bar"},
+			notMatchesLabels: []string{
+				"cidrgroup:foo=bar;cidr:1.0.0.4/30",
+				"cidrgroup:foo=bar;cidr:1.0.0.6/31",
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			es := (CIDRRuleSlice{tc.rule}).GetAsEndpointSelectors()[0]
+			for _, l := range tc.matchesLabels {
+				lblArr := labels.NewLabelArrayFromSortedList(l)
+				if !es.Matches(lblArr) {
+					t.Fatalf("Expected to match %+v, but did not", lblArr[0])
+				}
+			}
+			for _, l := range tc.notMatchesLabels {
+				lblArr := labels.NewLabelArrayFromSortedList(l)
+				if es.Matches(lblArr) {
+					t.Fatalf("Expected not to match %s, but did", l)
+				}
+			}
+
+		})
 	}
 }

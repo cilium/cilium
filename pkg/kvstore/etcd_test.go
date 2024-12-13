@@ -745,7 +745,7 @@ func TestUpdateIfDifferentIfLocked(t *testing.T) {
 				require.NoError(t, err)
 				created, err := Client().CreateOnly(context.Background(), key, []byte("bar"), true)
 				require.NoError(t, err)
-				require.Equal(t, true, created)
+				require.True(t, created)
 
 				return args{
 					key:      key,
@@ -1164,7 +1164,7 @@ func TestListPrefixIfLocked(t *testing.T) {
 			// We don't compare revision of the value because we can't predict
 			// its value.
 			v1, ok := want.kvPairs[k]
-			require.Equal(t, true, ok)
+			require.True(t, ok)
 			require.EqualValues(t, v1.Data, v.Data)
 		}
 		err = tt.cleanup(args)
@@ -1449,7 +1449,7 @@ func TestPaginatedList(t *testing.T) {
 
 		defer func(previous int) {
 			cl.listBatchSize = previous
-			require.Nil(t, cl.DeletePrefix(ctx, prefix))
+			require.NoError(t, cl.DeletePrefix(ctx, prefix))
 		}(cl.listBatchSize)
 		cl.listBatchSize = batch
 
@@ -1497,7 +1497,7 @@ func TestPaginatedList(t *testing.T) {
 			delete(keys, key)
 		}
 
-		require.Len(t, keys, 0)
+		require.Empty(t, keys)
 
 		// There is no guarantee that found == expected, because new operations might have occurred in parallel.
 		if found < expected {

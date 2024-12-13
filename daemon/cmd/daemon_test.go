@@ -35,12 +35,15 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	ctmapgc "github.com/cilium/cilium/pkg/maps/ctmap/gc"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policyAPI "github.com/cilium/cilium/pkg/policy/api"
+	policycell "github.com/cilium/cilium/pkg/policy/cell"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -59,12 +62,14 @@ type DaemonSuite struct {
 	oldPolicyEnabled string
 
 	// Owners interface mock
-	OnGetPolicyRepository  func() *policy.Repository
+	OnGetPolicyRepository  func() policy.PolicyRepository
 	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock   func() datapath.CompilationLock
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
+
+	PolicyImporter policycell.PolicyImporter
 }
 
 func setupTestDirectories() string {
@@ -128,7 +133,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			},
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
-			func() ctmapgc.Enabler { return ctmapgc.NewFake() },
+			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			k8sSynced.RejectedCRDSyncPromise,
 		),
 		fakeDatapath.Cell,
@@ -139,6 +144,9 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		store.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
+		}),
+		cell.Invoke(func(pi policycell.PolicyImporter) {
+			ds.PolicyImporter = pi
 		}),
 	)
 
@@ -152,12 +160,11 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 
 	ds.log = hivetest.Logger(tb)
 	err := ds.hive.Start(ds.log, ctx)
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 
 	ds.d, err = daemonPromise.Await(ctx)
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 
-	kvstore.Client().DeletePrefix(ctx, kvstore.OperationalPath)
 	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
 
 	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
@@ -190,7 +197,7 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 		policy.SetPolicyEnabled(ds.oldPolicyEnabled)
 
 		err := ds.hive.Stop(ds.log, ctx)
-		require.Nil(tb, err)
+		require.NoError(tb, err)
 
 		ds.d.Close()
 	})
@@ -238,11 +245,11 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
 }
 
 func TestMinimumWorkerThreadsIsSet(t *testing.T) {
-	require.Equal(t, true, numWorkerThreads() >= 2)
-	require.Equal(t, true, numWorkerThreads() >= runtime.NumCPU())
+	require.GreaterOrEqual(t, numWorkerThreads(), 2)
+	require.GreaterOrEqual(t, numWorkerThreads(), runtime.NumCPU())
 }
 
-func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
+func (ds *DaemonSuite) GetPolicyRepository() policy.PolicyRepository {
 	if ds.OnGetPolicyRepository != nil {
 		return ds.OnGetPolicyRepository()
 	}
@@ -313,6 +320,20 @@ func (ds *DaemonSuite) RemoveIdentity(id *identity.Identity) {}
 
 func (ds *DaemonSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
+// convenience wrapper that adds a single policy
+func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
+	ds.updatePolicy(&policyTypes.PolicyUpdate{
+		Rules: rules,
+	})
+}
+
+// convenience wrapper that synchronously performs a policy update
+func (ds *DaemonSuite) updatePolicy(upd *policyTypes.PolicyUpdate) {
+	dc := make(chan uint64, 1)
+	upd.DoneChan = dc
+	ds.PolicyImporter.UpdatePolicy(upd)
+	<-dc
+}
 func TestMemoryMap(t *testing.T) {
 	pid := os.Getpid()
 	m := memoryMap(pid)

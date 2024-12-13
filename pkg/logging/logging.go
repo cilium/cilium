@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -51,7 +52,16 @@ const (
 // default to avoid external dependencies from writing out unexpectedly
 var DefaultLogger = initializeDefaultLogger()
 
-func initializeKLog() {
+var klogErrorOverrides = []logLevelOverride{
+	{
+		// TODO: We can drop the misspelled case here once client-go version is bumped to include:
+		//	https://github.com/kubernetes/client-go/commit/ae43527480ee9d8750fbcde3d403363873fd3d89
+		matcher:     regexp.MustCompile("Failed to update lock (optimitically|optimistically).*falling back to slow path"),
+		targetLevel: logrus.InfoLevel,
+	},
+}
+
+func initializeKLog() error {
 	log := DefaultLogger.WithField(logfields.LogSubsys, "klog")
 
 	//Create a new flag set and set error handler
@@ -69,13 +79,120 @@ func initializeKLog() {
 	// necessary.
 	klogFlags.Set("skip_headers", "true")
 
+	errWriter, err := severityOverrideWriter(logrus.ErrorLevel, log, klogErrorOverrides)
+	if err != nil {
+		return fmt.Errorf("failed to setup klog error writer: %w", err)
+	}
+
 	klog.SetOutputBySeverity("INFO", log.WriterLevel(logrus.InfoLevel))
 	klog.SetOutputBySeverity("WARNING", log.WriterLevel(logrus.WarnLevel))
-	klog.SetOutputBySeverity("ERROR", log.WriterLevel(logrus.ErrorLevel))
+	klog.SetOutputBySeverity("ERROR", errWriter)
 	klog.SetOutputBySeverity("FATAL", log.WriterLevel(logrus.FatalLevel))
 
 	// Do not repeat log messages on all severities in klog
 	klogFlags.Set("one_output", "true")
+
+	return nil
+}
+
+type logLevelOverride struct {
+	matcher     *regexp.Regexp
+	targetLevel logrus.Level
+}
+
+func levelToPrintFunc(log *logrus.Entry, level logrus.Level) (func(args ...any), error) {
+	var printFunc func(args ...any)
+	switch level {
+	case logrus.InfoLevel:
+		printFunc = log.Info
+	case logrus.WarnLevel:
+		printFunc = log.Warn
+	case logrus.ErrorLevel:
+		printFunc = log.Error
+	default:
+		return nil, fmt.Errorf("unsupported log level %q", level)
+	}
+	return printFunc, nil
+}
+
+func severityOverrideWriter(level logrus.Level, log *logrus.Entry, overrides []logLevelOverride) (*io.PipeWriter, error) {
+	printFunc, err := levelToPrintFunc(log, level)
+	if err != nil {
+		return nil, err
+	}
+	reader, writer := io.Pipe()
+
+	for _, override := range overrides {
+		_, err := levelToPrintFunc(log, override.targetLevel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate klog matcher level overrides (%s -> %s): %w",
+				override.matcher.String(), level, err)
+		}
+	}
+	go writerScanner(log, reader, printFunc, overrides)
+	return writer, nil
+}
+
+// writerScanner scans the input from the reader and writes it to the appropriate
+// log print func.
+// In cases where the log message is overridden, that will be emitted via the specified
+// target log level logger function.
+//
+// Based on code from logrus WriterLevel implementation [1]
+//
+// [1] https://github.com/sirupsen/logrus/blob/v1.9.3/writer.go#L66-L97
+func writerScanner(
+	entry *logrus.Entry,
+	reader *io.PipeReader,
+	defaultPrintFunc func(args ...interface{}),
+	overrides []logLevelOverride) {
+
+	defer reader.Close()
+
+	scanner := bufio.NewScanner(reader)
+
+	// Set the buffer size to the maximum token size to avoid buffer overflows
+	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), bufio.MaxScanTokenSize)
+
+	// Define a split function to split the input into chunks of up to 64KB
+	chunkSize := bufio.MaxScanTokenSize // 64KB
+	splitFunc := func(data []byte, atEOF bool) (int, []byte, error) {
+		if len(data) >= chunkSize {
+			return chunkSize, data[:chunkSize], nil
+		}
+
+		return bufio.ScanLines(data, atEOF)
+	}
+
+	// Use the custom split function to split the input
+	scanner.Split(splitFunc)
+
+	// Scan the input and write it to the logger using the specified print function
+	for scanner.Scan() {
+		line := scanner.Text()
+		matched := false
+		for _, override := range overrides {
+			printFn, err := levelToPrintFunc(entry, override.targetLevel)
+			if err != nil {
+				entry.WithError(err).WithField("matcher", override.matcher).
+					Error("BUG: failed to get printer for klog override matcher")
+				continue
+			}
+			if override.matcher.FindString(line) != "" {
+				printFn(strings.TrimRight(line, "\r\n"))
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			defaultPrintFunc(strings.TrimRight(scanner.Text(), "\r\n"))
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		entry.WithError(err).Error("klog logrus override scanner stopped scanning with an error. " +
+			"This may mean that k8s client-go logs will no longer be emitted")
+	}
 }
 
 // LogOptions maps configuration key-value pairs related to logging.

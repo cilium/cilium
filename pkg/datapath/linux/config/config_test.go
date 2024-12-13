@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/netip"
-	"strings"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/option"
@@ -93,6 +93,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 		h := hive.New(
 			provideNodemap,
 			tables.DirectRoutingDeviceCell,
+			maglev.Cell,
 			cell.Provide(
 				fakeTypes.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
@@ -105,9 +106,9 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 
 		tlog := hivetest.Logger(t)
 		require.NoError(t, h.Start(tlog, context.TODO()))
-		t.Cleanup(func() { require.Nil(t, h.Stop(tlog, context.TODO())) })
+		t.Cleanup(func() { require.NoError(t, h.Stop(tlog, context.TODO())) })
 		err := write(test.output, writer)
-		require.True(t, test.wantErr == (err != nil), "wantErr=%v, err=%s", test.wantErr, err)
+		require.Equal(t, test.wantErr, (err != nil), "wantErr=%v, err=%s", test.wantErr, err)
 	}
 }
 
@@ -225,27 +226,15 @@ func TestWriteStaticData(t *testing.T) {
 	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg
 
-	varSub := loader.ELFVariableSubstitutions(ep)
 	mapSub := loader.ELFMapSubstitutions(ep)
 
 	var buf bytes.Buffer
 	cfg.writeStaticData(nil, &buf, ep)
 	b := buf.Bytes()
-	for k := range varSub {
-		for _, suffix := range []string{"_1", "_2"} {
-			// Variables with these suffixes are implemented via
-			// multiple 64-bit values. The header define doesn't
-			// include these numbers though, so strip them.
-			if strings.HasSuffix(k, suffix) {
-				k = strings.TrimSuffix(k, suffix)
-				break
-			}
-		}
-		require.Equal(t, true, bytes.Contains(b, []byte(k)))
-	}
+
 	for _, v := range mapSub {
 		t.Logf("Ensuring config has %s", v)
-		require.Equal(t, true, bytes.Contains(b, []byte(v)))
+		require.True(t, bytes.Contains(b, []byte(v)))
 	}
 }
 
@@ -278,7 +267,7 @@ func createVlanLink(vlanId int, mainLink *netlink.Dummy, t *testing.T) *netlink.
 		VlanId:       vlanId,
 	}
 	err := netlink.LinkAdd(link)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	return link
 }
@@ -329,7 +318,7 @@ func TestVLANBypassConfig(t *testing.T) {
 
 	option.Config.VLANBPFBypass = []int{4004}
 	m, err := vlanFilterMacros(devs)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	require.Equal(t, fmt.Sprintf(`switch (ifindex) { \
 case %d: \
 switch (vlan_id) { \
@@ -354,7 +343,7 @@ return false;`, main1.Index, main2.Index), m)
 
 	option.Config.VLANBPFBypass = []int{0}
 	m, err = vlanFilterMacros(devs)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "return true", m)
 }
 
@@ -363,16 +352,20 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 	setupConfigSuite(t)
 
 	var (
-		na datapath.NodeAddressing
+		na   datapath.NodeAddressing
+		magl *maglev.Maglev
 	)
 	h := hive.New(
 		cell.Provide(
 			fakeTypes.NewNodeAddressing,
 		),
+		maglev.Cell,
 		cell.Invoke(func(
 			nodeaddressing datapath.NodeAddressing,
+			ml *maglev.Maglev,
 		) {
 			na = nodeaddressing
+			magl = ml
 		}),
 	)
 
@@ -392,6 +385,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
+		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -412,6 +406,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
+		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -428,6 +423,7 @@ func TestWriteNodeConfigExtraDefines(t *testing.T) {
 		},
 		Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap: fake.NewFakeNodeMapV2(),
+		Maglev:  magl,
 	})
 	require.NoError(t, err)
 
@@ -439,15 +435,20 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	setupConfigSuite(t)
 
+	lc := hivetest.Lifecycle(t)
+	magl, err := maglev.New(maglev.DefaultConfig, lc)
+	require.NoError(t, err, "maglev.New")
+
 	a := dpdef.Map{"A": "1"}
 	var buffer bytes.Buffer
 
-	_, err := NewHeaderfileWriter(WriterParams{
+	_, err = NewHeaderfileWriter(WriterParams{
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap:            fake.NewFakeNodeMapV2(),
+		Maglev:             magl,
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -458,6 +459,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 		NodeExtraDefineFns: nil,
 		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 		NodeMap:            fake.NewFakeNodeMapV2(),
+		Maglev:             magl,
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))

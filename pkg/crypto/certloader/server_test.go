@@ -78,7 +78,7 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
 	ch, err := FutureWatchedServerConfig(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// the files don't exists, expect the config to not be ready yet.
 	select {
@@ -110,7 +110,7 @@ func TestNewWatchedServerConfig(t *testing.T) {
 	}
 
 	s, err := NewWatchedServerConfig(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, s)
 	defer s.Stop()
 
@@ -119,7 +119,7 @@ func TestNewWatchedServerConfig(t *testing.T) {
 	})
 	assert.NotNil(t, generator)
 	tlsConfig, err := generator.GetConfigForClient(nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, tlsConfig)
 	assert.Equal(t, []tls.Certificate{expectedKeypair}, tlsConfig.Certificates)
 	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.ClientCAs.Subjects())
@@ -146,7 +146,7 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	}
 
 	s, err := NewWatchedServerConfig(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, s)
 	defer s.Stop()
 
@@ -170,7 +170,7 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	})
 	assert.NotNil(t, generator)
 	tlsConfig, err := generator.GetConfigForClient(nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, tlsConfig)
 	assert.Equal(t, []tls.Certificate{expectedKeypair}, tlsConfig.Certificates)
 	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.ClientCAs.Subjects())

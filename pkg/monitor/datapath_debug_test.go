@@ -30,11 +30,11 @@ func TestDecodeDebugCapture(t *testing.T) {
 
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	output := &DebugCapture{}
 	err = DecodeDebugCapture(buf.Bytes(), output)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, input.Type, output.Type)
 	require.Equal(t, input.SubType, output.SubType)
@@ -100,11 +100,11 @@ func TestDecodeDebugMsg(t *testing.T) {
 
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	output := &DebugMsg{}
 	err = DecodeDebugMsg(buf.Bytes(), output)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, input.Type, output.Type)
 	require.Equal(t, input.SubType, output.SubType)

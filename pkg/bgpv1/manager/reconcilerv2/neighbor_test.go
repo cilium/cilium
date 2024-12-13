@@ -248,6 +248,8 @@ func TestNeighborReconciler(t *testing.T) {
 
 			// setup initial neighbors
 			neighborReconciler := NewNeighborReconciler(params).Reconciler
+			neighborReconciler.Init(testInstance)
+			defer neighborReconciler.Cleanup(testInstance)
 			reconcileParams := ReconcileParams{
 				BGPInstance:   testInstance,
 				DesiredConfig: nodeConfig,
@@ -259,8 +261,10 @@ func TestNeighborReconciler(t *testing.T) {
 			validatePeers(req, tt.neighbors, getRunningPeers(req, testInstance), tt.checks)
 
 			// update neighbors
+
 			params, nodeConfig = setupNeighbors(tt.newNeighbors)
-			neighborReconciler = NewNeighborReconciler(params).Reconciler
+			neighborReconciler.(*NeighborReconciler).PeerConfig = params.PeerConfig
+			neighborReconciler.(*NeighborReconciler).SecretStore = params.SecretStore
 			reconcileParams = ReconcileParams{
 				BGPInstance:   testInstance,
 				DesiredConfig: nodeConfig,

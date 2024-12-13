@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -172,18 +171,17 @@ type manager struct {
 }
 
 type nodeQueueEntry struct {
-	node    *nodeTypes.Node
-	refresh bool
+	node *nodeTypes.Node
 }
 
 // Enqueue add a node to a controller managed queue which sets up the neighbor link.
-func (m *manager) Enqueue(n *nodeTypes.Node, refresh bool) {
+func (m *manager) Enqueue(n *nodeTypes.Node) {
 	if n == nil {
 		log.WithFields(logrus.Fields{
 			logfields.LogSubsys: "enqueue",
 		}).Warn("Skipping nodeNeighbor insert: No node given")
 	}
-	m.nodeNeighborQueue.push(&nodeQueueEntry{node: n, refresh: refresh})
+	m.nodeNeighborQueue.push(&nodeQueueEntry{node: n})
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -390,11 +388,9 @@ func (m *manager) backgroundSyncInterval() time.Duration {
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
 func (m *manager) backgroundSync(ctx context.Context) error {
-	syncTimer, syncTimerDone := inctimer.New()
-	defer syncTimerDone()
 	for {
 		syncInterval := m.backgroundSyncInterval()
-		startWaiting := syncTimer.After(syncInterval)
+		startWaiting := time.After(syncInterval)
 		log.WithField("syncInterval", syncInterval.String()).Debug("Starting new iteration of background sync")
 		err := m.singleBackgroundLoop(ctx, syncInterval)
 		log.WithField("syncInterval", syncInterval.String()).Debug("Finished iteration of background sync")
@@ -854,8 +850,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 //
 // The removal logic in this function should mirror the upsert logic in NodeUpdated.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
-	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix) {
-
+	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix,
+) {
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
 		// See comment in NodeUpdated().
@@ -1054,9 +1050,17 @@ func (m *manager) pruneNodes(includeMeshed bool) {
 	}
 
 	if len(m.restoredNodes) > 0 {
-		log.WithFields(logrus.Fields{
-			"stale-nodes": m.restoredNodes,
-		}).Info("Deleting stale nodes")
+		if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+			printableNodes := make([]string, 0, len(m.restoredNodes))
+			for ni := range m.restoredNodes {
+				printableNodes = append(printableNodes, ni.String())
+			}
+			log.WithFields(logrus.Fields{
+				"stale-nodes": printableNodes,
+			}).Debugf("Deleting %v stale nodes", len(m.restoredNodes))
+		} else {
+			log.Infof("Deleting %v stale nodes", len(m.restoredNodes))
+		}
 	}
 	m.mutex.Unlock()
 
@@ -1127,8 +1131,9 @@ func (m *manager) StartNodeNeighborLinkUpdater(nh datapath.NodeNeighbors) {
 
 					log.Debugf("Refreshing node neighbor link for %s", e.node.Name)
 					hr := sc.NewScope(e.node.Name)
-					if errs = errors.Join(errs, nh.NodeNeighborRefresh(ctx, *e.node, e.refresh)); errs != nil {
-						hr.Degraded("Failed node neighbor link update", errs)
+					if err := nh.NodeNeighborRefresh(ctx, *e.node); err != nil {
+						hr.Degraded("Failed node neighbor link update", err)
+						errs = errors.Join(errs, err)
 					} else {
 						hr.OK("Node neighbor link update successful")
 					}
@@ -1168,7 +1173,7 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 						// [0; ARPPingRefreshPeriod/2) period.
 						n := rand.Int64N(int64(m.conf.ARPPingRefreshPeriod / 2))
 						time.Sleep(time.Duration(n))
-						m.Enqueue(e, false)
+						m.Enqueue(e)
 					}(ctx, &entryNode)
 				}
 				return nil

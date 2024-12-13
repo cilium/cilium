@@ -26,7 +26,7 @@ func (d *dummyOwner) GetNodeSuffix() string {
 func BenchmarkInjectLabels(b *testing.B) {
 
 	ctx, cancel := context.WithCancel(context.Background())
-	alloc := cache.NewCachingIdentityAllocator(&dummyOwner{})
+	alloc := cache.NewCachingIdentityAllocator(&dummyOwner{}, cache.AllocatorConfig{})
 	//<-alloc.InitIdentityAllocator(nil)
 	PolicyHandler = &mockUpdater{
 		identities: make(map[identity.NumericIdentity]labels.LabelArray),

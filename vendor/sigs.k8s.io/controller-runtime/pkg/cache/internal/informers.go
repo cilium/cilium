@@ -51,6 +51,7 @@ type InformersOpts struct {
 	Selector              Selector
 	Transform             cache.TransformFunc
 	UnsafeDisableDeepCopy bool
+	EnableWatchBookmarks  bool
 	WatchErrorHandler     cache.WatchErrorHandler
 }
 
@@ -78,6 +79,7 @@ func NewInformers(config *rest.Config, options *InformersOpts) *Informers {
 		selector:              options.Selector,
 		transform:             options.Transform,
 		unsafeDisableDeepCopy: options.UnsafeDisableDeepCopy,
+		enableWatchBookmarks:  options.EnableWatchBookmarks,
 		newInformer:           newInformer,
 		watchErrorHandler:     options.WatchErrorHandler,
 	}
@@ -174,6 +176,7 @@ type Informers struct {
 	selector              Selector
 	transform             cache.TransformFunc
 	unsafeDisableDeepCopy bool
+	enableWatchBookmarks  bool
 
 	// NewInformer allows overriding of the shared index informer constructor for testing.
 	newInformer func(cache.ListerWatcher, runtime.Object, time.Duration, cache.Indexers) cache.SharedIndexInformer
@@ -361,8 +364,10 @@ func (ip *Informers) addInformerToMap(gvk schema.GroupVersionKind, obj runtime.O
 			return listWatcher.ListFunc(opts)
 		},
 		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-			ip.selector.ApplyToList(&opts)
 			opts.Watch = true // Watch needs to be set to true separately
+			opts.AllowWatchBookmarks = ip.enableWatchBookmarks
+
+			ip.selector.ApplyToList(&opts)
 			return listWatcher.WatchFunc(opts)
 		},
 	}, obj, calculateResyncPeriod(ip.resync), cache.Indexers{
@@ -444,6 +449,9 @@ func (ip *Informers) makeListWatcher(gvk schema.GroupVersionKind, obj runtime.Ob
 			},
 			// Setup the watch function
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				opts.Watch = true // Watch needs to be set to true separately
+				opts.AllowWatchBookmarks = ip.enableWatchBookmarks
+
 				if namespace != "" {
 					return resources.Namespace(namespace).Watch(ip.ctx, opts)
 				}
@@ -486,6 +494,9 @@ func (ip *Informers) makeListWatcher(gvk schema.GroupVersionKind, obj runtime.Ob
 			},
 			// Setup the watch function
 			WatchFunc: func(opts metav1.ListOptions) (watcher watch.Interface, err error) {
+				opts.Watch = true // Watch needs to be set to true separately
+				opts.AllowWatchBookmarks = ip.enableWatchBookmarks
+
 				if namespace != "" {
 					watcher, err = resources.Namespace(namespace).Watch(ip.ctx, opts)
 				} else {
@@ -527,6 +538,9 @@ func (ip *Informers) makeListWatcher(gvk schema.GroupVersionKind, obj runtime.Ob
 			},
 			// Setup the watch function
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				opts.Watch = true // Watch needs to be set to true separately
+				opts.AllowWatchBookmarks = ip.enableWatchBookmarks
+
 				// Build the request.
 				req := client.Get().Resource(mapping.Resource.Resource).VersionedParams(&opts, ip.paramCodec)
 				if namespace != "" {

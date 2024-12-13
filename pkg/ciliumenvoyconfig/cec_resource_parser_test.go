@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 type MockPort struct {
@@ -36,6 +37,7 @@ type MockPort struct {
 }
 
 type MockPortAllocator struct {
+	mu    lock.Mutex
 	port  uint16
 	ports map[string]*MockPort
 }
@@ -48,6 +50,9 @@ func NewMockPortAllocator() *MockPortAllocator {
 }
 
 func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if mp, exists := m.ports[name]; exists {
 		return mp.port, nil
 	}
@@ -58,6 +63,9 @@ func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 }
 
 func (m *MockPortAllocator) AckProxyPort(ctx context.Context, name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	mp, exists := m.ports[name]
 	if !exists {
 		return fmt.Errorf("Non-allocated port %s", name)
@@ -67,6 +75,9 @@ func (m *MockPortAllocator) AckProxyPort(ctx context.Context, name string) error
 }
 
 func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	mp, exists := m.ports[name]
 	if !exists {
 		return fmt.Errorf("Non-allocated port %s", name)
@@ -84,7 +95,7 @@ func TestUpstreamInject(t *testing.T) {
 	//
 	var opts envoy_upstreams_http_v3.HttpProtocolOptions
 	changed, err := injectCiliumUpstreamL7Filter(&opts, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Len(t, opts.HttpFilters, 2)
@@ -99,7 +110,7 @@ func TestUpstreamInject(t *testing.T) {
 
 	// already present
 	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Len(t, opts.HttpFilters, 2)
@@ -124,7 +135,7 @@ func TestUpstreamInject(t *testing.T) {
 		},
 	}
 	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Len(t, opts.HttpFilters, 2)
@@ -146,7 +157,7 @@ func TestUpstreamInject(t *testing.T) {
 		},
 	}
 	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, changed)
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Len(t, opts.HttpFilters, 2)
@@ -175,7 +186,7 @@ func TestUpstreamInject(t *testing.T) {
 		},
 	}
 	changed, err = injectCiliumUpstreamL7Filter(&opts, true)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.False(t, changed)
 	assert.ErrorContains(t, err, "filter after codec filter: name:\"cilium.l7policy\"")
 }
@@ -593,8 +604,9 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	parser := cecResourceParser{
-		logger:        logger,
-		portAllocator: NewMockPortAllocator(),
+		logger:                      logger,
+		portAllocator:               NewMockPortAllocator(),
+		defaultMaxConcurrentRetries: 128,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
@@ -661,6 +673,13 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	assert.Equal(t, int32(250000000), resources.Clusters[0].ConnectTimeout.Nanos)
 	assert.Equal(t, envoy_config_cluster.Cluster_ROUND_ROBIN, resources.Clusters[0].LbPolicy)
 	assert.Equal(t, envoy_config_cluster.Cluster_EDS, resources.Clusters[0].GetType())
+	//
+	// Check that missing CircuitBreakers is automatically filled in
+	//
+	cb := resources.Clusters[0].CircuitBreakers
+	assert.NotNil(t, cb)
+	assert.Len(t, cb.Thresholds, 1)
+	assert.Equal(t, uint32(128), cb.Thresholds[0].MaxRetries.Value)
 	//
 	// Check that missing EDS config source is automatically filled in
 	//
@@ -887,10 +906,10 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	lf, ok := lfMsg.(*cilium.BpfMetadata)
 	assert.True(t, ok)
 	assert.NotNil(t, lf)
-	assert.Equal(t, false, lf.IsIngress)
+	assert.False(t, lf.IsIngress)
 	assert.True(t, lf.UseOriginalSourceAddress)
 	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
-	assert.Equal(t, false, lf.IsL7Lb)
+	assert.False(t, lf.IsL7Lb)
 
 	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -1029,8 +1048,8 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	lf, ok := lfMsg.(*cilium.BpfMetadata)
 	assert.True(t, ok)
 	assert.NotNil(t, lf)
-	assert.Equal(t, false, lf.IsIngress)
-	assert.Equal(t, false, lf.UseOriginalSourceAddress)
+	assert.False(t, lf.IsIngress)
+	assert.False(t, lf.UseOriginalSourceAddress)
 	assert.Equal(t, bpf.BPFFSRoot(), lf.BpfRoot)
 	assert.True(t, lf.IsL7Lb)
 
@@ -1080,7 +1099,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.NotNil(t, resources.Clusters[0].TypedExtensionProtocolOptions)
 	assert.NotNil(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType])
 	opts := &envoy_upstreams_http_v3.HttpProtocolOptions{}
-	assert.Nil(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(opts))
+	assert.NoError(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(opts))
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Equal(t, "cilium.l7policy", opts.HttpFilters[0].Name)
 	assert.Equal(t, ciliumL7FilterTypeURL, opts.HttpFilters[0].GetTypedConfig().TypeUrl)
@@ -1091,6 +1110,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 func checkCiliumXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
 	require.NotNil(t, cs)
 	assert.Equal(t, envoy_config_core.ApiVersion_V3, cs.ResourceApiVersion)
+	assert.Equal(t, int64(30), cs.InitialFetchTimeout.Seconds)
 	acs := cs.GetApiConfigSource()
 	assert.NotNil(t, acs)
 	assert.Equal(t, envoy_config_core.ApiConfigSource_GRPC, acs.ApiType)
@@ -1169,7 +1189,7 @@ func TestListenersAddedOrDeleted(t *testing.T) {
 
 	// Both empty
 	res := old.ListenersAddedOrDeleted(&new)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 
 	// new adds a listener
 	new.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
@@ -1181,9 +1201,9 @@ func TestListenersAddedOrDeleted(t *testing.T) {
 	// Now both have 'foo'
 	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
 	res = old.ListenersAddedOrDeleted(&new)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 
 	// New has no listeners
 	new.Listeners = nil
@@ -1209,9 +1229,9 @@ func TestListenersAddedOrDeleted(t *testing.T) {
 	// Same listeners but in different order
 	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "bar"})
 	res = old.ListenersAddedOrDeleted(&new)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
-	assert.Equal(t, false, res)
+	assert.False(t, res)
 
 	// Old has no listeners
 	old.Listeners = nil

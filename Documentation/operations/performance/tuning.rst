@@ -560,7 +560,6 @@ settings for the networking stack.
 
 **Requirements:**
 
-* Kernel >= 5.1
 * Direct-routing configuration or tunneling
 * eBPF-based kube-proxy replacement
 
@@ -660,7 +659,6 @@ is dramatically increased. The kube-proxy replacement at the XDP layer is
 
 * Kernel >= 4.19.57, >= 5.1.16, >= 5.2
 * Native XDP supported driver, check :ref:`our driver list <XDP acceleration>`
-* Direct-routing configuration
 * eBPF-based kube-proxy replacement
 
 To enable the XDP Acceleration, check out :ref:`our getting started guide <XDP acceleration>` which also contains instructions for setting it

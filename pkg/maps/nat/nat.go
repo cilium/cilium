@@ -4,14 +4,11 @@
 package nat
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/cilium/ebpf"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -102,71 +99,31 @@ func NewMap(name string, family IPFamily, entries int) *Map {
 	}
 }
 
-func startingChunkSize(maxEntries int) int {
-	bucketSize := math.Sqrt(float64(maxEntries * 2))
-	nearest2 := math.Log2(bucketSize)
-	return int(math.Pow(2, math.Ceil(nearest2)))
-}
-
-// ApplyBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
-func (m *Map) ApplyBatch4(fn func([]tuple.TupleKey4, []NatEntry4, int)) (count int, err error) {
+// DumpBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
+func (m *Map) DumpBatch4(fn func(tuple.TupleKey4, NatEntry4)) (count int, err error) {
 	if m.family != IPv4 {
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
-	return applyBatchReliably(m, fn)
+
+	iter := bpf.NewBatchIterator[tuple.TupleKey4, NatEntry4](&m.Map)
+	for key, entry := range iter.IterateAll(context.Background()) {
+		count++
+		fn(key, entry)
+	}
+	return count, nil
 }
 
-// ApplyBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
-func (m *Map) ApplyBatch6(fn func([]tuple.TupleKey6, []NatEntry6, int)) (count int, err error) {
+// DumpBatch6 uses batch iteration to walk the map and applies fn for each batch of entries.
+func (m *Map) DumpBatch6(fn func(tuple.TupleKey6, NatEntry6)) (count int, err error) {
 	if m.family != IPv6 {
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
-	return applyBatchReliably(m, fn)
-}
-
-func applyBatchReliably[KeyType, EntryType any](m *Map, fn func([]KeyType, []EntryType, int)) (count int, err error) {
-	var chunkSize = uint32(startingChunkSize(int(m.MaxEntries())))
-	const maxRetries = 3
-	for i := 0; i < maxRetries; i++ {
-		count, err = applyBatch(m, fn, chunkSize)
-		if err != nil {
-			// Lookup batch on LRU hash map may fail if the buffer passed is not big enough to
-			// accommodate the largest bucket size in the LRU map [1]
-			// Because bucket size, in general, cannot be known, we take the number of entries until
-			// we expect to see a hash map collision: sqrt(max_entries * 2)
-			// Default NAT map size is 262144 -> 2^ceil(log2(sqrt(262144 * 2))) = 1024, with key + entry size
-			// being ~ 432 bits, this means we'll need to allocate 55kb to accommodate this iteration.
-			// To avoid unbounded growth, each ENOSPC will result in a doubling of the chuck chunkSize
-			// which will persist into subsequent calls of Stats, up to a maximum of 3 (fold-increase).
-			//
-			// [1] https://elixir.bootlin.com/linux/latest/source/kernel/bpf/hashtab.c#L1776
-			if errors.Is(err, unix.ENOSPC) {
-				chunkSize *= 2
-				continue
-			}
-			return 0, fmt.Errorf("failed to count nat map: %w", err)
-		}
-		break
+	iter := bpf.NewBatchIterator[tuple.TupleKey6, NatEntry6](&m.Map)
+	for key, entry := range iter.IterateAll(context.Background()) {
+		count++
+		fn(key, entry)
 	}
-	return count, err
-}
-
-func applyBatch[TupleType any, EntryType any](m *Map, fn func([]TupleType, []EntryType, int), chunkSize uint32) (count int, err error) {
-	kout := make([]TupleType, chunkSize)
-	vout := make([]EntryType, chunkSize)
-
-	var cursor ebpf.MapBatchCursor
-	for {
-		c, batchErr := m.BatchLookup(&cursor, kout, vout, nil)
-		count += c
-		fn(kout, vout, c)
-		if batchErr != nil {
-			if errors.Is(batchErr, ebpf.ErrKeyNotExist) {
-				return count, nil // end of map, we're done iterating
-			}
-			return count, batchErr
-		}
-	}
+	return count, nil
 }
 
 func (m *Map) Delete(k bpf.MapKey) (deleted bool, err error) {
@@ -287,7 +244,11 @@ func (m *Map) Flush() int {
 	return int(doFlush6(m).deleted)
 }
 
-func DeleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
+func DeleteMapping4(m *Map, tk tuple.TupleKey) error {
+	ctKey, ok := tk.(*tuple.TupleKey4Global)
+	if !ok {
+		return fmt.Errorf("wrong type %T for key", tk)
+	}
 	key := NatKey4{
 		TupleKey4Global: *ctKey,
 	}
@@ -311,7 +272,11 @@ func DeleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 	return nil
 }
 
-func DeleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
+func DeleteMapping6(m *Map, tk tuple.TupleKey) error {
+	ctKey, ok := tk.(*tuple.TupleKey6Global)
+	if !ok {
+		return fmt.Errorf("wrong type %T for key", tk)
+	}
 	key := NatKey6{
 		TupleKey6Global: *ctKey,
 	}
@@ -336,7 +301,11 @@ func DeleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 }
 
 // Expects ingress tuple
-func DeleteSwappedMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
+func DeleteSwappedMapping4(m *Map, tk tuple.TupleKey) error {
+	ctKey, ok := tk.(*tuple.TupleKey4Global)
+	if !ok {
+		return fmt.Errorf("wrong type %T for key", tk)
+	}
 	key := NatKey4{TupleKey4Global: *ctKey}
 	// Because of #5848, we need to reverse only ports
 	port := key.SourcePort
@@ -349,7 +318,11 @@ func DeleteSwappedMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 }
 
 // Expects ingress tuple
-func DeleteSwappedMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
+func DeleteSwappedMapping6(m *Map, tk tuple.TupleKey) error {
+	ctKey, ok := tk.(*tuple.TupleKey6Global)
+	if !ok {
+		return fmt.Errorf("wrong type %T for key", tk)
+	}
 	key := NatKey6{TupleKey6Global: *ctKey}
 	// Because of #5848, we need to reverse only ports
 	port := key.SourcePort

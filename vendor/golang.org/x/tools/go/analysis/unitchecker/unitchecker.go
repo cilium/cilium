@@ -51,7 +51,6 @@ import (
 	"golang.org/x/tools/go/analysis/internal/analysisflags"
 	"golang.org/x/tools/internal/analysisinternal"
 	"golang.org/x/tools/internal/facts"
-	"golang.org/x/tools/internal/versions"
 )
 
 // A Config describes a compilation unit to be analyzed.
@@ -145,7 +144,7 @@ func Run(configFile string, analyzers []*analysis.Analyzer) {
 			for _, res := range results {
 				tree.Add(fset, cfg.ID, res.a.Name, res.diagnostics, res.err)
 			}
-			tree.Print()
+			tree.Print(os.Stdout)
 		} else {
 			// plain text
 			exit := 0
@@ -157,7 +156,7 @@ func Run(configFile string, analyzers []*analysis.Analyzer) {
 			}
 			for _, res := range results {
 				for _, diag := range res.diagnostics {
-					analysisflags.PrintPlain(fset, diag)
+					analysisflags.PrintPlain(os.Stderr, fset, analysisflags.Context, diag)
 					exit = 1
 				}
 			}
@@ -257,15 +256,15 @@ func run(fset *token.FileSet, cfg *Config, analyzers []*analysis.Analyzer) ([]re
 		GoVersion: cfg.GoVersion,
 	}
 	info := &types.Info{
-		Types:      make(map[ast.Expr]types.TypeAndValue),
-		Defs:       make(map[*ast.Ident]types.Object),
-		Uses:       make(map[*ast.Ident]types.Object),
-		Implicits:  make(map[ast.Node]types.Object),
-		Instances:  make(map[*ast.Ident]types.Instance),
-		Scopes:     make(map[ast.Node]*types.Scope),
-		Selections: make(map[*ast.SelectorExpr]*types.Selection),
+		Types:        make(map[ast.Expr]types.TypeAndValue),
+		Defs:         make(map[*ast.Ident]types.Object),
+		Uses:         make(map[*ast.Ident]types.Object),
+		Implicits:    make(map[ast.Node]types.Object),
+		Instances:    make(map[*ast.Ident]types.Instance),
+		Scopes:       make(map[ast.Node]*types.Scope),
+		Selections:   make(map[*ast.SelectorExpr]*types.Selection),
+		FileVersions: make(map[*ast.File]string),
 	}
-	versions.InitFileVersions(info)
 
 	pkg, err := tc.Check(cfg.ImportPath, fset, files, info)
 	if err != nil {

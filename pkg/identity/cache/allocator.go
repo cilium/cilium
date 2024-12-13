@@ -86,6 +86,18 @@ type CachingIdentityAllocator struct {
 	// checkpointPath is the file where local allocator state should be checkpoointed.
 	// The default is /run/cilium/state/local_allocator_state.json, changed only for testing.
 	checkpointPath string
+
+	// operatorIDManagement indicates if cilium-operator is managing Cilium Identities.
+	operatorIDManagement bool
+
+	// maxAllocAttempts is the number of attempted allocation requests
+	// performed before failing. This is mainly introduced for testing purposes.
+	maxAllocAttempts int
+}
+
+type AllocatorConfig struct {
+	EnableOperatorManageCIDs bool
+	maxAllocAttempts         int
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -248,11 +260,20 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 			log.Fatalf("Unsupported identity allocation mode %s", option.Config.IdentityAllocationMode)
 		}
 
-		a, err := allocator.NewAllocator(&key.GlobalIdentity{}, backend,
+		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events),
-			allocator.WithMasterKeyProtection(),
-			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.GetClusterIDShift())))
+			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
+		}
+		if m.operatorIDManagement {
+			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
+		} else {
+			allocOptions = append(allocOptions, allocator.WithMasterKeyProtection())
+		}
+		if m.maxAllocAttempts > 0 {
+			allocOptions = append(allocOptions, allocator.WithMaxAllocAttempts(m.maxAllocAttempts))
+		}
+		a, err := allocator.NewAllocator(&key.GlobalIdentity{}, backend, allocOptions...)
 		if err != nil {
 			log.WithError(err).Fatalf("Unable to initialize Identity Allocator with backend %s", option.Config.IdentityAllocationMode)
 		}
@@ -307,7 +328,7 @@ const eventsQueueSize = 1024
 
 // NewCachingIdentityAllocator creates a new instance of an
 // CachingIdentityAllocator.
-func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
+func NewCachingIdentityAllocator(owner IdentityAllocatorOwner, config AllocatorConfig) *CachingIdentityAllocator {
 	watcher := identityWatcher{
 		owner: owner,
 	}
@@ -318,6 +339,8 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
 		events:                             make(allocator.AllocatorEventChan, eventsQueueSize),
+		operatorIDManagement:               config.EnableOperatorManageCIDs,
+		maxAllocAttempts:                   config.maxAllocAttempts,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
@@ -326,8 +349,8 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 
 	// Local identity cache can be created synchronously since it doesn't
 	// rely upon any external resources (e.g., external kvstore).
-	m.localIdentities = newLocalIdentityCache(identity.IdentityScopeLocal, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity, m.events)
-	m.localNodeIdentities = newLocalIdentityCache(identity.IdentityScopeRemoteNode, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity, m.events)
+	m.localIdentities = newLocalIdentityCache(identity.IdentityScopeLocal, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity)
+	m.localNodeIdentities = newLocalIdentityCache(identity.IdentityScopeRemoteNode, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity)
 
 	return m
 }
@@ -355,8 +378,6 @@ func (m *CachingIdentityAllocator) Close() {
 
 	m.IdentityAllocator.Delete()
 	if m.events != nil {
-		m.localIdentities.close()
-		m.localNodeIdentities.close()
 		close(m.events)
 		m.events = nil
 	}
@@ -406,10 +427,10 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 	var metricLabel string
 	switch scope := identity.ScopeForLabels(lbls); scope {
 	case identity.IdentityScopeLocal:
-		id, allocated, err = m.localIdentities.lookupOrCreate(lbls, oldNID, notifyOwner)
+		id, allocated, err = m.localIdentities.lookupOrCreate(lbls, oldNID)
 		metricLabel = identity.NodeLocalIdentityType
 	case identity.IdentityScopeRemoteNode:
-		id, allocated, err = m.localNodeIdentities.lookupOrCreate(lbls, oldNID, notifyOwner)
+		id, allocated, err = m.localNodeIdentities.lookupOrCreate(lbls, oldNID)
 		metricLabel = identity.RemoteNodeIdentityType
 	default:
 		log.WithFields(logrus.Fields{
@@ -703,16 +724,10 @@ func (m *CachingIdentityAllocator) ReleaseRestoredIdentities() {
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
 func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Identity, notifyOwner bool) (released bool, err error) {
+	metricVal := identity.ClusterLocalIdentityType
 	defer func() {
 		if released {
 			// decrement metrics, trigger checkpoint if local
-			metricVal := identity.ClusterLocalIdentityType
-			switch id.ID.Scope() {
-			case identity.IdentityScopeLocal:
-				metricVal = identity.NodeLocalIdentityType
-			case identity.IdentityScopeRemoteNode:
-				metricVal = identity.RemoteNodeIdentityType
-			}
 			if metricVal != identity.ClusterLocalIdentityType && m.checkpointTrigger != nil {
 				m.checkpointTrigger.Trigger()
 			}
@@ -722,6 +737,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 			metrics.Identity.WithLabelValues(metricVal).Dec()
 		}
 
+		// Remove this ID from the selectorcache and any other identity "watchers"
 		if m.owner != nil && released && notifyOwner {
 			deleted := identity.IdentityMap{
 				id.ID: id.LabelArray,
@@ -735,11 +751,15 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 		return false, nil
 	}
 
+	// Release local identities
+	// will perform post-release cleanup actions above
 	switch identity.ScopeForLabels(id.Labels) {
 	case identity.IdentityScopeLocal:
-		return m.localIdentities.release(id, notifyOwner), nil
+		metricVal = identity.NodeLocalIdentityType
+		return m.localIdentities.release(id), nil
 	case identity.IdentityScopeRemoteNode:
-		return m.localNodeIdentities.release(id, notifyOwner), nil
+		metricVal = identity.RemoteNodeIdentityType
+		return m.localNodeIdentities.release(id), nil
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -766,7 +786,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 // identity cache. remoteName should be unique unless replacing an existing
 // remote's backend. When cachedPrefix is set, identities are assumed to be
 // stored under the "cilium/cache" prefix, and the watcher is adapted accordingly.
-func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remoteID uint32, backend kvstore.BackendOperations, cachedPrefix bool) (*allocator.RemoteCache, error) {
+func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remoteID uint32, backend kvstore.BackendOperations, cachedPrefix bool) (allocator.RemoteIDCache, error) {
 	<-m.globalIdentityAllocatorInitialized
 
 	prefix := m.identitiesPath

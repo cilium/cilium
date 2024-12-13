@@ -27,7 +27,7 @@ import (
 type ProxyStatus struct {
 
 	// Deployment mode of Envoy L7 proxy
-	// Enum: [embedded external]
+	// Enum: ["embedded","external"]
 	EnvoyDeploymentMode string `json:"envoy-deployment-mode,omitempty"`
 
 	// IP address that the proxy listens on

@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -71,7 +72,7 @@ func send(iface *net.Interface, ip netip.Addr) error {
 	}
 	defer arpClient.Close()
 
-	arp, err := arp.NewPacket(arp.OperationReply, iface.HardwareAddr, ip.AsSlice(), ethernet.Broadcast, ip.AsSlice())
+	arp, err := arp.NewPacket(arp.OperationReply, iface.HardwareAddr, ip, ethernet.Broadcast, ip)
 	if err != nil {
 		return fmt.Errorf("failed to craft ARP reply packet: %w", err)
 	}
@@ -89,7 +90,7 @@ func send(iface *net.Interface, ip netip.Addr) error {
 // The reason not to use net.InterfaceByName directly is to avoid potential
 // deadlocks (#15051).
 func interfaceByName(name string) (*net.Interface, error) {
-	link, err := netlink.LinkByName(name)
+	link, err := safenetlink.LinkByName(name)
 	if err != nil {
 		return nil, err
 	}

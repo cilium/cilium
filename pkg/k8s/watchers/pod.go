@@ -252,11 +252,13 @@ func (k *K8sPodWatcher) podsInit(asyncControllers *sync.WaitGroup) {
 		return cancel
 	}
 
-	// We will watch for pods on th entire cluster to keep existing
+	// We will watch for pods on the entire cluster to keep existing
 	// functionality untouched. If we are running with CiliumEndpoint CRD
 	// enabled then it means that we can simply watch for pods that are created
-	// for this node.
-	if !option.Config.DisableCiliumEndpointCRD {
+	// for this node. Similarly, we don't need to watch for all pods when the
+	// support for running the Cilium KVstore in pod network is disabled, as in
+	// that case we just rely on the KVStore data from the beginning.
+	if !option.Config.DisableCiliumEndpointCRD || option.Config.KVstoreEnabledWithoutPodNetworkSupport() {
 		watchNodePods()
 		return
 	}
@@ -419,8 +421,9 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 	oldAnno := oldK8sPod.ObjectMeta.Annotations
 	newAnno := newK8sPod.ObjectMeta.Annotations
 	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno)
+	annoChangedPriority := !k8s.AnnotationsEqual([]string{bandwidth.Priority}, oldAnno, newAnno)
 	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack, annotation.NoTrackAlias}, oldAnno, newAnno)
-	annotationsChanged := annoChangedBandwidth || annoChangedNoTrack
+	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack
 
 	// Check label updates too.
 	oldK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(oldK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
@@ -491,23 +494,15 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 
 		if annotationsChanged {
 			if annoChangedBandwidth {
-				podEP.UpdateBandwidthPolicy(k.bandwidthManager, func(ns, podName string) (bandwidthEgress string, err error) {
-					p, err := k.GetCachedPod(ns, podName)
-					if err != nil {
-						return "", nil
-					}
-					return p.ObjectMeta.Annotations[bandwidth.EgressBandwidth], nil
-				})
+				podEP.UpdateBandwidthPolicy(k.bandwidthManager,
+					newK8sPod.Annotations[bandwidth.EgressBandwidth],
+					newK8sPod.Annotations[bandwidth.Priority])
 			}
 			if annoChangedNoTrack {
-				podEP.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
-					p, err := k.GetCachedPod(ns, podName)
-					if err != nil {
-						return "", nil
-					}
-					value, _ := annotation.Get(p, annotation.NoTrack, annotation.NoTrackAlias)
-					return value, nil
-				})
+				podEP.UpdateNoTrackRules(func() string {
+					value, _ := annotation.Get(newK8sPod, annotation.NoTrack, annotation.NoTrackAlias)
+					return value
+				}())
 			}
 			realizePodAnnotationUpdate(podEP)
 		}
@@ -912,7 +907,7 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 
 		// This happens at most once due to k8sMeta being the same for all podIPs in this loop
 		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
+			k.policyManager.TriggerPolicyUpdates("Named ports added or updated")
 		}
 	}()
 

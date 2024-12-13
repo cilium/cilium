@@ -141,6 +141,9 @@ func getFlowFiltersYAML(req *observerpb.GetFlowsRequest) (string, error) {
 // GetHubbleClientFunc is primarily used to mock out the hubble client in some unit tests.
 var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client observerpb.ObserverClient, cleanup func() error, err error) {
 	if otherOpts.inputFile != "" {
+		if vp.GetBool(config.KeyPortForward) {
+			return nil, nil, fmt.Errorf("cannot use --input-file and --auto-port-forward together")
+		}
 		var f *os.File
 		if otherOpts.inputFile == "-" {
 			// read flows from stdin
@@ -159,7 +162,7 @@ var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client obs
 		return client, cleanup, nil
 	}
 	// read flows from a hubble server
-	hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+	hubbleConn, err := conn.NewWithFlags(ctx, vp)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -352,8 +355,14 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 		"node-label", ofilter,
 		`Show only flows observed on nodes matching the given label filter (e.g. "key1=value1", "io.cilium/egress-gateway")`))
 	filterFlags.Var(filterVar(
+		"from-cluster", ofilter,
+		"Show all flows originating from endpoints known to be in the given cluster name"))
+	filterFlags.Var(filterVar(
 		"cluster", ofilter,
 		`Show all flows which match the cluster names (e.g. "test-cluster", "prod-*")`))
+	filterFlags.Var(filterVar(
+		"to-cluster", ofilter,
+		"Show all flows destined to endpoints known to be in the given cluster name"))
 	filterFlags.Var(filterVar(
 		"protocol", ofilter,
 		`Show only flows which match the given L4/L7 flow protocol (e.g. "udp", "http")`))

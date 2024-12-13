@@ -48,8 +48,8 @@ func NewStaticOptimizer(optimizers ...ASTOptimizer) *StaticOptimizer {
 // If issues are encountered, the Issues.Err() return value will be non-nil.
 func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 	// Make a copy of the AST to be optimized.
-	optimized := ast.Copy(a.impl)
-	ids := newIDGenerator(ast.MaxID(a.impl))
+	optimized := ast.Copy(a.NativeRep())
+	ids := newIDGenerator(ast.MaxID(a.NativeRep()))
 
 	// Create the optimizer context, could be pooled in the future.
 	issues := NewIssues(common.NewErrors(a.Source()))
@@ -86,7 +86,7 @@ func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 		if iss.Err() != nil {
 			return nil, iss
 		}
-		optimized = checked.impl
+		optimized = checked.NativeRep()
 	}
 
 	// Return the optimized result.
@@ -209,6 +209,16 @@ type OptimizerContext struct {
 	*Env
 	*optimizerExprFactory
 	*Issues
+}
+
+// ExtendEnv auguments the context's environment with the additional options.
+func (opt *OptimizerContext) ExtendEnv(opts ...EnvOption) error {
+	e, err := opt.Env.Extend(opts...)
+	if err != nil {
+		return err
+	}
+	opt.Env = e
+	return nil
 }
 
 // ASTOptimizer applies an optimization over an AST and returns the optimized result.

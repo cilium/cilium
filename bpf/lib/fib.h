@@ -11,6 +11,19 @@
 #include "l3.h"
 
 static __always_inline int
+add_l2_hdr(struct __ctx_buff *ctx __maybe_unused)
+{
+	__u16 proto = ctx_get_protocol(ctx);
+
+	if (ctx_change_head(ctx, __ETH_HLEN, 0))
+		return DROP_INVALID;
+	if (eth_store_proto(ctx, proto, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	return 0;
+}
+
+static __always_inline int
 maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		 __u32 ifindex __maybe_unused,
 		 bool *l2_hdr_required __maybe_unused)
@@ -24,12 +37,7 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		/* The packet is going to be redirected from L3 to L2
 		 * device, so we need to create L2 header first.
 		 */
-		__u16 proto = ctx_get_protocol(ctx);
-
-		if (ctx_change_head(ctx, __ETH_HLEN, 0))
-			return DROP_INVALID;
-		if (eth_store_proto(ctx, proto, 0) < 0)
-			return DROP_WRITE_ERROR;
+		return add_l2_hdr(ctx);
 	}
 	return 0;
 }
@@ -130,11 +138,11 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 						     &fib_params->l.ipv6_dst,
 						     sizeof(nh_params.ipv6_nh));
 
-				return redirect_neigh(*oif, &nh_params,
-						sizeof(nh_params), 0);
+				return (int)redirect_neigh(*oif, &nh_params,
+							   sizeof(nh_params), 0);
 			}
 
-			return redirect_neigh(*oif, NULL, 0, 0);
+			return (int)redirect_neigh(*oif, NULL, 0, 0);
 		} else {
 			union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
 			union macaddr *dmac = NULL;
@@ -160,7 +168,7 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		}
 	};
 out_send:
-	return ctx_redirect(ctx, *oif, 0);
+	return (int)ctx_redirect(ctx, *oif, 0);
 }
 
 static __always_inline int
@@ -175,7 +183,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
 		int ret;
 
-		ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
+		ret = (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
 		switch (ret) {
 		case BPF_FIB_LKUP_RET_SUCCESS:
 		case BPF_FIB_LKUP_RET_NO_NEIGH:
@@ -213,7 +221,7 @@ fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_dst,
 		       (union v6addr *)ipv6_dst);
 
-	return fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
+	return (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
 };
 
 static __always_inline int
@@ -273,7 +281,7 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	fib_params->l.ipv4_src	= ipv4_src;
 	fib_params->l.ipv4_dst	= ipv4_dst;
 
-	return fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
+	return (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
 }
 
 static __always_inline int

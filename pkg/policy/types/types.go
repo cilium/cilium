@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright Authors of Hubble
+// Copyright Authors of Cilium
 
 package types
 
@@ -132,12 +132,18 @@ func (k Key) WithIdentity(nid identity.NumericIdentity) Key {
 
 // TrafficDirection() returns the direction of the Key, 0 == ingress, 1 == egress
 func (k LPMKey) TrafficDirection() trafficdirection.TrafficDirection {
+	// Note that 0 and 1 are the only possible return values, the shift below reduces the byte
+	// to a single bit.
 	return trafficdirection.TrafficDirection(k.bits >> directionBitShift)
 }
 
 // PortPrefixLen returns the length of the bitwise mask that should be applied to the DestPort.
 func (k LPMKey) PortPrefixLen() uint8 {
 	return k.bits & ^directionBitMask
+}
+
+func (k LPMKey) HasPortWildcard() bool {
+	return k.bits & ^directionBitMask < 16
 }
 
 // String returns a string representation of the Key

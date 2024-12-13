@@ -4,7 +4,6 @@
 package egressmap
 
 import (
-	"errors"
 	"net/netip"
 	"testing"
 
@@ -21,7 +20,7 @@ func TestPolicyMap(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	bpf.CheckOrMountFS("")
-	assert.Nil(t, rlimit.RemoveMemlock())
+	assert.NoError(t, rlimit.RemoveMemlock())
 
 	egressPolicyMap := createPolicyMap(hivetest.Lifecycle(t), DefaultPolicyConfig, ebpf.PinNone)
 
@@ -35,32 +34,32 @@ func TestPolicyMap(t *testing.T) {
 	egressIP2 := netip.MustParseAddr("3.3.3.2")
 
 	err := egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, egressIP1)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, egressIP2)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	val, err := egressPolicyMap.Lookup(sourceIP1, destCIDR1)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, val.EgressIP.Addr(), egressIP1)
 	assert.Equal(t, val.GatewayIP.Addr(), egressIP1)
 
 	val, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, val.EgressIP.Addr(), egressIP2)
 	assert.Equal(t, val.GatewayIP.Addr(), egressIP2)
 
 	err = egressPolicyMap.Delete(sourceIP2, destCIDR2)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	val, err = egressPolicyMap.Lookup(sourceIP1, destCIDR1)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, val.EgressIP.Addr(), egressIP1)
 	assert.Equal(t, val.GatewayIP.Addr(), egressIP1)
 
 	_, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
-	assert.True(t, errors.Is(err, ebpf.ErrKeyNotExist))
+	assert.ErrorIs(t, err, ebpf.ErrKeyNotExist)
 }

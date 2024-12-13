@@ -23,7 +23,8 @@ NAT                      node             512k            Max 512k NAT entries
 Neighbor Table           node             512k            Max 512k neighbor entries
 Endpoints                node             64k             Max 64k local endpoints + host IPs per node
 IP cache                 node             512k            Max 256k endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
-Load Balancer            node             64k             Max 64k cumulative backends across all services across all clusters
+Service Load Balancer    node             64k             Max ~3k clusterIP/nodePort Services across all clusters (see: `service map sizing <#service-lb-map-sizing>`_ section for details).
+Service Backends         node             64k             Max 64k cumulative unique backends across all services across all clusters
 Policy                   endpoint         16k             Max 16k allowed identity + port + protocol pairs for specific endpoint
 Proxy Map                node             512k            Max 512k concurrent redirected TCP connections to proxy
 Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
@@ -93,3 +94,31 @@ their own connection tracking tables when Cilium is configured with
 +------+--------------+-----------------------+-------------------+
 |   96 |          360 |               3145728 |           4552960 |
 +------+--------------+-----------------------+-------------------+
+
+.. _svc_lb_tuning:
+
+Service LB Map Sizing
+=====================
+
+Cilium uses the LB services maps named ``cilium_lb{4,6}_services_v2`` to hold Service load balancer entries for clusterIP and nodePort service types.
+These maps are configured via the ``--bpf-lb-map-max`` flag and are set to 64k by default. If this map is full, Cilium may be unable to reconcile Service
+updates which may affect connectivity to service IPs or the ability to create new services.
+
+The required size of service LB maps depends on multiple factors. Each clusterIP/nodePort service will create
+a number of entries equal to the number of Pods backends selected by the service, times the number of port/protocol entries in the respective Service spec.
+
+:math:`\text{LB map entries per Service} = (\text{number of endpoints per service}) * (\text{number of port/protocols per service})`
+
+Using this, we can roughly the required map size as:
+
+:math:`\text{LB map entries} \approx (\text{number of LB services}) * (\text{avg number of endpoints per service}) * (\text{avg number of port/protocols per service})`
+
+.. note::
+
+   This heuristic assumes that number of selected Pods and ports/protocol entries per service are roughly normally distributed. If your use case
+   has large outliers (ex. such as a service that selects a very large set of Pod backends) it may be necessary to do a more detailed estimate.
+
+Once Cilium has created the service LB maps for a Node (i.e. upon first running Cilium agent on a Node), attempting to resize the map size
+parameter and restarting Cilium results in connection disruptions as the new map is repopulated with existing service entries.
+Therefore it is important to carefully consider map requirements prior to installing Cilium if such disruptions are a concern.
+

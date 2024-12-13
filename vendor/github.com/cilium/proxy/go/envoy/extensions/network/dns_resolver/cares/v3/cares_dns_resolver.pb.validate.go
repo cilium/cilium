@@ -135,6 +135,35 @@ func (m *CaresDnsResolverConfig) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetUdpMaxQueries()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CaresDnsResolverConfigValidationError{
+					field:  "UdpMaxQueries",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CaresDnsResolverConfigValidationError{
+					field:  "UdpMaxQueries",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUdpMaxQueries()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CaresDnsResolverConfigValidationError{
+				field:  "UdpMaxQueries",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return CaresDnsResolverConfigMultiError(errors)
 	}

@@ -5,12 +5,14 @@ package loadbalancer
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -54,8 +56,44 @@ const (
 type SVCForwardingMode string
 
 const (
-	SVCForwardingModeDSR  = SVCForwardingMode("dsr")
-	SVCForwardingModeSNAT = SVCForwardingMode("snat")
+	SVCForwardingModeUndef = SVCForwardingMode("undef")
+	SVCForwardingModeDSR   = SVCForwardingMode("dsr")
+	SVCForwardingModeSNAT  = SVCForwardingMode("snat")
+)
+
+func ToSVCForwardingMode(s string) SVCForwardingMode {
+	if s == option.NodePortModeDSR {
+		return SVCForwardingModeDSR
+	}
+	if s == option.NodePortModeSNAT {
+		return SVCForwardingModeSNAT
+	}
+	return SVCForwardingModeUndef
+}
+
+type SVCLoadBalancingAlgorithm uint8
+
+const (
+	SVCLoadBalancingAlgorithmUndef  = 0
+	SVCLoadBalancingAlgorithmRandom = 1
+	SVCLoadBalancingAlgorithmMaglev = 2
+)
+
+func ToSVCLoadBalancingAlgorithm(s string) SVCLoadBalancingAlgorithm {
+	if s == option.NodePortAlgMaglev {
+		return SVCLoadBalancingAlgorithmMaglev
+	}
+	if s == option.NodePortAlgRandom {
+		return SVCLoadBalancingAlgorithmRandom
+	}
+	return SVCLoadBalancingAlgorithmUndef
+}
+
+type SVCSourceRangesPolicy string
+
+const (
+	SVCSourceRangesPolicyAllow = SVCSourceRangesPolicy("allow")
+	SVCSourceRangesPolicyDeny  = SVCSourceRangesPolicy("deny")
 )
 
 // ServiceFlags is the datapath representation of the service flags that can be
@@ -79,6 +117,10 @@ const (
 	serviceFlagIntLocalScope   = 1 << 12
 	serviceFlagTwoScopes       = 1 << 13
 	serviceFlagQuarantined     = 1 << 14
+	// serviceFlagSrcRangesDeny is set on master
+	// svc entry, serviceFlagQuarantined is only
+	// set on backend svc entries.
+	serviceFlagSourceRangeDeny = 1 << 14
 	serviceFlagFwdModeDSR      = 1 << 15
 )
 
@@ -91,6 +133,7 @@ type SvcFlagParam struct {
 	SessionAffinity  bool
 	IsRoutable       bool
 	CheckSourceRange bool
+	SourceRangeDeny  bool
 	L7LoadBalancer   bool
 	LoopbackHostport bool
 	Quarantined      bool
@@ -134,6 +177,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.IsRoutable {
 		flags |= serviceFlagRoutable
+	}
+	if p.SourceRangeDeny {
+		flags |= serviceFlagSourceRangeDeny
 	}
 	if p.CheckSourceRange {
 		flags |= serviceFlagSourceRange
@@ -221,6 +267,7 @@ func (s ServiceFlags) SVCSlotQuarantined() bool {
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
 	var str []string
+	seenDeny := false
 
 	str = append(str, string(s.SVCType()))
 	if s&serviceFlagExtLocalScope != 0 {
@@ -240,6 +287,10 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagSourceRange != 0 {
 		str = append(str, "check source-range")
+		if s&serviceFlagSourceRangeDeny != 0 {
+			seenDeny = true
+			str = append(str, "deny")
+		}
 	}
 	if s&serviceFlagNat46x64 != 0 {
 		str = append(str, "46x64")
@@ -250,7 +301,7 @@ func (s ServiceFlags) String() string {
 	if s&serviceFlagLoopback != 0 {
 		str = append(str, "loopback")
 	}
-	if s&serviceFlagQuarantined != 0 {
+	if !seenDeny && s&serviceFlagQuarantined != 0 {
 		str = append(str, "quarantined")
 	}
 	if s&serviceFlagFwdModeDSR != 0 {
@@ -475,10 +526,12 @@ type SVC struct {
 	ExtTrafficPolicy          SVCTrafficPolicy  // Service external traffic policy
 	IntTrafficPolicy          SVCTrafficPolicy  // Service internal traffic policy
 	NatPolicy                 SVCNatPolicy      // Service NAT 46/64 policy
+	SourceRangesPolicy        SVCSourceRangesPolicy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
-	HealthCheckNodePort       uint16      // Service health check node port
-	Name                      ServiceName // Fully qualified service name
+	HealthCheckNodePort       uint16                    // Service health check node port
+	Name                      ServiceName               // Fully qualified service name
+	LoadBalancerAlgorithm     SVCLoadBalancingAlgorithm // Service LB algorithm (random or maglev)
 	LoadBalancerSourceRanges  []*cidr.CIDR
 	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 	LoopbackHostport          bool
@@ -735,6 +788,76 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	}
 
 	return &L3n4Addr{AddrCluster: addrCluster, L4Addr: *l4addr, Scope: scope}, nil
+}
+
+// L3n4AddrFromString constructs a StateDB key by parsing the input in the form of
+// L3n4Addr.String(), e.g. <addr>:<port>/protocol. The input can be partial to construct
+// keys for prefix searches, e.g. "1.2.3.4".
+// This must be kept in sync with Bytes().
+func L3n4AddrFromString(key string) (index.Key, error) {
+	keyErr := errors.New("bad key, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\"")
+	var out []byte
+
+	if len(key) == 0 {
+		return index.Key{}, keyErr
+	}
+
+	// Parse address
+	var addr string
+	if strings.HasPrefix(key, "[") {
+		addr, key, _ = strings.Cut(key[1:], "]")
+		switch {
+		case strings.HasPrefix(key, ":"):
+			key = key[1:]
+		case len(key) > 0:
+			return index.Key{}, keyErr
+		}
+	} else {
+		addr, key, _ = strings.Cut(key, ":")
+	}
+
+	addrCluster, err := cmtypes.ParseAddrCluster(addr)
+	if err != nil {
+		return index.Key{}, fmt.Errorf("%w: %w", keyErr, err)
+	}
+	addr20 := addrCluster.As20()
+	out = append(out, addr20[:]...)
+
+	// Parse port
+	if len(key) > 0 {
+		var s string
+		s, key, _ = strings.Cut(key, "/")
+		port, err := strconv.ParseUint(s, 10, 16)
+		if err != nil {
+			return index.Key{}, fmt.Errorf("%w: %w", keyErr, err)
+		}
+		out = binary.BigEndian.AppendUint16(out, uint16(port))
+	}
+
+	// Parse protocol
+	hadProto := false
+	if len(key) > 0 {
+		var proto string
+		proto, key, _ = strings.Cut(key, "/")
+		protoByte := L4TypeAsByte(strings.ToUpper(proto))
+		if protoByte == '?' {
+			return index.Key{}, fmt.Errorf("%w: bad protocol, expected TCP/UDP/SCTP", keyErr)
+		}
+		out = append(out, protoByte)
+		hadProto = true
+	}
+
+	// Parse scope.
+	switch {
+	case key == "i":
+		out = append(out, ScopeInternal)
+	case hadProto:
+		// Since external scope is implicit we add it here if the protocol was
+		// also provided. This way we can construct partial keys for prefix
+		// searching and we can construct complete key for 'get'.
+		out = append(out, ScopeExternal)
+	}
+	return index.Key(out), nil
 }
 
 // NewBackend creates the Backend struct instance from given params.

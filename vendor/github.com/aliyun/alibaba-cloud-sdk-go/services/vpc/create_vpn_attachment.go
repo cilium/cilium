@@ -71,31 +71,74 @@ func (client *Client) CreateVpnAttachmentWithCallback(request *CreateVpnAttachme
 // CreateVpnAttachmentRequest is the request struct for api CreateVpnAttachment
 type CreateVpnAttachmentRequest struct {
 	*requests.RpcRequest
-	IkeConfig                    string                     `position:"Query" name:"IkeConfig"`
-	AutoConfigRoute              requests.Boolean           `position:"Query" name:"AutoConfigRoute"`
-	ResourceOwnerId              requests.Integer           `position:"Query" name:"ResourceOwnerId"`
-	CenId                        string                     `position:"Query" name:"CenId"`
-	AttachType                   string                     `position:"Query" name:"AttachType"`
-	ClientToken                  string                     `position:"Query" name:"ClientToken"`
-	IpsecConfig                  string                     `position:"Query" name:"IpsecConfig"`
-	BgpConfig                    string                     `position:"Query" name:"BgpConfig"`
-	RouteTableAssociationEnabled requests.Boolean           `position:"Query" name:"RouteTableAssociationEnabled"`
-	NetworkType                  string                     `position:"Query" name:"NetworkType"`
-	HealthCheckConfig            string                     `position:"Query" name:"HealthCheckConfig"`
-	CustomerGatewayId            string                     `position:"Query" name:"CustomerGatewayId"`
-	LocalSubnet                  string                     `position:"Query" name:"LocalSubnet"`
-	RemoteCaCert                 string                     `position:"Query" name:"RemoteCaCert"`
-	AutoPublishRouteEnabled      requests.Boolean           `position:"Query" name:"AutoPublishRouteEnabled"`
-	RouteTablePropagationEnabled requests.Boolean           `position:"Query" name:"RouteTablePropagationEnabled"`
-	RemoteSubnet                 string                     `position:"Query" name:"RemoteSubnet"`
-	EffectImmediately            requests.Boolean           `position:"Query" name:"EffectImmediately"`
-	ResourceOwnerAccount         string                     `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                 string                     `position:"Query" name:"OwnerAccount"`
-	EnableDpd                    requests.Boolean           `position:"Query" name:"EnableDpd"`
-	Tags                         *[]CreateVpnAttachmentTags `position:"Query" name:"Tags"  type:"Repeated"`
-	Name                         string                     `position:"Query" name:"Name"`
-	ZoneId                       string                     `position:"Query" name:"ZoneId"`
-	EnableNatTraversal           requests.Boolean           `position:"Query" name:"EnableNatTraversal"`
+	ResourceOwnerId              requests.Integer                                 `position:"Query" name:"ResourceOwnerId"`
+	AttachType                   string                                           `position:"Query" name:"AttachType"`
+	BgpConfig                    string                                           `position:"Query" name:"BgpConfig"`
+	RouteTableAssociationEnabled requests.Boolean                                 `position:"Query" name:"RouteTableAssociationEnabled"`
+	NetworkType                  string                                           `position:"Query" name:"NetworkType"`
+	LocalSubnet                  string                                           `position:"Query" name:"LocalSubnet"`
+	ResourceGroupId              string                                           `position:"Query" name:"ResourceGroupId"`
+	AutoPublishRouteEnabled      requests.Boolean                                 `position:"Query" name:"AutoPublishRouteEnabled"`
+	RouteTablePropagationEnabled requests.Boolean                                 `position:"Query" name:"RouteTablePropagationEnabled"`
+	RemoteSubnet                 string                                           `position:"Query" name:"RemoteSubnet"`
+	EffectImmediately            requests.Boolean                                 `position:"Query" name:"EffectImmediately"`
+	EnableDpd                    requests.Boolean                                 `position:"Query" name:"EnableDpd"`
+	Tags                         *[]CreateVpnAttachmentTags                       `position:"Query" name:"Tags"  type:"Repeated"`
+	Name                         string                                           `position:"Query" name:"Name"`
+	ZoneId                       string                                           `position:"Query" name:"ZoneId"`
+	EnableNatTraversal           requests.Boolean                                 `position:"Query" name:"EnableNatTraversal"`
+	IkeConfig                    string                                           `position:"Query" name:"IkeConfig"`
+	AutoConfigRoute              requests.Boolean                                 `position:"Query" name:"AutoConfigRoute"`
+	CenId                        string                                           `position:"Query" name:"CenId"`
+	ClientToken                  string                                           `position:"Query" name:"ClientToken"`
+	IpsecConfig                  string                                           `position:"Query" name:"IpsecConfig"`
+	HealthCheckConfig            string                                           `position:"Query" name:"HealthCheckConfig"`
+	CustomerGatewayId            string                                           `position:"Query" name:"CustomerGatewayId"`
+	RemoteCaCert                 string                                           `position:"Query" name:"RemoteCaCert"`
+	EnableTunnelsBgp             requests.Boolean                                 `position:"Query" name:"EnableTunnelsBgp"`
+	ResourceOwnerAccount         string                                           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                 string                                           `position:"Query" name:"OwnerAccount"`
+	TunnelOptionsSpecification   *[]CreateVpnAttachmentTunnelOptionsSpecification `position:"Body" name:"TunnelOptionsSpecification"  type:"Repeated"`
+}
+
+// CreateVpnAttachmentTunnelOptionsSpecification is a repeated param struct in CreateVpnAttachmentRequest
+type CreateVpnAttachmentTunnelOptionsSpecification struct {
+	TunnelIpsecConfig   CreateVpnAttachmentTunnelOptionsSpecificationTunnelIpsecConfig `name:"TunnelIpsecConfig" type:"Struct"`
+	TunnelBgpConfig     CreateVpnAttachmentTunnelOptionsSpecificationTunnelBgpConfig   `name:"TunnelBgpConfig" type:"Struct"`
+	RemoteCaCertificate string                                                         `name:"RemoteCaCertificate"`
+	TunnelIkeConfig     CreateVpnAttachmentTunnelOptionsSpecificationTunnelIkeConfig   `name:"TunnelIkeConfig" type:"Struct"`
+	EnableNatTraversal  string                                                         `name:"EnableNatTraversal"`
+	EnableDpd           string                                                         `name:"EnableDpd"`
+	TunnelIndex         string                                                         `name:"TunnelIndex"`
+	CustomerGatewayId   string                                                         `name:"CustomerGatewayId"`
+}
+
+// CreateVpnAttachmentTunnelOptionsSpecificationTunnelIpsecConfig is a repeated param struct in CreateVpnAttachmentRequest
+type CreateVpnAttachmentTunnelOptionsSpecificationTunnelIpsecConfig struct {
+	IpsecPfs      string `name:"IpsecPfs"`
+	IpsecLifetime string `name:"IpsecLifetime"`
+	IpsecAuthAlg  string `name:"IpsecAuthAlg"`
+	IpsecEncAlg   string `name:"IpsecEncAlg"`
+}
+
+// CreateVpnAttachmentTunnelOptionsSpecificationTunnelBgpConfig is a repeated param struct in CreateVpnAttachmentRequest
+type CreateVpnAttachmentTunnelOptionsSpecificationTunnelBgpConfig struct {
+	LocalAsn   string `name:"LocalAsn"`
+	TunnelCidr string `name:"TunnelCidr"`
+	LocalBgpIp string `name:"LocalBgpIp"`
+}
+
+// CreateVpnAttachmentTunnelOptionsSpecificationTunnelIkeConfig is a repeated param struct in CreateVpnAttachmentRequest
+type CreateVpnAttachmentTunnelOptionsSpecificationTunnelIkeConfig struct {
+	IkeVersion  string `name:"IkeVersion"`
+	IkeMode     string `name:"IkeMode"`
+	IkeAuthAlg  string `name:"IkeAuthAlg"`
+	Psk         string `name:"Psk"`
+	IkePfs      string `name:"IkePfs"`
+	IkeLifetime string `name:"IkeLifetime"`
+	LocalId     string `name:"LocalId"`
+	IkeEncAlg   string `name:"IkeEncAlg"`
+	RemoteId    string `name:"RemoteId"`
 }
 
 // CreateVpnAttachmentTags is a repeated param struct in CreateVpnAttachmentRequest
@@ -112,8 +155,8 @@ type CreateVpnAttachmentResponse struct {
 	Name            string `json:"Name" xml:"Name"`
 	CreateTime      int64  `json:"CreateTime" xml:"CreateTime"`
 	Code            string `json:"Code" xml:"Code"`
-	Success         bool   `json:"Success" xml:"Success"`
 	Message         string `json:"Message" xml:"Message"`
+	Success         bool   `json:"Success" xml:"Success"`
 }
 
 // CreateCreateVpnAttachmentRequest creates a request to invoke CreateVpnAttachment API

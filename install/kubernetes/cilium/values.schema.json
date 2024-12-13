@@ -152,6 +152,9 @@
                         "podSecurityContext": {
                           "type": "object"
                         },
+                        "priorityClassName": {
+                          "type": "string"
+                        },
                         "resources": {
                           "type": "object"
                         },
@@ -359,6 +362,9 @@
                         "podSecurityContext": {
                           "type": "object"
                         },
+                        "priorityClassName": {
+                          "type": "string"
+                        },
                         "resources": {
                           "type": "object"
                         },
@@ -449,25 +455,6 @@
       },
       "type": "object"
     },
-    "bgp": {
-      "properties": {
-        "announce": {
-          "properties": {
-            "loadbalancerIP": {
-              "type": "boolean"
-            },
-            "podCIDR": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "bgpControlPlane": {
       "properties": {
         "enabled": {
@@ -480,6 +467,14 @@
             },
             "name": {
               "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "statusReport": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
             }
           },
           "type": "object"
@@ -573,6 +568,9 @@
             "boolean"
           ]
         },
+        "lbAlgorithmAnnotation": {
+          "type": "boolean"
+        },
         "lbExternalClusterIP": {
           "type": "boolean"
         },
@@ -581,6 +579,12 @@
             "null",
             "integer"
           ]
+        },
+        "lbModeAnnotation": {
+          "type": "boolean"
+        },
+        "lbSourceRangeAllTypes": {
+          "type": "boolean"
         },
         "mapDynamicSizeRatio": {
           "type": [
@@ -675,6 +679,9 @@
           "items": {},
           "type": "array"
         },
+        "generateCA": {
+          "type": "boolean"
+        },
         "image": {
           "properties": {
             "digest": {
@@ -701,8 +708,14 @@
           },
           "type": "object"
         },
+        "nodeSelector": {
+          "type": "object"
+        },
         "podLabels": {
           "type": "object"
+        },
+        "priorityClassName": {
+          "type": "string"
         },
         "tolerations": {
           "items": {},
@@ -1465,6 +1478,12 @@
       },
       "type": "object"
     },
+    "commonLabels": {
+      "type": [
+        "null",
+        "object"
+      ]
+    },
     "conntrackGCInterval": {
       "type": "string"
     },
@@ -1500,6 +1519,12 @@
           "type": [
             "null",
             "string"
+          ]
+        },
+        "enableSourceIPVerification": {
+          "type": [
+            "null",
+            "boolean"
           ]
         },
         "runPath": {
@@ -1712,6 +1737,9 @@
       },
       "type": "object"
     },
+    "endpointLockdownOnMapOverflow": {
+      "type": "boolean"
+    },
     "endpointRoutes": {
       "properties": {
         "enabled": {
@@ -1892,6 +1920,12 @@
         "baseID": {
           "type": "integer"
         },
+        "bootstrapConfigMap": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "connectTimeoutSeconds": {
           "type": "integer"
         },
@@ -1950,6 +1984,9 @@
         "healthPort": {
           "type": "integer"
         },
+        "httpRetryCount": {
+          "type": "integer"
+        },
         "idleTimeoutDurationSeconds": {
           "type": "integer"
         },
@@ -1978,6 +2015,9 @@
             }
           },
           "type": "object"
+        },
+        "initialFetchTimeoutSeconds": {
+          "type": "integer"
         },
         "livenessProbe": {
           "properties": {
@@ -2011,13 +2051,25 @@
               ]
             },
             "format": {
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "format_json": {
+              "type": [
+                "null",
+                "object"
+              ]
             },
             "path": {
               "type": "string"
             }
           },
           "type": "object"
+        },
+        "maxConcurrentRetries": {
+          "type": "integer"
         },
         "maxConnectionDurationSeconds": {
           "type": "integer"
@@ -2397,6 +2449,9 @@
     "global": {
       "type": "object"
     },
+    "healthCheckICMPFailureThreshold": {
+      "type": "integer"
+    },
     "healthChecking": {
       "type": "boolean"
     },
@@ -2565,6 +2620,51 @@
                     "null",
                     "string"
                   ]
+                }
+              },
+              "type": "object"
+            },
+            "dynamic": {
+              "properties": {
+                "config": {
+                  "properties": {
+                    "configMapName": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "contextOptions": {
+                                "items": {},
+                                "type": "array"
+                              },
+                              "excludeFilters": {
+                                "items": {},
+                                "type": "array"
+                              },
+                              "includeFilters": {
+                                "items": {},
+                                "type": "array"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "createConfigMap": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "enabled": {
+                  "type": "boolean"
                 }
               },
               "type": "object"
@@ -3668,7 +3768,13 @@
         "ciliumNodeUpdateRate": {
           "type": "string"
         },
+        "installUplinkRoutesForDelegatedIPAM": {
+          "type": "boolean"
+        },
         "mode": {
+          "type": "string"
+        },
+        "multiPoolPreAllocation": {
           "type": "string"
         },
         "operator": {
@@ -3725,6 +3831,9 @@
         }
       },
       "type": "object"
+    },
+    "iptablesRandomFully": {
+      "type": "boolean"
     },
     "ipv4": {
       "properties": {
@@ -4391,6 +4500,9 @@
             "enabled": {
               "type": "boolean"
             },
+            "metricsService": {
+              "type": "boolean"
+            },
             "port": {
               "type": "integer"
             },
@@ -4769,6 +4881,9 @@
             "null",
             "array"
           ]
+        },
+        "metricsService": {
+          "type": "boolean"
         },
         "port": {
           "type": "integer"
@@ -5280,6 +5395,25 @@
             },
             "useSecret": {
               "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "secretSync": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "secretsNamespace": {
+              "properties": {
+                "create": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"

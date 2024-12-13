@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 func Test_authMapGarbageCollector_cleanupIdentities(t *testing.T) {
@@ -26,14 +26,14 @@ func Test_authMapGarbageCollector_cleanupIdentities(t *testing.T) {
 
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policy.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 11, remoteNodeID: 0, authType: policy.AuthTypeSpire}:       {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 12, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}:       {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 11, remoteIdentity: 12, remoteNodeID: 0, authType: policy.AuthTypeAlwaysFail}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 11, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:       {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 12, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:       {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 11, remoteIdentity: 12, remoteNodeID: 0, authType: policyTypes.AuthTypeAlwaysFail}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
 
 	assert.Len(t, authMap.entries, 5)
 	assert.Empty(t, gc.ciliumIdentitiesDiscovered)
@@ -73,7 +73,7 @@ func Test_authMapGarbageCollector_cleanupIdentities(t *testing.T) {
 	err = gc.cleanupIdentities(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1, "GC run after the initial sync should delete all entries which belong to deleted or non-discovered identities")
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire},
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire},
 		"Auth map entry between ids 1->2 should be the only remaining entry, because the others are no longer existent or already deleted")
 	assert.Nil(t, gc.ciliumIdentitiesDiscovered, "First GC run after the initial sync should reset the option to discover identities")
 	assert.Empty(t, gc.ciliumIdentitiesDeleted, "GC runs should delete the successfully garbage collected entries from the list of deleted identities")
@@ -100,14 +100,14 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 2, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 3, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 4, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 2, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 3, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 4, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{
 		1: "172.18.0.1",
 		2: "172.18.0.2",
 		3: "172.18.0.3",
@@ -150,9 +150,9 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 	err = gc.cleanupNodes(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 3, "GC run after the initial sync should delete all entries which belong to deleted or non-discovered nodes")
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire})
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: policy.AuthTypeSpire})
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 3, authType: policy.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: policyTypes.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 3, authType: policyTypes.AuthTypeSpire})
 	assert.Nil(t, gc.ciliumNodesDiscovered, "First GC run after the initial sync should reset the option to discover nodes")
 	assert.Empty(t, gc.ciliumNodesDeleted, "GC runs should delete the successfully garbage collected entries from the list of deleted nodes")
 
@@ -169,8 +169,8 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 	err = gc.cleanupNodes(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 2, "GC runs should delete all entries which belong to deleted nodes")
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire})
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: policy.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: policyTypes.AuthTypeSpire})
 	assert.Nil(t, gc.ciliumNodesDiscovered)
 	assert.Empty(t, gc.ciliumNodesDeleted, "GC runs should delete the successfully garbage collected entries from the list of deleted nodes")
 }
@@ -180,20 +180,20 @@ func Test_authMapGarbageCollector_cleanupPolicies(t *testing.T) {
 
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 4, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 4, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil,
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil,
 		&fakePolicyRepository{
-			needsAuth: map[identity.NumericIdentity]map[identity.NumericIdentity]policy.AuthTypes{
+			needsAuth: map[identity.NumericIdentity]map[identity.NumericIdentity]policyTypes.AuthTypes{
 				1: {
-					2: map[policy.AuthType]struct{}{
-						policy.AuthTypeSpire: {},
+					2: map[policyTypes.AuthType]struct{}{
+						policyTypes.AuthTypeSpire: {},
 					},
-					3: map[policy.AuthType]struct{}{
-						policy.AuthTypeAlwaysFail: {},
+					3: map[policyTypes.AuthType]struct{}{
+						policyTypes.AuthTypeAlwaysFail: {},
 					},
 				},
 			},
@@ -205,7 +205,7 @@ func Test_authMapGarbageCollector_cleanupPolicies(t *testing.T) {
 	err := gc.cleanupEntriesWithoutAuthPolicy(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1, "GC runs should delete all entries where (the type of) auth is no longer enforced by a policy")
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire})
 }
 
 func Test_authMapGarbageCollector_cleanupExpired(t *testing.T) {
@@ -213,18 +213,18 @@ func Test_authMapGarbageCollector_cleanupExpired(t *testing.T) {
 
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(-5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(-5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
 
 	assert.Len(t, authMap.entries, 2)
 
 	err := gc.cleanupExpiredEntries(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1, "GC runs should delete all expired entries from the map")
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire})
 }
 
 func Test_authMapGarbageCollector_cleanup(t *testing.T) {
@@ -232,40 +232,40 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 3, remoteIdentity: 4, remoteNodeID: 1, authType: policy.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},  // deleted remote node
-			{localIdentity: 5, remoteIdentity: 6, remoteNodeID: 0, authType: policy.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},  // deleted remote id
-			{localIdentity: 7, remoteIdentity: 8, remoteNodeID: 0, authType: policy.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},  // deleted local id
-			{localIdentity: 9, remoteIdentity: 10, remoteNodeID: 2, authType: policy.AuthTypeSpire}:       {expiration: time.Now().Add(5 * time.Minute)},  // no policy present which enforces auth between identities
-			{localIdentity: 11, remoteIdentity: 12, remoteNodeID: 0, authType: policy.AuthTypeAlwaysFail}: {expiration: time.Now().Add(5 * time.Minute)},  // no policy present which enforces specific auth type
-			{localIdentity: 13, remoteIdentity: 14, remoteNodeID: 0, authType: policy.AuthTypeSpire}:      {expiration: time.Now().Add(-5 * time.Minute)}, // expired
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 3, remoteIdentity: 4, remoteNodeID: 1, authType: policyTypes.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},  // deleted remote node
+			{localIdentity: 5, remoteIdentity: 6, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},  // deleted remote id
+			{localIdentity: 7, remoteIdentity: 8, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:        {expiration: time.Now().Add(5 * time.Minute)},  // deleted local id
+			{localIdentity: 9, remoteIdentity: 10, remoteNodeID: 2, authType: policyTypes.AuthTypeSpire}:       {expiration: time.Now().Add(5 * time.Minute)},  // no policy present which enforces auth between identities
+			{localIdentity: 11, remoteIdentity: 12, remoteNodeID: 0, authType: policyTypes.AuthTypeAlwaysFail}: {expiration: time.Now().Add(5 * time.Minute)},  // no policy present which enforces specific auth type
+			{localIdentity: 13, remoteIdentity: 14, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:      {expiration: time.Now().Add(-5 * time.Minute)}, // expired
 		},
 	}
 
-	gc := newAuthMapGC(logrus.New(), authMap,
+	gc := newAuthMapGC(hivetest.Logger(t), authMap,
 		newFakeNodeIDHandler(map[uint16]string{
 			1: "172.18.0.1",
 			2: "172.18.0.2",
 		}),
 		&fakePolicyRepository{
-			needsAuth: map[identity.NumericIdentity]map[identity.NumericIdentity]policy.AuthTypes{
+			needsAuth: map[identity.NumericIdentity]map[identity.NumericIdentity]policyTypes.AuthTypes{
 				1: {
-					2: map[policy.AuthType]struct{}{policy.AuthTypeSpire: {}},
+					2: map[policyTypes.AuthType]struct{}{policyTypes.AuthTypeSpire: {}},
 				},
 				3: {
-					4: map[policy.AuthType]struct{}{policy.AuthTypeSpire: {}},
+					4: map[policyTypes.AuthType]struct{}{policyTypes.AuthTypeSpire: {}},
 				},
 				5: {
-					6: map[policy.AuthType]struct{}{policy.AuthTypeSpire: {}},
+					6: map[policyTypes.AuthType]struct{}{policyTypes.AuthTypeSpire: {}},
 				},
 				7: {
-					8: map[policy.AuthType]struct{}{policy.AuthTypeSpire: {}},
+					8: map[policyTypes.AuthType]struct{}{policyTypes.AuthTypeSpire: {}},
 				},
 				11: {
-					12: map[policy.AuthType]struct{}{policy.AuthTypeSpire: {}},
+					12: map[policyTypes.AuthType]struct{}{policyTypes.AuthTypeSpire: {}},
 				},
 				13: {
-					14: map[policy.AuthType]struct{}{policy.AuthTypeSpire: {}},
+					14: map[policyTypes.AuthType]struct{}{policyTypes.AuthTypeSpire: {}},
 				},
 			},
 		},
@@ -287,7 +287,7 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 	err := gc.cleanup(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1)
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire})
 }
 
 func Test_authMapGarbageCollector_cleanupEndpoints(t *testing.T) {
@@ -295,12 +295,12 @@ func Test_authMapGarbageCollector_cleanupEndpoints(t *testing.T) {
 
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 2, remoteIdentity: 1, remoteNodeID: 0, authType: policy.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 2, remoteIdentity: 1, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
 	gc.endpointsCache = map[uint16]*endpoint.Endpoint{
 		1: {
 			SecurityIdentity: &identity.Identity{
@@ -327,7 +327,7 @@ func Test_authMapGarbageCollector_cleanupEndpoints(t *testing.T) {
 	err := gc.cleanupEndpoints(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1, "GC runs should delete all entries where the secrity ID no longer is in the endpoint map")
-	assert.Contains(t, authMap.entries, authKey{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policy.AuthTypeSpire})
+	assert.Contains(t, authMap.entries, authKey{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policyTypes.AuthTypeSpire})
 }
 
 func Test_authMapGarbageCollector_cleanupEndpointsNoopCase(t *testing.T) {
@@ -335,12 +335,12 @@ func Test_authMapGarbageCollector_cleanupEndpointsNoopCase(t *testing.T) {
 
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policy.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 2, remoteIdentity: 1, remoteNodeID: 0, authType: policy.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
-			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 2, remoteIdentity: 1, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}:   {expiration: time.Now().Add(5 * time.Minute)},
+			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
 	gc.endpointsCache = map[uint16]*endpoint.Endpoint{
 		1: {
 			SecurityIdentity: &identity.Identity{
@@ -384,7 +384,7 @@ func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil)
 
 	event := ciliumNodeEvent("172.18.0.3")
 	err := gc.NodeAdd(event)
@@ -403,7 +403,7 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil)
 
 	event := ciliumIdentityEvent(cache.IdentityChangeDelete, 4)
 	err := gc.handleIdentityChange(context.Background(), event)
@@ -438,10 +438,10 @@ func ciliumIdentityEvent(kind cache.IdentityChangeKind, id identity.NumericIdent
 // Fake policyRepository
 
 type fakePolicyRepository struct {
-	needsAuth map[identity.NumericIdentity]map[identity.NumericIdentity]policy.AuthTypes
+	needsAuth map[identity.NumericIdentity]map[identity.NumericIdentity]policyTypes.AuthTypes
 }
 
-func (r *fakePolicyRepository) GetAuthTypes(localID, remoteID identity.NumericIdentity) policy.AuthTypes {
+func (r *fakePolicyRepository) GetAuthTypes(localID, remoteID identity.NumericIdentity) policyTypes.AuthTypes {
 	if remotes, localPresent := r.needsAuth[localID]; localPresent {
 		if authTypes, remotePresent := remotes[remoteID]; remotePresent {
 			return authTypes

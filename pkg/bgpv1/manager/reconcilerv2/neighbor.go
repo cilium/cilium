@@ -27,6 +27,7 @@ type NeighborReconciler struct {
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
+	metadata     map[string]NeighborReconcilerMetadata
 }
 
 type NeighborReconcilerOut struct {
@@ -52,6 +53,7 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 			SecretStore:  params.SecretStore,
 			PeerConfig:   params.PeerConfig,
 			DaemonConfig: params.DaemonConfig,
+			metadata:     make(map[string]NeighborReconcilerMetadata),
 		},
 	}
 }
@@ -66,65 +68,25 @@ type PeerData struct {
 }
 
 // NeighborReconcilerMetadata keeps a map of running peers to peer configuration.
-// key is the peer name.
-type NeighborReconcilerMetadata map[string][]*PeerData
+// Key is the peer name.
+type NeighborReconcilerMetadata map[string]*PeerData
 
 func (r *NeighborReconciler) getMetadata(i *instance.BGPInstance) NeighborReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = make(NeighborReconcilerMetadata)
-	}
-	return i.Metadata[r.Name()].(NeighborReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
-func (r *NeighborReconciler) upsertMetadata(i *instance.BGPInstance, instanceName string, d *PeerData) {
+func (r *NeighborReconciler) upsertMetadata(i *instance.BGPInstance, d *PeerData) {
 	if i == nil || d == nil {
 		return
 	}
-
-	neighMetadata := r.getMetadata(i)
-
-	peers, exists := neighMetadata[instanceName]
-	if !exists {
-		neighMetadata[instanceName] = []*PeerData{d}
-		return
-	}
-
-	found := false
-	for i, p := range peers {
-		if p.Peer.Name == d.Peer.Name {
-			peers[i] = d
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		peers = append(peers, d)
-	}
-
-	neighMetadata[instanceName] = peers
+	r.metadata[i.Name][d.Peer.Name] = d
 }
 
-func (r *NeighborReconciler) deleteMetadata(i *instance.BGPInstance, instanceName string, d *PeerData) {
+func (r *NeighborReconciler) deleteMetadata(i *instance.BGPInstance, d *PeerData) {
 	if i == nil || d == nil {
 		return
 	}
-
-	neighMetadata := r.getMetadata(i)
-	peers, exists := neighMetadata[instanceName]
-	if !exists {
-		return
-	}
-
-	for i, p := range peers {
-		if p.Peer.Name == d.Peer.Name {
-			peers[i] = peers[len(peers)-1]
-			peers = peers[:len(peers)-1]
-			break
-		}
-	}
-
-	neighMetadata[instanceName] = peers
+	delete(r.metadata[i.Name], d.Peer.Name)
 }
 
 func (r *NeighborReconciler) Name() string {
@@ -139,11 +101,19 @@ func (r *NeighborReconciler) Priority() int {
 	return NeighborReconcilerPriority
 }
 
-func (r *NeighborReconciler) Init(_ *instance.BGPInstance) error {
+func (r *NeighborReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = make(NeighborReconcilerMetadata)
 	return nil
 }
 
-func (r *NeighborReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *NeighborReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
@@ -161,17 +131,11 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		toCreate []*PeerData
 		toRemove []*PeerData
 		toUpdate []*PeerData
-		curNeigh []*PeerData = nil
 	)
+	curNeigh := r.getMetadata(p.BGPInstance)
 	newNeigh := p.DesiredConfig.Peers
 
 	l.Debug("Begin reconciling peers")
-
-	// get current configured peers
-	curInstance := r.getMetadata(p.BGPInstance)
-	if curInstance != nil {
-		curNeigh = curInstance[p.DesiredConfig.Name]
-	}
 
 	type member struct {
 		new *PeerData
@@ -189,7 +153,8 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		}
 
 		if n.PeerAddress == nil {
-			return fmt.Errorf("peer %s does not have a PeerAddress", n.Name)
+			l.WithField(types.PeerLogField, n.Name).Debug("Peer does not have PeerAddress configured, skipping")
+			continue
 		}
 
 		var (
@@ -277,7 +242,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.deleteMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
+		r.deleteMetadata(p.BGPInstance, n)
 	}
 
 	// update neighbors
@@ -292,7 +257,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			return fmt.Errorf("failed to update neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.upsertMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
+		r.upsertMetadata(p.BGPInstance, n)
 	}
 
 	// create new neighbors
@@ -307,7 +272,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			return fmt.Errorf("failed to add neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.upsertMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
+		r.upsertMetadata(p.BGPInstance, n)
 	}
 
 	l.Debug("Done reconciling peers")
@@ -380,21 +345,24 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 	return result, true, nil
 }
 
-func GetPeerAddressFromConfig(conf *v2alpha1.CiliumBGPNodeInstance, peerName string) (netip.Addr, error) {
+// GetPeerAddressFromConfig returns peering address for the given peer from the provided BGPNodeInstance.
+// If no error is returned and "exists" is false, it means that PeerAddress is not present in peer configuration.
+func GetPeerAddressFromConfig(conf *v2alpha1.CiliumBGPNodeInstance, peerName string) (addr netip.Addr, exists bool, err error) {
 	if conf == nil {
-		return netip.Addr{}, fmt.Errorf("passed instance is nil")
+		return netip.Addr{}, false, fmt.Errorf("passed instance is nil")
 	}
 
 	for _, peer := range conf.Peers {
 		if peer.Name == peerName {
 			if peer.PeerAddress != nil {
-				return netip.ParseAddr(*peer.PeerAddress)
+				addr, err = netip.ParseAddr(*peer.PeerAddress)
+				return addr, true, err
 			} else {
-				return netip.Addr{}, fmt.Errorf("peer %s does not have a PeerAddress", peerName)
+				return netip.Addr{}, false, nil // PeerAddress not present in peer configuration
 			}
 		}
 	}
-	return netip.Addr{}, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
+	return netip.Addr{}, false, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
 }
 
 func (r *NeighborReconciler) neighborID(n *v2alpha1.CiliumBGPNodePeer) string {

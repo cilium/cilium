@@ -1,4 +1,4 @@
-{{- if and .Values.operator.enabled .Values.operator.prometheus.enabled .Values.operator.prometheus.serviceMonitor.enabled }}
+{{- if and .Values.operator.enabled .Values.operator.prometheus.enabled (or .Values.operator.prometheus.serviceMonitor.enabled .Values.operator.prometheus.metricsService) }}
 kind: Service
 apiVersion: v1
 metadata:
@@ -13,6 +13,9 @@ metadata:
     name: cilium-operator
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-operator
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   clusterIP: None
   type: ClusterIP

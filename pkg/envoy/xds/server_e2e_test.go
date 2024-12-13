@@ -135,7 +135,7 @@ func TestRequestAllResources(t *testing.T) {
 	// Create version 2 with resource 0.
 	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0])
 	require.Equal(t, uint64(2), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Expecting a response with that resource.
 	resp, err = stream.RecvResponse()
@@ -147,7 +147,7 @@ func TestRequestAllResources(t *testing.T) {
 	// This time, update the cache before sending the request.
 	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
 	require.Equal(t, uint64(3), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -180,7 +180,7 @@ func TestRequestAllResources(t *testing.T) {
 	// Create version 4 with resource 1.
 	v, mod, _ = cache.Delete(typeURL, resources[0].Name)
 	require.Equal(t, uint64(4), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Expecting a response with that resource.
 	resp, err = stream.RecvResponse()
@@ -379,7 +379,7 @@ func TestRequestSomeResources(t *testing.T) {
 	// Create version 2 with resource 0.
 	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0])
 	require.Equal(t, uint64(2), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// There should be a response with no resources.
 	resp, err = stream.RecvResponse()
@@ -391,7 +391,7 @@ func TestRequestSomeResources(t *testing.T) {
 	// This time, update the cache before sending the request.
 	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
 	require.Equal(t, uint64(3), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -424,7 +424,7 @@ func TestRequestSomeResources(t *testing.T) {
 	// Create version 4 with resources 0, 1 and 2.
 	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2])
 	require.Equal(t, uint64(4), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Expecting a response with resources 1 and 2.
 	resp, err = stream.RecvResponse()
@@ -446,7 +446,7 @@ func TestRequestSomeResources(t *testing.T) {
 	// Create version 5 with resources 1 and 2.
 	v, mod, _ = cache.Delete(typeURL, resources[0].Name)
 	require.Equal(t, uint64(5), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Expecting no response for version 5, since neither resources 1 and 2
 	// have changed.
@@ -455,12 +455,12 @@ func TestRequestSomeResources(t *testing.T) {
 	// number. Remain at version 5.
 	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2])
 	require.Equal(t, uint64(5), v)
-	require.Equal(t, false, mod)
+	require.False(t, mod)
 
 	// Create version 6 with resource 1.
 	v, mod, _ = cache.Delete(typeURL, resources[1].Name)
 	require.Equal(t, uint64(6), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Expecting a response with resource 2.
 	resp, err = stream.RecvResponse()
@@ -524,7 +524,7 @@ func TestUpdateRequestResources(t *testing.T) {
 		resources[1].Name: resources[1],
 	}, nil)
 	require.Equal(t, uint64(2), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Request resource 1.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -557,7 +557,7 @@ func TestUpdateRequestResources(t *testing.T) {
 	// Create version 3 with resource 0, 1 and 2.
 	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2])
 	require.Equal(t, uint64(3), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Not expecting any response since resource 1 didn't change in version 3.
 
@@ -649,7 +649,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	// Create version 2 with resource 0.
 	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0])
 	require.Equal(t, uint64(2), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Expecting a response with that resource.
 	resp, err = stream.RecvResponse()
@@ -661,7 +661,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	// This time, update the cache before sending the request.
 	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
 	require.Equal(t, uint64(3), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Request the next version of resources, with a stale nonce.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -697,7 +697,7 @@ func TestRequestStaleNonce(t *testing.T) {
 	// Create version 4 with resource 1.
 	v, mod, _ = cache.Delete(typeURL, resources[0].Name)
 	require.Equal(t, uint64(4), v)
-	require.Equal(t, true, mod)
+	require.True(t, mod)
 
 	// Expecting a response with that resource.
 	resp, err = stream.RecvResponse()
@@ -924,7 +924,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.Condition(t, isNotCompletedComparison(comp1))
 
 	// Version 2 did not have a callback, so the completion was completedInTime with an error
-	require.NotNil(t, comp1.Err())
+	require.Error(t, comp1.Err())
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived}, comp1.Err())
 
 	// NACK canceled the WaitGroup, create new one

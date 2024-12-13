@@ -24,8 +24,10 @@ import (
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -54,14 +56,15 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
 
-	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, uint16(base.ID), base.InterfaceName)
+	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, ctMapGC, uint16(base.ID), base.InterfaceName)
 	ep.ifIndex = int(base.InterfaceIndex)
 	ep.containerIfName = base.ContainerInterfaceName
+	ep.parentIfIndex = int(base.ParentInterfaceIndex)
 	if base.ContainerName != "" {
 		ep.containerName.Store(&base.ContainerName)
 	}
@@ -375,6 +378,43 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 	return e.GetModelRLocked()
 }
 
+// getIdentities returns the ingress and egress identities stored in the
+// MapState.
+// Used only for API requests.
+func getIdentities(ep *policy.EndpointPolicy) (ingIdentities, ingDenyIdentities, egIdentities, egDenyIdentities []int64) {
+	for key, entry := range ep.Entries() {
+		if key.Nexthdr != 0 || key.DestPort != 0 {
+			// If the protocol or port is non-zero, then the Key no longer only applies
+			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
+			// contain sets of which identities (i.e., label-based L3 only)
+			// are allowed, so anything which contains L4-related policy should
+			// not be added to these sets.
+			continue
+		}
+		if key.TrafficDirection() == trafficdirection.Ingress {
+			if entry.IsDeny() {
+				ingDenyIdentities = append(ingDenyIdentities, int64(key.Identity))
+			} else {
+				ingIdentities = append(ingIdentities, int64(key.Identity))
+			}
+		} else {
+			if entry.IsDeny() {
+				egDenyIdentities = append(egDenyIdentities, int64(key.Identity))
+			} else {
+				egIdentities = append(egIdentities, int64(key.Identity))
+			}
+		}
+	}
+
+	slices.Sort(ingIdentities)
+	slices.Sort(ingDenyIdentities)
+	slices.Sort(egIdentities)
+	slices.Sort(egDenyIdentities)
+
+	return slices.Compact(ingIdentities), slices.Compact(ingDenyIdentities),
+		slices.Compact(egIdentities), slices.Compact(egDenyIdentities)
+}
+
 // GetPolicyModel returns the endpoint's policy as an API model.
 //
 // Must be called with e.mutex RLock()ed.
@@ -387,19 +427,9 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		return nil
 	}
 
-	realizedLog := log.WithField("map-name", "realized").Logger
-	realizedIngressIdentities, realizedEgressIdentities :=
-		e.realizedPolicy.GetPolicyMap().GetIdentities(realizedLog)
+	realizedIngressIdentities, realizedDenyIngressIdentities, realizedEgressIdentities, realizedDenyEgressIdentities := getIdentities(e.realizedPolicy)
 
-	realizedDenyIngressIdentities, realizedDenyEgressIdentities :=
-		e.realizedPolicy.GetPolicyMap().GetDenyIdentities(realizedLog)
-
-	desiredLog := log.WithField("map-name", "desired").Logger
-	desiredIngressIdentities, desiredEgressIdentities :=
-		e.desiredPolicy.GetPolicyMap().GetIdentities(desiredLog)
-
-	desiredDenyIngressIdentities, desiredDenyEgressIdentities :=
-		e.desiredPolicy.GetPolicyMap().GetDenyIdentities(desiredLog)
+	desiredIngressIdentities, desiredDenyIngressIdentities, desiredEgressIdentities, desiredDenyEgressIdentities := getIdentities(e.desiredPolicy)
 
 	policyEnabled := e.policyStatus()
 

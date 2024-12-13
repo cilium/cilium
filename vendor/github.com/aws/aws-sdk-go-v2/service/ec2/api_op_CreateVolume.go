@@ -132,6 +132,9 @@ type CreateVolumeInput struct {
 	// [Amazon EBS Multi-Attach]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes-multi.html
 	MultiAttachEnabled *bool
 
+	// Reserved for internal use.
+	Operator *types.OperatorRequest
+
 	// The Amazon Resource Name (ARN) of the Outpost on which to create the volume.
 	//
 	// If you intend to use a volume with an instance running on an outpost, then you
@@ -230,6 +233,9 @@ type CreateVolumeOutput struct {
 
 	// Indicates whether Amazon EBS Multi-Attach is enabled.
 	MultiAttachEnabled *bool
+
+	// The service provider that manages the volume.
+	Operator *types.OperatorResponse
 
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string

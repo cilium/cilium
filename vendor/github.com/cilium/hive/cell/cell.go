@@ -21,7 +21,7 @@ type Cell interface {
 	Info(container) Info
 
 	// Apply the cell to the dependency graph container.
-	Apply(container) error
+	Apply(container, rootContainer) error
 }
 
 // In when embedded into a struct used as constructor parameter makes the exported
@@ -49,3 +49,5 @@ type container interface {
 	Decorate(fn any, opts ...dig.DecorateOption) error
 	Scope(name string, opts ...dig.ScopeOption) *dig.Scope
 }
+
+type rootContainer = container

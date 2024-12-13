@@ -119,8 +119,10 @@ var (
 		"etcd.leaseTTL":          "30s",
 		"ipv4.enabled":           "true",
 		"ipv6.enabled":           "true",
-		// "extraEnv[0].name":              "KUBE_CACHE_MUTATION_DETECTOR",
-		// "extraEnv[0].value":             "true",
+		"extraEnv[0].name":       "KUBE_CACHE_MUTATION_DETECTOR",
+		"extraEnv[0].value":      "'true'",
+		"extraEnv[1].name":       "CILIUM_FEATURE_METRICS_WITH_DEFAULTS",
+		"extraEnv[1].value":      "'true'",
 
 		// We need CNP node status to know when a policy is being enforced
 		"ipv4NativeRoutingCIDR": IPv4NativeRoutingCIDR,
@@ -540,7 +542,6 @@ func (kub *Kubectl) ParallelResourceDelete(namespace, resource string, names []s
 			if !res.WasSuccessful() {
 				ginkgoext.By("Unable to delete %s %s with '%s': %s",
 					resource, name, cmd, res.OutputPrettyPrint())
-
 			}
 			wg.Done()
 		}(name)
@@ -584,7 +585,6 @@ func (kub *Kubectl) CleanNamespace(namespace string) {
 		go func(resource string) {
 			kub.DeleteAllResourceInNamespace(namespace, resource)
 			wg.Done()
-
 		}(resource)
 	}
 	wg.Wait()
@@ -1115,7 +1115,6 @@ func (kub *Kubectl) GetPodNamesContext(ctx context.Context, namespace string, la
 	podNamesCtx, cancel := context.WithTimeout(ctx, ShortCommandTimeout)
 	defer cancel()
 	err := kub.ExecuteContext(podNamesCtx, cmd, stdout, nil)
-
 	if err != nil {
 		return nil, fmt.Errorf(
 			"could not find pods in namespace '%v' with label '%v': %w", namespace, label, err)
@@ -1123,7 +1122,7 @@ func (kub *Kubectl) GetPodNamesContext(ctx context.Context, namespace string, la
 
 	out := strings.Trim(stdout.String(), "\n")
 	if len(out) == 0 {
-		//Small hack. String split always return an array with an empty string
+		// Small hack. String split always return an array with an empty string
 		return []string{}, nil
 	}
 	return strings.Split(out, " "), nil
@@ -1398,7 +1397,6 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	}
 	return kub.ExecShort(fmt.Sprintf(
 		"%[1]s get namespace %[2]s -o json | tr -d \"\\n\" | sed \"s/\\\"finalizers\\\": \\[[^]]\\+\\]/\\\"finalizers\\\": []/\" | %[1]s replace --raw /api/v1/namespaces/%[2]s/finalize -f -", KubectlCmd, name))
-
 }
 
 // EnsureNamespaceExists creates a namespace, ignoring the AlreadyExists error.
@@ -1608,9 +1606,8 @@ func (kub *Kubectl) waitForSinglePod(checkStatus checkPodStatusFunc, namespace s
 // the timeout was exceeded.
 func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, timeout time.Duration) error {
 	body := func() bool {
-		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name == '%s')].subsets[0].ports[0].port}", service)
+		jsonPath := fmt.Sprintf("{.items[?(@.metadata.name == '%s')].subsets[0].ports[0].port}", service)
 		data, err := kub.GetEndpoints(namespace, filter).Filter(jsonPath)
-
 		if err != nil {
 			kub.Logger().WithError(err)
 			return false
@@ -2770,7 +2767,7 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 		return err
 	}
 
-	res = kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: CiliumNamespace})
+	res = kub.Apply(ApplyOptions{FilePath: filename, Force: true})
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
@@ -3414,7 +3411,7 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 	pods, _ := kub.GetCiliumPods()
 	fmt.Fprintf(CheckLogs, "Cilium pods: %v\n", pods)
 
-	var policiesFilter = `{range .items[*]}{.metadata.namespace}{"::"}{.metadata.name}{" "}{end}`
+	policiesFilter := `{range .items[*]}{.metadata.namespace}{"::"}{.metadata.name}{" "}{end}`
 	netpols := kub.ExecContextShort(ctx, fmt.Sprintf(
 		"%s get netpol -o jsonpath='%s' --all-namespaces",
 		KubectlCmd, policiesFilter))
@@ -3444,18 +3441,18 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 	}
 	table.Flush()
 
-	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}::{.status.last-failure-msg}{"\n"}{end}`
+	controllersFilter := `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}::{.status.last-failure-msg}{"\n"}{end}`
 	var failedControllers string
 	for _, pod := range pods {
-		var prefix = ""
+		prefix := ""
 		status := kub.CiliumExecContext(ctx, pod, "cilium-dbg status --all-controllers -o json")
 		result, err := status.Filter(controllersFilter)
 		if err != nil {
 			kub.Logger().WithError(err).Error("Cannot filter controller status output")
 			continue
 		}
-		var total = 0
-		var failed = 0
+		total := 0
+		failed := 0
 		for name, data := range result.KVOutput() {
 			total++
 			status := strings.SplitN(data, "::", 2)
@@ -3534,7 +3531,6 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 				err = os.WriteFile(
 					fmt.Sprintf("%s/%s", testPath, file),
 					[]byte(logs), LogPerm)
-
 				if err != nil {
 					kub.Logger().WithError(err).Errorf("Cannot create %s", CiliumTestLog)
 				}
@@ -3877,7 +3873,6 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 			return false
 		}
 		return true
-
 	}
 	if err := RepeatUntilTrue(body, &TimeoutConfig{Timeout: HelperTimeout}); err != nil {
 		return fmt.Errorf("Cilium validation failed: %w: Last polled error: %s", err, lastError)
@@ -3907,7 +3902,7 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 
 func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium controllers preflight check")
-	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
+	controllersFilter := `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
 	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %w", err)
@@ -3933,8 +3928,8 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 
 func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium health check")
-	var nodesFilter = `{.nodes[*].name}`
-	var statusPaths = []string{
+	nodesFilter := `{.nodes[*].name}`
+	statusPaths := []string{
 		".host.primary-address.icmp.status",
 		".host.primary-address.http.status",
 		".host.secondary-addresses[*].icmp.status",
@@ -4036,7 +4031,6 @@ func (kub *Kubectl) fillServiceCache() error {
 		return err
 	}
 	err = svcRes.Unmarshal(&cache.services)
-
 	if err != nil {
 		return fmt.Errorf("Unable to unmarshal K8s services: %w", err)
 	}
@@ -4343,9 +4337,12 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 	optionsString := ""
 
 	for k, v := range options {
-		if v == "true" || v == "false" {
+		switch {
+		case v == "true" || v == "false":
 			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
-		} else {
+		case v == "'true'" || v == "'false'":
+			optionsString += fmt.Sprintf(" --set-string %s=%s ", k, v)
+		default:
 			optionsString += fmt.Sprintf(" --set '%s=%s' ", k, v)
 		}
 	}
@@ -4762,7 +4759,7 @@ func hasIPAddress(output []string) (bool, string) {
 }
 
 func (kub *Kubectl) ensureKubectlVersion() error {
-	//check current kubectl version
+	// check current kubectl version
 	type Version struct {
 		ClientVersion struct {
 			Major string `json:"major"`
@@ -4788,7 +4785,7 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 	})
 	versionstring := fmt.Sprintf("%s.%s", v.ClientVersion.Major, minor)
 	if versionstring == GetCurrentK8SEnv() {
-		//version available on host is matching current env
+		// version available on host is matching current env
 		return nil
 	}
 
@@ -4806,7 +4803,7 @@ func (kub *Kubectl) ensureKubectlVersion() error {
 		rcVersion = fmt.Sprintf("v%s.0", GetCurrentK8SEnv())
 	}
 	res = kub.Exec(
-		fmt.Sprintf("curl --output %s https://storage.googleapis.com/kubernetes-release/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
+		fmt.Sprintf("curl -sSLo %s https://dl.k8s.io/release/%s/bin/linux/amd64/kubectl && chmod +x %s",
 			path, rcVersion, path))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("failed to download kubectl")
@@ -4926,4 +4923,27 @@ func serviceAddressKey(ip, port, proto, scope string) string {
 		return fmt.Sprintf("%s/%s%s", k, proto, scope)
 	}
 	return fmt.Sprintf("%s%s", k, scope)
+}
+
+func (kub *Kubectl) CollectFeatures() {
+	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
+	defer cancel()
+
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+		return
+	}
+
+	// We need to get into the root directory because the CLI doesn't yet
+	// support absolute path. Once https://github.com/cilium/cilium-cli/pull/1552
+	// is installed in test VM images, we can remove this.
+	res := kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o markdown --output-file='%s/feature-status-%s.md'", testPath, ginkgoext.GetTestName()))
+	if !res.WasSuccessful() {
+		log.WithError(res.GetError()).Errorf("failed to collect feature status")
+	}
+	res = kub.ExecContext(ctx, fmt.Sprintf("cilium-cli features status -o json --output-file='%s/feature-status-%s.json'", testPath, ginkgoext.GetTestName()))
+	if !res.WasSuccessful() {
+		log.WithError(res.GetError()).Errorf("failed to collect feature status")
+	}
 }

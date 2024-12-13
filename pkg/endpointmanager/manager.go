@@ -15,15 +15,18 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/mcastmanager"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -40,6 +43,8 @@ var (
 
 	endpointGCControllerGroup = controller.NewGroup("endpoint-gc")
 )
+
+const regenEndpointControllerName = "endpoint-periodic-regeneration"
 
 // endpointManager is a structure designed for containing state about the
 // collection of locally running endpoints.
@@ -126,6 +131,36 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 			RunInterval: interval,
 			Context:     ctx,
 			Health:      mgr.health.NewScope("endpoint-gc"),
+		})
+	return mgr
+}
+
+// WithPeriodicEndpointRegeneration configures the EndpointManager to regenerate all (policy and configuration) state
+// of endpoints periodically.
+func (mgr *endpointManager) WithPeriodicEndpointRegeneration(ctx context.Context, interval time.Duration) *endpointManager {
+	mgr.controllers.UpdateController(regenEndpointControllerName,
+		controller.ControllerParams{
+			Group: endpointGCControllerGroup,
+			DoFunc: func(ctx context.Context) error {
+				wg := mgr.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
+					Reason:            "periodic endpoint regeneration",
+					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+				})
+
+				// Wait for wg to be done, unless ctx is cancelled.
+				dc := make(chan struct{})
+				go func() {
+					wg.Wait()
+					close(dc)
+				}()
+				select {
+				case <-dc:
+				case <-ctx.Done():
+				}
+				return ctx.Err()
+			},
+			RunInterval: interval,
+			Context:     ctx,
 		})
 	return mgr
 }
@@ -557,6 +592,12 @@ func (mgr *endpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.E
 	return &wg
 }
 
+// TriggerRegenerateAllEndpoints triggers a batched, asynchronous regeneration of all endpoints
+// at the WithoutDatapath level.
+func (mgr *endpointManager) TriggerRegenerateAllEndpoints() {
+	mgr.controllers.TriggerController(regenEndpointControllerName)
+}
+
 // OverrideEndpointOpts applies the given options to all endpoints.
 func (mgr *endpointManager) OverrideEndpointOpts(om option.OptionMap) {
 	for _, ep := range mgr.GetEndpoints() {
@@ -685,8 +726,9 @@ func (mgr *endpointManager) AddIngressEndpoint(
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
+	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateIngressEndpoint(owner, policyGetter, ipcache, proxy, allocator)
+	ep, err := endpoint.CreateIngressEndpoint(owner, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
@@ -707,8 +749,9 @@ func (mgr *endpointManager) AddHostEndpoint(
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
+	ctMapGC ctmap.GCRunner,
 ) error {
-	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, ipcache, proxy, allocator)
+	ep, err := endpoint.CreateHostEndpoint(owner, policyGetter, ipcache, proxy, allocator, ctMapGC)
 	if err != nil {
 		return err
 	}
@@ -725,7 +768,7 @@ func (mgr *endpointManager) AddHostEndpoint(
 }
 
 type policyRepoGetter interface {
-	GetPolicyRepository() *policy.Repository
+	GetPolicyRepository() policy.PolicyRepository
 }
 
 // InitHostEndpointLabels initializes the host endpoint's labels with the
@@ -801,4 +844,23 @@ func (mgr *endpointManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, e
 	}
 
 	return ep.NetNsCookie, nil
+}
+
+// UpdatePolicy triggers policy updates for all live endpoints.
+// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
+// policy revision will be bumped to toRev.
+func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
+	eps := mgr.GetEndpoints()
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(eps))
+
+	for _, ep := range eps {
+		go func(ep *endpoint.Endpoint) {
+			ep.UpdatePolicy(idsToRegen, fromRev, toRev)
+			wg.Done()
+		}(ep)
+	}
+
+	wg.Wait()
 }

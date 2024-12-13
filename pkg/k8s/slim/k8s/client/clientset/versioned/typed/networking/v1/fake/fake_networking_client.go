@@ -16,7 +16,7 @@ type FakeNetworkingV1 struct {
 }
 
 func (c *FakeNetworkingV1) NetworkPolicies(namespace string) v1.NetworkPolicyInterface {
-	return &FakeNetworkPolicies{c, namespace}
+	return newFakeNetworkPolicies(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -327,8 +327,9 @@ func (s *Service4Value) GetFlags() uint16 {
 
 func (s *Service4Value) SetSessionAffinityTimeoutSec(t uint32) {
 	// Go doesn't support union types, so we use BackendID to access the
-	// lb4_service.affinity_timeout field
-	s.BackendID = t
+	// lb4_service.affinity_timeout field. Also, for the master entry the
+	// LB algorithm was set beforehand, so we need to binary OR here.
+	s.BackendID |= t
 }
 
 func (s *Service4Value) SetL7LBProxyPort(port uint16) {
@@ -342,6 +343,14 @@ func (s *Service4Value) SetBackendID(id loadbalancer.BackendID) {
 }
 func (s *Service4Value) GetBackendID() loadbalancer.BackendID {
 	return loadbalancer.BackendID(s.BackendID)
+}
+
+func (s *Service4Value) GetLbAlg() uint8 {
+	return uint8(uint32(s.BackendID) >> 24)
+}
+
+func (s *Service4Value) SetLbAlg(lb uint8) {
+	s.BackendID = uint32(lb) << 24
 }
 
 func (s *Service4Value) ToNetwork() ServiceValue {

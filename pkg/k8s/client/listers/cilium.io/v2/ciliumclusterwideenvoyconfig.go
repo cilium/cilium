@@ -6,10 +6,10 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumClusterwideEnvoyConfigLister helps list CiliumClusterwideEnvoyConfigs.
@@ -17,19 +17,19 @@ import (
 type CiliumClusterwideEnvoyConfigLister interface {
 	// List lists all CiliumClusterwideEnvoyConfigs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumClusterwideEnvoyConfig, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumClusterwideEnvoyConfig, err error)
 	// Get retrieves the CiliumClusterwideEnvoyConfig from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.CiliumClusterwideEnvoyConfig, error)
+	Get(name string) (*ciliumiov2.CiliumClusterwideEnvoyConfig, error)
 	CiliumClusterwideEnvoyConfigListerExpansion
 }
 
 // ciliumClusterwideEnvoyConfigLister implements the CiliumClusterwideEnvoyConfigLister interface.
 type ciliumClusterwideEnvoyConfigLister struct {
-	listers.ResourceIndexer[*v2.CiliumClusterwideEnvoyConfig]
+	listers.ResourceIndexer[*ciliumiov2.CiliumClusterwideEnvoyConfig]
 }
 
 // NewCiliumClusterwideEnvoyConfigLister returns a new CiliumClusterwideEnvoyConfigLister.
 func NewCiliumClusterwideEnvoyConfigLister(indexer cache.Indexer) CiliumClusterwideEnvoyConfigLister {
-	return &ciliumClusterwideEnvoyConfigLister{listers.New[*v2.CiliumClusterwideEnvoyConfig](indexer, v2.Resource("ciliumclusterwideenvoyconfig"))}
+	return &ciliumClusterwideEnvoyConfigLister{listers.New[*ciliumiov2.CiliumClusterwideEnvoyConfig](indexer, ciliumiov2.Resource("ciliumclusterwideenvoyconfig"))}
 }

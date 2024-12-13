@@ -4,7 +4,6 @@
 package authmap
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
@@ -28,7 +27,7 @@ func TestAuthMap(t *testing.T) {
 	setup(t)
 	authMap := newMap(10)
 	err := authMap.init()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	defer authMap.bpfMap.Unpin()
 
 	testKey := AuthKey{
@@ -39,25 +38,25 @@ func TestAuthMap(t *testing.T) {
 	}
 
 	_, err = authMap.Lookup(testKey)
-	require.Equal(t, true, errors.Is(err, ebpf.ErrKeyNotExist))
+	require.ErrorIs(t, err, ebpf.ErrKeyNotExist)
 
 	err = authMap.Update(testKey, 10)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	info, err := authMap.Lookup(testKey)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, utime.UTime(10), info.Expiration)
 
 	err = authMap.Update(testKey, 20)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	info, err = authMap.Lookup(testKey)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, utime.UTime(20), info.Expiration)
 
 	err = authMap.Delete(testKey)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, err = authMap.Lookup(testKey)
-	require.Equal(t, true, errors.Is(err, ebpf.ErrKeyNotExist))
+	require.ErrorIs(t, err, ebpf.ErrKeyNotExist)
 }

@@ -17,7 +17,7 @@ func TestNilDeepCopy(t *testing.T) {
 
 func TestDeepCopy(t *testing.T) {
 	_, ipnet, err := net.ParseCIDR("1.1.1.1/8")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	c1 := NewCIDR(ipnet)
 	require.NotNil(t, c1)
 
@@ -32,7 +32,7 @@ func TestNewCIDRNil(t *testing.T) {
 func TestIllegalParseCIDR(t *testing.T) {
 	c1, err := ParseCIDR("Illegal")
 	require.Nil(t, c1)
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestIllegalMustParseCIDR(t *testing.T) {

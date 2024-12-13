@@ -396,8 +396,8 @@ func TestGetRoutes(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(res.Routes))
-	require.Equal(t, 1, len(res.Routes[0].Paths))
+	require.Len(t, res.Routes, 1)
+	require.Len(t, res.Routes[0].Paths, 1)
 	require.Equal(t, uint16(bgp.AFI_IP), res.Routes[0].Paths[0].NLRI.AFI())
 	require.Equal(t, uint8(bgp.SAFI_UNICAST), res.Routes[0].Paths[0].NLRI.SAFI())
 	require.IsType(t, &bgp.IPAddrPrefix{}, res.Routes[0].Paths[0].NLRI)
@@ -411,8 +411,8 @@ func TestGetRoutes(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(res.Routes))
-	require.Equal(t, 1, len(res.Routes[0].Paths))
+	require.Len(t, res.Routes, 1)
+	require.Len(t, res.Routes[0].Paths, 1)
 	require.Equal(t, uint16(bgp.AFI_IP6), res.Routes[0].Paths[0].NLRI.AFI())
 	require.Equal(t, uint8(bgp.SAFI_UNICAST), res.Routes[0].Paths[0].NLRI.SAFI())
 	require.IsType(t, &bgp.IPv6AddrPrefix{}, res.Routes[0].Paths[0].NLRI)
@@ -427,7 +427,7 @@ func TestGetRoutes(t *testing.T) {
 		Neighbor: netip.MustParsePrefix(neighbor64125.PeerAddress).Addr(),
 	})
 	require.NoError(t, err)
-	require.Equal(t, 0, len(res.Routes)) // adj-rib is empty as there is no actual peering up
+	require.Empty(t, res.Routes) // adj-rib is empty as there is no actual peering up
 
 	// test adj-rib-in
 	res, err = testSC.GetRoutes(context.TODO(), &types.GetRoutesRequest{
@@ -439,5 +439,5 @@ func TestGetRoutes(t *testing.T) {
 		Neighbor: netip.MustParsePrefix(neighbor64125.PeerAddress).Addr(),
 	})
 	require.NoError(t, err)
-	require.Equal(t, 0, len(res.Routes)) // adj-rib is empty as there is no actual peering up
+	require.Empty(t, res.Routes) // adj-rib is empty as there is no actual peering up
 }

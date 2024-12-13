@@ -39,8 +39,7 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 		operatorMetrics.Cell,
 		cell.Provide(func() operatorMetrics.SharedConfig {
 			return operatorMetrics.SharedConfig{
-				EnableMetrics:    false,
-				EnableGatewayAPI: false,
+				EnableMetrics: false,
 			}
 		}),
 
@@ -103,8 +102,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 		operatorMetrics.Cell,
 		cell.Provide(func() operatorMetrics.SharedConfig {
 			return operatorMetrics.SharedConfig{
-				EnableMetrics:    true,
-				EnableGatewayAPI: false,
+				EnableMetrics: true,
 			}
 		}),
 		cellMetric.Metric(newTestMetrics),

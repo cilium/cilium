@@ -4,6 +4,10 @@ apt update
 
 apt install -y gettext docker-buildx
 
+# Check if PS1 is unset; using ${PS1:-} to avoid "unbound variable" error
+# in non-interactive shells.
+sed -i '7s/\[ -z "$PS1" \]/[ -z "${PS1:-}" ]/' /etc/bash.bashrc
+
 ls -lah /var/run/docker.sock
 
 # Add the group of /var/run/docker.sock to ubuntu user

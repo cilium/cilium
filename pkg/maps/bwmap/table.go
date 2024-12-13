@@ -29,6 +29,8 @@ type Edt struct {
 	// BytesPerSecond is the bandwidth limit for the endpoint.
 	BytesPerSecond uint64
 
+	Prio uint32
+
 	// TimeHorizonDrop is the maximum allowed departure time nanoseconds
 	// delta in future.
 	TimeHorizonDrop uint64
@@ -42,14 +44,16 @@ var EdtIDIndex = statedb.Index[Edt, uint16]{
 	FromObject: func(t Edt) index.KeySet {
 		return index.NewKeySet(index.Uint16(t.EndpointID))
 	},
-	FromKey: index.Uint16,
-	Unique:  true,
+	FromKey:    index.Uint16,
+	FromString: index.Uint16String,
+	Unique:     true,
 }
 
-func NewEdt(endpointID uint16, bytesPerSecond uint64) Edt {
+func NewEdt(endpointID uint16, bytesPerSecond uint64, prio uint32) Edt {
 	return Edt{
 		EndpointID:      endpointID,
 		BytesPerSecond:  bytesPerSecond,
+		Prio:            prio,
 		TimeHorizonDrop: uint64(DefaultDropHorizon),
 		Status:          reconciler.StatusPending(),
 	}
@@ -72,6 +76,7 @@ func (e Edt) BinaryValue() encoding.BinaryMarshaler {
 		Bps:             e.BytesPerSecond,
 		TimeLast:        0, // Used on the BPF-side
 		TimeHorizonDrop: e.TimeHorizonDrop,
+		Prio:            e.Prio,
 	}
 	return bpf.StructBinaryMarshaler{Target: &v}
 }
@@ -80,6 +85,7 @@ func (e Edt) TableHeader() []string {
 	return []string{
 		"EndpointID",
 		"BitsPerSecond",
+		"Prio",
 		"TimeHorizonDrop",
 		"Status",
 	}
@@ -92,6 +98,7 @@ func (e Edt) TableRow() []string {
 	return []string{
 		strconv.FormatUint(uint64(e.EndpointID), 10),
 		quantity.String(),
+		strconv.FormatUint(uint64(e.Prio), 10),
 		strconv.FormatUint(e.TimeHorizonDrop, 10),
 		e.Status.String(),
 	}

@@ -5,10 +5,10 @@ package lbipam
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -23,7 +23,10 @@ var Cell = cell.Module(
 	"lbipam",
 	"LB-IPAM",
 	// Provide LBIPAM so instances of it can be used while testing
-	cell.Provide(newLBIPAMCell),
+	cell.Provide(
+		newLBIPAMCell,
+		func(c lbipamConfig) Config { return c },
+	),
 	// Invoke an empty function which takes an LBIPAM to force its construction.
 	cell.Invoke(func(*LBIPAM) {}),
 	// Provide LB-IPAM related metrics
@@ -45,10 +48,18 @@ func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
 	flags.BoolVar(&lc.EnableLBIPAM, "enable-lb-ipam", lc.EnableLBIPAM, "Enable LB IPAM")
 }
 
+func (lc lbipamConfig) IsEnabled() bool {
+	return lc.EnableLBIPAM
+}
+
+type Config interface {
+	IsEnabled() bool
+}
+
 type lbipamCellParams struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Logger *slog.Logger
 
 	LC       cell.Lifecycle
 	JobGroup job.Group
@@ -88,6 +99,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		lbClasses:    lbClasses,
 		ipv4Enabled:  option.Config.IPv4Enabled(),
 		ipv6Enabled:  option.Config.IPv6Enabled(),
+		lbProtoDiff:  option.Config.LBProtoDiffEnabled(),
 		poolClient:   params.Clientset.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
 		svcClient:    params.Clientset.Slim().CoreV1(),
 		jobGroup:     params.JobGroup,

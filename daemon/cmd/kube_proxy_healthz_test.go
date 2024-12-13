@@ -73,7 +73,7 @@ func (s *KubeProxyHealthzTestSuite) healthTestHelper(t *testing.T, ciliumStatus 
 
 	// Create a new request.
 	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 
 	// Serve.
@@ -84,12 +84,12 @@ func (s *KubeProxyHealthzTestSuite) healthTestHelper(t *testing.T, ciliumStatus 
 
 	// Timestamps meet expectations.
 	var payload healthzPayload
-	require.Nil(t, json.Unmarshal(w.Body.Bytes(), &payload))
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &payload))
 	layout := "2006-01-02 15:04:05 -0700 MST"
 	lastUpdateTs, err = time.Parse(layout, payload.LastUpdated)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, err = time.Parse(layout, payload.CurrentTime)
-	require.Nil(t, err)
-	require.Equal(t, true, lastUpdateTs.Equal(expectedTs))
+	require.NoError(t, err)
+	require.True(t, lastUpdateTs.Equal(expectedTs))
 }

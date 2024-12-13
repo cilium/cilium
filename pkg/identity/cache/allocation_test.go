@@ -5,20 +5,25 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/inctimer"
+	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -26,17 +31,43 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-var fakeConfig = &option.DaemonConfig{
-	K8sNamespace: "kube-system",
+var (
+	fakeConfig = &option.DaemonConfig{
+		K8sNamespace: "kube-system",
+	}
+
+	testConfigs = []testConfig{
+		{
+			name: "disable_operator_manages_identities",
+			allocatorConfig: AllocatorConfig{
+				EnableOperatorManageCIDs: false,
+			},
+		},
+		{
+			name: "enable_operator_manages_identities",
+			allocatorConfig: AllocatorConfig{
+				EnableOperatorManageCIDs: true,
+			},
+		},
+	}
+)
+
+type testConfig struct {
+	name            string
+	allocatorConfig AllocatorConfig
 }
 
 func TestAllocateIdentityReserved(t *testing.T) {
 	testutils.IntegrationTest(t)
 	kvstore.SetupDummy(t, "etcd")
-	testAllocateIdentityReserved(t)
+	for _, testConfig := range testConfigs {
+		t.Run(testConfig.name, func(t *testing.T) {
+			testAllocateIdentityReserved(t, testConfig)
+		})
+	}
 }
 
-func testAllocateIdentityReserved(t *testing.T) {
+func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
 	var (
 		lbls  labels.Labels
 		i     *identity.Identity
@@ -48,10 +79,10 @@ func testAllocateIdentityReserved(t *testing.T) {
 		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 	}
 
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil)
 
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityHost, i.ID)
@@ -60,13 +91,13 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityWorld, i.ID)
 	require.False(t, isNew)
 
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(labels.LabelHealth))
+	require.True(t, identity.IdentityAllocationIsLocal(labels.LabelHealth))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), labels.LabelHealth, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityHealth, i.ID)
@@ -75,7 +106,7 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityInit, i.ID)
@@ -84,7 +115,7 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityUnmanaged, i.ID)
@@ -134,8 +165,6 @@ func (d *dummyOwner) GetNodeSuffix() string {
 // nothing is received from that channel in 60 seconds.
 func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 	rounds := 0
-	timer, timerDone := inctimer.New()
-	defer timerDone()
 	for {
 		select {
 		case nid, ok := <-d.updated:
@@ -147,7 +176,7 @@ func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 			if nid == target {
 				return rounds
 			}
-		case <-timer.After(60 * time.Second):
+		case <-time.After(60 * time.Second):
 			// Timed out waiting for KV-store events
 			return 0
 		}
@@ -216,26 +245,32 @@ func testEventWatcherBatching(t *testing.T) {
 func TestGetIdentityCache(t *testing.T) {
 	testutils.IntegrationTest(t)
 	kvstore.SetupDummy(t, "etcd")
-	testGetIdentityCache(t)
+
+	for _, testConfig := range testConfigs {
+		t.Run(testConfig.name, func(t *testing.T) {
+			testGetIdentityCache(t, testConfig)
+		})
+	}
 }
 
-func testGetIdentityCache(t *testing.T) {
+func testGetIdentityCache(t *testing.T, testConfig testConfig) {
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 
 	cache := mgr.GetIdentityCache()
 	_, ok := cache[identity.ReservedCiliumKVStore]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 }
 
 func TestAllocator(t *testing.T) {
 	testutils.IntegrationTest(t)
 	kvstore.SetupDummy(t, "etcd")
 	testAllocator(t)
+	testAllocatorOperatorIDManagement(t)
 }
 
 func testAllocator(t *testing.T) {
@@ -246,7 +281,7 @@ func testAllocator(t *testing.T) {
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, AllocatorConfig{EnableOperatorManageCIDs: false})
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -254,7 +289,7 @@ func testAllocator(t *testing.T) {
 	id1a, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
 	require.NotNil(t, id1a)
 	require.NoError(t, err)
-	require.Equal(t, true, isNew)
+	require.True(t, isNew)
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id1a.ID))
 	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
@@ -271,7 +306,7 @@ func testAllocator(t *testing.T) {
 	require.False(t, released)
 	released, err = mgr.Release(context.Background(), id1b, false)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 	// KV-store still keeps the ID even when a single node has released it.
 	// This also means that we should have not received an event from the
 	// KV-store for the deletion of the identity, so it should still be in
@@ -294,7 +329,7 @@ func testAllocator(t *testing.T) {
 
 	id2, isNew, err := mgr.AllocateIdentity(context.Background(), lbls2, false, identity.InvalidIdentity)
 	require.NotNil(t, id2)
-	require.Equal(t, true, isNew)
+	require.True(t, isNew)
 	require.NoError(t, err)
 	require.NotEqual(t, id2.ID, id1a.ID)
 	// Wait for the update event from the KV-store
@@ -303,7 +338,7 @@ func testAllocator(t *testing.T) {
 
 	id3, isNew, err := mgr.AllocateIdentity(context.Background(), lbls3, false, identity.InvalidIdentity)
 	require.NotNil(t, id3)
-	require.Equal(t, true, isNew)
+	require.True(t, isNew)
 	require.NoError(t, err)
 	require.NotEqual(t, id3.ID, id1a.ID)
 	require.NotEqual(t, id3.ID, id2.ID)
@@ -313,31 +348,185 @@ func testAllocator(t *testing.T) {
 
 	released, err = mgr.Release(context.Background(), id1b, false)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 	released, err = mgr.Release(context.Background(), id2, false)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 	released, err = mgr.Release(context.Background(), id3, false)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 
 	mgr.IdentityAllocator.DeleteAllKeys()
 	require.NotEqual(t, 0, owner.WaitUntilID(id3.ID))
 }
 
+func createCIDObj(id string, lbls labels.Labels) *capi_v2.CiliumIdentity {
+	k := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	selectedLabels, _ := identitybackend.SanitizeK8sLabels(k.GetAsMap())
+	return &capi_v2.CiliumIdentity{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   id,
+			Labels: selectedLabels,
+		},
+		SecurityLabels: k.GetAsMap(),
+	}
+}
+
+func testAllocatorOperatorIDManagement(t *testing.T) {
+	const testNamePrefix = "operator_id_management"
+
+	type testCase struct {
+		name           string
+		allocationMode string
+	}
+
+	testCases := []testCase{
+		{
+			name:           "kvstore_id",
+			allocationMode: option.IdentityAllocationModeKVstore,
+		},
+		{
+			name:           "crd_id",
+			allocationMode: option.IdentityAllocationModeCRD,
+		},
+		{
+			name:           "kvstore_double_wr_id",
+			allocationMode: option.IdentityAllocationModeDoubleWriteReadKVstore,
+		},
+		{
+			name:           "crd_double_wr_id",
+			allocationMode: option.IdentityAllocationModeDoubleWriteReadCRD,
+		},
+	}
+
+	for _, tc := range testCases {
+		testName := fmt.Sprintf("%s_%s", testNamePrefix, tc.name)
+		t.Run(testName, func(t *testing.T) {
+			option.Config.IdentityAllocationMode = tc.allocationMode
+			defer func() { option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore }()
+
+			lbls1 := labels.NewLabelsFromSortedList("blah=%%//!!;id=foo;user=anna")
+
+			ctx := context.Background()
+			_, kubeClient := k8sClient.NewFakeClientset()
+
+			owner := newDummyOwner()
+			identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
+			mgr := NewCachingIdentityAllocator(owner, AllocatorConfig{EnableOperatorManageCIDs: true, maxAllocAttempts: 2})
+			<-mgr.InitIdentityAllocator(kubeClient)
+			defer mgr.Close()
+			defer mgr.IdentityAllocator.DeleteAllKeys()
+
+			// Verify that allocating an identity that doesn't exist will return an error.
+			id1a, isNew, err := mgr.AllocateIdentity(ctx, lbls1, false, identity.InvalidIdentity)
+			require.Nil(t, id1a)
+			require.Error(t, err)
+			require.False(t, isNew)
+
+			id := createCIDObj("1000", lbls1)
+
+			var err2 error
+			switch option.Config.IdentityAllocationMode {
+			case option.IdentityAllocationModeKVstore:
+				err = addIDKVStore(ctx, id.Name, lbls1)
+			case option.IdentityAllocationModeCRD:
+				_, err = kubeClient.CiliumV2().CiliumIdentities().Create(ctx, id, metav1.CreateOptions{})
+			case option.IdentityAllocationModeDoubleWriteReadKVstore, option.IdentityAllocationModeDoubleWriteReadCRD:
+				err2 = addIDKVStore(ctx, id.Name, lbls1)
+				_, err = kubeClient.CiliumV2().CiliumIdentities().Create(ctx, id, metav1.CreateOptions{})
+			}
+			require.NoError(t, err)
+			require.NoError(t, err2)
+
+			// Verify that the created CID is allocated, as an existing CID in the store.
+			var id2 *identity.Identity
+			err = testutils.WaitUntil(func() bool {
+				id2, isNew, err2 = mgr.AllocateIdentity(ctx, lbls1, false, identity.InvalidIdentity)
+				return id2 != nil && err2 == nil
+			}, 100*time.Millisecond)
+			require.NoError(t, err)
+			require.False(t, isNew)
+			require.EqualValues(t, lbls1.LabelArray(), id2.LabelArray)
+
+			// Repeat verification for the same lbls.
+			var id3 *identity.Identity
+			err = testutils.WaitUntil(func() bool {
+				id3, isNew, err2 = mgr.AllocateIdentity(ctx, lbls1, false, identity.InvalidIdentity)
+				return id3 != nil && err2 == nil
+			}, 100*time.Millisecond)
+			require.NoError(t, err)
+			require.False(t, isNew)
+			require.EqualValues(t, lbls1.LabelArray(), id3.LabelArray)
+
+			released, err := mgr.Release(ctx, id2, false)
+			require.NoError(t, err)
+			require.False(t, released)
+
+			switch option.Config.IdentityAllocationMode {
+			case option.IdentityAllocationModeKVstore:
+				err = removeIDKVStore(ctx, id.Name)
+			case option.IdentityAllocationModeCRD:
+				err = kubeClient.CiliumV2().CiliumIdentities().Delete(ctx, id.Name, metav1.DeleteOptions{})
+			case option.IdentityAllocationModeDoubleWriteReadKVstore, option.IdentityAllocationModeDoubleWriteReadCRD:
+				err = removeIDKVStore(ctx, id.Name)
+				err2 = kubeClient.CiliumV2().CiliumIdentities().Delete(ctx, id.Name, metav1.DeleteOptions{})
+			}
+			require.NoError(t, err)
+			require.NoError(t, err2)
+
+			// Verify that allocating an identity that doesn't exist will return an error
+			// after deleting the id from the store.
+			var id4 *identity.Identity
+			err = testutils.WaitUntil(func() bool {
+				id4, isNew, err2 = mgr.AllocateIdentity(ctx, lbls1, false, identity.InvalidIdentity)
+				return id4 == nil && err2 != nil
+			}, 100*time.Millisecond)
+			require.NoError(t, err)
+			require.False(t, isNew)
+
+			released, err = mgr.Release(ctx, id2, false)
+			require.NoError(t, err)
+			require.False(t, released)
+		})
+	}
+
+}
+
+func addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
+	kvStoreClient := kvstore.Client()
+	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	idPrefix := path.Join(IdentitiesPath, "id")
+	keyPath := path.Join(idPrefix, id)
+	success, err := kvStoreClient.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
+	if err != nil || !success {
+		return fmt.Errorf("unable to create master key '%s': %w", keyPath, err)
+	}
+	return nil
+}
+
+func removeIDKVStore(ctx context.Context, id string) error {
+	prefix := path.Join(IdentitiesPath, "id")
+	key := path.Join(prefix, id)
+	return kvstore.Client().Delete(ctx, key)
+}
+
 func TestLocalAllocation(t *testing.T) {
 	testutils.IntegrationTest(t)
 	kvstore.SetupDummy(t, "etcd")
-	testLocalAllocation(t)
+	for _, testConfig := range testConfigs {
+		t.Run(testConfig.name, func(t *testing.T) {
+			testLocalAllocation(t, testConfig)
+		})
+	}
 }
 
-func testLocalAllocation(t *testing.T) {
+func testLocalAllocation(t *testing.T, testConfig testConfig) {
 	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
 
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -345,8 +534,8 @@ func testLocalAllocation(t *testing.T) {
 	id, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
 	require.NotNil(t, id)
 	require.NoError(t, err)
-	require.Equal(t, true, isNew)
-	require.Equal(t, true, id.ID.HasLocalScope())
+	require.True(t, isNew)
+	require.True(t, id.ID.HasLocalScope())
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
 	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
@@ -371,7 +560,7 @@ func testLocalAllocation(t *testing.T) {
 	// 2nd Release, released
 	released, err = mgr.Release(context.Background(), id, true)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 
 	// Wait until the identity is released
 	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
@@ -384,12 +573,12 @@ func testLocalAllocation(t *testing.T) {
 	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
 	require.NotNil(t, id)
 	require.NoError(t, err)
-	require.Equal(t, true, isNew)
-	require.Equal(t, true, id.ID.HasLocalScope())
+	require.True(t, isNew)
+	require.True(t, id.ID.HasLocalScope())
 
 	released, err = mgr.Release(context.Background(), id, true)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 
 	mgr.IdentityAllocator.DeleteAllKeys()
 	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
@@ -398,21 +587,25 @@ func testLocalAllocation(t *testing.T) {
 func TestAllocatorReset(t *testing.T) {
 	testutils.IntegrationTest(t)
 	kvstore.SetupDummy(t, "etcd")
-	testAllocatorReset(t)
+	for _, testConfig := range testConfigs {
+		t.Run(testConfig.name, func(t *testing.T) {
+			testAllocatorReset(t, testConfig)
+		})
+	}
 }
 
 // Test that we can close and reopen the allocator successfully.
-func testAllocatorReset(t *testing.T) {
+func testAllocatorReset(t *testing.T, testConfig testConfig) {
 	labels := labels.NewLabelsFromSortedList("id=bar;user=anna")
 	owner := newDummyOwner()
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, testConfig.allocatorConfig)
 	testAlloc := func() {
 		id1a, _, err := mgr.AllocateIdentity(context.Background(), labels, false, identity.InvalidIdentity)
 		require.NotNil(t, id1a)
 		require.NoError(t, err)
 
 		queued, ok := <-owner.updated
-		require.Equal(t, true, ok)
+		require.True(t, ok)
 		require.Equal(t, id1a.ID, queued)
 	}
 
@@ -425,7 +618,15 @@ func testAllocatorReset(t *testing.T) {
 }
 
 func TestAllocateLocally(t *testing.T) {
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	for _, testConfig := range testConfigs {
+		t.Run(testConfig.name, func(t *testing.T) {
+			testAllocateLocally(t, testConfig)
+		})
+	}
+}
+
+func testAllocateLocally(t *testing.T, testConfig testConfig) {
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), testConfig.allocatorConfig)
 
 	cidrLbls := labels.NewLabelsFromSortedList("cidr:1.2.3.4/32")
 	podLbls := labels.NewLabelsFromSortedList("k8s:foo=bar")
@@ -434,19 +635,27 @@ func TestAllocateLocally(t *testing.T) {
 	assert.True(t, needsGlobalIdentity(podLbls))
 
 	id, allocated, err := mgr.AllocateLocalIdentity(cidrLbls, false, identity.IdentityScopeLocal+50)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, allocated)
-	assert.Equal(t, id.ID.Scope(), identity.IdentityScopeLocal)
-	assert.Equal(t, id.ID, identity.IdentityScopeLocal+50)
+	assert.Equal(t, identity.IdentityScopeLocal, id.ID.Scope())
+	assert.Equal(t, identity.IdentityScopeLocal+50, id.ID)
 
 	id, _, err = mgr.AllocateLocalIdentity(podLbls, false, 0)
-	assert.Error(t, err, ErrNonLocalIdentity)
+	assert.ErrorIs(t, err, ErrNonLocalIdentity)
 	assert.Nil(t, id)
 }
 
 func TestCheckpointRestore(t *testing.T) {
+	for _, testConfig := range testConfigs {
+		t.Run(testConfig.name, func(t *testing.T) {
+			testCheckpointRestore(t, testConfig)
+		})
+	}
+}
+
+func testCheckpointRestore(t *testing.T, testConfig testConfig) {
 	owner := newDummyOwner()
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, testConfig.allocatorConfig)
 	defer mgr.Close()
 	dir := t.TempDir()
 	mgr.checkpointPath = filepath.Join(dir, CheckpointFile)
@@ -462,7 +671,7 @@ func TestCheckpointRestore(t *testing.T) {
 		assert.NotEqual(t, identity.IdentityScopeGlobal, identity.ScopeForLabels(lbls), "test bug: only restore locally-scoped labels")
 
 		_, _, err := mgr.AllocateIdentity(context.Background(), lbls, false, 0)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 
 	// ensure that the checkpoint file has been written
@@ -478,12 +687,12 @@ func TestCheckpointRestore(t *testing.T) {
 	err := mgr.checkpoint(context.TODO())
 	require.NoError(t, err)
 
-	newMgr := NewCachingIdentityAllocator(owner)
+	newMgr := NewCachingIdentityAllocator(owner, AllocatorConfig{})
 	defer newMgr.Close()
 	newMgr.checkpointPath = mgr.checkpointPath
 
 	restored, err := newMgr.RestoreLocalIdentities()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Len(t, restored, 4)
 
 	modelAfter := newMgr.GetIdentities()

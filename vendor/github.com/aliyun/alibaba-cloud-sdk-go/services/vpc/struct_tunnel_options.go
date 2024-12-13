@@ -21,6 +21,7 @@ type TunnelOptions struct {
 	InternetIp          string            `json:"InternetIp" xml:"InternetIp"`
 	EnableNatTraversal  string            `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
 	RemoteCaCertificate string            `json:"RemoteCaCertificate" xml:"RemoteCaCertificate"`
+	TunnelIndex         int               `json:"TunnelIndex" xml:"TunnelIndex"`
 	ZoneNo              string            `json:"ZoneNo" xml:"ZoneNo"`
 	State               string            `json:"State" xml:"State"`
 	CustomerGatewayId   string            `json:"CustomerGatewayId" xml:"CustomerGatewayId"`

@@ -13,7 +13,7 @@ import (
 
 func TestAddRemoveEndpoint(t *testing.T) {
 	ifaces, err := netlink.LinkList()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	if len(ifaces) == 0 {
 		t.Skip("no interfaces to test")
@@ -26,7 +26,7 @@ func TestAddRemoveEndpoint(t *testing.T) {
 
 	require.Len(t, mgr.state, 1)
 	_, ok := mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 
 	// Add another endpoint that shares the same maddr
 	mgr.AddAddress(netip.MustParseAddr("f00d:aabb::1234"))
@@ -38,19 +38,19 @@ func TestAddRemoveEndpoint(t *testing.T) {
 
 	require.Len(t, mgr.state, 1)
 	_, ok = mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 
 	// Remove the second endpoint
 	mgr.RemoveAddress(netip.MustParseAddr("f00d:aabb::1234"))
 
-	require.Len(t, mgr.state, 0)
+	require.Empty(t, mgr.state)
 	_, ok = mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 }
 
 func TestAddRemoveNil(t *testing.T) {
 	ifaces, err := netlink.LinkList()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	if len(ifaces) == 0 {
 		t.Skip("no interfaces to test")
@@ -62,7 +62,7 @@ func TestAddRemoveNil(t *testing.T) {
 	)
 
 	mgr.AddAddress(netip.Addr{})
-	require.Len(t, mgr.state, 0)
+	require.Empty(t, mgr.state)
 	mgr.RemoveAddress(netip.Addr{})
-	require.Len(t, mgr.state, 0)
+	require.Empty(t, mgr.state)
 }

@@ -63,7 +63,6 @@ func TestGetCIDRPrefixes(t *testing.T) {
 	// We have three CIDR instances in the ruleset, check that all exist
 	expectedCIDRStrings := []string{
 		"192.0.2.0/24",
-		"192.0.2.0/24",
 		"192.0.3.0/24",
 	}
 	expectedCIDRs := []netip.Prefix{}
@@ -71,7 +70,7 @@ func TestGetCIDRPrefixes(t *testing.T) {
 		cidr := netip.MustParsePrefix(ipStr)
 		expectedCIDRs = append(expectedCIDRs, cidr)
 	}
-	require.EqualValues(t, expectedCIDRs, GetCIDRPrefixes(rules))
+	require.ElementsMatch(t, expectedCIDRs, GetCIDRPrefixes(rules))
 
 	// Now, test with CIDRSets.
 	rules = api.Rules{
@@ -106,22 +105,15 @@ func TestGetCIDRPrefixes(t *testing.T) {
 
 	// Once exceptions apply, here are the list of CIDRs.
 	expectedCIDRStrings = []string{
-		"192.0.2.0/25",
-		// Not "192.0.2.128/25",
-		"10.128.0.0/9",
-		"10.64.0.0/10",
-		"10.32.0.0/11",
-		"10.16.0.0/12",
-		"10.8.0.0/13",
-		"10.4.0.0/14",
-		"10.2.0.0/15",
-		"10.1.0.0/16",
-		// Not "10.0.0.0/16",
+		"192.0.2.0/24",
+		"192.0.2.128/25",
+		"10.0.0.0/8",
+		"10.0.0.0/16",
 	}
 	expectedCIDRs = []netip.Prefix{}
 	for _, ipStr := range expectedCIDRStrings {
 		cidr := netip.MustParsePrefix(ipStr)
 		expectedCIDRs = append(expectedCIDRs, cidr)
 	}
-	require.EqualValues(t, expectedCIDRs, GetCIDRPrefixes(rules))
+	require.ElementsMatch(t, expectedCIDRs, GetCIDRPrefixes(rules))
 }

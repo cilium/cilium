@@ -10,6 +10,6 @@ spec:
   egress:
     - to:
         - ipBlock:
-            cidr: {{.ExternalCIDR}}
+            cidr: "{{.ExternalCIDR}}"
             except:
-              - {{.ExternalOtherIP}}/32
+              - "{{ .ExternalOtherIP | ipToCIDR }}"

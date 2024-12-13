@@ -23,6 +23,7 @@ type IngressAclEntry struct {
 	SourceCidrIp        string `json:"SourceCidrIp" xml:"SourceCidrIp"`
 	NetworkAclEntryName string `json:"NetworkAclEntryName" xml:"NetworkAclEntryName"`
 	EntryType           string `json:"EntryType" xml:"EntryType"`
+	IpVersion           string `json:"IpVersion" xml:"IpVersion"`
 	Policy              string `json:"Policy" xml:"Policy"`
 	Description         string `json:"Description" xml:"Description"`
 }

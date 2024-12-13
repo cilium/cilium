@@ -63,6 +63,14 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	return ResourceID(str.String())
 }
 
+func (r ResourceID) Namespace() string {
+	parts := strings.SplitN(string(r), "/", 3)
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[1]
+}
+
 // TunnelPeer is the IP address of the host associated with this prefix. This is
 // typically used to establish a tunnel, e.g. in tunnel mode or for encryption.
 // This type implements ipcache.IPMetadata

@@ -229,8 +229,16 @@ build-operator: ## Build cilium operator binary
 build-clustermesh-apiserver: ## Build cilium clustermesh-apiserver binary
 	$(QUIET)$(MAKE) -C clustermesh-apiserver  GOOS=linux
 
+.PHONY: build-hubble-cli
+build-hubble-cli: ## Build hubble cli binary
+	$(QUIET)$(MAKE) -C hubble GOOS=linux
+
+.PHONY: build-bugtool
+build-bugtool: ## Build bugtool binary
+	$(QUIET)$(MAKE) -C bugtool GOOS=linux
+
 .PHONY: kind-image-fast-agent
-kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and daemon binaries. Copy the bins and bpf files to kind nodes.
+kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli build-bugtool ## Build cilium cli, daemon binaries, and hubble cli. Copy the bins and bpf files to kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
@@ -248,6 +256,14 @@ kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and 
 			docker exec $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/cilium-agent"; \
+			\
+			docker exec $${node_name} rm -f "${dst}/hubble"; \
+			docker cp "./hubble/hubble" $${node_name}:"${dst}"; \
+			docker exec $${node_name} chmod +x "${dst}/hubble"; \
+			\
+			docker exec $${node_name} rm -f "${dst}/cilium-bugtool"; \
+			docker cp "./bugtool/cilium-bugtool" $${node_name}:"${dst}"; \
+			docker exec $${node_name} chmod +x "${dst}/cilium-bugtool"; \
 		done; \
 		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
 	done
@@ -313,6 +329,8 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 		>/dev/null 2>&1 &
 
 GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
+# Set this to "standard" to use the standard CRDs instead
+GW_CHANNEL ?= "experimental"
 KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
 LB_CIDR ?= $(shell echo $(KIND_NET_CIDR) | sed "s@0.0/16@255.200\/28@" | sed -e 's/[\/&]/\\&/g')
 
@@ -323,11 +341,11 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
 	$(CILIUM_CLI) install \
@@ -337,6 +355,33 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 		--version= \
 		>/dev/null 2>&1 &
 
+	$(CILIUM_CLI) status --wait --wait-duration 30s
+
+	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
+	@echo "LB_CIDR: $(LB_CIDR)"
+
+	@echo "Deploying LB-IPAM Pool..."
+	sed -e "s/LB_CIDR/$(LB_CIDR)/g" $(ROOT_DIR)/contrib/testing/servicemesh/ippool.yaml | kubectl apply -f -
+
+	@echo "Deploying L2-Announcement Policy..."
+	kubectl apply -f $(ROOT_DIR)/contrib/testing/servicemesh/l2policy.yaml
+
+.PHONY: kind-servicemesh-prereqs
+kind-servicemesh-prereqs: check_deps kind-ready
+	@echo "  SETUP Servicemesh"
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+
+	$(eval KIND_VALUES_FAST_FILES += --helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml)
+
+	@echo "KIND_VALUES_FILES $(KIND_VALUES_FAST_FILES)"
+
+.PHONY: kind-servicemesh-install-cilium-fast
+kind-servicemesh-install-cilium-fast: | kind-servicemesh-prereqs kind-image-fast kind-install-cilium-fast
 	$(CILIUM_CLI) status --wait --wait-duration 30s
 
 	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
@@ -365,6 +410,32 @@ kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium ve
 		--nodes-without-cilium \
 		--version= \
 		>/dev/null 2>&1 &
+
+KVSTORE_POD_NAME ?= "kvstore"
+KVSTORE_POD_PORT ?= "2378"
+
+.PHONY: kind-kvstore-install-cilium
+kind-kvstore-install-cilium: check_deps kind-ready kind-kvstore-start ## Install a local Cilium version into the cluster, configured in kvstore mode.
+	$(MAKE) kind-install-cilium KIND_VALUES_FILES="\
+		$(KIND_VALUES_FILES) \
+		--set etcd.enabled=true \
+		--set etcd.endpoints[0]=http://$(shell kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) -o jsonpath='{.status.hostIP}'):$(KVSTORE_POD_PORT) \
+		--set identityAllocationMode=kvstore \
+	"
+
+.PHONY: kind-kvstore-start
+kind-kvstore-start: ## Start an etcd pod serving as Cilium's kvstore
+	kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) >/dev/null 2>/dev/null || \
+		kubectl --namespace kube-system run $(KVSTORE_POD_NAME) --image $(ETCD_IMAGE) \
+			--overrides='{ "apiVersion": "v1", "spec": { "hostNetwork": true, "nodeSelector": {"node-role.kubernetes.io/control-plane": ""},  "tolerations": [{ "operator": "Exists" }] }}' \
+			-- etcd --listen-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT) --advertise-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT)
+
+	kubectl --namespace kube-system wait --for=condition=Ready pod/$(KVSTORE_POD_NAME)
+
+.PHONY: kind-kvstore-stop
+kind-kvstore-stop: ## Stop the etcd pod serving as Cilium's kvstore
+	kubectl --namespace kube-system delete pod $(KVSTORE_POD_NAME) --ignore-not-found
+	kubectl --namespace kube-system wait --for=delete pod/$(KVSTORE_POD_NAME)
 
 .PHONY: kind-uninstall-cilium
 kind-uninstall-cilium: check_deps ## Uninstall Cilium from the cluster.

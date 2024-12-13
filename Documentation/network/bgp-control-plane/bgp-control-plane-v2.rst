@@ -16,7 +16,7 @@ The following resources are used to manage the BGP Control Plane:
 
 * ``CiliumBGPClusterConfig``: Defines BGP instances and peer configurations that are applied to multiple nodes.
 * ``CiliumBGPPeerConfig``: A common set of BGP peering setting. It can be used across multiple peers.
-* ``CiliumBGPAdvertisements``: Defines prefixes that are injected into the BGP routing table.
+* ``CiliumBGPAdvertisement``: Defines prefixes that are injected into the BGP routing table.
 * ``CiliumBGPNodeConfigOverride``: Defines node-specific BGP configuration to provide a finer control.
 
 The relationship between various resources is shown in the below diagram:
@@ -178,7 +178,7 @@ Timers
 
 BGP Control Plane supports modifying the following BGP timer parameters. For
 more detailed description for each timer parameters, please refer to `RFC4271
-<https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__.
+<https://datatracker.ietf.org/doc/html/rfc4271>`__.
 
 ================= ============================ ==========
 Name              Field                        Default
@@ -460,7 +460,7 @@ Pod CIDR prefixes assigned to the local node.
 
 .. _bgp-adverts-multipool:
 
-MutliPool IPAM
+MultiPool IPAM
 ~~~~~~~~~~~~~~
 
 When :ref:`MultiPool IPAM <ipam_crd_multi_pool>` is used, specify the

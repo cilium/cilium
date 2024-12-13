@@ -324,7 +324,7 @@ func TestGetIPv4AllocCIDRs(t *testing.T) {
 			}
 
 			actual := n.GetIPv4AllocCIDRs()
-			assert.Equal(t, actual, tt.expectedCIDRs)
+			assert.Equal(t, tt.expectedCIDRs, actual)
 		})
 	}
 }
@@ -380,7 +380,7 @@ func TestGetIPv6AllocCIDRs(t *testing.T) {
 			}
 
 			actual := n.GetIPv6AllocCIDRs()
-			assert.Equal(t, actual, tt.expectedCIDRs)
+			assert.Equal(t, tt.expectedCIDRs, actual)
 		})
 	}
 }

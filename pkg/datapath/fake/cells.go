@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -77,6 +78,10 @@ var Cell = cell.Module(
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		tables.NewRouteTable, statedb.RWTable[*tables.Route].ToTable,
+
+		func() types.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
+
+		func() garp.L2PodAnnouncementConfig { return &fakeTypes.GarpConfig{} },
 	),
 
 	tables.NodeAddressCell,

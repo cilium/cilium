@@ -62,8 +62,8 @@
 #   will be forward-compatible for upgrade and follow best practices for
 #   deployment (for example, being GitOps-friendly).
 # - @cilium/sig-hubble-api:
-#   Review all Hubble API related changes. The Hubble API covers gRPC and
-#   metrics endpoints. The team ensures that API changes are backward
+#   Review Hubble API changes related to gRPC endpoints.
+#   The team ensures that API changes are backward
 #   compatible or that a new API version is created for backward incompatible
 #   changes.
 # - @cilium/metrics:
@@ -90,6 +90,9 @@
 #   Review all Cilium and Hubble code related to observing system events,
 #   exporting those via gRPC protocols outside the node and outside the
 #   cluster. those event channels, for example via TLS.
+# - @cilium/hubble-metrics:
+#   Review code related to Hubble metrics, ensure changes in exposed metrics are
+#   consistent and not breaking without careful consideration.
 # - @cilium/hubble-ui:
 #   Maintain the Hubble UI graphical interface.
 # - @cilium/tetragon:
@@ -235,6 +238,7 @@
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
+/.github/actions/ipsec/ @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
@@ -295,7 +299,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/all_ingress_deny_from_outside.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/bgp_control_plane.go @cilium/sig-bgp
 /cilium-cli/connectivity/builder/cluster_entity_multi_cluster.go @cilium/sig-clustermesh
-/cilium-cli/connectivity/builder/dns_only.go @cilium/sig-clustermesh
+/cilium-cli/connectivity/builder/dns_only.go @cilium/fqdn
 /cilium-cli/connectivity/builder/echo_ingress.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/echo_ingress_auth_always_fail.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/echo_ingress_from_other_client_deny.go @cilium/sig-servicemesh
@@ -342,7 +346,6 @@ Makefile* @cilium/build
 /daemon/cmd/endpoint* @cilium/endpoint
 /daemon/cmd/fqdn* @cilium/fqdn
 /daemon/cmd/health* @cilium/sig-agent
-/daemon/cmd/hubble.go @cilium/sig-hubble
 /daemon/cmd/ipcache* @cilium/ipcache
 /daemon/cmd/kube_proxy* @cilium/sig-datapath
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
@@ -353,7 +356,8 @@ Makefile* @cilium/build
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
 /Documentation/beta.rst @cilium/docs-structure
-/Documentation/bpf/ @cilium/sig-datapath @cilium/docs-structure
+/Documentation/reference-guides/bpf/ @cilium/sig-datapath @cilium/docs-structure
+/Documentation/reference-guides/xfrm/ @cilium/ipsec @cilium/docs-structure
 /Documentation/check-build.sh @cilium/docs-structure
 /Documentation/check-cmdref.sh @cilium/docs-structure
 /Documentation/check-crd-compat-table.sh @cilium/docs-structure
@@ -367,6 +371,7 @@ Makefile* @cilium/build
 /Documentation/conf.py @cilium/docs-structure
 /Documentation/configuration/index.rst @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
+/Documentation/contributing/development/reviewers_committers/review_vendor.rst @cilium/vendor
 /Documentation/crdlist.rst
 /Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettingstarted/demo.rst @cilium/docs-structure
@@ -391,6 +396,7 @@ Makefile* @cilium/build
 /Documentation/network/concepts/ipam/ @cilium/sig-ipam @cilium/docs-structure
 /Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
 /Documentation/network/concepts/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
+/Documentation/network/concepts/masquerading.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/ebpf/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/egress-gateway-toc.rst @cilium/egress-gateway @cilium/docs-structure
 /Documentation/network/egress-gateway/ @cilium/egress-gateway @cilium/docs-structure
@@ -457,7 +463,6 @@ Makefile* @cilium/build
 /operator/pkg/model @cilium/sig-servicemesh
 /operator/pkg/networkpolicy @cilium/sig-policy
 /operator/pkg/secretsync @cilium/envoy @cilium/sig-servicemesh
-/operator/watchers/bgp.go @cilium/sig-bgp
 /pkg/act/ @cilium/sig-datapath @cilium/metrics
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
@@ -470,7 +475,6 @@ Makefile* @cilium/build
 /pkg/backoff/ @cilium/sig-agent
 /pkg/bufuuid/ @cilium/sig-scalability
 /pkg/datapath/linux/bandwidth/ @cilium/sig-datapath
-/pkg/bgp/ @cilium/sig-bgp
 /pkg/bgpv1/ @cilium/sig-bgp
 /pkg/bpf/ @cilium/loader
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
@@ -488,6 +492,7 @@ Makefile* @cilium/build
 /pkg/components/ @cilium/sig-agent
 /pkg/container/ @cilium/sig-foundations
 /pkg/container/bitlpm/ @cilium/ipcache @cilium/sig-policy
+/pkg/container/set/ @cilium/sig-policy
 /pkg/controller @cilium/sig-agent
 /pkg/counter @cilium/sig-datapath
 /pkg/crypto/ @cilium/sig-hubble @cilium/sig-policy
@@ -518,6 +523,7 @@ Makefile* @cilium/build
 /pkg/endpointstate/ @cilium/endpoint
 /pkg/envoy/ @cilium/envoy
 /pkg/eventqueue/ @cilium/sig-agent
+/pkg/dynamiclifecycle/ @cilium/sig-foundations
 /pkg/flowdebug/ @cilium/proxy
 /pkg/fqdn/ @cilium/fqdn
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
@@ -525,11 +531,10 @@ Makefile* @cilium/build
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble
-/pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
+/pkg/hubble/metrics @cilium/hubble-metrics
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
 /pkg/idpool/ @cilium/kvstore
-/pkg/inctimer/ @cilium/sig-agent
 /pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
 /pkg/ipam/ @cilium/sig-ipam
@@ -642,10 +647,7 @@ Makefile* @cilium/build
 /test/l4lb @cilium/sig-lb @cilium/ci-structure
 /test/nat46x64 @cilium/sig-lb @cilium/ci-structure
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
-# BGP tests
-/test/k8s/bgp.go @cilium/sig-bgp @cilium/ci-structure
 # Misc. tests
-/test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
 /tools/ @cilium/contributing

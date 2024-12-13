@@ -17,8 +17,9 @@ var (
 		FromObject: func(s *Sysctl) index.KeySet {
 			return index.NewKeySet(index.String(strings.Join(s.Name, ".")))
 		},
-		FromKey: index.String,
-		Unique:  true,
+		FromKey:    index.String,
+		FromString: index.FromString,
+		Unique:     true,
 	}
 
 	SysctlStatusIndex = reconciler.NewStatusIndex((*Sysctl).GetStatus)

@@ -108,7 +108,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	data += sizeof(struct tcphdr) + sizeof(tcp_data);
 
 	/* Shrink ctx to the exact size we used */
-	offset = (long)data - (long)ctx->data_end;
+	offset = (int)((long)data - (long)ctx->data_end);
 	bpf_xdp_adjust_tail(ctx, offset);
 
 	return 0;
@@ -183,6 +183,9 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port != backend port");
+
+	if (l4->check != bpf_htons(0xc9ee))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	char msg[20] = "Should not change!!";
 

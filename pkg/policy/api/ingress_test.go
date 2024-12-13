@@ -7,8 +7,6 @@ import (
 	"context"
 	"testing"
 
-	"fmt"
-
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -17,7 +15,7 @@ import (
 
 func TestIngressRequiresDerivativeRuleWithoutToGroups(t *testing.T) {
 	ig := IngressRule{}
-	require.Equal(t, false, ig.RequiresDerivative())
+	require.False(t, ig.RequiresDerivative())
 }
 
 func TestRequiresDerivativeRuleWithFromGroups(t *testing.T) {
@@ -25,7 +23,7 @@ func TestRequiresDerivativeRuleWithFromGroups(t *testing.T) {
 	ig.FromGroups = []Groups{
 		GetGroupsRule(),
 	}
-	require.Equal(t, true, ig.RequiresDerivative())
+	require.True(t, ig.RequiresDerivative())
 }
 
 func TestCreateDerivativeRuleWithoutFromGroups(t *testing.T) {
@@ -43,7 +41,7 @@ func TestCreateDerivativeRuleWithoutFromGroups(t *testing.T) {
 	}
 	newRule, err := ig.CreateDerivative(context.TODO())
 	require.EqualValues(t, newRule, ig)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
@@ -59,12 +57,12 @@ func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
 	}
 
 	// Checking that the derivative rule is working correctly
-	require.Equal(t, true, ig.RequiresDerivative())
+	require.True(t, ig.RequiresDerivative())
 
 	newRule, err := ig.CreateDerivative(context.TODO())
-	require.Nil(t, err)
-	require.Equal(t, 0, len(newRule.FromGroups))
-	require.Equal(t, 1, len(newRule.FromCIDRSet))
+	require.NoError(t, err)
+	require.Empty(t, newRule.FromGroups)
+	require.Len(t, newRule.FromCIDRSet, 1)
 }
 
 func TestIsLabelBasedIngress(t *testing.T) {
@@ -289,9 +287,9 @@ func TestIsLabelBasedIngress(t *testing.T) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		require.Equal(t, nil, args.eg.sanitize(false), fmt.Sprintf("Test name: %q", tt.name))
+		require.NoError(t, args.eg.sanitize(false), "Test name: %q", tt.name)
 		isLabelBased := args.eg.AllowsWildcarding()
-		require.EqualValues(t, want.isLabelBased, isLabelBased, fmt.Sprintf("Test name: %q", tt.name))
+		require.EqualValues(t, want.isLabelBased, isLabelBased, "Test name: %q", tt.name)
 	}
 }
 

@@ -569,14 +569,14 @@ func TestParseMountInfoFile(t *testing.T) {
 
 	r := bytes.NewBuffer([]byte(mountInfoContent))
 	mountInfos, err := parseMountInfoFile(r)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, mountInfos, expectedLength)
 	require.EqualValues(t, expectedMountInfos, mountInfos)
 }
 
 func TestGetMountInfo(t *testing.T) {
 	_, err := GetMountInfo()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 // TestIsMountFS tests the public function IsMountFS. We cannot expect every
@@ -584,16 +584,16 @@ func TestGetMountInfo(t *testing.T) {
 // of very well known paths.
 func TestIsMountFS(t *testing.T) {
 	mounted, matched, err := IsMountFS(unix.PROC_SUPER_MAGIC, "/proc")
-	require.Nil(t, err)
-	require.Equal(t, true, mounted)
-	require.Equal(t, true, matched)
+	require.NoError(t, err)
+	require.True(t, mounted)
+	require.True(t, matched)
 
 	mounted, matched, err = IsMountFS(FilesystemTypeBPFFS, "/sys/fs/bpf")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// We can't expect /sys/fs/bpf is mounted, so only check fstype
 	// if it is mounted. IOW, if /sys/fs/bpf is a mount point,
 	// we expect it to be bpffs.
 	if mounted {
-		require.Equal(t, true, matched)
+		require.True(t, matched)
 	}
 }

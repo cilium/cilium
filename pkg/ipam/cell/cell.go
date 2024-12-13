@@ -8,6 +8,7 @@ import (
 
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -47,10 +48,11 @@ type ipamParams struct {
 	Clientset           k8sClient.Clientset
 	IPAMMetadataManager ipamMetadata.Manager
 	NodeDiscovery       *nodediscovery.NodeDiscovery
+	Sysctl              sysctl.Sysctl
 }
 
 func newIPAddressManager(params ipamParams) *ipam.IPAM {
-	return ipam.NewIPAM(params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager)
+	return ipam.NewIPAM(params.NodeAddressing, params.AgentConfig, params.NodeDiscovery, params.LocalNodeStore, params.K8sEventReporter, params.NodeResource, params.MTU, params.Clientset, params.IPAMMetadataManager, params.Sysctl)
 }
 
 type ipamAPIHandlerParams struct {

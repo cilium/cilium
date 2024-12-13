@@ -15,9 +15,6 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/cilium/operator/doublewrite"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,6 +28,7 @@ import (
 	ciliumdbg "github.com/cilium/cilium/cilium-dbg/cmd"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
+	"github.com/cilium/cilium/operator/doublewrite"
 	"github.com/cilium/cilium/operator/endpointgc"
 	"github.com/cilium/cilium/operator/identitygc"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
@@ -69,6 +67,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
@@ -127,8 +126,7 @@ var (
 				// to add their metrics when it's set to true. Therefore, we leave the flag as global
 				// instead of declaring it as part of the metrics cell.
 				// This should be changed once the IPAM allocator is modularized.
-				EnableMetrics:    operatorCfg.EnableMetrics,
-				EnableGatewayAPI: operatorCfg.EnableGatewayAPI,
+				EnableMetrics: operatorCfg.EnableMetrics,
 			}
 		}),
 	)
@@ -186,6 +184,7 @@ var (
 		) ciliumidentity.SharedConfig {
 			return ciliumidentity.SharedConfig{
 				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
+				DisableNetworkPolicy:      !option.NetworkPolicyEnabled(daemonCfg),
 			}
 		}),
 
@@ -264,10 +263,19 @@ var (
 			// Informational policy validation.
 			networkpolicy.Cell,
 
+			// Synchronizes Secrets referenced in CiliumNetworkPolicy to the configured secret
+			// namespace.
+			networkpolicy.SecretSyncCell,
+
 			// Provide the logic to map DNS names matching Kubernetes services to the
 			// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
 			// and clustermesh.
 			dial.ServiceResolverCell,
+
+			// The feature Cell will retrieve information from all other cells /
+			// configuration to describe, in form of prometheus metrics, which
+			// features are enabled on the operator.
+			features.Cell,
 		),
 	)
 
@@ -365,16 +373,12 @@ func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifec
 
 func initEnv(vp *viper.Viper) {
 	// Prepopulate option.Config with options from CLI.
+	option.Config.SetupLogging(vp, binaryName)
 	option.Config.Populate(vp)
 	operatorOption.Config.Populate(vp)
 
 	// add hooks after setting up metrics in the option.Config
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
-
-	// Logging should always be bootstrapped first. Do not add any code above this!
-	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug); err != nil {
-		log.Fatal(err)
-	}
 
 	option.LogRegisteredOptions(vp, log)
 	log.Infof("Cilium Operator %s", version.Version)
@@ -505,7 +509,7 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:          ctx,
@@ -516,6 +520,7 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 		svcResolver:  svcResolver,
 		cfgMCSAPI:    cfgMCSAPI,
 		metrics:      metrics,
+		logger:       logger,
 	}
 	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -533,6 +538,8 @@ type legacyOnLeader struct {
 	svcResolver  *dial.ServiceResolver
 	cfgMCSAPI    cmoperator.MCSAPIConfig
 	metrics      *UnmanagedPodsMetric
+
+	logger *slog.Logger
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -573,6 +580,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	)
 
 	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
+	watcherLogger := legacy.logger.With(logfields.LogSubsys, "watchers")
 
 	switch ipamMode := option.Config.IPAM; ipamMode {
 	case ipamOption.IPAMAzure,
@@ -592,7 +600,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		if pooledAlloc, ok := alloc.(operatorWatchers.PooledAllocatorProvider); ok {
 			// The following operation will block until all pools are restored, thus it
 			// is safe to continue starting node allocation right after return.
-			operatorWatchers.StartIPPoolAllocator(legacy.ctx, legacy.clientset, pooledAlloc, legacy.resources.CiliumPodIPPools)
+			operatorWatchers.StartIPPoolAllocator(legacy.ctx, legacy.clientset, pooledAlloc, legacy.resources.CiliumPodIPPools,
+				watcherLogger)
 		}
 
 		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset})
@@ -601,11 +610,6 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 
 		nodeManager = nm
-	}
-
-	if operatorOption.Config.BGPAnnounceLBIP {
-		log.Info("Starting LB IP allocator")
-		operatorWatchers.StartBGPBetaLBIPAllocator(legacy.ctx, legacy.clientset, legacy.resources.Services)
 	}
 
 	if kvstoreEnabled() {
@@ -628,7 +632,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				SharedOnly:   true,
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
-			})
+			}, legacy.logger)
 			legacy.wg.Add(1)
 			go func() {
 				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
@@ -678,7 +682,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
 		}).Info("Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
 
-		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done())
+		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done(),
+			watcherLogger)
 	}
 
 	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.clientset, nodeManager, withKVStore)
@@ -693,12 +698,13 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 		operatorWatchers.PodStore = podStore.CacheStore()
 
-		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg); err != nil {
+		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg, podStore); err != nil {
 			log.WithError(err).Fatal("Unable to setup cilium node synchronizer")
 		}
 
 		if operatorOption.Config.NodesGCInterval != 0 {
-			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore, operatorOption.Config.NodesGCInterval)
+			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore,
+				operatorOption.Config.NodesGCInterval, watcherLogger)
 		}
 	}
 
@@ -730,13 +736,15 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 	}
 
-	if legacy.clientset.IsEnabled() {
+	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumNetworkPolicy {
 		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
 				"Cannot connect to Kubernetes apiserver ")
 		}
+	}
 
+	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumClusterwideNetworkPolicy {
 		err = enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(

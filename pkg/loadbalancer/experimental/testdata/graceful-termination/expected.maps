@@ -1,4 +1,0 @@
-BE: ID=<non-zero> ADDR=10.244.0.112:8081 STATE=terminating
-REV: ID=<non-zero> ADDR=10.96.116.33:8081
-SVC: ID=<non-zero> ADDR=10.96.116.33:8081 SLOT=0 BEID=<zero> COUNT=0 QCOUNT=1 FLAGS=ClusterIP+non-routable
-SVC: ID=<non-zero> ADDR=10.96.116.33:8081 SLOT=1 BEID=<non-zero> COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable

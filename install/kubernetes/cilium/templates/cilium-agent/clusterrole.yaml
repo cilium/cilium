@@ -12,6 +12,9 @@ metadata:
   {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 rules:
 - apiGroups:
   - networking.k8s.io
@@ -82,7 +85,7 @@ rules:
   # until we figure out how to avoid "get" inside the preflight, and then
   # should be removed ideally.
   - get
-{{- if eq "k8s" .Values.tls.secretsBackend }}
+{{- if and (eq "k8s" .Values.tls.secretsBackend) (not .Values.tls.secretSync.enabled) }}
 - apiGroups:
   - ""
   resources:

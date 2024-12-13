@@ -35,10 +35,8 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		PreRun: func(cmd *cobra.Command, args []string) {
 			// Overwrite the metrics namespace with the one specific for KVStoreMesh
 			metrics.Namespace = metrics.CiliumKVStoreMeshNamespace
+			option.Config.SetupLogging(h.Viper(), "kvstoremesh")
 			option.Config.Populate(h.Viper())
-			if err := logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "kvstoremesh", option.Config.Debug); err != nil {
-				log.Fatal(err)
-			}
 			option.LogRegisteredOptions(h.Viper(), log)
 			log.Infof("Cilium KVStoreMesh %s", version.Version)
 		},
@@ -56,7 +54,7 @@ func registerClusterInfoValidator(lc cell.Lifecycle, cinfo types.ClusterInfo, lo
 			if err := cinfo.InitClusterIDMax(); err != nil {
 				return err
 			}
-			if err := cinfo.ValidateStrict(log); err != nil {
+			if err := cinfo.ValidateStrict(); err != nil {
 				return err
 			}
 			return nil

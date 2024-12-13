@@ -72,7 +72,12 @@ Users (Alphabetically)
       D: AirQo uses Cilium as the CNI plugin
       U: CNI, Networking, NetworkPolicy, Cluster Mesh, Hubble, Kubernetes services
       L: @airqo-platform
-
+      
+    * N: Alauda
+      D: Alauda uses Cilium in the Alauda Container Platform product to provide high performance network,observability and security.
+      U: Networking, NetworkPolicy, Services, Observability
+      Q：@oilbeater
+      
     * N: Alibaba Cloud
       D: Alibaba Cloud is using Cilium together with Terway CNI as the high-performance ENI dataplane
       U: Networking, NetworkPolicy, Services, IPVLAN
@@ -129,6 +134,12 @@ Users (Alphabetically)
       L: https://bitnami.com/stack/cilium
       Q: @carrodher
 
+    * N: BMC Software
+      D: Cilium can be optionally used in BMC Helix Innovaton Suite and BMC IT Operations Management On Premise
+      U: CNI, Hubble
+      L: https://www.bmc.com
+      Q: @ryebridge
+      
     * N: ByteDance
       D: ByteDance is using Cilium as CNI plug-in for self-hosted Kubernetes.
       U: CNI, Networking
@@ -234,6 +245,11 @@ Users (Alphabetically)
       U: Networking and network policy
       L: https://github.com/digitalocean/DOKS
 
+    * N: ECCO Data and AI
+      D: ECCO Data and AI is using Cilium as CNI in all their clusters and environments (EKS in AWS).
+      U: CNI, IPv6 networking, Service Load Balancing and Cluster Mesh
+      L: https://github.com/SneaksAndData
+
     * N: Edgeless Systems
       D: Edgeless Systems is using Cilium as the CNI for Edgeless System's Confidential Kubernetes Distribution (Constellation)
       U: Networking (CNI), Transparent Encryption (WG),
@@ -337,6 +353,12 @@ Users (Alphabetically)
       L: https://immerok.io
       Q: @austince, @dmvk
 
+    * N: Incentive.me
+      D: Incentive.me use Cilium, Tetragon and Hubble for enterprise networking, observability, and security of all environments.
+      U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, egress gateway, service load balancing, CNI
+      L: https://incentive.me
+      Q: @lucasfcnunes
+
     * N: Infomaniak
       D: Infomaniak is using Cilium in their production clusters (self-hosted, bare-metal and openstack)
       U: Networking, CiliumNetworkPolicy, BPF NodePort, Direct routing, kube-proxy replacement
@@ -383,6 +405,12 @@ Users (Alphabetically)
       U: CNI, Networking, Hubble, kube-proxy replacement, network policy
       L: https://kilo.squat.ai/
       Q: @squat, @arpagon
+
+    * N: Koyeb
+      D: Koyeb hosts microVMs on its own servers and uses Cilium to power a mesh in between those
+      U: Networking, policies inside a non-Kubernetes environment
+      L: https://www.koyeb.com/blog/70-faster-deployments-and-high-performance-private-network
+      Q: @koyeb on Twitter / https://community.koyeb.com/
 
     * N: kOps
       D: kOps is using Cilium as one of the supported CNIs
@@ -481,6 +509,11 @@ Users (Alphabetically)
       U: bpf2go to compile a C source file into eBPF bytecode and then to Go
       L: https://netbird.io/knowledge-hub/using-xdp-ebpf-to-share-default-dns-port-between-resolvers
       Q: @braginini
+
+    * N: Netcloud AG
+      D: As a Swiss ICT company we are using Cilium as their CNI for mission critical, on premise k8s clusters.
+      U: Overlay Networking, CNI, Network Policy, Kube-Proxy Replacement, Service load-balancing
+      L: https://www.netcloud.ch
       
     * N: NETWAYS Web Services
       D: NETWAYS Web Services offers Cilium to their clients as CNI option for their Managed Kubernetes clusters.
@@ -823,6 +856,12 @@ Users (Alphabetically)
       D: Veepee is using Cilium on their on-premise Kubernetes clusters, hosting majority of their applications.
       U. CNI, BGP, eBPF, Hubble, DirectRouting (via kube-router)
       Q: @nerzhul
+
+    * N: Virtuozzo
+      D: Cilium CNI is the default network plugin for Kubernetes clusters within Virtuozzo Hybrid Infrastructure.
+      U: Networking, NetworkPolicy, Services
+      L: https://docs.virtuozzo.com/virtuozzo_hybrid_infrastructure_6_3_admins_guide/index.html#provisioning-kubernetes.html
+      Q: egor.ustinov@virtuozzo.com
 
     * N: VMware by Broadcom
       D: VMware offers multi-arch (ARM, AMD) and multi-distro (Ubuntu, RedHat UBI, Debian, PhotonOS) Cilium as part of the Tanzu Application Catalog, enabling customers to deploy it in their Kubernetes infrastructure.

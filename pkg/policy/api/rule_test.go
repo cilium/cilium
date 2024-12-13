@@ -13,11 +13,11 @@ import (
 
 func checkMarshalUnmarshal(t *testing.T, r *Rule) {
 	jsonData, err := json.Marshal(r)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	newRule := Rule{}
 	err = json.Unmarshal(jsonData, &newRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, newRule.EndpointSelector.LabelSelector == nil, r.EndpointSelector.LabelSelector == nil)
 	require.Equal(t, newRule.NodeSelector.LabelSelector == nil, r.NodeSelector.LabelSelector == nil)
@@ -99,19 +99,19 @@ func TestRequiresDerivative(t *testing.T) {
 	setUpSuite(t)
 
 	egressWithoutToGroups := Rule{}
-	require.Equal(t, false, egressWithoutToGroups.RequiresDerivative())
+	require.False(t, egressWithoutToGroups.RequiresDerivative())
 
 	egressRuleWithToGroups := getEgressRuleWithToGroups()
-	require.Equal(t, true, egressRuleWithToGroups.RequiresDerivative())
+	require.True(t, egressRuleWithToGroups.RequiresDerivative())
 
 	egressDenyRuleWithToGroups := getEgressDenyRuleWithToGroups()
-	require.Equal(t, true, egressDenyRuleWithToGroups.RequiresDerivative())
+	require.True(t, egressDenyRuleWithToGroups.RequiresDerivative())
 
 	ingressRuleWithToGroups := getIngressRuleWithFromGroups()
-	require.Equal(t, true, ingressRuleWithToGroups.RequiresDerivative())
+	require.True(t, ingressRuleWithToGroups.RequiresDerivative())
 
 	ingressDenyRuleWithToGroups := getIngressDenyRuleWithFromGroups()
-	require.Equal(t, true, ingressDenyRuleWithToGroups.RequiresDerivative())
+	require.True(t, ingressDenyRuleWithToGroups.RequiresDerivative())
 }
 
 func TestCreateDerivative(t *testing.T) {
@@ -119,37 +119,37 @@ func TestCreateDerivative(t *testing.T) {
 
 	egressWithoutToGroups := Rule{}
 	newRule, err := egressWithoutToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
-	require.Equal(t, 0, len(newRule.Egress))
-	require.Equal(t, 0, len(newRule.EgressDeny))
+	require.NoError(t, err)
+	require.Empty(t, newRule.Egress)
+	require.Empty(t, newRule.EgressDeny)
 
 	RegisterToGroupsProvider(AWSProvider, GetCallBackWithRule("192.168.1.1"))
 
 	egressRuleWithToGroups := getEgressRuleWithToGroups()
 	newRule, err = egressRuleWithToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
-	require.Equal(t, 0, len(newRule.EgressDeny))
-	require.Equal(t, 1, len(newRule.Egress))
-	require.Equal(t, 1, len(newRule.Egress[0].ToCIDRSet))
+	require.NoError(t, err)
+	require.Empty(t, newRule.EgressDeny)
+	require.Len(t, newRule.Egress, 1)
+	require.Len(t, newRule.Egress[0].ToCIDRSet, 1)
 
 	egressDenyRuleWithToGroups := getEgressDenyRuleWithToGroups()
 	newRule, err = egressDenyRuleWithToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
-	require.Equal(t, 0, len(newRule.Egress))
-	require.Equal(t, 1, len(newRule.EgressDeny))
-	require.Equal(t, 1, len(newRule.EgressDeny[0].ToCIDRSet))
+	require.NoError(t, err)
+	require.Empty(t, newRule.Egress)
+	require.Len(t, newRule.EgressDeny, 1)
+	require.Len(t, newRule.EgressDeny[0].ToCIDRSet, 1)
 
 	ingressRuleWithToGroups := getIngressRuleWithFromGroups()
 	newRule, err = ingressRuleWithToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
-	require.Equal(t, 0, len(newRule.IngressDeny))
-	require.Equal(t, 1, len(newRule.Ingress))
-	require.Equal(t, 1, len(newRule.Ingress[0].FromCIDRSet))
+	require.NoError(t, err)
+	require.Empty(t, newRule.IngressDeny)
+	require.Len(t, newRule.Ingress, 1)
+	require.Len(t, newRule.Ingress[0].FromCIDRSet, 1)
 
 	ingressDenyRuleWithToGroups := getIngressDenyRuleWithFromGroups()
 	newRule, err = ingressDenyRuleWithToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
-	require.Equal(t, 0, len(newRule.Ingress))
-	require.Equal(t, 1, len(newRule.IngressDeny))
-	require.Equal(t, 1, len(newRule.IngressDeny[0].FromCIDRSet))
+	require.NoError(t, err)
+	require.Empty(t, newRule.Ingress)
+	require.Len(t, newRule.IngressDeny, 1)
+	require.Len(t, newRule.IngressDeny[0].FromCIDRSet, 1)
 }

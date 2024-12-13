@@ -50,14 +50,32 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 
 	reflection.Register(grpcServer)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
+		if s.restorerPromise != nil {
+			restorer, err := s.restorerPromise.Await(ctx)
+			if err == nil && restorer != nil {
+				log.Infof("Envoy: Waiting for endpoint restoration before serving xDS resources...")
+				err = restorer.WaitForEndpointRestore(ctx)
+			}
+			if errors.Is(err, context.Canceled) {
+				log.Debug("Envoy: xDS server stopped before started serving")
+				return
+			}
+			// Tell xdsServer it's time to start waiting for acknowledgements
+			xdsServer.RestoreCompleted()
+		}
+
 		log.Infof("Envoy: Starting xDS gRPC server listening on %s", listener.Addr())
 		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
 			log.WithError(err).Fatal("Envoy: Failed to serve xDS gRPC API")
 		}
 	}()
 
-	return grpcServer.Stop
+	return func() {
+		cancel()
+		grpcServer.Stop()
+	}
 }
 
 // xdsGRPCServer handles gRPC streaming discovery requests for the

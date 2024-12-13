@@ -893,11 +893,11 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	ep, ok := endpointGetter.GetEndpointInfo(localIP)
-	assert.Equal(t, true, ok)
+	assert.True(t, ok)
 	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(
 		policy.KeyForDirection(directionFromProto(f.GetTrafficDirection())).
 			WithIdentity(identity.NumericIdentity(f.GetDestination().GetIdentity())))
-	assert.Equal(t, true, ok)
+	assert.True(t, ok)
 	assert.Equal(t, lbls, policyLabel)
 	assert.Equal(t, uint64(1), rev)
 
@@ -943,8 +943,8 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f := parseFlow(tn, localIP, remoteIP)
 	assert.NotNil(t, f.GetIsReply())
-	assert.Equal(t, true, f.GetIsReply().GetValue())
-	assert.Equal(t, true, f.GetReply())
+	assert.True(t, f.GetIsReply().GetValue())
+	assert.True(t, f.GetReply())
 
 	// TRACE_FROM_LXC
 	tn = monitor.TraceNotifyV0{
@@ -954,7 +954,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_FROM_LXC encrypted
 	tn = monitor.TraceNotifyV0{
@@ -964,7 +964,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK srv6-decap
 	tn = monitor.TraceNotifyV0{
@@ -975,7 +975,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK srv6-decap (encrypted)
 	tn = monitor.TraceNotifyV0{
@@ -986,7 +986,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK srv6-encap
 	tn = monitor.TraceNotifyV0{
@@ -997,7 +997,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK srv6-encap (encrypted)
 	tn = monitor.TraceNotifyV0{
@@ -1008,7 +1008,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK Encrypted Overlay
 	tn = monitor.TraceNotifyV0{
@@ -1019,7 +1019,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// PolicyVerdictNotify forward statically assumes is_reply=false
 	pvn := monitor.PolicyVerdictNotify{
@@ -1028,8 +1028,8 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
 	assert.NotNil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetIsReply().GetValue())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetIsReply().GetValue())
+	assert.False(t, f.GetReply())
 
 	// PolicyVerdictNotify drop statically assumes is_reply=unknown
 	pvn = monitor.PolicyVerdictNotify{
@@ -1038,7 +1038,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// DropNotify statically assumes is_reply=unknown
 	dn := monitor.DropNotify{
@@ -1046,7 +1046,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(dn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 }
 
 func Test_filterCIDRLabels(t *testing.T) {
@@ -1147,7 +1147,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.IP.Source, "10.0.0.2")
+	assert.Equal(t, "10.0.0.2", f.IP.Source)
 	assert.Empty(t, f.IP.SourceXlated)
 
 	v1 := monitor.TraceNotifyV1{
@@ -1161,8 +1161,8 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	require.NoError(t, err)
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.IP.Source, "1.1.1.1")
-	assert.Equal(t, f.IP.SourceXlated, "10.0.0.2")
+	assert.Equal(t, "1.1.1.1", f.IP.Source)
+	assert.Equal(t, "10.0.0.2", f.IP.SourceXlated)
 
 	v1 = monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
@@ -1175,7 +1175,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	require.NoError(t, err)
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.IP.Source, "10.0.0.2")
+	assert.Equal(t, "10.0.0.2", f.IP.Source)
 	assert.Empty(t, f.IP.SourceXlated)
 }
 
@@ -1243,8 +1243,15 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 		Identity:     4567,
 		IPv4:         net.ParseIP("1.1.1.1"),
 		PodName:      "xwing",
-		PodNamespace: "default",
-		Labels:       []string{"a", "b", "c"},
+		PodNamespace: "kube-system",
+		Labels: []string{
+			"k8s:io.cilium.k8s.policy.cluster=default",
+			"k8s:io.kubernetes.pod.namespace=kube-system",
+			"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=kube-system",
+			"k8s:org=alliance",
+			"k8s:class=xwing",
+			"k8s:app.kubernetes.io/name=xwing",
+		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
@@ -1279,8 +1286,9 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 
 	assert.Equal(t, uint32(ep.ID), f.Source.ID)
 	assert.Equal(t, uint32(v0.SrcLabel), f.Source.Identity)
+	assert.Equal(t, "default", f.GetSource().GetClusterName())
 	assert.Equal(t, ep.PodNamespace, f.Source.Namespace)
-	assert.Equal(t, ep.Labels, f.Source.Labels)
+	assert.Equal(t, common.SortAndFilterLabels(log, ep.Labels, ep.Identity), f.Source.Labels)
 	assert.Equal(t, ep.PodName, f.Source.PodName)
 }
 
@@ -1380,7 +1388,7 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.ProxyPort, uint32(1234))
+	assert.Equal(t, uint32(1234), f.ProxyPort)
 
 	v1 := monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
@@ -1395,7 +1403,7 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 	require.NoError(t, err)
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.ProxyPort, uint32(4321))
+	assert.Equal(t, uint32(4321), f.ProxyPort)
 }
 
 func TestDecode_DropNotify(t *testing.T) {

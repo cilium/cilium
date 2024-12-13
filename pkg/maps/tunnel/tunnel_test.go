@@ -17,7 +17,7 @@ import (
 func setupTunnelMapTestSuite(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 	err := rlimit.RemoveMemlock()
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 }
 
 func TestClusterAwareAddressing(t *testing.T) {
@@ -25,7 +25,7 @@ func TestClusterAwareAddressing(t *testing.T) {
 	m := NewTunnelMap("test_cilium_tunnel_map")
 
 	err := m.OpenOrCreate()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	prefix0 := cmtypes.MustParseAddrCluster("10.0.0.1")
 	prefix1 := cmtypes.MustParseAddrCluster("10.0.0.1@1")
@@ -34,38 +34,38 @@ func TestClusterAwareAddressing(t *testing.T) {
 
 	// Test insertion with bare IP
 	err = m.SetTunnelEndpoint(0, prefix0, endpoint0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Test insertion with AddrCluster
 	err = m.SetTunnelEndpoint(0, prefix1, endpoint1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Test if tunnel map can distinguish prefix0 and prefix1
 	ip0, err := m.GetTunnelEndpoint(prefix0)
-	require.Nil(t, err)
-	require.Equal(t, true, ip0.Equal(endpoint0))
+	require.NoError(t, err)
+	require.True(t, ip0.Equal(endpoint0))
 
 	ip1, err := m.GetTunnelEndpoint(prefix1)
-	require.Nil(t, err)
-	require.Equal(t, true, ip1.Equal(endpoint1))
+	require.NoError(t, err)
+	require.True(t, ip1.Equal(endpoint1))
 
 	// Delete prefix0 and check it deletes prefix0 correctly
 	err = m.DeleteTunnelEndpoint(prefix0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, err = m.GetTunnelEndpoint(prefix0)
 	require.Error(t, err)
 
 	_, err = m.GetTunnelEndpoint(prefix1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Delete prefix0 and check it deletes prefix0 correctly
 	err = m.DeleteTunnelEndpoint(prefix1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, err = m.GetTunnelEndpoint(prefix1)
 	require.Error(t, err)
 
 	err = m.Unpin()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }

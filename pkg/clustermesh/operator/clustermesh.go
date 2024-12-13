@@ -72,10 +72,10 @@ type ClusterMesh interface {
 	RegisterClusterServiceDeleteHook(clusterServiceDeleteHook func(*serviceStore.ClusterService))
 	// RegisterClusterServiceExportUpdateHook register a hook when a service export in the mesh is updated.
 	// This should NOT be called after the Start hook.
-	RegisterClusterServiceExportUpdateHook(clusterServiceUpdateHook func(*mcsapitypes.MCSAPIServiceSpec))
+	RegisterClusterServiceExportUpdateHook(clusterServiceExportUpdateHook func(*mcsapitypes.MCSAPIServiceSpec))
 	// RegisterClusterServiceExportDeleteHook register a hook when a service export in the mesh is deleted.
 	// This should NOT be called after the Start hook.
-	RegisterClusterServiceExportDeleteHook(clusterServiceDeleteHook func(*mcsapitypes.MCSAPIServiceSpec))
+	RegisterClusterServiceExportDeleteHook(clusterServiceExportDeleteHook func(*mcsapitypes.MCSAPIServiceSpec))
 
 	ServicesSynced(ctx context.Context) error
 	GlobalServices() *common.GlobalServiceCache

@@ -87,7 +87,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -100,6 +100,8 @@ jobs:
 
   gateway-api-conformance-test:
     name: Gateway API Conformance Test
+    env:
+      job_name: "Gateway API Conformance Test"
     needs: [wait-for-images]
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -113,6 +115,9 @@ jobs:
           conformance-profile: false
         - crd-channel: experimental
           conformance-profile: true
+        - crd-channel: standard
+          conformance-profile: false
+          encryption: ipsec
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -120,7 +125,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -132,7 +137,7 @@ jobs:
         id: default_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ inputs.SHA }}
+          image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set image tag
@@ -141,17 +146,16 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
           EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute"
-          if [ ${{ matrix.crd-channel }} == "standard" ]; then
+          if [ "${{ matrix.crd-channel }}" == "standard" ]; then
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
           fi
 
-          if [ ${{ matrix.conformance-profile }} == "true" ]; then
+          if [ "${{ matrix.conformance-profile }}" == "true" ]; then
             SKIPPED_TESTS+="MeshConsumerRoute,HTTPRouteListenerPortMatching"
           fi
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=true \
-            --helm-set=extraArgs={--envoy-config-retry-interval=5s} \
             --helm-set=gatewayAPI.enabled=true \
             --helm-set=l2announcements.enabled=true"
 
@@ -162,7 +166,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -172,7 +176,7 @@ jobs:
             examples
 
       - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@9fdad0686e6f19fcd572f62516f5e0436f562ee7 # v1.10.0
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
@@ -181,17 +185,17 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
+        uses: cilium/cilium-cli@c52e8c38e6d6235bd8e6e961199a984275547d6f # v0.16.22
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.sha }}
 
       - name: Install Go
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.2
+          go-version: 1.23.4
 
       - name: Install tparse
         timeout-minutes: 15
@@ -221,7 +225,15 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium_install_defaults="${{ steps.vars.outputs.cilium_install_defaults }}"
+          if [ "${{ matrix.encryption }}" == "ipsec" ]; then
+            kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3 rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+            cilium_install_defaults+=" --helm-set=encryption.enabled=true \
+              --helm-set=encryption.type=ipsec"
+          fi
+
+          cilium install $cilium_install_defaults
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -276,7 +288,7 @@ jobs:
           GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.216@")
           echo "GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES"
           echo "GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES"
-          if [ ${{ matrix.conformance-profile }} == "true" ]; then
+          if [ "${{ matrix.conformance-profile }}" == "true" ]; then
             GATEWAY_API_CONFORMANCE_TESTS=1 \
             GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES  \
             GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES \
@@ -295,6 +307,7 @@ jobs:
               --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
               --report-output report.yaml \
               -test.run "TestConformance" \
+              -test.timeout=29m \
               -json \
             | tparse -progress
           else
@@ -309,13 +322,31 @@ jobs:
               --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
               --allow-crds-mismatch \
               -test.run "TestConformance" \
+              -test.timeout=29m \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}" \
               -json \
             | tparse -progress
           fi
 
+      - name: Run basic CLI tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test 'allow-all-except-world,encryption,packet-drops'
+
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
+
       - name: Upload report artifacts
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: report-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}.yaml
           path: operator/pkg/gateway-api/report.yaml
@@ -332,11 +363,18 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: cilium-sysdump-out-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}
+          name: cilium-sysdump-out-${{ join(matrix.*, '-') }}
           path: cilium-sysdump-out-*.zip
           retention-days: 5
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ join(matrix.*, '-') }}
+          path: ${{ env.job_name }}*.json
 
   commit-status-final:
     if: ${{ always() }}

@@ -44,6 +44,7 @@ Filters Flags:
       --drop-reason-desc filter             Show only flows which match this drop reason describe (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")
       --fqdn filter                         Show all flows related to the given fully qualified domain name (e.g. "*.cilium.io").
       --from-all-namespaces filter[=true]   Show flows originating in any Kubernetes namespace.
+      --from-cluster filter                 Show all flows originating from endpoints known to be in the given cluster name
       --from-fqdn filter                    Show all flows originating at the given fully qualified domain name (e.g. "*.cilium.io").
       --from-identity filter                Show all flows originating at an endpoint with the given security identity
       --from-ip filter                      Show all flows originating at the given IP address. Each of the source IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
@@ -76,6 +77,7 @@ Filters Flags:
       --snat-ip filter                      Show all flows SNATed with the given IP address. Each of the SNAT IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
       --tcp-flags filter                    Show only flows which match the given TCP flags (e.g. "syn", "ack", "fin")
       --to-all-namespaces filter[=true]     Show flows terminating in any Kubernetes namespace.
+      --to-cluster filter                   Show all flows destined to endpoints known to be in the given cluster name
       --to-fqdn filter                      Show all flows terminating at the given fully qualified domain name (e.g. "*.cilium.io").
       --to-identity filter                  Show all flows terminating at an endpoint with the given security identity
       --to-ip filter                        Show all flows terminating at the given IP address. Each of the destination IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
@@ -143,8 +145,13 @@ Flow Format Flags:
 Server Flags:
       --basic-auth-password string    Specify a password for basic auth
       --basic-auth-username string    Specify a username for basic auth
+      --kube-context string           Kubernetes configuration context. This option is only considered when --port-forward is set.
+      --kube-namespace string         Namespace Cilium is running in. This option is only considered when --port-forward is set. (default "kube-system")
+      --kubeconfig string             Path to the kubeconfig file. This option is only considered when --port-forward is set.
+  -P, --port-forward                  Automatically forward the relay port to the local machine. Analoguous to running: 'cilium hubble port-forward'.
+      --port-forward-port uint16      Local port to forward to. 0 will select a random port. This option is only considered when --port-forward is set. (default 4245)
       --request-timeout duration      Unary Request timeout. Only applies to non-streaming RPCs (ServerStatus, ListNodes, ListNamespaces). (default 12s)
-      --server string                 Address of a Hubble server. Ignored when --input-file is provided. (default "localhost:4245")
+      --server string                 Address of a Hubble server. Ignored when --input-file or --port-forward is provided. (default "localhost:4245")
       --timeout duration              Hubble server dialing timeout (default 5s)
       --tls                           Specify that TLS must be used when establishing a connection to a Hubble server.
                                       By default, TLS is only enabled if the server address starts with 'tls://'.

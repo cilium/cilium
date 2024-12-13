@@ -62,7 +62,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		assert(entry.last_tx_report == 0);
 		assert(entry.rx_flags_seen == 0);
 		/* If <= a full report interval passes, don't report. */
-		then = __now;
+		then = (__u32)__now;
 		__now += CT_REPORT_INTERVAL;
 		monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_ALL_FLAGS);
 		assert(!monitor);

@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -141,9 +142,8 @@ type BackendOperations interface {
 	// client is not connected to the kvstore server. (Only implemented for etcd)
 	Disconnected() <-chan struct{}
 
-	// Status returns the status of the kvstore client including an
-	// eventual error
-	Status() (string, error)
+	// Status returns the status of the kvstore client
+	Status() *models.Status
 
 	// StatusCheckErrors returns a channel which receives status check
 	// errors
@@ -196,9 +196,9 @@ type BackendOperations interface {
 	// ListAndWatch creates a new watcher which will watch the specified
 	// prefix for changes. Before doing this, it will list the current keys
 	// matching the prefix and report them as new keys. The Events channel is
-	// created with the specified sizes. Upon every change observed, a
-	// KeyValueEvent will be sent to the Events channel
-	ListAndWatch(ctx context.Context, prefix string, chanSize int) *Watcher
+	// unbuffered. Upon every change observed, a KeyValueEvent will be sent
+	// to the Events channel
+	ListAndWatch(ctx context.Context, prefix string) EventChan
 
 	// RegisterLeaseExpiredObserver registers a function which is executed when
 	// the lease associated with a key having the given prefix is detected as expired.

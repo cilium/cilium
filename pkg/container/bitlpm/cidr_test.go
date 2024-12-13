@@ -502,6 +502,20 @@ func BenchmarkTraversal(b *testing.B) {
 		}
 	})
 
+	b.Run("AncestorIterator root-first", func(b *testing.B) {
+		n := 0
+
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			iter := t.AncestorIterator(prefix)
+			n = 0
+			for ok, _, _ := iter.Next(); ok; ok, _, _ = iter.Next() {
+				n++
+			}
+		}
+	})
+
 	b.Run("Ancestors longest-prefix-first", func(b *testing.B) {
 		n := 0
 		lastLen := 0
@@ -512,12 +526,31 @@ func BenchmarkTraversal(b *testing.B) {
 			n = 0
 			lastLen = prefixLen
 			t.AncestorsLongestPrefixFirst(prefix, func(k netip.Prefix, _ struct{}) bool {
-				pLen := prefix.Bits()
-				assert.True(b, pLen <= lastLen)
+				pLen := k.Bits()
+				assert.LessOrEqual(b, pLen, lastLen)
 				lastLen = pLen
 				n++
 				return true
 			})
+		}
+	})
+
+	b.Run("AncestorLongestPrefixFirstIterator", func(b *testing.B) {
+		n := 0
+		lastLen := 0
+
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			iter := t.AncestorLongestPrefixFirstIterator(prefix)
+			n = 0
+			lastLen = prefixLen
+			for ok, k, _ := iter.Next(); ok; ok, k, _ = iter.Next() {
+				pLen := k.Value().Bits()
+				assert.LessOrEqual(b, pLen, lastLen)
+				lastLen = pLen
+				n++
+			}
 		}
 	})
 
@@ -535,6 +568,20 @@ func BenchmarkTraversal(b *testing.B) {
 		}
 	})
 
+	b.Run("DescendantIterator depth-first", func(b *testing.B) {
+		n := 0
+
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			iter := t.DescendantIterator(prefix)
+			n = 0
+			for ok, _, _ := iter.Next(); ok; ok, _, _ = iter.Next() {
+				n++
+			}
+		}
+	})
+
 	b.Run("descendants shortest-prefix-first", func(b *testing.B) {
 		n := 0
 		lastLen := 0
@@ -545,12 +592,31 @@ func BenchmarkTraversal(b *testing.B) {
 			n = 0
 			lastLen = 0
 			t.DescendantsShortestPrefixFirst(prefix, func(k netip.Prefix, _ struct{}) bool {
-				pLen := prefix.Bits()
-				assert.True(b, pLen >= lastLen)
+				pLen := k.Bits()
+				assert.GreaterOrEqual(b, pLen, lastLen)
 				lastLen = pLen
 				n++
 				return true
 			})
+		}
+	})
+
+	b.Run("DescendantShortestPrefixFirstIterator", func(b *testing.B) {
+		n := 0
+		lastLen := 0
+
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			iter := t.DescendantShortestPrefixFirstIterator(prefix)
+			n = 0
+			lastLen = 0
+			for ok, k, _ := iter.Next(); ok; ok, k, _ = iter.Next() {
+				pLen := k.Value().Bits()
+				assert.GreaterOrEqual(b, pLen, lastLen)
+				lastLen = pLen
+				n++
+			}
 		}
 	})
 }

@@ -24,7 +24,7 @@ import (
 // By default, no traffic is mirrored. Use [CreateTrafficMirrorFilter] to create filter rules that specify
 // the traffic to mirror.
 //
-// [CreateTrafficMirrorFilter]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorFilter.htm
+// [CreateTrafficMirrorFilter]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorFilter.html
 func (c *Client) CreateTrafficMirrorSession(ctx context.Context, params *CreateTrafficMirrorSessionInput, optFns ...func(*Options)) (*CreateTrafficMirrorSessionOutput, error) {
 	if params == nil {
 		params = &CreateTrafficMirrorSessionInput{}

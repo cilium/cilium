@@ -5,27 +5,37 @@ package flow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 type flowHandler struct {
-	flows   *prometheus.CounterVec
-	context *api.ContextOptions
+	flows     *prometheus.CounterVec
+	context   *api.ContextOptions
+	AllowList filters.FilterFuncs
+	DenyList  filters.FilterFuncs
 }
 
-func (h *flowHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
-	c, err := api.ParseContextOptions(options)
+func (h *flowHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
 	h.context = c
+	err = h.HandleConfigurationUpdate(options)
+	if err != nil {
+		return err
+	}
 
 	labels := []string{"protocol", "type", "subtype", "verdict"}
 	labels = append(labels, h.context.GetLabelNames()...)
@@ -53,6 +63,10 @@ func (h *flowHandler) ListMetricVec() []*prometheus.MetricVec {
 }
 
 func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
+		return nil
+	}
+
 	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
@@ -90,5 +104,30 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 	labels = append(labels, labelValues...)
 
 	h.flows.WithLabelValues(labels...).Inc()
+	return nil
+}
+
+func (h *flowHandler) Deinit(registry *prometheus.Registry) error {
+	var errs error
+	if !registry.Unregister(h.flows) {
+		errs = errors.Join(errs, fmt.Errorf("failed to unregister metric: %v,", "flows_processed_total"))
+	}
+	return errs
+}
+
+func (h *flowHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return h.SetFilters(cfg)
+}
+
+func (h *flowHandler) SetFilters(cfg *api.MetricConfig) error {
+	var err error
+	h.AllowList, err = filters.BuildFilterList(context.Background(), cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	h.DenyList, err = filters.BuildFilterList(context.Background(), cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
 	return nil
 }

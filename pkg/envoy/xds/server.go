@@ -65,10 +65,6 @@ var (
 
 // Server implements the handling of xDS streams.
 type Server struct {
-	// restorerPromise is initialized only if xDS server should wait sending any xDS resources
-	// until all endpoints have been restored.
-	restorerPromise promise.Promise[endpointstate.Restorer]
-
 	// watchers maps each supported type URL to its corresponding resource
 	// watcher.
 	watchers map[string]*ResourceWatcher
@@ -115,7 +111,13 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration, restorerProm
 
 	// TODO: Unregister the watchers when stopping the server.
 
-	return &Server{restorerPromise: restorerPromise, watchers: watchers, ackObservers: ackObservers}
+	return &Server{watchers: watchers, ackObservers: ackObservers}
+}
+
+func (s *Server) RestoreCompleted() {
+	for _, ackObserver := range s.ackObservers {
+		ackObserver.MarkRestoreCompleted()
+	}
 }
 
 func getXDSRequestFields(req *envoy_service_discovery.DiscoveryRequest) logrus.Fields {
@@ -262,23 +264,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 	streamLog.Info("starting xDS stream processing")
 
 	nodeIP := ""
-
-	if s.restorerPromise != nil {
-		restorer, err := s.restorerPromise.Await(ctx)
-		if err != nil {
-			return err
-		}
-
-		if restorer != nil {
-			streamLog.Debug("Waiting for endpoint restoration before serving resources...")
-			restorer.WaitForEndpointRestore(ctx)
-			for typeURL, ackObserver := range s.ackObservers {
-				streamLog.WithField(logfields.XDSTypeURL, typeURL).
-					Debug("Endpoints restored, starting serving.")
-				ackObserver.MarkRestoreCompleted()
-			}
-		}
-	}
+	firstRequest := true
 
 	for {
 		// Process either a new request from the xDS stream or a response
@@ -299,7 +285,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			req := recv.Interface().(*envoy_service_discovery.DiscoveryRequest)
 
 			// only require Node to exist in the first request
-			if nodeIP == "" {
+			if firstRequest {
 				id := req.GetNode().GetId()
 				streamLog = streamLog.WithField(logfields.XDSClientNode, id)
 				var err error
@@ -308,6 +294,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					streamLog.WithError(err).Error("invalid Node in xDS request")
 					return ErrInvalidNodeFormat
 				}
+				streamLog.WithFields(getXDSRequestFields(req)).Info("Received first request in a new xDS stream")
 			}
 
 			requestLog := streamLog.WithFields(getXDSRequestFields(req))
@@ -355,7 +342,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			watcher := s.watchers[typeURL]
 
 			if nonce == 0 && versionInfo > 0 {
-				requestLog.Debugf("xDS was restarted, setting nonce to %d", versionInfo)
+				requestLog.Infof("xDS was restarted, setting nonce to %d", versionInfo)
 				nonce = versionInfo
 			}
 
@@ -369,8 +356,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
 					ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
-				} else {
-					requestLog.Debug("ACK received but no observers are waiting for ACKs")
+				} else if firstRequest {
+					requestLog.Info("ACK received but no observers are waiting for ACKs")
 				}
 				if versionInfo < nonce {
 					// versions after VersionInfo, upto and including ResponseNonce are NACKed
@@ -397,8 +384,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
 				go watcher.WatchResources(ctx, typeURL, versionInfo, nodeIP, req.GetResourceNames(), respCh)
 			} else {
-				requestLog.Debug("received invalid nonce in xDS request; ignoring request")
+				requestLog.Warning("received invalid nonce in xDS request")
+				return ErrInvalidResponseNonce
 			}
+			firstRequest = false
+
 		default: // Pending watch response.
 			state := &typeStates[chosen]
 			state.pendingWatchCancel()

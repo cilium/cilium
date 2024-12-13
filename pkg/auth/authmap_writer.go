@@ -6,22 +6,22 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/authmap"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 type authMapWriter struct {
-	logger  logrus.FieldLogger
+	logger  *slog.Logger
 	authMap authmap.Map
 }
 
-func newAuthMapWriter(logger logrus.FieldLogger, authMap authmap.Map) *authMapWriter {
+func newAuthMapWriter(logger *slog.Logger, authMap authmap.Map) *authMapWriter {
 	return &authMapWriter{
 		logger:  logger,
 		authMap: authMap,
@@ -36,7 +36,7 @@ func (r *authMapWriter) All() (map[authKey]authInfo, error) {
 			localIdentity:  identity.NumericIdentity(key.LocalIdentity),
 			remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
 			remoteNodeID:   key.RemoteNodeID,
-			authType:       policy.AuthType(key.AuthType),
+			authType:       policyTypes.AuthType(key.AuthType),
 		}] = authInfo{
 			expiration: info.Expiration.Time(),
 		}
@@ -93,9 +93,7 @@ func (r *authMapWriter) DeleteIf(predicate func(key authKey, info authInfo) bool
 		if predicate(k, v) {
 			if err := r.Delete(k); err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
-					r.logger.
-						WithField("key", k).
-						Debug("Failed to delete already deleted auth entry")
+					r.logger.Debug("Failed to delete already deleted auth entry", "key", k)
 					continue
 				}
 				return fmt.Errorf("failed to delete auth entry from map: %w", err)

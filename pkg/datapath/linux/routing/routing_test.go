@@ -126,8 +126,8 @@ func TestDelete(t *testing.T) {
 				rules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
 					Priority: linux_defaults.RulePriorityIngress,
 				})
-				require.Nil(t, err)
-				require.NotEqual(t, 0, len(rules))
+				require.NoError(t, err)
+				require.NotEmpty(t, rules)
 
 				// Insert almost duplicate rule; the reason for this is to
 				// trigger an error while trying to delete the ingress rule. We
@@ -135,7 +135,7 @@ func TestDelete(t *testing.T) {
 				// one (only Dst), thus we set Src to create a near-duplicate.
 				r := rules[0]
 				r.Src = &net.IPNet{IP: fakeIP.AsSlice(), Mask: net.CIDRMask(32, 32)}
-				require.Nil(t, netlink.RuleAdd(&r))
+				require.NoError(t, netlink.RuleAdd(&r))
 
 				return ip
 			},
@@ -173,8 +173,8 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 	runConfigure(t, ri, ip, mtu)
 	afterCreationRules, afterCreationRoutes := listRulesAndRoutes(t, netlink.FAMILY_V4)
 
-	require.NotEqual(t, 0, len(afterCreationRules))
-	require.NotEqual(t, 0, len(afterCreationRoutes))
+	require.NotEmpty(t, afterCreationRules)
+	require.NotEmpty(t, afterCreationRoutes)
 	require.NotEqual(t, len(afterCreationRules), len(beforeCreationRules))
 	require.NotEqual(t, len(afterCreationRoutes), len(beforeCreationRoutes))
 
@@ -191,12 +191,12 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 
 func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
 	err := ri.Configure(ip.AsSlice(), mtu, false, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func runDelete(t *testing.T, ip netip.Addr) {
 	err := Delete(ip, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 // listRulesAndRoutes returns all rules and routes configured on the machine
@@ -204,7 +204,7 @@ func runDelete(t *testing.T, ip netip.Addr) {
 // within a network namespace for isolation.
 func listRulesAndRoutes(t *testing.T, family int) ([]netlink.Rule, []netlink.Route) {
 	rules, err := route.ListRules(family, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Rules are created under specific tables, so find the routes that are in
 	// those tables.
@@ -213,7 +213,7 @@ func listRulesAndRoutes(t *testing.T, family int) ([]netlink.Rule, []netlink.Rou
 		rr, err := netlink.RouteListFiltered(family, &netlink.Route{
 			Table: r.Table,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		routes = append(routes, rr...)
 	}
@@ -238,13 +238,13 @@ func createDummyDevice(t *testing.T, macAddr mac.MAC) func() {
 		},
 	}
 	err := netlink.LinkAdd(dummy)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	found := linkExistsWithMAC(t, macAddr)
-	require.Equal(t, true, found)
+	require.True(t, found)
 
 	return func() {
-		require.Nil(t, netlink.LinkDel(dummy))
+		require.NoError(t, netlink.LinkDel(dummy))
 	}
 }
 
@@ -256,7 +256,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 	fakeSubnet1CIDR := netip.MustParsePrefix("192.168.0.0/16")
 	fakeSubnet2CIDR := netip.MustParsePrefix("192.170.0.0/16")
 	fakeMAC, err := mac.ParseMAC("00:11:22:33:44:55")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, fakeMAC)
 
 	var fakeRoutingInfo *RoutingInfo
@@ -283,7 +283,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 			false,
 		)
 	}
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, fakeRoutingInfo)
 
 	node.SetRouterInfo(fakeRoutingInfo)
@@ -296,7 +296,7 @@ func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, Routi
 
 func linkExistsWithMAC(t *testing.T, macAddr mac.MAC) bool {
 	links, err := netlink.LinkList()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	for _, link := range links {
 		if link.Attrs().HardwareAddr.String() == macAddr.String() {

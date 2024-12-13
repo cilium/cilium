@@ -24,7 +24,7 @@ endif
 -include Makefile.override
 
 # List of subdirectories used for global "make build", "make clean", etc
-SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools $(SUBDIR_RELAY_CONTAINER) bpf
+SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools $(SUBDIR_RELAY_CONTAINER) bpf clustermesh-apiserver
 
 # Filter out any directories where the parent directory is also present, to avoid
 # building or cleaning a subdirectory twice.
@@ -36,6 +36,7 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
+UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/ipsec/...
 
 GOTEST_BASE := -timeout 600s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
@@ -81,8 +82,16 @@ $(SUBDIRS): force ## Execute default make target(make all) for the provided subd
 
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
-	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) -p 1 $(TEST_LDFLAGS) \
-		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
+	## We split tests into two parts: one that can be run in parallel
+	## and tests that cannot be run in parallel with other packages
+	## One drawback of this approach is that
+	## if first set of tests fails, second one is not run
+	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
+	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+	tail -n+2 coverage2.out >> coverage.out
+	rm coverage2.out
 	$(MAKE) generate-cov
 
 start-kvstores: ## Start running kvstores (etcd container) for integration tests.
@@ -109,10 +118,14 @@ endif
 
 generate-cov: ## Generate HTML coverage report at coverage-all.html.
 	-@# Remove generated code from coverage
+ifneq ($(SKIP_COVERAGE),)
+	@echo "Skipping generate-cov because SKIP_COVERAGE is set."
+else
 	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
 		coverage.out > coverage.out.tmp
 	$(QUIET)$(GO) tool cover -html=coverage.out.tmp -o=coverage-all.html
 	$(QUIET) rm coverage.out.tmp
+endif
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
 integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
@@ -290,14 +303,6 @@ generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremes
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
-define generate_deepequal
-	$(GO) run github.com/cilium/deepequal-gen \
-	--input-dirs $(subst $(space),$(comma),$(1)) \
-	--go-header-file "$$PWD/hack/custom-boilerplate.go.txt" \
-	--output-file-base zz_generated.deepequal \
-	--output-base $(2)
-endef
-
 define generate_k8s_protobuf
 	$(GO) install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
 	$(GO) install golang.org/x/tools/cmd/goimports && \
@@ -335,10 +340,6 @@ generate-k8s-api-local:
 	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
 
 	$(QUIET) $(call generate_k8s_protobuf,${K8S_PROTO_PACKAGES},"$(TMPDIR)")
-
-	$(eval DEEPEQUAL_PACKAGES := $(shell grep "\+deepequal-gen" -l -r --include \*.go --exclude-dir 'vendor' . | xargs dirname {} | sort | uniq | grep -x -v '.' | sed 's|\.\/|github.com/cilium/cilium\/|g'))
-	$(QUIET) $(call generate_deepequal,${DEEPEQUAL_PACKAGES},"$(TMPDIR)")
-
 	$(QUIET) contrib/scripts/k8s-code-gen.sh "$(TMPDIR)"
 
 	$(QUIET) rm -rf "$(TMPDIR)"
@@ -439,6 +440,8 @@ endif
 	$(QUIET) contrib/scripts/check-legacy-header-guard.sh
 	@$(ECHO_CHECK) contrib/scripts/check-logrus.sh
 	$(QUIET) contrib/scripts/check-logrus.sh
+	@$(ECHO_CHECK) contrib/scripts/check-safenetlink.sh
+	$(QUIET) contrib/scripts/check-safenetlink.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
@@ -515,3 +518,13 @@ run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder cont
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
 	DOCKER_ARGS=-it contrib/scripts/builder.sh bash
+
+.PHONY: renovate-local
+renovate-local: ## Run a local linter for the renovate configuration
+	$(CONTAINER_ENGINE) run --rm -ti \
+		-e LOG_LEVEL=debug \
+		-e GITHUB_COM_TOKEN="$(gh auth token)" \
+		-v /tmp:/tmp \
+		-v $(ROOT_DIR):/usr/src/app \
+		docker.io/renovate/renovate:slim \
+			renovate --platform=local

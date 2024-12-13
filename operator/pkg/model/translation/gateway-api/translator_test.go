@@ -632,7 +632,7 @@ func Test_getService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations, tt.args.externalTrafficPolicy)
 			assert.Equalf(t, tt.want, got, "getService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
-			assert.Equal(t, true, len(got.Name) <= 63, "Service name is too long")
+			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
 		})
 	}
 }

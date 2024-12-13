@@ -262,12 +262,6 @@ func SetRouterInfo(info RouterInfo) {
 	addrs.mu.Unlock()
 }
 
-// GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading
-// any traffic that is being forwarded from the host into the Cilium cluster.
-func GetHostMasqueradeIPv4() net.IP {
-	return GetInternalIPv4Router()
-}
-
 // SetIPv4AllocRange sets the IPv4 address pool to use when allocating
 // addresses for local endpoints
 func SetIPv4AllocRange(net *cidr.CIDR) {
@@ -318,12 +312,6 @@ func ValidatePostInit() error {
 func GetIPv6() net.IP {
 	n := getLocalNode()
 	return clone(n.GetNodeIP(true))
-}
-
-// GetHostMasqueradeIPv6 returns the IPv6 address to be used for masquerading
-// any traffic that is being forwarded from the host into the Cilium cluster.
-func GetHostMasqueradeIPv6() net.IP {
-	return GetIPv6Router()
 }
 
 // GetIPv6Router returns the IPv6 address of the router, e.g. address

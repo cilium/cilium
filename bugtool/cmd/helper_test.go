@@ -51,45 +51,45 @@ func TestWalkPath(t *testing.T) {
 	// Invalid paths
 	invalidFile := "doesnotexist"
 	err := w.walkPath(invalidFile, nil, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = w.walkPath(invalidFile, nil, fmt.Errorf("ignore me please"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Invalid symlink
 	invalidLink := filepath.Join(baseDir, "totes_real_link")
 	err = os.Symlink(invalidFile, invalidLink)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, err = os.Stat(invalidLink)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	info, err := os.Lstat(invalidLink)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = w.walkPath(invalidLink, info, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// With real file
 	realFile, err := os.CreateTemp(baseDir, "test")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	info, err = os.Stat(realFile.Name())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = w.walkPath(realFile.Name(), info, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// With real link to real file
 	realLink := filepath.Join(baseDir, "test_link")
 	err = os.Symlink(realFile.Name(), realLink)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	info, err = os.Lstat(realLink)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = w.walkPath(realLink, info, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// With directory
 	nestedDir, err := os.MkdirTemp(baseDir, "nested")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	info, err = os.Stat(nestedDir)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = w.walkPath(nestedDir, info, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 // TestHashEncryptionKeys tests proper hashing of keys. Lines in which `auth` or

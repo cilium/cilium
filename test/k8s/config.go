@@ -49,6 +49,10 @@ var _ = SkipDescribeIf(func() bool {
 		kubectl.CloseSSHClient()
 	})
 
+	JustAfterEach(func() {
+		kubectl.CollectFeatures()
+	})
+
 	It("Correctly computes config overrides with CNC v2alpha1", func() {
 		pods, err := kubectl.GetPodsNodes(helpers.CiliumNamespace, helpers.CiliumSelector)
 		Expect(err).To(BeNil(), "error finding cilium pods")

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
-	hubbledefaults "github.com/cilium/cilium/pkg/hubble/defaults"
+	hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 	// RetryTimeout is the duration to wait between reconnection attempts.
 	RetryTimeout = 30 * time.Second
 	// PeerTarget is the address of the peer service.
-	PeerTarget = "unix://" + ciliumDefaults.HubbleSockPath
+	PeerTarget = "unix://" + hubbleDefaults.SocketPath
 	// PeerServiceName is the name of the peer service, should it exist.
 	PeerServiceName = "hubble-peer"
 
@@ -49,7 +49,7 @@ const (
 var (
 	// ListenAddress is the address on which the Hubble Relay server listens
 	// for incoming gRPC requests.
-	ListenAddress = fmt.Sprintf(":%d", hubbledefaults.RelayPort)
+	ListenAddress = fmt.Sprintf(":%d", hubbleDefaults.RelayPort)
 
 	// HealthListenAddress is the address on which the Hubble Relay gRPC health
 	// server listens on

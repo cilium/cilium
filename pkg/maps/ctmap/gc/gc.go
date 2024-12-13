@@ -7,16 +7,17 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	stdtime "time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -26,11 +27,6 @@ import (
 // initialGCInterval sets the time after which the agent will begin to warn
 // regarding a long ctmap gc duration.
 const initialGCInterval = 30 * time.Second
-
-type Enabler interface {
-	// Enable enables the connection tracking garbage collection.
-	Enable()
-}
 
 // EndpointManager is any type which returns the list of Endpoints which are
 // globally exposed on the current node.
@@ -69,6 +65,14 @@ type GC struct {
 
 	perClusterCTMapsRetriever PerClusterCTMapsRetriever
 	controllerManager         *controller.Manager
+
+	observable4 stream.Observable[ctmap.GCEvent]
+	next4       func(ctmap.GCEvent)
+	complete4   func(error)
+
+	observable6 stream.Observable[ctmap.GCEvent]
+	next6       func(ctmap.GCEvent)
+	complete6   func(error)
 }
 
 func New(params parameters) *GC {
@@ -86,10 +90,16 @@ func New(params parameters) *GC {
 
 		controllerManager: controller.NewManager(),
 	}
+
+	gc.observable4, gc.next4, gc.complete4 = stream.Multicast[ctmap.GCEvent]()
+	gc.observable6, gc.next6, gc.complete6 = stream.Multicast[ctmap.GCEvent]()
+
 	params.Lifecycle.Append(cell.Hook{
 		// OnStart not yet defined pending further modularization of CT map GC.
 		OnStop: func(cell.HookContext) error {
 			gc.controllerManager.RemoveAllAndWait()
+			gc.complete4(nil)
+			gc.complete6(nil)
 			return nil
 		},
 	})
@@ -107,9 +117,7 @@ func (gc *GC) Enable() {
 		ipv4 := gc.ipv4
 		ipv6 := gc.ipv6
 		triggeredBySignal := false
-		ctTimer, ctTimerDone := inctimer.New()
 		var gcPrev time.Time
-		defer ctTimerDone()
 		for {
 			var (
 				maxDeleteRatio float64
@@ -220,7 +228,7 @@ func (gc *GC) Enable() {
 						ipv6 = true
 					}
 				}
-			case <-ctTimer.After(interval):
+			case <-time.After(interval):
 				gc.signalHandler.MuteSignals()
 				ipv4 = gc.ipv4
 				ipv6 = gc.ipv6
@@ -234,7 +242,7 @@ func (gc *GC) Enable() {
 	go func() {
 		select {
 		case <-initialScanComplete:
-		case <-inctimer.After(initialGCInterval):
+		case <-stdtime.After(initialGCInterval):
 			gc.logger.Warn("Failed to perform initial ctmap gc scan within expected duration." +
 				"This may be caused by large ctmap sizes or by constraint CPU resources upon start." +
 				"Delayed initial ctmap scan may result in delayed map pressure metrics for ctmap.")
@@ -248,6 +256,18 @@ func (gc *GC) Enable() {
 		// Not supporting BPF map pressure for local CT maps as of yet.
 		ctmap.CalculateCTMapPressure(gc.controllerManager, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
 	}()
+}
+
+func (gc *GC) Run(m *ctmap.Map, filter ctmap.GCFilter) (int, error) {
+	return ctmap.GC(m, filter, gc.next4, gc.next6)
+}
+
+func (gc *GC) Observe4() stream.Observable[ctmap.GCEvent] {
+	return gc.observable4
+}
+
+func (gc *GC) Observe6() stream.Observable[ctmap.GCEvent] {
+	return gc.observable6
 }
 
 // runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
@@ -291,7 +311,7 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 		}
 		defer m.Close()
 
-		deleted, err := ctmap.GC(m, filter)
+		deleted, err := ctmap.GC(m, filter, gc.next4, gc.next6)
 		if err != nil {
 			gc.logger.WithError(err).Error("failed to perform CT garbage collection")
 			success = false
@@ -337,9 +357,3 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 
 	return
 }
-
-type fakeCTMapGC struct{}
-
-func NewFake() Enabler { return fakeCTMapGC{} }
-
-func (fakeCTMapGC) Enable() {}

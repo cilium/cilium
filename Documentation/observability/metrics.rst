@@ -405,6 +405,7 @@ Name                                       Labels                               
 ``policy_change_total``                                                                       Enabled    Number of policy changes by outcome
 ``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
 ``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
+``policy_selector_match_count_max``        ``class``                                          Enabled    The maximum number of identities selected by a network policy selector
 ========================================== ================================================== ========== ========================================================
 
 Policy L7 (HTTP/Kafka/FQDN)
@@ -432,6 +433,9 @@ Name                                     Labels                                 
 ``identity_gc_latency``                  ``outcome``, ``identity_type``                     Enabled    Duration of the last successful identity GC run
 ``ipcache_errors_total``                 ``type``, ``error``                                Enabled    Number of errors interacting with the ipcache
 ``ipcache_events_total``                 ``type``                                           Enabled    Number of events interacting with the ipcache
+``identity_cache_timer_duration``        ``name``                                           Enabled    Seconds required to execute periodic policy processes. ``name="id-alloc-update-policy-maps"`` is the time taken to apply incremental updates to the BPF policy maps.
+``identity_cache_timer_trigger_latency`` ``name``                                           Enabled    Seconds spent waiting for a previous process to finish before starting the next round. ``name="id-alloc-update-policy-maps"`` is the time waiting before applying incremental updates to the BPF policy maps.
+``identity_cache_timer_trigger_folds``   ``name``                                           Enabled    Number of timer triggers that were coalesced in to one execution. ``name="id-alloc-update-policy-maps"`` applies the incremental updates to the BPF policy maps.
 ======================================== ================================================== ========== ========================================================
 
 Events external to Cilium
@@ -604,13 +608,15 @@ Name                                           Labels                           
 BGP Control Plane
 ~~~~~~~~~~~~~~~~~
 
-====================== ============================================= ======== ===================================================================
-Name                   Labels                                        Default  Description
-====================== ============================================= ======== ===================================================================
-``session_state``      ``vrouter``, ``neighbor``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
-``advertised_routes``  ``vrouter``, ``neighbor``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
-``received_routes``    ``vrouter``, ``neighbor``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
-====================== ============================================= ======== ===================================================================
+================================== =============================================================== ======== ===================================================================
+Name                               Labels                                                          Default  Description
+================================== =============================================================== ======== ===================================================================
+``session_state``                  ``vrouter``, ``neighbor``, ``neighbor_asn``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
+``advertised_routes``              ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
+``received_routes``                ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
+``reconcile_error_count``          ``vrouter``                                                     Enabled  Number of reconciliation runs that returned an error
+``reconcile_run_duration_seconds`` ``vrouter``                                                     Enabled  Histogram of reconciliation run duration
+================================== =============================================================== ======== ===================================================================
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
@@ -629,6 +635,19 @@ Exported Metrics
 ^^^^^^^^^^^^^^^^
 
 All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
+
+.. _metrics_bgp_control_plane_operator:
+
+BGP Control Plane Operator
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+================================== ======================= ======== ======================================================================
+Name                               Labels                  Default  Description
+================================== ======================= ======== ======================================================================
+``cluster_config_error_count``     ``bgp_cluster_config``  Enabled  Number of errors returned per BGP cluster configuration reconciliation
+================================== ======================= ======== ======================================================================
+
+All metrics are enabled only when the BGP Control Plane is enabled.
 
 .. _ipam_metrics:
 

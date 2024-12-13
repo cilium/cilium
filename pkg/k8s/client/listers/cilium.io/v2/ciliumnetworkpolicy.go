@@ -6,10 +6,10 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumNetworkPolicyLister helps list CiliumNetworkPolicies.
@@ -17,7 +17,7 @@ import (
 type CiliumNetworkPolicyLister interface {
 	// List lists all CiliumNetworkPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumNetworkPolicy, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumNetworkPolicy, err error)
 	// CiliumNetworkPolicies returns an object that can list and get CiliumNetworkPolicies.
 	CiliumNetworkPolicies(namespace string) CiliumNetworkPolicyNamespaceLister
 	CiliumNetworkPolicyListerExpansion
@@ -25,17 +25,17 @@ type CiliumNetworkPolicyLister interface {
 
 // ciliumNetworkPolicyLister implements the CiliumNetworkPolicyLister interface.
 type ciliumNetworkPolicyLister struct {
-	listers.ResourceIndexer[*v2.CiliumNetworkPolicy]
+	listers.ResourceIndexer[*ciliumiov2.CiliumNetworkPolicy]
 }
 
 // NewCiliumNetworkPolicyLister returns a new CiliumNetworkPolicyLister.
 func NewCiliumNetworkPolicyLister(indexer cache.Indexer) CiliumNetworkPolicyLister {
-	return &ciliumNetworkPolicyLister{listers.New[*v2.CiliumNetworkPolicy](indexer, v2.Resource("ciliumnetworkpolicy"))}
+	return &ciliumNetworkPolicyLister{listers.New[*ciliumiov2.CiliumNetworkPolicy](indexer, ciliumiov2.Resource("ciliumnetworkpolicy"))}
 }
 
 // CiliumNetworkPolicies returns an object that can list and get CiliumNetworkPolicies.
 func (s *ciliumNetworkPolicyLister) CiliumNetworkPolicies(namespace string) CiliumNetworkPolicyNamespaceLister {
-	return ciliumNetworkPolicyNamespaceLister{listers.NewNamespaced[*v2.CiliumNetworkPolicy](s.ResourceIndexer, namespace)}
+	return ciliumNetworkPolicyNamespaceLister{listers.NewNamespaced[*ciliumiov2.CiliumNetworkPolicy](s.ResourceIndexer, namespace)}
 }
 
 // CiliumNetworkPolicyNamespaceLister helps list and get CiliumNetworkPolicies.
@@ -43,15 +43,15 @@ func (s *ciliumNetworkPolicyLister) CiliumNetworkPolicies(namespace string) Cili
 type CiliumNetworkPolicyNamespaceLister interface {
 	// List lists all CiliumNetworkPolicies in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumNetworkPolicy, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumNetworkPolicy, err error)
 	// Get retrieves the CiliumNetworkPolicy from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.CiliumNetworkPolicy, error)
+	Get(name string) (*ciliumiov2.CiliumNetworkPolicy, error)
 	CiliumNetworkPolicyNamespaceListerExpansion
 }
 
 // ciliumNetworkPolicyNamespaceLister implements the CiliumNetworkPolicyNamespaceLister
 // interface.
 type ciliumNetworkPolicyNamespaceLister struct {
-	listers.ResourceIndexer[*v2.CiliumNetworkPolicy]
+	listers.ResourceIndexer[*ciliumiov2.CiliumNetworkPolicy]
 }

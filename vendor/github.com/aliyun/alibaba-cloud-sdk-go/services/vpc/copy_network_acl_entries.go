@@ -75,7 +75,9 @@ type CopyNetworkAclEntriesRequest struct {
 	ClientToken          string           `position:"Query" name:"ClientToken"`
 	NetworkAclId         string           `position:"Query" name:"NetworkAclId"`
 	SourceNetworkAclId   string           `position:"Query" name:"SourceNetworkAclId"`
+	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 }
 

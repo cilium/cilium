@@ -40,7 +40,7 @@ type WatchStore interface {
 // by WatchStore implementations.
 type WatchStoreBackend interface {
 	// ListAndWatch creates a new watcher for the given prefix after listing the existing keys.
-	ListAndWatch(ctx context.Context, prefix string, chanSize int) *kvstore.Watcher
+	ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan
 }
 
 type RWSOpt func(*restartableWatchStore)
@@ -152,8 +152,8 @@ func (rws *restartableWatchStore) Watch(ctx context.Context, backend WatchStoreB
 	}
 
 	// The events channel is closed when the context is closed.
-	watcher := backend.ListAndWatch(ctx, prefix, 0)
-	for event := range watcher.Events {
+	events := backend.ListAndWatch(ctx, prefix)
+	for event := range events {
 		if event.Typ == kvstore.EventTypeListDone {
 			rws.log.Debug("Initial synchronization completed")
 			rws.drainKeys(true)

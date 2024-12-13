@@ -38,6 +38,7 @@ type FQDNSelector struct {
 	// MatchName matches literal DNS names. A trailing "." is automatically added
 	// when missing.
 	//
+	// +kubebuilder:validation:MaxLength=255
 	// +kubebuilder:validation:Pattern=`^([-a-zA-Z0-9_]+[.]?)+$`
 	// +kubebuilder:validation:OneOf
 	MatchName string `json:"matchName,omitempty"`
@@ -60,6 +61,7 @@ type FQDNSelector struct {
 	//   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
 	//   blog.cilium.io, cilium.io and google.com do not
 	//
+	// +kubebuilder:validation:MaxLength=255
 	// +kubebuilder:validation:Pattern=`^([-a-zA-Z0-9_*]+[.]?)+$`
 	// +kubebuilder:validation:OneOf
 	MatchPattern string `json:"matchPattern,omitempty"`

@@ -15,7 +15,6 @@ import (
 	ciliumdns "github.com/cilium/dns"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -34,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 type DaemonFQDNSuite struct {
@@ -64,7 +64,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	ds := &DaemonFQDNSuite{}
 	d := &Daemon{}
 	d.ctx = context.Background()
-	d.policy = policy.NewPolicyRepository(nil, nil, nil, nil)
+	d.policy = policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
@@ -89,14 +89,6 @@ type dummyInfoRegistry struct{}
 func (*dummyInfoRegistry) FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr) {
 }
 
-type dummySelectorCacheUser struct{}
-
-func (d *dummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
-}
-
-func (d *dummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
-}
-
 // BenchmarkNotifyOnDNSMsg stresses the main callback function for the DNS
 // proxy path, which is called on every DNS request and response.
 func BenchmarkNotifyOnDNSMsg(b *testing.B) {
@@ -111,7 +103,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	)
 
 	// Register rules (simulates applied policies).
-	dscu := &dummySelectorCacheUser{}
+	dscu := &testpolicy.DummySelectorCacheUser{}
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
 	for _, sel := range selectorsToAdd {
 		ds.d.policy.GetSelectorCache().AddFQDNSelector(dscu, nil, sel)
@@ -149,7 +141,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 				// parameter is only used in logging. Not using the endpoint's IP
 				// so we don't spend any time in the benchmark on converting from
 				// net.IP to string.
-				require.Nil(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, "10.96.64.1:53", &ciliumdns.Msg{
+				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, "10.96.64.1:53", &ciliumdns.Msg{
 					MsgHdr: ciliumdns.MsgHdr{
 						Response: true,
 					},
@@ -161,7 +153,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 						A:   net.ParseIP("192.0.2.3"),
 					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}))
 
-				require.Nil(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, "10.96.64.1:53", &ciliumdns.Msg{
+				require.NoError(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, "10.96.64.1:53", &ciliumdns.Msg{
 					MsgHdr: ciliumdns.MsgHdr{
 						Response: true,
 					},

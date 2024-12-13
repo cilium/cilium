@@ -192,7 +192,7 @@ int from_overlay_syn_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_from_overlay_syn")
 int from_overlay_syn_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, 0,
 			      (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
@@ -250,7 +250,7 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4212))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port has changed");
@@ -258,9 +258,12 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
 
-	meta = ctx_load_meta(ctx, CB_IFINDEX);
-	if (meta != BACKEND_IFINDEX)
-		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d", BACKEND_IFINDEX, meta);
+	if (l4->check != bpf_htons(0x777f))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+
+	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	if (meta != 1)
+		test_fatal("skb->cb[CB_DELIVERY_REDIRECT] should be 1, got %d", meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != CLIENT_IDENTITY)
@@ -341,13 +344,16 @@ int to_overlay_synack_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4112))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0x776f))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -413,7 +419,7 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4212))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port has changed");
@@ -421,9 +427,12 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
 
-	meta = ctx_load_meta(ctx, CB_IFINDEX);
-	if (meta != BACKEND_IFINDEX)
-		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d", BACKEND_IFINDEX, meta);
+	if (l4->check != bpf_htons(0x7771))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+
+	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	if (meta != 1)
+		test_fatal("skb->cb[CB_DELIVERY_REDIRECT] should be 1, got %d", meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != CLIENT_IDENTITY)

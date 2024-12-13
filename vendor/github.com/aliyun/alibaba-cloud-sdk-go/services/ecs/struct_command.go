@@ -32,6 +32,7 @@ type Command struct {
 	Name                 string                 `json:"Name" xml:"Name"`
 	EnableParameter      bool                   `json:"EnableParameter" xml:"EnableParameter"`
 	ResourceGroupId      string                 `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	Launcher             string                 `json:"Launcher" xml:"Launcher"`
 	ParameterNames       ParameterNames         `json:"ParameterNames" xml:"ParameterNames"`
 	ParameterDefinitions ParameterDefinitions   `json:"ParameterDefinitions" xml:"ParameterDefinitions"`
 	Tags                 TagsInDescribeCommands `json:"Tags" xml:"Tags"`

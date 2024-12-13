@@ -13,8 +13,8 @@ import (
 
 // Modifies the Capacity Reservation settings for a stopped instance. Use this
 // action to configure an instance to target a specific Capacity Reservation, run
-// in any open Capacity Reservation with matching attributes, or run On-Demand
-// Instance capacity.
+// in any open Capacity Reservation with matching attributes, run in On-Demand
+// Instance capacity, or only run in a Capacity Reservation.
 func (c *Client) ModifyInstanceCapacityReservationAttributes(ctx context.Context, params *ModifyInstanceCapacityReservationAttributesInput, optFns ...func(*Options)) (*ModifyInstanceCapacityReservationAttributesOutput, error) {
 	if params == nil {
 		params = &ModifyInstanceCapacityReservationAttributesInput{}

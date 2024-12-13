@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -196,13 +195,13 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		}
 		if printIDs {
 			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, policy.AuthType(stat.AuthType), stat.Bytes, stat.Packets, prefixLen)
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), stat.Bytes, stat.Packets, prefixLen)
 		} else if lbls := labelsID[id]; lbls != nil && len(lbls.Labels) > 0 {
 			first := true
 			for _, lbl := range lbls.Labels.GetPrintableModel() {
 				if first {
 					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
-						policyStr, trafficDirectionString, lbl, port, proxyPort, policy.AuthType(stat.AuthType), stat.Bytes, stat.Packets, prefixLen)
+						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.AuthRequirement.AuthType(), stat.Bytes, stat.Packets, prefixLen)
 					first = false
 				} else {
 					fmt.Fprintf(w, "\t\t%s\t\t\t\t\t\t\t\n", lbl)
@@ -210,7 +209,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 			}
 		} else {
 			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, policy.AuthType(stat.AuthType), stat.Bytes, stat.Packets, prefixLen)
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), stat.Bytes, stat.Packets, prefixLen)
 		}
 	}
 }

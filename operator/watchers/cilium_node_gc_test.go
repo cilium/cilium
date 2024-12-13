@@ -8,9 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
@@ -20,38 +22,29 @@ import (
 )
 
 func Test_performCiliumNodeGC(t *testing.T) {
-	validCN := &v2.CiliumNode{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "valid-node",
+	cns := []runtime.Object{
+		&v2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-node",
+			},
 		},
-	}
-	invalidCN := &v2.CiliumNode{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "invalid-node",
+		&v2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "invalid-node",
+			},
 		},
-	}
-	invalidCNWithOwnerRef := &v2.CiliumNode{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "invalid-node-with-owner-ref",
-			OwnerReferences: []metav1.OwnerReference{
-				{},
+		&v2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "invalid-node-with-owner-ref",
+				OwnerReferences: []metav1.OwnerReference{{}},
 			},
 		},
 	}
 
-	fcn := fake.NewSimpleClientset(validCN, invalidCN, invalidCNWithOwnerRef).CiliumV2().CiliumNodes()
-
-	fCNStore := &cache.FakeCustomStore{
-		ListKeysFunc: func() []string {
-			return []string{"valid-node", "invalid-node"}
-		},
-		GetByKeyFunc: func(key string) (interface{}, bool, error) {
-			return &v2.CiliumNode{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: key,
-				},
-			}, true, nil
-		},
+	fcn := fake.NewSimpleClientset(cns...).CiliumV2().CiliumNodes()
+	fCNStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+	for _, cn := range cns {
+		fCNStore.Add(cn)
 	}
 
 	interval := time.Nanosecond
@@ -67,7 +60,7 @@ func Test_performCiliumNodeGC(t *testing.T) {
 	candidateStore := newCiliumNodeGCCandidate()
 
 	// check if the invalid node is added to GC candidate
-	err := performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore)
+	err := performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore, hivetest.Logger(t))
 	assert.NoError(t, err)
 	assert.Len(t, candidateStore.nodesToRemove, 1)
 	_, exists := candidateStore.nodesToRemove["invalid-node"]
@@ -75,9 +68,9 @@ func Test_performCiliumNodeGC(t *testing.T) {
 
 	// check if the invalid node is actually GC-ed
 	time.Sleep(interval)
-	err = performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore)
+	err = performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore, hivetest.Logger(t))
 	assert.NoError(t, err)
-	assert.Len(t, candidateStore.nodesToRemove, 0)
+	assert.Empty(t, candidateStore.nodesToRemove)
 	_, exists = candidateStore.nodesToRemove["invalid-node"]
 	assert.False(t, exists)
 }

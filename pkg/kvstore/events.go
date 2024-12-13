@@ -4,7 +4,6 @@ package kvstore
 
 import (
 	"context"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/spanstat"
 )
@@ -52,58 +51,30 @@ type KeyValueEvent struct {
 }
 
 // EventChan is a channel to receive events on
-type EventChan chan KeyValueEvent
+type EventChan <-chan KeyValueEvent
 
-// stopChan is the channel used to indicate stopping of the watcher
-type stopChan chan struct{}
-
-// Watcher represents a KVstore watcher
-type Watcher struct {
-	// Events is the channel to which change notifications will be sent to
-	Events EventChan `json:"-"`
-
-	Prefix    string `json:"prefix"`
-	stopWatch stopChan
-
-	// stopOnce guarantees that Stop() is only called once
-	stopOnce sync.Once
-
-	// stopWait is the wait group to wait for watchers to exit gracefully
-	stopWait sync.WaitGroup
-}
-
-func newWatcher(prefix string, chanSize int) *Watcher {
-	w := &Watcher{
-		Prefix:    prefix,
-		Events:    make(EventChan, chanSize),
-		stopWatch: make(stopChan),
-	}
-
-	w.stopWait.Add(1)
-
-	return w
+// emitter wraps the channel to send events to, to ensure it is accessed
+// via the proper helper methods.
+type emitter struct {
+	events chan<- KeyValueEvent
+	scope  string
 }
 
 // emit attempts to notify the watcher of an event within the given context.
 // returning false if the context is done before the event is emitted.
-func (w *Watcher) emit(ctx context.Context, scope string, event KeyValueEvent) bool {
+func (e emitter) emit(ctx context.Context, event KeyValueEvent) bool {
 	queueStart := spanstat.Start()
 	var ok bool
 	select {
 	case <-ctx.Done():
-	case <-w.stopWatch:
-	case w.Events <- event:
+	case e.events <- event:
 		ok = true
 	}
-	trackEventQueued(scope, event.Typ, queueStart.End(ok).Total())
+	trackEventQueued(e.scope, event.Typ, queueStart.End(ok).Total())
 	return ok
 }
 
-// Stop stops a watcher previously created and started with Watch()
-func (w *Watcher) Stop() {
-	w.stopOnce.Do(func() {
-		close(w.stopWatch)
-		log.WithField(fieldPrefix, w.Prefix).Debug("Stopped watcher")
-		w.stopWait.Wait()
-	})
+// close closes the events channel.
+func (e emitter) close() {
+	close(e.events)
 }

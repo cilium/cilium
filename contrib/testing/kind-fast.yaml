@@ -11,6 +11,14 @@ extraVolumes:
   hostPath:
     path: /cilium-binaries/var/lib/cilium/bpf
     type: Directory
+- name: hubble-cli-binary
+  hostPath:
+    path: /cilium-binaries/hubble
+    type: File
+- name: cilium-bugtool-binary
+  hostPath:
+    path: /cilium-binaries/cilium-bugtool
+    type: File
 extraVolumeMounts:
 - name: cilium-dbg-binary
   mountPath: /usr/bin/cilium-dbg
@@ -20,6 +28,12 @@ extraVolumeMounts:
   readOnly: true
 - name: cilium-c-files
   mountPath: /var/lib/cilium/bpf
+- name: hubble-cli-binary
+  mountPath: /usr/bin/hubble
+  readOnly: true
+- name: cilium-bugtool-binary
+  mountPath: /usr/bin/cilium-bugtool
+  readOnly: true
 operator:
   extraVolumeMounts:
   - mountPath: /usr/bin/cilium-operator-generic

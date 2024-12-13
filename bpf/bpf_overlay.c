@@ -31,6 +31,7 @@
 #include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/nodeport.h"
+#include "lib/nodeport_egress.h"
 #include "lib/clustermesh.h"
 #include "lib/egress_gateway.h"
 
@@ -60,7 +61,10 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, ip6, *identity, ext_err, &is_dsr);
+		bool punt_to_stack = false;
+
+		ret = nodeport_lb6(ctx, ip6, *identity, &punt_to_stack,
+				   ext_err, &is_dsr);
 		/* nodeport_lb6() returns with TC_ACT_REDIRECT for
 		 * traffic to L7 LB. Policy enforcement needs to take
 		 * place after L7 LB has processed the packet, so we
@@ -68,6 +72,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 * TC_ACT_REDIRECT.
 		 */
 		if (ret < 0 || ret == TC_ACT_REDIRECT)
+			return ret;
+		if (punt_to_stack)
 			return ret;
 	}
 #endif
@@ -139,7 +145,7 @@ not_esp:
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
-	if (ep && !(ep->flags & ENDPOINT_F_HOST))
+	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
 		return ipv6_local_delivery(ctx, l3_off, *identity, MARK_MAGIC_IDENTITY,
 					   ep, METRIC_INGRESS, false, true);
 
@@ -246,7 +252,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep) {
 		/* We don't support inter-cluster SNAT from host */
-		if (ep->flags & ENDPOINT_F_HOST)
+		if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY)
 			return ipv4_host_delivery(ctx, ip4);
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity,
@@ -309,7 +315,10 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, ext_err, &is_dsr);
+		bool punt_to_stack = false;
+
+		ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, &punt_to_stack,
+				   ext_err, &is_dsr);
 		/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 		 * traffic to L7 LB. Policy enforcement needs to take
 		 * place after L7 LB has processed the packet, so we
@@ -317,6 +326,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		 * TC_ACT_REDIRECT.
 		 */
 		if (ret < 0 || ret == TC_ACT_REDIRECT)
+			return ret;
+		if (punt_to_stack)
 			return ret;
 	}
 #endif
@@ -420,10 +431,12 @@ not_esp:
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
+		__u32 egress_ifindex = 0;
 		__be32 snat_addr, daddr;
 
 		daddr = ip4->daddr;
-		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr)) {
+		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr,
+					       &egress_ifindex)) {
 			if (snat_addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 				return DROP_NO_EGRESS_IP;
 
@@ -435,7 +448,8 @@ not_esp:
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
 			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
-								daddr, ext_err);
+								daddr, egress_ifindex,
+								ext_err);
 			if (ret != CTX_ACT_OK)
 				return ret;
 
@@ -447,7 +461,7 @@ not_esp:
 
 	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);
-	if (ep && !(ep->flags & ENDPOINT_F_HOST))
+	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
 					   ip4, ep, METRIC_INGRESS, false, true, 0);
 

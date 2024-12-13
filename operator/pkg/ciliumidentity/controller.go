@@ -4,9 +4,11 @@
 package ciliumidentity
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -88,7 +90,11 @@ type Controller struct {
 }
 
 func registerController(p params) {
-	if !p.Clientset.IsEnabled() || !p.Config.EnableOperatorManageCIDs {
+	if cmp.Or(
+		!p.Clientset.IsEnabled(),
+		!p.Config.EnableOperatorManageCIDs,
+		p.SharedCfg.DisableNetworkPolicy,
+	) {
 		return
 	}
 
@@ -159,26 +165,43 @@ func (c *Controller) initializeQueues() {
 		workqueue.RateLimitingQueueConfig{Name: "ciliumidentity_resource"})
 }
 
+// startEventProcessing starts the event processing loop for the Controller.
+// It processes events in the following order:
+// 1. CiliumEndpointSlice, Pod, Namespace events concurrently
+// 2. CiliumIdentity events
+//
+// The function uses a WaitGroup to ensure that each set of events is processed
+// sequentially before moving on to the next.
 func (c *Controller) startEventProcessing() {
+	wg := &sync.WaitGroup{}
+
+	wg.Add(3) // Adding delta for ces, pod, and ns events
+
+	c.jobGroup.Add(
+		job.OneShot("proc-ces-events", func(ctx context.Context, health cell.Health) error {
+			return c.processCiliumEndpointSliceEvents(ctx, wg)
+		}))
+	c.jobGroup.Add(
+		job.OneShot("proc-pod-events", func(ctx context.Context, health cell.Health) error {
+			return c.processPodEvents(ctx, wg)
+		}))
+	c.jobGroup.Add(
+		job.OneShot("proc-ns-events", func(ctx context.Context, health cell.Health) error {
+			return c.processNamespaceEvents(ctx, wg)
+		}))
+
+	wg.Wait()
+
+	wg.Add(1) // Adding cid events
 
 	c.jobGroup.Add(
 		job.OneShot("proc-cid-events", func(ctx context.Context, health cell.Health) error {
-			return c.processCiliumIdentityEvents(ctx)
-		}),
+			return c.processCiliumIdentityEvents(ctx, wg)
+		}))
 
-		job.OneShot("proc-pod-events", func(ctx context.Context, health cell.Health) error {
-			return c.processPodEvents(ctx)
-		}),
-
-		job.OneShot("proc-ces-events", func(ctx context.Context, health cell.Health) error {
-			return c.processCiliumEndpointSliceEvents(ctx)
-		}),
-
-		job.OneShot("proc-ns-events", func(ctx context.Context, health cell.Health) error {
-			return c.processNamespaceEvents(ctx)
-		}),
-	)
+	wg.Wait()
 }
+
 func (c *Controller) initReconciler(ctx context.Context) error {
 	var err error
 	c.reconciler, err = newReconciler(ctx, c.logger, c.clientset, c.namespace, c.pod, c.ciliumIdentity, c.ciliumEndpoint, c.ciliumEndpointSlice, c.cesEnabled, c)
@@ -186,11 +209,6 @@ func (c *Controller) initReconciler(ctx context.Context) error {
 		return fmt.Errorf("cid reconciler failed to init: %w", err)
 	}
 	c.logger.Info("Starting CID controller reconciler")
-
-	// The desired state needs to be calculated before the events are processed.
-	if err := c.reconciler.calcDesiredStateOnStartup(); err != nil {
-		return fmt.Errorf("cid controller failed to calculate the desired state: %w", err)
-	}
 	return nil
 }
 
@@ -219,16 +237,18 @@ func (c *Controller) processNextItem() bool {
 	if quit {
 		return false
 	}
+	qItem := item.(QueuedItem)
 	defer c.resourceQueue.Done(item)
 	processingStartTime := time.Now()
+	enqueueTime, exists := c.enqueueTimeTracker.GetAndReset(qItem.Key().String())
 
-	qItem := item.(QueuedItem)
 	err := qItem.Reconcile(c.reconciler)
 	if err != nil {
 		retries := c.resourceQueue.NumRequeues(item)
 		c.logger.Warn("Failed to process resource item", logfields.Key, qItem.Key().String(), "retries", retries, "maxRetries", maxProcessRetries, logfields.Error, err)
 
 		if retries < maxProcessRetries {
+			c.enqueueTimeTracker.Track(qItem.Key().String())
 			c.resourceQueue.AddRateLimited(item)
 			return true
 		}
@@ -237,7 +257,6 @@ func (c *Controller) processNextItem() bool {
 		c.logger.Error("Dropping item from resource queue, exceeded maxRetries", logfields.Key, qItem.Key().String(), "maxRetries", maxProcessRetries, logfields.Error, err)
 	}
 
-	enqueueTime, exists := c.enqueueTimeTracker.GetAndReset(qItem.Key().String())
 	if exists {
 		enqueuedLatency := processingStartTime.Sub(enqueueTime).Seconds()
 		processingLatency := time.Since(processingStartTime).Seconds()

@@ -25,7 +25,7 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 	assert.NoError(t, err)
 
 	// then
-	assert.Equal(t, 3, len(config.FlowLogs))
+	assert.Len(t, config.FlowLogs, 3)
 
 	assert.Equal(t, uint64(0x912a996c7b013eb3), hash, "hash should match")
 
@@ -89,7 +89,7 @@ func TestEmptyYamlConfigFileUnmarshalling(t *testing.T) {
 	assert.NoError(t, err)
 
 	// then
-	assert.Equal(t, 0, len(config.FlowLogs))
+	assert.Empty(t, config.FlowLogs)
 	assert.Equal(t, uint64(0x4b2008fd98c1dd4), hash)
 }
 
@@ -137,15 +137,17 @@ func TestReloadNotificationReceived(t *testing.T) {
 	configReceived := false
 
 	// when
-	reloadInterval = 1 * time.Millisecond
-	sut := NewConfigWatcher(fileName, func(_ context.Context, _ uint64, config DynamicExportersConfig) {
+	sut := NewConfigWatcher(fileName, func(_ uint64, config DynamicExportersConfig) {
 		configReceived = true
 	})
-	defer sut.Stop()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go sut.watch(ctx, 1*time.Millisecond)
 
 	// then
 	assert.Eventually(t, func() bool {
 		return configReceived
 	}, 1*time.Second, 1*time.Millisecond)
-
 }

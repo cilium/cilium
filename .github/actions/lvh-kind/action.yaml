@@ -14,6 +14,10 @@ inputs:
   kind-config:
     required: false
     description: 'Optional Kind configuration'
+  port-forward:
+    required: false
+    description: 'Optional list of ports to forward'
+    default: '6443:6443'
   test-name:
     required: true
     description: 'Test name'
@@ -33,7 +37,7 @@ runs:
         # renovate: datasource=github-tags depName=cilium/little-vm-helper
         lvh-version: "v0.0.19"
         install-dependencies: 'true'
-        port-forward: '6443:6443'
+        port-forward: ${{ inputs.port-forward }}
         ssh-connect-wait-retries: 600
         cmd: |
           git config --global --add safe.directory /host

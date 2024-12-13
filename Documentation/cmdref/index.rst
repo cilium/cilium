@@ -21,3 +21,4 @@ Command Reference
       cilium-operator-azure
       cilium-operator-generic
       kvstore
+      clustermesh-apiserver

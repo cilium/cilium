@@ -12,7 +12,6 @@ import (
 	"net/netip"
 	"runtime"
 	"sync"
-	"sync/atomic"
 
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
@@ -24,15 +23,14 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/auth"
-	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -43,7 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
-	"github.com/cilium/cilium/pkg/hubble/observer"
+	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -58,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -73,7 +72,7 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/recorder"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -97,9 +96,8 @@ type Daemon struct {
 	l7Proxy          *proxy.Proxy
 	envoyXdsServer   envoy.XDSServer
 	svc              service.ServiceManager
-	rec              *recorder.Recorder
-	policy           *policy.Repository
-	idmgr            *identitymanager.IdentityManager
+	policy           policy.PolicyRepository
+	idmgr            identitymanager.IDManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -154,14 +152,9 @@ type Daemon struct {
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
-	linkCache      *link.LinkCache
-	hubbleObserver atomic.Pointer[observer.LocalObserverServer]
-
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
 	endpointCreations *endpointCreationManager
-
-	cgroupManager manager.CGroupManager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -190,10 +183,15 @@ type Daemon struct {
 	wireguardAgent  *wireguard.Agent
 	orchestrator    datapath.Orchestrator
 	iptablesManager datapath.IptablesManager
+	hubble          hubblecell.HubbleIntegration
+
+	lrpManager   *redirectpolicy.Manager
+	ctMapGC      ctmap.GCRunner
+	maglevConfig maglev.Config
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
-func (d *Daemon) GetPolicyRepository() *policy.Repository {
+func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
 	return d.policy
 }
 
@@ -218,7 +216,7 @@ func (d *Daemon) init() error {
 // `cilium_host` interface is the given restored IP. If the given IP is nil,
 // then it attempts to clear all IPs from the interface.
 func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
-	l, err := netlink.LinkByName(defaults.HostDevice)
+	l, err := safenetlink.LinkByName(defaults.HostDevice)
 	if errors.As(err, &netlink.LinkNotFoundError{}) {
 		// There's no old state remove as the host device doesn't exist.
 		// This is always the case when the agent is started for the first time.
@@ -232,7 +230,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	if ipv6 {
 		family = netlink.FAMILY_V6
 	}
-	addrs, err := netlink.AddrList(l, family)
+	addrs, err := safenetlink.AddrList(l, family)
 	if err != nil {
 		return resiliency.Retryable(err)
 	}
@@ -394,15 +392,24 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bigTCPConfig:      params.BigTCPConfig,
 		tunnelConfig:      params.TunnelConfig,
 		bwManager:         params.BandwidthManager,
-		cgroupManager:     params.CGroupManager,
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
-		rec:               params.Recorder,
 		ipam:              params.IPAM,
 		wireguardAgent:    params.WGAgent,
 		orchestrator:      params.Orchestrator,
 		iptablesManager:   params.IPTablesManager,
+		hubble:            params.Hubble,
+		lrpManager:        params.LRPManager,
+		ctMapGC:           params.CTNATMapGC,
+		maglevConfig:      params.MaglevConfig,
+	}
+
+	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
+	// can wait on it to get closed and not block forever if they happen so start
+	// waiting when it is not yet initialized (which causes them to block forever).
+	if option.Config.RestoreState {
+		d.endpointRestoreComplete = make(chan struct{})
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
@@ -543,12 +550,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err != nil {
 		log.WithError(err).Error("Unable to read existing endpoints")
 	}
-	// Restore all proxy ports from datapath, if possible
-	// Must be run before d.bootstrapFQDN(), which depends
-	// on the ports having been restored.
-	if d.l7Proxy != nil {
-		d.l7Proxy.RestoreProxyPorts()
-	}
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
@@ -679,10 +680,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.WithError(err).Errorf(msg, option.Devices)
 			return nil, nil, fmt.Errorf(msg, option.Devices)
 		}
-	}
-
-	if params.DirectoryPolicyWatcher != nil {
-		params.DirectoryPolicyWatcher.WatchDirectoryPolicyResources(d.ctx, &d)
 	}
 
 	// Some of the k8s watchers rely on option flags set above (specifically
@@ -907,5 +904,6 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 }
 
 type endpointMetadataFetcher interface {
-	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
+	FetchNamespace(nsName string) (*slim_corev1.Namespace, error)
+	FetchPod(nsName, podName string) (*slim_corev1.Pod, error)
 }

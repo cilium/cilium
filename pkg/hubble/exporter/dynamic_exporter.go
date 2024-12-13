@@ -10,62 +10,33 @@ import (
 	"github.com/sirupsen/logrus"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// DynamicExporter represents instance of hubble exporter with dynamic
-// configuration reload.
+var _ FlowLogExporter = (*DynamicExporter)(nil)
+
+var reloadInterval = 5 * time.Second
+
+// DynamicExporter is a wrapper of the hubble exporter that supports dynamic configuration reload
+// for a set of exporters.
 type DynamicExporter struct {
-	FlowLogExporter
-	logger           logrus.FieldLogger
-	watcher          *configWatcher
-	managedExporters map[string]*managedExporter
-	maxFileSizeMB    int
-	maxBackups       int
+	logger        logrus.FieldLogger
+	watcher       *configWatcher
+	maxFileSizeMB int
+	maxBackups    int
+
 	// mutex protects from concurrent modification of managedExporters by config
 	// reloader when hubble events are processed
-	mutex lock.RWMutex
+	mutex            lock.RWMutex
+	managedExporters map[string]*managedExporter
 }
 
-// OnDecodedEvent distributes events across all managed exporters.
-func (d *DynamicExporter) OnDecodedEvent(ctx context.Context, event *v1.Event) (bool, error) {
-	select {
-	case <-ctx.Done():
-		return false, d.Stop()
-	default:
-	}
-
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-
-	var errs error
-	for _, me := range d.managedExporters {
-		if me.config.End == nil || me.config.End.After(time.Now()) {
-			_, err := me.exporter.OnDecodedEvent(ctx, event)
-			errs = errors.Join(errs, err)
-		}
-	}
-	return false, errs
-}
-
-// Stop stops configuration watcher  and all managed flow log exporters.
-func (d *DynamicExporter) Stop() error {
-	d.watcher.Stop()
-
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	var errs error
-	for _, me := range d.managedExporters {
-		errs = errors.Join(errs, me.exporter.Stop())
-	}
-
-	return errs
-}
-
-// NewDynamicExporter creates instance of dynamic hubble flow exporter.
+// NewDynamicExporter initializes a dynamic exporter.
+//
+// The actual config watching must be started by invoking watch().
+//
+// NOTE: Stopped instances cannot be restarted and should be re-created.
 func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string, maxFileSizeMB, maxBackups int) *DynamicExporter {
 	dynamicExporter := &DynamicExporter{
 		logger:           logger,
@@ -81,7 +52,51 @@ func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string, maxFil
 	return dynamicExporter
 }
 
-func (d *DynamicExporter) onConfigReload(ctx context.Context, hash uint64, config DynamicExportersConfig) {
+// Watch starts watching the exporter configuration file at regular intervals and initiate a reload
+// whenever the config changes. It blocks until the context is cancelled.
+func (d *DynamicExporter) Watch(ctx context.Context) error {
+	return d.watcher.watch(ctx, reloadInterval)
+}
+
+// Export implements the FlowLogExporter interface.
+//
+// It distributes events across all managed exporters.
+func (d *DynamicExporter) Export(ctx context.Context, event *v1.Event) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	var errs error
+	for _, me := range d.managedExporters {
+		if me.config.End == nil || me.config.End.After(time.Now()) {
+			err := me.exporter.Export(ctx, event)
+			errs = errors.Join(errs, err)
+		}
+	}
+	return errs
+}
+
+// Stop implements the FlowLogExporter interface.
+//
+// It stops all managed flow log exporters.
+func (d *DynamicExporter) Stop() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	var errs error
+	for _, me := range d.managedExporters {
+		errs = errors.Join(errs, me.exporter.Stop())
+	}
+
+	return errs
+}
+
+func (d *DynamicExporter) onConfigReload(hash uint64, config DynamicExportersConfig) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -94,7 +109,7 @@ func (d *DynamicExporter) onConfigReload(ctx context.Context, hash uint64, confi
 		} else {
 			label = "add"
 		}
-		if d.applyUpdatedConfig(ctx, flowlog) {
+		if d.applyUpdatedConfig(flowlog) {
 			DynamicExporterReconfigurations.WithLabelValues(label).Inc()
 		}
 	}
@@ -110,26 +125,30 @@ func (d *DynamicExporter) onConfigReload(ctx context.Context, hash uint64, confi
 	d.updateLastAppliedConfigGauges(hash)
 }
 
-func (d *DynamicExporter) newExporter(ctx context.Context, flowlog *FlowLogConfig) (*exporter, error) {
-	exporterOpts := []exporteroption.Option{
-		exporteroption.WithPath(flowlog.FilePath),
-		exporteroption.WithMaxSizeMB(d.maxFileSizeMB),
-		exporteroption.WithMaxBackups(d.maxBackups),
-		exporteroption.WithAllowList(d.logger, flowlog.IncludeFilters),
-		exporteroption.WithDenyList(d.logger, flowlog.ExcludeFilters),
-		exporteroption.WithFieldMask(flowlog.FieldMask),
+func (d *DynamicExporter) newExporter(flowlog *FlowLogConfig) (*exporter, error) {
+	exporterOpts := []Option{
+		WithAllowList(d.logger, flowlog.IncludeFilters),
+		WithDenyList(d.logger, flowlog.ExcludeFilters),
+		WithFieldMask(flowlog.FieldMask),
+	}
+	if flowlog.FilePath != "stdout" {
+		exporterOpts = append(exporterOpts, WithNewWriterFunc(FileWriter(FileWriterConfig{
+			Filename:   flowlog.FilePath,
+			MaxSize:    d.maxFileSizeMB,
+			MaxBackups: d.maxBackups,
+		})))
 	}
 
-	return NewExporter(ctx, d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
+	return NewExporter(d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
 }
 
-func (d *DynamicExporter) applyUpdatedConfig(ctx context.Context, flowlog *FlowLogConfig) bool {
+func (d *DynamicExporter) applyUpdatedConfig(flowlog *FlowLogConfig) bool {
 	m, ok := d.managedExporters[flowlog.Name]
 	if ok && m.config.equals(flowlog) {
 		return false
 	}
 
-	exporter, err := d.newExporter(ctx, flowlog)
+	exporter, err := d.newExporter(flowlog)
 	if err != nil {
 		d.logger.Errorf("Failed to apply flowlog for name %s: %v", flowlog.Name, err)
 		return false

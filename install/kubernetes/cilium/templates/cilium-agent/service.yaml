@@ -1,6 +1,6 @@
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.prometheus.enabled }}
-{{- if .Values.prometheus.serviceMonitor.enabled }}
+{{- if (or .Values.prometheus.serviceMonitor.enabled .Values.prometheus.metricsService) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,6 +14,9 @@ metadata:
     k8s-app: cilium
     app.kubernetes.io/name: cilium-agent
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   clusterIP: None
   type: ClusterIP

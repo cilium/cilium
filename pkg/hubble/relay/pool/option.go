@@ -5,8 +5,6 @@ package pool
 
 import (
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
@@ -20,18 +18,8 @@ import (
 // defaultOptions is the reference point for default values.
 var defaultOptions = options{
 	peerServiceAddress: defaults.PeerTarget,
-	peerClientBuilder: peerTypes.LocalClientBuilder{
-		DialTimeout: defaults.DialTimeout,
-	},
-	clientConnBuilder: GRPCClientConnBuilder{
-		DialTimeout: defaults.DialTimeout,
-		Options: []grpc.DialOption{
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
-			grpc.FailOnNonTempDialError(true),
-			grpc.WithReturnConnectionError(),
-		},
-	},
+	peerClientBuilder:  peerTypes.LocalClientBuilder{},
+	clientConnBuilder:  GRPCClientConnBuilder{},
 	backoff: &backoff.Exponential{
 		Min:    time.Second,
 		Max:    time.Minute,

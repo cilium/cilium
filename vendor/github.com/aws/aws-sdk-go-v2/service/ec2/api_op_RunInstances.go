@@ -118,7 +118,7 @@ type RunInstancesInput struct {
 	// Information about the Capacity Reservation targeting option. If you do not
 	// specify this parameter, the instance's Capacity Reservation preference defaults
 	// to open , which enables it to run in any open Capacity Reservation that has
-	// matching attributes (instance type, platform, Availability Zone).
+	// matching attributes (instance type, platform, Availability Zone, and tenancy).
 	CapacityReservationSpecification *types.CapacityReservationSpecification
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
@@ -189,10 +189,7 @@ type RunInstancesInput struct {
 
 	// An elastic inference accelerator to associate with the instance.
 	//
-	// Amazon Elastic Inference (EI) is no longer available to new customers. For more
-	// information, see [Amazon Elastic Inference FAQs].
-	//
-	// [Amazon Elastic Inference FAQs]: http://aws.amazon.com/machine-learning/elastic-inference/faqs/
+	// Amazon Elastic Inference is no longer available.
 	ElasticInferenceAccelerators []types.ElasticInferenceAccelerator
 
 	// If you’re launching an instance into a dual-stack or IPv6-only subnet, you can
@@ -311,6 +308,9 @@ type RunInstancesInput struct {
 
 	// The network interfaces to associate with the instance.
 	NetworkInterfaces []types.InstanceNetworkInterfaceSpecification
+
+	// Reserved for internal use.
+	Operator *types.OperatorRequest
 
 	// The placement for the instance.
 	Placement *types.Placement

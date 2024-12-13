@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -36,12 +37,8 @@ import (
 // Note that this implementation uses Resource[*Service] and Resource[*Endpoints],
 // which is not the desired end-game as we'll hold onto the same data multiple
 // times. We should instead have a reflector that is built directly on the client-go
-// reflector and not populate an intermediate cache.Store. But as we're still experimenting
-// it's easier to build on what already exists.
-//
-// FIXME: "Reflector" naming doesn't work so nicely. Switch to calling these "data sources"?
-// Also should the "RegisterInitializer" be separate, or should we register a data source and
-// get back a handle? E.g. is it too easy to miss that "RegisterInitializer" is required?
+// reflector (k8s.RegisterReflector) and not populate an intermediate cache.Store.
+// But as we're still experimenting it's easier to build on what already exists.
 var ReflectorCell = cell.Module(
 	"reflector",
 	"Reflects load-balancing state from Kubernetes",
@@ -59,7 +56,7 @@ type reflectorParams struct {
 	EndpointsResource stream.Observable[resource.Event[*k8s.Endpoints]]
 	PodsResource      stream.Observable[resource.Event[*slim_corev1.Pod]]
 	Writer            *Writer
-	ExtConfig         externalConfig
+	ExtConfig         ExternalConfig
 }
 
 func registerK8sReflector(p reflectorParams) {
@@ -129,10 +126,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			return
 		}
 		if err := p.Writer.UpsertServiceAndFrontends(txn, svc, fes...); err != nil {
-			// NOTE: Opting to panic on these failures for now to catch issues early.
-			// The production version of this needs to handle potential validation or
-			// conflict issues correctly.
-			panic(fmt.Sprintf("FIXME: UpsertServiceAndFrontends failed: %s", err))
+			panic("BUG: UpsertServiceAndFrontends: " + err.Error())
 		}
 	}
 
@@ -153,8 +147,6 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 			}
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
-				ev.Done(nil)
-
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -175,10 +167,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
 					delete(pendingServices, name)
 					if err := p.Writer.DeleteServiceAndFrontends(txn, name); err != nil {
-						// NOTE: Opting to panic on these failures for now to catch issues early.
-						// The production version of this needs to handle potential validation or
-						// conflict issues correctly.
-						panic(fmt.Sprintf("FIXME: DeleteServiceAndFrontends failed: %s", err))
+						panic("BUG: DeleteServiceAndFrontends: " + err.Error())
 					}
 				}
 			}
@@ -191,8 +180,6 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
-				ev.Done(nil)
-
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -208,10 +195,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 							backends...)
 
 						if err != nil {
-							// NOTE: Opting to panic on these failures for now to catch issues early.
-							// The production version of this needs to handle potential validation or
-							// conflict issues correctly.
-							panic(fmt.Sprintf("FIXME: UpsertBackends failed: %s", err))
+							panic("BUG: UpsertBackends: " + err.Error())
 						}
 					}
 
@@ -254,7 +238,6 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 
 			txn := p.Writer.WriteTxn()
 			for _, ev := range buf {
-				ev.Done(nil)
 				obj := ev.Object
 				switch ev.Kind {
 				case resource.Sync:
@@ -324,11 +307,11 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	}
 
 	// ClusterIP
-	clusterIPs := sets.New(svc.Spec.ClusterIPs...)
+	clusterIPs := container.NewImmSet(svc.Spec.ClusterIPs...)
 	if svc.Spec.ClusterIP != "" {
-		clusterIPs.Insert(svc.Spec.ClusterIP)
+		clusterIPs = clusterIPs.Insert(svc.Spec.ClusterIP)
 	}
-	for ip := range clusterIPs {
+	for _, ip := range clusterIPs.AsSlice() {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
 			continue
@@ -343,6 +326,7 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 				Type:        loadbalancer.SVCTypeClusterIP,
 				PortName:    loadbalancer.FEPortName(port.Name),
 				ServiceName: name,
+				ServicePort: uint16(port.Port),
 			}
 			fe.Address.AddrCluster = addr
 			fe.Address.Scope = loadbalancer.ScopeExternal
@@ -356,10 +340,15 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		for _, scope := range scopes {
 			for _, family := range svc.Spec.IPFamilies {
 				for _, port := range svc.Spec.Ports {
+					if port.NodePort == 0 {
+						continue
+					}
+
 					fe := FrontendParams{
 						Type:        loadbalancer.SVCTypeNodePort,
 						PortName:    loadbalancer.FEPortName(port.Name),
 						ServiceName: name,
+						ServicePort: uint16(port.Port),
 					}
 
 					switch family {
@@ -401,6 +390,7 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 						Type:        loadbalancer.SVCTypeLoadBalancer,
 						PortName:    loadbalancer.FEPortName(port.Name),
 						ServiceName: name,
+						ServicePort: uint16(port.Port),
 					}
 
 					p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
@@ -429,6 +419,7 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 				Type:        loadbalancer.SVCTypeExternalIPs,
 				PortName:    loadbalancer.FEPortName(port.Name),
 				ServiceName: name,
+				ServicePort: uint16(port.Port),
 			}
 
 			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
@@ -596,6 +587,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 						},
 						Scope: loadbalancer.ScopeExternal,
 					},
+					ServicePort: uint16(p.HostPort),
 				}
 				if _, err := params.Writer.UpsertFrontend(wtxn, fe); err != nil {
 					return fmt.Errorf("UpsertFrontend: %w", err)
@@ -646,10 +638,7 @@ func bufferEvent[Obj runtime.Object](buf map[resource.Key]resource.Event[Obj], e
 	if buf == nil {
 		buf = map[resource.Key]resource.Event[Obj]{}
 	}
-
-	if ev, ok := buf[ev.Key]; ok {
-		ev.Done(nil)
-	}
+	ev.Done(nil)
 	buf[ev.Key] = ev
 	return buf
 }

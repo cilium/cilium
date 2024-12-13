@@ -6,16 +6,16 @@ package auth
 import (
 	"context"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/authmap"
-	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -24,13 +24,13 @@ type signalAuthKey authmap.AuthKey
 
 // low-cardinality stringer for metrics
 func (key signalAuthKey) String() string {
-	return policy.AuthType(key.AuthType).String()
+	return policyTypes.AuthType(key.AuthType).String()
 }
 
 type AuthManager struct {
-	logger                logrus.FieldLogger
+	logger                *slog.Logger
 	nodeIDHandler         types.NodeIDHandler
-	authHandlers          map[policy.AuthType]authHandler
+	authHandlers          map[policyTypes.AuthType]authHandler
 	authmap               authMapCacher
 	authSignalBackoffTime time.Duration
 
@@ -42,7 +42,7 @@ type AuthManager struct {
 // authHandler is responsible to handle authentication for a specific auth type
 type authHandler interface {
 	authenticate(*authRequest) (*authResponse, error)
-	authType() policy.AuthType
+	authType() policyTypes.AuthType
 	subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent
 	certProviderStatus() *models.Status
 }
@@ -57,8 +57,8 @@ type authResponse struct {
 	expirationTime time.Time
 }
 
-func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authmap authMapCacher, nodeIDHandler types.NodeIDHandler, authSignalBackoffTime time.Duration) (*AuthManager, error) {
-	ahs := map[policy.AuthType]authHandler{}
+func newAuthManager(logger *slog.Logger, authHandlers []authHandler, authmap authMapCacher, nodeIDHandler types.NodeIDHandler, authSignalBackoffTime time.Duration) (*AuthManager, error) {
+	ahs := map[policyTypes.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
 			continue
@@ -86,19 +86,15 @@ func (a *AuthManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 		localIdentity:  identity.NumericIdentity(key.LocalIdentity),
 		remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
 		remoteNodeID:   key.RemoteNodeID,
-		authType:       policy.AuthType(key.AuthType),
+		authType:       policyTypes.AuthType(key.AuthType),
 	}
 
 	if k.localIdentity.IsReservedIdentity() || k.remoteIdentity.IsReservedIdentity() {
-		a.logger.
-			WithField("key", k).
-			Info("Reserved identity, skipping authentication as reserved identities are not compatible with authentication")
+		a.logger.Info("Reserved identity, skipping authentication as reserved identities are not compatible with authentication", "key", k)
 		return nil
 	}
 
-	a.logger.
-		WithField("key", k).
-		Debug("Handle authentication request")
+	a.logger.Debug("Handle authentication request", "key", k)
 
 	a.handleAuthenticationFunc(a, k, false)
 
@@ -106,9 +102,7 @@ func (a *AuthManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 }
 
 func (a *AuthManager) handleCertificateRotationEvent(_ context.Context, event certs.CertificateRotationEvent) error {
-	a.logger.
-		WithField("identity", event.Identity).
-		Debug("Handle certificate rotation event")
+	a.logger.Debug("Handle certificate rotation event", "identity", event.Identity)
 
 	all, err := a.authmap.All()
 	if err != nil {
@@ -118,9 +112,7 @@ func (a *AuthManager) handleCertificateRotationEvent(_ context.Context, event ce
 	for k := range all {
 		if k.localIdentity == event.Identity || k.remoteIdentity == event.Identity {
 			if event.Deleted {
-				a.logger.
-					WithField("key", k).
-					Debug("Certificate delete event: deleting auth map entry")
+				a.logger.Debug("Certificate delete event: deleting auth map entry", "key", k)
 				if err := a.authmap.Delete(k); err != nil {
 					return fmt.Errorf("failed to delete auth map entry: %w", err)
 				}
@@ -135,9 +127,7 @@ func (a *AuthManager) handleCertificateRotationEvent(_ context.Context, event ce
 
 func handleAuthentication(a *AuthManager, k authKey, reAuth bool) {
 	if !a.markPendingAuth(k) {
-		a.logger.
-			WithField("key", k).
-			Debug("Pending authentication, skipping authentication")
+		a.logger.Debug("Pending authentication, skipping authentication", "key", k)
 		return
 	}
 
@@ -153,19 +143,17 @@ func handleAuthentication(a *AuthManager, k authKey, reAuth bool) {
 			// we re-authenticate if the authmap was updated by an
 			// external source.
 			if i, err := a.authmap.GetCacheInfo(key); err == nil && i.expiration.After(time.Now()) && time.Now().Before(i.storedAt.Add(a.authSignalBackoffTime)) {
-				a.logger.
-					WithField("key", key).
-					WithField("storedAt", i.storedAt).
-					Debugf("Already authenticated in the past %s, skipping authentication", a.authSignalBackoffTime.String())
+				a.logger.Debug("Already authenticated in the past, skipping authentication",
+					"backoff", a.authSignalBackoffTime.String(),
+					"key", key,
+					"storedAt", i.storedAt,
+				)
 				return
 			}
 		}
 
 		if err := a.authenticate(key); err != nil {
-			a.logger.
-				WithError(err).
-				WithField("key", key).
-				Warning("Failed to authenticate request")
+			a.logger.Warn("Failed to authenticate request", logfields.Error, err, "key", key)
 		}
 	}(k)
 }
@@ -187,9 +175,7 @@ func (a *AuthManager) markPendingAuth(key authKey) bool {
 
 // clearPendingAuth marks the pending authentication as finished.
 func (a *AuthManager) clearPendingAuth(key authKey) {
-	a.logger.
-		WithField("key", key).
-		Debug("Clearing pending authentication")
+	a.logger.Debug("Clearing pending authentication", "key", key)
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -197,9 +183,7 @@ func (a *AuthManager) clearPendingAuth(key authKey) {
 }
 
 func (a *AuthManager) authenticate(key authKey) error {
-	a.logger.
-		WithField("key", key).
-		Debug("Policy is requiring authentication")
+	a.logger.Debug("Policy is requiring authentication", "key", key)
 
 	// Authenticate according to the requested auth type
 	h, ok := a.authHandlers[key.authType]
@@ -227,10 +211,7 @@ func (a *AuthManager) authenticate(key authKey) error {
 		return fmt.Errorf("failed to update BPF map in datapath: %w", err)
 	}
 
-	a.logger.
-		WithField("key", key).
-		WithField("remote_node_ip", nodeIP).
-		Debug("Successfully authenticated")
+	a.logger.Debug("Successfully authenticated", "key", key, "remote_node_ip", nodeIP)
 
 	return nil
 }

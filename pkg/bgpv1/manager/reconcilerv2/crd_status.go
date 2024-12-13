@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -78,6 +79,17 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 		ClientSet:         in.ClientSet,
 		desiredStatus:     &v2alpha1.CiliumBGPNodeStatus{},
 		runningStatus:     &v2alpha1.CiliumBGPNodeStatus{},
+	}
+
+	// If the status reporting is disabled, schedule a job to cleanup
+	// status field. Otherwise, users may see the stale status that
+	// previously reported.
+	if !in.DaemonConfig.EnableBGPControlPlaneStatusReport {
+		in.Job.Add(job.OneShot(
+			"bgp-crd-status-cleanup",
+			r.cleanupStatus,
+		))
+		return StatusReconcilerOut{}
 	}
 
 	in.Job.Add(job.OneShot("bgp-crd-status-initialize", func(ctx context.Context, health cell.Health) error {
@@ -196,6 +208,58 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params StateReconcileP
 	return nil
 }
 
+func (r *StatusReconciler) cleanupStatus(ctx context.Context, health cell.Health) error {
+	var nodeName string
+
+	// Wait for the local node name
+	for event := range r.LocalNodeResource.Events(ctx) {
+		switch event.Kind {
+		case resource.Upsert:
+			nodeName = event.Key.Name
+		}
+
+		event.Done(nil)
+
+		if nodeName != "" {
+			break
+		}
+	}
+
+	return resiliency.Retry(ctx, 3*time.Second, 20, func(ctx context.Context, _ int) (bool, error) {
+		// Patch with an empty status
+		emptyStatus := []k8s.JSONPatch{
+			{
+				OP:    "replace",
+				Path:  "/status",
+				Value: &v2alpha1.CiliumBGPNodeStatus{},
+			},
+		}
+
+		patch, err := json.Marshal(emptyStatus)
+		if err != nil {
+			return false, fmt.Errorf("BUG: cannot marshal empty status: %w", err)
+		}
+
+		if _, err := r.ClientSet.CiliumV2alpha1().CiliumBGPNodeConfigs().Patch(
+			ctx,
+			nodeName,
+			k8s_types.JSONPatchType,
+			patch,
+			metav1.PatchOptions{FieldManager: r.Name()},
+			"status",
+		); err != nil {
+			// NodeConfig for this node doesn't exist yet. Then,
+			// there's no status to cleanup.
+			if k8sErrors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, nil
+		}
+
+		return true, nil
+	})
+}
+
 func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *instance.BGPInstance) (*v2alpha1.CiliumBGPNodeInstanceStatus, error) {
 	res := &v2alpha1.CiliumBGPNodeInstanceStatus{
 		Name:     instance.Config.Name,
@@ -220,8 +284,12 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 		}
 
 		for _, runningPeerState := range peers.Peers {
-			if runningPeerState.PeerAddress != *configuredPeers.PeerAddress || runningPeerState.PeerAsn != *configuredPeers.PeerASN {
+			if runningPeerState.PeerAddress != *configuredPeers.PeerAddress {
 				continue
+			}
+
+			if *configuredPeers.PeerASN == 0 { // If PeerASN is not set, use the ASN from the running state
+				peerStatus.PeerASN = ptr.To[int64](runningPeerState.PeerAsn)
 			}
 
 			peerStatus.PeeringState = ptr.To[string](runningPeerState.SessionState)

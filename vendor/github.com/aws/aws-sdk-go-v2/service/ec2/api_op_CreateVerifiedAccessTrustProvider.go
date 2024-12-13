@@ -65,6 +65,9 @@ type CreateVerifiedAccessTrustProviderInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The OpenID Connect (OIDC) options.
+	NativeApplicationOidcOptions *types.CreateVerifiedAccessNativeApplicationOidcOptions
+
 	// The options for a OpenID Connect-compatible user-identity trust provider. This
 	// parameter is required when the provider type is user .
 	OidcOptions *types.CreateVerifiedAccessTrustProviderOidcOptions

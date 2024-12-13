@@ -203,8 +203,8 @@ type nameLabelsGetter interface {
 	GetLabels() map[string]string
 }
 
-// filterPodLabels returns a copy of the given labels map, without the labels owned by Cilium.
-func filterPodLabels(labels map[string]string) map[string]string {
+// RemoveCiliumLabels returns a copy of the given labels map, without the labels owned by Cilium.
+func RemoveCiliumLabels(labels map[string]string) map[string]string {
 	res := map[string]string{}
 	for k, v := range labels {
 		if strings.HasPrefix(k, k8sconst.LabelPrefix) {
@@ -218,7 +218,7 @@ func filterPodLabels(labels map[string]string) map[string]string {
 // SanitizePodLabels makes sure that no important pod labels were overridden manually on k8s pod
 // object creation.
 func SanitizePodLabels(podLabels map[string]string, namespace nameLabelsGetter, serviceAccount, clusterName string) map[string]string {
-	sanitizedLabels := filterPodLabels(podLabels)
+	sanitizedLabels := RemoveCiliumLabels(podLabels)
 
 	// Sanitize namespace labels
 	for k, v := range namespace.GetLabels() {
@@ -241,7 +241,7 @@ func SanitizePodLabels(podLabels map[string]string, namespace nameLabelsGetter, 
 // StripPodSpecialLabels strips labels that are not supposed to be coming from a k8s pod object update.
 func StripPodSpecialLabels(labels map[string]string) map[string]string {
 	sanitizedLabels := make(map[string]string)
-	for k, v := range filterPodLabels(labels) {
+	for k, v := range RemoveCiliumLabels(labels) {
 		// If the key contains the prefix for namespace labels then we will
 		// ignore it.
 		if strings.HasPrefix(k, k8sconst.PodNamespaceMetaLabels) {

@@ -73,6 +73,7 @@ type AllocateIpv6InternetBandwidthRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
+	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	Bandwidth            requests.Integer `position:"Query" name:"Bandwidth"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`

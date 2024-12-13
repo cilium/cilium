@@ -6,9 +6,9 @@
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,34 @@ type CiliumBGPPeeringPoliciesGetter interface {
 
 // CiliumBGPPeeringPolicyInterface has methods to work with CiliumBGPPeeringPolicy resources.
 type CiliumBGPPeeringPolicyInterface interface {
-	Create(ctx context.Context, ciliumBGPPeeringPolicy *v2alpha1.CiliumBGPPeeringPolicy, opts v1.CreateOptions) (*v2alpha1.CiliumBGPPeeringPolicy, error)
-	Update(ctx context.Context, ciliumBGPPeeringPolicy *v2alpha1.CiliumBGPPeeringPolicy, opts v1.UpdateOptions) (*v2alpha1.CiliumBGPPeeringPolicy, error)
+	Create(ctx context.Context, ciliumBGPPeeringPolicy *ciliumiov2alpha1.CiliumBGPPeeringPolicy, opts v1.CreateOptions) (*ciliumiov2alpha1.CiliumBGPPeeringPolicy, error)
+	Update(ctx context.Context, ciliumBGPPeeringPolicy *ciliumiov2alpha1.CiliumBGPPeeringPolicy, opts v1.UpdateOptions) (*ciliumiov2alpha1.CiliumBGPPeeringPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.CiliumBGPPeeringPolicy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2alpha1.CiliumBGPPeeringPolicyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2alpha1.CiliumBGPPeeringPolicy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumBGPPeeringPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPPeeringPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumBGPPeeringPolicy, err error)
 	CiliumBGPPeeringPolicyExpansion
 }
 
 // ciliumBGPPeeringPolicies implements CiliumBGPPeeringPolicyInterface
 type ciliumBGPPeeringPolicies struct {
-	*gentype.ClientWithList[*v2alpha1.CiliumBGPPeeringPolicy, *v2alpha1.CiliumBGPPeeringPolicyList]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumBGPPeeringPolicy, *ciliumiov2alpha1.CiliumBGPPeeringPolicyList]
 }
 
 // newCiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicies
 func newCiliumBGPPeeringPolicies(c *CiliumV2alpha1Client) *ciliumBGPPeeringPolicies {
 	return &ciliumBGPPeeringPolicies{
-		gentype.NewClientWithList[*v2alpha1.CiliumBGPPeeringPolicy, *v2alpha1.CiliumBGPPeeringPolicyList](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumBGPPeeringPolicy, *ciliumiov2alpha1.CiliumBGPPeeringPolicyList](
 			"ciliumbgppeeringpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2alpha1.CiliumBGPPeeringPolicy { return &v2alpha1.CiliumBGPPeeringPolicy{} },
-			func() *v2alpha1.CiliumBGPPeeringPolicyList { return &v2alpha1.CiliumBGPPeeringPolicyList{} }),
+			func() *ciliumiov2alpha1.CiliumBGPPeeringPolicy { return &ciliumiov2alpha1.CiliumBGPPeeringPolicy{} },
+			func() *ciliumiov2alpha1.CiliumBGPPeeringPolicyList {
+				return &ciliumiov2alpha1.CiliumBGPPeeringPolicyList{}
+			},
+		),
 	}
 }

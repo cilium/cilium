@@ -74,6 +74,10 @@ type AckingResourceMutator interface {
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
 
+	// UseCurrent inserts a completion that allows the caller to wait for the current
+	// version of the given typeURL to be ACKed.
+	UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup)
+
 	// DeleteNode frees resources held for the named node
 	DeleteNode(nodeID string)
 
@@ -164,6 +168,29 @@ func (m *AckingResourceMutatorWrapper) addVersionCompletion(typeURL string, vers
 		comp.remainingNodesResources[nodeID] = nil
 	}
 	m.pendingCompletions[c] = comp
+}
+
+// UseCurrent adds a completion to the WaitGroup if the current
+// version of the cached resource has not been acked yet, allowing the
+// caller to wait for the ACK.
+func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	wait := wg != nil
+
+	if m.restoring {
+		// Do not wait for acks when restoring state
+		log.WithFields(logrus.Fields{
+			logfields.XDSTypeURL: typeURL,
+		}).Debug("UseCurrent: Restoring, skipping wait for ACK")
+
+		wait = false
+	}
+
+	if wait {
+		m.useCurrent(typeURL, nodeIDs, wg, nil)
+	}
 }
 
 // DeleteNode frees resources held for the named nodes
@@ -384,7 +411,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 							ackLog.Debugf("completing ACK: %v", pending)
 							comp.Complete(nil)
 						} else {
-							ackLog.Debugf("completing NACK: %v", pending)
+							ackLog.Warningf("completing NACK: %v", pending)
 							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
 						}
 						continue

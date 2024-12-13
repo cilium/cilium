@@ -12,6 +12,11 @@ metadata:
     k8s-app: hubble
     app.kubernetes.io/name: hubble
     app.kubernetes.io/part-of: cilium
+
+    {{- with $.Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
     {{- if $.Values.hubble.metrics.dashboards.label }}
     {{ $.Values.hubble.metrics.dashboards.label }}: {{ ternary $.Values.hubble.metrics.dashboards.labelValue "1" (not (empty $.Values.hubble.metrics.dashboards.labelValue)) | quote }}
     {{- end }}

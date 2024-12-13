@@ -9,6 +9,7 @@ package daemon
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -99,11 +100,11 @@ func (o *PatchConfigOK) Code() int {
 }
 
 func (o *PatchConfigOK) Error() string {
-	return fmt.Sprintf("[PATCH /config][%d] patchConfigOK ", 200)
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigOK", 200)
 }
 
 func (o *PatchConfigOK) String() string {
-	return fmt.Sprintf("[PATCH /config][%d] patchConfigOK ", 200)
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigOK", 200)
 }
 
 func (o *PatchConfigOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -156,11 +157,13 @@ func (o *PatchConfigBadRequest) Code() int {
 }
 
 func (o *PatchConfigBadRequest) Error() string {
-	return fmt.Sprintf("[PATCH /config][%d] patchConfigBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigBadRequest %s", 400, payload)
 }
 
 func (o *PatchConfigBadRequest) String() string {
-	return fmt.Sprintf("[PATCH /config][%d] patchConfigBadRequest  %+v", 400, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigBadRequest %s", 400, payload)
 }
 
 func (o *PatchConfigBadRequest) GetPayload() models.Error {
@@ -221,11 +224,11 @@ func (o *PatchConfigForbidden) Code() int {
 }
 
 func (o *PatchConfigForbidden) Error() string {
-	return fmt.Sprintf("[PATCH /config][%d] patchConfigForbidden ", 403)
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigForbidden", 403)
 }
 
 func (o *PatchConfigForbidden) String() string {
-	return fmt.Sprintf("[PATCH /config][%d] patchConfigForbidden ", 403)
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigForbidden", 403)
 }
 
 func (o *PatchConfigForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -278,11 +281,13 @@ func (o *PatchConfigFailure) Code() int {
 }
 
 func (o *PatchConfigFailure) Error() string {
-	return fmt.Sprintf("[PATCH /config][%d] patchConfigFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigFailure %s", 500, payload)
 }
 
 func (o *PatchConfigFailure) String() string {
-	return fmt.Sprintf("[PATCH /config][%d] patchConfigFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigFailure %s", 500, payload)
 }
 
 func (o *PatchConfigFailure) GetPayload() models.Error {

@@ -81,7 +81,7 @@ func TestRegisterController(t *testing.T) {
 		t.Fatalf("Couldn't verify if CES is created: %s", err)
 	}
 	// Verify CES is created when CES features is enabled
-	assert.Equal(t, true, cesCreated)
+	assert.True(t, cesCreated)
 	if err := hive.Stop(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
@@ -140,7 +140,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 		t.Fatalf("Couldn't verify if CES is created: %s", err)
 	}
 	// Verify CES is NOT created when CES features is disabled
-	assert.Equal(t, false, cesCreated)
+	assert.False(t, cesCreated)
 	if err = h.Stop(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}

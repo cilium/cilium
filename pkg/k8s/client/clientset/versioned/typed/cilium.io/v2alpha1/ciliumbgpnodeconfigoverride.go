@@ -6,9 +6,9 @@
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,36 @@ type CiliumBGPNodeConfigOverridesGetter interface {
 
 // CiliumBGPNodeConfigOverrideInterface has methods to work with CiliumBGPNodeConfigOverride resources.
 type CiliumBGPNodeConfigOverrideInterface interface {
-	Create(ctx context.Context, ciliumBGPNodeConfigOverride *v2alpha1.CiliumBGPNodeConfigOverride, opts v1.CreateOptions) (*v2alpha1.CiliumBGPNodeConfigOverride, error)
-	Update(ctx context.Context, ciliumBGPNodeConfigOverride *v2alpha1.CiliumBGPNodeConfigOverride, opts v1.UpdateOptions) (*v2alpha1.CiliumBGPNodeConfigOverride, error)
+	Create(ctx context.Context, ciliumBGPNodeConfigOverride *ciliumiov2alpha1.CiliumBGPNodeConfigOverride, opts v1.CreateOptions) (*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, error)
+	Update(ctx context.Context, ciliumBGPNodeConfigOverride *ciliumiov2alpha1.CiliumBGPNodeConfigOverride, opts v1.UpdateOptions) (*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.CiliumBGPNodeConfigOverride, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2alpha1.CiliumBGPNodeConfigOverrideList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPNodeConfigOverride, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumBGPNodeConfigOverride, err error)
 	CiliumBGPNodeConfigOverrideExpansion
 }
 
 // ciliumBGPNodeConfigOverrides implements CiliumBGPNodeConfigOverrideInterface
 type ciliumBGPNodeConfigOverrides struct {
-	*gentype.ClientWithList[*v2alpha1.CiliumBGPNodeConfigOverride, *v2alpha1.CiliumBGPNodeConfigOverrideList]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, *ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList]
 }
 
 // newCiliumBGPNodeConfigOverrides returns a CiliumBGPNodeConfigOverrides
 func newCiliumBGPNodeConfigOverrides(c *CiliumV2alpha1Client) *ciliumBGPNodeConfigOverrides {
 	return &ciliumBGPNodeConfigOverrides{
-		gentype.NewClientWithList[*v2alpha1.CiliumBGPNodeConfigOverride, *v2alpha1.CiliumBGPNodeConfigOverrideList](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, *ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList](
 			"ciliumbgpnodeconfigoverrides",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2alpha1.CiliumBGPNodeConfigOverride { return &v2alpha1.CiliumBGPNodeConfigOverride{} },
-			func() *v2alpha1.CiliumBGPNodeConfigOverrideList { return &v2alpha1.CiliumBGPNodeConfigOverrideList{} }),
+			func() *ciliumiov2alpha1.CiliumBGPNodeConfigOverride {
+				return &ciliumiov2alpha1.CiliumBGPNodeConfigOverride{}
+			},
+			func() *ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList {
+				return &ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList{}
+			},
+		),
 	}
 }

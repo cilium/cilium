@@ -52,7 +52,7 @@ var statusGetCmd = &cobra.Command{
 			}
 		} else {
 			w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-			clientPkg.FormatHealthStatusResponse(w, sr, true, succinct, verbose, 0)
+			clientPkg.FormatHealthStatusResponse(w, sr, true, verbose, 0)
 			w.Flush()
 		}
 	},
@@ -62,6 +62,7 @@ func init() {
 	rootCmd.AddCommand(statusGetCmd)
 	statusGetCmd.Flags().BoolVarP(&probe, "probe", "", false,
 		"Synchronously probe connectivity status")
+	statusGetCmd.Flags().MarkHidden("probe")
 	statusGetCmd.Flags().BoolVarP(&succinct, "succinct", "", false,
 		"Print the result succinctly (one node per line)")
 	statusGetCmd.Flags().BoolVarP(&verbose, "verbose", "", false,

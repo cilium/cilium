@@ -137,7 +137,7 @@ func runQuery(indexTxn indexReadTxn, lowerbound bool, queryKey []byte, onObject 
 		match = func(k []byte) bool { return len(k) == len(queryKey) }
 	default:
 		match = func(k []byte) bool {
-			_, secondary := decodeNonUniqueKey(k)
+			secondary, _ := decodeNonUniqueKey(k)
 			return len(secondary) == len(queryKey)
 		}
 	}

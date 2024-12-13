@@ -30,9 +30,13 @@ type Errors struct {
 
 // NewErrors creates a new instance of the Errors type.
 func NewErrors(source Source) *Errors {
+	src := source
+	if src == nil {
+		src = NewTextSource("")
+	}
 	return &Errors{
 		errors:            []*Error{},
-		source:            source,
+		source:            src,
 		maxErrorsToReport: 100,
 	}
 }

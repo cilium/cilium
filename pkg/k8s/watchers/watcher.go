@@ -75,7 +75,7 @@ type nodeManager interface {
 }
 
 type policyManager interface {
-	TriggerPolicyUpdates(force bool, reason string)
+	TriggerPolicyUpdates(reason string)
 }
 
 type svcManager interface {
@@ -88,17 +88,11 @@ type redirectPolicyManager interface {
 	AddRedirectPolicy(config redirectpolicy.LRPConfig) (bool, error)
 	DeleteRedirectPolicy(config redirectpolicy.LRPConfig) error
 	OnAddService(svcID k8s.ServiceID)
+	EnsureService(svcID k8s.ServiceID) (bool, error)
 	OnDeleteService(svcID k8s.ServiceID)
 	OnUpdatePod(pod *slim_corev1.Pod, needsReassign bool, ready bool)
 	OnDeletePod(pod *slim_corev1.Pod)
 	OnAddPod(pod *slim_corev1.Pod)
-}
-
-type bgpSpeakerManager interface {
-	OnUpdateService(svc *slim_corev1.Service) error
-	OnDeleteService(svc *slim_corev1.Service) error
-
-	OnUpdateEndpoints(eps *k8s.Endpoints) error
 }
 
 type cgroupManager interface {
@@ -321,6 +315,12 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 type WatcherConfiguration interface {
 	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
 	K8sNetworkPolicyEnabled() bool
+
+	// KVstoreEnabledWithoutPodNetworkSupport returns whether Cilium is configured to connect
+	// to an external KVStore, and the support for running it in pod network is disabled.
+	// In this case, we don't need to start the CiliumNode and CiliumEndpoint watchers at
+	// all, given that the CRD to kvstore handover logic is not required.
+	KVstoreEnabledWithoutPodNetworkSupport() bool
 }
 
 // enableK8sWatchers starts watchers for given resources.
@@ -340,14 +340,18 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case k8sAPIGroupNamespaceV1Core:
 			k.k8sNamespaceWatcher.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
-			asyncControllers.Add(1)
-			go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
+			if !k.cfg.KVstoreEnabledWithoutPodNetworkSupport() {
+				asyncControllers.Add(1)
+				go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
+			}
 		case resources.K8sAPIGroupServiceV1Core:
 			k.k8sServiceWatcher.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
 			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
-			k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx, asyncControllers)
+			if !k.cfg.KVstoreEnabledWithoutPodNetworkSupport() {
+				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx, asyncControllers)
+			}
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:

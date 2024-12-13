@@ -56,6 +56,7 @@ __id_for_file(const char *const header_name)
 	_strcase_(112, "encap.h");
 	_strcase_(113, "encrypt.h");
 	_strcase_(114, "host_firewall.h");
+	_strcase_(115, "nodeport_egress.h");
 
 	/* @@ source files list end */
 

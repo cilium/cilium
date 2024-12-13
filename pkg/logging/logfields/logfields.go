@@ -305,6 +305,12 @@ const (
 	// SessionAffinityTimeout is a timeout for the session affinity
 	SessionAffinityTimeout = "sessionAffinityTimeout"
 
+	// LoadBalancerAlgorithm is algorithm for backend selection
+	LoadBalancerAlgorithm = "LoadBalancerAlgorithm"
+
+	// LoadBalancerSourceRangesPolicy is the LB SVC source ranges policy
+	LoadBalancerSourceRangesPolicy = "loadBalancerSourceRangesPolicy"
+
 	// LoadBalancerSourceRanges is the LB SVC source ranges
 	LoadBalancerSourceRanges = "loadBalancerSourceRanges"
 
@@ -364,6 +370,9 @@ const (
 
 	// ProxyName is the name of a proxy (e.g., "Envoy")
 	ProxyName = "proxyName"
+
+	// ProxyPort is the port number of an L7 proxy listener.
+	ProxyPort = "ProxyPort"
 
 	// L7LBProxyPort is the port number of the Envoy listener a L7 LB service redirects traffic to for load balancing.
 	L7LBProxyPort = "l7LBProxyPort"

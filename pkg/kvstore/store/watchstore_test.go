@@ -32,8 +32,8 @@ func NewFakeLWBackend(t *testing.T, prefix string, events []kvstore.KeyValueEven
 	}
 }
 
-func (fb *fakeLWBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *kvstore.Watcher {
-	ch := make(kvstore.EventChan)
+func (fb *fakeLWBackend) ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan {
+	ch := make(chan kvstore.KeyValueEvent)
 
 	go func() {
 		defer close(ch)
@@ -51,7 +51,7 @@ func (fb *fakeLWBackend) ListAndWatch(ctx context.Context, prefix string, _ int)
 		<-ctx.Done()
 	}()
 
-	return &kvstore.Watcher{Events: ch}
+	return ch
 }
 
 type fakeObserver struct {

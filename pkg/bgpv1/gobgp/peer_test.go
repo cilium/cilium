@@ -76,6 +76,14 @@ var (
 		}
 		return d
 	}
+
+	transportConf = func() neighborConf {
+		d := defaultConf.DeepCopy()
+		d.transport = &transportConfig{
+			localAddr: "5.6.7.8",
+		}
+		return d
+	}
 )
 
 type restartConfig struct {
@@ -89,14 +97,19 @@ type timersConfig struct {
 	keepalive int32
 }
 
+type transportConfig struct {
+	localAddr string
+}
+
 type neighborConf struct {
-	address  string
-	port     *int32
-	asn      int64
-	families []v2alpha1.CiliumBGPFamily
-	multihop *int32
-	timers   *timersConfig
-	restart  *restartConfig
+	address   string
+	port      *int32
+	asn       int64
+	families  []v2alpha1.CiliumBGPFamily
+	multihop  *int32
+	timers    *timersConfig
+	restart   *restartConfig
+	transport *transportConfig
 }
 
 func (n neighborConf) DeepCopy() neighborConf {
@@ -124,6 +137,12 @@ func (n neighborConf) DeepCopy() neighborConf {
 		neighCopy.restart = &restartConfig{
 			enabled: n.restart.enabled,
 			time:    ptr.To[int32](*n.restart.time),
+		}
+	}
+
+	if n.transport != nil {
+		neighCopy.transport = &transportConfig{
+			localAddr: n.transport.localAddr,
 		}
 	}
 
@@ -167,6 +186,10 @@ func bgpNodePeerFromTestConf(c neighborConf) *v2alpha1.CiliumBGPNodePeer {
 		Name:        "peer-1",
 		PeerAddress: ptr.To[string](c.address),
 		PeerASN:     ptr.To[int64](c.asn),
+	}
+
+	if c.transport != nil {
+		p.LocalAddress = ptr.To[string](c.transport.localAddr)
 	}
 
 	return p
@@ -226,6 +249,10 @@ func gobgpPeerFromTestConf(c neighborConf) *gobgp.Peer {
 		p.Transport.LocalAddress = wildcardIPv4Addr
 	} else {
 		p.Transport.LocalAddress = wildcardIPv6Addr
+	}
+
+	if c.transport != nil {
+		p.Transport.LocalAddress = c.transport.localAddr
 	}
 
 	p.AfiSafis, err = convertBGPNeighborSAFI(c.families)
@@ -344,7 +371,7 @@ func TestGetPeerConfigV1(t *testing.T) {
 				require.Equal(t, tt.expected.Transport, peer.Transport)
 				require.Equal(t, tt.expected.Timers, peer.Timers)
 				require.Equal(t, tt.expected.EbgpMultihop, peer.EbgpMultihop)
-				require.Equal(t, reset, false)
+				require.False(t, reset)
 				if len(tt.expected.AfiSafis) > 0 {
 					for i, safi := range tt.expected.AfiSafis {
 						require.Equal(t, safi.Config, peer.AfiSafis[i].Config)
@@ -421,6 +448,13 @@ func TestGetPeerConfigV2(t *testing.T) {
 			expected:   gobgpPeerFromTestConf(restartConf()),
 			expect:     true,
 		},
+		{
+			name:       "test neighbor transport config",
+			peer:       bgpNodePeerFromTestConf(transportConf()),
+			peerConfig: bgpPeerConfigFromTestConf(transportConf()),
+			expected:   gobgpPeerFromTestConf(transportConf()),
+			expect:     true,
+		},
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
@@ -443,7 +477,7 @@ func TestGetPeerConfigV2(t *testing.T) {
 				require.Equal(t, tt.expected.Transport, peer.Transport)
 				require.Equal(t, tt.expected.Timers, peer.Timers)
 				require.Equal(t, tt.expected.EbgpMultihop, peer.EbgpMultihop)
-				require.Equal(t, reset, false)
+				require.False(t, reset)
 				if len(tt.expected.AfiSafis) > 0 {
 					for i, safi := range tt.expected.AfiSafis {
 						require.Equal(t, safi.Config, peer.AfiSafis[i].Config)

@@ -17,12 +17,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive/health/types"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+const (
+	degradedModuleID = "test"
+	okModuleID       = "test2"
 )
 
 func Test_Metrics(t *testing.T) {
+
 	var db *statedb.DB
 	var table statedb.Table[types.Status]
-	resChan := make(chan map[types.Level]uint64)
+	publishAsserted := make(chan struct{})
 	// Using upstream hive here to avoid import cycles and be able to inject the right metric
 	// publishing func for the test.
 	h := hive.New(
@@ -44,9 +51,9 @@ func Test_Metrics(t *testing.T) {
 		cell.Module("health-metrics-test", "hive module health metrics test",
 			cell.Provide(newMetrics),
 			cell.Invoke(func(p metricPublisherParams) {
-				// Writes the updates to a chan to synchronise with the test.
-				publish := func(stats map[types.Level]uint64) {
-					resChan <- stats
+				publish := func(stats map[types.Level]uint64, idToStatus map[string]uint64) {
+					assertPublish(t, table, db, stats, idToStatus)
+					publishAsserted <- struct{}{}
 				}
 
 				p.JobGroup.Add(job.OneShot("module-status-metrics",
@@ -62,14 +69,14 @@ func Test_Metrics(t *testing.T) {
 				txn := db_.WriteTxn(table_)
 				_, _, err := table_.Insert(txn, types.Status{
 					ID: types.Identifier{
-						Module: cell.FullModuleID{"test"},
+						Module: cell.FullModuleID{degradedModuleID},
 					},
 					Level: types.LevelDegraded,
 				})
 				assert.NoError(t, err)
 				_, _, err = table_.Insert(txn, types.Status{
 					ID: types.Identifier{
-						Module: cell.FullModuleID{"test2"},
+						Module: cell.FullModuleID{okModuleID},
 					},
 					Level: types.LevelOK,
 				})
@@ -88,17 +95,25 @@ func Test_Metrics(t *testing.T) {
 		err = h.Stop(tlog, context.TODO())
 		require.NoError(t, err)
 	})
+	select {
+	case <-publishAsserted:
+	case <-time.After(1 * time.Second):
+		t.Error("Timeout waiting for assertion")
+	}
+}
 
-	// Metrics as they would be published
-	resMetrics := <-resChan
+func assertPublish(t *testing.T, table statedb.Table[types.Status], db *statedb.DB, resMetrics map[types.Level]uint64, idToStatusMetrics map[string]uint64) {
 	it := table.All(db.ReadTxn())
 	ok, degraded, stopped := count(it)
 
 	assert.Equal(t, resMetrics[types.LevelOK], ok)
 	assert.Greater(t, resMetrics[types.LevelOK], uint64(1))
 	assert.Equal(t, resMetrics[types.LevelDegraded], degraded)
-	assert.Equal(t, resMetrics[types.LevelDegraded], uint64(1))
+	assert.Equal(t, uint64(1), resMetrics[types.LevelDegraded])
 	assert.Equal(t, resMetrics[types.LevelStopped], stopped)
+
+	assert.Equal(t, idToStatusMetrics[degradedModuleID], degraded)
+	assert.Equal(t, uint64(0), idToStatusMetrics[okModuleID])
 }
 
 func count(it iter.Seq2[types.Status, statedb.Revision]) (ok uint64, degraded uint64, stopped uint64) {

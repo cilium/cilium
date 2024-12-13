@@ -60,10 +60,8 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		PreRun: func(cmd *cobra.Command, args []string) {
 			// Overwrite the metrics namespace with the one specific for the ClusterMesh API Server
 			metrics.Namespace = metrics.CiliumClusterMeshAPIServerNamespace
+			option.Config.SetupLogging(h.Viper(), "clustermesh-apiserver")
 			option.Config.Populate(h.Viper())
-			if option.Config.Debug {
-				log.Logger.SetLevel(logrus.DebugLevel)
-			}
 			option.LogRegisteredOptions(h.Viper(), log)
 			log.Infof("Cilium ClusterMesh %s", version.Version)
 		},
@@ -85,6 +83,8 @@ type parameters struct {
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 	StoreFactory   store.Factory
 	SyncState      syncstate.SyncState
+
+	Logger *slog.Logger
 }
 
 func registerHooks(lc cell.Lifecycle, params parameters) error {
@@ -99,7 +99,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI)
+			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
 			return nil
 		},
 	})
@@ -354,6 +354,7 @@ func startServer(
 	factory store.Factory,
 	syncState syncstate.SyncState,
 	clusterMeshEnableMCSAPI bool,
+	logger *slog.Logger,
 ) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cinfo.Name,
@@ -387,7 +388,7 @@ func startServer(
 		SharedOnly:   !allServices,
 		StoreFactory: factory,
 		SyncCallback: syncState.WaitForResource(),
-	})
+	}, logger)
 	go mcsapi.StartSynchronizingServiceExports(ctx, mcsapi.ServiceExportSyncParameters{
 		ClusterName:             cinfo.Name,
 		ClusterMeshEnableMCSAPI: clusterMeshEnableMCSAPI,

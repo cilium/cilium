@@ -32,13 +32,6 @@ const (
 )
 
 const (
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
-	BGPAnnounceLBIP = "bgp-announce-lb-ip"
-
-	// BGPConfigPath is the file path to the BGP configuration. It is
-	// compatible with MetalLB's configuration.
-	BGPConfigPath = "bgp-config-path"
-
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
 
@@ -183,9 +176,6 @@ const (
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
 
-	// LoadBalancerL7 enables loadbalancer capabilities for services via envoy proxy
-	LoadBalancerL7 = "loadbalancer-l7"
-
 	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
 	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
 
@@ -199,6 +189,10 @@ const (
 	// CiliumPodLabels specifies the pod labels that Cilium pods is running
 	// with.
 	CiliumPodLabels = "cilium-pod-labels"
+
+	// TaintSyncWorkers is the number of workers used to synchronize
+	// taints and conditions in Kubernetes nodes.
+	TaintSyncWorkers = "taint-sync-workers"
 
 	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
 	// should be removed in Kubernetes nodes.
@@ -219,7 +213,6 @@ const (
 
 // OperatorConfig is the configuration used by the operator.
 type OperatorConfig struct {
-
 	// NodesGCInterval is the GC interval for CiliumNodes
 	NodesGCInterval time.Duration
 
@@ -252,13 +245,6 @@ type OperatorConfig struct {
 	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
-
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
-	BGPAnnounceLBIP bool
-
-	// BGPConfigPath is the file path to the BGP configuration. It is
-	// compatible with MetalLB's configuration.
-	BGPConfigPath string
 
 	// IPAM options
 
@@ -372,9 +358,6 @@ type OperatorConfig struct {
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs bool
 
-	// LoadBalancerL7 enables loadbalancer capabilities for services.
-	LoadBalancerL7 string
-
 	// EnableGatewayAPI enables support of Gateway API
 	EnableGatewayAPI bool
 
@@ -387,6 +370,10 @@ type OperatorConfig struct {
 	// CiliumPodLabels specifies the pod labels that Cilium pods is running
 	// with.
 	CiliumPodLabels string
+
+	// TaintSyncWorkers is the number of workers used to synchronize
+	// taints and conditions in Kubernetes nodes.
+	TaintSyncWorkers int
 
 	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
 	// should be removed in Kubernetes nodes.
@@ -419,15 +406,13 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
-	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
-	c.BGPConfigPath = vp.GetString(BGPConfigPath)
-	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {
 		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
 	}
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
+	c.TaintSyncWorkers = vp.GetInt(TaintSyncWorkers)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
 	c.SetCiliumNodeTaints = vp.GetBool(SetCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
@@ -441,12 +426,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		} else {
 			c.CiliumK8sNamespace = option.Config.K8sNamespace
 		}
-	}
-
-	if c.BGPAnnounceLBIP {
-		c.SyncK8sServices = true
-		log.Infof("Auto-set %q to `true` because BGP support requires synchronizing services.",
-			SyncK8sServices)
 	}
 
 	// IPAM options

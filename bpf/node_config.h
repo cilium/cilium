@@ -22,6 +22,11 @@ DEFINE_MAC(THIS_INTERFACE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
 #define THIS_INTERFACE_MAC fetch_mac(THIS_INTERFACE_MAC)
 #endif
 
+#ifndef THIS_INTERFACE_IFINDEX
+DECLARE_CONFIG(__u32, interface_ifindex, "ifindex of the interface the bpf program is attached to")
+#define THIS_INTERFACE_IFINDEX CONFIG(interface_ifindex) /* Backwards compatibility */
+#endif
+
 #ifndef ROUTER_IP
 DEFINE_IPV6(ROUTER_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
 #endif
@@ -284,6 +289,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 
 #ifdef ENABLE_WIREGUARD
 # define WG_IFINDEX	42
+# define WG_PORT    51871
 # ifdef ENCRYPTION_STRICT_MODE
 #  define STRICT_IPV4_NET	0
 #  define STRICT_IPV4_NET_SIZE	8

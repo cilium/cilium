@@ -240,12 +240,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		"Duration that LeaderElector clients should wait between retries of the actions")
 	option.BindEnv(vp, operatorOption.LeaderElectionRetryPeriod)
 
-	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
-	option.BindEnv(vp, option.BGPAnnounceLBIP)
-
-	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
-	option.BindEnv(vp, option.BGPConfigPath)
-
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
 	option.BindEnv(vp, option.EnableCiliumEndpointSlice)
 
@@ -254,6 +248,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.String(operatorOption.CiliumPodLabels, "k8s-app=cilium", "Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false")
 	option.BindEnv(vp, operatorOption.CiliumPodLabels)
+
+	flags.Int(operatorOption.TaintSyncWorkers, 10, "Number of workers used to synchronize node tains and conditions")
+	option.BindEnv(vp, operatorOption.TaintSyncWorkers)
 
 	flags.Bool(operatorOption.RemoveCiliumNodeTaints, true, fmt.Sprintf("Remove node taint %q from Kubernetes nodes once Cilium is up and running", option.Config.AgentNotReadyNodeTaintValue()))
 	option.BindEnv(vp, operatorOption.RemoveCiliumNodeTaints)
@@ -267,9 +264,42 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(operatorOption.PodRestartSelector, "k8s-app=kube-dns", "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
 	option.BindEnv(vp, operatorOption.PodRestartSelector)
 
+	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the operator assumes permanent failure")
+	option.BindEnv(vp, option.KVstoreMaxConsecutiveQuorumErrorsName)
+
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	flags.MarkHidden(option.KVstoreLeaseTTL)
 	option.BindEnv(vp, option.KVstoreLeaseTTL)
+
+	flags.Bool(option.KVstorePodNetworkSupport, defaults.KVstorePodNetworkSupport, "Enable the support for running the Cilium KVstore in pod network")
+	flags.MarkHidden(option.KVstorePodNetworkSupport)
+	option.BindEnv(vp, option.KVstorePodNetworkSupport)
+
+	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
+	option.BindEnv(vp, option.EnablePolicy)
+
+	flags.Bool(option.EnableK8sNetworkPolicy, defaults.EnableK8sNetworkPolicy, "Enable support for K8s NetworkPolicy")
+	flags.MarkHidden(option.EnableK8sNetworkPolicy)
+	option.BindEnv(vp, option.EnableK8sNetworkPolicy)
+
+	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy")
+	flags.MarkHidden(option.EnableCiliumNetworkPolicy)
+	option.BindEnv(vp, option.EnableCiliumNetworkPolicy)
+
+	flags.Bool(option.EnableCiliumClusterwideNetworkPolicy, defaults.EnableCiliumClusterwideNetworkPolicy, "Enable support for Cilium Clusterwide Network Policy")
+	flags.MarkHidden(option.EnableCiliumClusterwideNetworkPolicy)
+	option.BindEnv(vp, option.EnableCiliumClusterwideNetworkPolicy)
+
+	// Options used for policy validation
+
+	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
+	option.BindEnv(vp, option.EnableL7Proxy)
+
+	flags.Bool(option.EnableICMPRules, defaults.EnableICMPRules, "Enable ICMP-based rule support for Cilium Network Policies")
+	flags.MarkHidden(option.EnableICMPRules)
+	option.BindEnv(vp, option.EnableICMPRules)
+
+	flags.Bool(option.EnableNodeSelectorLabels, defaults.EnableNodeSelectorLabels, "Enable use of node label based identity")
+	option.BindEnv(vp, option.EnableNodeSelectorLabels)
 
 	vp.BindPFlags(flags)
 }

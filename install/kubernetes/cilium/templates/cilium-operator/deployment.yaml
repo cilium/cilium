@@ -14,6 +14,9 @@ metadata:
     name: cilium-operator
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-operator
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
   # for more details.
@@ -57,6 +60,9 @@ spec:
         name: cilium-operator
         app.kubernetes.io/part-of: cilium
         app.kubernetes.io/name: cilium-operator
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         {{- with .Values.operator.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -238,11 +244,6 @@ spec:
           mountPropagation: {{ .mountPropagation }}
           {{- end }}
         {{- end }}
-        {{- if .Values.bgp.enabled }}
-        - name: bgp-config-path
-          mountPath: /var/lib/cilium/bgp
-          readOnly: true
-        {{- end }}
         {{- with .Values.operator.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -336,11 +337,6 @@ spec:
           {{- if .hostPathType }}
           type: {{ .hostPathType }}
           {{- end }}
-      {{- end }}
-      {{- if .Values.bgp.enabled }}
-      - name: bgp-config-path
-        configMap:
-          name: bgp-config
       {{- end }}
       {{- if .Values.authentication.mutual.spire.enabled }}
       - name: spire-agent-socket

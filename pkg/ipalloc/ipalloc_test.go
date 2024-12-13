@@ -329,15 +329,15 @@ func TestHashAlloc_UpdateGet(t *testing.T) {
 	require.NoError(t, err)
 
 	val, exists := alloc.Get(netip.MustParseAddr("10.0.0.50"))
-	require.Equal(t, val, 2)
-	require.Equal(t, exists, true)
+	require.Equal(t, 2, val)
+	require.True(t, exists)
 
 	err = alloc.Update(netip.MustParseAddr("10.0.0.51"), 2)
 	require.ErrorIs(t, err, ErrNotFound)
 
 	val, exists = alloc.Get(netip.MustParseAddr("10.0.0.51"))
-	require.Equal(t, val, 0)
-	require.Equal(t, exists, false)
+	require.Equal(t, 0, val)
+	require.False(t, exists)
 }
 
 func TestHashAlloc_Free(t *testing.T) {
@@ -355,8 +355,8 @@ func TestHashAlloc_Free(t *testing.T) {
 	require.NoError(t, err)
 
 	val, exists := alloc.Get(netip.MustParseAddr("10.0.0.50"))
-	require.Equal(t, val, false)
-	require.Equal(t, exists, false)
+	require.False(t, val)
+	require.False(t, exists)
 }
 
 func TestHashAlloc_NewBadPaths(t *testing.T) {

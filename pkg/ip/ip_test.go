@@ -27,7 +27,7 @@ func TestCountIPs(t *testing.T) {
 	}
 	for cidr, nIPs := range tests {
 		_, ipnet, err := net.ParseCIDR(cidr)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		count := CountIPsInCIDR(ipnet)
 		require.EqualValues(t, nIPs, count)
 	}
@@ -226,7 +226,7 @@ func TestRemoveSameCIDR(t *testing.T) {
 	allowCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 32, ipv4BitLen)}
 
 	allowedCIDRs := RemoveCIDRs(allowCIDRs, allowCIDRs)
-	require.Len(t, allowedCIDRs, 0)
+	require.Empty(t, allowedCIDRs)
 }
 
 func TestRemoveCIDRsEdgeCases(t *testing.T) {
@@ -345,7 +345,7 @@ func TestCoalesceCIDRs(t *testing.T) {
 		createIPNet("192.0.129.0", 24, ipv4BitLen)}
 	expected := []*net.IPNet{createIPNet("192.0.128.0", 23, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs := CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
+	require.Empty(t, mergedV6CIDRs)
 	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.129.0", 24, ipv4BitLen),
@@ -353,7 +353,7 @@ func TestCoalesceCIDRs(t *testing.T) {
 	expected = []*net.IPNet{createIPNet("192.0.129.0", 24, ipv4BitLen),
 		createIPNet("192.0.130.0", 24, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
+	require.Empty(t, mergedV6CIDRs)
 	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, ipv4BitLen),
@@ -361,7 +361,7 @@ func TestCoalesceCIDRs(t *testing.T) {
 		createIPNet("192.0.2.118", 31, ipv4BitLen)}
 	expected = []*net.IPNet{createIPNet("192.0.2.112", 29, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
+	require.Empty(t, mergedV6CIDRs)
 	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 30, ipv4BitLen),
@@ -371,7 +371,7 @@ func TestCoalesceCIDRs(t *testing.T) {
 		createIPNet("192.0.2.116", 32, ipv4BitLen),
 		createIPNet("192.0.2.118", 31, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
+	require.Empty(t, mergedV6CIDRs)
 	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.2.112", 31, ipv4BitLen),
@@ -380,7 +380,7 @@ func TestCoalesceCIDRs(t *testing.T) {
 	expected = []*net.IPNet{createIPNet("192.0.2.112", 31, ipv4BitLen),
 		createIPNet("192.0.2.116", 30, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
+	require.Empty(t, mergedV6CIDRs)
 	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("192.0.1.254", 31, ipv4BitLen),
@@ -407,7 +407,7 @@ func TestCoalesceCIDRs(t *testing.T) {
 		createIPNet("192.0.2.0", 24, ipv4BitLen),
 		createIPNet("192.0.3.0", 28, ipv4BitLen)}
 	mergedV4CIDRs, mergedV6CIDRs = CoalesceCIDRs(cidrs)
-	require.Equal(t, 0, len(mergedV6CIDRs))
+	require.Empty(t, mergedV6CIDRs)
 	testIPNetsEqual(mergedV4CIDRs, expected, t)
 
 	cidrs = []*net.IPNet{createIPNet("::", 0, ipv6BitLen),
@@ -613,7 +613,7 @@ func TestPartitionCIDR(t *testing.T) {
 	// Exclude should just contain exclude CIDR
 	testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, t)
 	// Nothing should be in right list.
-	require.Equal(t, 0, len(right))
+	require.Empty(t, right)
 	expectedLeft := []*net.IPNet{createIPNet("10.0.0.0", 9, ipv4BitLen),
 		createIPNet("10.128.0.0", 10, ipv4BitLen),
 		createIPNet("10.192.0.0", 11, ipv4BitLen),
@@ -647,7 +647,7 @@ func TestPartitionCIDR(t *testing.T) {
 	// Exclude should just contain exclude CIDR
 	testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, t)
 	// Nothing should be in left list.
-	require.Equal(t, 0, len(left))
+	require.Empty(t, left)
 	expectedRight := []*net.IPNet{createIPNet("10.128.0.0", 9, ipv4BitLen),
 		createIPNet("10.64.0.0", 10, ipv4BitLen),
 		createIPNet("10.32.0.0", 11, ipv4BitLen),
@@ -679,24 +679,24 @@ func TestPartitionCIDR(t *testing.T) {
 	targetCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	excludeCIDR = createIPNet("9.0.0.255", 32, ipv4BitLen)
 	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
-	require.Equal(t, 0, len(left))
-	require.Equal(t, 0, len(exclude))
+	require.Empty(t, left)
+	require.Empty(t, exclude)
 	testIPNetsEqual([]*net.IPNet{targetCIDR}, right, t)
 
 	// exclude is not in target CIDR and is to right.
 	targetCIDR = createIPNet("10.255.255.254", 32, ipv4BitLen)
 	excludeCIDR = createIPNet("10.255.255.255", 32, ipv4BitLen)
 	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
-	require.Equal(t, 0, len(right))
-	require.Equal(t, 0, len(exclude))
+	require.Empty(t, right)
+	require.Empty(t, exclude)
 	testIPNetsEqual([]*net.IPNet{targetCIDR}, left, t)
 
 	// exclude CIDR larger than target CIDR
 	targetCIDR = createIPNet("10.96.0.0", 12, ipv4BitLen)
 	excludeCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
-	require.Equal(t, 0, len(left))
-	require.Equal(t, 0, len(right))
+	require.Empty(t, left)
+	require.Empty(t, right)
 	testIPNetsEqual([]*net.IPNet{targetCIDR}, exclude, t)
 
 	targetCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 64, ipv6BitLen)
@@ -871,7 +871,7 @@ func TestIPListEquals(t *testing.T) {
 	ips := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")}
 	sorted := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8"), net.ParseIP("fd00::1")}
 
-	require.Equal(t, true, UnsortedIPListsAreEqual(ips, sorted))
+	require.True(t, UnsortedIPListsAreEqual(ips, sorted))
 }
 
 func TestGetIPFromListByFamily(t *testing.T) {
@@ -997,7 +997,7 @@ func TestPrefixToIpsValidIPv4(t *testing.T) {
 	prefix := "192.168.1.0/30"
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1005,7 +1005,7 @@ func TestPrefixToIpsValidLimitedIPv4(t *testing.T) {
 	prefix := "192.168.1.0/28"
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1013,7 +1013,7 @@ func TestPrefixToIpsValidIPv6(t *testing.T) {
 	prefix := "2001:DB8::/126"
 	expectedIPs := []string{"2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1021,7 +1021,7 @@ func TestPrefixToIpsValidLimitedIPv6(t *testing.T) {
 	prefix := "2001:DB8::/80"
 	expectedIPs := []string{"2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"}
 	ips, err := PrefixToIps(prefix, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1029,14 +1029,14 @@ func TestPrefixToIPsInvalidPrefix(t *testing.T) {
 	prefix := "invalid"
 	ips, err := PrefixToIps(prefix, 0)
 	require.Error(t, err)
-	require.Len(t, ips, 0)
+	require.Empty(t, ips)
 }
 
 func TestPrefixToIPv4sEdgeCase(t *testing.T) {
 	prefix := "192.168.1.255/32"
 	expectedIPs := []string{"192.168.1.255"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1045,7 +1045,7 @@ func TestPrefixToIpsWithMaxIPv4sExceedingRange(t *testing.T) {
 	maxIPs := 10 // Intentionally exceeding the available IPs in the prefix
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, maxIPs)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 

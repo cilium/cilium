@@ -28,8 +28,7 @@
 #define BACKEND_IP_REMOTE	v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
 
-#define NATIVE_DEV_IFINDEX	24
-#define DEFAULT_IFACE		NATIVE_DEV_IFINDEX
+#define DEFAULT_IFACE		24
 #define BACKEND_IFACE		25
 #define SVC_EGRESS_IFACE	26
 
@@ -83,11 +82,19 @@ struct {
 
 #define fib_lookup mock_fib_lookup
 
-long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+long mock_fib_lookup(__maybe_unused struct __ctx_buff * volatile ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	__u32 key = 0;
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
+
+	/* Verifier doesn't know that params is not NULL when verifying this
+	 * function separately (see btf_prepare_func_args in kernel/bpf/btf.c).
+	 * There is no appropriate EINVAL-like error code in this helper, so
+	 * return some arbitrary error.
+	 */
+	if (!params)
+		return BPF_FIB_LKUP_RET_BLACKHOLE;
 
 	if (settings && settings->fail_fib)
 		return BPF_FIB_LKUP_RET_NO_NEIGH;
@@ -152,6 +159,8 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
 
+ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
@@ -205,7 +214,7 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
 
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
 			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
@@ -261,13 +270,16 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
 
 	if (l3->check != bpf_htons(0x4212))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0xd7d0))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -354,13 +366,16 @@ int nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4baa))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != FRONTEND_PORT)
 		test_fatal("src port hasn't been revNATed to frontend port");
 
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0x01a9))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -449,13 +464,16 @@ int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
 
 	if (l3->check != bpf_htons(0x3711))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0xcccf))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -544,13 +562,16 @@ int nodeport_local_backend_redirect_reply_check(const struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x3611))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0xcccf))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -646,13 +667,16 @@ int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
 
 	if (l3->check != bpf_htons(0x4213))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0x699a))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -751,7 +775,7 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
 
 	if (l3->check != bpf_htons(0xa711))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source == CLIENT_PORT)
 		test_fatal("src port hasn't been NATed");
@@ -849,6 +873,9 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port hasn't been RevNATed to client port");
 
+	if (l4->check != bpf_htons(0x1a8))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+
 	test_finish();
 }
 
@@ -903,6 +930,215 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 
 CHECK("tc", "tc_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	return check_reply(ctx);
+}
+
+/* The following three tests are checking the scenario where a Rev NAT entry gets
+ * deleted:
+ * 1. The first reply gets punted to the kernel as its NAT lookup fails.
+ * 2. The following request gets to the backend and restores the Rev NAT.
+ * 3. The second reply gets back to the client normally.
+ *
+ *
+ * Test that the LB fails to RevDNAT and RevSNAT a reply from the
+ * NAT remote backend when its Rev NAT entry gets deleted
+ */
+PKTGEN("tc", "tc_nodeport_nat_fwd_reply_punt")
+int nodeport_nat_fwd_reply_punt_pktgen(struct __ctx_buff *ctx)
+{
+	return build_reply(ctx);
+}
+
+SETUP("tc", "tc_nodeport_nat_fwd_reply_punt")
+int nodeport_nat_fwd_reply_punt_setup(struct __ctx_buff *ctx)
+{
+	/* Delete the Rev NAT */
+	__u16 nat_source_port = 0;
+	__u32 key = 0;
+
+	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
+	struct ipv4_ct_tuple rtuple = {};
+
+	if (settings)
+		nat_source_port = settings->nat_source_port;
+
+	rtuple.flags = TUPLE_F_IN;
+	rtuple.saddr = BACKEND_IP_REMOTE;
+	rtuple.daddr = LB_IP;
+	rtuple.nexthdr = IPPROTO_TCP;
+	rtuple.sport = BACKEND_PORT;
+	rtuple.dport = nat_source_port;
+
+	if IS_ERR(map_delete_elem(&SNAT_MAPPING_IPV4, &rtuple))
+		return TEST_ERROR;
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_nat_fwd_reply_punt")
+int nodeport_nat_fwd_reply_punt_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	/* On Rev NAT missing, the reply will be punted to the kernel */
+	assert(*status_code == CTX_ACT_OK);
+
+	test_finish();
+}
+
+/* Test that a SVC request that is LBed to a NAT remote backend
+ * - gets DNATed and SNATed,
+ * - gets redirected back out by TC
+ */
+PKTGEN("tc", "tc_nodeport_nat_fwd_restore")
+int nodeport_nat_fwd_restore_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_REMOTE,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_nat_fwd_restore")
+int nodeport_nat_fwd_restore_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 3;
+	__u32 key = 0;
+	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
+
+	/* nodeport_nat_fwd_reply_no_fib set this to true which will cause
+	 * the following forwarding path to fail, hence resetting it
+	 */
+	if (settings)
+		settings->fail_fib = false;
+
+	lb_v4_add_service(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP_REMOTE, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, 0, 0);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_nat_fwd_restore")
+int nodeport_nat_fwd_restore_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	__u32 key = 0;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the LB MAC")
+	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the remote backend MAC")
+
+	if (l3->saddr != LB_IP)
+		test_fatal("src IP hasn't been NATed to LB IP");
+
+	if (l3->daddr != BACKEND_IP_REMOTE)
+		test_fatal("dst IP hasn't been NATed to remote backend IP");
+
+	if (l3->check != bpf_htons(0xa711))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
+	if (l4->source == CLIENT_PORT)
+		test_fatal("src port hasn't been NATed");
+
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("dst port hasn't been NATed to backend port");
+
+	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
+
+	if (settings)
+		settings->nat_source_port = l4->source;
+
+	test_finish();
+}
+
+/* Test that the restored LB RevDNATs and RevSNATs a reply from the
+ * NAT remote backend, and sends it back to the client.
+ */
+PKTGEN("tc", "tc_nodeport_nat_fwd_restore_reply")
+int nodeport_nat_fwd_restore_reply_pktgen(struct __ctx_buff *ctx)
+{
+	return build_reply(ctx);
+}
+
+SETUP("tc", "tc_nodeport_nat_fwd_restore_reply")
+int nodeport_nat_fwd_restore_reply_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_nat_fwd_restore_reply")
+int nodeport_nat_fwd_restore_reply_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
 }

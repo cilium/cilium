@@ -265,7 +265,7 @@ func checkOrMountDefaultLocations() error {
 }
 
 func checkOrMountFS(bpfRoot string) error {
-	if bpfRoot == "" {
+	if bpfRoot == "" || bpfRoot == defaults.BPFFSRoot {
 		if err := checkOrMountDefaultLocations(); err != nil {
 			return err
 		}

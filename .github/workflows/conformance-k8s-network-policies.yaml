@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checout code
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
       - name: Check pre-flight clusterrole
@@ -40,6 +40,8 @@ jobs:
 
   cyclonus-test:
     name: Cyclonus Test
+    env:
+      job_name: "Cyclonus Test"
     runs-on: ubuntu-latest
     steps:
       - name: Collect Workflow Telemetry
@@ -48,7 +50,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout target branch to access local actions
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.base_ref || github.ref }}
           persist-credentials: false
@@ -57,7 +59,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Checkout
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
 
@@ -84,7 +86,7 @@ jobs:
           until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
 
       - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@9fdad0686e6f19fcd572f62516f5e0436f562ee7 # v1.10.0
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
@@ -95,30 +97,36 @@ jobs:
       - name: Install cilium chart
         id: install-cilium
         run: |
-          helm install cilium ./install/kubernetes/cilium \
-             --wait \
-             --namespace kube-system \
-             --set nodeinit.enabled=true \
-             --set kubeProxyReplacement=false \
-             --set socketLB.enabled=false \
-             --set externalIPs.enabled=true \
-             --set nodePort.enabled=true \
-             --set hostPort.enabled=true \
-             --set bpf.masquerade=false \
-             --set ipam.mode=kubernetes \
-             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-             --set image.tag=${{ steps.vars.outputs.tag }} \
-             --set image.pullPolicy=IfNotPresent \
-             --set image.useDigest=false \
-             --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-             --set operator.image.suffix=-ci \
-             --set operator.image.tag=${{ steps.vars.outputs.tag }} \
-             --set operator.image.pullPolicy=IfNotPresent \
-             --set operator.image.useDigest=false \
-             --set prometheus.enabled=true \
-             --set operator.prometheus.enabled=true \
-             --set hubble.enabled=true \
-             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+          HELM_ARGS="\
+            --wait \
+            --namespace kube-system \
+            --set nodeinit.enabled=true \
+            --set kubeProxyReplacement=false \
+            --set socketLB.enabled=false \
+            --set externalIPs.enabled=true \
+            --set nodePort.enabled=true \
+            --set hostPort.enabled=true \
+            --set bpf.masquerade=false \
+            --set ipam.mode=kubernetes \
+            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --set image.tag=${{ steps.vars.outputs.tag }} \
+            --set image.pullPolicy=IfNotPresent \
+            --set image.useDigest=false \
+            --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --set operator.image.suffix=-ci \
+            --set operator.image.tag=${{ steps.vars.outputs.tag }} \
+            --set operator.image.pullPolicy=IfNotPresent \
+            --set operator.image.useDigest=false \
+            --set prometheus.enabled=true \
+            --set operator.prometheus.enabled=true \
+            --set hubble.enabled=true \
+            --set=hubble.metrics.enabled={dns,drop,tcp,flow,port-distribution,icmp,http}"
+
+          if [ -f ".github/actions/helm-default/ci-required-values.yaml" ]; then
+            HELM_ARGS+=" --values=.github/actions/helm-default/ci-required-values.yaml"
+          fi
+
+          helm install cilium ./install/kubernetes/cilium $HELM_ARGS
 
           kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
           kubectl rollout -n kube-system status deploy/coredns --timeout=5m
@@ -132,12 +140,17 @@ jobs:
         run: ./test-cyclonus.sh
 
       - name: Install Cilium CLI
-        if: ${{ failure() }}
-        uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
+        uses: cilium/cilium-cli@c52e8c38e6d6235bd8e6e961199a984275547d6f # v0.16.22
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
           image-tag: ${{ steps.vars.outputs.tag }}
+
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
 
       - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
@@ -148,8 +161,15 @@ jobs:
           cilium sysdump --output-filename cilium-sysdump-out
 
       - name: Upload cilium-sysdump
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         if: ${{ failure() }}
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested
+          path: ${{ env.job_name }}*.json

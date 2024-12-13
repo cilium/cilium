@@ -20,9 +20,9 @@ func testEqualityRules(got, expected string, t *testing.T) {
 	expectedStruct := &PolicyUpdateNotification{}
 
 	err := json.Unmarshal([]byte(got), gotStruct)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = json.Unmarshal([]byte(expected), expectedStruct)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedStruct, gotStruct)
 }
 
@@ -31,9 +31,9 @@ func testEqualityEndpoint(got, expected string, t *testing.T) {
 	expectedStruct := &EndpointRegenNotification{}
 
 	err := json.Unmarshal([]byte(got), gotStruct)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = json.Unmarshal([]byte(expected), expectedStruct)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	slices.Sort(gotStruct.Labels)
 	slices.Sort(expectedStruct.Labels)
@@ -61,7 +61,7 @@ func TestPolicyUpdateMessage(t *testing.T) {
 
 	msg := PolicyUpdateMessage(len(rules), labels, 1)
 	repr, err := msg.ToJSON()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, AgentNotifyPolicyUpdated, repr.Type)
 	testEqualityRules(repr.Text, `{"labels":["unspec:key1=value1","unspec:key2=value2"],"revision":1,"rule_count":2}`, t)
 }
@@ -69,7 +69,7 @@ func TestPolicyUpdateMessage(t *testing.T) {
 func TestEmptyPolicyUpdateMessage(t *testing.T) {
 	msg := PolicyUpdateMessage(0, []string{}, 1)
 	repr, err := msg.ToJSON()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, AgentNotifyPolicyUpdated, repr.Type)
 	testEqualityRules(repr.Text, `{"revision":1,"rule_count":0}`, t)
 }
@@ -81,7 +81,7 @@ func TestPolicyDeleteMessage(t *testing.T) {
 
 	msg := PolicyDeleteMessage(1, lab.GetModel(), 2)
 	repr, err := msg.ToJSON()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, AgentNotifyPolicyDeleted, repr.Type)
 	testEqualityRules(repr.Text, `{"labels":["unspec:key1=value1"],"revision":2,"rule_count":1}`, t)
 }
@@ -122,13 +122,13 @@ func TestEndpointRegenMessage(t *testing.T) {
 
 	msg := EndpointRegenMessage(e, rerr)
 	repr, err := msg.ToJSON()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, AgentNotifyEndpointRegenerateFail, repr.Type)
 	testEqualityEndpoint(repr.Text, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"],"error":"RegenError"}`, t)
 
 	msg = EndpointRegenMessage(e, nil)
 	repr, err = msg.ToJSON()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, AgentNotifyEndpointRegenerateSuccess, repr.Type)
 	testEqualityEndpoint(repr.Text, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"]}`, t)
 }
@@ -138,13 +138,13 @@ func TestStartMessage(t *testing.T) {
 
 	msg := StartMessage(now)
 	repr, err := msg.ToJSON()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, AgentNotifyStart, repr.Type)
 
 	var timeNotification TimeNotification
 	json.Unmarshal([]byte(repr.Text), &timeNotification)
 	parsedTS, err := time.Parse(time.RFC3339Nano, timeNotification.Time)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// Truncate with duration <=0 will strip any monotonic clock reading
-	require.Equal(t, true, parsedTS.Equal(now.Truncate(0)))
+	require.True(t, parsedTS.Equal(now.Truncate(0)))
 }

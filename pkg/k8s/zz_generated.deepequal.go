@@ -184,6 +184,9 @@ func (in *Service) deepEqual(other *Service) bool {
 	if in.ForwardingMode != other.ForwardingMode {
 		return false
 	}
+	if in.SourceRangesPolicy != other.SourceRangesPolicy {
+		return false
+	}
 	if in.HealthCheckNodePort != other.HealthCheckNodePort {
 		return false
 	}
@@ -229,6 +232,9 @@ func (in *Service) deepEqual(other *Service) bool {
 		}
 	}
 
+	if in.LoadBalancerAlgorithm != other.LoadBalancerAlgorithm {
+		return false
+	}
 	if ((in.LoadBalancerSourceRanges != nil) && (other.LoadBalancerSourceRanges != nil)) || ((in.LoadBalancerSourceRanges == nil) != (other.LoadBalancerSourceRanges == nil)) {
 		in, other := &in.LoadBalancerSourceRanges, &other.LoadBalancerSourceRanges
 		if other == nil {

@@ -5,6 +5,7 @@ package check
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"net"
@@ -31,6 +32,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
+const (
+	socatMulticastTestMsg = "Multicast test message"
+)
+
 // ConnectivityTest is the root context of the connectivity test suite
 // and holds all resources belonging to it. It implements interface
 // ConnectivityTest and is instantiated once at the start of the program,
@@ -44,6 +49,9 @@ type ConnectivityTest struct {
 
 	// Features contains the features enabled on the running Cilium cluster
 	Features features.Set
+
+	// ClusterName is the identifier of the local cluster.
+	ClusterName string
 
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
@@ -71,6 +79,8 @@ type ConnectivityTest struct {
 	lrpClientPods        map[string]Pod
 	lrpBackendPods       map[string]Pod
 	frrPods              []Pod
+	socatServerPods      []Pod
+	socatClientPods      []Pod
 
 	hostNetNSPodsByNode      map[string]Pod
 	secondaryNetworkNodeIPv4 map[string]string // node name => secondary ip
@@ -211,6 +221,8 @@ func NewConnectivityTest(
 		clientCPPods:             make(map[string]Pod),
 		lrpClientPods:            make(map[string]Pod),
 		lrpBackendPods:           make(map[string]Pod),
+		socatServerPods:          []Pod{},
+		socatClientPods:          []Pod{},
 		perfClientPods:           []Pod{},
 		perfServerPod:            []Pod{},
 		PerfResults:              []common.PerfSummary{},
@@ -499,7 +511,7 @@ func (ct *ConnectivityTest) report() error {
 		return fmt.Errorf("[%s] %d tests failed", ct.params.TestNamespace, nf)
 	}
 
-	if ct.params.Perf {
+	if ct.params.Perf && !ct.params.PerfParameters.NetQos {
 		ct.Header(fmt.Sprintf("🔥 Network Performance Test Summary [%s]:", ct.params.TestNamespace))
 		ct.Logf("%s", strings.Repeat("-", 200))
 		ct.Logf("📋 %-15s | %-10s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s | %-15s", "Scenario", "Node", "Test", "Duration", "Min", "Mean", "Max", "P50", "P90", "P99", "Transaction rate OP/s")
@@ -816,7 +828,7 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 	if ct.params.MultiCluster != "" {
 		multiClusterClientLock.Lock()
 		defer multiClusterClientLock.Unlock()
-		dst, err := k8s.NewClient(ct.params.MultiCluster, "", ct.params.CiliumNamespace)
+		dst, err := k8s.NewClient(ct.params.MultiCluster, "", ct.params.CiliumNamespace, ct.params.ImpersonateAs, ct.params.ImpersonateGroups)
 		if err != nil {
 			return fmt.Errorf("unable to create Kubernetes client for remote cluster %q: %w", ct.params.MultiCluster, err)
 		}
@@ -896,13 +908,16 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 	for name, ciliumPod := range ct.ciliumPods {
 		podVersion, err := ciliumPod.K8sClient.GetCiliumVersion(ctx, ciliumPod.Pod)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse cilium version on pod %q: %w", name, err)
+			return nil, fmt.Errorf("unable to parse Cilium version on pod %q: %w", name, err)
 		}
 		if minVersion == nil || podVersion.LT(*minVersion) {
 			minVersion = podVersion
 		}
 	}
 
+	if minVersion == nil {
+		return nil, errors.New("unable to detect minimum Cilium version")
+	}
 	return minVersion, nil
 }
 
@@ -933,11 +948,21 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, 
 		cmd = append(cmd, "-H", fmt.Sprintf("Host: %s", strings.TrimSuffix(host, ".")))
 	}
 
+	numTargets := 1
+	if ct.params.CurlParallel > 0 {
+		numTargets = int(ct.params.CurlParallel)
+		cmd = append(cmd, "--parallel", "--parallel-immediate")
+	}
+
 	cmd = append(cmd, opts...)
-	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
-		peer.Scheme(),
-		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
-		peer.Path()))
+
+	for range numTargets {
+		cmd = append(cmd, fmt.Sprintf("%s://%s%s",
+			peer.Scheme(),
+			net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
+			peer.Path()))
+	}
+
 	return cmd
 }
 
@@ -1076,6 +1101,14 @@ func (ct *ConnectivityTest) PerfClientPods() []Pod {
 	return ct.perfClientPods
 }
 
+func (ct *ConnectivityTest) SocatServerPods() []Pod {
+	return ct.socatServerPods
+}
+
+func (ct *ConnectivityTest) SocatClientPods() []Pod {
+	return ct.socatClientPods
+}
+
 func (ct *ConnectivityTest) EchoPods() map[string]Pod {
 	return ct.echoPods
 }
@@ -1209,4 +1242,27 @@ func (ct *ConnectivityTest) EchoServicePrefixes(ipFamily features.IPFamily) []ne
 		}
 	}
 	return res
+}
+
+// Multicast packet sender
+// This command exits with exit code 0
+// WITHOUT waiting for a second after receiving a packet.
+func (ct *ConnectivityTest) SocatServer1secCommand(peer TestPeer, port int, group string) []string {
+	addr := peer.Address(features.IPFamilyV4)
+	cmdStr := fmt.Sprintf("timeout 5 socat STDIO UDP4-RECVFROM:%d,ip-add-membership=%s:%s", port, group, addr)
+	cmd := strings.Fields(cmdStr)
+	return cmd
+}
+
+// Multicast packet receiver
+func (ct *ConnectivityTest) SocatClientCommand(port int, group string) []string {
+	portStr := fmt.Sprintf("%d", port)
+	cmdStr := fmt.Sprintf(`for i in $(seq 1 10000); do echo "%s" | socat - UDP-DATAGRAM:%s:%s; sleep 0.1; done`, socatMulticastTestMsg, group, portStr)
+	cmd := []string{"/bin/sh", "-c", cmdStr}
+	return cmd
+}
+
+func (ct *ConnectivityTest) KillMulticastTestSender() []string {
+	cmd := []string{"pkill", "-f", socatMulticastTestMsg}
+	return cmd
 }

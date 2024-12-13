@@ -263,7 +263,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 
 	quota := instances.GetPoolQuota()
 	require.NotNil(t, quota)
-	require.Equal(t, 1, len(quota))
+	require.Len(t, quota, 1)
 	require.Equal(t, (1<<16)-16, quota["subnet-1"].AvailableIPs)
 }
 

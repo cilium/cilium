@@ -9,6 +9,7 @@ package daemon
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetMapNameOK) Code() int {
 }
 
 func (o *GetMapNameOK) Error() string {
-	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameOK %s", 200, payload)
 }
 
 func (o *GetMapNameOK) String() string {
-	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameOK %s", 200, payload)
 }
 
 func (o *GetMapNameOK) GetPayload() *models.BPFMap {
@@ -155,11 +158,11 @@ func (o *GetMapNameNotFound) Code() int {
 }
 
 func (o *GetMapNameNotFound) Error() string {
-	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameNotFound ", 404)
+	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameNotFound", 404)
 }
 
 func (o *GetMapNameNotFound) String() string {
-	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameNotFound ", 404)
+	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameNotFound", 404)
 }
 
 func (o *GetMapNameNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

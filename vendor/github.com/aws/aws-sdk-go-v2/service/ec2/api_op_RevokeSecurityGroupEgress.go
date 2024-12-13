@@ -95,6 +95,9 @@ type RevokeSecurityGroupEgressOutput struct {
 	// Returns true if the request succeeds; otherwise, returns an error.
 	Return *bool
 
+	// Details about the revoked security group rules.
+	RevokedSecurityGroupRules []types.RevokedSecurityGroupRule
+
 	// The outbound rules that were unknown to the service. In some cases,
 	// unknownIpPermissionSet might be in a different format from the request
 	// parameter.

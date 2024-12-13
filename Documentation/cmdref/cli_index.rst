@@ -19,3 +19,4 @@ cilium
       cilium-bugtool*
       cilium-health_*
       cilium-operator*
+      clustermesh-apiserver*

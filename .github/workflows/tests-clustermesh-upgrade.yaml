@@ -137,7 +137,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -149,7 +149,7 @@ jobs:
         id: newest-vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ inputs.SHA }}
+          image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/cilium-newest/install/kubernetes/cilium
 
       - name: Set up job variables
@@ -169,7 +169,6 @@ jobs:
           #   down the rollout process and highlight possible connection disruption
           #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
-            --disable-check=minimum-version \
             --set=debug.enabled=true \
             --set=bpf.monitorAggregation=medium \
             --set=hubble.enabled=true \
@@ -200,6 +199,7 @@ jobs:
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
+            --test='check-log-errors' \
             --test='no-policies/' \
             --test='no-policies-extra/' \
             --test='allow-all-except-world/' \
@@ -235,7 +235,7 @@ jobs:
             envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster2.yaml
 
       - name: Create Kind cluster 1
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@9fdad0686e6f19fcd572f62516f5e0436f562ee7 # v1.10.0
         with:
           cluster_name: ${{ env.clusterName1 }}
           version: ${{ env.KIND_VERSION }}
@@ -245,7 +245,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Create Kind cluster 2
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@9fdad0686e6f19fcd572f62516f5e0436f562ee7 # v1.10.0
         with:
           cluster_name: ${{ env.clusterName2 }}
           version: ${{ env.KIND_VERSION }}
@@ -255,7 +255,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
+        uses: cilium/cilium-cli@c52e8c38e6d6235bd8e6e961199a984275547d6f # v0.16.22
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -284,7 +284,7 @@ jobs:
       - name: Create the IPSec secret in both clusters
         if: matrix.encryption == 'ipsec'
         run: |
-          SECRET="3 rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
+          SECRET="3+ rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
           kubectl --context ${{ env.contextName1 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
           kubectl --context ${{ env.contextName2 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
 
@@ -353,7 +353,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.newest-vars.outputs.sha }}
           persist-credentials: false
@@ -362,7 +362,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.downgrade_version }}
           persist-credentials: false
@@ -370,19 +370,17 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
+      - name: Retrieve downgrade target SHA
+        id: downgrade-branch
+        run: |
+          echo "sha=$(cd untrusted/cilium-downgrade && git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
       - name: Set up downgrade settings
         id: downgrade-vars
-        run: |
-          SHA="$(cd untrusted/cilium-downgrade && git rev-parse HEAD)"
-          CILIUM_IMAGE_SETTINGS=" \
-            --chart-directory=./untrusted/cilium-downgrade/install/kubernetes/cilium \
-            --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
-            --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${SHA} \
-            --set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHA} \
-            --set=clustermesh.apiserver.kvstoremesh.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci:${SHA} \
-          "
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-          echo "cilium_image_settings=${CILIUM_IMAGE_SETTINGS}" >> $GITHUB_OUTPUT
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ steps.downgrade-branch.outputs.sha }}
+          chart-dir: ./untrusted/cilium-downgrade/install/kubernetes/cilium
 
       - name: Wait for images to be available (newest)
         timeout-minutes: 10
@@ -397,7 +395,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci clustermesh-apiserver-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.downgrade-vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.downgrade-branch.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
 
@@ -407,7 +405,7 @@ jobs:
           KVSTORE_ID: 1
         run: |
           cilium --context ${{ env.contextName1 }} install \
-            ${{ steps.downgrade-vars.outputs.cilium_image_settings }} \
+            ${{ steps.downgrade-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
@@ -456,6 +454,20 @@ jobs:
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
+      - name: Features tested on cluster 1
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1"
+
+      - name: Features tested on cluster 2
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2"
+
 
       - name: Upgrade Cilium in cluster1
         env:
@@ -479,7 +491,6 @@ jobs:
         run: |
           NAMESPACE=$(kubectl get namespace -l "app.kubernetes.io/name=cilium-cli" -o name | sort | cut -d / -f 2 | head -1)
           echo namespace="$NAMESPACE" >> $GITHUB_OUTPUT
-          ${{ steps.cilium-cli.outputs.namespace }}
 
       - name: Write the Service manifest for testing failover
         if: ${{ !matrix.external-kvstore }}
@@ -529,7 +540,7 @@ jobs:
           kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
           kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
 
-      - name: Enable kvstoremesh on cluster1
+      - name: Disable kvstoremesh on cluster1
         if: ${{ !matrix.external-kvstore }}
         env:
           KVSTORE_ID: 1
@@ -538,7 +549,7 @@ jobs:
             ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
-            --set clustermesh.apiserver.kvstoremesh.enabled=true
+            --set clustermesh.apiserver.kvstoremesh.enabled=false
 
       - name: Wait for cluster mesh status to be ready
         if: ${{ !matrix.external-kvstore }}
@@ -593,6 +604,20 @@ jobs:
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
+      - name: Features tested on cluster 1 - post upgrade
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1 - post upgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1 - post upgrade"
+
+      - name: Features tested on cluster 2 - post upgrade
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2 - post upgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - post upgrade"
+
 
       # Perform an additional "stress" test, scaling the clustermesh-apiservers in both clusters
       # to zero replicas, and restarting all agents. Existing connections should not be disrupted.
@@ -603,7 +628,7 @@ jobs:
         if: ${{ !matrix.external-kvstore }}
         run: |
           kubectl --context ${{ env.contextName1 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
-          if [ ${{ matrix.kube-proxy }} != "none" ]; then
+          if [ "${{ matrix.kube-proxy }}" != "none" ]; then
             kubectl --context ${{ env.contextName2 }} scale -n kube-system deploy/clustermesh-apiserver --replicas 0
           fi
 
@@ -660,13 +685,27 @@ jobs:
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
+      - name: Features tested on cluster 1 - stress-test
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1 - stress-test"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1 - stress-test"
 
-      - name: Downgrade Cilium in cluster1 and disable kvstoremesh
+      - name: Features tested on cluster 2 - stress-test
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2 - stress-test"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - stress-test"
+
+
+      - name: Downgrade Cilium in cluster1 and enable kvstoremesh again
         env:
           KVSTORE_ID: 1
         run: |
           cilium --context ${{ env.contextName1 }} upgrade --reset-values \
-            ${{ steps.downgrade-vars.outputs.cilium_image_settings }} \
+            ${{ steps.downgrade-vars.outputs.cilium_install_defaults }} \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }}
@@ -696,6 +735,20 @@ jobs:
             --junit-file "cilium-junits/${{ env.job_name }} - post downgrade (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})"
 
+      - name: Features tested on cluster 1 - post-downgrade
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName1 }}"
+          title: "Summary of all features tested on cluster 1 - post-downgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 1 - post-downgrade"
+
+      - name: Features tested on cluster 2 - post-downgrade
+        uses: ./.github/actions/feature-status
+        with:
+          cilium-cli: "cilium --context ${{ env.contextName2 }}"
+          title: "Summary of all features tested on cluster 2 - post-downgrade"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - post-downgrade"
+
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium-cluster1.outcome != 'skipped' }}
@@ -724,17 +777,24 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.name }}
+          path: ${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
@@ -748,22 +808,29 @@ jobs:
     runs-on: ubuntu-latest
     needs: upgrade-and-downgrade
     steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
       - name: Merge Sysdumps
-        if: ${{ needs.upgrade-and-downgrade.result == 'failure' }}
-        uses: actions/upload-artifact/merge@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: ./.github/actions/merge-artifacts
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
-          retention-days: 5
-          delete-merged: true
-        continue-on-error: true
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: ./.github/actions/merge-artifacts
         with:
           name: cilium-junits
           pattern: cilium-junits-*
-          retention-days: 5
-          delete-merged: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge Features tested
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: features-tested
+          pattern: features-tested-*
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:
     if: ${{ always() }}

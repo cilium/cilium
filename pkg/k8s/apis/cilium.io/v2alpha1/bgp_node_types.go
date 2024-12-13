@@ -115,7 +115,7 @@ type CiliumBGPNodePeer struct {
 	// Supports extended 32bit ASNs
 	//
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
 	PeerASN *int64 `json:"peerASN,omitempty"`
 

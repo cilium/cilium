@@ -4,7 +4,6 @@
 package versioncheck
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -110,11 +109,11 @@ func TestMustCompile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.version, func(t *testing.T) {
 			ver, err := Version(tt.version)
-			require.NoError(t, err, fmt.Sprintf("version %s, constraint %s", tt.version, tt.constraint))
+			require.NoError(t, err, "version %s, constraint %s", tt.version, tt.constraint)
 
 			constraint, err := Compile(tt.constraint)
-			require.NoError(t, err, fmt.Sprintf("version %s, constraint %s", tt.version, tt.constraint))
-			require.Equal(t, tt.want, constraint(ver), fmt.Sprintf("version %s, constraint %s", tt.version, tt.constraint))
+			require.NoError(t, err, "version %s, constraint %s", tt.version, tt.constraint)
+			require.Equal(t, tt.want, constraint(ver), "version %s, constraint %s", tt.version, tt.constraint)
 		})
 	}
 }

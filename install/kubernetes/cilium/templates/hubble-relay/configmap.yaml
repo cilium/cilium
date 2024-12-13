@@ -9,6 +9,11 @@ kind: ConfigMap
 metadata:
   name: hubble-relay-config
   namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
   {{- with .Values.hubble.relay.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -16,7 +21,7 @@ metadata:
 data:
   config.yaml: |
     cluster-name: {{ .Values.cluster.name }}
-    peer-service: "hubble-peer.{{ include "cilium.namespace" . }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:{{ $peerSvcPort }}"
+    peer-service: "hubble-peer.{{ include "cilium.namespace" . }}.svc.{{ .Values.hubble.peerService.clusterDomain }}.:{{ $peerSvcPort }}"
     listen-address: {{ include "hubble-relay.config.listenAddress" . }}
     gops: {{ .Values.hubble.relay.gops.enabled }}
     gops-port: {{ .Values.hubble.relay.gops.port | quote }}
@@ -28,7 +33,6 @@ data:
     {{- if .Values.hubble.relay.prometheus.enabled }}
     metrics-listen-address: ":{{ .Values.hubble.relay.prometheus.port }}"
     {{- end }}
-    dial-timeout: {{ .Values.hubble.relay.dialTimeout }}
     retry-timeout: {{ .Values.hubble.relay.retryTimeout }}
     sort-buffer-len-max: {{ .Values.hubble.relay.sortBufferLenMax }}
     sort-buffer-drain-timeout: {{ .Values.hubble.relay.sortBufferDrainTimeout }}

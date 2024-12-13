@@ -20,6 +20,7 @@ type ElasticityAssuranceItem struct {
 	PrivatePoolOptionsName          string                                           `json:"PrivatePoolOptionsName" xml:"PrivatePoolOptionsName"`
 	PrivatePoolOptionsMatchCriteria string                                           `json:"PrivatePoolOptionsMatchCriteria" xml:"PrivatePoolOptionsMatchCriteria"`
 	LatestStartTime                 string                                           `json:"LatestStartTime" xml:"LatestStartTime"`
+	ElasticityAssuranceOwnerId      string                                           `json:"ElasticityAssuranceOwnerId" xml:"ElasticityAssuranceOwnerId"`
 	UsedAssuranceTimes              int                                              `json:"UsedAssuranceTimes" xml:"UsedAssuranceTimes"`
 	RegionId                        string                                           `json:"RegionId" xml:"RegionId"`
 	StartTime                       string                                           `json:"StartTime" xml:"StartTime"`

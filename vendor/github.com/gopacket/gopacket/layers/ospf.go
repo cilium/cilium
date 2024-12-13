@@ -518,7 +518,8 @@ func (ospf *OSPFv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) err
 		for i := 32; uint16(i+20) <= ospf.PacketLength; i += 20 {
 			lsa := LSAheader{
 				LSAge:       binary.BigEndian.Uint16(data[i : i+2]),
-				LSType:      binary.BigEndian.Uint16(data[i+2 : i+4]),
+				LSOptions:   data[i+2],
+				LSType:      uint16(data[i+3]),
 				LinkStateID: binary.BigEndian.Uint32(data[i+4 : i+8]),
 				AdvRouter:   binary.BigEndian.Uint32(data[i+8 : i+12]),
 				LSSeqNumber: binary.BigEndian.Uint32(data[i+12 : i+16]),

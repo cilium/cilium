@@ -13,6 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/container/cache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -104,6 +105,11 @@ var (
 	// on IDNameKubeAPIServer.
 	LabelKubeAPIServer = Labels{IDNameKubeAPIServer: NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved)}
 
+	LabelKubeAPIServerExt = Labels{
+		IDNameKubeAPIServer: NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved),
+		IDNameWorld:         NewLabel(IDNameWorld, "", LabelSourceReserved),
+	}
+
 	// LabelIngress is the label used for Ingress proxies. See comment
 	// on IDNameIngress.
 	LabelIngress = Labels{IDNameIngress: NewLabel(IDNameIngress, "", LabelSourceReserved)}
@@ -143,6 +149,9 @@ const (
 
 	// LabelSourceCIDRGroup is the label source used for labels from CIDRGroups
 	LabelSourceCIDRGroup = "cidrgroup"
+
+	// LabelSourceCIDRGroupKeyPrefix is the source as a k8s selector key prefix
+	LabelSourceCIDRGroupKeyPrefix = LabelSourceCIDRGroup + "."
 
 	// LabelSourceNode is the label source for remote-nodes.
 	LabelSourceNode = "node"
@@ -315,9 +324,9 @@ func NewLabel(key string, value string, source string) Label {
 	}
 
 	l := Label{
-		Key:    key,
-		Value:  value,
-		Source: source,
+		Key:    cache.Strings.Get(key),
+		Value:  cache.Strings.Get(value),
+		Source: cache.Strings.Get(source),
 	}
 	if l.Source == LabelSourceCIDR {
 		c, err := LabelToPrefix(l.Key)

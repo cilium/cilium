@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -321,4 +322,9 @@ func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 	// If there is only one label with the "reserved" source and a well-known
 	// key, the well-known identity for it can be allocated locally.
 	return LookupReservedIdentityByLabels(lbls) != nil
+}
+
+// UpdateIdentities is an interface to be called when identities change
+type UpdateIdentities interface {
+	UpdateIdentities(added, deleted IdentityMap, wg *sync.WaitGroup)
 }

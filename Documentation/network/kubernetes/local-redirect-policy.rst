@@ -38,15 +38,9 @@ the redirection.
 Prerequisites
 =============
 
-.. note::
-
-   Local Redirect Policy feature requires a v4.19.x or more recent Linux kernel.
-
 .. include:: ../../installation/k8s-install-download-release.rst
 
-The Cilium Local Redirect Policy feature relies on :ref:`kubeproxy-free`,
-follow the guide to create a new deployment. Enable the feature by setting
-the ``localRedirectPolicy`` value to ``true``.
+Enable the feature by setting the ``localRedirectPolicy`` value to ``true``.
 
 .. parsed-literal::
 
@@ -584,7 +578,9 @@ When a local redirect policy is applied, cilium BPF datapath redirects traffic g
 However, for traffic originating from a node-local backend pod destined to the policy frontend, users may want to
 skip redirecting the traffic back to the node-local backend pod, and instead forward the traffic to the original frontend.
 This behavior can be enabled by setting the ``skipRedirectFromBackend`` flag to ``true`` in the local redirect policy spec.
-This configuration requires the ``SO_NETNS_COOKIE`` feature available in Linux kernel version >= 5.8.
+This configuration requires the use of ``getsockopt()`` with the ``SO_NETNS_COOKIE`` option, which is available in
+Linux kernel version >= 5.12. Note that ``SO_NETNS_COOKIE`` was introduced in 5.7 (available to BPF programs),
+and exposed to user space in versions >= 5.12.
 
 .. note::
 

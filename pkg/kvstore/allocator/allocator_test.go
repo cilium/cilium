@@ -233,12 +233,12 @@ func benchmarkGC(b *testing.B) {
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 
 	keysToDelete := map[string]uint64{}
-	keysToDelete, _, err = allocator.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator.RunGC(context.Background(), rateLimiter, keysToDelete)
 	require.NoError(b, err)
 	require.Len(b, keysToDelete, 1)
-	keysToDelete, _, err = allocator.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator.RunGC(context.Background(), rateLimiter, keysToDelete)
 	require.NoError(b, err)
-	require.Len(b, keysToDelete, 0)
+	require.Empty(b, keysToDelete)
 
 	// wait for cache to be updated via delete notification
 	require.EventuallyWithT(b, func(c *assert.CollectT) {
@@ -305,13 +305,13 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 
 	keysToDelete := map[string]uint64{}
-	keysToDelete, _, err = allocator1.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator1.RunGC(context.Background(), rateLimiter, keysToDelete)
 	require.NoError(b, err)
 	// But, only one will be filtered out and GC'ed
 	require.Len(b, keysToDelete, 1)
-	keysToDelete, _, err = allocator1.RunGC(rateLimiter, keysToDelete)
+	keysToDelete, _, err = allocator1.RunGC(context.Background(), rateLimiter, keysToDelete)
 	require.NoError(b, err)
-	require.Len(b, keysToDelete, 0)
+	require.Empty(b, keysToDelete)
 
 	// Wait for cache to be updated via delete notification
 	require.EventuallyWithT(b, func(c *assert.CollectT) {
@@ -397,7 +397,7 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 	staleKeysPreviousRound := map[string]uint64{}
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 	// running the GC should not evict any entries
-	staleKeysPreviousRound, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	staleKeysPreviousRound, _, err = a.RunGC(context.Background(), rateLimiter, staleKeysPreviousRound)
 	require.NoError(t, err)
 
 	v, err := kvstore.Client().ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
@@ -411,14 +411,14 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 	}
 
 	// running the GC should evict all entries
-	staleKeysPreviousRound, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	staleKeysPreviousRound, _, err = a.RunGC(context.Background(), rateLimiter, staleKeysPreviousRound)
 	require.NoError(t, err)
-	_, _, err = a.RunGC(rateLimiter, staleKeysPreviousRound)
+	_, _, err = a.RunGC(context.Background(), rateLimiter, staleKeysPreviousRound)
 	require.NoError(t, err)
 
 	v, err = kvstore.Client().ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
 	require.NoError(t, err)
-	require.Len(t, v, 0)
+	require.Empty(t, v)
 
 	a.DeleteAllKeys()
 	a.Delete()
@@ -441,13 +441,13 @@ func testKeyToID(t *testing.T) {
 
 	// An error is returned because the path is outside the prefix (allocatorName/id)
 	id, err := backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "invalid"))
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// An error is returned because the path contains the prefix
 	// (allocatorName/id) but cannot be parsed ("invalid")
 	id, err = backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "id", "invalid"))
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// A valid lookup that finds an ID

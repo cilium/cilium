@@ -459,6 +459,12 @@ func (e *Env) ParseSource(src Source) (*Ast, *Issues) {
 
 // Program generates an evaluable instance of the Ast within the environment (Env).
 func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
+	return e.PlanProgram(ast.NativeRep(), opts...)
+}
+
+// PlanProgram generates an evaluable instance of the AST in the go-native representation within
+// the environment (Env).
+func (e *Env) PlanProgram(a *celast.AST, opts ...ProgramOption) (Program, error) {
 	optSet := e.progOpts
 	if len(opts) != 0 {
 		mergedOpts := []ProgramOption{}
@@ -466,7 +472,7 @@ func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
 		mergedOpts = append(mergedOpts, opts...)
 		optSet = mergedOpts
 	}
-	return newProgram(e, ast, optSet)
+	return newProgram(e, a, optSet)
 }
 
 // CELTypeAdapter returns the `types.Adapter` configured for the environment.
@@ -550,7 +556,8 @@ func (e *Env) PartialVars(vars any) (interpreter.PartialActivation, error) {
 // TODO: Consider adding an option to generate a Program.Residual to avoid round-tripping to an
 // Ast format and then Program again.
 func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
-	pruned := interpreter.PruneAst(a.impl.Expr(), a.impl.SourceInfo().MacroCalls(), details.State())
+	ast := a.NativeRep()
+	pruned := interpreter.PruneAst(ast.Expr(), ast.SourceInfo().MacroCalls(), details.State())
 	newAST := &Ast{source: a.Source(), impl: pruned}
 	expr, err := AstToString(newAST)
 	if err != nil {
@@ -576,7 +583,7 @@ func (e *Env) EstimateCost(ast *Ast, estimator checker.CostEstimator, opts ...ch
 	extendedOpts := make([]checker.CostOption, 0, len(e.costOptions))
 	extendedOpts = append(extendedOpts, opts...)
 	extendedOpts = append(extendedOpts, e.costOptions...)
-	return checker.Cost(ast.impl, estimator, extendedOpts...)
+	return checker.Cost(ast.NativeRep(), estimator, extendedOpts...)
 }
 
 // configure applies a series of EnvOptions to the current environment.

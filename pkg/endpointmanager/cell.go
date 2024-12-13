@@ -10,11 +10,14 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -99,6 +102,7 @@ type EndpointsModify interface {
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
+		ctMapGC ctmap.GCRunner,
 	) error
 
 	AddHostEndpoint(
@@ -108,6 +112,7 @@ type EndpointsModify interface {
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
+		ctMapGC ctmap.GCRunner,
 	) error
 
 	// RestoreEndpoint exposes the specified endpoint to other subsystems via the
@@ -146,6 +151,10 @@ type EndpointManager interface {
 	// regenerated.
 	RegenerateAllEndpoints(regenMetadata *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup
 
+	// TriggerRegenerateAlEndpoints triggers a batched regeneration of all endpoints.
+	// Returns immediately.
+	TriggerRegenerateAllEndpoints()
+
 	// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
 	// this function is called to be at a given policy revision.
 	// New endpoints appearing while waiting are ignored.
@@ -173,6 +182,11 @@ type EndpointManager interface {
 
 	// GetEndpointNetnsCookieByIP returns the netns cookie for the passed endpoint with ip address if found.
 	GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, error)
+
+	// UpdatePolicy triggers policy updates for all live endpoints.
+	// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
+	// policy revision will be bumped to toRev.
+	UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64)
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -217,6 +231,7 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 		p.Lifecycle.Append(cell.Hook{
 			OnStart: func(cell.HookContext) error {
 				mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
+				mgr.WithPeriodicEndpointRegeneration(ctx, p.Config.EndpointRegenInterval)
 				return nil
 			},
 			OnStop: func(cell.HookContext) error {

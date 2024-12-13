@@ -4027,8 +4027,10 @@ func (r *RoutingPolicy) Reset(rp *oc.RoutingPolicy, ap map[string]oc.ApplyPolicy
 	defer r.mu.Unlock()
 
 	if err := r.reload(*rp); err != nil {
-		r.logger.Error("failed to create routing policy",
+		r.logger.Fatal("failed to create routing policy",
 			log.Fields{
+				log.FieldFacility: log.FacilityConfig,
+
 				"Topic": "Policy",
 				"Error": err})
 		return err

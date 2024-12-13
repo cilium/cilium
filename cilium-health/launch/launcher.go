@@ -35,7 +35,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-health-la
 
 const (
 	serverProbeInterval  = 60 * time.Second
-	serverProbeDeadline  = 1 * time.Second
+	serverProbeDeadline  = 10 * time.Second
 	connectRetryInterval = 1 * time.Second
 	statusProbeInterval  = 5 * time.Second
 )
@@ -51,6 +51,7 @@ func Launch(spec *healthApi.Spec, initialized <-chan struct{}) (*CiliumHealth, e
 		CiliumURI:     ciliumPkg.DefaultSockPath(),
 		Debug:         option.Config.Opts.IsEnabled(option.Debug),
 		ProbeInterval: serverProbeInterval,
+		ICMPReqsCount: option.Config.HealthCheckICMPFailureThreshold,
 		ProbeDeadline: serverProbeDeadline,
 		HTTPPathPort:  option.Config.ClusterHealthPort,
 		HealthAPISpec: spec,

@@ -193,7 +193,7 @@ int ipv4_not_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ct
 		test_fatal("dest IP was changed");
 
 	if (l3->check != bpf_htons(0xf948))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -376,7 +376,7 @@ int ipv4_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_decrypted_ipsec_from_overlay")
 int ipv4_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
+	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0, 0,
 			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
@@ -433,7 +433,7 @@ int ipv4_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_bu
 		test_fatal("dest IP was changed");
 
 	if (l3->check != bpf_htons(0xfa68))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -445,6 +445,9 @@ int ipv4_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_bu
 
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
+
+	if (l4->check != bpf_htons(0x589c))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
@@ -549,6 +552,9 @@ int ipv6_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_bu
 
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
+
+	if (l4->check != bpf_htons(0xdfe3))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)

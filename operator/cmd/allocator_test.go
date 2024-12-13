@@ -92,7 +92,7 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 
 	// start synchronization.
 	cns := newCiliumNodeSynchronizer(fakeSet, podCidrManager, false)
-	if err := cns.Start(ctx, &wg); err != nil {
+	if err := cns.Start(ctx, &wg, nil); err != nil {
 		t.Fatal(err)
 	}
 

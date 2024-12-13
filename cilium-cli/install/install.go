@@ -18,7 +18,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
@@ -59,6 +58,8 @@ const (
 )
 
 type k8sInstallerImplementation interface {
+	ListNodes(ctx context.Context, o metav1.ListOptions) (*corev1.NodeList, error)
+
 	GetAPIServerHostAndPort() (string, string)
 	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
@@ -91,17 +92,21 @@ type AzureParameters struct {
 	IsBYOCNI             bool
 }
 
+type AWSParameters struct {
+	AwsNodeImageFamily string
+}
+
 type Parameters struct {
 	Namespace             string
 	Writer                io.Writer
 	ClusterName           string
-	DisableChecks         []string
 	Version               string
 	Wait                  bool
 	WaitDuration          time.Duration
 	DatapathMode          string
 	IPv4NativeRoutingCIDR string
 	Azure                 AzureParameters
+	AWS                   AWSParameters
 
 	// HelmChartDirectory points to the location of a helm chart directory.
 	// Useful to test from upstream where a helm release is not available yet.
@@ -125,6 +130,10 @@ type Parameters struct {
 	// HelmReuseValues if true, will reuse the helm values from the latest release when upgrading, unless overrides are
 	// specified by other flags. This options take precedence over the HelmResetValues option.
 	HelmReuseValues bool
+
+	// HelmResetThenReuseValues if true, will reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --set and -f.
+	// If '--reset-values' or '--reuse-values' is specified, this is ignored
+	HelmResetThenReuseValues bool
 
 	// DryRun writes resources to be installed to stdout without actually installing them. For Helm
 	// installation mode only.
@@ -173,21 +182,17 @@ func (k *K8sInstaller) listVersions() error {
 	if err != nil {
 		return err
 	}
+	defaultVersion := helm.GetDefaultVersionString()
 	// Iterate backwards to print the newest version first.
 	for i := len(versions) - 1; i >= 0; i-- {
 		version := "v" + versions[i].String()
-		if version == defaults.Version {
+		if version == defaultVersion {
 			fmt.Println(version, "(default)")
 		} else {
 			fmt.Println(version)
 		}
 	}
 	return err
-}
-
-func getChainingMode(values map[string]interface{}) string {
-	chainingMode, _, _ := unstructured.NestedString(values, "cni", "chainingMode")
-	return chainingMode
 }
 
 func (k *K8sInstaller) preinstall(ctx context.Context) error {
@@ -224,18 +229,14 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 			}
 		}
 	case k8s.KindEKS:
-		chainingMode := getChainingMode(helmValues)
+		// detect AWS AMI type
+		if err := k.awsRetrieveNodeImageFamily(); err != nil {
+			return err
+		}
 
-		// Do not stop AWS DS if we are running in chaining mode
-		if chainingMode != "aws-cni" && !k.params.IsDryRun() {
-			if _, err := k.client.GetDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, metav1.GetOptions{}); err == nil {
-				k.Log("🔥 Patching the %q DaemonSet to evict its pods...", AwsNodeDaemonSetName)
-				patch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"%s":"%s"}}}}}`, AwsNodeDaemonSetNodeSelectorKey, AwsNodeDaemonSetNodeSelectorValue))
-				if _, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
-					k.Log("❌ Unable to patch the %q DaemonSet", AwsNodeDaemonSetName)
-					return err
-				}
-			}
+		// setup chaining mode
+		if err := k.awsSetupChainingMode(ctx, helmValues); err != nil {
+			return err
 		}
 	}
 

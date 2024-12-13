@@ -102,7 +102,7 @@ type configModifyEventHandlerParams struct {
 	Logger    logrus.FieldLogger
 
 	Orchestrator    datapath.Orchestrator
-	Policy          *policy.Repository
+	Policy          policy.PolicyRepository
 	EndpointManager endpointmanager.EndpointManager
 	L7Proxy         *proxy.Proxy
 }
@@ -121,14 +121,10 @@ func newConfigModifyEventHandler(params configModifyEventHandlerParams) *ConfigM
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
-			// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
-			// this is only triggered by agent configuration changes for now and
-			// should be counted in pol.TriggerMetrics.
 			rt, err := trigger.NewTrigger(trigger.Parameters{
-				Name:            "datapath-regeneration",
-				MetricsObserver: &policy.TriggerMetrics{},
-				MinInterval:     option.Config.PolicyTriggerInterval,
-				TriggerFunc:     eventHandler.datapathRegen,
+				Name:        "datapath-regeneration",
+				MinInterval: option.Config.PolicyTriggerInterval,
+				TriggerFunc: eventHandler.datapathRegen,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create datapath regeneration trigger: %w", err)
@@ -161,7 +157,7 @@ type ConfigModifyEventHandler struct {
 	configModifyQueue *eventqueue.EventQueue
 
 	orchestrator    datapath.Orchestrator
-	policy          *policy.Repository
+	policy          policy.PolicyRepository
 	endpointManager endpointmanager.EndpointManager
 	l7Proxy         *proxy.Proxy
 }
@@ -376,12 +372,13 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 			IPV4: option.Config.EnableIPv4Masquerade,
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
-		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
-		GROMaxSize:                  int64(h.bigTCPConfig.GetGROIPv6MaxSize()),
-		GSOMaxSize:                  int64(h.bigTCPConfig.GetGSOIPv6MaxSize()),
-		GROIPV4MaxSize:              int64(h.bigTCPConfig.GetGROIPv4MaxSize()),
-		GSOIPV4MaxSize:              int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
-		IPLocalReservedPorts:        h.getIPLocalReservedPorts(),
+		EgressMultiHomeIPRuleCompat:         option.Config.EgressMultiHomeIPRuleCompat,
+		InstallUplinkRoutesForDelegatedIPAM: option.Config.InstallUplinkRoutesForDelegatedIPAM,
+		GROMaxSize:                          int64(h.bigTCPConfig.GetGROIPv6MaxSize()),
+		GSOMaxSize:                          int64(h.bigTCPConfig.GetGSOIPv6MaxSize()),
+		GROIPV4MaxSize:                      int64(h.bigTCPConfig.GetGROIPv4MaxSize()),
+		GSOIPV4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
+		IPLocalReservedPorts:                h.getIPLocalReservedPorts(),
 	}
 
 	cfg := &models.DaemonConfiguration{

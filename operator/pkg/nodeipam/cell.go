@@ -5,9 +5,9 @@ package nodeipam
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
@@ -19,6 +19,7 @@ var Cell = cell.Module(
 	"nodeipam",
 	"Node-IPAM",
 
+	cell.Provide(func(r nodeIpamConfig) NodeIPAMConfig { return r }),
 	cell.Config(nodeIpamConfig{}),
 	cell.Invoke(registerNodeSvcLBReconciler),
 )
@@ -26,7 +27,7 @@ var Cell = cell.Module(
 type nodeipamCellParams struct {
 	cell.In
 
-	Logger             logrus.FieldLogger
+	Logger             *slog.Logger
 	Clientset          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Config             nodeIpamConfig
@@ -35,6 +36,14 @@ type nodeipamCellParams struct {
 
 type nodeIpamConfig struct {
 	EnableNodeIPAM bool
+}
+
+func (r nodeIpamConfig) IsEnabled() bool {
+	return r.EnableNodeIPAM
+}
+
+type NodeIPAMConfig interface {
+	IsEnabled() bool
 }
 
 func (r nodeIpamConfig) Flags(flags *pflag.FlagSet) {

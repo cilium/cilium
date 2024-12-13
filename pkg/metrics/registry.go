@@ -14,11 +14,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	dto "github.com/prometheus/client_model/go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/lock"
 	metricpkg "github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -57,7 +56,14 @@ type RegistryParams struct {
 // on which all enabled metrics will be available. A reference to this registry can also be used to dynamically
 // register or unregister `prometheus.Collector`s.
 type Registry struct {
+	// inner registry of metrics.
+	// Served under the default /metrics endpoint. Each collector is wrapped with
+	// [metric.EnabledCollector] to only collect enabled metrics.
 	inner *prometheus.Registry
+
+	// collectors holds all registered collectors. Used to periodically sample the
+	// metrics.
+	collectors collectorSet
 
 	params RegistryParams
 }
@@ -104,11 +110,13 @@ func NewRegistry(params RegistryParams) *Registry {
 
 // Register registers a collector
 func (r *Registry) Register(c prometheus.Collector) error {
-	return r.inner.Register(c)
+	r.collectors.add(c)
+	return r.inner.Register(metricpkg.EnabledCollector{C: c})
 }
 
 // Unregister unregisters a collector
 func (r *Registry) Unregister(c prometheus.Collector) bool {
+	r.collectors.remove(c)
 	return r.inner.Unregister(c)
 }
 
@@ -125,8 +133,11 @@ func (r *Registry) Reinitialize() {
 		collectors.WithGoCollectorRuntimeMetrics(
 			collectors.GoRuntimeMetricsRule{Matcher: goCustomCollectorsRX},
 		)))
-	r.MustRegister(newStatusCollector())
-	r.MustRegister(newbpfCollector())
+
+	// Don't register status and BPF collectors into the [r.collectors] as it is
+	// expensive to sample and currently not terrible useful to keep data on.
+	r.inner.MustRegister(metricpkg.EnabledCollector{C: newStatusCollector()})
+	r.inner.MustRegister(metricpkg.EnabledCollector{C: newbpfCollector()})
 
 	metrics := make(map[string]metricpkg.WithMetadata)
 	for i, autoMetric := range r.params.AutoMetrics {
@@ -179,8 +190,11 @@ func (r *Registry) Reinitialize() {
 // MustRegister adds the collector to the registry, exposing this metric to
 // prometheus scrapes.
 // It will panic on error.
-func (r *Registry) MustRegister(c ...prometheus.Collector) {
-	r.inner.MustRegister(c...)
+func (r *Registry) MustRegister(cs ...prometheus.Collector) {
+	for _, c := range cs {
+		r.collectors.add(c)
+		r.inner.MustRegister(metricpkg.EnabledCollector{C: c})
+	}
 }
 
 // RegisterList registers a list of collectors. If registration of one
@@ -202,48 +216,38 @@ func (r *Registry) RegisterList(list []prometheus.Collector) error {
 	return nil
 }
 
-// DumpMetrics gets the current Cilium metrics and dumps all into a
-// models.Metrics structure.If metrics cannot be retrieved, returns an error
-func (r *Registry) DumpMetrics() ([]*models.Metric, error) {
-	result := []*models.Metric{}
-	currentMetrics, err := r.inner.Gather()
-	if err != nil {
-		return result, err
-	}
+// collectorSet holds the prometheus collectors so that we can sample them
+// periodically. The collectors are not wrapped with [EnabledCollector] so
+// that they're sampled regardless if they're enabled or not.
+type collectorSet struct {
+	mu         lock.Mutex
+	collectors map[prometheus.Collector]struct{}
+}
 
-	for _, val := range currentMetrics {
-		metricName := val.GetName()
-		metricType := val.GetType()
-
-		for _, metricLabel := range val.Metric {
-			labels := map[string]string{}
-			for _, label := range metricLabel.GetLabel() {
-				labels[label.GetName()] = label.GetValue()
-			}
-
-			var value float64
-			switch metricType {
-			case dto.MetricType_COUNTER:
-				value = metricLabel.Counter.GetValue()
-			case dto.MetricType_GAUGE:
-				value = metricLabel.GetGauge().GetValue()
-			case dto.MetricType_UNTYPED:
-				value = metricLabel.GetUntyped().GetValue()
-			case dto.MetricType_SUMMARY:
-				value = metricLabel.GetSummary().GetSampleSum()
-			case dto.MetricType_HISTOGRAM:
-				value = metricLabel.GetHistogram().GetSampleSum()
-			default:
-				continue
-			}
-
-			metric := &models.Metric{
-				Name:   metricName,
-				Labels: labels,
-				Value:  value,
-			}
-			result = append(result, metric)
+func (cs *collectorSet) collect() <-chan prometheus.Metric {
+	ch := make(chan prometheus.Metric, 100)
+	go func() {
+		cs.mu.Lock()
+		defer cs.mu.Unlock()
+		defer close(ch)
+		for c := range cs.collectors {
+			c.Collect(ch)
 		}
+	}()
+	return ch
+}
+
+func (cs *collectorSet) add(c prometheus.Collector) {
+	cs.mu.Lock()
+	if cs.collectors == nil {
+		cs.collectors = make(map[prometheus.Collector]struct{})
 	}
-	return result, nil
+	cs.collectors[c] = struct{}{}
+	cs.mu.Unlock()
+}
+
+func (cs *collectorSet) remove(c prometheus.Collector) {
+	cs.mu.Lock()
+	delete(cs.collectors, c)
+	cs.mu.Unlock()
 }

@@ -203,7 +203,9 @@ func parseToCiliumEgressCommonRule(namespace string, es api.EndpointSelector, eg
 	if egr.ToEndpoints != nil {
 		retRule.ToEndpoints = make([]api.EndpointSelector, len(egr.ToEndpoints))
 		for j, ep := range egr.ToEndpoints {
-			retRule.ToEndpoints[j] = getEndpointSelector(namespace, ep.LabelSelector, true, matchesInit)
+			endpointSelector := getEndpointSelector(namespace, ep.LabelSelector, true, matchesInit)
+			endpointSelector.Generated = ep.Generated
+			retRule.ToEndpoints[j] = endpointSelector
 		}
 	}
 
@@ -326,7 +328,9 @@ func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.
 		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
-		// the MatchLabels map.
+		// the MatchLabels map. Additionally, Policy repository relies
+		// on this fact to properly choose correct network policies for
+		// a given Security Identity.
 		//
 		// Policies applying to all namespaces are a special case.
 		// Such policies can match on any traffic from Pods or Nodes,

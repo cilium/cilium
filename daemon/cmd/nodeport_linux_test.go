@@ -29,17 +29,17 @@ func setupNodePortSuite(tb testing.TB) *NodePortSuite {
 	s := &NodePortSuite{}
 	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 	prevEphemeralPortRange, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 	s.prevEphemeralPortRange = prevEphemeralPortRange
 	prevReservedPortRanges, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_reserved_ports"})
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 	s.prevReservedPortRanges = prevReservedPortRanges
 
 	tb.Cleanup(func() {
 		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"}, s.prevEphemeralPortRange)
-		require.Nil(tb, err)
+		require.NoError(tb, err)
 		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, s.prevReservedPortRanges)
-		require.Nil(tb, err)
+		require.NoError(tb, err)
 	})
 
 	return s
@@ -75,17 +75,17 @@ func TestCheckNodePortAndEphemeralPortRanges(t *testing.T) {
 		option.Config.EnableAutoProtectNodePortRange = test.autoProtect
 		err := s.sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"},
 			fmt.Sprintf("%d %d", test.epMin, test.epMax))
-		require.Nil(t, err)
+		require.NoError(t, err)
 		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, test.resPorts)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		err = checkNodePortAndEphemeralPortRanges(s.sysctl)
 		if test.expErr {
 			require.Condition(t, errorMatch(err, test.expErrMatch))
 		} else {
-			require.Nil(t, err)
+			require.NoError(t, err)
 			resPorts, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_reserved_ports"})
-			require.Nil(t, err)
+			require.NoError(t, err)
 			require.Equal(t, test.expResPorts, resPorts)
 		}
 	}

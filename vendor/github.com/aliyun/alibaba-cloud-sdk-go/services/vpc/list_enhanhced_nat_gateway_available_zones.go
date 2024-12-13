@@ -71,11 +71,18 @@ func (client *Client) ListEnhanhcedNatGatewayAvailableZonesWithCallback(request 
 // ListEnhanhcedNatGatewayAvailableZonesRequest is the request struct for api ListEnhanhcedNatGatewayAvailableZones
 type ListEnhanhcedNatGatewayAvailableZonesRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	AcceptLanguage       string           `position:"Query" name:"AcceptLanguage"`
+	ResourceOwnerId      requests.Integer                               `position:"Query" name:"ResourceOwnerId"`
+	ResourceOwnerAccount string                                         `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                                         `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer                               `position:"Query" name:"OwnerId"`
+	Filter               *[]ListEnhanhcedNatGatewayAvailableZonesFilter `position:"Query" name:"Filter"  type:"Repeated"`
+	AcceptLanguage       string                                         `position:"Query" name:"AcceptLanguage"`
+}
+
+// ListEnhanhcedNatGatewayAvailableZonesFilter is a repeated param struct in ListEnhanhcedNatGatewayAvailableZonesRequest
+type ListEnhanhcedNatGatewayAvailableZonesFilter struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListEnhanhcedNatGatewayAvailableZonesResponse is the response struct for api ListEnhanhcedNatGatewayAvailableZones

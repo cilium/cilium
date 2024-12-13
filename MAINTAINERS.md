@@ -20,6 +20,7 @@ to learn how to level up through the project.
  * [Daniel Borkmann] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
  * [Deepesh Pathak]
+ * [Dorde Lapcevic] (Google)
  * [Dylan Reimerink] (Isovalent)
  * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
@@ -45,7 +46,7 @@ to learn how to level up through the project.
  * [Nicolas Busseneau] (Isovalent)
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
- * [Quentin Monnet] (Isovalent)
+ * [Quentin Monnet] (Hedgehog)
  * [Robin Hahling] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
  * [Tam Mach] (Isovalent)
@@ -54,8 +55,6 @@ to learn how to level up through the project.
  * [Tobias Klauser] (Isovalent)
  * [Tom Hadlaw] (Isovalent)
  * [Vlad Ungureanu] (Palantir)
- * [Weilong Cui] (Google)
- * [Yongkun Gui] (Google)
  * [Yutaro Hayakawa] (Isovalent)
 
 ## Cilium & Hubble Emeritus Committers
@@ -66,6 +65,8 @@ We would like to acknowledge previous committers and their huge contributions to
  * [Ilya Dmitrichenko] (Docker)
  * [Ray Bejjani]
  * [Tom Payne]
+ * [Weilong Cui] (Google)
+ * [Yongkun Gui] (Google)
  * [Zang Li] (Google)
 
 
@@ -84,6 +85,7 @@ project.
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
 [Deepesh Pathak]: https://github.com/fristonio
+[Dorde Lapcevic]: https://github.com/dlapcevic
 [Dylan Reimerink]: https://github.com/dylandreimerink
 [Eloy Coto]: https://github.com/eloycoto
 [Gilberto Bertin]: https://github.com/jibi

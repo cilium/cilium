@@ -211,7 +211,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 
 	var transformFunc k8s.TransformFunc[*testObject]
 	if p.doTransform {
-		transformFunc = func(a any) (obj *testObject, ok bool) {
+		transformFunc = func(_ statedb.ReadTxn, a any) (obj *testObject, ok bool) {
 			transformCalled.Store(true)
 			obj = a.(*testObject).DeepCopy()
 			obj.Transform = "transform"
@@ -220,7 +220,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	}
 	var transformManyFunc k8s.TransformManyFunc[*testObject]
 	if p.doTransformMany {
-		transformManyFunc = func(a any) (objs []*testObject) {
+		transformManyFunc = func(_ statedb.ReadTxn, a any) (objs []*testObject) {
 			transformCalled.Store(true)
 			obj := a.(*testObject).DeepCopy()
 			obj.Transform = "transform-many"
@@ -367,7 +367,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	<-watch
 	iter, _ = table.AllWatch(db.ReadTxn())
 	objs = statedb.Collect(iter)
-	require.Len(t, objs, 0)
+	require.Empty(t, objs)
 
 	// Finally check that the hive stops correctly. Note that we're not doing this in a
 	// defer to avoid potentially deadlocking on the Fatal calls.

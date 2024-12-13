@@ -13,6 +13,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -20,13 +21,14 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 var (
 	hostSelector = api.ReservedEndpointSelectors[labels.IDNameHost]
 	toFoo        = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
-	dummySelectorCacheUser = &DummySelectorCacheUser{}
+	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 	fooSelector            = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	bazSelector            = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
@@ -56,7 +58,7 @@ type testData struct {
 func newTestData() *testData {
 	td := &testData{
 		sc:                testNewSelectorCache(nil),
-		repo:              NewStoppedPolicyRepository(nil, nil, nil, nil),
+		repo:              NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
 		testPolicyContext: &testPolicyContextType{},
 	}
 	td.testPolicyContext.sc = td.sc
@@ -80,7 +82,7 @@ func newTestData() *testData {
 // resetRepo clears only the policy repository.
 // Some tests rely on the accumulated state, but a clean repo.
 func (td *testData) resetRepo() *Repository {
-	td.repo = NewStoppedPolicyRepository(nil, nil, nil, nil)
+	td.repo = NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	td.repo.selectorCache = td.sc
 	return td.repo
 }
@@ -96,9 +98,10 @@ func (td *testData) addIdentity(id *identity.Identity) {
 
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
-	isDeny bool
-	ns     string
-	sc     *SelectorCache
+	isDeny   bool
+	ns       string
+	sc       *SelectorCache
+	fromFile bool
 }
 
 func (p *testPolicyContextType) GetNamespace() string {
@@ -109,14 +112,14 @@ func (p *testPolicyContextType) GetSelectorCache() *SelectorCache {
 	return p.sc
 }
 
-func (p *testPolicyContextType) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
+func (p *testPolicyContextType) GetTLSContext(tls *api.TLSContext) (ca, public, private string, fromFile bool, err error) {
 	switch tls.Secret.Name {
 	case "tls-cert":
-		return "", "fake public cert", "fake private key", nil
+		return "", "fake public cert", "fake private key", p.fromFile, nil
 	case "tls-ca-certs":
-		return "fake CA certs", "", "", nil
+		return "fake CA certs", "", "", p.fromFile, nil
 	}
-	return "", "", "", fmt.Errorf("Unknown test secret '%s'", tls.Secret.Name)
+	return "", "", "", p.fromFile, fmt.Errorf("Unknown test secret '%s'", tls.Secret.Name)
 }
 
 func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
@@ -217,7 +220,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	require.True(t, filter.SelectsAllEndpoints())
 
 	require.Equal(t, ParserTypeNone, filter.L7Parser)
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 
 	// Case1B: an empty non-nil FromEndpoints does not select any identity.
@@ -299,7 +302,8 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctx := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -387,7 +391,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 	require.True(t, filter.SelectsAllEndpoints())
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 }
 
@@ -430,7 +434,8 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -512,7 +517,8 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -596,7 +602,8 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -605,7 +612,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state := traceState{}
 	res, err := conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B: HTTP first, Kafka second.
@@ -644,7 +651,8 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -653,7 +661,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B+: HTTP first, generic L7 second.
@@ -693,7 +701,8 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -705,7 +714,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingParsersIngressRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B++: generic L7 without rules first, HTTP second.
@@ -742,7 +751,8 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxAToC := SearchContext{From: labelsA, To: labelsC, Trace: TRACE_VERBOSE}
@@ -755,7 +765,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	state = traceState{}
 	res, err = conflictingParsersEgressRule.resolveEgressPolicy(td.testPolicyContext, &ctxAToC, &state, NewL4PolicyMap(), nil, nil)
 	t.Log(buffer)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 }
 
@@ -799,7 +809,8 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
@@ -828,8 +839,14 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 				TerminatingTLS: &TLSContext{
 					CertificateChain: "fake public cert",
 					PrivateKey:       "fake private key",
+					Secret: types.NamespacedName{
+						Name: "tls-cert",
+					},
 				},
 				OriginatingTLS: &TLSContext{
+					Secret: types.NamespacedName{
+						Name: "tls-ca-certs",
+					},
 					TrustedCA: "fake CA certs",
 				},
 				EnvoyHTTPRules:  nil,
@@ -892,7 +909,8 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
@@ -921,8 +939,14 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 				TerminatingTLS: &TLSContext{
 					CertificateChain: "fake public cert",
 					PrivateKey:       "fake private key",
+					Secret: types.NamespacedName{
+						Name: "tls-cert",
+					},
 				},
 				OriginatingTLS: &TLSContext{
+					Secret: types.NamespacedName{
+						Name: "tls-ca-certs",
+					},
 					TrustedCA: "fake CA certs",
 				},
 				EnvoyHTTPRules:  nil,
@@ -940,7 +964,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		},
 	}})
 
-	require.True(t, res.Equals(t, expected), res.Diff(t, expected))
+	require.EqualValues(t, expected, res)
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeHTTP, l4Filter.L7Parser)
@@ -1002,7 +1026,8 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
@@ -1031,8 +1056,14 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 				TerminatingTLS: &TLSContext{
 					CertificateChain: "fake public cert",
 					PrivateKey:       "fake private key",
+					Secret: types.NamespacedName{
+						Name: "tls-cert",
+					},
 				},
 				OriginatingTLS: &TLSContext{
+					Secret: types.NamespacedName{
+						Name: "tls-ca-certs",
+					},
 					TrustedCA: "fake CA certs",
 				},
 				ServerNames:     StringSet{"www.foo.com": {}, "www.bar.com": {}},
@@ -1052,7 +1083,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 	}})
 
 	require.EqualValues(t, expected, res)
-	require.True(t, res.Equals(t, expected), res.Diff(t, expected))
+	require.True(t, res.TestingOnlyEquals(expected), res.TestingOnlyDiff(expected))
 
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
@@ -1097,7 +1128,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
@@ -1148,7 +1180,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
@@ -1228,7 +1261,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
@@ -1310,7 +1344,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
@@ -1388,7 +1423,8 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1455,7 +1491,8 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1536,7 +1573,8 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1615,7 +1653,8 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1707,7 +1746,8 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1797,7 +1837,8 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1890,7 +1931,8 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1899,7 +1941,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 
 	state := traceState{}
 	res, err := conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	state = traceState{}
@@ -1945,7 +1987,8 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer = new(bytes.Buffer)
 	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1954,7 +1997,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	state = traceState{}
@@ -2004,7 +2047,8 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -2089,7 +2133,8 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -2170,7 +2215,8 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -2232,7 +2278,8 @@ func TestEntitiesL3(t *testing.T) {
 					},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
@@ -2282,7 +2329,8 @@ func TestEgressEmptyToEndpoints(t *testing.T) {
 					}},
 				},
 			},
-		}}
+		},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}

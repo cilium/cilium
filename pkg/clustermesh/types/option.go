@@ -4,13 +4,13 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
 const (
@@ -47,29 +47,42 @@ func (def ClusterInfo) Flags(flags *pflag.FlagSet) {
 
 // Validate validates that the ClusterID is in the valid range (including ClusterID == 0),
 // and that the ClusterName is different from the default value if the ClusterID != 0.
-func (c ClusterInfo) Validate(log logrus.FieldLogger) error {
+func (c ClusterInfo) Validate() error {
 	if c.ID < ClusterIDMin || c.ID > ClusterIDMax {
 		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
 			c.ID, ClusterIDMin, ClusterIDMax)
 	}
 
-	return c.validateName(log)
+	return c.validateName()
 }
 
 // ValidateStrict validates that the ClusterID is in the valid range, but not 0,
 // and that the ClusterName is different from the default value.
-func (c ClusterInfo) ValidateStrict(log logrus.FieldLogger) error {
+func (c ClusterInfo) ValidateStrict() error {
 	if err := ValidateClusterID(c.ID); err != nil {
 		return err
 	}
 
-	return c.validateName(log)
+	return c.validateName()
 }
 
-func (c ClusterInfo) validateName(log logrus.FieldLogger) error {
+// ValidateBuggyClusterID returns an error if a buggy cluster ID (i.e., with the
+// 7th bit set) is used in combination with ENI IPAM mode or AWS CNI chaining.
+func (c ClusterInfo) ValidateBuggyClusterID(ipamMode, chainingMode string) error {
+	if (c.ID&0x80) != 0 && (ipamMode == ipamOption.IPAMENI || ipamMode == ipamOption.IPAMAlibabaCloud || chainingMode == "aws-cni") {
+		return errors.New("Cilium is currently affected by a bug that causes traffic matched " +
+			"by network policies to be incorrectly dropped when running in either ENI mode (both " +
+			"AWS and AlibabaCloud) or AWS VPC CNI chaining mode, if the cluster ID is 128-255 (and " +
+			"384-511 when max-connected-clusters=511). " +
+			"Please refer to https://github.com/cilium/cilium/issues/21330 for additional details.")
+	}
+
+	return nil
+}
+
+func (c ClusterInfo) validateName() error {
 	if err := ValidateClusterName(c.Name); err != nil {
-		log.WithField(logfields.ClusterName, c.Name).WithError(err).
-			Error("Invalid cluster name. This may cause degraded functionality, and will be strictly forbidden starting from Cilium v1.17")
+		return fmt.Errorf("invalid cluster name: %w", err)
 	}
 
 	if c.ID != 0 && c.Name == defaults.ClusterName {

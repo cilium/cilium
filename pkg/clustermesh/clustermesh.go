@@ -6,6 +6,7 @@ package clustermesh
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"slices"
 	"sync"
 
@@ -72,6 +73,8 @@ type Configuration struct {
 	CommonMetrics common.Metrics
 	StoreFactory  store.Factory
 
+	FeatureMetrics ClusterMeshMetrics
+
 	Logger logrus.FieldLogger
 }
 
@@ -91,7 +94,7 @@ type RemoteIdentityWatcher interface {
 	// identity cache. remoteName should be unique unless replacing an existing
 	// remote's backend. When cachedPrefix is set, identities are assumed to be
 	// stored under the "cilium/cache" prefix, and the watcher is adapted accordingly.
-	WatchRemoteIdentities(remoteName string, remoteID uint32, backend kvstore.BackendOperations, cachedPrefix bool) (*allocator.RemoteCache, error)
+	WatchRemoteIdentities(remoteName string, remoteID uint32, backend kvstore.BackendOperations, cachedPrefix bool) (allocator.RemoteIDCache, error)
 
 	// RemoveRemoteIdentities removes any reference to a remote identity source,
 	// emitting a deletion event for all previously known identities.
@@ -120,6 +123,9 @@ type ClusterMesh struct {
 	// syncTimeoutLogOnce ensures that the warning message triggered upon failure
 	// waiting for remote clusters synchronization is output only once.
 	syncTimeoutLogOnce sync.Once
+
+	// FeatureMetrics will track which features are enabled with in clustermesh.
+	FeatureMetrics ClusterMeshMetrics
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
@@ -136,6 +142,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		globalServices: common.NewGlobalServiceCache(
 			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterInfo.Name, nodeName),
 		),
+		FeatureMetrics: c.FeatureMetrics,
 	}
 
 	cm.common = common.NewClusterMesh(common.Configuration{
@@ -156,15 +163,17 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 
 func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
-		name:                   name,
-		clusterID:              cmtypes.ClusterIDUnset,
-		clusterConfigValidator: cm.conf.ClusterInfo.ValidateRemoteConfig,
-		usedIDs:                cm.conf.ClusterIDsManager,
-		status:                 status,
-		storeFactory:           cm.conf.StoreFactory,
-		remoteIdentityWatcher:  cm.conf.RemoteIdentityWatcher,
-		synced:                 newSynced(),
-		log:                    cm.conf.Logger.WithField(logfields.ClusterName, name),
+		name:                     name,
+		clusterID:                cmtypes.ClusterIDUnset,
+		clusterConfigValidator:   cm.conf.ClusterInfo.ValidateRemoteConfig,
+		usedIDs:                  cm.conf.ClusterIDsManager,
+		status:                   status,
+		storeFactory:             cm.conf.StoreFactory,
+		remoteIdentityWatcher:    cm.conf.RemoteIdentityWatcher,
+		synced:                   newSynced(),
+		log:                      cm.conf.Logger.WithField(logfields.ClusterName, name),
+		featureMetrics:           cm.FeatureMetrics,
+		featureMetricMaxClusters: fmt.Sprintf("%d", cm.conf.ClusterInfo.MaxConnectedClusters),
 	}
 	rc.remoteNodes = cm.conf.StoreFactory.NewWatchStore(
 		name,

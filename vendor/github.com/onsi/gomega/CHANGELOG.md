@@ -1,3 +1,31 @@
+## 1.35.1
+
+### Fixes
+- Export EnforceDefaultTimeoutsWhenUsingContexts and DisableDefaultTimeoutsWhenUsingContext [ca36da1]
+
+## 1.35.0
+
+### Features
+
+- You can now call `EnforceDefaultTimeoutsWhenUsingContexts()` to have `Eventually` honor the default timeout when passed a context.  (prior to this you had to expclility add a timeout) [e4c4265]
+- You can call `StopTrying(message).Successfully()` to abort a `Consistently` early without failure [eeca931]
+
+### Fixes
+
+- Stop memoizing the result of `HaveField` to avoid unexpected errors when used with async assertions. [3bdbc4e]
+
+### Maintenance
+
+- Bump all dependencies [a05a416]
+
+## 1.34.2
+
+Require Go 1.22+
+
+### Maintenance
+- bump ginkgo as well [c59c6dc]
+- bump to go 1.22 - remove x/exp dependency [8158b99]
+
 ## 1.34.1
 
 ### Maintenance

@@ -1108,7 +1108,7 @@ func Test_TransformToCNP(t *testing.T) {
 	for _, tt := range tests {
 		got, err := TransformToCNP(tt.args.obj)
 		if tt.expected {
-			require.Equal(t, nil, err)
+			require.NoError(t, err)
 			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
 			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
@@ -1207,7 +1207,7 @@ func Test_TransformToCCNP(t *testing.T) {
 	for _, tt := range tests {
 		got, err := TransformToCCNP(tt.args.obj)
 		if tt.expected {
-			require.Equal(t, nil, err)
+			require.NoError(t, err)
 			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
 			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
@@ -1416,7 +1416,7 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 	for _, tt := range tests {
 		got, err := TransformToCiliumEndpoint(tt.args.obj)
 		if tt.expected {
-			require.Equal(t, nil, err)
+			require.NoError(t, err)
 			require.EqualValuesf(t, tt.want, got, "Test Name: %s", tt.name)
 		} else {
 			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
@@ -1433,7 +1433,7 @@ func Test_AnnotationsEqual(t *testing.T) {
 	relevantAnnoVal2 := "53"
 
 	// Empty returns true.
-	require.Equal(t, true, AnnotationsEqual(nil, map[string]string{}, map[string]string{}))
+	require.True(t, AnnotationsEqual(nil, map[string]string{}, map[string]string{}))
 
 	require.True(t, AnnotationsEqual(nil,
 		map[string]string{

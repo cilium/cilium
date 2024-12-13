@@ -41,9 +41,9 @@ func (m *fakeIPCache) Delete(ip string, source source.Source) (namedPortsChanged
 	return true
 }
 
-func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *kvstore.Watcher {
+func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan {
 	var pair identity.IPIdentityPair
-	ch := make(kvstore.EventChan, 10)
+	ch := make(chan kvstore.KeyValueEvent, 10)
 
 	marshal := func(pair identity.IPIdentityPair) []byte {
 		out, _ := pair.Marshal()
@@ -75,7 +75,7 @@ func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *
 	ch <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: pair.GetKeyName(), Value: marshal(pair)}
 
 	close(ch)
-	return &kvstore.Watcher{Events: ch}
+	return ch
 }
 
 func eventually(in <-chan event) event {

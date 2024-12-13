@@ -76,6 +76,9 @@ type CreateVpcEndpointServiceConfigurationInput struct {
 	// The supported IP address types. The possible values are ipv4 and ipv6 .
 	SupportedIpAddressTypes []string
 
+	// The Regions from which service consumers can access the service.
+	SupportedRegions []string
+
 	// The tags to associate with the service.
 	TagSpecifications []types.TagSpecification
 

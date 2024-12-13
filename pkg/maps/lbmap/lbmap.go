@@ -41,25 +41,11 @@ var (
 
 // LBBPFMap is an implementation of the LBMap interface.
 type LBBPFMap struct {
-	// Buffer used to avoid excessive allocations to temporarily store backend
-	// IDs. Concurrent access is protected by the
-	// pkg/service.go:(Service).UpsertService() lock.
-	maglevBackendIDsBuffer []loadbalancer.BackendID
-	maglevTableSize        uint64
+	maglev *maglev.Maglev
 }
 
-func New() *LBBPFMap {
-	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
-	maglevTableSize := option.Config.MaglevTableSize
-
-	m := &LBBPFMap{}
-
-	if maglev {
-		m.maglevBackendIDsBuffer = make([]loadbalancer.BackendID, maglevTableSize)
-		m.maglevTableSize = uint64(maglevTableSize)
-	}
-
-	return m
+func New(maglev *maglev.Maglev) *LBBPFMap {
+	return &LBBPFMap{maglev}
 }
 
 func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, ipv6 bool) error {
@@ -136,7 +122,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 
 	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
 		p.Type, p.ForwardingMode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
-		p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
+		p.SourceRangesPolicy, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport, p.LoadBalancingAlgorithm); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
 	}
@@ -190,14 +176,17 @@ func (lbmap *LBBPFMap) UpsertService(p *datapathTypes.UpsertServiceParams) error
 // UpsertMaglevLookupTable calculates Maglev lookup table for given backends, and
 // inserts into the Maglev BPF map.
 func (lbmap *LBBPFMap) UpsertMaglevLookupTable(svcID uint16, backends map[string]*loadbalancer.Backend, ipv6 bool) error {
-	table := maglev.GetLookupTable(backends, lbmap.maglevTableSize)
-	for i, id := range table {
-		lbmap.maglevBackendIDsBuffer[i] = loadbalancer.BackendID(id)
-	}
-	if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
+	table := lbmap.maglev.GetLookupTable(
+		func(yield func(maglev.BackendInfo) bool) {
+			for _, be := range backends {
+				if !yield(maglev.BackendInfo{ID: be.ID, Weight: be.Weight, Addr: be.L3n4Addr}) {
+					break
+				}
+			}
+		})
+	if err := updateMaglevTable(ipv6, svcID, table); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -417,22 +406,20 @@ func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CI
 
 	srcRangeMap := map[string]*cidr.CIDR{}
 	for _, cidr := range sourceRanges {
-		// k8s api server does not catch the IP family mismatch, so we need to catch it here
+		// k8s api server does not catch the IP family mismatch, so we need
+		// to catch it here and below.
 		if ip.IsIPv6(cidr.IP) == !ipv6 {
-			log.WithFields(logrus.Fields{
-				logfields.ServiceID: revNATID,
-				logfields.CIDR:      cidr,
-			}).Warn("Source range's IP family does not match with the LB's. Ignoring the source range CIDR")
 			continue
 		}
 		srcRangeMap[cidr.String()] = cidr
 	}
 
 	for _, prevCIDR := range prevSourceRanges {
+		if ip.IsIPv6(prevCIDR.IP) == !ipv6 {
+			continue
+		}
 		if _, found := srcRangeMap[prevCIDR.String()]; !found {
-			if err := m.Delete(srcRangeKey(prevCIDR, revNATID, ipv6)); err != nil {
-				return err
-			}
+			m.Delete(srcRangeKey(prevCIDR, revNATID, ipv6))
 		} else {
 			delete(srcRangeMap, prevCIDR.String())
 		}
@@ -618,8 +605,8 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int,
 	svcType loadbalancer.SVCType, svcForwardingMode loadbalancer.SVCForwardingMode, svcExtLocal, svcIntLocal bool,
 	svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
-
+	svcSourceRangesPolicy loadbalancer.SVCSourceRangesPolicy, checkSourceRange bool, l7lbProxyPort uint16,
+	loopbackHostport bool, loadBalancingAlgorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
@@ -628,6 +615,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	v.SetCount(activeBackends)
 	v.SetQCount(quarantinedBackends)
 	v.SetRevNat(revNATID)
+	v.SetLbAlg(uint8(loadBalancingAlgorithm))
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcFwdModeDSR:    svcForwardingMode == loadbalancer.SVCForwardingModeDSR,
@@ -636,6 +624,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 		SvcNatPolicy:     svcNatPolicy,
 		SessionAffinity:  sessionAffinity,
 		IsRoutable:       isRoutable,
+		SourceRangeDeny:  svcSourceRangesPolicy == loadbalancer.SVCSourceRangesPolicyDeny,
 		CheckSourceRange: checkSourceRange,
 		L7LoadBalancer:   l7lbProxyPort != 0,
 		LoopbackHostport: loopbackHostport,
@@ -712,11 +701,13 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 		return err
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.ServiceKey:   key,
-		logfields.ServiceValue: value,
-		logfields.BackendSlot:  key.GetBackendSlot(),
-	}).Debug("Upserted service entry")
+	if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+		log.WithFields(logrus.Fields{
+			logfields.ServiceKey:   key,
+			logfields.ServiceValue: value,
+			logfields.BackendSlot:  key.GetBackendSlot(),
+		}).Debug("Upserted service entry")
+	}
 
 	return nil
 }
@@ -817,4 +808,5 @@ type InitParams struct {
 	AffinityMapMaxEntries                                           int
 	SourceRangeMapMaxEntries                                        int
 	MaglevMapMaxEntries                                             int
+	PerSvcLbEnabled                                                 bool
 }

@@ -124,14 +124,14 @@ func TestParse(t *testing.T) {
 		require.Equal(t, tt.wantPrefix, prefix)
 		require.Equal(t, tt.wantID, id)
 		if tt.expectFail {
-			require.NotNil(t, err)
+			require.Error(t, err)
 		} else {
-			require.Nil(t, err)
+			require.NoError(t, err)
 		}
 	}
 }
 
 func TestNewIPPrefix(t *testing.T) {
-	require.Equal(t, true, strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("1.1.1.1")), string(IPv4Prefix)))
-	require.Equal(t, true, strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("f00d::1")), string(IPv6Prefix)))
+	require.True(t, strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("1.1.1.1")), string(IPv4Prefix)))
+	require.True(t, strings.HasPrefix(NewIPPrefixID(netip.MustParseAddr("f00d::1")), string(IPv6Prefix)))
 }

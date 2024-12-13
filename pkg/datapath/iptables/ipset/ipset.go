@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -50,13 +49,13 @@ type Initializer interface {
 }
 
 type initializer struct {
-	once sync.Once
-	wg   *lock.StoppableWaitGroup
+	done lock.DoneFunc
 }
 
 func (i *initializer) InitDone() {
-	// further calls to InitDone will be a no-op
-	i.once.Do(i.wg.Done)
+	// lock.DoneFunc's are wrapped in sync.Once, so it is safe to call this
+	// multiple times.
+	i.done()
 }
 
 type manager struct {
@@ -79,8 +78,7 @@ func (m *manager) NewInitializer() Initializer {
 	if m.started.Load() {
 		panic("an initializer to the ipset manager cannot be taken after the manager started")
 	}
-	m.startedWG.Add()
-	return &initializer{wg: m.startedWG}
+	return &initializer{done: m.startedWG.Add()}
 }
 
 // AddToIPSet adds the addresses to the ipset with given name and family.

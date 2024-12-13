@@ -84,7 +84,7 @@ func Test_MapOps(t *testing.T) {
 
 	v, err = testMap.Lookup(&TestKey{2})
 	if assert.NoError(t, err, "Lookup") {
-		assert.Equal(t, v.(*TestValue).Value, uint32(3))
+		assert.Equal(t, uint32(3), v.(*TestValue).Value)
 	}
 
 	// Give Prune() an empty set of objects, which should cause it to
@@ -94,7 +94,7 @@ func Test_MapOps(t *testing.T) {
 
 	data := map[string][]string{}
 	testMap.Dump(data)
-	assert.Len(t, data, 0)
+	assert.Empty(t, data)
 }
 
 func Test_MapOpsPrune(t *testing.T) {
@@ -134,7 +134,7 @@ func Test_MapOpsPrune(t *testing.T) {
 
 	data := map[string][]string{}
 	testMap.Dump(data)
-	assert.Len(t, data, 0)
+	assert.Empty(t, data)
 }
 
 // Test_MapOps_ReconcilerExample serves as a testable example for the map ops.

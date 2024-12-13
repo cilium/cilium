@@ -3,6 +3,10 @@
 
 package source
 
+import (
+	"github.com/cilium/hive/cell"
+)
+
 // Source describes the source of a definition
 type Source string
 
@@ -52,7 +56,25 @@ const (
 	// Directory is the source used for watching and reading
 	// cilium network policy files from specific directory.
 	Directory Source = "directory"
+
+	// Please remember to add your source to defaultSources below.
 )
+
+// Sources is a priority-sorted slice of sources.
+type Sources []Source
+
+var defaultSources Sources = []Source{
+	KubeAPIServer,
+	Local,
+	KVStore,
+	CustomResource,
+	Kubernetes,
+	ClusterMesh,
+	LocalAPI,
+	Generated,
+	Restored,
+	Unspec,
+}
 
 // AllowOverwrite returns true if new state from a particular source is allowed
 // to overwrite existing state from another source
@@ -107,6 +129,16 @@ func AllowOverwrite(existing, new Source) bool {
 	case Unspec:
 		return true
 	}
-
 	return true
+}
+
+var Cell = cell.Module(
+	"source",
+	"Definitions and priorities of data sources",
+	cell.Provide(NewSources),
+)
+
+// NewSources returns sources ordered from the most preferred.
+func NewSources() Sources {
+	return defaultSources
 }

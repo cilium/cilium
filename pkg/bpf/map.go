@@ -59,9 +59,11 @@ func (d DesiredAction) String() string {
 }
 
 var commonNameRegexps = []*regexp.Regexp{
+	regexp.MustCompile(`^(cilium_)(.+)_v[0-9]+_reserved_[0-9]+$`),
 	regexp.MustCompile(`^(cilium_)(.+)_reserved_[0-9]+$`),
 	regexp.MustCompile(`^(cilium_)(.+)_netdev_ns_[0-9]+$`),
 	regexp.MustCompile(`^(cilium_)(.+)_overlay_[0-9]+$`),
+	regexp.MustCompile(`^(cilium_)(.+)_v[0-9]+_[0-9]+$`),
 	regexp.MustCompile(`^(cilium_)(.+)_[0-9]+$`),
 	regexp.MustCompile(`^(cilium_)(.+)+$`),
 }

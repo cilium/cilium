@@ -450,8 +450,8 @@ type EndpointSlices struct {
 	epSlices map[string]*Endpoints
 }
 
-// newEndpointsSlices returns a new EndpointSlices
-func newEndpointsSlices() *EndpointSlices {
+// NewEndpointsSlices returns a new EndpointSlices
+func NewEndpointsSlices() *EndpointSlices {
 	return &EndpointSlices{
 		epSlices: map[string]*Endpoints{},
 	}
@@ -475,11 +475,9 @@ func (es *EndpointSlices) GetEndpoints() *Endpoints {
 			if !ok {
 				allEps.Backends[backend] = ep.DeepCopy()
 			} else {
-				clone := b.DeepCopy()
 				for k, v := range ep.Ports {
-					clone.Ports[k] = v
+					b.Ports[k] = v.DeepCopy()
 				}
-				allEps.Backends[backend] = clone
 			}
 		}
 	}

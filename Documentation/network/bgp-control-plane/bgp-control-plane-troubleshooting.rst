@@ -12,8 +12,11 @@ BGP Control Plane Troubleshooting Guide
 This document enumerates typical troubles and their solutions when configuring the BGP
 Control Plane.
 
-Even though CiliumBGPPeeringPolicy was applied, BGP peering is not established
-----------------------------------------------------------------------------------
+Even though Cilium BGP resources are applied, BGP peering is not established
+----------------------------------------------------------------------------
+
+CiliumBGPPeeringPolicy
+~~~~~~~~~~~~~~~~~~~~~~
 
 Check if the target Node is correctly selected by the
 ``nodeSelector`` of the ``CiliumBGPPeeringPolicy``. The easiest way to do
@@ -32,8 +35,34 @@ If nothing is displayed, there may be an error in the ``nodeSelector``.
 If the Node is correctly selected, but the state does not become
 established, check the settings of both Cilium and the target peer.
 
-Node is selected by CiliumBGPPeeringPolicy, but BGP peer is not established
----------------------------------------------------------------------------
+CiliumBGPClusterConfig
+~~~~~~~~~~~~~~~~~~~~~~
+
+Check that the ``CiliumBGPNodeConfig`` resource is created for a given Node. If
+``CiliumBGPNodeConfig`` resource is missing, check the Cilium operator logs for
+any errors.
+
+Like ``CiliumBGPPeeringPolicy``, check ``nodeSelector`` configuration and
+peering configuration if the BGP state is not ``established``.
+
+Another possibility is that the ``nodeSelector`` in the
+``CiliumBGPClusterConfig`` doesn't match any nodes due to the missing labels or
+misconfigured selector. In this case, the following status condition will be
+set:
+
+.. code:: yaml
+
+  status:
+    conditions:
+    - lastTransitionTime: "2024-10-26T06:15:44Z"
+      message: No node matches spec.nodeSelector
+      observedGeneration: 2
+      reason: NoMatchingNode
+      status: "True"
+      type: cilium.io/NoMatchingNode
+
+Node is selected by CiliumBGPPeeringPolicy or CiliumBGPClusterConfig, but BGP peer is not established
+-----------------------------------------------------------------------------------------------------
 
 You can identify the cause by referring to the logs of your peer router
 or Cilium. The errors logged by the BGP Control Plane have a field
@@ -74,3 +103,42 @@ there should be logs indicating this:
 If you find logs like this, please review the configuration of ``nodeSelector``
 and make sure that each node only has one associated
 ``CiliumBGPPeeringPolicy``.
+
+Additional new CiliumBGPClusterConfig is not working
+----------------------------------------------------
+
+Like the ``CiliumBGPPeeringPolicy``, multiple ``CiliumBGPClusterConfig``
+can select the same node based on the ``nodeSelector`` field. If this is the case,
+the Cilium operator will reject any additional ``CiliumBGPClusterConfig`` from creating
+the ``CiliumBGPNodeConfig`` resource. Following status condition will be set on the
+``CiliumBGPClusterConfig`` to indicate this:
+
+.. code:: yaml
+
+  status:
+    conditions:
+    - lastTransitionTime: "2024-10-26T06:18:04Z"
+      message: 'Selecting the same node(s) with ClusterConfig(s): [cilium-bgp-0]'
+      observedGeneration: 1
+      reason: ConflictingClusterConfigs
+      status: "True"
+      type: cilium.io/ConflictingClusterConfig
+
+CiliumBGPPeerConfig doesn't take effect
+---------------------------------------
+
+If the ``CiliumBGPPeerConfig`` is not taking effect, it may be because there is a
+misconfiguration (such as typo) in the ``peerConfigRef`` and the reference is not
+effective. Following status condition will be set if the referenced ``CiliumBGPPeerConfig``
+is not found:
+
+.. code:: yaml
+
+  status:
+    conditions:
+    - lastTransitionTime: "2024-10-26T06:15:44Z"
+      message: 'Referenced CiliumBGPPeerConfig(s) are missing: [peer-cofnig0]'
+      observedGeneration: 1
+      reason: MissingPeerConfigs
+      status: "True"
+      type: cilium.io/MissingPeerConfigs

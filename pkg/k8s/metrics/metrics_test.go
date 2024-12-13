@@ -12,5 +12,5 @@ import (
 
 func TestLastInteraction(t *testing.T) {
 	LastInteraction.Reset()
-	require.Equal(t, true, time.Since(LastInteraction.Time()) < time.Second)
+	require.Less(t, time.Since(LastInteraction.Time()), time.Second)
 }

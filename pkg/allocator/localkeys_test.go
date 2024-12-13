@@ -24,7 +24,7 @@ func TestLocalKeys(t *testing.T) {
 	require.Equal(t, val, v)
 	require.True(t, firstUse)
 
-	require.Nil(t, k.verify(key.GetKey()))
+	require.NoError(t, k.verify(key.GetKey()))
 
 	v = k.use(key.GetKey()) // refcnt=2
 	require.Equal(t, val, v)
@@ -42,7 +42,7 @@ func TestLocalKeys(t *testing.T) {
 
 	// only one of the two keys is verified yet
 	ids := k.getVerifiedIDs()
-	require.Equal(t, 1, len(ids))
+	require.Len(t, ids, 1)
 
 	// allocate with different value must fail
 	_, _, err = k.allocate(key2.GetKey(), key2, val)

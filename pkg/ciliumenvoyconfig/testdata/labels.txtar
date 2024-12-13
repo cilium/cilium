@@ -1,0 +1,83 @@
+# Test handling of node label based selection of CECs
+
+# Start the hive and wait for tables to be synchronized before adding k8s objects.
+hive start
+db/initialized
+
+set-node-labels foo=a
+
+# Add CECs with foo=a and foo=b node selectors
+k8s add cec_a.yaml cec_b.yaml
+
+# CEC with foo=a should be selected.
+db/cmp ciliumenvoyconfigs cec_a.table
+envoy envoy.out
+* cmp envoy.out envoy_a.expected
+
+# Update the node labels to flip the selected CECs
+set-node-labels foo=b
+
+# CEC with foo=b should be selected.
+db/cmp ciliumenvoyconfigs cec_b.table
+envoy envoy.out
+* cmp envoy.out envoy_b.expected
+
+# ---------------------------------------------
+
+-- cec_empty.table --
+Name    Services
+
+-- cec_a.table --
+Name                    Selected  NodeSelector  StatusKind
+test/envoy-a            true      foo=a         Done
+test/envoy-b            false     foo=b         Done
+
+-- cec_b.table --
+Name                    Selected  NodeSelector  StatusKind
+test/envoy-a            false     foo=a         Done
+test/envoy-b            true      foo=b         Done
+
+-- cec_a.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-a
+  namespace: test
+spec:
+  nodeSelector:
+    matchLabels:
+      foo: a
+  services:
+    - name: a
+      namespace: test
+      listener: listener
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: envoy-lb-listener
+
+-- cec_b.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-b
+  namespace: test
+spec:
+  nodeSelector:
+    matchLabels:
+      foo: b
+  services:
+    - name: b
+      namespace: test
+      listener: listener
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: envoy-lb-listener
+
+-- envoy_a.expected --
+policy-trigger-count: 1
+update: count=1 listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=test/a:*=,test/a=
+delete: count=0 listeners=<nil> endpoints=<nil>
+-- envoy_b.expected --
+policy-trigger-count: 1
+update: count=2 listeners=test/envoy-b/envoy-lb-listener/1000 endpoints=test/b:*=,test/b=
+delete: count=1 listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=test/a:*=,test/a=

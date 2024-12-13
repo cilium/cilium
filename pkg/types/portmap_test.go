@@ -13,42 +13,42 @@ import (
 
 func TestPolicyValidateName(t *testing.T) {
 	name, err := ValidatePortName("Http")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "http", name)
 
 	name, err = ValidatePortName("dns-tcp")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "dns-tcp", name)
 
 	_, err = ValidatePortName("-http")
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	_, err = ValidatePortName("http-")
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	name, err = ValidatePortName("http-80")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "http-80", name)
 
 	_, err = ValidatePortName("http--s")
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestPolicyNewPortProto(t *testing.T) {
 	np, err := newPortProto(80, "tcp")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, PortProto{Port: uint16(80), Proto: u8proto.TCP}, np)
 
 	_, err = newPortProto(88888, "tcp")
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, "Port number 88888 out of 16-bit range", err.Error())
 
 	_, err = newPortProto(80, "cccp")
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, "unknown protocol 'cccp'", err.Error())
 
 	np, err = newPortProto(88, "")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, PortProto{Port: uint16(88), Proto: u8proto.TCP}, np)
 }
 
@@ -56,11 +56,11 @@ func TestPolicyNamedPortMap(t *testing.T) {
 	npm := make(NamedPortMap)
 
 	err := npm.AddPort("http", 80, "tcp")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, npm, 1)
 
 	err = npm.AddPort("dns", 53, "UDP")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, npm, 2)
 
 	err = npm.AddPort("zero", 0, "TCP")
@@ -68,11 +68,11 @@ func TestPolicyNamedPortMap(t *testing.T) {
 	require.Len(t, npm, 2)
 
 	proto, err := u8proto.ParseProtocol("UDP")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint8(17), uint8(proto))
 
 	port, err := npm.GetNamedPort("dns", proto)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 
 	port, err = npm.GetNamedPort("dns", u8proto.TCP)
@@ -95,9 +95,9 @@ func TestPolicyPortProtoSet(t *testing.T) {
 		PortProto{Port: 443, Proto: 6}: 1,
 		PortProto{Port: 53, Proto: 6}:  1,
 	}
-	require.Equal(t, true, a.Equal(a))
-	require.Equal(t, false, a.Equal(b))
-	require.Equal(t, true, b.Equal(b))
+	require.True(t, a.Equal(a))
+	require.False(t, a.Equal(b))
+	require.True(t, b.Equal(b))
 }
 
 func TestPolicyNamedPortMultiMap(t *testing.T) {
@@ -165,23 +165,23 @@ func TestPolicyNamedPortMultiMap(t *testing.T) {
 	require.Equal(t, uint16(0), port)
 
 	port, err = a.GetNamedPort("https", 6)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(443), port)
 
 	port, err = a.GetNamedPort("dns", 6)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 
 	port, err = b.GetNamedPort("dns", 6)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 
 	port, err = a.GetNamedPort("dns", 17)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 
 	port, err = b.GetNamedPort("dns", 17)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 }
 
@@ -195,15 +195,15 @@ func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 
 	// Insert http=80/TCP from pod1
 	changed := npm.Update(pod1PortsOld, pod1PortsNew)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 
 	// No changes
 	changed = npm.Update(pod1PortsNew, pod1PortsNew)
-	require.Equal(t, false, changed)
+	require.False(t, changed)
 
 	// Assert http=80/TCP
 	port, err := npm.GetNamedPort("http", u8proto.TCP)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
 
 	pod2PortsOld := map[string]PortProto{}
@@ -213,13 +213,13 @@ func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 
 	// Insert http=8080/UDP from pod2, retain http=80/TCP from pod1
 	changed = npm.Update(pod2PortsOld, pod2PortsNew)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 
 	port, err = npm.GetNamedPort("http", u8proto.TCP)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
 	port, err = npm.GetNamedPort("http", u8proto.UDP)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(8080), port)
 
 	// Delete http=80/TCP from pod1, retain http=8080/UDP from pod2
@@ -228,9 +228,9 @@ func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 
 	// Delete http=80/TCP from pod1
 	changed = npm.Update(pod1PortsOld, pod1PortsNew)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 
 	port, err = npm.GetNamedPort("http", u8proto.UDP)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(8080), port)
 }

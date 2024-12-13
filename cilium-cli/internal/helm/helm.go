@@ -8,6 +8,7 @@ package helm
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -77,7 +78,8 @@ func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string
 		return nil, err
 	}
 
-	file := path.Join(cacheDir, fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
+	hashID := sha256.Sum256([]byte(repository))
+	file := path.Join(cacheDir, fmt.Sprintf("cilium-%s-%x.tgz", ciliumVersion, hashID[:defaults.HelmRepoIDLen]))
 	if _, err = os.Stat(file); err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, err
@@ -105,6 +107,11 @@ func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string
 		}
 		if _, err = pull.Run(chartRef); err != nil {
 			return nil, err
+		}
+
+		downloadedFile := path.Join(cacheDir, fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
+		if err := os.Rename(downloadedFile, file); err != nil {
+			return nil, fmt.Errorf("failed to rename downloaded chart: %w", err)
 		}
 	}
 
@@ -202,6 +209,24 @@ func ListVersions() ([]semver.Version, error) {
 	return versions, nil
 }
 
+// GetDefaultVersionString returns the default Cilium version to install.
+func GetDefaultVersionString() string {
+	versions, err := ListVersions()
+	if err != nil {
+		// Can't do much if cilium-cli can't find Cilium versions. Time to panic.
+		panic(err)
+	}
+	// Start from the latest version
+	for i := len(versions) - 1; i >= 0; i-- {
+		// Skip pre-releases
+		if versions[i].Pre != nil {
+			continue
+		}
+		return fmt.Sprintf("v%s", versions[i].String())
+	}
+	panic("there is no Cilium version to install")
+}
+
 // ResolveHelmChartVersion resolves Helm chart version based on --version, --chart-directory, and --repository flags.
 func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string) (semver.Version, *chart.Chart, error) {
 	// If repository is empty, set it to the default Helm repository ("https://helm.cilium.io") for backward compatibility.
@@ -260,6 +285,8 @@ type UpgradeParameters struct {
 	ResetValues bool
 	// --reuse-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
 	ReuseValues bool
+	// --reset-then-reuse-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
+	ResetThenReuseValues bool
 	// Wait determines if Helm actions will wait for completion
 	Wait bool
 	// WaitDuration is the timeout for helm operations
@@ -292,6 +319,7 @@ func Upgrade(
 
 	helmClient := action.NewUpgrade(actionConfig)
 	helmClient.Namespace = params.Namespace
+	helmClient.ResetThenReuseValues = params.ResetThenReuseValues
 	helmClient.ResetValues = params.ResetValues
 	helmClient.ReuseValues = params.ReuseValues
 	helmClient.Wait = params.Wait

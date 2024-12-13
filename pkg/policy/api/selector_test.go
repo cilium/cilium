@@ -20,21 +20,21 @@ func TestSelectsAllEndpoints(t *testing.T) {
 
 	// Empty endpoint selector slice does NOT equate to a wildcard.
 	selectorSlice := EndpointSelectorSlice{}
-	require.Equal(t, false, selectorSlice.SelectsAllEndpoints())
+	require.False(t, selectorSlice.SelectsAllEndpoints())
 
 	selectorSlice = EndpointSelectorSlice{WildcardEndpointSelector}
-	require.Equal(t, true, selectorSlice.SelectsAllEndpoints())
+	require.True(t, selectorSlice.SelectsAllEndpoints())
 
 	// Entity "reserved:all" maps to WildcardEndpointSelector
 	selectorSlice = EntitySlice{EntityAll}.GetAsEndpointSelectors()
-	require.Equal(t, true, selectorSlice.SelectsAllEndpoints())
+	require.True(t, selectorSlice.SelectsAllEndpoints())
 
 	// Slice that contains wildcard and other selectors still selects all endpoints.
 	selectorSlice = EndpointSelectorSlice{WildcardEndpointSelector, NewESFromLabels(labels.ParseSelectLabel("bar"))}
-	require.Equal(t, true, selectorSlice.SelectsAllEndpoints())
+	require.True(t, selectorSlice.SelectsAllEndpoints())
 
 	selectorSlice = EndpointSelectorSlice{NewESFromLabels(labels.ParseSelectLabel("bar")), NewESFromLabels(labels.ParseSelectLabel("foo"))}
-	require.Equal(t, false, selectorSlice.SelectsAllEndpoints())
+	require.False(t, selectorSlice.SelectsAllEndpoints())
 }
 
 func TestLabelSelectorToRequirements(t *testing.T) {
@@ -56,13 +56,13 @@ func TestLabelSelectorToRequirements(t *testing.T) {
 
 	expRequirements := k8sLbls.Requirements{}
 	req, err := k8sLbls.NewRequirement("any.foo", selection.Equals, []string{"bar"})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	expRequirements = append(expRequirements, *req)
 	req, err = k8sLbls.NewRequirement("any.foo", selection.NotIn, []string{"default"})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	expRequirements = append(expRequirements, *req)
 	req, err = k8sLbls.NewRequirement("k8s.baz", selection.Equals, []string{"alice"})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	expRequirements = append(expRequirements, *req)
 
 	require.EqualValues(t, &expRequirements, labelSelectorToRequirements(labelSelector))

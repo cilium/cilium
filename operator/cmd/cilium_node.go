@@ -8,18 +8,25 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	operatorK8s "github.com/cilium/cilium/operator/k8s"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -60,7 +67,7 @@ func newCiliumNodeSynchronizer(clientset k8sClient.Clientset, nodeManager alloca
 	}
 }
 
-func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) error {
+func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, podsStore resource.Store[*corev1.Pod]) error {
 	var (
 		ciliumNodeKVStore      *store.SharedStore
 		err                    error
@@ -70,7 +77,9 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 
 		resourceEventHandler   = cache.ResourceEventHandlerFuncs{}
 		ciliumNodeManagerQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-		kvStoreQueue           = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		kvStoreQueue           = workqueue.NewRateLimitingQueue(
+			workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 120*time.Second),
+		)
 	)
 
 	// KVStore is enabled -> we will run the event handler to sync objects into
@@ -129,27 +138,61 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 
 	if s.nodeManager != nil {
 		nodeManagerSyncHandler = s.syncHandlerConstructor(
-			func(node *cilium_v2.CiliumNode) {
+			func(node *cilium_v2.CiliumNode) error {
 				s.nodeManager.Delete(node)
+				return nil
 			},
-			func(node *cilium_v2.CiliumNode) {
+			func(node *cilium_v2.CiliumNode) error {
 				// node is deep copied before it is stored in pkg/aws/eni
 				s.nodeManager.Upsert(node)
+				return nil
 			})
 	}
 
 	if s.withKVStore {
+		ciliumPodsSelector, err := labels.Parse(operatorOption.Config.CiliumPodLabels)
+		if err != nil {
+			return fmt.Errorf("unable to parse cilium pod selector: %w", err)
+		}
+
 		kvStoreSyncHandler = s.syncHandlerConstructor(
-			func(node *cilium_v2.CiliumNode) {
+			func(node *cilium_v2.CiliumNode) error {
+				// Check if a Cilium agent is still running on the given node, and
+				// in that case retry later, because it would recognize the deletion
+				// event and recreate the kvstore entry right away. Hence, defeating
+				// the whole purpose of this GC logic, and leading to the node entry
+				// being eventually deleted by the lease expiration only.
+				pods, err := podsStore.ByIndex(operatorK8s.PodNodeNameIndex, node.GetName())
+				if err != nil {
+					return fmt.Errorf("retrieving pods indexed by node %q: %w", node.GetName(), err)
+				}
+
+				for _, pod := range pods {
+					if utils.IsPodRunning(pod.Status) && ciliumPodsSelector.Matches(labels.Set(pod.Labels)) {
+						return fmt.Errorf("skipping deletion from kvstore, as Cilium agent is still running on %q", node.GetName())
+					}
+				}
+
 				nodeDel := ciliumNodeName{
 					cluster: option.Config.ClusterName,
 					name:    node.Name,
 				}
 				ciliumNodeKVStore.DeleteLocalKey(ctx, &nodeDel)
+				return nil
 			},
-			func(node *cilium_v2.CiliumNode) {
-				nodeNew := nodeTypes.ParseCiliumNode(node)
-				ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew, false)
+			func(node *cilium_v2.CiliumNode) error {
+				// This fallback update logic is not required when the kvstore
+				// is running outside of pod network, as the agent is always
+				// assumed to be able to connect to the kvstore (otherwise
+				// connectivity to that node is broken anyways), and keep it
+				// up-to-date. Hence, let's skip it, given that it causes
+				// unnecessary churn and load on both etcd and all watching
+				// agents, especially upon operator restart.
+				if option.Config.KVstorePodNetworkSupport {
+					nodeNew := nodeTypes.ParseCiliumNode(node)
+					return ciliumNodeKVStore.UpdateKeySync(ctx, &nodeNew, false)
+				}
+				return nil
 			})
 	}
 
@@ -269,7 +312,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 	return nil
 }
 
-func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler func(node *cilium_v2.CiliumNode), foundHandler func(node *cilium_v2.CiliumNode)) func(key string) error {
+func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler, foundHandler func(node *cilium_v2.CiliumNode) error) func(key string) error {
 	return func(key string) error {
 		_, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
@@ -280,12 +323,11 @@ func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler func(nod
 
 		// Delete handling
 		if !exists || errors.IsNotFound(err) {
-			notFoundHandler(&cilium_v2.CiliumNode{
+			return notFoundHandler(&cilium_v2.CiliumNode{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Name: name,
 				},
 			})
-			return nil
 		}
 		if err != nil {
 			log.WithError(err).Warning("Unable to retrieve CiliumNode from watcher store")
@@ -303,11 +345,9 @@ func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler func(nod
 			}
 		}
 		if cn.DeletionTimestamp != nil {
-			notFoundHandler(cn)
-			return nil
+			return notFoundHandler(cn)
 		}
-		foundHandler(cn)
-		return nil
+		return foundHandler(cn)
 	}
 }
 
@@ -328,11 +368,20 @@ func (s *ciliumNodeSynchronizer) processNextWorkItem(queue workqueue.RateLimitin
 	if err == nil {
 		// If err is nil we can forget it from the queue, if it is not nil
 		// the queue handler will retry to process this key until it succeeds.
+		if queue.NumRequeues(key) > 0 {
+			log.WithField(logfields.NodeName, key).Info("CiliumNode successfully reconciled after retries")
+		}
 		queue.Forget(key)
 		return true
 	}
 
-	log.WithError(err).Errorf("sync %q failed with %v", key, err)
+	const silentRetries = 5
+	if queue.NumRequeues(key) < silentRetries {
+		log.WithError(err).WithField(logfields.NodeName, key).Info("Failed reconciling CiliumNode, will retry")
+	} else {
+		log.WithError(err).WithField(logfields.NodeName, key).Warning("Failed reconciling CiliumNode, will retry")
+	}
+
 	queue.AddRateLimited(key)
 
 	return true

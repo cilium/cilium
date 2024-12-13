@@ -103,6 +103,7 @@ type ModifyVpnGatewayAttributeResponse struct {
 	DisasterRecoveryInternetIp string `json:"DisasterRecoveryInternetIp" xml:"DisasterRecoveryInternetIp"`
 	DisasterRecoveryVSwitchId  string `json:"DisasterRecoveryVSwitchId" xml:"DisasterRecoveryVSwitchId"`
 	SslVpnInternetIp           string `json:"SslVpnInternetIp" xml:"SslVpnInternetIp"`
+	ResourceGroupId            string `json:"ResourceGroupId" xml:"ResourceGroupId"`
 }
 
 // CreateModifyVpnGatewayAttributeRequest creates a request to invoke ModifyVpnGatewayAttribute API

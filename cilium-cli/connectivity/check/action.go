@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -303,6 +302,12 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
 			continue
+		} else if err != nil {
+			exitCode, _ := a.extractExitCode(err)
+			if exitCode == ExitInvalidCode {
+				a.Debugf("retrying command %s to to command execution error", cmdStr)
+				continue
+			}
 		}
 		break
 	}
@@ -802,7 +807,7 @@ func (a *Action) waitForRelay(ctx context.Context, client observer.ObserverClien
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("hubble server status failure: %w", ctx.Err())
-		case <-inctimer.After(time.Second):
+		case <-time.After(time.Second):
 			a.Debug("retrying hubble relay server status request")
 		}
 	}

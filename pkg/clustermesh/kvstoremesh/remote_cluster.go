@@ -254,14 +254,7 @@ func (rc *remoteCluster) waitForConnection(ctx context.Context) {
 	case <-rc.synced.connected:
 	case <-time.After(rc.readyTimeout):
 		rc.logger.Info("Remote cluster did not connect within timeout, removing from readiness checks")
-		for {
-			select {
-			case <-rc.synced.resources.WaitChannel():
-				return
-			default:
-				rc.synced.resources.Done()
-			}
-		}
+		rc.synced.resources.ForceAllDone()
 	}
 }
 
@@ -299,8 +292,8 @@ type reflector struct {
 
 type syncer struct {
 	store.SyncStore
-	synced   *lock.StoppableWaitGroup
-	isSynced *atomic.Bool
+	syncedDone lock.DoneFunc
+	isSynced   *atomic.Bool
 }
 
 func (o *syncer) OnUpdate(key store.Key) {
@@ -315,18 +308,17 @@ func (o *syncer) OnSync(ctx context.Context) {
 	// As we send fake OnSync when service exports support is disabled we need
 	// to make sure that this is called only once.
 	if o.isSynced.CompareAndSwap(false, true) {
-		o.Synced(ctx, func(context.Context) { o.synced.Done() })
+		o.Synced(ctx, func(context.Context) { o.syncedDone() })
 	}
 }
 
-func newReflector(local kvstore.BackendOperations, cluster, prefix string, factory store.Factory, synced *lock.StoppableWaitGroup) reflector {
-	synced.Add()
+func newReflector(local kvstore.BackendOperations, cluster, prefix string, factory store.Factory, synced *resources) reflector {
 	prefix = kvstore.StateToCachePrefix(prefix)
 	syncer := syncer{
 		SyncStore: factory.NewSyncStore(cluster, local, path.Join(prefix, cluster),
 			store.WSSWithSyncedKeyOverride(prefix)),
-		synced:   synced,
-		isSynced: &atomic.Bool{},
+		syncedDone: synced.Add(),
+		isSynced:   &atomic.Bool{},
 	}
 
 	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer,
@@ -339,16 +331,41 @@ func newReflector(local kvstore.BackendOperations, cluster, prefix string, facto
 	}
 }
 
+// resources is a wrapper around StoppableWaitGroup that collects the
+// [lock.DoneFunc]s to allow overriding the waiting.
+type resources struct {
+	*lock.StoppableWaitGroup
+	mu        lock.Mutex
+	doneFuncs []lock.DoneFunc
+}
+
+func (r *resources) Add() lock.DoneFunc {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	done := r.StoppableWaitGroup.Add()
+	r.doneFuncs = append(r.doneFuncs, done)
+	return done
+}
+
+func (r *resources) ForceAllDone() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, done := range r.doneFuncs {
+		done()
+	}
+	r.doneFuncs = nil
+}
+
 type synced struct {
 	wait.SyncedCommon
-	resources *lock.StoppableWaitGroup
+	resources *resources
 	connected chan struct{}
 }
 
 func newSynced() synced {
 	return synced{
 		SyncedCommon: wait.NewSyncedCommon(),
-		resources:    lock.NewStoppableWaitGroup(),
+		resources:    &resources{StoppableWaitGroup: lock.NewStoppableWaitGroup()},
 		connected:    make(chan struct{}),
 	}
 }

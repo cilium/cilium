@@ -56,11 +56,11 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2024-09-20 | ``quay.io/cilium/cilium:v1.16.2``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.2>`__  |
+| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2024-11-14 | ``quay.io/cilium/cilium:v1.16.4``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.4>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2024-09-20 | ``quay.io/cilium/cilium:v1.15.9``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.9>`__  |
+| `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2024-11-14 | ``quay.io/cilium/cilium:v1.15.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.11>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.14 <https://github.com/cilium/cilium/tree/v1.14>`__ | 2024-09-20 | ``quay.io/cilium/cilium:v1.14.15`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.14.15>`__ |
+| `v1.14 <https://github.com/cilium/cilium/tree/v1.14>`__ | 2024-11-14 | ``quay.io/cilium/cilium:v1.14.17`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.14.17>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Architectures
@@ -95,7 +95,7 @@ corresponding image pull tags and their release notes where applicable:
 +----------------------------------------------------------------------------+------------+-----------------------------------------+------------------------------------------------------------------------------------------------+
 | `main <https://github.com/cilium/cilium/commits/main>`__                   | daily      | ``quay.io/cilium/cilium-ci:latest``     | N/A                                                                                            |
 +----------------------------------------------------------------------------+------------+-----------------------------------------+------------------------------------------------------------------------------------------------+
-| `v1.17.0-pre.1 <https://github.com/cilium/cilium/commits/v1.17.0-pre.1>`__ | 2024-10-01 | ``quay.io/cilium/cilium:v1.17.0-pre.1`` | `Pre Release Candidate Notes <https://github.com/cilium/cilium/releases/tag/v1.17.0-pre.1>`__  |
+| `v1.17.0-pre.3 <https://github.com/cilium/cilium/commits/v1.17.0-pre.3>`__ | 2024-12-02 | ``quay.io/cilium/cilium:v1.17.0-pre.3`` | `Pre Release Candidate Notes <https://github.com/cilium/cilium/releases/tag/v1.17.0-pre.3>`__  |
 +----------------------------------------------------------------------------+------------+-----------------------------------------+------------------------------------------------------------------------------------------------+
 
 Functionality Overview
@@ -308,8 +308,8 @@ The Cilium developer community hangs out on Zoom to chat. Everybody is welcome.
 
 * Weekly, Wednesday,
   5:00 pm `Europe/Zurich time <https://time.is/Canton_of_Zurich>`__ (CET/CEST),
-  usually equivalent to 8:00 am PT, or 11:00 am ET. `Join Zoom`_
-* Third Wednesday of each month, 9:00 am `Japan time <https://time.is/Tokyo>`__ (JST). `Join Zoom`_
+  usually equivalent to 8:00 am PT, or 11:00 am ET. `Meeting Notes and Zoom Info`_
+* Third Wednesday of each month, 9:00 am `Japan time <https://time.is/Tokyo>`__ (JST). `APAC Meeting Notes and Zoom Info`_
 
 eBPF & Cilium Office Hours livestream
 -------------------------------------
@@ -354,7 +354,8 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`BPF and XDP Reference Guide`: https://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
-.. _`Join Zoom`: https://zoom.us/j/596609673
+.. _`Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#
+.. _`APAC Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1egv4qLydr0geP-GjQexYKm4tz3_tHy-LCBjVQcXcT5M/edit#
 
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
     :alt: Go Report Card

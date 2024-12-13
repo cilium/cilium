@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net/netip"
 	"slices"
@@ -17,9 +18,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
-	meta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
@@ -33,6 +33,7 @@ import (
 	slim_meta "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/api/meta"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	client_typed_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -67,11 +68,12 @@ type poolClient interface {
 }
 
 type lbIPAMParams struct {
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	lbClasses   []string
 	ipv4Enabled bool
 	ipv6Enabled bool
+	lbProtoDiff bool
 
 	poolClient poolClient
 	svcClient  client_typed_v1.ServicesGetter
@@ -176,7 +178,7 @@ func (ipam *LBIPAM) initialize(
 		if event.Kind == resource.Sync {
 			err := ipam.settleConflicts(ctx)
 			if err != nil {
-				ipam.logger.WithError(err).Error("Error while settling pool conflicts")
+				ipam.logger.Error("Error while settling pool conflicts", logfields.Error, err)
 				// Keep retrying the handling of the sync event until we succeed.
 				// During this time we may receive further updates and deletes.
 				event.Done(err)
@@ -199,13 +201,13 @@ func (ipam *LBIPAM) initialize(
 	for event := range svcChan {
 		if event.Kind == resource.Sync {
 			if err := ipam.satisfyServices(ctx); err != nil {
-				ipam.logger.WithError(err).Error("Error while satisfying services")
+				ipam.logger.Error("Error while satisfying services", logfields.Error, err)
 				// Keep retrying the handling of the sync event until we succeed.
 				event.Done(err)
 				continue
 			}
 			if err := ipam.updateAllPoolCounts(ctx); err != nil {
-				ipam.logger.WithError(err).Error("Error while updating pool counts")
+				ipam.logger.Error("Error while updating pool counts", logfields.Error, err)
 				event.Done(err)
 				continue
 			}
@@ -225,13 +227,13 @@ func (ipam *LBIPAM) handlePoolEvent(ctx context.Context, event resource.Event[*c
 	case resource.Upsert:
 		err = ipam.poolOnUpsert(ctx, event.Object)
 		if err != nil {
-			ipam.logger.WithError(err).Error("pool upsert failed")
+			ipam.logger.Error("pool upsert failed", logfields.Error, err)
 			err = fmt.Errorf("poolOnUpsert: %w", err)
 		}
 	case resource.Delete:
 		err = ipam.poolOnDelete(ctx, event.Object)
 		if err != nil {
-			ipam.logger.WithError(err).Error("pool delete failed")
+			ipam.logger.Error("pool delete failed", logfields.Error, err)
 			err = fmt.Errorf("poolOnDelete: %w", err)
 		}
 	}
@@ -244,13 +246,13 @@ func (ipam *LBIPAM) handleServiceEvent(ctx context.Context, event resource.Event
 	case resource.Upsert:
 		err = ipam.svcOnUpsert(ctx, event.Object)
 		if err != nil {
-			ipam.logger.WithError(err).Error("service upsert failed")
+			ipam.logger.Error("service upsert failed", logfields.Error, err)
 			err = fmt.Errorf("svcOnUpsert: %w", err)
 		}
 	case resource.Delete:
 		err = ipam.svcOnDelete(ctx, event.Object)
 		if err != nil {
-			ipam.logger.WithError(err).Error("service delete failed")
+			ipam.logger.Error("service delete failed", logfields.Error, err)
 			err = fmt.Errorf("svcOnDelete: %w", err)
 		}
 	}
@@ -324,7 +326,7 @@ func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, svc *slim_core_v1.Service) 
 }
 
 func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service) error {
-	ipam.logger.Debugf("Deleted service '%s/%s'", svc.GetNamespace(), svc.GetName())
+	ipam.logger.Debug(fmt.Sprintf("Deleted service '%s/%s'", svc.GetNamespace(), svc.GetName()))
 
 	ipam.handleDeletedService(svc)
 
@@ -460,7 +462,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		alloc := sv.AllocatedIPs[allocIdx]
 
 		releaseAllocIP := func() error {
-			ipam.logger.Debugf("removing allocation '%s' from '%s'", alloc.IP.String(), sv.Key.String())
+			ipam.logger.Debug(fmt.Sprintf("removing allocation '%s' from '%s'", alloc.IP.String(), sv.Key.String()))
 			sharingGroup, _ := alloc.Origin.alloc.Get(alloc.IP)
 
 			idx := slices.Index(sharingGroup, sv)
@@ -554,7 +556,7 @@ func (ipam *LBIPAM) checkSharingGroupCompatibility(sv *ServiceView) bool {
 
 		for _, sharedView := range sharedViews {
 			if sv != sharedView {
-				if c, _ := sharedView.isCompatible(sv); !c {
+				if c, _ := sharedView.isCompatible(sv, ipam.lbProtoDiff); !c {
 					return false
 				}
 			}
@@ -663,14 +665,14 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 	return statusModified, nil
 }
 
-func getSVCRequestedIPs(log logrus.FieldLogger, svc *slim_core_v1.Service) []netip.Addr {
+func getSVCRequestedIPs(log *slog.Logger, svc *slim_core_v1.Service) []netip.Addr {
 	var ips []netip.Addr
 	if svc.Spec.LoadBalancerIP != "" {
 		ip, err := netip.ParseAddr(svc.Spec.LoadBalancerIP)
 		if err == nil {
 			ips = append(ips, ip)
 		} else {
-			log.WithError(err).Error("Unable to parse service.spec.LoadBalancerIP")
+			log.Error("Unable to parse service.spec.LoadBalancerIP", logfields.Error, err)
 		}
 	}
 
@@ -680,7 +682,7 @@ func getSVCRequestedIPs(log logrus.FieldLogger, svc *slim_core_v1.Service) []net
 			if err == nil {
 				ips = append(ips, ip)
 			} else {
-				log.WithError(err).Error("Unable to parse service.spec.LoadBalancerIP")
+				log.Error("Unable to parse service.spec.LoadBalancerIP", logfields.Error, err)
 			}
 		}
 	}
@@ -858,7 +860,7 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 			compatible := true
 			incompatibilityReason := ""
 			for _, serviceView := range serviceViews {
-				if c, r := serviceView.isCompatible(sv); !c {
+				if c, r := serviceView.isCompatible(sv, ipam.lbProtoDiff); !c {
 					compatible = false
 					incompatibilityReason = r
 					break
@@ -877,18 +879,18 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 			serviceViews = append(serviceViews, sv)
 			err = lbRange.alloc.Update(reqIP, serviceViews)
 			if err != nil {
-				ipam.logger.WithError(err).Errorf("Error while attempting to update IP '%s'", reqIP)
+				ipam.logger.Error(fmt.Sprintf("Error while attempting to update IP '%s'", reqIP), logfields.Error, err)
 				continue
 			}
 		} else {
-			ipam.logger.Debugf("Allocate '%s' for '%s'", reqIP.String(), sv.Key.String())
+			ipam.logger.Debug(fmt.Sprintf("Allocate '%s' for '%s'", reqIP.String(), sv.Key.String()))
 			err = lbRange.alloc.Alloc(reqIP, []*ServiceView{sv})
 			if err != nil {
 				if errors.Is(err, ipalloc.ErrInUse) {
 					return statusModified, fmt.Errorf("ipalloc.Alloc: %w", err)
 				}
 
-				ipam.logger.WithError(err).Error("Unable to allocate IP")
+				ipam.logger.Error("Unable to allocate IP", logfields.Error, err)
 				continue
 			}
 		}
@@ -951,7 +953,7 @@ func (ipam *LBIPAM) satisfyGenericIPv4Requests(sv *ServiceView) (statusModified 
 			// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
 			compatible := true
 			for _, serviceView := range serviceViews {
-				if c, _ := serviceView.isCompatible(sv); !c {
+				if c, _ := serviceView.isCompatible(sv, ipam.lbProtoDiff); !c {
 					compatible = false
 					break
 				}
@@ -1017,7 +1019,7 @@ func (ipam *LBIPAM) satisfyGenericIPv6Requests(sv *ServiceView) (statusModified 
 				// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
 				compatible := true
 				for _, serviceView := range serviceViews {
-					if c, _ := serviceView.isCompatible(sv); !c {
+					if c, _ := serviceView.isCompatible(sv, ipam.lbProtoDiff); !c {
 						compatible = false
 						break
 					}
@@ -1177,8 +1179,8 @@ func (ipam *LBIPAM) allocateIPAddress(
 
 		pool, found := ipam.pools[lbRange.originPool]
 		if !found {
-			ipam.logger.WithField("pool-name", lbRange.originPool).
-				Warnf("Bad state detected, store contains lbRange for pool '%s' but missing the pool", lbRange.originPool)
+			ipam.logger.Warn(fmt.Sprintf("Bad state detected, store contains lbRange for pool '%s' but missing the pool", lbRange.originPool),
+				"pool-name", lbRange.originPool)
 			continue
 		}
 
@@ -1203,7 +1205,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 				continue
 			}
 
-			ipam.logger.WithError(err).Error("Allocate next IP from lb range")
+			ipam.logger.Error("Allocate next IP from lb range", logfields.Error, err)
 			continue
 		}
 
@@ -1280,8 +1282,8 @@ func (ipam *LBIPAM) serviceIPFamilyRequest(svc *slim_core_v1.Service) (IPv4Reque
 func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
 	// Sanity check that we do not yet know about this pool.
 	if _, found := ipam.pools[pool.GetName()]; found {
-		ipam.logger.WithField("pool-name", pool.GetName()).
-			Warnf("LB IPPool '%s' has been created, but a LB IP Pool with the same name already exists", pool.GetName())
+		ipam.logger.Warn(fmt.Sprintf("LB IPPool '%s' has been created, but a LB IP Pool with the same name already exists", pool.GetName()),
+			"pool-name", pool.GetName())
 		return nil
 	}
 
@@ -1528,7 +1530,7 @@ func (ipam *LBIPAM) updateAllPoolCounts(ctx context.Context) error {
 	ipam.logger.Debug("Updating pool counts")
 	for _, pool := range ipam.pools {
 		if ipam.updatePoolCounts(pool) {
-			ipam.logger.Debugf("Pool counts of '%s' changed, patching", pool.Name)
+			ipam.logger.Debug(fmt.Sprintf("Pool counts of '%s' changed, patching", pool.Name))
 			err := ipam.patchPoolStatus(ctx, pool)
 			if err != nil {
 				return fmt.Errorf("patchPoolStatus: %w", err)
@@ -1806,16 +1808,16 @@ func (ipam *LBIPAM) markPoolConflicting(
 
 	ipam.metrics.ConflictingPools.Inc()
 
-	ipam.logger.WithFields(logrus.Fields{
-		"pool1-name":  targetPool.Name,
-		"pool1-range": ipNetStr(targetRange),
-		"pool2-name":  ipNetStr(collisionRange),
-		"pool2-range": collisionPool.Name,
-	}).Warnf("Pool '%s' conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
-		targetPool.Name,
-		ipNetStr(targetRange),
-		ipNetStr(collisionRange),
-		collisionPool.Name,
+	ipam.logger.Warn(
+		fmt.Sprintf("Pool '%s' conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
+			targetPool.Name,
+			ipNetStr(targetRange),
+			ipNetStr(collisionRange),
+			collisionPool.Name),
+		"pool1-name", targetPool.Name,
+		"pool1-range", ipNetStr(targetRange),
+		"pool2-name", ipNetStr(collisionRange),
+		"pool2-range", collisionPool.Name,
 	)
 
 	conflictMessage := fmt.Sprintf(

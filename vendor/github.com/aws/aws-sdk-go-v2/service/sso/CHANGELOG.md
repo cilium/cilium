@@ -1,3 +1,32 @@
+# v1.24.7 (2024-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.24.6 (2024-11-18)
+
+* **Dependency Update**: Update to smithy-go v1.22.1.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.24.5 (2024-11-07)
+
+* **Bug Fix**: Adds case-insensitive handling of error message fields in service responses
+
+# v1.24.4 (2024-11-06)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.24.3 (2024-10-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.24.2 (2024-10-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.24.1 (2024-10-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.24.0 (2024-10-04)
 
 * **Feature**: Add support for HTTP client metrics.

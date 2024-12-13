@@ -5,15 +5,17 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/policy"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -23,6 +25,7 @@ func (p *policyWatcher) onUpsert(
 	key resource.Key,
 	apiGroup string,
 	resourceID ipcacheTypes.ResourceID,
+	dc chan uint64,
 ) error {
 	initialRecvTime := time.Now()
 
@@ -31,7 +34,6 @@ func (p *policyWatcher) onUpsert(
 	}()
 
 	oldCNP, ok := p.cnpCache[key]
-	var oldCidrGroupRefs []string
 	if ok {
 		// no generation change; this was a status update.
 		if oldCNP.Generation == cnp.Generation {
@@ -40,8 +42,6 @@ func (p *policyWatcher) onUpsert(
 		if oldCNP.DeepEqual(cnp) {
 			return nil
 		}
-
-		oldCidrGroupRefs = getCIDRGroupRefs(oldCNP)
 
 		p.log.WithFields(logrus.Fields{
 			logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -56,31 +56,21 @@ func (p *policyWatcher) onUpsert(
 		return nil
 	}
 
-	// Check if this policy is referencing any CIDR groups, and bump their
-	// reference count as applicable.
-	//
-	// This may cause CIDRs to be inserted in to the ipcache.
-	cidrGroupRefs := getCIDRGroupRefs(cnp)
-	for _, ref := range cidrGroupRefs {
-		if p.cidrGroupRefs.Add(ref) {
-			p.applyCIDRGroup(ref)
-		}
-	}
-
-	for _, ref := range oldCidrGroupRefs {
-		if p.cidrGroupRefs.Delete(ref) {
-			p.applyCIDRGroup(ref)
-		}
-	}
-
 	// check if this cnp was referencing or is now referencing at least one ToServices rule
 	if hasToServices(cnp) {
 		p.toServicesPolicies[key] = struct{}{}
 	} else {
-		delete(p.toServicesPolicies, key)
+		if _, hadToServices := p.toServicesPolicies[key]; hadToServices {
+			// transitioning from with toServices to without toServices
+			delete(p.toServicesPolicies, key)
+			// Clear ToServices index
+			for svcID := range p.cnpByServiceID {
+				p.clearCNPForService(key, svcID)
+			}
+		}
 	}
 
-	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID)
+	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID, dc)
 }
 
 func (p *policyWatcher) onDelete(
@@ -88,23 +78,11 @@ func (p *policyWatcher) onDelete(
 	key resource.Key,
 	apiGroup string,
 	resourceID ipcacheTypes.ResourceID,
-) error {
-	err := p.deleteCiliumNetworkPolicyV2(cnp, resourceID)
-
-	oldCNP, ok := p.cnpCache[key]
-	var oldCidrGroupRefs []string
-	if ok {
-		oldCidrGroupRefs = getCIDRGroupRefs(oldCNP)
-	}
+	dc chan uint64,
+) {
+	p.deleteCiliumNetworkPolicyV2(cnp, resourceID, dc)
 
 	delete(p.cnpCache, key)
-
-	// Clear any cidrgroup reference counts
-	for _, ref := range oldCidrGroupRefs {
-		if p.cidrGroupRefs.Delete(ref) {
-			p.applyCIDRGroup(ref)
-		}
-	}
 
 	// Clear ToServices index
 	for svcID := range p.cnpByServiceID {
@@ -113,8 +91,6 @@ func (p *policyWatcher) onDelete(
 	delete(p.toServicesPolicies, key)
 
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
-
-	return err
 }
 
 // resolveCiliumNetworkPolicyRefs resolves all the references to external resources
@@ -127,6 +103,7 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 	key resource.Key,
 	initialRecvTime time.Time,
 	resourceID ipcacheTypes.ResourceID,
+	dc chan uint64,
 ) error {
 	// We need to deepcopy this structure because we are writing
 	// fields in cnp.Parse() in upsertCiliumNetworkPolicyV2.
@@ -134,9 +111,11 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 	translatedCNP := cnp.DeepCopy()
 
 	// Resolve ToService references
-	p.resolveToServices(key, translatedCNP)
+	if _, exists := p.toServicesPolicies[key]; exists {
+		p.resolveToServices(key, translatedCNP)
+	}
 
-	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
+	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID, dc)
 	if err == nil {
 		p.cnpCache[key] = cnp
 	}
@@ -144,7 +123,7 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 	return err
 }
 
-func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID) error {
+func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID, dc chan uint64) error {
 	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -152,27 +131,37 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 	})
 
 	scopedLog.Debug("Adding CiliumNetworkPolicy")
-
-	rules, policyImportErr := cnp.Parse()
-	if policyImportErr == nil {
-		_, policyImportErr = p.policyManager.PolicyAdd(rules, &policy.AddOptions{
-			Source:              source.CustomResource,
-			ProcessingStartTime: initialRecvTime,
-			Resource:            resourceID,
-			ReplaceByResource:   true,
-		})
-	}
-
-	if policyImportErr != nil {
-		scopedLog.WithError(policyImportErr).Warn("Unable to add CiliumNetworkPolicy")
+	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
+	if namespace == "" {
+		p.metricsManager.AddCCNP(cnp.CiliumNetworkPolicy)
 	} else {
-		scopedLog.Info("Imported CiliumNetworkPolicy")
+		p.metricsManager.AddCNP(cnp.CiliumNetworkPolicy)
 	}
 
-	return policyImportErr
+	rules, err := cnp.Parse()
+	if err != nil {
+		scopedLog.WithError(err).Warn("Unable to add CiliumNetworkPolicy")
+		return fmt.Errorf("failed to parse CiliumNetworkPolicy %s/%s: %w", cnp.ObjectMeta.Namespace, cnp.ObjectMeta.Name, err)
+	}
+	if dc != nil {
+		if cnp.ObjectMeta.Namespace == "" {
+			p.ccnpSyncPending.Add(1)
+		} else {
+			p.cnpSyncPending.Add(1)
+		}
+	}
+	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
+		Rules:               rules,
+		Source:              source.CustomResource,
+		ProcessingStartTime: initialRecvTime,
+		Resource:            resourceID,
+		DoneChan:            dc,
+	})
+	scopedLog.Info("Imported CiliumNetworkPolicy")
+	return nil
 }
 
-func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID) error {
+func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID, dc chan uint64) {
 	scopedLog := p.log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -180,18 +169,26 @@ func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resource
 	})
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
-
-	_, err := p.policyManager.PolicyDelete(nil, &policy.DeleteOptions{
-		Source:           source.CustomResource,
-		Resource:         resourceID,
-		DeleteByResource: true,
-	})
-	if err == nil {
-		scopedLog.Info("Deleted CiliumNetworkPolicy")
+	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
+	if namespace == "" {
+		p.metricsManager.DelCCNP(cnp.CiliumNetworkPolicy)
 	} else {
-		scopedLog.WithError(err).Warn("Unable to delete CiliumNetworkPolicy")
+		p.metricsManager.DelCNP(cnp.CiliumNetworkPolicy)
 	}
-	return err
+
+	if dc != nil {
+		if cnp.ObjectMeta.Namespace == "" {
+			p.ccnpSyncPending.Add(1)
+		} else {
+			p.cnpSyncPending.Add(1)
+		}
+	}
+	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
+		Source:   source.CustomResource,
+		Resource: resourceID,
+		DoneChan: dc,
+	})
+	scopedLog.Info("Deleted CiliumNetworkPolicy")
 }
 
 func (p *policyWatcher) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {

@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -23,7 +24,6 @@ import (
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/netutil"
 
@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
-	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
@@ -98,7 +97,6 @@ type apiParams struct {
 	DaemonGetMapHandler                  daemon.GetMapHandler
 	DaemonGetMapNameHandler              daemon.GetMapNameHandler
 	DaemonGetMapNameEventsHandler        daemon.GetMapNameEventsHandler
-	MetricsGetMetricsHandler             metrics.GetMetricsHandler
 	DaemonGetNodeIdsHandler              daemon.GetNodeIdsHandler
 	PolicyGetPolicyHandler               policy.GetPolicyHandler
 	PolicyGetPolicySelectorsHandler      policy.GetPolicySelectorsHandler
@@ -159,7 +157,6 @@ func newAPI(p apiParams) *restapi.CiliumAPIAPI {
 	api.DaemonGetMapHandler = p.DaemonGetMapHandler
 	api.DaemonGetMapNameHandler = p.DaemonGetMapNameHandler
 	api.DaemonGetMapNameEventsHandler = p.DaemonGetMapNameEventsHandler
-	api.MetricsGetMetricsHandler = p.MetricsGetMetricsHandler
 	api.DaemonGetNodeIdsHandler = p.DaemonGetNodeIdsHandler
 	api.PolicyGetPolicyHandler = p.PolicyGetPolicyHandler
 	api.PolicyGetPolicySelectorsHandler = p.PolicyGetPolicySelectorsHandler
@@ -196,7 +193,7 @@ type serverParams struct {
 
 	Lifecycle  cell.Lifecycle
 	Shutdowner hive.Shutdowner
-	Logger     logrus.FieldLogger
+	Logger     *slog.Logger
 	Spec       *Spec
 	API        *restapi.CiliumAPIAPI
 }
@@ -354,13 +351,13 @@ type Server struct {
 
 	wg         sync.WaitGroup
 	shutdowner hive.Shutdowner
-	logger     logrus.FieldLogger
+	logger     *slog.Logger
 }
 
 // Logf logs message either via defined user logger or via system one if no user logger is defined.
 func (s *Server) Logf(f string, args ...interface{}) {
 	if s.logger != nil {
-		s.logger.Infof(f, args...)
+		s.logger.Info(fmt.Sprintf(f, args...))
 	} else if s.api != nil && s.api.Logger != nil {
 		s.api.Logger(f, args...)
 	} else {

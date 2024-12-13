@@ -5,11 +5,11 @@ package auth
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/auth/spire"
@@ -36,9 +36,12 @@ var Cell = cell.Module(
 
 	// The auth manager is the main entry point which gets registered to signal map and receives auth requests.
 	// In addition, it handles re-authentication and auth map garbage collection.
-	cell.Provide(registerAuthManager),
+	cell.Provide(
+		registerAuthManager,
+		func(c config) MeshAuthConfig { return c },
+	),
 	cell.ProvidePrivate(
-		// Null auth handler provides support for auth type "null" - which always succeeds.
+		// Auth handler that performs a mutual auth handshake
 		newMutualAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
 		newAlwaysFailAuthHandler,
@@ -67,10 +70,18 @@ func (r config) Flags(flags *pflag.FlagSet) {
 	flags.MarkHidden("mesh-auth-signal-backoff-duration")
 }
 
+func (r config) IsEnabled() bool {
+	return r.MeshAuthEnabled
+}
+
+type MeshAuthConfig interface {
+	IsEnabled() bool
+}
+
 type authManagerParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 	Health    cell.Health
@@ -84,7 +95,7 @@ type authManagerParams struct {
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
-	PolicyRepo      *policy.Repository
+	PolicyRepo      policy.PolicyRepository
 }
 
 func registerAuthManager(params authManagerParams) (*AuthManager, error) {
@@ -135,7 +146,7 @@ func registerReAuthenticationJob(jobGroup job.Group, mgr *AuthManager, authHandl
 }
 
 func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm signal.SignalManager, config config) error {
-	var signalChannel = make(chan signalAuthKey, config.MeshAuthQueueSize)
+	signalChannel := make(chan signalAuthKey, config.MeshAuthQueueSize)
 
 	// RegisterHandler registers signalChannel with SignalManager, but flow of events
 	// starts later during the OnStart hook of the SignalManager

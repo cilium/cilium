@@ -5,26 +5,40 @@ package kafka
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type kafkaHandler struct {
-	requests *prometheus.CounterVec
-	duration *prometheus.HistogramVec
-	context  *api.ContextOptions
+	requests  *prometheus.CounterVec
+	duration  *prometheus.HistogramVec
+	context   *api.ContextOptions
+	AllowList filters.FilterFuncs
+	DenyList  filters.FilterFuncs
 }
 
-func (h *kafkaHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
-	c, err := api.ParseContextOptions(options)
+func (h *kafkaHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
 	h.context = c
+	err = h.HandleConfigurationUpdate(options)
+	if err != nil {
+		return err
+	}
 
 	h.requests = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
@@ -70,6 +84,10 @@ func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error
 		return nil
 	}
 
+	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
+		return nil
+	}
+
 	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
@@ -83,7 +101,35 @@ func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error
 		reporter = "server"
 	}
 
-	h.requests.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, string(kafka.ErrorCode), reporter)...).Inc()
+	h.requests.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, strconv.Itoa(int(kafka.ErrorCode)), reporter)...).Inc()
 	h.duration.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, reporter)...).Observe(float64(l7.LatencyNs) / float64(time.Second))
+	return nil
+}
+
+func (h *kafkaHandler) Deinit(registry *prometheus.Registry) error {
+	var errs error
+	if !registry.Unregister(h.requests) {
+		errs = errors.Join(errs, fmt.Errorf("failed to unregister metric: %v,", "kafka_requests_total"))
+	}
+	if !registry.Unregister(h.duration) {
+		errs = errors.Join(errs, fmt.Errorf("failed to unregister metric: %v,", "kafka_request_duration_seconds"))
+	}
+	return errs
+}
+
+func (h *kafkaHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return h.SetFilters(cfg)
+}
+
+func (h *kafkaHandler) SetFilters(cfg *api.MetricConfig) error {
+	var err error
+	h.AllowList, err = filters.BuildFilterList(context.Background(), cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	h.DenyList, err = filters.BuildFilterList(context.Background(), cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
 	return nil
 }

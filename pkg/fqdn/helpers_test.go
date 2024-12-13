@@ -52,33 +52,33 @@ func TestMapIPsToSelectors(t *testing.T) {
 	// Just one IP.
 	ciliumIOName := prepareMatchName(ciliumIOSel.MatchName)
 	changed := cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1}, 100)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
-	require.Equal(t, 1, len(nameIPMapping))
+	require.Len(t, nameIPMapping, 1)
 	println(ciliumIOSel.MatchName)
 	ciliumIPs, ok := nameIPMapping[ciliumIOName]
-	require.Equal(t, true, ok)
-	require.Equal(t, 1, len(ciliumIPs))
+	require.True(t, ok)
+	require.Len(t, ciliumIPs, 1)
 	require.Equal(t, ciliumIP1, ciliumIPs[0])
 
 	// Two IPs now.
 	changed = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 100)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
-	require.Equal(t, 1, len(nameIPMapping))
+	require.Len(t, nameIPMapping, 1)
 	ciliumIPs, ok = nameIPMapping[ciliumIOName]
-	require.Equal(t, true, ok)
-	require.Equal(t, 2, len(ciliumIPs))
+	require.True(t, ok)
+	require.Len(t, ciliumIPs, 2)
 	ip.SortAddrList(ciliumIPs)
 	require.Equal(t, ciliumIP1, ciliumIPs[0])
 	require.Equal(t, ciliumIP2, ciliumIPs[1])
 
 	// Test with a MatchPattern.
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSelMatchPattern)
-	require.Equal(t, 1, len(nameIPMapping))
+	require.Len(t, nameIPMapping, 1)
 	ciliumIPs, ok = nameIPMapping[ciliumIOName]
-	require.Equal(t, true, ok)
-	require.Equal(t, 2, len(ciliumIPs))
+	require.True(t, ok)
+	require.Len(t, ciliumIPs, 2)
 	ip.SortAddrList(ciliumIPs)
 	require.Equal(t, ciliumIP1, ciliumIPs[0])
 	require.Equal(t, ciliumIP2, ciliumIPs[1])

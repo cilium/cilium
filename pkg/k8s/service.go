@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -66,15 +67,26 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	return serviceAffinityNone
 }
 
-func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) loadbalancer.SVCForwardingMode {
+func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {
 	if value, ok := annotation.Get(svc, annotation.ServiceForwardingMode); ok {
-		tmp := loadbalancer.SVCForwardingMode(strings.ToLower(value))
-		if tmp == loadbalancer.SVCForwardingModeDSR || tmp == loadbalancer.SVCForwardingModeSNAT {
-			return tmp
+		val := loadbalancer.ToSVCForwardingMode(strings.ToLower(value))
+		if val != loadbalancer.SVCForwardingModeUndef {
+			return val, nil
 		}
+		return loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode), fmt.Errorf("Value %q is not supported for %q", val, annotation.ServiceForwardingMode)
 	}
+	return loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode), nil
+}
 
-	return loadbalancer.SVCForwardingModeSNAT
+func getAnnotationServiceLoadBalancingAlgorithm(svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
+	if value, ok := annotation.Get(svc, annotation.ServiceLoadBalancingAlgorithm); ok {
+		val := loadbalancer.ToSVCLoadBalancingAlgorithm(strings.ToLower(value))
+		if val != loadbalancer.SVCLoadBalancingAlgorithmUndef {
+			return val, nil
+		}
+		return loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg), fmt.Errorf("Value %q is not supported for %q", val, annotation.ServiceLoadBalancingAlgorithm)
+	}
+	return loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg), nil
 }
 
 func getTopologyAware(svc *slim_corev1.Service) bool {
@@ -90,6 +102,17 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 		value = svc.ObjectMeta.Annotations[v1.AnnotationTopologyMode]
 	}
 	return !(value == "" || value == "disabled" || value == "Disabled")
+}
+
+func getAnnotationServiceSourceRangesPolicy(svc *slim_corev1.Service) loadbalancer.SVCSourceRangesPolicy {
+	if value, ok := annotation.Get(svc, annotation.ServiceSourceRangesPolicy); ok {
+		tmp := loadbalancer.SVCSourceRangesPolicy(strings.ToLower(value))
+		if tmp == loadbalancer.SVCSourceRangesPolicyDeny {
+			return tmp
+		}
+	}
+
+	return loadbalancer.SVCSourceRangesPolicyAllow
 }
 
 // isValidServiceFrontendIP returns true if the provided service frontend IP address type
@@ -207,7 +230,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		}
 	}
 
-	headless := false
+	_, headless := svc.Labels[v1.IsHeadlessService]
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		headless = true
 	}
@@ -229,7 +252,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 
 	if expType.canExpose(slim_corev1.ServiceTypeLoadBalancer) {
 		for _, ip := range svc.Status.LoadBalancer.Ingress {
-			if ip.IP != "" && ip.IPMode == nil || *ip.IPMode == slim_corev1.LoadBalancerIPModeVIP {
+			if ip.IP != "" && (ip.IPMode == nil || *ip.IPMode == slim_corev1.LoadBalancerIPModeVIP) {
 				loadBalancerIPs = append(loadBalancerIPs, ip.IP)
 			}
 		}
@@ -245,10 +268,32 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		uint16(svc.Spec.HealthCheckNodePort), svc.Annotations, svc.Labels, svc.Spec.Selector,
 		svc.GetNamespace(), svcType)
 
-	svcInfo.Shared = getAnnotationShared(svc)
-	svcInfo.ForwardingMode = getAnnotationServiceForwardingMode(svc)
+	svcInfo.SourceRangesPolicy = getAnnotationServiceSourceRangesPolicy(svc)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.ServiceAffinity = getAnnotationServiceAffinity(svc)
+	svcInfo.Shared = getAnnotationShared(svc)
+
+	svcInfo.ForwardingMode = loadbalancer.ToSVCForwardingMode(option.Config.NodePortMode)
+	if option.Config.LoadBalancerAlgorithmAnnotation {
+		var err error
+
+		svcInfo.ForwardingMode, err = getAnnotationServiceForwardingMode(svc)
+		if err != nil {
+			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v",
+				annotation.ServiceForwardingMode, svcInfo.ForwardingMode)
+		}
+	}
+
+	svcInfo.LoadBalancerAlgorithm = loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg)
+	if option.Config.LoadBalancerAlgorithmAnnotation {
+		var err error
+
+		svcInfo.LoadBalancerAlgorithm, err = getAnnotationServiceLoadBalancingAlgorithm(svc)
+		if err != nil {
+			scopedLog.WithError(err).Warnf("Ignoring %q annotation, applying global configuration: %v",
+				annotation.ServiceLoadBalancingAlgorithm, svcInfo.LoadBalancerAlgorithm)
+		}
+	}
 
 	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {
 		svcInfo.SessionAffinity = true
@@ -257,6 +302,11 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		}
 		if svcInfo.SessionAffinityTimeoutSec == 0 {
 			svcInfo.SessionAffinityTimeoutSec = uint32(v1.DefaultClientIPServiceAffinitySeconds)
+		}
+		if svcInfo.SessionAffinityTimeoutSec > defaults.SessionAffinityTimeoutMaxFallback {
+			scopedLog.Warnf("Clamping maximum possible session affinity timeout from %d to %d seconds",
+				svcInfo.SessionAffinityTimeoutSec, defaults.SessionAffinityTimeoutMaxFallback)
+			svcInfo.SessionAffinityTimeoutSec = defaults.SessionAffinityTimeoutMaxFallback
 		}
 	}
 
@@ -289,7 +339,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
 				// This can happen if the service type is NodePort/LoadBalancer but the upstream apiserver
-				// did not assign any NodePort to the serivce port field.
+				// did not assign any NodePort to the service port field.
 				// For example if `allocateLoadBalancerNodePorts` is set to false in the service
 				// spec. For more details see -
 				// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1864-disable-lb-node-ports
@@ -407,6 +457,10 @@ type Service struct {
 	// to the backend.
 	ForwardingMode loadbalancer.SVCForwardingMode
 
+	// SourceRangesPolicy controls whether the specified loadBalancerSourceRanges
+	// CIDR set defines an allow- or deny-list.
+	SourceRangesPolicy loadbalancer.SVCSourceRangesPolicy
+
 	// HealthCheckNodePort defines on which port the node runs a HTTP health
 	// check server which may be used by external loadbalancers to determine
 	// if a node has local backends. This will only have effect if both
@@ -425,6 +479,9 @@ type Service struct {
 	// manually.
 	// +deepequal-gen=false
 	K8sExternalIPs map[string]net.IP
+
+	// LoadBalancerAlgorithm indicates which backend selection algorithm to use.
+	LoadBalancerAlgorithm loadbalancer.SVCLoadBalancingAlgorithm
 
 	// LoadBalancerIPs stores LB IPs assigned to the service (string(IP) => IP).
 	//
@@ -553,7 +610,8 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRanges []string,
 	headless bool, extTrafficPolicy, intTrafficPolicy loadbalancer.SVCTrafficPolicy,
 	healthCheckNodePort uint16, annotations, labels, selector map[string]string,
-	namespace string, svcType loadbalancer.SVCType) *Service {
+	namespace string, svcType loadbalancer.SVCType,
+) *Service {
 	var (
 		k8sExternalIPs     map[string]net.IP
 		k8sLoadBalancerIPs map[string]net.IP
@@ -573,14 +631,6 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 	// CPU cycles processing events Cilium will not act upon.
 	if option.Config.EnableNodePort {
 		k8sExternalIPs = parseIPs(externalIPs)
-		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
-	} else if option.Config.BGPAnnounceLBIP {
-		// The BGP LB Announcement feature requires that
-		// loadBalancerIPs be parsed. This is because
-		// an event must occur when a Service's Status field
-		// is updated with a new Ingress, ultimately triggering a
-		// BGP announcement. If we do not parse loadBalancerIPs
-		// this will not occur.
 		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
 	}
 

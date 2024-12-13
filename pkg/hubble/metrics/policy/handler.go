@@ -5,72 +5,88 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/identity"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 type policyHandler struct {
-	verdicts *prometheus.CounterVec
-	context  *api.ContextOptions
+	verdicts  *prometheus.CounterVec
+	context   *api.ContextOptions
+	AllowList filters.FilterFuncs
+	DenyList  filters.FilterFuncs
 }
 
-func (d *policyHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
-	c, err := api.ParseContextOptions(options)
+func (h *policyHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
-	d.context = c
+	h.context = c
+	err = h.HandleConfigurationUpdate(options)
+	if err != nil {
+		return err
+	}
 
 	labels := []string{"direction", "match", "action"}
-	labels = append(labels, d.context.GetLabelNames()...)
+	labels = append(labels, h.context.GetLabelNames()...)
 
-	d.verdicts = prometheus.NewCounterVec(prometheus.CounterOpts{
+	h.verdicts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "policy_verdicts_total",
 		Help:      "Total number of Cilium network policy verdicts",
 	}, labels)
 
-	registry.MustRegister(d.verdicts)
+	registry.MustRegister(h.verdicts)
 	return nil
 }
 
-func (d *policyHandler) Status() string {
-	return d.context.Status()
+func (h *policyHandler) Status() string {
+	return h.context.Status()
 }
 
-func (d *policyHandler) Context() *api.ContextOptions {
-	return d.context
+func (h *policyHandler) Context() *api.ContextOptions {
+	return h.context
 }
 
-func (d *policyHandler) ListMetricVec() []*prometheus.MetricVec {
-	return []*prometheus.MetricVec{d.verdicts.MetricVec}
+func (h *policyHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{h.verdicts.MetricVec}
 }
 
-func (d *policyHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (h *policyHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
+		return nil
+	}
+
 	if flow.GetEventType().GetType() == monitorAPI.MessageTypePolicyVerdict {
-		return d.ProcessFlowL3L4(ctx, flow)
+		return h.ProcessFlowL3L4(ctx, flow)
 	}
 
 	if flow.GetEventType().GetType() == monitorAPI.MessageTypeAccessLog {
-		return d.ProcessFlowL7(ctx, flow)
+		return h.ProcessFlowL7(ctx, flow)
 	}
 
 	return nil
 }
 
-func (d *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *flowpb.Flow) error {
+func (h *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *flowpb.Flow) error {
 	// ignore verdict if the source is host since host is allowed to connect to any local endpoints.
 	if flow.GetSource().GetIdentity() == uint32(identity.ReservedIdentityHost) {
 		return nil
 	}
-	labelValues, err := d.context.GetLabelValues(flow)
+	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
 	}
@@ -81,12 +97,12 @@ func (d *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *flowpb.Flow) 
 	labels := []string{direction, match, action}
 	labels = append(labels, labelValues...)
 
-	d.verdicts.WithLabelValues(labels...).Inc()
+	h.verdicts.WithLabelValues(labels...).Inc()
 	return nil
 }
 
-func (d *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) error {
-	labelValues, err := d.context.GetLabelValues(flow)
+func (h *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) error {
+	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
 	}
@@ -108,6 +124,31 @@ func (d *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) er
 	labels := []string{direction, match, action}
 	labels = append(labels, labelValues...)
 
-	d.verdicts.WithLabelValues(labels...).Inc()
+	h.verdicts.WithLabelValues(labels...).Inc()
+	return nil
+}
+
+func (h *policyHandler) Deinit(registry *prometheus.Registry) error {
+	var errs error
+	if !registry.Unregister(h.verdicts) {
+		errs = errors.Join(errs, fmt.Errorf("failed to unregister metric: %v,", "policy_verdicts_total"))
+	}
+	return errs
+}
+
+func (h *policyHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return h.SetFilters(cfg)
+}
+
+func (h *policyHandler) SetFilters(cfg *api.MetricConfig) error {
+	var err error
+	h.AllowList, err = filters.BuildFilterList(context.Background(), cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	h.DenyList, err = filters.BuildFilterList(context.Background(), cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
 	return nil
 }

@@ -118,11 +118,11 @@ func TestAlignChecker(t *testing.T) {
 	for _, tt := range testCases {
 		err := CheckStructAlignments("testdata/bpf_foo.o", toCheck{tt.cName: tt.goTypes}, true)
 		if tt.err != "" {
-			assert.NotNil(t, err)
+			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.err)
 			continue
 		}
 
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 }

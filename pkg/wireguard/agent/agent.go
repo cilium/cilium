@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -186,7 +187,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 	linkMTU := mtuConfig.DeviceMTU - mtu.WireguardOverhead
 
 	// try to remove any old tun devices created by userspace mode
-	link, _ := netlink.LinkByName(types.IfaceName)
+	link, _ := safenetlink.LinkByName(types.IfaceName)
 	if _, isTuntap := link.(*netlink.Tuntap); isTuntap {
 		_ = netlink.LinkDel(link)
 	}
@@ -252,7 +253,7 @@ func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
 	for {
 		mtuRoute, _, watch, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
 		if found {
-			link, err := netlink.LinkByName(types.IfaceName)
+			link, err := safenetlink.LinkByName(types.IfaceName)
 			if err != nil {
 				health.Degraded("failed to get WireGuard link", err)
 				retry = true
@@ -373,35 +374,37 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	}
 
 	peer := a.peerByNodeName[nodeName]
-	if peer != nil {
-		// Handle pubKey change
-		if peer.pubKey != pubKey {
-			log.WithField(logfields.NodeName, nodeName).Debug("Pubkey has changed")
-			// pubKeys differ, so delete old peer
-			if err := a.deletePeerByPubKey(peer.pubKey); err != nil {
-				return err
-			}
-		}
-
-		// Handle Node IP change
-		if !peer.nodeIPv4.Equal(nodeIPv4) {
-			delete(a.nodeNameByNodeIP, peer.nodeIPv4.String())
-			peer.queueAllowedIPsRemove(net.IPNet{
-				IP:   peer.nodeIPv4,
-				Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
-			})
-		}
-		if !peer.nodeIPv6.Equal(nodeIPv6) {
-			delete(a.nodeNameByNodeIP, peer.nodeIPv6.String())
-			peer.queueAllowedIPsRemove(net.IPNet{
-				IP:   peer.nodeIPv6,
-				Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
-			})
-		}
-	} else {
+	// (Re)initialize peer if this is the first time we are processing this node
+	// or if the peer's public key changed.
+	if peer == nil {
 		peer = &peerConfig{}
 
 		peer.queueAllowedIPsInsert(a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)...)
+	} else if peer.pubKey != pubKey {
+		log.WithField(logfields.NodeName, nodeName).Debug("Pubkey has changed")
+		// pubKeys differ, so delete old peer and create a "new" one
+		if err := a.deletePeerByPubKey(peer.pubKey); err != nil {
+			return err
+		}
+
+		peer = &peerConfig{}
+		peer.queueAllowedIPsInsert(a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)...)
+	}
+
+	// Handle Node IP change
+	if peer.nodeIPv4 != nil && !peer.nodeIPv4.Equal(nodeIPv4) {
+		delete(a.nodeNameByNodeIP, peer.nodeIPv4.String())
+		peer.queueAllowedIPsRemove(net.IPNet{
+			IP:   peer.nodeIPv4,
+			Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
+		})
+	}
+	if peer.nodeIPv6 != nil && !peer.nodeIPv6.Equal(nodeIPv6) {
+		delete(a.nodeNameByNodeIP, peer.nodeIPv6.String())
+		peer.queueAllowedIPsRemove(net.IPNet{
+			IP:   peer.nodeIPv6,
+			Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
+		})
 	}
 
 	if option.Config.EnableIPv4 && nodeIPv4 != nil {

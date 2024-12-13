@@ -6,9 +6,12 @@ package nodeipam
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -18,8 +21,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -351,7 +352,7 @@ func Test_nodeIPAM_Reconcile(t *testing.T) {
 		WithObjects(nodeSvcLbFixtures...).
 		WithStatusSubresource(&corev1.Service{}).
 		Build()
-	r := &nodeSvcLBReconciler{Client: c, Logger: logging.DefaultLogger}
+	r := &nodeSvcLBReconciler{Client: c, Logger: hivetest.Logger(t)}
 
 	t.Run("unsupported service reset", func(t *testing.T) {
 		for _, name := range []string{"not-supported-1", "not-supported-2"} {
@@ -372,7 +373,7 @@ func Test_nodeIPAM_Reconcile(t *testing.T) {
 			require.NoError(t, err)
 			// It did not change the IPs already advertised
 			require.Len(t, svc.Status.LoadBalancer.Ingress, 1)
-			require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "100.100.100.100")
+			require.Equal(t, "100.100.100.100", svc.Status.LoadBalancer.Ingress[0].IP)
 		}
 	})
 
@@ -423,8 +424,8 @@ func Test_nodeIPAM_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "2001:0000::1")
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.2")
+		require.Equal(t, "2001:0000::1", svc.Status.LoadBalancer.Ingress[0].IP)
+		require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[1].IP)
 	})
 
 	t.Run("external traffic policy cluster", func(t *testing.T) {
@@ -444,8 +445,8 @@ func Test_nodeIPAM_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
+		require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[0].IP)
+		require.Equal(t, "42.0.0.3", svc.Status.LoadBalancer.Ingress[1].IP)
 	})
 }
 
@@ -454,7 +455,7 @@ func Test_nodeIPAM_defaultIPAM_Reconcile(t *testing.T) {
 		WithObjects(nodeSvcLbFixtures...).
 		WithStatusSubresource(&corev1.Service{}).
 		Build()
-	r := &nodeSvcLBReconciler{Client: c, DefaultIPAM: true, Logger: logging.DefaultLogger}
+	r := &nodeSvcLBReconciler{Client: c, DefaultIPAM: true, Logger: hivetest.Logger(t)}
 
 	key := types.NamespacedName{
 		Name:      "default-ipam",
@@ -472,8 +473,8 @@ func Test_nodeIPAM_defaultIPAM_Reconcile(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
-	require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
-	require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
+	require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[0].IP)
+	require.Equal(t, "42.0.0.3", svc.Status.LoadBalancer.Ingress[1].IP)
 }
 
 func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
@@ -481,7 +482,7 @@ func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
 		WithObjects(nodeSvcLabelFixtures...).
 		WithStatusSubresource(&corev1.Service{}).
 		Build()
-	r := &nodeSvcLBReconciler{Client: c, Logger: logging.DefaultLogger}
+	r := &nodeSvcLBReconciler{Client: c, Logger: hivetest.Logger(t)}
 
 	key := types.NamespacedName{
 		Name:      "svclabels",
@@ -506,7 +507,7 @@ func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
 		for _, v := range svc.Status.LoadBalancer.Ingress {
 			ips = append(ips, v.IP)
 		}
-		require.Equal(t, ips, []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"})
+		require.Equal(t, []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}, ips)
 	})
 
 	t.Run("Node Label Filter", func(t *testing.T) {
@@ -563,9 +564,7 @@ func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
 
 	t.Run("Ensure Warning raised if no Nodes found using configured label selector", func(t *testing.T) {
 		var buf bytes.Buffer
-		logger := logging.DefaultLogger
-		logger.SetOutput(&buf)
-
+		logger := slog.New(slog.NewTextHandler(&buf, nil))
 		r.Logger = logger
 
 		ctx := context.Background()
@@ -580,6 +579,7 @@ func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-		require.Contains(t, buf.String(), "level=warning msg=\"No Nodes found with configured label selector\"")
+		fmt.Println(buf.String())
+		require.Contains(t, buf.String(), "level=WARN msg=\"No Nodes found with configured label selector\"")
 	})
 }

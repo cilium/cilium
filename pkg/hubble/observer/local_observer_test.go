@@ -54,6 +54,7 @@ func noopParser(t *testing.T) *parser.Parser {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
+		true,
 	)
 	require.NoError(t, err)
 	return pp
@@ -345,8 +346,8 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 			case flowpb.AgentEventType_AGENT_STARTED:
 				startEvent := response.GetAgentEvent().GetAgentStart()
 				assert.NotNil(t, startEvent)
-				assert.Equal(t, startEvent.GetTime().GetSeconds(), int64(42))
-				assert.Equal(t, startEvent.GetTime().GetNanos(), int32(1))
+				assert.Equal(t, int64(42), startEvent.GetTime().GetSeconds())
+				assert.Equal(t, int32(1), startEvent.GetTime().GetNanos())
 				agentStartedReceived++
 			case flowpb.AgentEventType_IPCACHE_UPSERTED:
 				ipcacheUpdate := response.GetAgentEvent().GetIpcacheUpdate()
@@ -404,7 +405,7 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 	// FIXME:
 	// This should be assert.Equals(t, numEvents, agentEventsReceived)
 	// A bug in the ring buffer prevents this from succeeding
-	assert.Greater(t, agentEventsReceived, 0)
+	assert.Positive(t, agentEventsReceived)
 }
 
 func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
@@ -455,7 +456,7 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 
 			assert.NoError(t, response.GetTime().CheckValid())
 			ts := response.GetTime().AsTime()
-			assert.True(t, !ts.Before(since), "flow had invalid timestamp. ts=%s, since=%s", ts, since)
+			assert.False(t, ts.Before(since), "flow had invalid timestamp. ts=%s, since=%s", ts, since)
 
 			// start producing flows once we have seen the most recent one.
 			// Most recently produced flow has timestamp (numFlows/2)-1, but is
@@ -667,7 +668,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	// FIXME:
 	// This should be assert.Equal(t, numFlows, flowsReceived)
 	// A bug in the ring buffer prevents this from succeeding
-	assert.Greater(t, flowsReceived, 0)
+	assert.Positive(t, flowsReceived)
 }
 
 // TestLocalObserverServer_NodeLabels test the LocalNodeWatcher integration
@@ -793,6 +794,7 @@ func Benchmark_TrackNamespaces(b *testing.B) {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
+		true,
 	)
 	if err != nil {
 		b.Fatal(err)

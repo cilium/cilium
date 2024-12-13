@@ -58,15 +58,15 @@ func TestIsReservedIdentity(t *testing.T) {
 	require.True(t, ReservedIdentityInit.IsReservedIdentity())
 	require.True(t, ReservedIdentityUnmanaged.IsReservedIdentity())
 
-	require.Equal(t, false, NumericIdentity(123456).IsReservedIdentity())
+	require.False(t, NumericIdentity(123456).IsReservedIdentity())
 }
 
 func TestRequiresGlobalIdentity(t *testing.T) {
 	prefix := netip.MustParsePrefix("0.0.0.0/0")
-	require.Equal(t, false, RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)))
+	require.False(t, RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)))
 
 	prefix = netip.MustParsePrefix("192.168.23.0/24")
-	require.Equal(t, false, RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)))
+	require.False(t, RequiresGlobalIdentity(labels.GetCIDRLabels(prefix)))
 
 	require.True(t, RequiresGlobalIdentity(labels.NewLabelsFromModel([]string{"k8s:foo=bar"})))
 }

@@ -19,6 +19,15 @@
 #ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct skip_lb6_key);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} LB6_SKIP_MAP __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u16);
 	__type(value, struct lb6_reverse_nat);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -75,7 +84,7 @@ struct {
 } LB6_HEALTH_MAP __section_maps_btf;
 #endif
 
-#if LB_SELECTION == LB_SELECTION_MAGLEV
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u16);
@@ -92,15 +101,6 @@ struct {
 	});
 } LB6_MAGLEV_MAP_OUTER __section_maps_btf;
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct skip_lb6_key);
-	__type(value, __u8);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} LB6_SKIP_MAP __section_maps_btf;
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -171,7 +171,7 @@ struct {
 } LB4_HEALTH_MAP __section_maps_btf;
 #endif
 
-#if LB_SELECTION == LB_SELECTION_MAGLEV
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
 	__type(key, __u16);
@@ -592,6 +592,7 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 {
 #ifdef ENABLE_SRC_RANGE_CHECK
 	struct lb6_src_range_key key;
+	bool verdict = false;
 
 	if (!lb6_svc_has_src_range_check(svc))
 		return true;
@@ -603,9 +604,9 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 	};
 
 	if (map_lookup_elem(&LB6_SRC_RANGE_MAP, &key))
-		return true;
+		verdict = true;
 
-	return false;
+	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
 #else
 	return true;
 #endif /* ENABLE_SRC_RANGE_CHECK */
@@ -679,35 +680,39 @@ struct lb6_service *lb6_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unuse
 	struct lb6_service *svc;
 
 	key->backend_slot = slot;
-	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT, key->backend_slot, key->dport);
+	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT,
+		      key->backend_slot, key->dport);
+
 	svc = __lb6_lookup_backend_slot(key);
 	if (svc)
 		return svc;
 
-	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL, key->backend_slot, key->dport);
-
+	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL,
+		      key->backend_slot, key->dport);
 	return NULL;
 }
 
-/* Backend slot 0 is always reserved for the service frontend. */
-#if LB_SELECTION == LB_SELECTION_RANDOM
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM
 static __always_inline __u32
-lb6_select_backend_id(struct __ctx_buff *ctx,
-		      struct lb6_key *key,
-		      const struct ipv6_ct_tuple *tuple __maybe_unused,
-		      const struct lb6_service *svc)
+lb6_select_backend_id_random(struct __ctx_buff *ctx,
+			     struct lb6_key *key,
+			     const struct ipv6_ct_tuple *tuple __maybe_unused,
+			     const struct lb6_service *svc)
 {
+	/* Backend slot 0 is always reserved for the service frontend. */
 	__u16 slot = (get_prandom_u32() % svc->count) + 1;
 	struct lb6_service *be = lb6_lookup_backend_slot(ctx, key, slot);
 
 	return be ? be->backend_id : 0;
 }
-#elif LB_SELECTION == LB_SELECTION_MAGLEV
+#endif  /* defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
+
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u32
-lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
-		      struct lb6_key *key __maybe_unused,
-		      const struct ipv6_ct_tuple *tuple,
-		      const struct lb6_service *svc)
+lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
+			     struct lb6_key *key __maybe_unused,
+			     const struct ipv6_ct_tuple *tuple,
+			     const struct lb6_service *svc)
 {
 	__u32 zero = 0, index = svc->rev_nat_index;
 	__u32 *backend_ids;
@@ -722,8 +727,34 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		return 0;
 
 	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
-        return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
+	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
+#endif  /* defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
+
+#ifdef LB_SELECTION_PER_SERVICE
+static __always_inline __u32 lb6_algorithm(const struct lb6_service *svc)
+{
+	return svc->affinity_timeout >> LB_ALGORITHM_SHIFT;
+}
+
+static __always_inline __u32
+lb6_select_backend_id(struct __ctx_buff *ctx, struct lb6_key *key,
+		      const struct ipv6_ct_tuple *tuple,
+		      const struct lb6_service *svc)
+{
+	switch (lb6_algorithm(svc)) {
+	case LB_SELECTION_MAGLEV:
+		return lb6_select_backend_id_maglev(ctx, key, tuple, svc);
+	case LB_SELECTION_RANDOM:
+		return lb6_select_backend_id_random(ctx, key, tuple, svc);
+	default:
+		return 0;
+	}
+}
+#elif LB_SELECTION == LB_SELECTION_RANDOM
+# define lb6_select_backend_id	lb6_select_backend_id_random
+#elif LB_SELECTION == LB_SELECTION_MAGLEV
+# define lb6_select_backend_id	lb6_select_backend_id_maglev
 #elif LB_SELECTION == LB_SELECTION_FIRST
 /* Backend selection for tests that always chooses first slot. */
 static __always_inline __u32
@@ -766,6 +797,11 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 }
 
 #ifdef ENABLE_SESSION_AFFINITY
+static __always_inline __u32 lb6_affinity_timeout(const struct lb6_service *svc)
+{
+	return svc->affinity_timeout & AFFINITY_TIMEOUT_MASK;
+}
+
 static __always_inline __u32
 __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			  union lb6_affinity_client_id *id)
@@ -783,14 +819,14 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 
 	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
 	if (val != NULL) {
-		__u32 now = bpf_mono_now();
+		__u32 now = (__u32)bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
 			.backend_id	= val->backend_id,
 		};
 
 		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
+		    bpf_sec_to_mono(lb6_affinity_timeout(svc)) <= now) {
 			map_delete_elem(&LB6_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -818,7 +854,7 @@ static __always_inline void
 __lb6_update_affinity(const struct lb6_service *svc, bool netns_cookie,
 		      union lb6_affinity_client_id *id, __u32 backend_id)
 {
-	__u32 now = bpf_mono_now();
+	__u32 now = (__u32)bpf_mono_now();
 	struct lb6_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
 		.netns_cookie	= netns_cookie,
@@ -1273,6 +1309,7 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 {
 #ifdef ENABLE_SRC_RANGE_CHECK
 	struct lb4_src_range_key key;
+	bool verdict = false;
 
 	if (!lb4_svc_has_src_range_check(svc))
 		return true;
@@ -1284,9 +1321,9 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 	};
 
 	if (map_lookup_elem(&LB4_SRC_RANGE_MAP, &key))
-		return true;
+		verdict = true;
 
-	return false;
+	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
 #else
 	return true;
 #endif /* ENABLE_SRC_RANGE_CHECK */
@@ -1360,35 +1397,39 @@ struct lb4_service *lb4_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unuse
 	struct lb4_service *svc;
 
 	key->backend_slot = slot;
-	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT, key->backend_slot, key->dport);
+	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT,
+		      key->backend_slot, key->dport);
+
 	svc = __lb4_lookup_backend_slot(key);
 	if (svc)
 		return svc;
 
-	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL, key->backend_slot, key->dport);
-
+	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL,
+		      key->backend_slot, key->dport);
 	return NULL;
 }
 
-/* Backend slot 0 is always reserved for the service frontend. */
-#if LB_SELECTION == LB_SELECTION_RANDOM
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM
 static __always_inline __u32
-lb4_select_backend_id(struct __ctx_buff *ctx,
-		      struct lb4_key *key,
-		      const struct ipv4_ct_tuple *tuple __maybe_unused,
-		      const struct lb4_service *svc)
+lb4_select_backend_id_random(struct __ctx_buff *ctx,
+			     struct lb4_key *key,
+			     const struct ipv4_ct_tuple *tuple __maybe_unused,
+			     const struct lb4_service *svc)
 {
+	/* Backend slot 0 is always reserved for the service frontend. */
 	__u16 slot = (get_prandom_u32() % svc->count) + 1;
 	struct lb4_service *be = lb4_lookup_backend_slot(ctx, key, slot);
 
 	return be ? be->backend_id : 0;
 }
-#elif LB_SELECTION == LB_SELECTION_MAGLEV
+#endif /* LB_SELECTION_PER_SERVICE || LB_SELECTION == LB_SELECTION_RANDOM */
+
+#if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
 static __always_inline __u32
-lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
-		      struct lb4_key *key __maybe_unused,
-		      const struct ipv4_ct_tuple *tuple,
-		      const struct lb4_service *svc)
+lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
+			     struct lb4_key *key __maybe_unused,
+			     const struct ipv4_ct_tuple *tuple,
+			     const struct lb4_service *svc)
 {
 	__u32 zero = 0, index = svc->rev_nat_index;
 	__u32 *backend_ids;
@@ -1403,8 +1444,34 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 		return 0;
 
 	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
-        return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
+	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
+#endif /* LB_SELECTION_PER_SERVICE || LB_SELECTION == LB_SELECTION_MAGLEV */
+
+#ifdef LB_SELECTION_PER_SERVICE
+static __always_inline __u32 lb4_algorithm(const struct lb4_service *svc)
+{
+	return svc->affinity_timeout >> LB_ALGORITHM_SHIFT;
+}
+
+static __always_inline __u32
+lb4_select_backend_id(struct __ctx_buff *ctx, struct lb4_key *key,
+		      const struct ipv4_ct_tuple *tuple,
+		      const struct lb4_service *svc)
+{
+	switch (lb4_algorithm(svc)) {
+	case LB_SELECTION_MAGLEV:
+		return lb4_select_backend_id_maglev(ctx, key, tuple, svc);
+	case LB_SELECTION_RANDOM:
+		return lb4_select_backend_id_random(ctx, key, tuple, svc);
+	default:
+		return 0;
+	}
+}
+#elif LB_SELECTION == LB_SELECTION_RANDOM
+# define lb4_select_backend_id	lb4_select_backend_id_random
+#elif LB_SELECTION == LB_SELECTION_MAGLEV
+# define lb4_select_backend_id	lb4_select_backend_id_maglev
 #elif LB_SELECTION == LB_SELECTION_FIRST
 /* Backend selection for tests that always chooses first slot. */
 static __always_inline __u32
@@ -1467,6 +1534,11 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 }
 
 #ifdef ENABLE_SESSION_AFFINITY
+static __always_inline __u32 lb4_affinity_timeout(const struct lb4_service *svc)
+{
+	return svc->affinity_timeout & AFFINITY_TIMEOUT_MASK;
+}
+
 static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			  const union lb4_affinity_client_id *id)
@@ -1480,7 +1552,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 
 	val = map_lookup_elem(&LB4_AFFINITY_MAP, &key);
 	if (val != NULL) {
-		__u32 now = bpf_mono_now();
+		__u32 now = (__u32)bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
 			.backend_id	= val->backend_id,
@@ -1492,7 +1564,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 		 * Session is sticky for range [current, last_used + affinity_timeout)
 		 */
 		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
+		    bpf_sec_to_mono(lb4_affinity_timeout(svc)) <= now) {
 			map_delete_elem(&LB4_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -1521,7 +1593,7 @@ __lb4_update_affinity(const struct lb4_service *svc, bool netns_cookie,
 		      const union lb4_affinity_client_id *id,
 		      __u32 backend_id)
 {
-	__u32 now = bpf_mono_now();
+	__u32 now = (__u32)bpf_mono_now();
 	struct lb4_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
 		.netns_cookie	= netns_cookie,
@@ -1878,10 +1950,10 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 	tos = ip4->tos;
 
 	/* Resize to ethernet header + 64 bytes or less */
-	sample_len = ctx_full_len(ctx);
+	sample_len = (int)ctx_full_len(ctx);
 	if (sample_len > ICMP_PACKET_MAX_SAMPLE_SIZE)
 		sample_len = ICMP_PACKET_MAX_SAMPLE_SIZE;
-	ctx_adjust_troom(ctx, sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx));
+	ctx_adjust_troom(ctx, (__s32)(sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx)));
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
@@ -2045,13 +2117,13 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	sample_len = ctx_full_len(ctx);
 	if (sample_len > (__u64)ICMPV6_PACKET_MAX_SAMPLE_SIZE)
 		sample_len = ICMPV6_PACKET_MAX_SAMPLE_SIZE;
-	ctx_adjust_troom(ctx, sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx));
+	ctx_adjust_troom(ctx, (__s32)(sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx)));
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 
 	/* Calculate the unfolded checksum of the ICMPv6 sample */
-	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, sample_len);
+	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, (int)sample_len);
 
 	/* We need to insert a IPv6 and ICMPv6 header before the original packet.
 	 * Make that room.

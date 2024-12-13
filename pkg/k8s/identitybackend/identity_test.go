@@ -190,11 +190,8 @@ func TestGetIdentity(t *testing.T) {
 				t.Fatalf("Can't create CRD Backend: %s", err)
 			}
 
-			ctx := context.Background()
-			stopChan := make(chan struct{})
-			defer func() {
-				close(stopChan)
-			}()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			addWaitGroup := sync.WaitGroup{}
 			addWaitGroup.Add(len(tc.identities))
@@ -213,7 +210,7 @@ func TestGetIdentity(t *testing.T) {
 				}
 			}
 
-			go backend.ListAndWatch(ctx, FakeHandler{onUpsertFunc: func() { addWaitGroup.Done() }}, stopChan)
+			go backend.ListAndWatch(ctx, FakeHandler{onUpsertFunc: func() { addWaitGroup.Done() }})
 
 			// Wait for watcher to process the identities in the background
 			addWaitGroup.Wait()

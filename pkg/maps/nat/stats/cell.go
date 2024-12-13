@@ -101,8 +101,9 @@ var (
 		FromObject: func(s NatMapStats) index.KeySet {
 			return index.NewKeySet(s.Key())
 		},
-		FromKey: index.String,
-		Unique:  true,
+		FromKey:    index.String,
+		FromString: index.FromString,
+		Unique:     true,
 	}
 )
 

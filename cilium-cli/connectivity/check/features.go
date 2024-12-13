@@ -4,6 +4,7 @@
 package check
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/option"
@@ -66,6 +68,7 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 
 	result[features.EncryptionNode] = features.Status{
 		Enabled: cfg.EncryptNode,
+		Mode:    cfg.NodeEncryptionOptOutLabelsString,
 	}
 
 	isFeatureKNPEnabled, err := ct.isFeatureKNPEnabled(cfg.EnableK8sNetworkPolicy)
@@ -86,8 +89,11 @@ func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, 
 		return err
 	}
 
-	result[features.SecretBackendK8s] = features.Status{
-		Enabled: canAccessK8sResourceSecret(cr),
+	// This could be enabled via configmap check, so only check if it's not enabled already.
+	if !result[features.PolicySecretBackendK8s].Enabled {
+		result[features.PolicySecretBackendK8s] = features.Status{
+			Enabled: canAccessK8sResourceSecret(cr),
+		}
 	}
 	return nil
 }
@@ -196,8 +202,10 @@ func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, r
 	}
 }
 
-const ciliumNetworkPolicyCRDName = "ciliumnetworkpolicies.cilium.io"
-const ciliumClusterwideNetworkPolicyCRDName = "ciliumclusterwidenetworkpolicies.cilium.io"
+const (
+	ciliumNetworkPolicyCRDName            = "ciliumnetworkpolicies.cilium.io"
+	ciliumClusterwideNetworkPolicyCRDName = "ciliumclusterwidenetworkpolicies.cilium.io"
+)
 
 func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result features.Set) error {
 	check := func(name string) (features.Status, error) {
@@ -284,8 +292,9 @@ func (ct *ConnectivityTest) detectCiliumVersion(ctx context.Context) error {
 			return err
 		}
 	} else if minVersion, err := ct.DetectMinimumCiliumVersion(ctx); err != nil {
-		ct.Warnf("Unable to detect Cilium version, assuming %v for connectivity tests: %s", defaults.Version, err)
-		ct.CiliumVersion, err = semver.ParseTolerant(defaults.Version)
+		defaultVersion := helm.GetDefaultVersionString()
+		ct.Warnf("Unable to detect Cilium version, assuming %v for connectivity tests: %s", defaultVersion, err)
+		ct.CiliumVersion, err = semver.ParseTolerant(defaultVersion)
 		if err != nil {
 			return err
 		}
@@ -346,6 +355,8 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			initialized = true
 		}
 	}
+
+	ct.ClusterName = cmp.Or(cm.Data["cluster-name"], "default")
 
 	return nil
 }

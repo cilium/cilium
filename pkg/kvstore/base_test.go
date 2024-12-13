@@ -61,7 +61,7 @@ func testGetSet(t *testing.T) {
 
 	pairs, err := Client().ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
-	require.Len(t, pairs, 0)
+	require.Empty(t, pairs)
 
 	for i := 0; i < maxID; i++ {
 		val, err := Client().Get(context.TODO(), testKey(prefix, i))
@@ -89,7 +89,7 @@ func testGetSet(t *testing.T) {
 
 	pairs, err = Client().ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
-	require.Len(t, pairs, 0)
+	require.Empty(t, pairs)
 }
 
 func BenchmarkGet(b *testing.B) {
@@ -172,7 +172,7 @@ func testCreateOnly(t *testing.T) {
 
 	success, err := Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(0)), false)
 	require.NoError(t, err)
-	require.Equal(t, true, success)
+	require.True(t, success)
 
 	val, err := Client().Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
@@ -180,16 +180,16 @@ func testCreateOnly(t *testing.T) {
 
 	success, err = Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(1)), false)
 	require.NoError(t, err)
-	require.Equal(t, false, success)
+	require.False(t, success)
 
 	val, err = Client().Get(context.TODO(), testKey(prefix, 0))
 	require.NoError(t, err)
 	require.EqualValues(t, testValue(0), string(val))
 }
 
-func expectEvent(t *testing.T, w *Watcher, typ EventType, key string, val string) {
+func expectEvent(t *testing.T, events EventChan, typ EventType, key string, val string) {
 	select {
-	case event := <-w.Events:
+	case event := <-events:
 		require.Equal(t, typ, event.Typ)
 
 		if event.Typ != EventTypeListDone {
@@ -216,35 +216,40 @@ func testListAndWatch(t *testing.T) {
 
 	success, err := Client().CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)
-	require.Equal(t, true, success)
+	require.True(t, success)
 
-	w := Client().ListAndWatch(context.TODO(), "foo2/", 100)
+	ctx, cancel := context.WithCancel(context.Background())
+	events := Client().ListAndWatch(ctx, "foo2/")
 	require.NotNil(t, t)
 
-	expectEvent(t, w, EventTypeCreate, key1, val1)
-	expectEvent(t, w, EventTypeListDone, "", "")
+	expectEvent(t, events, EventTypeCreate, key1, val1)
+	expectEvent(t, events, EventTypeListDone, "", "")
 
 	success, err = Client().CreateOnly(context.Background(), key2, []byte(val2), false)
 	require.NoError(t, err)
-	require.Equal(t, true, success)
-	expectEvent(t, w, EventTypeCreate, key2, val2)
+	require.True(t, success)
+	expectEvent(t, events, EventTypeCreate, key2, val2)
 
 	err = Client().Delete(context.TODO(), key1)
 	require.NoError(t, err)
-	expectEvent(t, w, EventTypeDelete, key1, val1)
+	expectEvent(t, events, EventTypeDelete, key1, val1)
 
 	success, err = Client().CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)
-	require.Equal(t, true, success)
-	expectEvent(t, w, EventTypeCreate, key1, val1)
+	require.True(t, success)
+	expectEvent(t, events, EventTypeCreate, key1, val1)
 
 	err = Client().Delete(context.TODO(), key1)
 	require.NoError(t, err)
-	expectEvent(t, w, EventTypeDelete, key1, val1)
+	expectEvent(t, events, EventTypeDelete, key1, val1)
 
 	err = Client().Delete(context.TODO(), key2)
 	require.NoError(t, err)
-	expectEvent(t, w, EventTypeDelete, key2, val2)
+	expectEvent(t, events, EventTypeDelete, key2, val2)
 
-	w.Stop()
+	cancel()
+
+	// Wait for the Events channel to be closed
+	_, ok := <-events
+	require.False(t, ok, "Received unexpected event")
 }

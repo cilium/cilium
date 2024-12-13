@@ -24,24 +24,20 @@ for example, understanding which S3 buckets are being accessed by an given appli
 .. include:: gsg_requirements.rst
 
 
-Edit the ClusterRole for Cilium to give it access to Kubernetes secrets
+To ensure that the Cilium agent has the correct permissions to perform TLS Interception, please set the following values
+in your Helm chart settings:
+
+.. code-block:: YAML
+
+    tls:
+      secretsBackend: k8s
+      secretSync:
+        enabled: true
 
 
-.. code-block:: shell-session
-
-    $ kubectl edit clusterrole cilium -n kube-system
-
-Add the following section at the end of the file:
-
-
-.. code-block:: yaml
-
-  - apiGroups:
-    - ""
-    resources:
-    - secrets
-    verbs:
-    - get
+This configures Cilium so that the Cilium Operator will synchronize any secrets referenced in CiliumNetworkPolicy (or
+CiliumClusterwideNetworkPolicy) to a ``cilium-secrets`` namespace, and grant the Cilium agent read access to Secrets for
+that namespace only.
 
 
 Deploy the Demo Application
@@ -101,7 +97,7 @@ requires four primary steps:
 
 1) Create an internal certificate authority by generating a CA private key and CA certificate.
 
-2) For any destination where TLS inspection is desired (e.g., artii.herokuapp.com in the example below),
+2) For any destination where TLS inspection is desired (e.g., httpbin.org in the example below),
    generate a private key and certificate signing request with a common name that matches the destination DNS
    name.
 
@@ -165,23 +161,23 @@ Create Private Key and Certificate Signing Request for a Given DNS Name
 -----------------------------------------------------------------------
 
 Generate an internal private key and certificate signing with a common name that matches the DNS name
-of the destination service to be intercepted for inspection (in this example, use ``artii.herokuapp.com``).
+of the destination service to be intercepted for inspection (in this example, use ``httpbin.org``).
 
 First create the private key:
 
 .. code-block:: shell-session
 
-    $ openssl genrsa -out internal-artii.key 2048
+    $ openssl genrsa -out internal-httpbin.key 2048
 
 Next, create a certificate signing request, specifying the DNS name of the destination service
 for the common name field when prompted.  All other prompts can be filled with any value.
 
 .. code-block:: shell-session
 
-    $ openssl req -new -key internal-artii.key -out internal-artii.csr
+    $ openssl req -new -key internal-httpbin.key -out internal-httpbin.csr
 
 The only field that must be a specific value is ensuring that ``Common Name`` is the exact DNS
-destination ``artii.herokuapp.com`` that will be provided to the client.
+destination ``httpbin.org`` that will be provided to the client.
 
 
 This example workflow will work for any DNS
@@ -191,17 +187,17 @@ name as long as the toFQDNs rule in the policy YAML (below) is also updated to m
 Use CA to Generate a Signed Certificate for the DNS Name
 --------------------------------------------------------
 
-Use the internal CA private key to create a signed certificate for artii.herokuapp.com named ``internal-artii.crt``.
+Use the internal CA private key to create a signed certificate for httpbin.org named ``internal-httpbin.crt``.
 
 .. code-block:: shell-session
 
-    $ openssl x509 -req -days 360 -in internal-artii.csr -CA myCA.crt -CAkey myCA.key -CAcreateserial -out internal-artii.crt -sha256
+    $ openssl x509 -req -days 360 -in internal-httpbin.csr -CA myCA.crt -CAkey myCA.key -CAcreateserial -out internal-httpbin.crt -sha256
 
 Next we create a Kubernetes secret that includes both the private key and signed certificates for the destination service:
 
 .. code-block:: shell-session
 
-    $ kubectl create secret tls artii-tls-data -n kube-system --cert=internal-artii.crt --key=internal-artii.key
+    $ kubectl create secret tls httpbin-tls-data -n kube-system --cert=internal-httpbin.crt --key=internal-httpbin.key
 
 Add the Internal CA as a Trusted CA Inside the Client Pod
 ---------------------------------------------------------
@@ -260,18 +256,18 @@ have not told Cilium which traffic we want to intercept and inspect.   This is d
 the same Cilium Network Policy constructs that are used for other Cilium Network Policies.
 
 The following Cilium network policy indicates that Cilium should perform HTTP-aware inspect
-of communication between the ``mediabot`` pod to ``artii.herokuapp.com``.
+of communication between the ``mediabot`` pod to ``httpbin.org``.
 
 .. literalinclude:: ../../examples/kubernetes-tls-inspection/l7-visibility-tls.yaml
 
 Let's take a closer look at the policy:
 
 * The ``endpointSelector`` means that this policy will only apply to pods with labels ``class: mediabot, org:empire`` to have the egress access.
-* The first egress section uses ``toFQDNs: matchName`` specification to allow TCP port 443 egress to ``artii.herokuapp.com``.
+* The first egress section uses ``toFQDNs: matchName`` specification to allow TCP port 443 egress to ``httpbin.org``.
 * The ``http`` section below the toFQDNs rule
   indicates that such connections should be parsed as HTTP, with a policy of ``{}`` which will allow all requests.
 * The ``terminatingTLS`` and ``originatingTLS`` sections indicate that TLS interception should be used to terminate the initial TLS connection
-  from mediabot and initiate a new out-bound TLS connection to ``artii.herokuapp.com``.
+  from mediabot and initiate a new out-bound TLS connection to ``httpbin.org``.
 * The second egress section allows ``mediabot`` pods to access ``kube-dns`` service. Note that
   ``rules: dns`` instructs Cilium to inspect and allow DNS lookups matching specified patterns.
   In this case, inspect and allow all DNS queries.
@@ -290,7 +286,7 @@ Let's apply the policy:
 Demonstrating TLS Inspection
 ============================
 
-Recall that the policy we pushed will allow all HTTPS requests from ``mediabot`` to ``artii.herokuapp.com``, but will parse all data at
+Recall that the policy we pushed will allow all HTTPS requests from ``mediabot`` to ``httpbin.org``, but will parse all data at
 the HTTP-layer, meaning that cilium monitor will report each HTTP request and response.
 
 To see this, open a new window and run the following command to identity the name of the
@@ -302,22 +298,22 @@ Then start running cilium-dbg monitor in "L7 mode" to monitor for HTTP requests 
 
     $ kubectl exec -it -n kube-system cilium-d5x8v -- cilium-dbg monitor -t l7
 
-Next in the original window, from the ``mediabot`` pod we can access ``artii.herokuapp.com`` via HTTPS:
+Next in the original window, from the ``mediabot`` pod we can access ``httpbin.org`` via HTTPS:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it mediabot -- curl -sL 'https://artii.herokuapp.com/fonts_list'
+    $ kubectl exec -it mediabot -- curl -sL 'https://httpbin.org/anything'
     ...
     ...
 
-    $ kubectl exec -it mediabot -- curl -sL 'https://artii.herokuapp.com/make?text=cilium&font=univers'
+    $ kubectl exec -it mediabot -- curl -sL 'https://httpbin.org/headers'
     ...
     ...
 
 Looking back at the cilium-dbg monitor window, you will see each individual HTTP request and response.  For example::
 
-    -> Request http from 2585 ([k8s:class=mediabot k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default]) to 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://artii.herokuapp.com/fonts_list => 0
-    -> Response http to 2585 ([k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default k8s:class=mediabot k8s:org=empire]) from 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://artii.herokuapp.com/fonts_list => 200
+    -> Request http from 2585 ([k8s:class=mediabot k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default]) to 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://httpbin.org/anything => 0
+    -> Response http to 2585 ([k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default k8s:class=mediabot k8s:org=empire]) from 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://httpbin.org/anything => 200
 
 Refer to :ref:`l4_policy` and :ref:`l7_policy` to learn more about Cilium L4 and L7 network policies.
 
@@ -329,4 +325,4 @@ Clean-up
    $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
    $ kubectl delete cnp l7-visibility-tls
    $ kubectl delete secret -n kube-system tls-orig-data
-   $ kubectl delete secret -n kube-system artii-tls-data
+   $ kubectl delete secret -n kube-system httpbin-tls-data

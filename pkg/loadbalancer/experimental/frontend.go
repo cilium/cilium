@@ -10,8 +10,10 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
+	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // FrontendParams defines the static parameters of a frontend.
@@ -30,6 +32,12 @@ type FrontendParams struct {
 	// PortName if set will select only backends with matching
 	// port name.
 	PortName loadbalancer.FEPortName
+
+	// ServicePort is the associated "ClusterIP" port of this frontend.
+	// Same as [Address.L4Addr.Port] except when [Type] NodePort or
+	// LoadBalancer. This is used to match frontends with the [Ports] of
+	// [Service.ProxyRedirect].
+	ServicePort uint16
 }
 
 type Frontend struct {
@@ -89,6 +97,8 @@ func (fe *Frontend) TableHeader() []string {
 		"PortName",
 		"Backends",
 		"Status",
+		"Since",
+		"Error",
 	}
 }
 
@@ -99,7 +109,9 @@ func (fe *Frontend) TableRow() []string {
 		fe.ServiceName.String(),
 		string(fe.PortName),
 		showBackends(fe.Backends),
-		fe.Status.String(),
+		string(fe.Status.Kind),
+		duration.HumanDuration(time.Since(fe.Status.UpdatedAt)),
+		fe.Status.Error,
 	}
 }
 
@@ -133,7 +145,8 @@ var (
 		FromKey: func(l loadbalancer.L3n4Addr) index.Key {
 			return index.Key(l.Bytes())
 		},
-		Unique: true,
+		FromString: loadbalancer.L3n4AddrFromString,
+		Unique:     true,
 	}
 
 	FrontendByAddress = frontendAddressIndex.Query
@@ -143,8 +156,9 @@ var (
 		FromObject: func(fe *Frontend) index.KeySet {
 			return index.NewKeySet(index.Stringer(fe.ServiceName))
 		},
-		FromKey: index.Stringer[loadbalancer.ServiceName],
-		Unique:  false,
+		FromKey:    index.Stringer[loadbalancer.ServiceName],
+		FromString: index.FromString,
+		Unique:     false,
 	}
 
 	FrontendByServiceName = frontendServiceIndex.Query
@@ -154,7 +168,10 @@ const (
 	FrontendTableName = "frontends"
 )
 
-func NewFrontendsTable(db *statedb.DB) (statedb.RWTable[*Frontend], error) {
+func NewFrontendsTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Frontend], error) {
+	if !cfg.EnableExperimentalLB {
+		return nil, nil
+	}
 	tbl, err := statedb.NewTable(
 		FrontendTableName,
 		frontendAddressIndex,

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -15,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
@@ -53,11 +53,10 @@ func migrateIdentityCmd() *cobra.Command {
 
 	hive := hive.New(
 		k8sClient.Cell,
-		agentK8s.LocalNodeCell,
-		cell.Invoke(func(lc cell.Lifecycle, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources, shutdowner hive.Shutdowner) {
+		cell.Invoke(func(lc cell.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 			lc.Append(cell.Hook{
 				OnStart: func(ctx cell.HookContext) error {
-					return migrateIdentities(ctx, clientset, resources, shutdowner)
+					return migrateIdentities(ctx, clientset, shutdowner)
 				},
 			})
 		}),
@@ -96,8 +95,8 @@ func migrateIdentityCmd() *cobra.Command {
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
-func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources, shutdowner hive.Shutdowner) error {
-	defer shutdowner.Shutdown(nil)
+func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
+	defer shutdowner.Shutdown()
 
 	// Setup global configuration
 	// These are defined in cilium/cmd/kvstore.go
@@ -109,9 +108,9 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, reso
 
 	// Init Identity backends
 	initCtx, initCancel := context.WithTimeout(ctx, opTimeout)
-	kvstoreBackend := initKVStore(initCtx)
+	kvstoreBackend := initKVStore(ctx, initCtx)
 
-	crdBackend, crdAllocator := initK8s(initCtx, clientset, resources)
+	crdBackend, crdAllocator := initK8s(initCtx, clientset)
 	initCancel()
 
 	log.Info("Listing identities in kvstore")
@@ -205,12 +204,8 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, reso
 
 // initK8s connects to k8s with a allocator.Backend and an initialized
 // allocator.Allocator, using the k8s config passed into the command.
-func initK8s(ctx context.Context, clientset k8sClient.Clientset, resources agentK8s.LocalNodeResources) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
+func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
-
-	if err := agentK8s.WaitForNodeInformation(ctx, log, resources.LocalNode, resources.LocalCiliumNode); err != nil {
-		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
-	}
 
 	// Update CRDs to ensure ciliumIdentity is present
 	ciliumClient.RegisterCRDs(clientset)
@@ -248,9 +243,13 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset, resources agent
 
 // initKVStore connects to the kvstore with a allocator.Backend, initialised to
 // find identities at the default cilium paths.
-func initKVStore(ctx context.Context) (kvstoreBackend allocator.Backend) {
+func initKVStore(ctx, wctx context.Context) (kvstoreBackend allocator.Backend) {
 	log.Info("Setting up kvstore client")
 	setupKvstore(ctx)
+
+	if err := <-kvstore.Client().Connected(wctx); err != nil {
+		log.WithError(err).Fatal("Cannot connect to the kvstore")
+	}
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
 	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(kvstoreallocator.KVStoreBackendConfiguration{BasePath: cache.IdentitiesPath, Suffix: idPath, Typ: &cacheKey.GlobalIdentity{}, Backend: kvstore.Client()})
@@ -265,23 +264,34 @@ func initKVStore(ctx context.Context) (kvstoreBackend allocator.Backend) {
 // the listing to complete.
 func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend) (identities map[idpool.ID]allocator.AllocatorKey, err error) {
 	identities = make(map[idpool.ID]allocator.AllocatorKey)
-	stopChan := make(chan struct{})
+	listDone := make(chan struct{})
 
-	go kvstoreBackend.ListAndWatch(ctx, kvstoreListHandler{
-		onUpsert: func(id idpool.ID, key allocator.AllocatorKey) {
-			log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
-			identities[id] = key
-		},
-		onListDone: func() {
-			close(stopChan)
-		},
-	}, stopChan)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	// Make sure that the watcher terminated before returning, to prevent parallel
+	// modifications to the identities map afterwards.
+	defer wg.Wait()
+
+	cctx, cancel := context.WithCancel(ctx)
+	go func() {
+		defer wg.Done()
+		kvstoreBackend.ListAndWatch(cctx, kvstoreListHandler{
+			onUpsert: func(id idpool.ID, key allocator.AllocatorKey) {
+				log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
+				identities[id] = key
+			},
+			onListDone: func() {
+				close(listDone)
+				cancel()
+			},
+		})
+	}()
 	// This makes the ListAndWatch exit after the initial listing or on a timeout
 	// that exits this function
 
 	// Wait for the listing to complete
 	select {
-	case <-stopChan:
+	case <-listDone:
 		log.Debug("kvstore ID list complete")
 
 	case <-ctx.Done():

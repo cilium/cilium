@@ -37,7 +37,7 @@ func TestLocalLock(t *testing.T) {
 	locks.unlock(path, id1)
 
 	owner, ok := locks.lockPaths[path]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 	require.Equal(t, id2, owner.id)
 
 	// Unlock lock2, this should be a no-op
@@ -55,5 +55,5 @@ func TestLocalLockCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, err = locks.lock(ctx, path)
-	require.NotNil(t, err)
+	require.Error(t, err)
 }

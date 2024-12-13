@@ -172,9 +172,23 @@ Moreover, multiple ``podSelector`` can be specified:
 To select pods belonging to a given namespace, the special
 ``io.kubernetes.pod.namespace`` label should be used.
 
+To only select pods on certain nodes, you can use the ``nodeSelector``:
+
+.. code-block:: yaml
+
+    selectors:
+    - podSelector:
+        matchLabels:
+          labelKey: labelVal
+      nodeSelector:
+        matchLabels:
+          nodeLabelKey: nodeLabelVal
+
 .. note::
     Only security identities will be taken into account.
     See :ref:`identity-relevant-labels` for more information.
+    ``nodeSelector`` cannot be used alone, it must be used together with ``podSelector``.
+
 
 Selecting the destination
 -------------------------
@@ -311,7 +325,9 @@ the specification above:
           class: mediabot
           # The following label selects default namespace
           io.kubernetes.pod.namespace: default
-
+      nodeSelector: # optional, if not specified the policy applies to all nodes
+        matchLabels:
+          node.kubernetes.io/name: node1 # only traffic from this node will be SNATed
     # Specify which destination CIDR(s) this policy applies to.
     # Multiple CIDRs can be specified.
     destinationCIDRs:
@@ -322,7 +338,7 @@ the specification above:
       # Specify which node should act as gateway for this policy.
       nodeSelector:
         matchLabels:
-          node.kubernetes.io/name: a-specific-node
+          node.kubernetes.io/name: node2
 
       # Specify the IP address used to SNAT traffic matched by the policy.
       # It must exist as an IP associated with a network interface on the instance.
@@ -334,9 +350,9 @@ the specification above:
 
 Creating the ``CiliumEgressGatewayPolicy`` resource above would cause all
 traffic originating from pods with the ``org: empire`` and ``class: mediabot``
-labels in the ``default`` namespace and destined to ``0.0.0.0/0`` (i.e. all
-traffic leaving the cluster) to be routed through the gateway node with the
-``node.kubernetes.io/name: a-specific-node`` label, which will then SNAT said
+labels in the ``default`` namespace on node ``node1``  and destined to ``0.0.0.0/0``
+(i.e. all traffic leaving the cluster) to be routed through the gateway node with the
+``node.kubernetes.io/name: node2`` label, which will then SNAT said
 traffic with the ``10.168.60.100`` egress IP.
 
 Selection of the egress network interface

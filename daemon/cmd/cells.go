@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
-	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
@@ -30,12 +29,14 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/driftchecker"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
+	"github.com/cilium/cilium/pkg/dynamiclifecycle"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
+	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
@@ -48,10 +49,12 @@ import (
 	"github.com/cilium/cilium/pkg/l2announcer"
 	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	natStats "github.com/cilium/cilium/pkg/maps/nat/stats"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -65,6 +68,7 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 var (
@@ -131,6 +135,9 @@ var (
 		// Allows cells to wait for CRDs before trying to list Cilium resources.
 		// This is separate from k8sSynced.Cell as this one needs to be mocked for tests.
 		k8sSynced.CRDSyncCell,
+
+		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
+		shellCell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -190,6 +197,9 @@ var (
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 
+		// Maglev table computtations
+		maglev.Cell,
+
 		// Experimental control-plane for configuring service load-balancing.
 		loadbalancer_experimental.Cell,
 
@@ -215,9 +225,6 @@ var (
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
-
-		// The MetalLB BGP speaker enables support for MetalLB BGP.
-		speaker.Cell,
 
 		// Brokers datapath signals from signalmap
 		signal.Cell,
@@ -289,8 +296,24 @@ var (
 		// Provides a wrapper of the cilium config that can be watched dynamically
 		dynamicconfig.Cell,
 
+		// Provides the manager for WithDynamicFeature()
+		// Which allows to group the cell lifecycles together and control the enablement
+		// by leveraging the dynamicconfig.Cell.
+		dynamiclifecycle.Cell,
+
 		// Allows agent to monitor the configuration drift and publish drift metric
 		driftchecker.Cell,
+
+		// Runs the Hubble servers and Hubble metrics.
+		hubble.Cell,
+
+		// The feature Cell will retrieve information from all other cells /
+		// configuration to describe, in form of prometheus metrics, which
+		// features are enabled on the agent.
+		features.Cell,
+
+		// Determines priorities of data sources.
+		source.Cell,
 	)
 )
 

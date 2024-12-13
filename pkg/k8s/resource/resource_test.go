@@ -707,7 +707,7 @@ func TestResource_WithIndexers(t *testing.T) {
 	require.Len(t, found, 1)
 	require.Equal(t, found[0].Name, indexValue)
 	require.Len(t, found[0].Labels, 1)
-	require.Equal(t, found[0].Labels["key"], "node-2")
+	require.Equal(t, "node-2", found[0].Labels["key"])
 
 	// retrieve the keys of the stored objects whose set of indexed values includes a specific value
 	keys, err := store.IndexKeys(indexName, indexValue)

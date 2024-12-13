@@ -572,59 +572,41 @@ func (k *kvstoreBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, 
 	return identityIDs, nil
 }
 
-func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
-	ctx, cancel := context.WithCancel(ctx)
-	watcher := k.backend.ListAndWatch(ctx, k.idPrefix, 512)
-	for {
-		select {
-		case event, ok := <-watcher.Events:
-			if !ok {
-				goto abort
-			}
-			if event.Typ == kvstore.EventTypeListDone {
-				handler.OnListDone()
-				continue
-			}
+func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations) {
+	events := k.backend.ListAndWatch(ctx, k.idPrefix)
+	for event := range events {
+		if event.Typ == kvstore.EventTypeListDone {
+			handler.OnListDone()
+			continue
+		}
 
-			id, err := k.keyToID(event.Key)
-			switch {
-			case err != nil:
-				log.WithError(err).WithField(logfields.Key, event.Key).Warning("Invalid key")
+		id, err := k.keyToID(event.Key)
+		switch {
+		case err != nil:
+			log.WithError(err).WithField(logfields.Key, event.Key).Warning("Invalid key")
 
-			case id != idpool.NoID:
-				var key allocator.AllocatorKey
+		case id != idpool.NoID:
+			var key allocator.AllocatorKey
 
-				if len(event.Value) > 0 {
-					key = k.keyType.PutKey(string(event.Value))
-				} else {
-					if event.Typ != kvstore.EventTypeDelete {
-						log.WithFields(logrus.Fields{
-							logfields.Key:       event.Key,
-							logfields.EventType: event.Typ,
-						}).Error("Received a key with an empty value")
-						continue
-					}
-				}
-
-				switch event.Typ {
-				case kvstore.EventTypeCreate, kvstore.EventTypeModify:
-					handler.OnUpsert(id, key)
-
-				case kvstore.EventTypeDelete:
-					handler.OnDelete(id, key)
+			if len(event.Value) > 0 {
+				key = k.keyType.PutKey(string(event.Value))
+			} else {
+				if event.Typ != kvstore.EventTypeDelete {
+					log.WithFields(logrus.Fields{
+						logfields.Key:       event.Key,
+						logfields.EventType: event.Typ,
+					}).Error("Received a key with an empty value")
+					continue
 				}
 			}
 
-		case <-stopChan:
-			goto abort
+			switch event.Typ {
+			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+				handler.OnUpsert(id, key)
+
+			case kvstore.EventTypeDelete:
+				handler.OnDelete(id, key)
+			}
 		}
 	}
-
-abort:
-	cancel()
-	watcher.Stop()
-}
-
-func (k *kvstoreBackend) Status() (string, error) {
-	return k.backend.Status()
 }

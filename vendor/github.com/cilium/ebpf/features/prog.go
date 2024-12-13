@@ -185,7 +185,7 @@ var haveProgramTypeMatrix = internal.FeatureMatrix[ebpf.ProgramType]{
 		Fn: func() error {
 			return probeProgram(&ebpf.ProgramSpec{
 				Type:  ebpf.Syscall,
-				Flags: unix.BPF_F_SLEEPABLE,
+				Flags: sys.BPF_F_SLEEPABLE,
 			})
 		},
 	},
@@ -263,7 +263,7 @@ func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 	case ebpf.SkLookup:
 		spec.AttachType = ebpf.AttachSkLookup
 	case ebpf.Syscall:
-		spec.Flags = unix.BPF_F_SLEEPABLE
+		spec.Flags = sys.BPF_F_SLEEPABLE
 	}
 
 	prog, err := ebpf.NewProgramWithOptions(spec, ebpf.ProgramOptions{

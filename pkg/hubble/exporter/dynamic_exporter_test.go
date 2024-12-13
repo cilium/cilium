@@ -72,10 +72,10 @@ func TestAddNewExporter(t *testing.T) {
 	}
 
 	// when
-	sut.onConfigReload(context.TODO(), 1, config)
+	sut.onConfigReload(1, config)
 
 	// then
-	assert.Equal(t, 1, len(sut.managedExporters))
+	assert.Len(t, sut.managedExporters, 1)
 	assert.Equal(t, config.FlowLogs[0], sut.managedExporters["test001"].config)
 	assert.NotNil(t, sut.managedExporters["test001"].exporter)
 }
@@ -111,7 +111,7 @@ func TestConfigReloadChanges(t *testing.T) {
 	}
 
 	// when
-	sut.onConfigReload(context.TODO(), 1, config)
+	sut.onConfigReload(1, config)
 
 	// then
 	assert.False(t, mockExporter.stopped, "should not reload when not changed")
@@ -129,7 +129,7 @@ func TestConfigReloadChanges(t *testing.T) {
 			},
 		},
 	}
-	sut.onConfigReload(context.TODO(), 1, newConfig)
+	sut.onConfigReload(1, newConfig)
 
 	// then
 	assert.True(t, mockExporter.stopped, "should reload when changed")
@@ -207,7 +207,7 @@ func TestEventPropagation(t *testing.T) {
 	}
 
 	// when
-	sut.OnDecodedEvent(context.TODO(), &v1.Event{})
+	sut.Export(context.TODO(), &v1.Event{})
 
 	// then
 	assert.Equal(t, 1, mockExporter0.events)
@@ -247,7 +247,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		sut.onConfigReload(context.TODO(), 1, config)
+		sut.onConfigReload(1, config)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -279,7 +279,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		sut.onConfigReload(context.TODO(), 1, config)
+		sut.onConfigReload(1, config)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -311,7 +311,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		sut.onConfigReload(context.TODO(), 1, config4)
+		sut.onConfigReload(1, config4)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -334,7 +334,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		sut.onConfigReload(context.TODO(), 1, config)
+		sut.onConfigReload(1, config)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -386,7 +386,7 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 	configHash := uint64(4367168)
 
 	// when
-	sut.onConfigReload(context.TODO(), configHash, config)
+	sut.onConfigReload(configHash, config)
 
 	// then
 	metricFamilies, err := registry.Gather()
@@ -443,7 +443,7 @@ func TestExportersMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		sut.onConfigReload(context.TODO(), 1, config)
+		sut.onConfigReload(1, config)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -480,7 +480,7 @@ func TestExportersMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		sut.onConfigReload(context.TODO(), 1, config)
+		sut.onConfigReload(1, config)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -509,17 +509,19 @@ func createEmptyLogFile(t *testing.T) *os.File {
 	return file
 }
 
+var _ FlowLogExporter = (*mockExporter)(nil)
+
 type mockExporter struct {
 	events  int
 	stopped bool
 }
 
-func (m *mockExporter) Stop() error {
-	m.stopped = true
+func (m *mockExporter) Export(_ context.Context, _ *v1.Event) error {
+	m.events++
 	return nil
 }
 
-func (m *mockExporter) OnDecodedEvent(_ context.Context, _ *v1.Event) (bool, error) {
-	m.events++
-	return false, nil
+func (m *mockExporter) Stop() error {
+	m.stopped = true
+	return nil
 }

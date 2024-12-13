@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 
@@ -24,9 +25,6 @@ const (
 	// listTimeoutDefault is the default timeout to wait while performing
 	// the initial list operation of objects from the kvstore
 	listTimeoutDefault = 3 * time.Minute
-
-	// watcherChanSize is the size of the channel to buffer kvstore events
-	watcherChanSize = 100
 )
 
 var (
@@ -132,7 +130,10 @@ type SharedStore struct {
 	// kvstore events.
 	sharedKeys map[string]Key
 
-	kvstoreWatcher *kvstore.Watcher
+	// stop stops the kvstore watcher.
+	stop context.CancelFunc
+
+	wg sync.WaitGroup
 }
 
 // Observer receives events when objects in the store mutate
@@ -218,6 +219,9 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 		backend:    c.Backend,
 	}
 
+	// Wrap the context, so that we can subsequently stop the kvstore watcher.
+	s.conf.Context, s.stop = context.WithCancel(s.conf.Context)
+
 	s.name = "store-" + s.conf.Prefix
 	s.controllerName = "kvstore-sync-" + s.name
 
@@ -253,14 +257,8 @@ func (s *SharedStore) onUpdate(k Key) {
 // Release frees all resources own by the store but leaves all keys in the
 // kvstore intact
 func (s *SharedStore) Release() {
-	// Wait for all write operations to complete and then block all further
-	// operations
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.kvstoreWatcher != nil {
-		s.kvstoreWatcher.Stop()
-	}
+	s.stop()
+	s.wg.Wait()
 
 	controllers.RemoveController(s.controllerName)
 }
@@ -453,7 +451,11 @@ func (s *SharedStore) deleteSharedKey(name string) {
 func (s *SharedStore) listAndStartWatcher() error {
 	listDone := make(chan struct{})
 
-	go s.watcher(listDone)
+	s.wg.Add(1)
+	go func() {
+		s.watcher(listDone)
+		s.wg.Done()
+	}()
 
 	select {
 	case <-listDone:
@@ -465,9 +467,9 @@ func (s *SharedStore) listAndStartWatcher() error {
 }
 
 func (s *SharedStore) watcher(listDone chan struct{}) {
-	s.kvstoreWatcher = s.backend.ListAndWatch(s.conf.Context, s.conf.Prefix, watcherChanSize)
+	events := s.backend.ListAndWatch(s.conf.Context, s.conf.Prefix)
 
-	for event := range s.kvstoreWatcher.Events {
+	for event := range events {
 		if event.Typ == kvstore.EventTypeListDone {
 			s.getLogger().Debug("Initial list of objects received from kvstore")
 			close(listDone)

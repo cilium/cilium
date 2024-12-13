@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // PodToService sends an HTTP request from all client Pods
@@ -226,13 +225,6 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 				if f, ok := t.Context().Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
 					continue
 				}
-			}
-
-			//  Skip IPv6 requests when running on <1.14.0 Cilium with CNPs
-			if features.GetIPFamily(addr.Address) == features.IPFamilyV6 &&
-				versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) &&
-				(len(t.CiliumNetworkPolicies()) > 0 || len(t.KubernetesNetworkPolicies()) > 0) {
-				continue
 			}
 
 			// Manually construct an HTTP endpoint to override the destination IP

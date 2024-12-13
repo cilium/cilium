@@ -28,30 +28,34 @@ import (
 
 type dummyBackend struct {
 	mutex      lock.RWMutex
-	identities map[idpool.ID]AllocatorKey
+	masterKeys map[idpool.ID]AllocatorKey
+	slaveKeys  map[idpool.ID]AllocatorKey
 	handler    CacheMutations
 
-	updateKey func(ctx context.Context, id idpool.ID, key AllocatorKey) error
+	updateMasterKeyHandler func(ctx context.Context, id idpool.ID, key AllocatorKey) error
+	updateSlaveKeyHandler  func(ctx context.Context, id idpool.ID, key AllocatorKey) error
 
 	disableListDone bool
 }
 
 func newDummyBackend() *dummyBackend {
 	return &dummyBackend{
-		identities: map[idpool.ID]AllocatorKey{},
+		slaveKeys:  map[idpool.ID]AllocatorKey{},
+		masterKeys: map[idpool.ID]AllocatorKey{},
 	}
 }
 
 func (d *dummyBackend) DeleteAllKeys(ctx context.Context) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.identities = map[idpool.ID]AllocatorKey{}
+	d.slaveKeys = map[idpool.ID]AllocatorKey{}
+	d.masterKeys = map[idpool.ID]AllocatorKey{}
 }
 
 func (d *dummyBackend) DeleteID(ctx context.Context, id idpool.ID) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	delete(d.identities, id)
+	delete(d.slaveKeys, id)
 	return nil
 }
 
@@ -59,11 +63,11 @@ func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key Allocat
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if _, ok := d.identities[id]; ok {
+	if _, ok := d.masterKeys[id]; ok {
 		return nil, fmt.Errorf("identity already exists")
 	}
 
-	d.identities[id] = key
+	d.masterKeys[id] = key
 
 	if d.handler != nil {
 		d.handler.OnUpsert(id, key)
@@ -80,9 +84,11 @@ func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key A
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if _, ok := d.identities[id]; !ok {
+	if _, ok := d.masterKeys[id]; !ok {
 		return fmt.Errorf("identity does not exist")
 	}
+
+	d.slaveKeys[id] = key
 
 	if d.handler != nil {
 		d.handler.OnUpsert(id, key)
@@ -105,18 +111,41 @@ func (d *dummyBackend) Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLo
 	return &dummyLock{}, nil
 }
 
-func (d *dummyBackend) setUpdateKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
+func (d *dummyBackend) setUpdateMasterKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.updateKey = mutator
+	d.updateMasterKeyHandler = mutator
+}
+
+func (d *dummyBackend) setUpdateSlaveKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.updateSlaveKeyHandler = mutator
 }
 
 func (d *dummyBackend) UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
+	if err := d.updateMasterKey(ctx, id, key, reliablyMissing); err != nil {
+		return err
+	}
+	return d.updateSlaveKey(ctx, id, key, reliablyMissing)
+}
+
+func (d *dummyBackend) updateMasterKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.identities[id] = key
-	if d.updateKey != nil {
-		return d.updateKey(ctx, id, key)
+	d.masterKeys[id] = key
+	if d.updateMasterKeyHandler != nil {
+		return d.updateMasterKeyHandler(ctx, id, key)
+	}
+	return nil
+}
+
+func (d *dummyBackend) updateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.slaveKeys[id] = key
+	if d.updateSlaveKeyHandler != nil {
+		return d.updateSlaveKeyHandler(ctx, id, key)
 	}
 	return nil
 }
@@ -128,7 +157,8 @@ func (d *dummyBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key 
 func (d *dummyBackend) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
-	for id, k := range d.identities {
+	// This loops through slaveKeys to mimic the kvstore implementation
+	for id, k := range d.slaveKeys {
 		if key.GetKey() == k.GetKey() {
 			return id, nil
 		}
@@ -143,7 +173,7 @@ func (d *dummyBackend) GetIfLocked(ctx context.Context, key AllocatorKey, lock k
 func (d *dummyBackend) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
-	if key, ok := d.identities[id]; ok {
+	if key, ok := d.masterKeys[id]; ok {
 		return key, nil
 	}
 	return nil, nil
@@ -152,10 +182,10 @@ func (d *dummyBackend) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey,
 func (d *dummyBackend) Release(ctx context.Context, id idpool.ID, key AllocatorKey) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	for idtyID, k := range d.identities {
+	for idtyID, k := range d.slaveKeys {
 		if k.GetKey() == key.GetKey() &&
 			idtyID == id {
-			delete(d.identities, id)
+			delete(d.slaveKeys, id)
 			if d.handler != nil {
 				d.handler.OnDelete(id, k)
 			}
@@ -169,16 +199,16 @@ func (d *dummyBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, er
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return slices.Collect(maps.Keys(d.identities)), nil
+	return slices.Collect(maps.Keys(d.masterKeys)), nil
 }
 
-func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
+func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations) {
 	d.mutex.Lock()
 	d.handler = handler
 
 	// Sort by ID to ensure consistent ordering
-	for _, id := range slices.Sorted(maps.Keys(d.identities)) {
-		d.handler.OnUpsert(id, d.identities[id])
+	for _, id := range slices.Sorted(maps.Keys(d.masterKeys)) {
+		d.handler.OnUpsert(id, d.masterKeys[id])
 	}
 	d.mutex.Unlock()
 
@@ -186,7 +216,7 @@ func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations,
 		d.handler.OnListDone()
 	}
 
-	<-stopChan
+	<-ctx.Done()
 }
 
 func (d *dummyBackend) RunLocksGC(_ context.Context, _ map[string]kvstore.Value) (map[string]kvstore.Value, error) {
@@ -195,10 +225,6 @@ func (d *dummyBackend) RunLocksGC(_ context.Context, _ map[string]kvstore.Value)
 
 func (d *dummyBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64, idpool.ID, idpool.ID) (map[string]uint64, *GCStats, error) {
 	return nil, nil, nil
-}
-
-func (d *dummyBackend) Status() (string, error) {
-	return "", nil
 }
 
 type TestAllocatorKey string
@@ -354,7 +380,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 	rateLimiter := rate.NewLimiter(10*time.Second, 100)
 
 	// running the GC should not evict any entries
-	allocator.RunGC(rateLimiter, nil)
+	allocator.RunGC(context.Background(), rateLimiter, nil)
 
 	// release final reference of all IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
@@ -367,7 +393,7 @@ func testAllocator(t *testing.T, maxID idpool.ID) {
 	}
 
 	// running the GC should evict all entries
-	allocator.RunGC(rateLimiter, nil)
+	allocator.RunGC(context.Background(), rateLimiter, nil)
 
 	allocator.DeleteAllKeys()
 	allocator.Delete()
@@ -454,7 +480,7 @@ func TestHandleK8sDelete(t *testing.T) {
 	require.True(t, newlyAllocated)
 
 	var counter atomic.Uint32
-	backend.setUpdateKeyMutator(func(ctx context.Context, id idpool.ID, key AllocatorKey) error {
+	backend.setUpdateMasterKeyMutator(func(ctx context.Context, id idpool.ID, key AllocatorKey) error {
 		counter.Add(1)
 		if counter.Load() <= 2 {
 			return fmt.Errorf("updateKey failed: %d", counter.Load())
@@ -502,7 +528,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	var wg sync.WaitGroup
 	var synced atomic.Bool
 
-	run := func(ctx context.Context, rc *RemoteCache) context.CancelFunc {
+	run := func(ctx context.Context, rc RemoteIDCache) context.CancelFunc {
 		ctx, cancel := context.WithCancel(ctx)
 		wg.Add(1)
 		go func() {
@@ -518,7 +544,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 		synced.Store(false)
 	}
 
-	global := Allocator{remoteCaches: make(map[string]*RemoteCache)}
+	global := Allocator{remoteCaches: make(map[string]*remoteCache)}
 	events := make(AllocatorEventChan, 10)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -607,7 +633,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: AllocatorChangeDelete}, <-events)
 	require.Equal(t, rc, global.remoteCaches["remote"])
 
-	require.Len(t, events, 0)
+	require.Empty(t, events)
 
 	// Remove the remote caches and assert that a deletion event is triggered
 	// for all entries.
@@ -676,4 +702,128 @@ func TestCacheValidators(t *testing.T) {
 	require.Empty(t, events, "Invalid delete event should not be propagated")
 	require.Nil(t, allocator.mainCache.getByID(invalidID))
 	require.Equal(t, AllocatorChangeDelete, kind)
+}
+
+func TestSyncLocalKeys(t *testing.T) {
+	numIDs := idpool.ID(3)
+	backend := newDummyBackend()
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(numIDs))
+	require.NoError(t, err)
+	require.NotNil(t, allocator)
+
+	var ids []idpool.ID
+
+	// allocate IDs
+	for i := idpool.ID(1); i <= numIDs; i++ {
+		key := TestAllocatorKey(fmt.Sprintf("key-%04d", i))
+		id, _, _, err := allocator.Allocate(context.Background(), key)
+		require.NoError(t, err)
+		require.NotEqual(t, idpool.NoID, id)
+		ids = append(ids, id)
+
+		// Ensure id stored in backend is the same
+		backendID, err := backend.Get(context.TODO(), key)
+		require.NoError(t, err)
+		require.Equal(t, backendID, id)
+	}
+
+	err = allocator.syncLocalKeys()
+	require.NoError(t, err)
+
+	/// Release the use one id/delete the slave key
+	key, err := backend.GetByID(context.TODO(), ids[0])
+	require.NoError(t, err)
+	err = backend.Release(context.TODO(), ids[0], key)
+	require.NoError(t, err)
+
+	// Delete the master key of one ID
+	err = backend.DeleteID(context.TODO(), ids[1])
+	require.NoError(t, err)
+
+	// Delete both master and slave key for another ID
+	key, err = backend.GetByID(context.TODO(), ids[2])
+	require.NoError(t, err)
+	err = backend.Release(context.TODO(), ids[2], key)
+	require.NoError(t, err)
+	err = backend.DeleteID(context.TODO(), ids[2])
+	require.NoError(t, err)
+
+	err = allocator.syncLocalKeys()
+	require.NoError(t, err)
+
+	// Ensure all IDs are present
+	for i := idpool.ID(1); i <= numIDs; i++ {
+		key := TestAllocatorKey(fmt.Sprintf("key-%04d", i))
+
+		// Ensure all slave keys are present via Get
+		backendID, err := backend.Get(context.TODO(), key)
+		require.NoError(t, err)
+		require.NotEqual(t, idpool.NoID, backendID)
+
+		// Ensure all master keys are present via GetById
+		backendKey, err := backend.GetByID(context.TODO(), backendID)
+		require.NoError(t, err)
+		require.Equal(t, key, backendKey)
+	}
+
+}
+
+func TestSyncLocalKeysWithIdentityAllocations(t *testing.T) {
+	numIDs := idpool.ID(500)
+	backend := newDummyBackend()
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(100*numIDs))
+	require.NoError(t, err)
+	require.NotNil(t, allocator)
+
+	allocateKeys := func(prefix string) func() {
+		// allocate IDs
+		for i := idpool.ID(1); i <= numIDs; i++ {
+			key := TestAllocatorKey(fmt.Sprintf("%s-key-%04d", prefix, i))
+			id, _, _, err := allocator.Allocate(context.Background(), key)
+			require.NoError(t, err)
+			require.NotEqual(t, idpool.NoID, id)
+		}
+		return func() {
+			for i := idpool.ID(1); i <= numIDs; i++ {
+				key := TestAllocatorKey(fmt.Sprintf("%s-key-%04d", prefix, i))
+				_, err := allocator.Release(context.TODO(), key)
+				require.NoError(t, err)
+			}
+		}
+	}
+	releaseKeys := allocateKeys("initial")
+
+	backend.setUpdateSlaveKeyMutator(func(ctx context.Context, id idpool.ID, key AllocatorKey) error {
+		time.Sleep(time.Microsecond)
+		return nil
+	})
+	done := make(chan struct{})
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		for {
+			select {
+			case <-done:
+				wg.Done()
+				return
+			default:
+				err := allocator.syncLocalKeys()
+				require.NoError(t, err)
+			}
+		}
+	}()
+
+	// Release keys concurrently with syncLocalKeys
+	go func() {
+		releaseKeys()
+		releaseExtraKeys := allocateKeys("extra")
+		releaseExtraKeys()
+		close(done)
+	}()
+
+	wg.Wait()
+
+	// Ensure all slave keys are deleted, and non are leaked
+	assert.Empty(t, backend.slaveKeys)
 }

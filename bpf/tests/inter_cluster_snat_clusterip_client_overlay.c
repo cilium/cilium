@@ -247,13 +247,16 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port hasn't been SNATed for inter-cluster communication");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0x777e))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	tuple.daddr = BACKEND_IP;
 	tuple.saddr = CLIENT_IP;
@@ -289,7 +292,7 @@ int from_overlay_synack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_from_overlay_synack")
 int from_overlay_synack_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0, 0,
+	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0, 0, 0,
 			      (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
@@ -347,7 +350,7 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been RevSNATed to client IP");
 
 	if (l3->check != bpf_htons(0xfa68))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");
@@ -355,9 +358,12 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port hasn't been RevSNATed to client port");
 
-	meta = ctx_load_meta(ctx, CB_IFINDEX);
-	if (meta != CLIENT_IFINDEX)
-		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d", CLIENT_IFINDEX, meta);
+	if (l4->check != bpf_htons(0x2fc5))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+
+	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
+	if (meta != 1)
+		test_fatal("skb->cb[CB_DELIVERY_REDIRECT] should be 1, got %d", meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != BACKEND_IDENTITY)
@@ -442,13 +448,16 @@ int to_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port hasn't been SNATed for inter-cluster communication");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0x7770))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }

@@ -57,7 +57,7 @@ func Test_filterServiceBackends(t *testing.T) {
 		})
 		t.Run("no match", func(t *testing.T) {
 			backends := filterServiceBackends(svc, []string{"8000"})
-			assert.Len(t, backends, 0)
+			assert.Empty(t, backends)
 		})
 	})
 
@@ -240,7 +240,7 @@ func TestGetEndpointsForLBBackends(t *testing.T) {
 
 		assert.Len(t, ep.GetEndpoints(), 1)
 		assert.Len(t, ep.GetEndpoints()[0].GetLbEndpoints(), 1)
-		assert.Equal(t, ep.GetEndpoints()[0].GetLbEndpoints()[0].GetHostIdentifier().(*endpointv3.LbEndpoint_Endpoint).Endpoint.Address.GetAddress().(*envoy_config_core.Address_SocketAddress).SocketAddress.Address, "192.128.1.1")
+		assert.Equal(t, "192.128.1.1", ep.GetEndpoints()[0].GetLbEndpoints()[0].GetHostIdentifier().(*endpointv3.LbEndpoint_Endpoint).Endpoint.Address.GetAddress().(*envoy_config_core.Address_SocketAddress).SocketAddress.Address)
 	}
 
 	assert.Contains(t, allClusterNames, "test-cluster/test-ns/test-name:12000")

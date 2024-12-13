@@ -16,7 +16,6 @@ import (
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -91,8 +90,6 @@ func (m *PeerManager) watchNotifications() {
 		<-m.stop
 		cancel()
 	}()
-	retryTimer, retryTimerDone := inctimer.New()
-	defer retryTimerDone()
 connect:
 	for {
 		cl, err := m.opts.peerClientBuilder.Client(m.opts.peerServiceAddress)
@@ -100,11 +97,11 @@ connect:
 			m.opts.log.WithFields(logrus.Fields{
 				"error":  err,
 				"target": m.opts.peerServiceAddress,
-			}).Warning("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
+			}).Info("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
 			select {
 			case <-m.stop:
 				return
-			case <-retryTimer.After(m.opts.retryTimeout):
+			case <-time.After(m.opts.retryTimeout):
 				continue
 			}
 		}
@@ -114,11 +111,11 @@ connect:
 			m.opts.log.WithFields(logrus.Fields{
 				"error":              err,
 				"connection timeout": m.opts.retryTimeout,
-			}).Warning("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
+			}).Info("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
 			select {
 			case <-m.stop:
 				return
-			case <-retryTimer.After(m.opts.retryTimeout):
+			case <-time.After(m.opts.retryTimeout):
 				continue
 			}
 		}
@@ -136,12 +133,12 @@ connect:
 				m.opts.log.WithFields(logrus.Fields{
 					"error":              err,
 					"connection timeout": m.opts.retryTimeout,
-				}).Warning("Error while receiving peer change notification; will try again after the timeout has expired")
+				}).Info("Error while receiving peer change notification; will try again after the timeout has expired")
 				m.peerServiceConnected.Store(false)
 				select {
 				case <-m.stop:
 					return
-				case <-retryTimer.After(m.opts.retryTimeout):
+				case <-time.After(m.opts.retryTimeout):
 					continue connect
 				}
 			}
@@ -160,8 +157,6 @@ connect:
 }
 
 func (m *PeerManager) manageConnections() {
-	connTimer, connTimerDone := inctimer.New()
-	defer connTimerDone()
 	for {
 		select {
 		case <-m.stop:
@@ -176,7 +171,7 @@ func (m *PeerManager) manageConnections() {
 				// a connection request has been made, make sure to attempt a connection
 				m.connect(p, true)
 			}(p)
-		case <-connTimer.After(m.opts.connCheckInterval):
+		case <-time.After(m.opts.connCheckInterval):
 			m.mu.RLock()
 			for _, p := range m.peers {
 				m.wg.Add(1)
@@ -191,13 +186,11 @@ func (m *PeerManager) manageConnections() {
 }
 
 func (m *PeerManager) reportConnectionStatus() {
-	connTimer, connTimerDone := inctimer.New()
-	defer connTimerDone()
 	for {
 		select {
 		case <-m.stop:
 			return
-		case <-connTimer.After(m.opts.connStatusInterval):
+		case <-time.After(m.opts.connStatusInterval):
 			m.mu.RLock()
 			connStates := make(map[connectivity.State]uint32)
 			var nilConnPeersNum uint32 = 0

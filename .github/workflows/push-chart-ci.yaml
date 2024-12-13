@@ -39,37 +39,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  push-charts:
-    name: Push Charts
+  setup-charts:
+    name: Setup Charts
     runs-on: ubuntu-24.04
+    outputs:
+      github-sha: ${{ steps.get-sha.outputs.sha }}
+      chart-version: ${{ steps.get-version.outputs.chart_version }}
     # we also check for push events in case someone is testing the workflow by uncommenting the push trigger above.
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
     steps:
     - name: Checkout GitHub main
-      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         ref: ${{ github.event.repository.default_branch }}
         persist-credentials: false
 
-    - name: Set Environment Variables
-      uses: ./.github/actions/set-env-variables
+    # We do this to ensure that we don't run arbitrary scripts
+    - name: Copy default branch chart version script
+      run: |
+        mkdir -p ../cilium-default-branch/contrib/scripts
+        if [[ -f ./contrib/scripts/print-chart-version.sh ]]; then
+          cp ./contrib/scripts/print-chart-version.sh ../cilium-default-branch/contrib/scripts
+        else
+          echo "./contrib/scripts/print-chart-version.sh missing. Perhaps it needs to be backported to your target branch?"
+          exit 1
+        fi
 
-    - name: Get triggering event ref
-      id: get-ref
+    - name: Get triggering event SHA
+      id: get-sha
       run: |
         if [[ "${{ github.event_name }}" == "workflow_dispatch"  ]]; then
-          echo ref="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
           echo sha="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
         elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-          if [[ "${{ github.event.workflow_run.head_repository.fork }}" == "true"  ]]; then
-            # use the SHA on forks since the head_branch won't exist in the upstream repository
-            echo ref="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
-          else
-            echo ref="${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
-          fi
           echo sha="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
         elif [[ "${{ github.event_name }}" == "push" ]]; then
-          echo ref="${{ github.ref }}" >> $GITHUB_OUTPUT
           echo sha="${{ github.sha }}" >> $GITHUB_OUTPUT
         else
           echo "Invalid event type"
@@ -79,45 +82,64 @@ jobs:
     - name: Set commit status to pending
       uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       with:
-        sha: ${{ steps.get-ref.outputs.sha }}
+        sha: ${{ steps.get-sha.outputs.sha }}
         status: pending
         description: Helm push in progress
 
     - name: Checkout Source Code
-      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         persist-credentials: false
-        # checkout ref not SHA so we can get useful branch names (see previous comments)
-        ref: ${{ steps.get-ref.outputs.ref }}
+        ref: ${{ steps.get-sha.outputs.sha }}
         # required for git describe
         fetch-depth: 0
+
     - name: Get version
       id: get-version
       run: |
         set -o pipefail
         set -e
-        if [[ -f ./contrib/scripts/print-chart-version.sh ]]; then
-          echo "chart_version=$(./contrib/scripts/print-chart-version.sh)" | tee -a $GITHUB_OUTPUT
-        else
-          echo "./contrib/scripts/print-chart-version.sh missing. Perhaps it needs to be backported to your target branch?"
-          exit 1
-        fi
+        # print-chart-version.sh expects the VERSION file in a specific location, so copy it there
+        cp VERSION ../cilium-default-branch
+        echo "chart_version=$(../cilium-default-branch/contrib/scripts/print-chart-version.sh)" | tee -a $GITHUB_OUTPUT
+
+  push-charts:
+    name: Push Charts
+    runs-on: ubuntu-24.04
+    needs: setup-charts
+    steps:
+    - name: Checkout GitHub Actions definitions
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        persist-credentials: false
+        ref: ${{ github.event.repository.default_branch }}
+        sparse-checkout: .github/actions
+
+    - name: Set Environment Variables
+      uses: ./.github/actions/set-env-variables
+
+    - name: Checkout Feature Branch Code
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        persist-credentials: false
+        ref: ${{ needs.setup-charts.outputs.github-sha }}
+        sparse-checkout: install/kubernetes/cilium
 
     - name: Push charts
       uses: cilium/reusable-workflows/.github/actions/push-helm-chart@6ae27958f2f37545bf48e44106b73df05b1f6d12 # v0.1.0
       with:
         name: cilium
         path: install/kubernetes/cilium
-        version: ${{ steps.get-version.outputs.chart_version }}
+        version: ${{ needs.setup-charts.outputs.chart-version }}
         values_file_changes: |
           {
 
             "image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci",
-            "image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
             "image.digest": "",
             "image.useDigest": false,
             "preflight.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci",
-            "preflight.image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "preflight.image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
             "preflight.image.digest": "",
             "preflight.image.useDigest": false,
             "operator.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator",
@@ -127,13 +149,13 @@ jobs:
             "operator.image.awsDigest": "",
             "operator.image.alibabacloudDigest": "",
             "operator.image.useDigest": false,
-            "operator.image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "operator.image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
             "hubble.relay.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci",
-            "hubble.relay.image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "hubble.relay.image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
             "hubble.relay.image.digest": "",
             "hubble.relay.image.useDigest": false,
             "clustermesh.apiserver.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci",
-            "clustermesh.apiserver.image.tag": "${{ steps.get-ref.outputs.sha }}",
+            "clustermesh.apiserver.image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
             "clustermesh.apiserver.image.digest": "",
             "clustermesh.apiserver.image.useDigest": false
           }
@@ -142,17 +164,36 @@ jobs:
         registry_username: ${{ secrets.QUAY_CHARTS_DEV_USERNAME }}
         registry_password: ${{ secrets.QUAY_CHARTS_DEV_PASSWORD }}
 
+  post-push:
+    name: Post-push steps
+    runs-on: ubuntu-24.04
+    needs:
+      - setup-charts
+      - push-charts
+    steps:
+    - name: Checkout GitHub Actions definitions
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        persist-credentials: false
+        ref: ${{ github.event.repository.default_branch }}
+        sparse-checkout: .github/actions
+
+    - name: Set Environment Variables
+      uses: ./.github/actions/set-env-variables
+
     - name: Print helm command
+      env:
+        CHART_VERSION: ${{ needs.setup-charts.outputs.chart-version }}
       run: |
         echo "Example commands:"
-        echo helm template -n kube-system oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version ${{ steps.get-version.outputs.chart_version }}
-        echo helm install cilium -n kube-system  oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version ${{ steps.get-version.outputs.chart_version }}
+        echo helm template -n kube-system oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
+        echo helm install cilium -n kube-system  oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
 
     - name: Set commit status to success
       if: ${{ success() }}
       uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       with:
-        sha: ${{ steps.get-ref.outputs.sha }}
+        sha: ${{ needs.setup-charts.outputs.github-sha }}
         status: success
         description: Helm push successful
 
@@ -160,7 +201,7 @@ jobs:
       if: ${{ failure() }}
       uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       with:
-        sha: ${{ steps.get-ref.outputs.sha }}
+        sha: ${{ needs.setup-charts.outputs.github-sha }}
         status: failure
         description: Helm push failed
 
@@ -168,6 +209,6 @@ jobs:
       if: ${{ cancelled() }}
       uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
       with:
-        sha: ${{ steps.get-ref.outputs.sha }}
+        sha: ${{ needs.setup-charts.outputs.github-sha }}
         status: error
         description: Helm push cancelled

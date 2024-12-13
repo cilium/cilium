@@ -74,6 +74,7 @@ type DescribeCustomerGatewaysRequest struct {
 	ResourceOwnerId      requests.Integer               `position:"Query" name:"ResourceOwnerId"`
 	CustomerGatewayId    string                         `position:"Query" name:"CustomerGatewayId"`
 	PageNumber           requests.Integer               `position:"Query" name:"PageNumber"`
+	ResourceGroupId      string                         `position:"Query" name:"ResourceGroupId"`
 	PageSize             requests.Integer               `position:"Query" name:"PageSize"`
 	Tag                  *[]DescribeCustomerGatewaysTag `position:"Query" name:"Tag"  type:"Repeated"`
 	ResourceOwnerAccount string                         `position:"Query" name:"ResourceOwnerAccount"`

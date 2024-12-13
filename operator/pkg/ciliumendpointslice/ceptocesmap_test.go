@@ -55,8 +55,8 @@ func TestCepToCESCounts(t *testing.T) {
 			cmap.insertCES(CESName(tc.cesName), "ns")
 			cmap.insertCEP(CEPName(tc.cepName), CESName(tc.cesName))
 			assert.Equal(t, cmap.countCEPs(), tc.count, "Number of CEP entries in cmap should match with Count")
-			assert.Equal(t, cmap.hasCEP(tc.cepName), true, "CEP name should present in cmap")
-			assert.Equal(t, cmap.hasCEP(NewCEPName("not-really-cep", "ns")), false, "Random string should NOT present in cmap as Key")
+			assert.True(t, cmap.hasCEP(tc.cepName), "CEP name should present in cmap")
+			assert.False(t, cmap.hasCEP(NewCEPName("not-really-cep", "ns")), "Random string should NOT present in cmap as Key")
 		})
 	}
 
@@ -66,10 +66,10 @@ func TestCepToCESCounts(t *testing.T) {
 			cmap.insertCES(CESName(tc.cesName), "ns")
 			cmap.insertCEP(tc.cepName, tc.cesName)
 			cesName, ok := cmap.getCESName(tc.cepName)
-			assert.Equal(t, ok, true, "CEP name should be there in map")
+			assert.True(t, ok, "CEP name should be there in map")
 			assert.Equal(t, cesName, tc.cesName, "CEP name should match with cesName")
 			cmap.deleteCEP(tc.cepName)
-			assert.Equal(t, cmap.hasCEP(tc.cepName), false, "CEP name is removed from cache, so it shouldn't be in cache")
+			assert.False(t, cmap.hasCEP(tc.cepName), "CEP name is removed from cache, so it shouldn't be in cache")
 		})
 	}
 

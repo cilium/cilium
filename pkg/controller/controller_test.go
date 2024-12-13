@@ -203,7 +203,7 @@ func TestWaitForTermination(t *testing.T) {
 
 	// Ensure that the channel does not get closed while the controller is
 	// still running
-	require.Nil(t, testutils.WaitUntil(func() bool {
+	require.NoError(t, testutils.WaitUntil(func() bool {
 		select {
 		case <-mngr.terminationChannel("test1"):
 			return false
@@ -212,7 +212,7 @@ func TestWaitForTermination(t *testing.T) {
 		}
 	}, 20*time.Millisecond))
 
-	require.Nil(t, mngr.RemoveControllerAndWait("test1"))
+	require.NoError(t, mngr.RemoveControllerAndWait("test1"))
 
 	// The controller must have been terminated already due to AndWait above
 	select {

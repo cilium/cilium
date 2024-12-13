@@ -5,9 +5,10 @@ package watchers
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -22,28 +23,27 @@ import (
 )
 
 var (
-	K8sSvcCache = k8s.NewServiceCache(nil, nil)
+	K8sSvcCache = k8s.NewServiceCache(nil, nil, k8s.NewSVCMetricsNoop())
 
 	kvs store.SyncStore
 )
 
-func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool) {
+func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool, logger *slog.Logger) {
 	serviceHandler := func(event k8s.ServiceEvent) {
-		defer event.SWG.Done()
+		defer event.SWGDone()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.K8sSvcName:   event.ID.Name,
-			logfields.K8sNamespace: event.ID.Namespace,
-			"action":               event.Action.String(),
-			"service":              event.Service.String(),
-			"endpoints":            event.Endpoints.String(),
-			"shared":               event.Service.Shared,
-		})
-		scopedLog.Debug("Kubernetes service definition changed")
+		logger.Debug("Kubernetes service definition changed",
+			logfields.K8sSvcName, event.ID.Name,
+			logfields.K8sNamespace, event.ID.Namespace,
+			"action", event.Action,
+			"service", event.Service,
+			"endpoints", event.Endpoints,
+			"shared", event.Service.Shared,
+		)
 
 		if shared && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
@@ -56,7 +56,11 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			if err := kvs.UpsertKey(ctx, &svc); err != nil {
 				// An error is triggered only in case it concerns service marshaling,
 				// as kvstore operations are automatically re-tried in case of error.
-				scopedLog.WithError(err).Warning("Failed synchronizing service")
+				logger.Warn("Failed synchronizing service",
+					logfields.Error, err,
+					logfields.K8sSvcName, event.ID.Name,
+					logfields.K8sNamespace, event.ID.Namespace,
+				)
 			}
 
 		case k8s.DeleteService:
@@ -93,7 +97,7 @@ type ServiceSyncParameters struct {
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters) {
+func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters, logger *slog.Logger) {
 	kvstoreReady := make(chan struct{})
 
 	wg.Add(1)
@@ -121,7 +125,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		<-kvstoreReady
 
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.ClusterInfo, cfg.SharedOnly)
+		k8sServiceHandler(ctx, cfg.ClusterInfo, cfg.SharedOnly, logger)
 	}()
 
 	// Start populating the service cache with Kubernetes services and endpoints

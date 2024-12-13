@@ -6,11 +6,11 @@ package ciliumendpointslice
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/util/workqueue"
 
@@ -29,7 +29,7 @@ type rateLimitConfig struct {
 
 	rateLimiter *workqueue.BucketRateLimiter
 
-	logger logrus.FieldLogger
+	logger *slog.Logger
 }
 
 type dynamicRateLimit []rateLimit
@@ -73,11 +73,10 @@ func (rlc *rateLimitConfig) getDelay() time.Duration {
 func (rlc *rateLimitConfig) updateRateLimiterWithNodes(nodes int) bool {
 	changed := rlc.updateRateLimitWithNodes(nodes, false)
 	if changed {
-		rlc.logger.WithFields(logrus.Fields{
-			"nodes":                       nodes,
-			logfields.WorkQueueQPSLimit:   rlc.current.Limit,
-			logfields.WorkQueueBurstLimit: rlc.current.Burst,
-		}).Info("Updating rate limit")
+		rlc.logger.Info("Updating rate limit",
+			"nodes", nodes,
+			logfields.WorkQueueQPSLimit, rlc.current.Limit,
+			logfields.WorkQueueBurstLimit, rlc.current.Burst)
 
 		rlc.rateLimiter.SetBurst(rlc.current.Burst)
 		rlc.rateLimiter.SetLimit(rate.Limit(rlc.current.Limit))

@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,7 +26,7 @@ import (
 var Cell = cell.Module(
 	"mcsapi",
 	"Multi-Cluster Services API",
-	cell.Invoke(initMCSAPIController),
+	cell.Invoke(registerMCSAPIController),
 )
 
 type mcsAPIParams struct {
@@ -42,7 +43,8 @@ type mcsAPIParams struct {
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
 
-	Logger logrus.FieldLogger
+	Logger   logrus.FieldLogger
+	JobGroup job.Group
 }
 
 var requiredGVK = []schema.GroupVersionKind{
@@ -84,8 +86,8 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 	return res
 }
 
-func initMCSAPIController(params mcsAPIParams) error {
-	if !params.Clientset.IsEnabled() || params.ClusterMesh != nil || !params.CfgMCSAPI.ClusterMeshEnableMCSAPI {
+func registerMCSAPIController(params mcsAPIParams) error {
+	if !params.Clientset.IsEnabled() || params.ClusterMesh == nil || !params.CfgMCSAPI.ClusterMeshEnableMCSAPI {
 		return nil
 	}
 
@@ -113,5 +115,27 @@ func initMCSAPIController(params mcsAPIParams) error {
 	}
 
 	params.Logger.Info("Multi-Cluster Services API support enabled")
+
+	remoteClusterServiceSource := &remoteClusterServiceExportSource{Logger: params.Logger}
+	params.ClusterMesh.RegisterClusterServiceExportUpdateHook(remoteClusterServiceSource.onClusterServiceExportEvent)
+	params.ClusterMesh.RegisterClusterServiceExportDeleteHook(remoteClusterServiceSource.onClusterServiceExportEvent)
+	svcImportReconciler := newMCSAPIServiceImportReconciler(
+		params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name,
+		params.ClusterMesh.GlobalServiceExports(), remoteClusterServiceSource,
+	)
+
+	params.JobGroup.Add(job.OneShot("mcsapi-main", func(ctx context.Context, health cell.Health) error {
+		params.Logger.Info("Bootstrap Multi-Cluster Services API support")
+
+		if err := params.ClusterMesh.ServiceExportsSynced(ctx); err != nil {
+			return nil // The parent context expired, and we are already terminating
+		}
+
+		if err := svcImportReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+			return fmt.Errorf("Failed to register mcsapicontrollers.ServiceImportReconciler: %w", err)
+		}
+
+		return nil
+	}))
 	return nil
 }

@@ -15,16 +15,25 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+// allService is a resource.Resource[*slim_corev1.Service]
+type allService resource.Resource[*slim_corev1.Service]
+
+// allEndpoint is a resource.Resource[*slim_corev1.Service]
+type allEndpoint resource.Resource[*k8s.Endpoints]
 
 // Cell provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
 // and L7 loadbalancing.
@@ -32,21 +41,34 @@ var Cell = cell.Module(
 	"ciliumenvoyconfig",
 	"CiliumEnvoyConfig",
 
+	cell.Config(cecConfig{}),
 	cell.Invoke(registerCECK8sReconciler),
 	cell.ProvidePrivate(newCECManager),
 	cell.ProvidePrivate(newCECResourceParser),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
-	cell.Config(cecConfig{}),
+	cell.ProvidePrivate(
+		func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (allService, error) {
+			return k8s.ServiceResource(lc, cfg, cs)
+		},
+		func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (allEndpoint, error) {
+			return k8s.EndpointsResource(lc, cfg, cs)
+		},
+	),
+	cell.ProvidePrivate(newPortAllocator),
+
+	experimentalCell,
 )
 
 type cecConfig struct {
-	EnvoyConfigRetryInterval time.Duration
-	EnvoyConfigTimeout       time.Duration
+	EnvoyConfigRetryInterval  time.Duration
+	EnvoyConfigTimeout        time.Duration
+	ProxyMaxConcurrentRetries uint32
 }
 
 func (r cecConfig) Flags(flags *pflag.FlagSet) {
 	flags.Duration("envoy-config-retry-interval", 15*time.Second, "Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated.")
 	flags.Duration("envoy-config-timeout", 2*time.Minute, "Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources")
+	flags.Uint32("proxy-max-concurrent-retries", 128, "Maximum number of concurrent retries on Envoy clusters")
 }
 
 type reconcilerParams struct {
@@ -60,16 +82,19 @@ type reconcilerParams struct {
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
 
-	Config  cecConfig
-	Manager ciliumEnvoyConfigManager
+	Config    cecConfig
+	ExpConfig experimental.Config
+	Manager   ciliumEnvoyConfigManager
 
 	CECResources   resource.Resource[*ciliumv2.CiliumEnvoyConfig]
 	CCECResources  resource.Resource[*ciliumv2.CiliumClusterwideEnvoyConfig]
 	LocalNodeStore *node.LocalNodeStore
+
+	EndpointResources allEndpoint
 }
 
 func registerCECK8sReconciler(params reconcilerParams) {
-	if !option.Config.EnableL7Proxy || !option.Config.EnableEnvoyConfig {
+	if !option.Config.EnableL7Proxy || !option.Config.EnableEnvoyConfig || params.ExpConfig.EnableExperimentalLB {
 		return
 	}
 
@@ -114,12 +139,21 @@ func registerCECK8sReconciler(params reconcilerParams) {
 	// Note: LocalNodeStore (in comparison to `resource.Resource`) doesn't provide a retry mechanism
 	params.JobGroup.Add(job.Observer("local-node-events", reconciler.handleLocalNodeEvent, params.LocalNodeStore))
 
+	// Observing service events for headless services
+	params.JobGroup.Add(job.Observer("headless-endpoint-events", reconciler.syncEndpoints, params.EndpointResources))
+
 	// TimerJob periodically reconciles all existing configs.
 	// This covers the cases were the reconciliation fails after changing the labels of a node.
 	if params.Config.EnvoyConfigRetryInterval > 0 {
 		params.JobGroup.Add(job.Timer("reconcile-existing-configs", reconciler.reconcileExistingConfigs, params.Config.EnvoyConfigRetryInterval))
-		params.JobGroup.Add(job.Timer("sync-headless-service", reconciler.syncHeadlessService, params.Config.EnvoyConfigRetryInterval))
 	}
+}
+
+type CECMetrics interface {
+	AddCEC(cec *ciliumv2.CiliumEnvoyConfigSpec)
+	DelCEC(cec *ciliumv2.CiliumEnvoyConfigSpec)
+	AddCCEC(spec *ciliumv2.CiliumEnvoyConfigSpec)
+	DelCCEC(spec *ciliumv2.CiliumEnvoyConfigSpec)
 }
 
 type managerParams struct {
@@ -136,11 +170,17 @@ type managerParams struct {
 	BackendSyncer  *envoyServiceBackendSyncer
 	ResourceParser *cecResourceParser
 
-	Services  resource.Resource[*slim_corev1.Service]
-	Endpoints resource.Resource[*k8s.Endpoints]
+	Services  allService
+	Endpoints allEndpoint
+
+	MetricsManager CECMetrics
 }
 
 func newCECManager(params managerParams) ciliumEnvoyConfigManager {
 	return newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer,
-		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.Services, params.Endpoints)
+		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.Config.ProxyMaxConcurrentRetries, params.Services, params.Endpoints, params.MetricsManager)
+}
+
+func newPortAllocator(proxy *proxy.Proxy) PortAllocator {
+	return proxy
 }

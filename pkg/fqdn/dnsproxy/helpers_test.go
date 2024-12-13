@@ -39,8 +39,8 @@ func TestSetPortRulesForID(t *testing.T) {
 	}
 
 	err := pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
-	require.Equal(t, nil, err)
-	require.Equal(t, 1, len(cache))
+	require.NoError(t, err)
+	require.Len(t, cache, 1)
 
 	selector2 := new(MockCachedSelector)
 	rules[selector2] = &policy.PerSelectorPolicy{
@@ -54,17 +54,17 @@ func TestSetPortRulesForID(t *testing.T) {
 	}
 
 	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
-	require.Equal(t, nil, err)
-	require.Equal(t, 2, len(cache))
+	require.NoError(t, err)
+	require.Len(t, cache, 2)
 
 	delete(rules, selector2)
 	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
-	require.Equal(t, nil, err)
-	require.Equal(t, 1, len(cache))
+	require.NoError(t, err)
+	require.Len(t, cache, 1)
 
 	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, nil)
-	require.Equal(t, nil, err)
-	require.Equal(t, 0, len(cache))
+	require.NoError(t, err)
+	require.Empty(t, cache)
 
 	rules[selector2] = &policy.PerSelectorPolicy{
 		L7Rules: api.L7Rules{
@@ -79,7 +79,7 @@ func TestSetPortRulesForID(t *testing.T) {
 	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
 
 	require.Error(t, err)
-	require.Equal(t, 0, len(cache))
+	require.Empty(t, cache)
 }
 
 func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
@@ -93,32 +93,32 @@ func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
 	rules[new(MockCachedSelector)] = regexp.MustCompile("^.*[.]cilium[.]io$")
 
 	err := pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
-	require.Equal(t, nil, err)
-	require.Equal(t, 1, len(cache))
+	require.NoError(t, err)
+	require.Len(t, cache, 1)
 
 	selector2 := new(MockCachedSelector)
 	rules[selector2] = regexp.MustCompile("^sub[.]cilium[.]io")
 	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
-	require.Equal(t, nil, err)
-	require.Equal(t, 2, len(cache))
+	require.NoError(t, err)
+	require.Len(t, cache, 2)
 
 	delete(rules, selector2)
 	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
-	require.Equal(t, nil, err)
-	require.Equal(t, 1, len(cache))
+	require.NoError(t, err)
+	require.Len(t, cache, 1)
 
 	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
-	require.Equal(t, nil, err)
-	require.Equal(t, 0, len(cache))
+	require.NoError(t, err)
+	require.Empty(t, cache)
 
 	delete(rules, selector2)
 	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
-	require.Equal(t, nil, err)
-	require.Equal(t, 1, len(cache))
+	require.NoError(t, err)
+	require.Len(t, cache, 1)
 
 	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
-	require.Equal(t, nil, err)
-	require.Equal(t, 0, len(cache))
+	require.NoError(t, err)
+	require.Empty(t, cache)
 }
 
 func TestGeneratePattern(t *testing.T) {
@@ -139,7 +139,7 @@ func TestGeneratePattern(t *testing.T) {
 	pattern := GeneratePattern(l7)
 
 	regex, err := re.CompileRegex(pattern)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	for _, fqdn := range matching {
 		require.Truef(t, regex.MatchString(fqdn), "expected fqdn %q to match, but it did not", fqdn)
@@ -157,7 +157,7 @@ func TestGeneratePattern(t *testing.T) {
 		})
 
 	regex, err = re.CompileRegex(pattern)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	// Ensure all fqdns match a policy with a wildcard
 	for _, fqdn := range append(matching, notMatching...) {
@@ -169,7 +169,7 @@ func TestGeneratePattern(t *testing.T) {
 	})
 
 	regex, err = re.CompileRegex(pattern)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	// Ensure all fqdns match a policy without any dns-rules
 	for _, fqdn := range append(matching, notMatching...) {
@@ -180,7 +180,7 @@ func TestGeneratePattern(t *testing.T) {
 		L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{}},
 	})
 	regex, err = re.CompileRegex(pattern)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	// Ensure all fqdns match a policy without any dns-rules
 	for _, fqdn := range append(matching, notMatching...) {

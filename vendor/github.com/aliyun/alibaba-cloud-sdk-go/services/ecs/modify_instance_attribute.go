@@ -81,6 +81,7 @@ type ModifyInstanceAttributeRequest struct {
 	HostName                    string                                         `position:"Query" name:"HostName"`
 	PrivateDnsNameOptions       ModifyInstanceAttributePrivateDnsNameOptions   `position:"Query" name:"PrivateDnsNameOptions"  type:"Struct"`
 	CpuOptionsTopologyType      string                                         `position:"Query" name:"CpuOptions.TopologyType"`
+	ImageOptions                ModifyInstanceAttributeImageOptions            `position:"Query" name:"ImageOptions"  type:"Struct"`
 	OSNameEn                    string                                         `position:"Query" name:"OSNameEn"`
 	EnableJumboFrame            requests.Boolean                               `position:"Query" name:"EnableJumboFrame"`
 	ResourceOwnerAccount        string                                         `position:"Query" name:"ResourceOwnerAccount"`
@@ -101,6 +102,11 @@ type ModifyInstanceAttributePrivateDnsNameOptions struct {
 	EnableInstanceIdDnsAAAARecord string `name:"EnableInstanceIdDnsAAAARecord"`
 	EnableIpDnsARecord            string `name:"EnableIpDnsARecord"`
 	EnableIpDnsPtrRecord          string `name:"EnableIpDnsPtrRecord"`
+}
+
+// ModifyInstanceAttributeImageOptions is a repeated param struct in ModifyInstanceAttributeRequest
+type ModifyInstanceAttributeImageOptions struct {
+	CurrentOSNVMeSupported string `name:"CurrentOSNVMeSupported"`
 }
 
 // ModifyInstanceAttributeAdditionalInfo is a repeated param struct in ModifyInstanceAttributeRequest

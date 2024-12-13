@@ -9,6 +9,7 @@ package prefilter
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -88,11 +89,13 @@ func (o *GetPrefilterOK) Code() int {
 }
 
 func (o *GetPrefilterOK) Error() string {
-	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterOK %s", 200, payload)
 }
 
 func (o *GetPrefilterOK) String() string {
-	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterOK  %+v", 200, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterOK %s", 200, payload)
 }
 
 func (o *GetPrefilterOK) GetPayload() *models.Prefilter {
@@ -156,11 +159,13 @@ func (o *GetPrefilterFailure) Code() int {
 }
 
 func (o *GetPrefilterFailure) Error() string {
-	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterFailure %s", 500, payload)
 }
 
 func (o *GetPrefilterFailure) String() string {
-	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterFailure  %+v", 500, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterFailure %s", 500, payload)
 }
 
 func (o *GetPrefilterFailure) GetPayload() models.Error {

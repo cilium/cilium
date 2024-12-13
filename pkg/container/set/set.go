@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"iter"
 	"maps"
+	"slices"
 )
 
 type empty struct{}
@@ -157,16 +158,14 @@ func (s Set[T]) Equal(o Set[T]) bool {
 		return true
 	case 1:
 		return *s.single == *o.single
-	default:
-		// compare the elements of the maps
-		for member := range s.members {
-			if _, ok := o.members[member]; !ok {
-				return false
-			}
-			return true
+	}
+	// compare the elements of the maps
+	for member := range s.members {
+		if _, ok := o.members[member]; !ok {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // Members returns an iterator for the members in the set.
@@ -218,6 +217,11 @@ func (s Set[T]) Get() (m T, found bool) {
 		}
 	}
 	return m, length > 0
+}
+
+// AsSlice converts the set to a slice.
+func (s Set[T]) AsSlice() []T {
+	return slices.Collect(s.Members())
 }
 
 // Clone returns a copy of the set.

@@ -4,11 +4,10 @@
 package api
 
 import (
-	"net"
 	"net/netip"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/ip"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -22,6 +21,10 @@ type CIDR string
 var (
 	ipv4All = CIDR("0.0.0.0/0")
 	ipv6All = CIDR("::/0")
+
+	worldLabelNonDualStack = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorld}
+	worldLabelV4           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv4}
+	worldLabelV6           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv6}
 )
 
 // CIDRRule is a rule that specifies a CIDR prefix to/from which outside
@@ -40,6 +43,12 @@ type CIDRRule struct {
 	//
 	// +kubebuilder:validation:OneOf
 	CIDRGroupRef CIDRGroupRef `json:"cidrGroupRef,omitempty"`
+
+	// CIDRGroupSelector selects CiliumCIDRGroups by their labels,
+	// rather than by name.
+	//
+	// +kubebuilder:validation:OneOf
+	CIDRGroupSelector *slim_metav1.LabelSelector `json:"cidrGroupSelector,omitempty"`
 
 	// ExceptCIDRs is a list of IP blocks which the endpoint subject to the rule
 	// is not allowed to initiate connections to. These CIDR prefixes should be
@@ -136,52 +145,78 @@ type CIDRRuleSlice []CIDRRule
 
 // GetAsEndpointSelectors returns the provided CIDRRule slice as a slice of
 // endpoint selectors
+//
+// The ExceptCIDRs block is inserted as a negative match. Specifically, the
+// DoesNotExist qualifier. For example, the CIDRRule
+//
+//	cidr: 1.1.1.0/24
+//	exceptCIDRs: ["1.1.1.1/32"]
+//
+// results in the selector equivalent to "cidr:1.1.1.0/24 !cidr:1.1.1.1/32".
+//
+// This works because the label selectors will select numeric identities belonging only
+// to the shorter prefixes. However, longer prefixes will have a different numeric
+// identity, as the bpf ipcache is an LPM lookup. This essentially acts as a
+// "carve-out", using the LPM mechanism to exlude subsets of a larger prefix.
 func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
-	cidrs := ComputeResultantCIDRSet(s)
-	ces := cidrs.GetAsEndpointSelectors()
+	ces := make(EndpointSelectorSlice, 0, len(s))
 
-	// expand cidrgroup selectors
 	for _, r := range s {
-		if r.CIDRGroupRef != "" {
-			ces = append(ces, NewESFromLabels(LabelForCIDRGroupRef(string(r.CIDRGroupRef))))
+		ls := slim_metav1.LabelSelector{
+			MatchExpressions: make([]slim_metav1.LabelSelectorRequirement, 0, 1+len(r.ExceptCIDRs)),
 		}
+
+		// add the "main" label:
+		// either a CIDR, CIDRGroupRef, or CIDRGroupSelector
+		if r.Cidr != "" {
+			var lbl labels.Label
+			switch r.Cidr {
+			case ipv4All:
+				if option.Config.IsDualStack() {
+					lbl = worldLabelV4
+				} else {
+					lbl = worldLabelNonDualStack
+				}
+			case ipv6All:
+				if option.Config.IsDualStack() {
+					lbl = worldLabelV6
+				} else {
+					lbl = worldLabelNonDualStack
+				}
+			default:
+				lbl, _ = labels.IPStringToLabel(string(r.Cidr))
+			}
+			ls.MatchExpressions = append(ls.MatchExpressions, slim_metav1.LabelSelectorRequirement{
+				Key:      lbl.GetExtendedKey(),
+				Operator: slim_metav1.LabelSelectorOpExists,
+			})
+		} else if r.CIDRGroupRef != "" {
+			lbl := LabelForCIDRGroupRef(string(r.CIDRGroupRef))
+			ls.MatchExpressions = append(ls.MatchExpressions, slim_metav1.LabelSelectorRequirement{
+				Key:      lbl.GetExtendedKey(),
+				Operator: slim_metav1.LabelSelectorOpExists,
+			})
+		} else if r.CIDRGroupSelector != nil {
+			ls = *NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, r.CIDRGroupSelector).LabelSelector
+		} else {
+			// should never be hit, but paranoia
+			continue
+		}
+
+		// exclude any excepted CIDRs.
+		// Do so by inserting a "DoesNotExist" requirement for the given prefix key
+		for _, exceptCIDR := range r.ExceptCIDRs {
+			lbl, _ := labels.IPStringToLabel(string(exceptCIDR))
+			ls.MatchExpressions = append(ls.MatchExpressions, slim_metav1.LabelSelectorRequirement{
+				Key:      lbl.GetExtendedKey(),
+				Operator: slim_metav1.LabelSelectorOpDoesNotExist,
+			})
+		}
+
+		ces = append(ces, NewESFromK8sLabelSelector("", &ls))
 	}
 
 	return ces
-}
-
-// StringSlice returns the CIDRRuleSlice as a slice of strings.
-func (s CIDRRuleSlice) StringSlice() []string {
-	result := make([]string, 0, len(s))
-	for _, c := range s {
-		result = append(result, c.String())
-	}
-	return result
-}
-
-// ComputeResultantCIDRSet converts a slice of CIDRRules into a slice of
-// individual CIDRs. This expands the cidr defined by each CIDRRule, applies
-// the CIDR exceptions defined in "ExceptCIDRs", and forms a minimal set of
-// CIDRs that cover all of the CIDRRules.
-//
-// Assumes no error checking is necessary as CIDRRule.Sanitize already does this.
-func ComputeResultantCIDRSet(cidrs CIDRRuleSlice) CIDRSlice {
-	var allResultantAllowedCIDRs CIDRSlice
-	for _, s := range cidrs {
-		_, allowNet, _ := net.ParseCIDR(string(s.Cidr))
-
-		var removeSubnets []*net.IPNet
-		for _, t := range s.ExceptCIDRs {
-			_, removeSubnet, _ := net.ParseCIDR(string(t))
-			removeSubnets = append(removeSubnets, removeSubnet)
-		}
-		resultantAllowedCIDRs := ip.RemoveCIDRs([]*net.IPNet{allowNet}, removeSubnets)
-
-		for _, u := range resultantAllowedCIDRs {
-			allResultantAllowedCIDRs = append(allResultantAllowedCIDRs, CIDR(u.String()))
-		}
-	}
-	return allResultantAllowedCIDRs
 }
 
 // addrsToCIDRRules generates CIDRRules for the IPs passed in.

@@ -162,7 +162,7 @@ redirect_self(const struct __sk_buff *ctx)
 	/* Looping back the packet into the originating netns. We xmit into the
 	 * hosts' veth device such that we end up on ingress in the peer.
 	 */
-	return ctx_redirect(ctx, ctx->ifindex, 0);
+	return (int)ctx_redirect(ctx, ctx->ifindex, 0);
 }
 
 static __always_inline __maybe_unused bool
@@ -260,6 +260,14 @@ static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 		return false;
 
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY;
+}
+
+static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
+{
+	if (!is_defined(ENABLE_WIREGUARD))
+		return false;
+
+	return (ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED;
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON

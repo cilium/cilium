@@ -79,6 +79,9 @@ type EndpointChangeRequest struct {
 	// Network namespace cookie
 	NetnsCookie string `json:"netns-cookie,omitempty"`
 
+	// Index of network device from which an IP was used as endpoint IP. Only relevant for ENI environments.
+	ParentInterfaceIndex int64 `json:"parent-interface-index,omitempty"`
+
 	// Process ID of the workload belonging to this endpoint
 	Pid int64 `json:"pid,omitempty"`
 

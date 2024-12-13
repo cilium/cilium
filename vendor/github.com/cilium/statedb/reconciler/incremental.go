@@ -174,7 +174,7 @@ func (round *incrementalRound[Obj]) batch(changes iter.Seq2[statedb.Change[Obj],
 			if entry.Result == nil {
 				round.retries.Clear(entry.Object)
 			}
-			round.results[entry.Object] = opResult{rev: entry.Revision, id: status.id, err: entry.Result, original: entry.original}
+			round.results[entry.Object] = opResult{rev: entry.Revision, id: status.ID, err: entry.Result, original: entry.original}
 		}
 	}
 }
@@ -213,7 +213,7 @@ func (round *incrementalRound[Obj]) processSingle(obj Obj, rev statedb.Revision,
 		op = OpUpdate
 		err = round.config.Operations.Update(round.ctx, round.txn, obj)
 		status := round.config.GetObjectStatus(obj)
-		round.results[obj] = opResult{original: orig, id: status.id, rev: rev, err: err}
+		round.results[obj] = opResult{original: orig, id: status.ID, rev: rev, err: err}
 	}
 	round.metrics.ReconciliationDuration(round.moduleID, op, time.Since(start))
 
@@ -256,7 +256,7 @@ func (round *incrementalRound[Obj]) commitStatus() (numErrors int) {
 			// modifying the object during reconciliation as the following will forget
 			// the changes.
 			currentStatus := round.config.GetObjectStatus(current)
-			if currentStatus.Kind == StatusKindPending && currentStatus.id == result.id {
+			if currentStatus.Kind == StatusKindPending && currentStatus.ID == result.id {
 				current = round.config.CloneObject(current)
 				current = round.config.SetObjectStatus(current, status)
 				round.table.Insert(wtxn, current)

@@ -32,36 +32,36 @@ func testReplaceNexthopRoute(t *testing.T, link netlink.Link, routerNet *net.IPN
 	defer deleteNexthopRoute(route, link, routerNet)
 
 	replaced, err := replaceNexthopRoute(route, link, routerNet)
-	require.Nil(t, err)
-	require.Equal(t, true, replaced)
+	require.NoError(t, err)
+	require.True(t, replaced)
 
 	// We expect routes to always be replaced
 	replaced, err = replaceNexthopRoute(route, link, routerNet)
-	require.Nil(t, err)
-	require.Equal(t, true, replaced)
+	require.NoError(t, err)
+	require.True(t, replaced)
 
 	err = deleteNexthopRoute(route, link, routerNet)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestReplaceNexthopRoute(t *testing.T) {
 	setup(t)
 
 	link, err := netlink.LinkByName("lo")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, routerNet, err := net.ParseCIDR("1.2.3.4/32")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	testReplaceNexthopRoute(t, link, routerNet)
 
 	_, routerNet, err = net.ParseCIDR("f00d::a02:100:0:815b/128")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	testReplaceNexthopRoute(t, link, routerNet)
 }
 
 func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest bool) {
 	_, prefix, err := net.ParseCIDR(prefixStr)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, prefix)
 
 	nexthop := net.ParseIP(nexthopStr)
@@ -85,20 +85,20 @@ func testReplaceRoute(t *testing.T, prefixStr, nexthopStr string, lookupTest boo
 	})
 
 	err = Upsert(rt)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	if lookupTest {
 		// Account for minimal kernel race condition where route is not
 		// yet available
-		require.Nil(t, testutils.WaitUntil(func() bool {
+		require.NoError(t, testutils.WaitUntil(func() bool {
 			installedRoute, err := Lookup(rt)
-			require.Nil(t, err)
+			require.NoError(t, err)
 			return installedRoute != nil
 		}, 5*time.Second))
 	}
 
 	err = Delete(rt)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestReplaceRoute(t *testing.T) {
@@ -117,24 +117,24 @@ func testReplaceRule(t *testing.T, mark uint32, from, to *net.IPNet, table int) 
 
 	rule.Priority = 1
 	err := ReplaceRule(rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	exists, err := lookupRule(rule, netlink.FAMILY_V4)
-	require.Nil(t, err)
-	require.Equal(t, true, exists)
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	rule.Mask++
 	exists, err = lookupRule(rule, netlink.FAMILY_V4)
-	require.Nil(t, err)
-	require.Equal(t, false, exists)
+	require.NoError(t, err)
+	require.False(t, exists)
 	rule.Mask--
 
 	err = DeleteRule(netlink.FAMILY_V4, rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V4)
-	require.Nil(t, err)
-	require.Equal(t, false, exists)
+	require.NoError(t, err)
+	require.False(t, exists)
 }
 
 func testReplaceRuleIPv6(t *testing.T, mark uint32, from, to *net.IPNet, table int) {
@@ -145,25 +145,25 @@ func testReplaceRuleIPv6(t *testing.T, mark uint32, from, to *net.IPNet, table i
 
 	rule.Priority = 1
 	err := ReplaceRuleIPv6(rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	exists, err := lookupRule(rule, netlink.FAMILY_V6)
-	require.Nil(t, err)
-	require.Equal(t, true, exists)
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	err = DeleteRule(netlink.FAMILY_V6, rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V6)
-	require.Nil(t, err)
-	require.Equal(t, false, exists)
+	require.NoError(t, err)
+	require.False(t, exists)
 }
 
 func TestReplaceRule(t *testing.T) {
 	setup(t)
 
 	_, cidr1, err := net.ParseCIDR("10.10.0.0/16")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	testReplaceRule(t, 0xf00, nil, nil, 123)
 	testReplaceRule(t, 0xf00, cidr1, nil, 124)
 	testReplaceRule(t, 0, nil, cidr1, 125)
@@ -174,7 +174,7 @@ func TestReplaceRule6(t *testing.T) {
 	setup(t)
 
 	_, cidr1, err := net.ParseCIDR("beef::/48")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	testReplaceRuleIPv6(t, 0xf00, nil, nil, 123)
 	testReplaceRuleIPv6(t, 0xf00, cidr1, nil, 124)
 	testReplaceRuleIPv6(t, 0, nil, cidr1, 125)
@@ -490,7 +490,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 				if diff := cmp.Diff(wantRules, rules); diff != "" {
 					t.Errorf("expected len: %d, got: %d\n%s\n", len(wantRules), len(rules), diff)
 				}
-				require.Equal(t, err != nil, wantErr)
+				require.Equal(t, wantErr, err != nil)
 
 				return nil
 			}))

@@ -1,0 +1,73 @@
+# Regenerate with:
+#
+#   $ d2 statedb-arch.d2 statedb-arch.svg
+#
+# See https://github.com/terrastruct/d2/ for install instructions.
+
+vars: {
+  d2-config: {
+    layout-engine: dagre
+    theme-id: 300
+	pad: 0
+  }
+}
+
+direction: right
+
+agent: Agent {
+	usertables: User intent {
+		shape: cylinder
+		style.multiple: true
+	}
+
+	controller: Controller {
+	    shape: hexagon
+		style.multiple: true
+	}
+
+	desired: Desired state {
+		shape: cylinder
+		style.multiple: true
+	}
+
+	metricshealth: Metrics & health {}
+
+	reconciler: Reconciler {
+	    shape: hexagon
+		style.multiple: true
+	}
+
+}
+
+
+dbg: cilium-dbg {}
+agent.usertables -- dbg: Inspect {
+	style.stroke-dash: 3
+}
+agent.desired -- dbg: Inspect {
+	style.stroke-dash: 3
+}
+
+system: Operating System {
+}
+
+
+agent.usertables -> agent.controller: Observe {
+	style.stroke-dash: 3
+}
+agent.controller -> agent.desired: Compute
+
+agent.desired -> agent.reconciler: Observe {
+	style.stroke-dash: 3
+}
+agent.reconciler -> agent.desired: Update status
+agent.reconciler <-> system: Reconcile 
+
+agent.reconciler -> agent.metricshealth: Report
+
+
+api: API server {
+	near: bottom-left
+}
+
+api -> agent.usertables

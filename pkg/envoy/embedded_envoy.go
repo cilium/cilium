@@ -114,6 +114,7 @@ type embeddedEnvoyConfig struct {
 	maxRequestsPerConnection uint32
 	maxConnectionDuration    time.Duration
 	idleTimeout              time.Duration
+	maxConcurrentRetries     uint32
 }
 
 // startEmbeddedEnvoy starts an Envoy proxy instance.
@@ -124,7 +125,15 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 		admin:  NewEnvoyAdminClientForSocket(GetSocketDir(config.runDir), config.defaultLogLevel),
 	}
 
-	bootstrapFilePath := filepath.Join(config.runDir, "envoy", "bootstrap.pb")
+	bootstrapDir := filepath.Join(config.runDir, "envoy")
+
+	// make sure envoy dir exists
+	os.Mkdir(bootstrapDir, 0777)
+
+	// Make sure sockets dir exists
+	os.Mkdir(GetSocketDir(config.runDir), 0777)
+
+	bootstrapFilePath := filepath.Join(bootstrapDir, "bootstrap.pb")
 
 	writeBootstrapConfigFile(bootstrapConfig{
 		filePath:                 bootstrapFilePath,
@@ -138,6 +147,7 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 		maxRequestsPerConnection: config.maxRequestsPerConnection,
 		maxConnectionDuration:    config.maxConnectionDuration,
 		idleTimeout:              config.idleTimeout,
+		maxConcurrentRetries:     config.maxConcurrentRetries,
 	})
 
 	log.Debugf("Envoy: Starting: %v", *envoy)
@@ -193,14 +203,13 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 				}
 				return
 			}
-			log.Debugf("Envoy: Started proxy")
+
+			log.WithField(logfields.PID, cmd.Process.Pid).Info("Envoy: Proxy started")
+			metrics.SubprocessStart.WithLabelValues(ciliumEnvoyStarter).Inc()
 			select {
 			case started <- true:
 			default:
 			}
-
-			log.Infof("Envoy: Proxy started with pid %d", cmd.Process.Pid)
-			metrics.SubprocessStart.WithLabelValues(ciliumEnvoyStarter).Inc()
 
 			// We do not return after a successful start, but watch the Envoy process
 			// and restart it if it crashes.
@@ -212,9 +221,11 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 			crashCh := make(chan struct{})
 			go func() {
 				if err := cmd.Wait(); err != nil {
-					log.WithError(err).Warn("Envoy: Proxy crashed")
+					log.WithError(err).WithField(logfields.PID, cmd.Process.Pid).Warn("Envoy: Proxy crashed")
 					// Avoid busy loop & hogging CPU resources by waiting before restarting envoy.
 					time.Sleep(100 * time.Millisecond)
+				} else {
+					log.WithField(logfields.PID, cmd.Process.Pid).Info("Envoy: Proxy terminated")
 				}
 				close(crashCh)
 			}()
@@ -224,9 +235,9 @@ func startEmbeddedEnvoy(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
 				// Start Envoy again
 				continue
 			case <-envoy.stopCh:
-				log.Infof("Envoy: Stopping proxy with pid %d", cmd.Process.Pid)
+				log.WithField(logfields.PID, cmd.Process.Pid).Infof("Envoy: Stopping proxy")
 				if err := envoy.admin.quit(); err != nil {
-					log.WithError(err).Fatalf("Envoy: Envoy admin quit failed, killing process with pid %d", cmd.Process.Pid)
+					log.WithError(err).WithField(logfields.PID, cmd.Process.Pid).Fatal("Envoy: Envoy admin quit failed, killing process")
 
 					if err := cmd.Process.Kill(); err != nil {
 						log.WithError(err).Fatal("Envoy: Stopping Envoy failed")
@@ -292,6 +303,11 @@ func newEnvoyLogPiper() io.WriteCloser {
 			case envoyLogLevelOff, envoyLogLevelCritical, envoyLogLevelError:
 				scopedLog.Error(msg)
 			case envoyLogLevelWarning:
+				// Demote expected warnings to info level
+				if strings.Contains(msg, "gRPC config: initial fetch timed out for") {
+					scopedLog.Info(msg)
+					continue
+				}
 				scopedLog.Warn(msg)
 			case envoyLogLevelInfo:
 				scopedLog.Info(msg)
@@ -336,6 +352,7 @@ type bootstrapConfig struct {
 	maxRequestsPerConnection uint32
 	maxConnectionDuration    time.Duration
 	idleTimeout              time.Duration
+	maxConcurrentRetries     uint32
 }
 
 func writeBootstrapConfigFile(config bootstrapConfig) {
@@ -380,6 +397,12 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 		}),
 	}
 
+	clusterRetryLimits := &envoy_config_cluster.CircuitBreakers{
+		Thresholds: []*envoy_config_cluster.CircuitBreakers_Thresholds{{
+			MaxRetries: &wrapperspb.UInt32Value{Value: config.maxConcurrentRetries},
+		}},
+	}
+
 	bs := &envoy_config_bootstrap.Bootstrap{
 		Node: &envoy_config_core.Node{Id: config.nodeId, Cluster: config.cluster},
 		StaticResources: &envoy_config_bootstrap.Bootstrap_StaticResources{
@@ -391,6 +414,7 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 					CleanupInterval:               &durationpb.Duration{Seconds: config.connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocol,
+					CircuitBreakers:               clusterRetryLimits,
 				},
 				{
 					Name:                          egressTLSClusterName,

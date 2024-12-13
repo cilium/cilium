@@ -17,32 +17,41 @@ package vpc
 
 // VpnConnection is a nested struct in vpc response
 type VpnConnection struct {
-	Status                     string                                             `json:"Status" xml:"Status"`
-	EnableNatTraversal         bool                                               `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
-	RemoteCaCertificate        string                                             `json:"RemoteCaCertificate" xml:"RemoteCaCertificate"`
-	CreateTime                 int64                                              `json:"CreateTime" xml:"CreateTime"`
-	EffectImmediately          bool                                               `json:"EffectImmediately" xml:"EffectImmediately"`
-	VpnGatewayId               string                                             `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	LocalSubnet                string                                             `json:"LocalSubnet" xml:"LocalSubnet"`
-	VpnConnectionId            string                                             `json:"VpnConnectionId" xml:"VpnConnectionId"`
 	RemoteSubnet               string                                             `json:"RemoteSubnet" xml:"RemoteSubnet"`
-	CustomerGatewayId          string                                             `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
 	Name                       string                                             `json:"Name" xml:"Name"`
-	EnableDpd                  bool                                               `json:"EnableDpd" xml:"EnableDpd"`
 	AttachType                 string                                             `json:"AttachType" xml:"AttachType"`
-	NetworkType                string                                             `json:"NetworkType" xml:"NetworkType"`
+	MismatchRemoteParam        string                                             `json:"MismatchRemoteParam" xml:"MismatchRemoteParam"`
+	FailedReasonCode           string                                             `json:"FailedReasonCode" xml:"FailedReasonCode"`
+	FailedReason               string                                             `json:"FailedReason" xml:"FailedReason"`
+	EnableNatTraversal         bool                                               `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
 	AttachInstanceId           string                                             `json:"AttachInstanceId" xml:"AttachInstanceId"`
-	Spec                       string                                             `json:"Spec" xml:"Spec"`
-	State                      string                                             `json:"State" xml:"State"`
-	TransitRouterId            string                                             `json:"TransitRouterId" xml:"TransitRouterId"`
-	TransitRouterName          string                                             `json:"TransitRouterName" xml:"TransitRouterName"`
-	CrossAccountAuthorized     bool                                               `json:"CrossAccountAuthorized" xml:"CrossAccountAuthorized"`
-	InternetIp                 string                                             `json:"InternetIp" xml:"InternetIp"`
+	LocalSubnet                string                                             `json:"LocalSubnet" xml:"LocalSubnet"`
+	MismatchLocalParam         string                                             `json:"MismatchLocalParam" xml:"MismatchLocalParam"`
+	VpnGatewayId               string                                             `json:"VpnGatewayId" xml:"VpnGatewayId"`
+	CreateTime                 int64                                              `json:"CreateTime" xml:"CreateTime"`
 	EnableTunnelsBgp           bool                                               `json:"EnableTunnelsBgp" xml:"EnableTunnelsBgp"`
-	IkeConfig                  IkeConfig                                          `json:"IkeConfig" xml:"IkeConfig"`
-	IpsecConfig                IpsecConfig                                        `json:"IpsecConfig" xml:"IpsecConfig"`
-	VcoHealthCheck             VcoHealthCheck                                     `json:"VcoHealthCheck" xml:"VcoHealthCheck"`
+	RemoteCaCertificate        string                                             `json:"RemoteCaCertificate" xml:"RemoteCaCertificate"`
+	FailedTime                 int64                                              `json:"FailedTime" xml:"FailedTime"`
+	CustomerGatewayId          string                                             `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
+	ResourceGroupId            string                                             `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	TransitRouterId            string                                             `json:"TransitRouterId" xml:"TransitRouterId"`
+	TunnelId                   string                                             `json:"TunnelId" xml:"TunnelId"`
+	NetworkType                string                                             `json:"NetworkType" xml:"NetworkType"`
+	TransitRouterName          string                                             `json:"TransitRouterName" xml:"TransitRouterName"`
+	InternetIp                 string                                             `json:"InternetIp" xml:"InternetIp"`
+	EnableDpd                  bool                                               `json:"EnableDpd" xml:"EnableDpd"`
+	CrossAccountAuthorized     bool                                               `json:"CrossAccountAuthorized" xml:"CrossAccountAuthorized"`
+	SourceLog                  string                                             `json:"SourceLog" xml:"SourceLog"`
+	Spec                       string                                             `json:"Spec" xml:"Spec"`
+	VpnConnectionId            string                                             `json:"VpnConnectionId" xml:"VpnConnectionId"`
+	State                      string                                             `json:"State" xml:"State"`
+	Severity                   string                                             `json:"Severity" xml:"Severity"`
+	EffectImmediately          bool                                               `json:"EffectImmediately" xml:"EffectImmediately"`
+	Status                     string                                             `json:"Status" xml:"Status"`
 	VpnBgpConfig               VpnBgpConfig                                       `json:"VpnBgpConfig" xml:"VpnBgpConfig"`
+	IpsecConfig                IpsecConfig                                        `json:"IpsecConfig" xml:"IpsecConfig"`
+	IkeConfig                  IkeConfig                                          `json:"IkeConfig" xml:"IkeConfig"`
+	VcoHealthCheck             VcoHealthCheck                                     `json:"VcoHealthCheck" xml:"VcoHealthCheck"`
 	Tag                        TagInDescribeVpnConnections                        `json:"Tag" xml:"Tag"`
 	TunnelOptionsSpecification TunnelOptionsSpecificationInDescribeVpnConnections `json:"TunnelOptionsSpecification" xml:"TunnelOptionsSpecification"`
 }

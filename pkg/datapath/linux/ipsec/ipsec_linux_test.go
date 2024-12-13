@@ -1,3 +1,5 @@
+//go:build unparallel
+
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -38,8 +40,14 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 	return log
 }
 
+const (
+	path         = "ipsec_keys_test"
+	remoteNodeID = 1234
+	localBootID  = "5f616d5f-b237-aed6-4ac7-123456789abc"
+	remoteBootID = "5f616d5f-aed6-4ac7-b237-987654321abc"
+)
+
 var (
-	path           = "ipsec_keys_test"
 	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n2 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n3 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	keysAeadDat256 = []byte("5 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
@@ -51,7 +59,7 @@ func TestLoadKeysNoFile(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, _, err := LoadIPSecKeysFile(log, path)
-	require.Equal(t, true, os.IsNotExist(err))
+	require.True(t, os.IsNotExist(err))
 }
 
 func TestInvalidLoadKeys(t *testing.T) {
@@ -66,7 +74,21 @@ func TestInvalidLoadKeys(t *testing.T) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	require.NoError(t, err)
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	params := &IPSecParameters{
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   remoteNodeID,
+		Dir:            IPSecDirIn,
+		SourceSubnet:   wildcardCIDRv4,
+		DestSubnet:     wildcardCIDRv4,
+		SourceTunnelIP: &local.IP,
+		DestTunnelIP:   &remote.IP,
+		ZeroOutputMark: false,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
 	require.Error(t, err)
 }
 
@@ -98,25 +120,21 @@ func TestParseSPI(t *testing.T) {
 		input    string
 		expSPI   uint8
 		expOff   int
-		expESN   bool
 		expError bool
 	}{
-		{"254", 0, 0, false, true},
-		{"15", 15, 0, false, false},
-		{"3+", 3, 0, true, false},
-		{"abc", 0, 0, false, true},
-		{"0", 0, 0, false, true},
+		{"254", 0, 0, true},
+		{"15", 15, 0, false},
+		{"3+", 3, 0, false},
+		{"abc", 0, 0, true},
+		{"0", 0, 0, true},
 	}
 	for _, tc := range testCases {
-		spi, off, esn, err := parseSPI(log, tc.input)
+		spi, off, err := parseSPI(log, tc.input)
 		if spi != tc.expSPI {
 			t.Fatalf("For input %q, expected SPI %d, but got %d", tc.input, tc.expSPI, spi)
 		}
 		if off != tc.expOff {
 			t.Fatalf("For input %q, expected base offset %d, but got %d", tc.input, tc.expOff, off)
-		}
-		if esn != tc.expESN {
-			t.Fatalf("For input %q, expected ESN %t, but got %t", tc.input, tc.expESN, esn)
 		}
 		if tc.expError {
 			require.Error(t, err)
@@ -148,13 +166,27 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	params := &IPSecParameters{
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   remoteNodeID,
+		Dir:            IPSecDirIn,
+		SourceSubnet:   wildcardCIDRv4,
+		DestSubnet:     wildcardCIDRv4,
+		SourceTunnelIP: &local.IP,
+		DestTunnelIP:   &remote.IP,
+		ZeroOutputMark: false,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
 	result, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(result))
+	require.Empty(t, result)
 
 	err = DeleteXFRM(log, AllReqID)
 	require.NoError(t, err)
@@ -172,16 +204,30 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, params)
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
 	result, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(result))
+	require.Empty(t, result)
 }
 
-func TestUpsertIPSecEndpoint(t *testing.T) {
+// TestUpsertIPSecEndpointOut ensure we insert the correct XFRM policy when
+// specifying the OUT direction.
+//
+// For the OUT direction the following properties are true:
+// 1. A OUT policy should be created with the following properties:
+//
+//   - The source subnet selector should be the local subnet
+//   - The destination subnet selector should be the remote subnet
+//   - The source tunnel endpoint IP should be the local end of the SA
+//   - The destination tunnel endpoint IP should be the remote end of the SA
+//   - The policy's mark should be a composite of the remote NodeID, the SPI, and
+//     the well-defined Encryption mark.
+//
+// 2. A state should be created with similar properties as above.
+func TestUpsertIPSecEndpointOut(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -204,19 +250,32 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	params := &IPSecParameters{
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   0xBEEF,
+		Dir:            IPSecDirOut,
+		SourceSubnet:   local,
+		DestSubnet:     remote,
+		SourceTunnelIP: &local.IP,
+		DestTunnelIP:   &remote.IP,
+		ZeroOutputMark: false,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
 	require.NoError(t, err)
 
+	encryptionMark := generateEncryptMark(key.Spi, params.RemoteNodeID)
+
+	// Confirm state was created with correct marks.
 	getState := &netlink.XfrmState{
 		Src:   local.IP,
 		Dst:   remote.IP,
 		Proto: netlink.XFRM_PROTO_ESP,
 		Spi:   int(key.Spi),
-		Mark: &netlink.XfrmMark{
-			Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(key.Spi)),
-			Mask:  linux_defaults.IPsecMarkMaskOut,
-		},
-	}
+		Mark:  encryptionMark}
 
 	state, err := netlink.XfrmStateGet(getState)
 	require.NoError(t, err)
@@ -224,47 +283,272 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	require.Nil(t, state.Aead)
 	require.NotNil(t, state.Auth)
 	require.Equal(t, "hmac(sha256)", state.Auth.Name)
-	require.Equal(t, authKey, state.Auth.Key)
+	derivedAuthKey := computeNodeIPsecKey(authKey, local.IP, remote.IP, []byte(localBootID), []byte(remoteBootID))
+	require.Equal(t, derivedAuthKey, state.Auth.Key)
 	require.NotNil(t, state.Crypt)
 	require.Equal(t, "cbc(aes)", state.Crypt.Name)
-	require.Equal(t, cryptKey, state.Crypt.Key)
+	derivedCryptKey := computeNodeIPsecKey(cryptKey, local.IP, remote.IP, []byte(localBootID), []byte(remoteBootID))
+	require.Equal(t, derivedCryptKey, state.Crypt.Key)
 	// ESN bit is not set, so ReplayWindow should be 0
 	require.Equal(t, 0, state.ReplayWindow)
+	require.Equal(t, state.Mark, encryptionMark)
 
-	err = DeleteXFRM(log, AllReqID)
+	tmpls := []netlink.XfrmPolicyTmpl{
+		{
+			Src:   local.IP,
+			Dst:   remote.IP,
+			Proto: netlink.XFRM_PROTO_ESP,
+			Reqid: params.ReqID,
+			Mode:  netlink.XFRM_MODE_TUNNEL,
+		},
+	}
+	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
+		Src:   local,
+		Dst:   remote,
+		Dir:   netlink.XFRM_DIR_OUT,
+		Mark:  generateEncryptMark(key.Spi, params.RemoteNodeID),
+		Tmpls: tmpls,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+
+	// ensure XFRM policy is as we want it...
+	if !policy.Src.IP.Equal(local.IP) {
+		t.Fatalf("Expected Src to be %s, but got %s", local.IP.String(), policy.Src.IP.String())
+	}
+	if !policy.Dst.IP.Equal(remote.IP) {
+		t.Fatalf("Expected Dst to be %s, but got %s", remote.IP.String(), policy.Dst.IP.String())
+	}
+	require.Equal(t, netlink.XFRM_DIR_OUT, policy.Dir)
+	require.Equal(t, policy.Mark, encryptionMark)
+	require.Len(t, policy.Tmpls, 1)
+
+	// ensure the template is correct as well...
+	policyTmpl := policy.Tmpls[0]
+	if !policyTmpl.Src.Equal(local.IP) {
+		t.Fatalf("Expected Src to be %s, but got %s", local.IP.String(), policyTmpl.Src.String())
+	}
+	if !policyTmpl.Dst.Equal(remote.IP) {
+		t.Fatalf("Expected Dst to be %s, but got %s", remote.IP.String(), policyTmpl.Dst.String())
+	}
+	require.Equal(t, netlink.XFRM_PROTO_ESP, policyTmpl.Proto)
+	require.Equal(t, params.ReqID, policyTmpl.Reqid)
+	require.Equal(t, netlink.XFRM_MODE_TUNNEL, policyTmpl.Mode)
+}
+
+// TestUpsertIPSecEndpointFwd ensure we insert the correct XFRM policy when
+// specifying the FWD direction.
+//
+// For the FWD direction the following properties are true:
+// 1. A FWD policy should be created with the following properties
+//
+//   - Source and Destination subnets are wildcard (0.0.0.0/0).
+//   - Priority is low at 2975
+//   - Template source is undefined (0.0.0.0)
+//   - Template destination is the ESP tunnel IP of the local node forwarding
+//     the traffic.
+//   - A ReqID of 1
+func TestUpsertIPSecEndpointFwd(t *testing.T) {
+	log := setupIPSecSuitePrivileged(t)
+
+	_, local, err := net.ParseCIDR("1.1.3.4/16")
 	require.NoError(t, err)
 
-	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
-	key = &ipSecKey{
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	key := &ipSecKey{
 		Spi:   1,
 		ReqID: 1,
-		Aead:  &netlink.XfrmStateAlgo{Name: "rfc4106(gcm(aes))", Key: aeadKey, ICVLen: 128},
-		Crypt: nil,
-		Auth:  nil,
+		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
+		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
 	ipSecKeysGlobal["1.1.3.4"] = key
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	params := &IPSecParameters{
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   0xBEEF,
+		Dir:            IPSecDirFwd,
+		SourceSubnet:   wildcardCIDRv4,
+		DestSubnet:     wildcardCIDRv4,
+		SourceTunnelIP: &net.IP{},
+		DestTunnelIP:   &local.IP,
+		ZeroOutputMark: false,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
 	require.NoError(t, err)
 
-	// Assert additional rule when tunneling is enabled is inserted
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
-	require.NoError(t, err)
-	toProxyPolicy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
-		Src: remote,
-		Dst: local,
-		Dir: netlink.XFRM_DIR_IN,
-		Mark: &netlink.XfrmMark{
-			Mask:  linux_defaults.IPsecMarkBitMask,
-			Value: linux_defaults.RouteMarkToProxy,
+	tmpls := []netlink.XfrmPolicyTmpl{
+		{
+			Src:      net.IP{},
+			Dst:      local.IP,
+			Proto:    netlink.XFRM_PROTO_ESP,
+			Reqid:    params.ReqID,
+			Mode:     netlink.XFRM_MODE_TUNNEL,
+			Optional: 1,
 		},
+	}
+	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
+		Src:   wildcardCIDRv4,
+		Dst:   wildcardCIDRv4,
+		Dir:   netlink.XFRM_DIR_FWD,
+		Tmpls: tmpls,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, toProxyPolicy)
+	require.NotNil(t, policy)
+
+	// ensure XFRM policy is as we want it...
+	if !policy.Src.IP.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Src to be %s, but got %s", wildcardIPv4.String(), policy.Src.IP.String())
+	}
+	if !policy.Dst.IP.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Dst to be %s, but got %s", wildcardIPv4.String(), policy.Dst.IP.String())
+	}
+	require.Equal(t, netlink.XFRM_DIR_FWD, policy.Dir)
+	require.Nil(t, policy.Mark)
+	require.Len(t, policy.Tmpls, 1)
+
+	// ensure the template is correct as well...
+	policyTmpl := policy.Tmpls[0]
+	if !policyTmpl.Src.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Src to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Src.String())
+	}
+	if !policyTmpl.Dst.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Dst to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Dst.String())
+	}
+	require.Equal(t, netlink.XFRM_PROTO_ESP, policyTmpl.Proto)
+	require.Equal(t, 0, policyTmpl.Reqid)
+	require.Equal(t, netlink.XFRM_MODE_TUNNEL, policyTmpl.Mode)
+	require.Equal(t, 1, policyTmpl.Optional)
+}
+
+// TestUpsertIPSecEndpointIn ensures we insert the correct XFRM state and
+// policy when specifying the IN direction.
+//
+// For the IN direction the following properties are true:
+// 1. An IN policy should be created with the following properties
+//
+//   - The source subnet selector should be the remote subnet
+//   - The destination subnet selector should be the local subnet
+//   - The source tunnel endpoint IP should be the remote end of the SA
+//   - The destination tunnel endpoint IP should be the local end of the SA
+//   - The policy's mark should be a composite of the remote NodeID and the
+//     well-defined Decryption mark.
+//   - An additional policy should be created, with similar properties, with
+//     the exception that the mark match should be the TO_PROXY mark.
+//
+// 2. A state should be created with similar properties as above.
+func TestUpsertIPSecEndpointIn(t *testing.T) {
+	log := setupIPSecSuitePrivileged(t)
+
+	_, local, err := net.ParseCIDR("1.1.3.4/16")
+	require.NoError(t, err)
+	_, remote, err := net.ParseCIDR("1.2.3.4/16")
+	require.NoError(t, err)
+
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	key := &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
+		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
+	}
+
+	ipSecKeysGlobal["1.1.3.4"] = key
+	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[""] = key
+
+	params := &IPSecParameters{
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   0xBEEF,
+		Dir:            IPSecDirIn,
+		SourceSubnet:   wildcardCIDRv4,
+		DestSubnet:     wildcardCIDRv4,
+		SourceTunnelIP: &remote.IP,
+		DestTunnelIP:   &local.IP,
+		ZeroOutputMark: false,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
+	require.NoError(t, err)
+
+	// Confirm state was created with correct marks.
+	getState := &netlink.XfrmState{
+		Src:   remote.IP,
+		Dst:   local.IP,
+		Proto: netlink.XFRM_PROTO_ESP,
+		Spi:   int(key.Spi),
+		Mark:  generateDecryptMark(linux_defaults.RouteMarkDecrypt, params.RemoteNodeID)}
+
+	state, err := netlink.XfrmStateGet(getState)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	require.Nil(t, state.Aead)
+	require.NotNil(t, state.Auth)
+	require.Equal(t, "hmac(sha256)", state.Auth.Name)
+	derivedAuthKey := computeNodeIPsecKey(authKey, remote.IP, local.IP, []byte(remoteBootID), []byte(localBootID))
+	require.Equal(t, derivedAuthKey, state.Auth.Key)
+	require.NotNil(t, state.Crypt)
+	require.Equal(t, "cbc(aes)", state.Crypt.Name)
+	derivedCryptKey := computeNodeIPsecKey(cryptKey, remote.IP, local.IP, []byte(remoteBootID), []byte(localBootID))
+	require.Equal(t, derivedCryptKey, state.Crypt.Key)
+	// ESN bit is not set, so ReplayWindow should be 0
+	require.Equal(t, 0, state.ReplayWindow)
+
+	tmpls := []netlink.XfrmPolicyTmpl{
+		{
+			Src:   wildcardIPv4,
+			Dst:   wildcardIPv4,
+			Proto: netlink.XFRM_PROTO_ESP,
+			Reqid: 0,
+			Mode:  netlink.XFRM_MODE_TUNNEL,
+		},
+	}
+	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
+		Src:   wildcardCIDRv4,
+		Dst:   wildcardCIDRv4,
+		Dir:   netlink.XFRM_DIR_IN,
+		Tmpls: tmpls,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+
+	// ensure XFRM policy is as we want it...
+	if !policy.Src.IP.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Src to be %s, but got %s", wildcardIPv4.String(), policy.Src.IP.String())
+	}
+	if !policy.Dst.IP.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Dst to be %s, but got %s", wildcardIPv4.String(), policy.Dst.IP.String())
+	}
+	require.Equal(t, netlink.XFRM_DIR_IN, policy.Dir)
+	require.Nil(t, policy.Mark)
+	require.Len(t, policy.Tmpls, 1)
+
+	// ensure the template is correct as well...
+	policyTmpl := policy.Tmpls[0]
+	if !policyTmpl.Src.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Src to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Src.String())
+	}
+	if !policyTmpl.Dst.Equal(wildcardIPv4) {
+		t.Fatalf("Expected Dst to be %s, but got %s", wildcardIPv4.String(), policyTmpl.Dst.String())
+	}
+	require.Equal(t, netlink.XFRM_PROTO_ESP, policyTmpl.Proto)
+	require.Equal(t, 0, policyTmpl.Reqid)
+	require.Equal(t, netlink.XFRM_MODE_TUNNEL, policyTmpl.Mode)
 }
 
 func TestUpsertIPSecKeyMissing(t *testing.T) {
@@ -275,7 +559,21 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	require.NoError(t, err)
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	params := &IPSecParameters{
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   remoteNodeID,
+		Dir:            IPSecDirIn,
+		SourceSubnet:   wildcardCIDRv4,
+		DestSubnet:     wildcardCIDRv4,
+		SourceTunnelIP: &remote.IP,
+		DestTunnelIP:   &local.IP,
+		ZeroOutputMark: false,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
 	require.ErrorContains(t, err, "unable to replace local state: IPSec key missing")
 }
 
@@ -302,10 +600,24 @@ func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	params := &IPSecParameters{
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   0xBEEF,
+		Dir:            IPSecDirIn,
+		SourceSubnet:   wildcardCIDRv4,
+		DestSubnet:     wildcardCIDRv4,
+		SourceTunnelIP: &remote.IP,
+		DestTunnelIP:   &local.IP,
+		ZeroOutputMark: false,
+		RemoteRebooted: false,
+		ReqID:          DefaultReqID,
+	}
+
+	_, err = UpsertIPsecEndpoint(log, params)
 	require.NoError(t, err)
 
 	// test updateExisting (xfrm delete + add)
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, true, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, params)
 	require.NoError(t, err)
 }

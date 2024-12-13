@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/internal"
 )
 
 type Reconciler[Obj any] interface {
@@ -130,16 +131,16 @@ func (s StatusKind) Key() index.Key {
 // the reconciler. Object may have multiple reconcilers and
 // multiple reconciliation statuses.
 type Status struct {
-	Kind      StatusKind
-	UpdatedAt time.Time
-	Error     string
+	Kind      StatusKind `json:"kind" yaml:"kind"`
+	UpdatedAt time.Time  `json:"updated-at" yaml:"updated-at"`
+	Error     string     `json:"error,omitempty" yaml:"error,omitempty"`
 
 	// id is a unique identifier for a pending object.
 	// The reconciler uses this to compare whether the object
 	// has really changed when committing the resulting status.
 	// This allows multiple reconcilers to exist for a single
 	// object without repeating work when status is updated.
-	id uint64
+	ID uint64 `json:"id,omitempty" yaml:"id,omitempty"`
 }
 
 func (s Status) IsPendingOrRefreshing() bool {
@@ -148,30 +149,9 @@ func (s Status) IsPendingOrRefreshing() bool {
 
 func (s Status) String() string {
 	if s.Kind == StatusKindError {
-		return fmt.Sprintf("Error: %s (%s ago)", s.Error, prettySince(s.UpdatedAt))
+		return fmt.Sprintf("Error: %s (%s ago)", s.Error, internal.PrettySince(s.UpdatedAt))
 	}
-	return fmt.Sprintf("%s (%s ago)", s.Kind, prettySince(s.UpdatedAt))
-}
-
-func prettySince(t time.Time) string {
-	ago := float64(time.Now().Sub(t)) / float64(time.Millisecond)
-	// millis
-	if ago < 1000.0 {
-		return fmt.Sprintf("%.1fms", ago)
-	}
-	// secs
-	ago /= 1000.0
-	if ago < 60.0 {
-		return fmt.Sprintf("%.1fs", ago)
-	}
-	// mins
-	ago /= 60.0
-	if ago < 60.0 {
-		return fmt.Sprintf("%.1fm", ago)
-	}
-	// hours
-	ago /= 60.0
-	return fmt.Sprintf("%.1fh", ago)
+	return fmt.Sprintf("%s (%s ago)", s.Kind, internal.PrettySince(s.UpdatedAt))
 }
 
 var idGen atomic.Uint64
@@ -189,7 +169,7 @@ func StatusPending() Status {
 		Kind:      StatusKindPending,
 		UpdatedAt: time.Now(),
 		Error:     "",
-		id:        nextID(),
+		ID:        nextID(),
 	}
 }
 
@@ -206,6 +186,7 @@ func StatusRefreshing() Status {
 		Kind:      StatusKindRefreshing,
 		UpdatedAt: time.Now(),
 		Error:     "",
+		ID:        nextID(),
 	}
 }
 
@@ -216,6 +197,7 @@ func StatusDone() Status {
 		Kind:      StatusKindDone,
 		UpdatedAt: time.Now(),
 		Error:     "",
+		ID:        nextID(),
 	}
 }
 
@@ -226,6 +208,7 @@ func StatusError(err error) Status {
 		Kind:      StatusKindError,
 		UpdatedAt: time.Now(),
 		Error:     err.Error(),
+		ID:        nextID(),
 	}
 }
 
@@ -266,7 +249,7 @@ func (s StatusSet) Pending() StatusSet {
 	s.statuses = slices.Clone(s.statuses)
 	for i := range s.statuses {
 		s.statuses[i].Kind = StatusKindPending
-		s.statuses[i].id = s.id
+		s.statuses[i].ID = s.id
 	}
 	return s
 }
@@ -314,7 +297,7 @@ func (s StatusSet) String() string {
 		b.WriteString(strings.Join(done, " "))
 	}
 	b.WriteString(" (")
-	b.WriteString(prettySince(updatedAt))
+	b.WriteString(internal.PrettySince(updatedAt))
 	b.WriteString(" ago)")
 	return b.String()
 }
@@ -348,7 +331,7 @@ func (s StatusSet) Get(name string) Status {
 		return Status{
 			Kind:      StatusKindPending,
 			UpdatedAt: s.createdAt,
-			id:        s.id,
+			ID:        s.id,
 		}
 	}
 	return s.statuses[idx].Status

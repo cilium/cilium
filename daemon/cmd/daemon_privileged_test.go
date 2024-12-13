@@ -34,7 +34,7 @@ func Test_removeOldRouterState(t *testing.T) {
 				},
 			}, netlink.FAMILY_V4)
 			assert.NoError(t, err)
-			assert.Len(t, addrs, 0)
+			assert.Empty(t, addrs)
 
 			// Assert no errors in the case we have no IPs to remove from cilium_host.
 			assert.NoError(t, removeOldRouterState(false, nil))

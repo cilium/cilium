@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
@@ -33,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
-	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	relayObserver "github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
@@ -69,6 +67,7 @@ func noopParser(t testing.TB) *parser.Parser {
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
 		&testutils.NoopPodMetadataGetter,
+		true,
 	)
 	require.NoError(t, err)
 	return pp
@@ -208,15 +207,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 	}
 
 	// Create hubble relay server and connect to all peers from previous step.
-	ccb := pool.GRPCClientConnBuilder{
-		DialTimeout: defaults.DialTimeout,
-		Options: []grpc.DialOption{
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
-			grpc.FailOnNonTempDialError(true),
-			grpc.WithReturnConnectionError(),
-		},
-	}
+	ccb := pool.GRPCClientConnBuilder{}
 	plr := &testutils.FakePeerLister{
 		OnList: func() []poolTypes.Peer {
 			ret := make([]poolTypes.Peer, len(peers))
@@ -256,7 +247,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 	// Make sure that all peers are connected
 	nodesResp, err := client.GetNodes(ctx, &observerpb.GetNodesRequest{})
 	require.NoError(b, err)
-	require.Equal(b, numPeers, len(nodesResp.Nodes))
+	require.Len(b, nodesResp.Nodes, numPeers)
 
 	getFlowsReq := new(observerpb.GetFlowsRequest)
 	if withFieldMask {
@@ -290,7 +281,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 		case *observerpb.GetFlowsResponse_NodeStatus:
 		}
 	}
-	assert.Equal(b, numFlows, len(found))
+	assert.Len(b, found, numFlows)
 	b.StopTimer()
 
 	for _, f := range found {

@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -63,6 +64,9 @@ type datapathRegenerationContext struct {
 	currentDir         string
 	nextDir            string
 	regenerationLevel  regeneration.DatapathRegenerationLevel
+
+	policyMapSyncDone bool
+	policyMapDump     policy.MapStateMap
 
 	finalizeList revert.FinalizeList
 	revertStack  revert.RevertStack

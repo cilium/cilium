@@ -38,7 +38,6 @@ type handlersOut struct {
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
 
 	PolicyDeleteFqdnCacheHandler      policy.DeleteFqdnCacheHandler
-	PolicyDeletePolicyHandler         policy.DeletePolicyHandler
 	PolicyGetFqdnCacheHandler         policy.GetFqdnCacheHandler
 	PolicyGetFqdnCacheIDHandler       policy.GetFqdnCacheIDHandler
 	PolicyGetFqdnNamesHandler         policy.GetFqdnNamesHandler
@@ -46,9 +45,6 @@ type handlersOut struct {
 	PolicyGetIdentityHandler          policy.GetIdentityHandler
 	PolicyGetIdentityIDHandler        policy.GetIdentityIDHandler
 	PolicyGetIPHandler                policy.GetIPHandler
-	PolicyGetPolicyHandler            policy.GetPolicyHandler
-	PolicyGetPolicySelectorsHandler   policy.GetPolicySelectorsHandler
-	PolicyPutPolicyHandler            policy.PutPolicyHandler
 }
 
 // apiHandler implements Handle() for the given parameter type.
@@ -120,12 +116,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /identity/endpoints
 	out.PolicyGetIdentityEndpointsHandler = wrapAPIHandler(dp, getIdentityEndpointsHandler)
-
-	// /policy/
-	out.PolicyGetPolicyHandler = wrapAPIHandler(dp, getPolicyHandler)
-	out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
-	out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
-	out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
 
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)

@@ -7,6 +7,9 @@ metadata:
   namespace: {{ .Values.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
   labels:
     app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     {{- with .Values.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -43,7 +46,7 @@ spec:
   # If it is not enabled, that means envoy runs inside cilium-agent and we'll monitor using same service
   {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
   {{- if and (not $envoyDS) (not .Values.preflight.enabled) .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled }}
-  {{- if .Values.envoy.prometheus.serviceMonitor.enabled }}
+  {{- if and .Values.envoy.enabled .Values.envoy.prometheus.serviceMonitor.enabled }}
   - port: envoy-metrics
     interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}
     honorLabels: true

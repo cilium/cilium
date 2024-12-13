@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -32,13 +33,15 @@ var Cell = cell.Module(
 )
 
 type ProxyConfig struct {
-	ProxyPortrangeMin uint16
-	ProxyPortrangeMax uint16
+	ProxyPortrangeMin          uint16
+	ProxyPortrangeMax          uint16
+	RestoredProxyPortsAgeLimit uint
 }
 
 func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint16("proxy-portrange-min", 10000, "Start of port range that is used to allocate ports for L7 proxies.")
 	flags.Uint16("proxy-portrange-max", 20000, "End of port range that is used to allocate ports for L7 proxies.")
+	flags.Uint("restored-proxy-ports-age-limit", 15, "Time after which a restored proxy ports file is considered stale (in minutes)")
 }
 
 type proxyParams struct {
@@ -68,17 +71,34 @@ func newProxy(params proxyParams) *Proxy {
 
 	triggerDone := make(chan struct{})
 
+	controllerManager := controller.NewManager()
+	controllerGroup := controller.NewGroup("proxy-ports-allocator")
+	controllerName := "proxy-ports-checkpoint"
+
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) (err error) {
-			p.proxyPortsTrigger, err = trigger.NewTrigger(trigger.Parameters{
-				MinInterval:  10 * time.Second,
-				TriggerFunc:  p.storeProxyPorts,
-				ShutdownFunc: func() { close(triggerDone) },
+			// Restore all proxy ports before we create the trigger to overwrite the
+			// file below
+			p.proxyPorts.RestoreProxyPorts(params.Config.RestoredProxyPortsAgeLimit)
+
+			p.proxyPorts.Trigger, err = trigger.NewTrigger(trigger.Parameters{
+				MinInterval: 10 * time.Second,
+				TriggerFunc: func(reasons []string) {
+					controllerManager.UpdateController(controllerName, controller.ControllerParams{
+						Group:    controllerGroup,
+						DoFunc:   p.proxyPorts.StoreProxyPorts,
+						StopFunc: p.proxyPorts.StoreProxyPorts, // perform one last checkpoint when the controller is removed
+					})
+				},
+				ShutdownFunc: func() {
+					controllerManager.RemoveControllerAndWait(controllerName) // waits for StopFunc
+					close(triggerDone)
+				},
 			})
 			return err
 		},
 		OnStop: func(cell.HookContext) error {
-			p.proxyPortsTrigger.Shutdown()
+			p.proxyPorts.Trigger.Shutdown()
 			<-triggerDone
 			return nil
 		},

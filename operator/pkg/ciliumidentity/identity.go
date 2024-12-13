@@ -5,6 +5,7 @@ package ciliumidentity
 
 import (
 	"context"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -25,13 +26,18 @@ func (c CIDItem) Key() resource.Key {
 func (c CIDItem) Reconcile(reconciler *reconciler) error {
 	return reconciler.reconcileCID(c.key)
 }
+
 func (c CIDItem) Meter(enqueuedLatency float64, processingLatency float64, isErr bool, metrics *Metrics) {
 	metrics.meterLatency(LabelValueCID, enqueuedLatency, processingLatency)
 	metrics.markEvent(LabelValueCID, isErr)
 }
 
-func (c *Controller) processCiliumIdentityEvents(ctx context.Context) error {
+func (c *Controller) processCiliumIdentityEvents(ctx context.Context, wg *sync.WaitGroup) error {
 	for event := range c.ciliumIdentity.Events(ctx) {
+		if event.Kind == resource.Sync {
+			wg.Done()
+		}
+
 		if event.Kind == resource.Upsert || event.Kind == resource.Delete {
 			c.logger.Debug("Got CID event", logfields.Type, event.Kind, logfields.CIDName, event.Key.String())
 			c.enqueueReconciliation(CIDItem{cidResourceKey(event.Object.Name)}, 0)

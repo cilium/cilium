@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 const (
@@ -29,6 +30,8 @@ const (
 	EgressBandwidth = "kubernetes.io/egress-bandwidth"
 	// IngressBandwidth is the K8s Pod annotation.
 	IngressBandwidth = "kubernetes.io/ingress-bandwidth"
+	// Priority is the Cilium Pod priority annotation.
+	Priority = "bandwidth.cilium.io/priority"
 
 	// FqDefaultHorizon represents maximum allowed departure
 	// time delta in future. Given applications can set SO_TXTIME
@@ -38,6 +41,19 @@ const (
 	// FqDefaultBuckets is the default 32k (2^15) bucket limit for bwm.
 	// Too low bucket limit can cause scalability issue.
 	FqDefaultBuckets = 15
+
+	// FQ priomap starting from index 0 is 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+	// Constants below map priority levels to bands high, medium and low.
+	// TODO: These are picked arbitrarily for each QoS class amongst different possible
+	// values. Revisit to see if picking these values would have any unintended side effects.
+	// HACK: Increment prio values by 1 to allow for distinguishing between 0 prio and no prio set.
+
+	// GuaranteedQoSDefaultPriority prio value to classify packets to high prio band
+	GuaranteedQoSDefaultPriority = 6 + 1
+	// BurstableQoSDefaultPriority prio value to classify packets to medium prio band
+	BurstableQoSDefaultPriority = 8 + 1
+	// BestEffortQoSDefaultPriority prio value to classify packets to medium prio band
+	BestEffortQoSDefaultPriority = 5 + 1
 )
 
 type manager struct {
@@ -66,12 +82,26 @@ func (m *manager) defines() (defines.Map, error) {
 	return cDefinesMap, nil
 }
 
-func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64) {
+func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio uint32) {
 	if m.enabled {
 		txn := m.params.DB.WriteTxn(m.params.EdtTable)
+
+		// Set host endpoint to guaranteed QoS class
+		// TODO: This attempts to lookup host endpoint for every BW manager update event.
+		// Find a way to get host endpoint ID during BW manager initialization and move this section to init().
+		// * init() seems to be too early to call node.GetEndpointID()
+		// * Adding a dependency to node manager to call GetHostEndpoint() introduces a nested import.
+		hostEpID := uint16(node.GetEndpointID())
+		_, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(hostEpID))
+		if !found {
+			m.params.EdtTable.Insert(
+				txn,
+				bwmap.NewEdt(hostEpID, 0, GuaranteedQoSDefaultPriority),
+			)
+		}
 		m.params.EdtTable.Insert(
 			txn,
-			bwmap.NewEdt(epID, bytesPerSecond),
+			bwmap.NewEdt(epID, bytesPerSecond, prio),
 		)
 		txn.Commit()
 	}

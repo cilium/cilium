@@ -73,6 +73,7 @@ Klusters
 KubeVersion
 Lando
 Leblond
+Lockdown
 Lund
 Lx
 Majkowski
@@ -184,6 +185,7 @@ battlestation
 bcc
 behaviour
 benchmarking
+besteffort
 bgp
 blackholing
 blockedConfigOverrides
@@ -236,6 +238,7 @@ cnp
 codebase
 codeowner
 codeowners
+commonLabels
 compat
 config
 configMap
@@ -278,10 +281,11 @@ decapsulated
 decapsulation
 decrypt
 decrypted
+deduplicate
 deepcopy
+defaultLBServiceIPAM
 deletetopic
 demux
-defaultLBServiceIPAM
 denylist
 dereference
 deserialization
@@ -297,6 +301,7 @@ dockerhub
 dpaa
 dropdown
 dryRun
+durations
 dwarfris
 eBGP
 eBPF
@@ -307,6 +312,7 @@ effectful
 egressing
 elfutils
 ena
+enableSourceIPVerification
 enablement
 endPort
 endian
@@ -316,10 +322,12 @@ endpointmanager
 enet
 enetc
 etcd
+etcdinit
 eth
 ethernet
 ethtool
 existingSecret
+expirations
 extTrafficPolicy
 extern
 externalIPs
@@ -380,6 +388,7 @@ hostonlyifs
 hostscope
 hq
 http
+httpbin
 httpd
 https
 hubble
@@ -402,6 +411,7 @@ inlined
 inlines
 inlining
 inodes
+inspectability
 instantiation
 integrations
 internalTrafficPolicy
@@ -495,6 +505,7 @@ loadbalancers
 loadbalancing
 loadinfo
 localhost
+lockdown
 lockless
 logfile
 lookups
@@ -510,6 +521,8 @@ maglev
 mainboard
 makefile
 mana
+marshallable
+marshalled
 masq
 matchExpressions
 matchLabels
@@ -524,6 +537,7 @@ microservice
 microservices
 minikube
 misconfiguration
+misconfigured
 misconfigures
 mitigations
 mlx
@@ -559,6 +573,7 @@ netdevsim
 netfilter
 netfront
 netkit
+netlink
 netns
 netperf
 netsec
@@ -600,6 +615,7 @@ pluggable
 pmdabcc
 png
 podCIDR
+podSelector
 podippool
 policyCIDRMatchMode
 policymap
@@ -646,6 +662,9 @@ rebase
 rebased
 rebasing
 recompiles
+reconcilation
+reconciler
+reconcilers
 reconfigurations
 reconnections
 recv
@@ -657,7 +676,9 @@ reparsing
 repo
 repos
 reproducibility
+reqid
 requireIPv
+resizable
 resync
 retpoline
 retransmission
@@ -675,6 +696,7 @@ scalable
 sctl
 seccomp
 secretName
+secretsBackend
 secretsNamespace
 selftest
 selftests
@@ -736,7 +758,9 @@ tcx
 templating
 terminatingTLS
 terminationGracePeriodSeconds
+testability
 testsuite
+testutils
 tetragon
 th
 thunderx
@@ -772,6 +796,7 @@ uninline
 unix
 unlabel
 unmanaged
+unmarshalled
 unmigrated
 unselect
 unsettable
@@ -781,6 +806,7 @@ unwinded
 upgradeCompatibility
 uplink
 uprobes
+upstreamed
 uptime
 uretprobes
 url

@@ -922,21 +922,6 @@ paths:
             format: binary
         '404':
           description: Map not found
-  "/metrics/":
-    get:
-      summary: Retrieve cilium metrics
-      tags:
-      - metrics
-      parameters: []
-      responses:
-        '200':
-          description: Success
-          schema:
-            type: array
-            items:
-              "$ref": "#/definitions/Metric"
-        '500':
-          description: Metrics cannot be retrieved
 
   "/fqdn/cache":
     get:
@@ -1037,6 +1022,7 @@ paths:
       - policy
       parameters:
       - "$ref": "#/parameters/cidr"
+      - "$ref": "#/parameters/labels"
       responses:
         '200':
           description: Success
@@ -1401,6 +1387,11 @@ definitions:
         type: string
       interface-index:
         description: Index of network device in host netns
+        type: integer
+      parent-interface-index:
+        description: >-
+          Index of network device from which an IP was used as endpoint IP.
+          Only relevant for ENI environments.
         type: integer
       container-interface-name:
         description: Name of network device in container netns
@@ -2314,7 +2305,6 @@ definitions:
                 - SNAT
                 - DSR
                 - Hybrid
-                - Annotation
               dsrMode:
                 type: string
                 enum:
@@ -2440,6 +2430,10 @@ definitions:
           bpfSocketLBHostnsOnly:
             description: flag bpf-lb-sock-hostns-only
             type: boolean
+          annotations:
+            type: array
+            items:
+              type: string
   AllocationMap:
     description: |
       Map of allocated IPs
@@ -2719,6 +2713,11 @@ definitions:
             type: boolean
       egress-multi-home-ip-rule-compat:
         description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
+        type: boolean
+      installUplinkRoutesForDelegatedIPAM:
+        description: |
+          Install ingress/egress routes through uplink on host for Pods when working with
+          delegated IPAM plugin.
         type: boolean
       daemonConfigurationMap:
         description: Config map which contains all the active daemon configurations

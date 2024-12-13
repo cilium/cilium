@@ -37,6 +37,9 @@ var Cell = cell.Module(
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
 	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
+
+	// Provide the 'lb/' script commands for debugging and testing.
+	cell.Provide(scriptCommands),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
@@ -59,19 +62,17 @@ var TablesCell = cell.Module(
 		NewWriter,
 
 		// Provide direct read-only access to the tables.
-		statedb.RWTable[*Service].ToTable,
-		statedb.RWTable[*Frontend].ToTable,
-		statedb.RWTable[*Backend].ToTable,
+		toReadOnlyTable[*Service],
+		toReadOnlyTable[*Frontend],
+		toReadOnlyTable[*Backend],
 	),
 )
 
-func newLBMaps(lc cell.Lifecycle, cfg LBMapsConfig, w *Writer) LBMaps {
-	if !w.IsEnabled() {
+func toReadOnlyTable[T any](tbl statedb.RWTable[T]) statedb.Table[T] {
+	if tbl == nil {
 		return nil
 	}
-	r := &BPFLBMaps{Pinned: true, Cfg: cfg}
-	lc.Append(r)
-	return r
+	return tbl
 }
 
 type resourceIn struct {
@@ -81,7 +82,7 @@ type resourceIn struct {
 	PodsResource      daemonK8s.LocalPodResource
 }
 
-type streamsOut struct {
+type StreamsOut struct {
 	cell.Out
 	ServicesStream  stream.Observable[resource.Event[*slim_corev1.Service]]
 	EndpointsStream stream.Observable[resource.Event[*k8s.Endpoints]]
@@ -90,8 +91,8 @@ type streamsOut struct {
 
 // resourcesToStreams extracts the stream.Observable from resource.Resource.
 // This makes the reflector easier to test as its API surface is reduced.
-func resourcesToStreams(in resourceIn) streamsOut {
-	return streamsOut{
+func resourcesToStreams(in resourceIn) StreamsOut {
+	return StreamsOut{
 		ServicesStream:  in.ServicesResource,
 		EndpointsStream: in.EndpointsResource,
 		PodsStream:      in.PodsResource,

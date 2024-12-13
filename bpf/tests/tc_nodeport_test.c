@@ -15,9 +15,8 @@
 /* Enable code paths under test*/
 #define ENABLE_IPV4
 
-/* Skip ingress policy checks, not needed to validate hairpin flow */
+/* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
-#undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
 static __always_inline __maybe_unused int
@@ -105,7 +104,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	/* Add an IPCache entry for pod 1 */
 	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
 
-	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, NULL, NULL);
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, 0);
@@ -146,7 +145,7 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("dest IP hasn't been changed to the pod IP");
 
 	if (l3->check != bpf_htons(-0x4f02))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -158,6 +157,9 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port incorrect");
+
+	if (l4->check != bpf_htons(0xb846))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_entry *ct_entry;
@@ -271,7 +273,7 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 		test_fatal("dest IP changed");
 
 	if (l3->check != bpf_htons(-0x5002))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -283,6 +285,9 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 
 	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port changed");
+
+	if (l4->check != bpf_htons(0xb846))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_entry *ct_entry;
@@ -392,6 +397,9 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_src_one)
 		test_fatal("dst TCP port changed");
 
+	if (l4->check != bpf_htons(0xb836))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+
 	test_finish();
 }
 
@@ -469,7 +477,7 @@ int hairpin_flow_reverse_ingress_check(const struct __ctx_buff *ctx)
 		test_fatal("dest IP hasn't been NAT'ed to the original source IP");
 
 	if (l3->check != bpf_htons(0x402))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -481,6 +489,9 @@ int hairpin_flow_reverse_ingress_check(const struct __ctx_buff *ctx)
 
 	if (l4->dest != tcp_src_one)
 		test_fatal("dst TCP port incorrect");
+
+	if (l4->check != bpf_htons(0x6325))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }

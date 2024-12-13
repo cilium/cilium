@@ -23,4 +23,5 @@ type AllocatedResource struct {
 	InstanceType              string                    `json:"InstanceType" xml:"InstanceType"`
 	ZoneId                    string                    `json:"zoneId" xml:"zoneId"`
 	CapacityReservationUsages CapacityReservationUsages `json:"CapacityReservationUsages" xml:"CapacityReservationUsages"`
+	ElasticityAssuranceUsages ElasticityAssuranceUsages `json:"ElasticityAssuranceUsages" xml:"ElasticityAssuranceUsages"`
 }

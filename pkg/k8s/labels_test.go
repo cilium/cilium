@@ -45,9 +45,7 @@ func TestGetPodMetadata(t *testing.T) {
 	t.Run("normal scenario", func(t *testing.T) {
 		pod := pod.DeepCopy()
 
-		_, labels, _, err := GetPodMetadata(ns, pod)
-
-		require.NoError(t, err)
+		_, labels := GetPodMetadata(ns, pod)
 		require.Equal(t, expectedLabels, labels)
 	})
 
@@ -56,9 +54,7 @@ func TestGetPodMetadata(t *testing.T) {
 			pod := pod.DeepCopy()
 			pod.Labels["io.cilium.k8s.namespace.labels.namespace-level-key"] = "override-namespace-level-value"
 
-			_, labels, _, err := GetPodMetadata(ns, pod)
-
-			require.NoError(t, err)
+			_, labels := GetPodMetadata(ns, pod)
 			require.Equal(t, expectedLabels, labels)
 		})
 
@@ -66,9 +62,7 @@ func TestGetPodMetadata(t *testing.T) {
 			pod := pod.DeepCopy()
 			pod.Labels["io.cilium.k8s.namespace.labels.another-namespace-key"] = "another-namespace-level-value"
 
-			_, labels, _, err := GetPodMetadata(ns, pod)
-
-			require.NoError(t, err)
+			_, labels := GetPodMetadata(ns, pod)
 			require.Equal(t, expectedLabels, labels)
 		})
 	})

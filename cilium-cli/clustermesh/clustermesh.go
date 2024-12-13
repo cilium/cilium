@@ -80,7 +80,7 @@ type k8sClusterMeshImplementation interface {
 	CreateCiliumExternalWorkload(ctx context.Context, cew *ciliumv2.CiliumExternalWorkload, opts metav1.CreateOptions) (*ciliumv2.CiliumExternalWorkload, error)
 	DeleteCiliumExternalWorkload(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
-	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time) (string, error)
+	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, previous bool) (string, error)
 }
 
 type K8sClusterMesh struct {
@@ -111,6 +111,8 @@ type Parameters struct {
 	ConfigOverwrites     []string
 	Retries              int
 	Output               string
+	ImpersonateAs        string
+	ImpersonateGroups    []string
 
 	// EnableExternalWorkloads indicates whether externalWorkloads.enabled Helm value
 	// should be set to true. For Helm mode only.
@@ -495,7 +497,7 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 func (k *K8sClusterMesh) getRemoteClients() ([]*k8s.Client, error) {
 	var remoteClients []*k8s.Client
 	for _, d := range k.params.DestinationContext {
-		remoteClient, err := k8s.NewClient(d, "", k.params.Namespace)
+		remoteClient, err := k8s.NewClient(d, "", k.params.Namespace, k.params.ImpersonateAs, k.params.ImpersonateGroups)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"unable to create Kubernetes client to access remote cluster %q: %w",

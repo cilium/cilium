@@ -28,32 +28,32 @@ func TestValidateIPv6ClusterAllocCIDR(t *testing.T) {
 		IPv6ClusterAllocCIDR: "fdfd::/64",
 	}
 
-	require.Nil(t, valid1.validateIPv6ClusterAllocCIDR())
+	require.NoError(t, valid1.validateIPv6ClusterAllocCIDR())
 	require.Equal(t, "fdfd::", valid1.IPv6ClusterAllocCIDRBase)
 
 	valid2 := &DaemonConfig{
 		IPv6ClusterAllocCIDR: "fdfd:fdfd:fdfd:fdfd:aaaa::/64",
 	}
-	require.Nil(t, valid2.validateIPv6ClusterAllocCIDR())
+	require.NoError(t, valid2.validateIPv6ClusterAllocCIDR())
 	require.Equal(t, "fdfd:fdfd:fdfd:fdfd::", valid2.IPv6ClusterAllocCIDRBase)
 
 	invalid1 := &DaemonConfig{
 		IPv6ClusterAllocCIDR: "foo",
 	}
-	require.NotNil(t, invalid1.validateIPv6ClusterAllocCIDR())
+	require.Error(t, invalid1.validateIPv6ClusterAllocCIDR())
 
 	invalid2 := &DaemonConfig{
 		IPv6ClusterAllocCIDR: "fdfd",
 	}
-	require.NotNil(t, invalid2.validateIPv6ClusterAllocCIDR())
+	require.Error(t, invalid2.validateIPv6ClusterAllocCIDR())
 
 	invalid3 := &DaemonConfig{
 		IPv6ClusterAllocCIDR: "fdfd::/32",
 	}
-	require.NotNil(t, invalid3.validateIPv6ClusterAllocCIDR())
+	require.Error(t, invalid3.validateIPv6ClusterAllocCIDR())
 
 	invalid4 := &DaemonConfig{}
-	require.NotNil(t, invalid4.validateIPv6ClusterAllocCIDR())
+	require.Error(t, invalid4.validateIPv6ClusterAllocCIDR())
 }
 
 func TestGetEnvName(t *testing.T) {
@@ -194,10 +194,10 @@ func TestReadDirConfig(t *testing.T) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		m, err := ReadDirConfig(args.dirName)
-		require.Equal(t, want.err, err, fmt.Sprintf("Test Name: %s", tt.name))
+		require.Equal(t, want.err, err, "Test Name: %s", tt.name)
 		err = MergeConfig(vp, m)
 		require.NoError(t, err)
-		assert.Equal(t, vp.AllSettings(), want.allSettings, fmt.Sprintf("Test Name: %s", tt.name))
+		assert.Equal(t, want.allSettings, vp.AllSettings(), "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
 }
@@ -912,11 +912,6 @@ func Test_populateNodePortRange(t *testing.T) {
 	}
 }
 
-func TestGetDefaultMonitorQueueSize(t *testing.T) {
-	require.Equal(t, 4*defaults.MonitorQueueSizePerCPU, getDefaultMonitorQueueSize(4))
-	require.Equal(t, defaults.MonitorQueueSizePerCPUMaximum, getDefaultMonitorQueueSize(1000))
-}
-
 const (
 	_   = iota
 	KiB = 1 << (10 * iota)
@@ -1169,7 +1164,7 @@ func Test_backupFiles(t *testing.T) {
 	files, err := os.ReadDir(tempDir)
 	require.NoError(t, err)
 	// No files should have been created
-	require.Len(t, files, 0)
+	require.Empty(t, files)
 
 	_, err = os.Create(filepath.Join(tempDir, "test.json"))
 	require.NoError(t, err)
@@ -1342,7 +1337,7 @@ func stringToStringFlag(t *testing.T, name string) *flag.Flag {
 	fs.StringToString(name, value, "")
 	flag := fs.Lookup(name)
 	assert.NotNil(t, flag)
-	assert.Equal(t, flag.Value.Type(), "stringToString")
+	assert.Equal(t, "stringToString", flag.Value.Type())
 	return flag
 }
 

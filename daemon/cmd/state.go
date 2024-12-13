@@ -12,11 +12,11 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -33,15 +33,17 @@ import (
 
 var syncLBMapsControllerGroup = controller.NewGroup("sync-lb-maps-with-k8s-services")
 
-func (d *Daemon) WaitForEndpointRestore(ctx context.Context) {
+func (d *Daemon) WaitForEndpointRestore(ctx context.Context) error {
 	if !option.Config.RestoreState {
-		return
+		return nil
 	}
 
 	select {
 	case <-ctx.Done():
+		return ctx.Err()
 	case <-d.endpointRestoreComplete:
 	}
+	return nil
 }
 
 type endpointRestoreState struct {
@@ -52,7 +54,7 @@ type endpointRestoreState struct {
 
 // checkLink returns an error if a link with linkName does not exist.
 func checkLink(linkName string) error {
-	_, err := netlink.LinkByName(linkName)
+	_, err := safenetlink.LinkByName(linkName)
 	return err
 }
 
@@ -221,6 +223,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 		// kvstore because the local node's IP is used as a suffix for the key
 		// in the key-value store.
 		ep.SetAllocator(d.identityAllocator)
+		ep.SetCtMapGC(d.ctMapGC)
 
 		restore, err := d.validateEndpoint(ep)
 		if err != nil {
@@ -268,8 +271,6 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState) {
 }
 
 func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) {
-	d.endpointRestoreComplete = make(chan struct{})
-
 	log.WithField("numRestored", len(state.restored)).Info("Regenerating restored endpoints")
 
 	// Before regenerating, check whether the CT map has properties that
@@ -442,6 +443,9 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 								swg := lock.NewStoppableWaitGroup()
 								for _, svc := range stale {
 									d.k8sSvcCache.EnsureService(svc, swg)
+									if option.Config.EnableLocalRedirectPolicy {
+										d.lrpManager.EnsureService(svc)
+									}
 								}
 
 								swg.Stop()

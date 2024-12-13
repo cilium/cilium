@@ -56,6 +56,9 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  test_concurrency: 5
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -81,7 +84,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -98,36 +101,39 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 23
+      max-parallel: 25
       matrix:
         include:
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8-20240404.144247'
+            kernel: 'rhel8.6-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
             host-fw: 'true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240710.064909'
+            kernel: '5.4-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
             host-fw: 'true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
+            kernel: '5.10-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
             endpoint-routes: 'true'
+            kvstore: 'true'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
+            kernel: '5.10-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -136,10 +142,11 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
+            kernel: '5.15-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -149,10 +156,11 @@ jobs:
             endpoint-routes: 'true'
             egress-gateway: 'true'
             host-fw: 'false' # enabling breaks downgrading (missed tail calls)
+            ingress-controller: 'true'
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240710.064909'
+            kernel: '6.1-20241107.001101'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -166,7 +174,7 @@ jobs:
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
+            kernel: 'bpf-next-20241206.013345'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -178,10 +186,11 @@ jobs:
             ingress-controller: 'true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
+            kernel: 'bpf-next-20241206.013345'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -192,7 +201,7 @@ jobs:
 
           - name: '9'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
+            kernel: '5.10-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -203,22 +212,25 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
+            kernel: '5.15-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
+            encryption-strict-mode: 'true'
             misc: 'socketLB.enabled=true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
+            kvstore: 'true'
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240710.064909'
+            kernel: '6.1-20241107.001101'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -235,7 +247,7 @@ jobs:
 
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
+            kernel: 'bpf-next-20241206.013345'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -243,13 +255,14 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'true'
+            encryption-strict-mode: 'true'
             lb-mode: 'snat'
             egress-gateway: 'true'
             ingress-controller: 'true'
 
           - name: '13'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8-20240404.144247'
+            kernel: 'rhel8.6-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
@@ -261,7 +274,7 @@ jobs:
             # explains why 5.4 might cause north-south-loadbalancing tests to
             # fail.
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
+            kernel: '5.15-20241107.001101'
             kube-proxy: 'iptables'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -274,21 +287,19 @@ jobs:
 
           - name: '15'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
+            kernel: 'bpf-next-20241206.013345'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             tunnel: 'disabled'
             ingress-controller: 'true'
-            # Disable bpf.tproxy=true until https://github.com/cilium/cilium/issues/31918
-            # has been resolved.
-            misc: 'bpfClockProbe=false,cni.uninstall=false'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
             ciliumendpointslice: 'true'
 
           - name: '16'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
+            kernel: '5.15-20241107.001101'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -303,7 +314,7 @@ jobs:
 
           - name: '17'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
+            kernel: 'bpf-20241206.013345'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -315,7 +326,7 @@ jobs:
 
           - name: '18'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
+            kernel: 'bpf-20241206.013345'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -327,7 +338,7 @@ jobs:
 
           - name: '19'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
+            kernel: 'bpf-20241206.013345'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -335,10 +346,11 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             ingress-controller: 'true'
+            kvstore: 'true'
 
           - name: '20'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
+            kernel: 'bpf-20241206.013345'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -349,7 +361,7 @@ jobs:
 
           - name: '21'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
+            kernel: 'bpf-20241206.013345'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -360,7 +372,7 @@ jobs:
 
           - name: '22'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
+            kernel: 'bpf-20241206.013345'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -371,7 +383,7 @@ jobs:
 
           - name: '23'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
+            kernel: 'bpf-20241206.013345'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -383,15 +395,41 @@ jobs:
             host-fw: 'true'
             skip-upgrade: 'true'
 
+          - name: '24'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-net-20241206.013345'
+            misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            ipv6: 'true'
+            tunnel: 'disabled'
+            ciliumendpointslice: 'true'
+            endpoint-routes: 'true'
+            ingress-controller: 'true'
+            skip-upgrade: 'true'
+
+          - name: '25'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-net-20241206.013345'
+            misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            ipv6: 'true'
+            tunnel: 'disabled'
+            ciliumendpointslice: 'true'
+            endpoint-routes: 'true'
+            ingress-controller: 'true'
+            skip-upgrade: 'true'
+
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
           # - name: '23'
-          #   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #   kernel: 'bpf-20240711.013133'
+          #   # <insert renovate dependency descriptor here>
+          #   kernel: 'bpf-20241206.013345'
           #   misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
           #   skip-upgrade: 'true'
 
-    timeout-minutes: 90
+    timeout-minutes: 55
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -399,7 +437,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -439,6 +477,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-strict-mode: ${{ matrix.encryption-strict-mode }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -463,6 +502,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-strict-mode: ${{ matrix.encryption-strict-mode }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -490,8 +530,21 @@ jobs:
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
+      - name: Start Cilium KVStore
+        id: kvstore
+        if: matrix.kvstore == 'true'
+        run: |
+          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
+
+          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
+          echo "config= \
+            --set=etcd.enabled=true \
+            --set=identityAllocationMode=kvstore \
+            --set=etcd.endpoints[0]=http://${IP}:2378 \
+          " >> $GITHUB_OUTPUT
+
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@6977c4a640ad45da3a95eb12054497f2bdd22c48 # v0.16.19
+        uses: cilium/cilium-cli@c52e8c38e6d6235bd8e6e961199a984275547d6f # v0.16.22
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -500,7 +553,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -511,7 +564,7 @@ jobs:
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
         if: ${{ matrix.skip-upgrade != 'true' }}
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.vars.outputs.downgrade_version }}
           persist-credentials: false
@@ -525,9 +578,9 @@ jobs:
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
           if ${{ matrix.skip-upgrade != 'true' }}; then
-            cilium install ${{ steps.cilium-stable-config.outputs.config }}
+            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
           else
-            cilium install ${{ steps.cilium-newest-config.outputs.config }}
+            cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }}
           fi
 
           cilium status --wait
@@ -560,48 +613,82 @@ jobs:
         shell: bash
         run: |
           cilium upgrade \
-            ${{ steps.cilium-newest-config.outputs.config }}
+            ${{ steps.cilium-newest-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           cilium status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
-        shell: bash
+      - name: Setup Cilium CLI flags
+        id: cli-flags
         run: |
           EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("--secondary-network-iface=eth1")
+            EXTRA+=("\"--secondary-network-iface=eth1\"")
           fi
 
-          # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
-          # sending traffic while the egressgw policy map is still being populated.
-          #
-          # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
-          # always go through the correct gateway
-          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
+          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
+            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
+            EXTRA+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
+          fi
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --include-conn-disrupt-test \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+          echo flags="--include-unsafe-tests \
+            --collect-sysdump-on-failure \
             --flush-ct \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            --sysdump-hubble-flows-count=1000000 \
+            --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
+            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
+            ${EXTRA[@]}" >> $GITHUB_OUTPUT
 
-          # --flush-ct interrupts the flows, so we need to set up again.
-          cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --include-conn-disrupt-test \
+            --test "no-interrupted-connections" \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run sequential Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --test "seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run concurrent Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --test-concurrency=${{ env.test_concurrency }} \
+            --test "!seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Setup conn dirstupt tests after a flush-ct Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --include-conn-disrupt-test \
+            --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
+
+      - name: Features tested before downgrade
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested before downgrade"
+          json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
 
       - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
           cilium upgrade \
-            ${{ steps.cilium-stable-config.outputs.config }}
+            ${{ steps.cilium-stable-config.outputs.config }} \
+            ${{ steps.kvstore.outputs.config }}
 
           cilium status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
@@ -611,27 +698,34 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          EXTRA=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("--secondary-network-iface=eth1")
-          fi
-
-          # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
-          # sending traffic while the egressgw policy map is still being populated.
-          #
-          # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
-          # always go through the correct gateway
-          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test \
             --include-conn-disrupt-test \
+            --test "no-interrupted-connections" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --flush-ct \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run sequential Cilium tests
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --test "seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run concurrent Cilium tests
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --test-concurrency=${{ env.test_concurrency }} \
+            --test "!seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Features tested after downgrade
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested after downgrade"
+          json-filename: "${{ env.job_name }} (${{ matrix.name }}) - after downgrade"
 
       - name: Fetch artifacts
         if: ${{ !success() }}
@@ -642,19 +736,32 @@ jobs:
           mkdir -p cilium-sysdumps
           cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
 
+          if [ "${{ matrix.kvstore }}" == "true" ]; then
+            echo
+            echo "# Retrieving Cilium etcd logs"
+            kubectl -n kube-system logs kvstore
+          fi
+
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: features-tested-${{ matrix.name }}
+          path: ${{ env.job_name }}*.json
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
@@ -668,22 +775,29 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup-and-test
     steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
       - name: Merge Sysdumps
-        if: ${{ needs.setup-and-test.result == 'failure' }}
-        uses: actions/upload-artifact/merge@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: ./.github/actions/merge-artifacts
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
-          retention-days: 5
-          delete-merged: true
-        continue-on-error: true
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: ./.github/actions/merge-artifacts
         with:
           name: cilium-junits
           pattern: cilium-junits-*
-          retention-days: 5
-          delete-merged: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge Features tested
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: features-tested
+          pattern: features-tested-*
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:
     if: ${{ always() }}

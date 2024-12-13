@@ -5,25 +5,37 @@ package icmp
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/gopacket/gopacket/layers"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
 type icmpHandler struct {
-	icmp    *prometheus.CounterVec
-	context *api.ContextOptions
+	icmp      *prometheus.CounterVec
+	context   *api.ContextOptions
+	AllowList filters.FilterFuncs
+	DenyList  filters.FilterFuncs
 }
 
-func (h *icmpHandler) Init(registry *prometheus.Registry, options []*api.ContextOptionConfig) error {
-	c, err := api.ParseContextOptions(options)
+func (h *icmpHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
+	c, err := api.ParseContextOptions(options.ContextOptionConfigs)
 	if err != nil {
 		return err
 	}
 	h.context = c
+	err = h.HandleConfigurationUpdate(options)
+	if err != nil {
+		return err
+	}
 
 	labels := []string{"family", "type"}
 	labels = append(labels, h.context.GetLabelNames()...)
@@ -56,6 +68,10 @@ func (h *icmpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		return nil
 	}
 
+	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
+		return nil
+	}
+
 	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
@@ -73,5 +89,30 @@ func (h *icmpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		h.icmp.WithLabelValues(labels...).Inc()
 	}
 
+	return nil
+}
+
+func (h *icmpHandler) Deinit(registry *prometheus.Registry) error {
+	var errs error
+	if !registry.Unregister(h.icmp) {
+		errs = errors.Join(errs, fmt.Errorf("failed to unregister metric: %v,", "icmp_total"))
+	}
+	return errs
+}
+
+func (h *icmpHandler) HandleConfigurationUpdate(cfg *api.MetricConfig) error {
+	return h.SetFilters(cfg)
+}
+
+func (h *icmpHandler) SetFilters(cfg *api.MetricConfig) error {
+	var err error
+	h.AllowList, err = filters.BuildFilterList(context.Background(), cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
+	h.DenyList, err = filters.BuildFilterList(context.Background(), cfg.ExcludeFilters, filters.DefaultFilters(logrus.New()))
+	if err != nil {
+		return err
+	}
 	return nil
 }

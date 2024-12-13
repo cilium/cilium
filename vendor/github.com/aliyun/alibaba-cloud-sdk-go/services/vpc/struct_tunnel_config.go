@@ -20,7 +20,6 @@ type TunnelConfig struct {
 	TunnelId    string      `json:"TunnelId" xml:"TunnelId"`
 	Local       string      `json:"Local" xml:"Local"`
 	Remote      string      `json:"Remote" xml:"Remote"`
-	RightCaCert string      `json:"RightCaCert" xml:"RightCaCert"`
 	IkeConfig   IkeConfig   `json:"IkeConfig" xml:"IkeConfig"`
 	IpsecConfig IpsecConfig `json:"IpsecConfig" xml:"IpsecConfig"`
 }

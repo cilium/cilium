@@ -360,8 +360,38 @@ depending on the external and internal traffic policies:
 | Local    | Local    | Node-local only         | Node-local only       |
 +----------+----------+-------------------------+-----------------------+
 
-Selective Service Exposure
-**************************
+Selective Service Type Exposure
+*******************************
+
+By default, for a ``LoadBalancer`` service Cilium exposes corresponding
+``NodePort`` and ``ClusterIP`` services. Likewise, for a new ``NodePort``
+service, Cilium exposes the corresponding ``ClusterIP`` service.
+
+If this behavior is not desired, then the ``service.cilium.io/type``
+annotation can be used to pin the service creation only to a specific
+service type:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+
+In the above example only the ``LoadBalancer`` service is created without
+corresponding ``NodePort`` and ``ClusterIP`` services. If the annotation
+would be set to e.g. ``service.cilium.io/type: NodePort``, then only the
+``NodePort`` service would be installed.
+
+Selective Service Node Exposure
+*******************************
 
 By default, Cilium exposes Kubernetes services on all nodes in the cluster. To expose a
 service only on a subset of the nodes instead, use the ``service.cilium.io/node`` label for
@@ -642,7 +672,7 @@ Annotation-based DSR and SNAT Mode
 **********************************
 
 Cilium also supports an annotation-based DSR and SNAT mode, that is, services
-are exposed by default via SNAT, and on-demand as DSR:
+can be exposed by default via SNAT and on-demand as DSR (or vice versa):
 
 .. code-block:: yaml
 
@@ -667,9 +697,13 @@ connections.
 The above example installs the Kubernetes service only as type ``LoadBalancer``,
 that is, without the corresponding ``NodePort`` and ``ClusterIP`` services, and
 uses the configured DSR method to forward the packets instead of default SNAT.
+The Helm setting ``loadBalancer.mode=snat`` defines the default as SNAT in this
+example. A ``loadBalancer.mode=dsr`` would have switched the default to DSR instead
+and then ``service.cilium.io/forwarding-mode: snat`` annotation can be used to
+switch to SNAT instead.
 
 A Helm example configuration in a kube-proxy-free environment with DSR enabled in
-annotation mode would look as follows:
+annotation mode with SNAT default would look as follows:
 
 .. parsed-literal::
 
@@ -677,9 +711,70 @@ annotation mode would look as follows:
         --namespace kube-system \\
         --set routingMode=native \\
         --set kubeProxyReplacement=true \\
-        --set loadBalancer.mode=annotation \\
+        --set loadBalancer.mode=snat \\
+        --set bpf.lbModeAnnotation=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
+
+Annotation-based Load Balancing Algorithm Selection
+***************************************************
+
+Cilium has the ability to specify the load balancing algorithm on a per-service
+basis through the ``service.cilium.io/lb-algorithm`` annotation. Setting
+``bpf.lbAlgorithmAnnotation=true`` opts into this ability for the BPF and
+corresponding agent code. A typical use-case is to reduce the memory footprint
+which comes with Maglev given the latter requires large lookup tables for each
+service. Thus, if not all services need consistent hashing, then these can
+fallback to a random selection instead.
+
+By default, if no service annotation is provided, the logic falls back to use
+whichever method was specified globally through ``loadBalancer.algorithm``. The
+latter supports either ``random`` or ``maglev`` as values today with ``random``
+being the default if ``loadBalancer.algorithm`` was not explicitly set via Helm.
+
+To add a new service which must use ``random`` as its load balancing algorithm:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/lb-algorithm: random
+  spec:
+    selector:
+      app: example
+    ports:
+      - port: 8765
+        targetPort: 9376
+    type: LoadBalancer
+
+Similarly, for opting into ``maglev``, use the following:
+
+ .. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/lb-algorithm: maglev
+  spec:
+    selector:
+      app: example
+    ports:
+      - port: 8765
+        targetPort: 9376
+    type: LoadBalancer
+
+All north-south traffic is now subsequently subject to ``maglev``-based load
+balancing for the latter example.
+
+Note that ``service.cilium.io/lb-algorithm`` only takes effect upon initial
+service creation and cannot be changed during the lifetime of the given
+Kubernetes service. Switching between load balancing algorithms requires
+recreation of a service.
 
 .. _socketlb-host-netns-only:
 
@@ -1064,13 +1159,23 @@ automatically enabled and therefore no further action is required. Otherwise
 If the ``hostPort`` is specified without an additional ``hostIP``, then the
 Pod will be exposed to the outside world with the same local addresses from
 the node that were detected and used for exposing NodePort services, e.g.
-the Kubernetes InternalIP or ExternalIP if set. Additionally, the Pod is also
-accessible through the loopback address on the node such as ``127.0.0.1:hostPort``.
-If in addition to ``hostPort`` also a ``hostIP`` has been specified for the
-Pod, then the Pod will only be exposed on the given ``hostIP`` instead. A
-``hostIP`` of ``0.0.0.0`` will have the same behavior as if a ``hostIP`` was
-not specified. The ``hostPort`` must not reside in the configured NodePort
-port range to avoid collisions.
+the Kubernetes InternalIP or ExternalIP if set.
+
+Additionally, the Pod is also accessible through the loopback address on the
+node such as ``127.0.0.1:hostPort``. If in addition to ``hostPort`` also
+a ``hostIP`` has been specified for the Pod, then the Pod will only be
+exposed on the given ``hostIP`` instead. A ``hostIP`` of ``0.0.0.0`` will
+have the same behavior as if a ``hostIP`` was not specified.
+
+The ``hostPort`` must not reside in the configured NodePort port range to
+avoid collisions.
+
+Note that ``hostPort`` support relies on Cilium's eBPF kube-proxy replacement
+and in the background plumbs service entries to direct traffic to the local
+host port backend. Given host port is not configured through a Kubernetes
+service object, the full feature set of Kubernetes services (such as custom
+Cilium service annotations) is not available. Instead, host port piggy-backs
+on user-configured defaults of the service handling behavior.
 
 An example deployment in a kube-proxy-free environment therefore is the same
 as in the earlier getting started deployment:
@@ -1082,7 +1187,6 @@ as in the earlier getting started deployment:
         --set kubeProxyReplacement=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
-
 
 Also, ensure that each node IP is known via ``INTERNAL-IP`` or ``EXTERNAL-IP``,
 for example:
@@ -1392,13 +1496,92 @@ ignore the field regardless whether it is set. This means that any pod or any ho
 process in the cluster will be able to access the ``LoadBalancer`` service internally.
 
 The load balancer source range check feature is enabled by default, and it can be
-disabled by setting ``config.svcSourceRangeCheck=false``. It makes sense to disable
-the check when running on some cloud providers. E.g. `Amazon NLB
+disabled by setting ``config.svcSourceRangeCheck=false``.
+
+It makes sense to disable the check when running on some cloud providers e.g. `Amazon NLB
 <https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support>`__
 natively implements the check, so the kube-proxy replacement's feature can be disabled.
 Meanwhile `GKE internal TCP/UDP load balancer
 <https://cloud.google.com/kubernetes-engine/docs/how-to/service-parameters#lb_source_ranges>`__
 does not, so the feature must be kept enabled in order to restrict the access.
+
+By default the specified white-listed CIDRs in ``spec.loadBalancerSourceRanges``
+only apply to the ``LoadBalancer`` service, but not the corresponding ``NodePort``
+or ``ClusterIP`` service which get installed along with the ``LoadBalancer`` service.
+
+If this behavior is not desired, then there are two options available: One possibility
+is to avoid the creation of corresponding ``NodePort`` and ``ClusterIP`` services via
+``service.cilium.io/type`` annotation:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+    loadBalancerSourceRanges:
+    - 192.168.1.0/24
+
+The other possibility is to propagate the white-listed CIDRs to all externally
+exposed service types. Meaning, ``NodePort`` as well as ``ClusterIP`` (if
+externally accessible, see :ref:`External Access To ClusterIP Services <external_access_to_clusterip_services>`
+section) also filter traffic based on the source IP addresses.
+This option can be enabled in Helm via ``bpf.lbSourceRangeAllTypes=true``.
+
+The ``loadBalancerSourceRanges`` by default specifies an allow-list of CIDRs,
+meaning, traffic originating not from those CIDRs is automatically dropped.
+
+Cilium also supports the option to turn this list into a deny-list, in order
+to block traffic from certain CIDRs while allowing everything else. This
+behavior can be achieved through the ``service.cilium.io/src-ranges-policy``
+annotation which accepts the values of ``allow`` or ``deny``.
+
+The default ``loadBalancerSourceRanges`` behavior equals to
+``service.cilium.io/src-ranges-policy: allow``:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+      service.cilium.io/src-ranges-policy: allow
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+    loadBalancerSourceRanges:
+    - 192.168.1.0/24
+
+In order to turn the CIDR list into a deny-list while allowing traffic not
+originating from this set, this can be changed into ``service.cilium.io/src-ranges-policy: deny``:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+      service.cilium.io/src-ranges-policy: deny
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+    loadBalancerSourceRanges:
+    - 192.168.1.0/24
 
 Service Proxy Name Configuration
 ********************************
@@ -1582,14 +1765,15 @@ and selected service endpoint.
     Jan 13 13:47:20.932: default/mediabot:38750 (ID:5618) <> default/nginx (ID:35772) pre-xlate-rev TRACED (TCP)
 
 Socket LB tracing with Hubble requires cilium agent to detect pod cgroup paths.
-If you see a warning message in cilium agent ``No valid cgroup base path found: socket load-balancing tracing with Hubble will not work.``,
+If you see a message in cilium agent ``Failed to setup socket load-balancing tracing with Hubble.``,
 you can trace packets using ``cilium-dbg monitor`` instead.
 
 .. note::
 
-    In case of the warning log, please file a GitHub issue with the cgroup path
-    for any of your pods, obtained by running the following command on a Kubernetes
-    node in your cluster: ``sudo crictl inspectp -o=json $POD_ID | grep cgroup``.
+    If you observe the message about socket load-balancing setup failure in the logs,
+    please file a GitHub issue with the cgroup path for any of your pods,
+    obtained by running the following command on a Kubernetes node in your
+    cluster: ``sudo crictl inspectp -o=json $POD_ID | grep cgroup``.
 
 .. code-block:: shell-session
 

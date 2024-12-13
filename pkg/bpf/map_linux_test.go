@@ -5,7 +5,6 @@ package bpf
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -92,7 +92,7 @@ func TestOpen(t *testing.T) {
 	noSuchMap := NewMap("cilium_test_no_exist",
 		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
 	err := noSuchMap.Open()
-	require.True(t, errors.Is(err, os.ErrNotExist))
+	require.ErrorIs(t, err, os.ErrNotExist)
 
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
@@ -245,7 +245,7 @@ func TestBasicManipulation(t *testing.T) {
 	}
 
 	// event buffer should be empty
-	require.Equal(t, existingMap.events.buffer.Size(), 0)
+	require.Equal(t, 0, existingMap.events.buffer.Size())
 
 	err = existingMap.Update(key1, value1)
 	require.NoError(t, err)
@@ -427,7 +427,7 @@ func TestSubscribe(t *testing.T) {
 
 	subHandle.Close()
 	<-done
-	require.Equal(t, collect, 3)
+	require.Equal(t, 3, collect)
 
 	// cleanup
 	err = existingMap.DeleteAll()
@@ -472,12 +472,12 @@ func TestDump(t *testing.T) {
 		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
 	err = noSuchMap.DumpIfExists(dump3)
 	require.NoError(t, err)
-	require.Len(t, dump3, 0)
+	require.Empty(t, dump3)
 
 	dump2 = map[string][]string{}
 	err = noSuchMap.DumpWithCallbackIfExists(customCb)
 	require.NoError(t, err)
-	require.Len(t, dump2, 0)
+	require.Empty(t, dump2)
 
 	// Validate that if the key is zero, it shows up in dump output.
 	keyZero := &TestKey{Key: 0}
@@ -936,6 +936,84 @@ func TestErrorResolver(t *testing.T) {
 
 				assert.Fail(c, "Expected controller status not found")
 			}, timeout, tick)
+		})
+	}
+}
+
+func TestBatchIterator(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	runTest := func(size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestKey, TestValue]) {
+		m := NewMap("cilium_test",
+			ebpf.Hash,
+			&TestKey{},
+			&TestValue{},
+			mapSize,
+			BPF_F_NO_PREALLOC,
+		)
+		assert.NoError(t, m.OpenOrCreate())
+		defer assert.NoError(t, m.UnpinIfExists())
+		for i := range size {
+			mapKey := &TestKey{Key: uint32(i)}
+			mapValue := &TestValue{Value: uint32(i)}
+			err := m.Update(mapKey, mapValue)
+			assert.NoError(t, err)
+		}
+		ks := sets.New[int]()
+		vs := sets.New[int]()
+
+		iter := BatchIterator[TestKey, TestValue]{
+			m: m,
+		}
+		count := 0
+		for k, v := range iter.IterateAll(context.TODO(), opts...) {
+			count++
+			ks.Insert(int(k.Key))
+			vs.Insert(int(v.Value))
+		}
+		assert.NoError(t, iter.Err())
+
+		for i := range int(size) {
+			assert.Contains(t, ks, i)
+			assert.Contains(t, vs, i)
+		}
+		assert.Len(t, ks, int(size))
+		assert.Len(t, vs, int(size))
+		assert.Equal(t, size, count)
+	}
+
+	for _, test := range []struct {
+		mapSize int
+		size    int
+		opts    []BatchIteratorOpt[TestKey, TestValue]
+	}{
+		{10, 10, nil},
+		{1024, 1024, nil},
+		// Setup iteration that starts with batch size of 1, this is bound to fail at some point
+		// so this will test if the chunk size growth retry loop works correctly.
+		{
+			size:    1 << 12,
+			mapSize: 1 << 13,
+			opts: []BatchIteratorOpt[TestKey, TestValue]{
+				WithMaxRetries[TestKey, TestValue](13), WithStartingChunkSize[TestKey, TestValue](1)},
+		},
+		{
+			size:    1,
+			mapSize: 1 << 12,
+		},
+		{
+			size:    1 << 8,
+			mapSize: 1 << 8,
+		},
+		{
+			size:    1 << 12,
+			mapSize: 1 << 12,
+			opts: []BatchIteratorOpt[TestKey, TestValue]{
+				WithMaxRetries[TestKey, TestValue](1), WithStartingChunkSize[TestKey, TestValue](1 << 13)},
+		},
+	} {
+		t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
+			runTest(test.size, test.mapSize, t, test.opts...)
 		})
 	}
 }

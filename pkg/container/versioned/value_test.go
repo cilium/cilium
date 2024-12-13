@@ -80,9 +80,9 @@ func TestVersionedValue(t *testing.T) {
 	// Initially empty
 	handle := cv.GetVersionHandle()
 	assert.Empty(t, value1.At(handle))
-	assert.Nil(t, handle.Close())
+	assert.NoError(t, handle.Close())
 	// 2nd call does nothing
-	assert.NotNil(t, handle.Close())
+	assert.Error(t, handle.Close())
 
 	// Add first value
 	handle1 := cv.GetVersionHandle()
@@ -93,8 +93,8 @@ func TestVersionedValue(t *testing.T) {
 	assert.False(t, tx.After(KeepVersion(tx.nextVersion)))
 	assert.True(t, tx.After(version1))
 
-	assert.Nil(t, value1.SetAt([]uint32{100, 200}, tx))
-	assert.Nil(t, tx.Commit())
+	assert.NoError(t, value1.SetAt([]uint32{100, 200}, tx))
+	assert.NoError(t, tx.Commit())
 
 	oldTx := tx
 	tx = cv.PrepareNextVersion()
@@ -111,8 +111,8 @@ func TestVersionedValue(t *testing.T) {
 
 	// Set a new value
 	tx = cv.PrepareNextVersion()
-	assert.Nil(t, value1.SetAt([]uint32{100, 150, 200}, tx))
-	assert.Nil(t, tx.Commit())
+	assert.NoError(t, value1.SetAt([]uint32{100, 150, 200}, tx))
+	assert.NoError(t, tx.Commit())
 
 	// new handle sees the new value
 	handle3 := cv.GetVersionHandle()
@@ -128,8 +128,8 @@ func TestVersionedValue(t *testing.T) {
 
 	// delete the value at next version
 	tx = cv.PrepareNextVersion()
-	assert.Nil(t, value1.RemoveAt(tx))
-	assert.Nil(t, tx.Commit())
+	assert.NoError(t, value1.RemoveAt(tx))
+	assert.NoError(t, tx.Commit())
 
 	// new handle sees an empty value
 	handle4 := cv.GetVersionHandle()
@@ -141,8 +141,8 @@ func TestVersionedValue(t *testing.T) {
 	assert.Equal(t, []uint32{100, 200}, v)
 
 	// closers can be called in any order
-	assert.Nil(t, handle2.Close())
-	assert.Nil(t, handle1.Close())
+	assert.NoError(t, handle2.Close())
+	assert.NoError(t, handle1.Close())
 
 	// stale handle should now get an empty value after it's closer has been called and a new
 	// value has been inserted
@@ -152,12 +152,12 @@ func TestVersionedValue(t *testing.T) {
 	v = value1.At(handle3)
 	assert.Equal(t, []uint32{100, 150, 200}, v)
 
-	assert.Nil(t, handle3.Close())
+	assert.NoError(t, handle3.Close())
 
 	cleaner.waitUntilOldest(t, handle4.version)
 	assert.Empty(t, value1.At(handle3))
 
-	assert.Nil(t, handle4.Close())
+	assert.NoError(t, handle4.Close())
 
 	// old values have been cleaned off
 	assert.Nil(t, value1.head.Load())
@@ -180,8 +180,8 @@ func TestVersionedValueMultiple(t *testing.T) {
 	handle := cv.GetVersionHandle()
 	assert.Empty(t, value1.At(handle))
 	assert.Empty(t, value2.At(handle))
-	assert.Nil(t, handle.Close())
-	assert.NotNil(t, handle.Close())
+	assert.NoError(t, handle.Close())
+	assert.Error(t, handle.Close())
 
 	// Add first values
 	handle1 := cv.GetVersionHandle()
@@ -190,9 +190,9 @@ func TestVersionedValueMultiple(t *testing.T) {
 
 	tx := cv.PrepareNextVersion()
 
-	assert.Nil(t, value1.SetAt([]uint32{100, 200}, tx))
-	assert.Nil(t, value2.SetAt([]uint32{110, 190}, tx))
-	assert.Nil(t, tx.Commit())
+	assert.NoError(t, value1.SetAt([]uint32{100, 200}, tx))
+	assert.NoError(t, value2.SetAt([]uint32{110, 190}, tx))
+	assert.NoError(t, tx.Commit())
 
 	oldTx := tx
 	tx = cv.PrepareNextVersion()
@@ -213,9 +213,9 @@ func TestVersionedValueMultiple(t *testing.T) {
 
 	// New value appears at both values at the same version
 	tx = cv.PrepareNextVersion()
-	assert.Nil(t, value1.SetAt([]uint32{100, 150, 200}, tx))
-	assert.Nil(t, value2.SetAt([]uint32{110, 150, 190}, tx))
-	assert.Nil(t, tx.Commit())
+	assert.NoError(t, value1.SetAt([]uint32{100, 150, 200}, tx))
+	assert.NoError(t, value2.SetAt([]uint32{110, 150, 190}, tx))
+	assert.NoError(t, tx.Commit())
 
 	// new handle sees the new value
 	handle3 := cv.GetVersionHandle()
@@ -237,8 +237,8 @@ func TestVersionedValueMultiple(t *testing.T) {
 
 	// delete the value1 at next version
 	tx = cv.PrepareNextVersion()
-	assert.Nil(t, value1.RemoveAt(tx))
-	assert.Nil(t, tx.Commit())
+	assert.NoError(t, value1.RemoveAt(tx))
+	assert.NoError(t, tx.Commit())
 
 	// new handle sees an empty value1, but value2 remains
 	handle4 := cv.GetVersionHandle()
@@ -263,10 +263,10 @@ func TestVersionedValueMultiple(t *testing.T) {
 	assert.Equal(t, []uint32{110, 190}, v)
 
 	// handle closers can be called in any order
-	assert.Nil(t, handle2.Close())
-	assert.Nil(t, handle3.Close())
-	assert.Nil(t, handle1.Close())
-	assert.Nil(t, handle4.Close())
+	assert.NoError(t, handle2.Close())
+	assert.NoError(t, handle3.Close())
+	assert.NoError(t, handle1.Close())
+	assert.NoError(t, handle4.Close())
 
 	// old value1 have been cleaned off
 	cleaner.waitUntilOldest(t, tx.nextVersion)
@@ -330,7 +330,7 @@ func TestPairSlice(t *testing.T) {
 	}
 	assert.Equal(t, []int{3000}, values)
 	s = s[n:]
-	assert.Len(t, s, 0)
+	assert.Empty(t, s)
 }
 
 func TestVersionedChaos(t *testing.T) {
@@ -352,8 +352,8 @@ func TestVersionedChaos(t *testing.T) {
 	for i := 0; i < nValues; i++ {
 		assert.Empty(t, values[i].At(handle))
 	}
-	assert.Nil(t, handle.Close())
-	assert.NotNil(t, handle.Close())
+	assert.NoError(t, handle.Close())
+	assert.Error(t, handle.Close())
 
 	var mutex lock.Mutex
 	var writerWg, readerWg sync.WaitGroup
@@ -391,7 +391,7 @@ func TestVersionedChaos(t *testing.T) {
 			case 5:
 				value = []uint32{1, 2, 3, 4, 5}
 			}
-			assert.Nil(t, values[idx].SetAt(value, tx))
+			assert.NoError(t, values[idx].SetAt(value, tx))
 			tx.Commit()
 			writerWg.Done()
 		}()
@@ -405,7 +405,7 @@ func TestVersionedChaos(t *testing.T) {
 
 	tx := cv.PrepareNextVersion()
 	for i := 0; i < nValues; i++ {
-		assert.Nil(t, values[i].RemoveAt(tx))
+		assert.NoError(t, values[i].RemoveAt(tx))
 	}
 	tx.Commit()
 

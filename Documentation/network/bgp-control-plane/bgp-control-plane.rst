@@ -22,11 +22,6 @@ reachability within the cluster.
 
 .. _Border Gateway Protocol: https://datatracker.ietf.org/doc/html/rfc4271
 
-Prerequisites
--------------
-
-- If you are using the older MetalLB-based :ref:`bgp` feature, it must be disabled.
-
 Installation
 ------------
 

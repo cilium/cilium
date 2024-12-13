@@ -36,11 +36,11 @@ func (l *StoppableWaitGroup) Stop() {
 	l.stopOnce.Do(func() {
 		// We will do an Add here so we can perform a Done after we close
 		// the l.noopAdd channel.
-		l.Add()
+		done := l.Add()
 		close(l.noopAdd)
-		// Calling Done() here so we know that in case 'l.i' will become zero
+		// Calling done() here so we know that in case 'l.i' will become zero
 		// it will trigger a close of l.noopDone channel.
-		l.Done()
+		done()
 	})
 }
 
@@ -57,22 +57,32 @@ func (l *StoppableWaitGroup) WaitChannel() <-chan struct{} {
 	return l.noopDone
 }
 
+// DoneFunc returned by Add() marks the goroutine as completed.
+type DoneFunc func()
+
 // Add adds the goroutine to the list of routines to that Wait() will have
 // to wait before it returns.
 // If the StoppableWaitGroup was stopped this will be a no-op.
-func (l *StoppableWaitGroup) Add() {
+// Returns a "done" function to mark the goroutine as completed. Wait() is
+// unblocked once all done functions obtained before Stop() have been called.
+func (l *StoppableWaitGroup) Add() DoneFunc {
 	select {
 	case <-l.noopAdd:
+		return func() {}
 	default:
 		l.i.Add(1)
+		var once sync.Once
+		return func() {
+			once.Do(l.done)
+		}
 	}
 }
 
-// Done will decrement the number of goroutines the Wait() will have to wait
+// done will decrement the number of goroutines the Wait() will have to wait
 // before it returns.
 // This function is a no-op once all goroutines that have called 'Add()' have
 // also called 'Done()' and the StoppableWaitGroup was stopped.
-func (l *StoppableWaitGroup) Done() {
+func (l *StoppableWaitGroup) done() {
 	select {
 	case <-l.noopDone:
 		return

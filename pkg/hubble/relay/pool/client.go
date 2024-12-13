@@ -17,14 +17,12 @@ import (
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	hubbleopts "github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/time"
 )
+
+var _ poolTypes.ClientConnBuilder = (*GRPCClientConnBuilder)(nil)
 
 // GRPCClientConnBuilder is a generic ClientConnBuilder implementation.
 type GRPCClientConnBuilder struct {
-	// DialTimeout specifies the timeout used when establishing a new
-	// connection.
-	DialTimeout time.Duration
 	// Options is a set of grpc.DialOption to be used when creating a new
 	// connection.
 	Options []grpc.DialOption
@@ -47,8 +45,6 @@ func (b GRPCClientConnBuilder) ClientConn(target, hostname string) (poolTypes.Cl
 		return nil, fmt.Errorf("unexpected TLS ServerName %s for %s", hostname, target)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), b.DialTimeout)
-	defer cancel()
 	opts := make([]grpc.DialOption, len(b.Options))
 	copy(opts, b.Options)
 
@@ -69,21 +65,20 @@ func (b GRPCClientConnBuilder) ClientConn(target, hostname string) (poolTypes.Cl
 			},
 		))
 	}
-	return grpc.DialContext(ctx, target, opts...)
+	return grpc.NewClient(target, opts...)
 }
 
-var _ credentials.TransportCredentials = &grpcTLSCredentialsWrapper{}
+var _ credentials.TransportCredentials = (*grpcTLSCredentialsWrapper)(nil)
 
 // grpcTLSCredentialsWrapper wraps gRPC TransportCredentials and fetches the
-// newest TLS configuration from certloader whenever we a new TLS connection
+// newest TLS configuration from certloader whenever a new TLS connection
 // is established.
 //
 // A gRPC ClientConn will call ClientHandshake whenever it tries to establish
-// a new TLS connection. This happens in the beginning when dialing, but also
-// when the connection is lost and gRPC tries to reestablish the connection.
-// Wrapping the ClientHandshake and fetching the updated certificate and CA,
-// allows us to transparently reload certificates when they change, without
-// closing and redialing the gRPC ClientConn.
+// a new TLS connection.
+//
+// Wrapping the ClientHandshake and fetching the updated certificate and CA
+// allows us to transparently reload certificates when they change.
 type grpcTLSCredentialsWrapper struct {
 	credentials.TransportCredentials
 

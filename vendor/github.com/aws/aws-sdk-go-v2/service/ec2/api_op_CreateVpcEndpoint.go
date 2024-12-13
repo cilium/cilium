@@ -34,11 +34,6 @@ func (c *Client) CreateVpcEndpoint(ctx context.Context, params *CreateVpcEndpoin
 
 type CreateVpcEndpointInput struct {
 
-	// The name of the endpoint service.
-	//
-	// This member is required.
-	ServiceName *string
-
 	// The ID of the VPC.
 	//
 	// This member is required.
@@ -82,6 +77,10 @@ type CreateVpcEndpointInput struct {
 	// Default: true
 	PrivateDnsEnabled *bool
 
+	// The Amazon Resource Name (ARN) of a resource configuration that will be
+	// associated with the VPC endpoint of type resource.
+	ResourceConfigurationArn *string
+
 	// (Gateway endpoint) The route table IDs.
 	RouteTableIds []string
 
@@ -89,6 +88,16 @@ type CreateVpcEndpointInput struct {
 	// endpoint network interfaces. If this parameter is not specified, we use the
 	// default security group for the VPC.
 	SecurityGroupIds []string
+
+	// The name of the endpoint service.
+	ServiceName *string
+
+	// The Amazon Resource Name (ARN) of a service network that will be associated
+	// with the VPC endpoint of type service-network.
+	ServiceNetworkArn *string
+
+	// The Region where the service is hosted. The default is the current Region.
+	ServiceRegion *string
 
 	// The subnet configurations for the endpoint.
 	SubnetConfigurations []types.SubnetConfiguration

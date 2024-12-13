@@ -5,7 +5,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -23,12 +23,6 @@ const (
 	// for all Hubble related Prometheus metrics
 	DefaultPrometheusNamespace = "hubble"
 )
-
-// Handlers contains all the metrics handlers.
-type Handlers struct {
-	handlers       []Handler
-	flowProcessors []FlowProcessor
-}
 
 // Plugin is a metric plugin. A metric plugin is associated a name and is
 // responsible to spawn metric handlers of a certain type.
@@ -54,7 +48,7 @@ type Handler interface {
 	// Init must initialize the metric handler by validating and parsing
 	// the options and then registering all required metrics with the
 	// specifies Prometheus registry
-	Init(registry *prometheus.Registry, options []*ContextOptionConfig) error
+	Init(registry *prometheus.Registry, options *MetricConfig) error
 
 	// ListMetricVec returns an array of MetricVec used by a handler
 	ListMetricVec() []*prometheus.MetricVec
@@ -64,56 +58,49 @@ type Handler interface {
 
 	// Status returns the configuration status of the metric handler
 	Status() string
-}
 
-// FlowProcessor is a metric handler which requires flows to perform metrics
-// accounting.
-// It is called upon receival of raw event data and is responsible
-// to perform metrics accounting according to the scope of the metrics plugin.
-type FlowProcessor interface {
+	// HandleConfigurationUpdate updates the metric handler configuration
+	HandleConfigurationUpdate(cfg *MetricConfig) error
+
+	// Deinit deregisters the metrics from the Prometheus registry
+	// and cleans up internal handler state
+	Deinit(registry *prometheus.Registry) error
+
 	// ProcessFlow must processes a flow event and perform metrics
 	// accounting
 	ProcessFlow(ctx context.Context, flow *pb.Flow) error
 }
 
-func NewHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in []NamedHandler) (*Handlers, error) {
-	var handlers Handlers
-	for _, item := range in {
-		handlers.handlers = append(handlers.handlers, item.Handler)
-		if fp, ok := item.Handler.(FlowProcessor); ok {
-			handlers.flowProcessors = append(handlers.flowProcessors, fp)
+func InitHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in *[]NamedHandler) (*[]NamedHandler, error) {
+	var handlers []NamedHandler
+	for _, item := range *in {
+		if err := InitHandler(log, registry, &item); err != nil {
+			return nil, err
 		}
-
-		if err := item.Handler.Init(registry, item.MetricConfig.ContextOptionConfigs); err != nil {
-			return nil, fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
-		}
-
-		log.WithFields(logrus.Fields{
-			"name":   item.Name,
-			"status": item.Handler.Status(),
-		}).Info("Configured metrics plugin")
+		handlers = append(handlers, item)
 	}
 	return &handlers, nil
 }
 
-// ProcessFlow processes a flow by calling ProcessFlow it on to all enabled
-// metric handlers
-func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) error {
-	var errs error
-	for _, fp := range h.flowProcessors {
-		// Continue running the remaining metrics handlers, since one failing
-		// shouldn't impact the other metrics handlers.
-		errs = errors.Join(errs, fp.ProcessFlow(ctx, flow))
+func InitHandler(log logrus.FieldLogger, registry *prometheus.Registry, item *NamedHandler) error {
+	if err := item.Handler.Init(registry, item.MetricConfig); err != nil {
+		return fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
 	}
-	return errs
+
+	log.WithFields(logrus.Fields{
+		"name":   item.Name,
+		"status": item.Handler.Status(),
+	}).Info("Configured metrics plugin")
+
+	return nil
 }
 
 // ProcessCiliumEndpointDeletion queries all handlers for a list of MetricVec and removes
 // metrics directly associated to pod of the deleted cilium endpoint.
-func (h Handlers) ProcessCiliumEndpointDeletion(endpoint *types.CiliumEndpoint) {
-	for _, h := range h.handlers {
-		for _, mv := range h.ListMetricVec() {
-			if ctx := h.Context(); ctx != nil {
+func ProcessCiliumEndpointDeletion(endpoint *types.CiliumEndpoint, handlers []NamedHandler) {
+	for _, h := range handlers {
+		for _, mv := range h.Handler.ListMetricVec() {
+			if ctx := h.Handler.Context(); ctx != nil {
 				ctx.DeleteMetricsAssociatedWithPod(endpoint.GetName(), endpoint.GetNamespace(), mv)
 			}
 		}
@@ -138,7 +125,7 @@ type ContextOptionConfig struct {
 }
 
 // MetricConfig represents a Hubble metric, its options and which resources it applies to.
-// It can hold data parsed from the "hubble-metrics-config" K8S ConfigMap.
+// It can hold data parsed from the "hubble-dynamic-metrics-config" K8S ConfigMap.
 type MetricConfig struct {
 	// Name of the metric
 	Name                 string                 `json:"name,omitempty" yaml:"name,omitempty"`
@@ -155,10 +142,10 @@ type Config struct {
 	Metrics []*MetricConfig `json:"metrics,omitempty" yaml:"metrics,omitempty"`
 }
 
-func (d *Config) GetMetricNames() map[string]struct{} {
-	metrics := make(map[string]struct{})
+func (d *Config) GetMetricNames() map[string]*MetricConfig {
+	metrics := make(map[string]*MetricConfig)
 	for _, m := range d.Metrics {
-		metrics[m.Name] = struct{}{}
+		metrics[m.Name] = m
 	}
 	return metrics
 }

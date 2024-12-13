@@ -5,15 +5,19 @@ package api
 
 import (
 	"errors"
+	"log/slog"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/discovery"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/operator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type kvstoreEnabledFunc func() bool
@@ -29,7 +33,7 @@ func HealthHandlerCell(
 
 		cell.Provide(func(
 			clientset k8sClient.Clientset,
-			logger logrus.FieldLogger,
+			logger *slog.Logger,
 		) operator.GetHealthzHandler {
 			if !clientset.IsEnabled() {
 				return &healthHandler{
@@ -53,7 +57,8 @@ type healthHandler struct {
 	isOperatorLeading isOperatorLeadingFunc
 	kvstoreEnabled    kvstoreEnabledFunc
 	discovery         discovery.DiscoveryInterface
-	log               logrus.FieldLogger
+	log               *slog.Logger
+	consecutiveErrors atomic.Uint64
 }
 
 func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Responder {
@@ -62,8 +67,17 @@ func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Resp
 	}
 
 	if err := h.checkStatus(); err != nil {
-		h.log.WithError(err).Warn("Health check status")
+		if h.consecutiveErrors.Add(1) <= 3 {
+			h.log.Info("Health check failed", logfields.Error, err)
+		} else {
+			h.log.Warn("Health check failed", logfields.Error, err)
+		}
+
 		return operator.NewGetHealthzInternalServerError().WithPayload(err.Error())
+	}
+
+	if h.consecutiveErrors.Swap(0) > 0 {
+		h.log.Info("Health check succeeded after failures")
 	}
 
 	return operator.NewGetHealthzOK().WithPayload("ok")
@@ -82,8 +96,15 @@ func (h *healthHandler) checkStatus() error {
 		if client == nil {
 			return errors.New("kvstore client not configured")
 		}
-		if _, err := client.Status(); err != nil {
-			return err
+
+		status := client.Status()
+		if status.State != models.StatusStateOk &&
+			// Don't treat warnings as errors when the support for running
+			// etcd in pod network is enabled. This is necessary to allow
+			// Cilium turning ready even before connecting to the kvstore,
+			// and break the chicken-and-egg dependency during startup.
+			!(status.State == models.StatusStateWarning && option.Config.KVstorePodNetworkSupport) {
+			return errors.New(status.Msg)
 		}
 	}
 	_, err := h.discovery.ServerVersion()
