@@ -83,6 +83,12 @@ func (r *Rule) Sanitize() error {
 		}
 	}
 
+	for i := range r.IngressDeny {
+		if err := r.IngressDeny[i].sanitize(); err != nil {
+			return err
+		}
+	}
+
 	for i := range r.Egress {
 		if err := r.Egress[i].sanitize(hostPolicy); err != nil {
 			return err
@@ -139,6 +145,36 @@ func (i *IngressRule) sanitize(hostPolicy bool) error {
 
 	for n := range i.ToPorts {
 		if err := i.ToPorts[n].sanitize(true); err != nil {
+			return err
+		}
+	}
+
+	for n := range i.ICMPs {
+		if err := i.ICMPs[n].verify(); err != nil {
+			return err
+		}
+	}
+
+	i.SetAggregatedSelectors()
+
+	return nil
+}
+
+func (i *IngressDenyRule) sanitize() error {
+	if err := i.IngressCommonRule.sanitize(); err != nil {
+		return err
+	}
+
+	if len(i.ICMPs) > 0 && !option.Config.EnableICMPRules {
+		return fmt.Errorf("ICMP rules can only be applied when the %q flag is set", option.EnableICMPRules)
+	}
+
+	if len(i.ICMPs) > 0 && len(i.ToPorts) > 0 {
+		return errUnsupportedICMPWithToPorts
+	}
+
+	for n := range i.ToPorts {
+		if err := i.ToPorts[n].sanitize(); err != nil {
 			return err
 		}
 	}
@@ -511,6 +547,19 @@ func (pr *PortRule) sanitize(ingress bool) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (pr *PortDenyRule) sanitize() error {
+	if len(pr.Ports) > maxPorts {
+		return fmt.Errorf("too many ports, the max is %d", maxPorts)
+	}
+	for i := range pr.Ports {
+		if _, err := pr.Ports[i].sanitize(false); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
