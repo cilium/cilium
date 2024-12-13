@@ -112,3 +112,26 @@ func (c ClusterInfo) ValidateRemoteConfig(config CiliumClusterConfig) error {
 
 	return nil
 }
+
+// QuirksConfig allows the user to configure how Cilium behaves when a set
+// of incompatible options are configured together into the agent.
+type QuirksConfig struct {
+	// AllowUnsafePolicySKBUsage determines whether to hard-fail startup
+	// due to detection of a configuration combination that may trigger
+	// connection impact in the dataplane due to clustermesh IDs
+	// conflicting with other usage of skb->mark field. See GH-21330.
+	AllowUnsafePolicySKBUsage bool
+}
+
+var DefaultQuirks = QuirksConfig{
+	AllowUnsafePolicySKBUsage: false,
+}
+
+func (_ QuirksConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("allow-unsafe-policy-skb-usage", false,
+		"Allow the daemon to continue to operate even if conflicting "+
+			"clustermesh ID configuration is detected which may "+
+			"impact the ability for Cilium to enforce network "+
+			"policy both within and across clusters")
+	flags.MarkHidden("allow-unsafe-policy-skb-usage")
+}

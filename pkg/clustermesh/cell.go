@@ -39,8 +39,14 @@ var Cell = cell.Module(
 	metrics.Metric(NewMetrics),
 	metrics.Metric(common.MetricsProvider(subsystem)),
 
-	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager) error {
-		return info.ValidateBuggyClusterID(dcfg.IPAM, cnimgr.GetChainingMode())
+	cell.Config(types.DefaultQuirks),
+	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager, cfg Configuration, quirks types.QuirksConfig) error {
+		err := info.ValidateBuggyClusterID(dcfg.IPAM, cnimgr.GetChainingMode())
+		if err != nil && quirks.AllowUnsafePolicySKBUsage {
+			cfg.Logger.WithError(err).Error("Detected clustermesh ID configuration that may cause connection impact")
+			return nil
+		}
+		return err
 	}),
 	cell.Invoke(ipsetNotifier),
 	cell.Invoke(nodeManagerNotifier),
