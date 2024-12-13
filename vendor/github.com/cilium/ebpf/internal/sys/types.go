@@ -566,6 +566,15 @@ const (
 	BPF_MAP_TYPE_CGRP_STORAGE                     MapType = 32
 )
 
+type ObjType uint32
+
+const (
+	BPF_TYPE_UNSPEC ObjType = 0
+	BPF_TYPE_PROG   ObjType = 1
+	BPF_TYPE_MAP    ObjType = 2
+	BPF_TYPE_LINK   ObjType = 3
+)
+
 type PerfEventType uint32
 
 const (

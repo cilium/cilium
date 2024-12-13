@@ -62,6 +62,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 // An Engine stores the configuration for executing a set of scripts.
@@ -116,9 +118,17 @@ type WaitFunc func(*State) (stdout, stderr string, err error)
 // A CmdUsage describes the usage of a Cmd, independent of its name
 // (which can change based on its registration).
 type CmdUsage struct {
-	Summary string   // in the style of the Name section of a Unix 'man' page, omitting the name
-	Args    string   // a brief synopsis of the command's arguments (only)
-	Detail  []string // zero or more sentences in the style of the Description section of a Unix 'man' page
+	Summary string // in the style of the Name section of a Unix 'man' page, omitting the name
+
+	// synopsis of arguments, e.g. "files...". If [Flags] is provided then these will be prepended
+	// to [Args] in usage output.
+	Args string
+
+	// flags for the command, optional. If provided, then args passed to the command will not include any
+	// of the flag arguments. The [plafg.FlagSet] is available to the command via [State.Flags].
+	Flags func(fs *pflag.FlagSet)
+
+	Detail []string // zero or more sentences in the style of the Description section of a Unix 'man' page
 
 	// If Async is true, the Cmd is meaningful to run in the background, and its
 	// Run method must return either a non-nil WaitFunc or a non-nil error.
@@ -317,12 +327,16 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 		if err != nil {
 			if cmd.want == successRetryOnFailure || cmd.want == failureRetryOnSuccess {
 				// Command wants retries. Retry the whole section
+				numRetries := 0
 				for err != nil {
+					s.FlushLog()
 					select {
 					case <-s.Context().Done():
 						return lineErr(s.Context().Err())
 					case <-time.After(retryInterval):
 					}
+					s.Logf("(command %q failed, retrying...)\n", line)
+					numRetries++
 					for _, cmd := range sectionCmds {
 						impl := e.Cmds[cmd.name]
 						if err = e.runCommand(s, cmd, impl); err != nil {
@@ -330,6 +344,7 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 						}
 					}
 				}
+				s.Logf("(command %q succeeded after %d retries)\n", line, numRetries)
 			} else {
 				if stop := (stopError{}); errors.As(err, &stop) {
 					// Since the 'stop' command halts execution of the entire script,
@@ -665,9 +680,40 @@ func (e *Engine) runCommand(s *State, cmd *command, impl Cmd) error {
 		return cmdError(cmd, errors.New("unknown command"))
 	}
 
-	async := impl.Usage().Async
+	usage := impl.Usage()
+
+	async := usage.Async
 	if cmd.background && !async {
 		return cmdError(cmd, errors.New("command cannot be run in background"))
+	}
+
+	// Register and parse the flags. We do this regardless of whether [usage.Flags]
+	// is set in order to handle -h/--help.
+	fs := pflag.NewFlagSet(cmd.name, pflag.ContinueOnError)
+	fs.Usage = func() {} // Don't automatically handle error
+	fs.SetOutput(s.logOut)
+	if usage.Flags != nil {
+		usage.Flags(fs)
+	}
+	if err := fs.Parse(cmd.args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			out := new(strings.Builder)
+			err = e.ListCmds(out, true, "^"+cmd.name+"$")
+			s.stdout = out.String()
+			if s.stdout != "" {
+				s.Logf("[stdout]\n%s", s.stdout)
+			}
+			return err
+		}
+		if usage.Flags != nil {
+			return cmdError(cmd, err)
+		}
+
+		// [usage.Flags] wasn't given, so ignore the parsing errors as the
+		// command might do its own argument parsing.
+	} else {
+		cmd.args = fs.Args()
+		s.Flags = fs
 	}
 
 	wait, runErr := impl.Run(s, cmd.args...)
@@ -788,22 +834,64 @@ func (e *Engine) ListCmds(w io.Writer, verbose bool, regexMatch string) error {
 			suffix = " [&]"
 		}
 
-		_, err := fmt.Fprintf(w, "%s %s%s\n\t%s\n", name, usage.Args, suffix, usage.Summary)
+		flagArgs := ""
+		flagUsages := ""
+		if usage.Flags != nil {
+			fs := pflag.NewFlagSet(name, pflag.ContinueOnError)
+			fs.SetOutput(w)
+			usage.Flags(fs)
+			flagUsages = fs.FlagUsages()
+			shortArgs := []string{}
+			longArgs := []string{}
+			fs.VisitAll(func(flag *pflag.Flag) {
+				if flag.Shorthand != "" {
+					shortArgs = append(shortArgs, flag.Shorthand)
+				}
+				switch flag.Value.Type() {
+				case "bool":
+					longArgs = append(longArgs, fmt.Sprintf("[--%s]", flag.Name))
+				default:
+					longArgs = append(longArgs, fmt.Sprintf("[--%s=%s]", flag.Name, flag.Value.Type()))
+				}
+			})
+			if len(shortArgs) > 0 {
+				flagArgs = fmt.Sprintf("[-%s] ", strings.Join(shortArgs, ""))
+			}
+			flagArgs += strings.Join(longArgs, " ") + " "
+		}
+
+		_, err := fmt.Fprintf(w, "%s %s%s\n\t%s\n", name, flagArgs+usage.Args, suffix, usage.Summary)
 		if err != nil {
 			return err
 		}
 
 		if verbose {
-			if _, err := io.WriteString(w, "\n"); err != nil {
-				return err
-			}
-			for _, line := range usage.Detail {
-				if err := wrapLine(w, line, 60, "\t"); err != nil {
+			if len(usage.Detail) > 0 {
+				if _, err := io.WriteString(w, "\n"); err != nil {
 					return err
 				}
+
+				for _, line := range usage.Detail {
+					if err := wrapLine(w, line, 60, "\t"); err != nil {
+						return err
+					}
+				}
 			}
-			if _, err := io.WriteString(w, "\n"); err != nil {
-				return err
+			if flagUsages != "" {
+				if _, err := io.WriteString(w, "\n"); err != nil {
+					return err
+				}
+				lines := strings.Split(flagUsages, "\n")
+				if len(lines) > 0 {
+					if _, err := fmt.Fprintf(w, "\tFlags:\n"); err != nil {
+						return err
+					}
+					for _, line := range lines {
+						if _, err := fmt.Fprintf(w, "\t%s\n", line); err != nil {
+							return err
+						}
+					}
+				}
 			}
 		}
 	}
