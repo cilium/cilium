@@ -71,13 +71,14 @@ func (client *Client) DescribeSavingsPlanPriceWithCallback(request *DescribeSavi
 // DescribeSavingsPlanPriceRequest is the request struct for api DescribeSavingsPlanPrice
 type DescribeSavingsPlanPriceRequest struct {
 	*requests.RpcRequest
-	Period             requests.Integer `position:"Query" name:"Period"`
-	ResourceId         *[]string        `position:"Query" name:"ResourceId"  type:"Repeated"`
-	InstanceTypeFamily string           `position:"Query" name:"InstanceTypeFamily"`
-	PlanType           string           `position:"Query" name:"PlanType"`
-	PeriodUnit         string           `position:"Query" name:"PeriodUnit"`
-	OfferingType       string           `position:"Query" name:"OfferingType"`
-	CommittedAmount    string           `position:"Query" name:"CommittedAmount"`
+	InstanceTypeFamilyGroup string           `position:"Query" name:"InstanceTypeFamilyGroup"`
+	Period                  requests.Integer `position:"Query" name:"Period"`
+	ResourceId              *[]string        `position:"Query" name:"ResourceId"  type:"Repeated"`
+	InstanceTypeFamily      string           `position:"Query" name:"InstanceTypeFamily"`
+	PlanType                string           `position:"Query" name:"PlanType"`
+	PeriodUnit              string           `position:"Query" name:"PeriodUnit"`
+	OfferingType            string           `position:"Query" name:"OfferingType"`
+	CommittedAmount         string           `position:"Query" name:"CommittedAmount"`
 }
 
 // DescribeSavingsPlanPriceResponse is the response struct for api DescribeSavingsPlanPrice
