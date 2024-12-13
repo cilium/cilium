@@ -233,10 +233,11 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 	int ret;
 
 #ifdef ENABLE_SKIP_FIB
-	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+	if (*oif <= 0)
+		*oif = DIRECT_ROUTING_DEV_IFINDEX;
 #endif
 
-	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
+	if (*oif <= 0 || !neigh_resolver_available()) {
 		int fib_result;
 
 		fib_result = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, 0);
@@ -293,10 +294,11 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 	int ret;
 
 #ifdef ENABLE_SKIP_FIB
-	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+	if (*oif <= 0)
+		*oif = DIRECT_ROUTING_DEV_IFINDEX;
 #endif
 
-	if (!is_defined(ENABLE_SKIP_FIB) || !neigh_resolver_available()) {
+	if (*oif <= 0 || !neigh_resolver_available()) {
 		int fib_result;
 
 		fib_result = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, 0);
