@@ -122,40 +122,36 @@ func TestDefaultFilterLabels(t *testing.T) {
 
 func TestFilterLabelsDocExample(t *testing.T) {
 	wanted := labels.Labels{
-		"io.cilium.k8s.namespace.labels": labels.NewLabel("io.cilium.k8s.namespace.labels", "foo", labels.LabelSourceK8s),
-		"k8s-app-team":                   labels.NewLabel("k8s-app-team", "foo", labels.LabelSourceK8s),
-		"app-production":                 labels.NewLabel("app-production", "foo", labels.LabelSourceK8s),
-		"name-defined":                   labels.NewLabel("name-defined", "foo", labels.LabelSourceK8s),
-		"host":                           labels.NewLabel("host", "", labels.LabelSourceReserved),
-		"io.kubernetes.pod.namespace":    labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceAny),
-		"io.cilium.k8s.policy.cluster":   labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceK8s),
+		"k8s-app-team":                labels.NewLabel("k8s-app-team", "foo", labels.LabelSourceK8s),
+		"app-production":              labels.NewLabel("app-production", "foo", labels.LabelSourceK8s),
+		"name-defined":                labels.NewLabel("name-defined", "foo", labels.LabelSourceK8s),
+		"kind":                        labels.NewLabel("kind", "foo", labels.LabelSourceK8s),
+		"other":                       labels.NewLabel("other", "foo", labels.LabelSourceK8s),
+		"host":                        labels.NewLabel("host", "", labels.LabelSourceReserved),
+		"io.kubernetes.pod.namespace": labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceK8s),
 	}
 
-	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name", "k8s:io.cilium.k8s.policy.cluster"}, []string{}, "")
+	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name", "k8s:kind", "k8s:other"}, []string{}, "")
 	require.NoError(t, err)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
-		"io.cilium.k8s.namespace.labels": "foo",
-		"k8s-app-team":                   "foo",
-		"app-production":                 "foo",
-		"name-defined":                   "foo",
+		"k8s-app-team":   "foo",
+		"app-production": "foo",
+		"name-defined":   "foo",
+		"kind":           "foo",
+		"other":          "foo",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceK8s)
 	filtered, _ := dlpcfg.filterLabels(allLabels)
-	require.Len(t, filtered, 4)
+	require.Len(t, filtered, 5)
 
 	// Reserved labels are included.
 	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
-	require.Len(t, filtered, 5)
-
-	// io.kubernetes.pod.namespace=docker matches because the default list has any:io.kubernetes.pod.namespace.
-	allLabels["io.kubernetes.pod.namespace"] = labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceAny)
-	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 6)
 
-	// io.cilium.k8s.policy.cluster=default matches because the default list has k8s:io.cilium.k8s.policy.cluster.
-	allLabels["io.cilium.k8s.policy.cluster"] = labels.NewLabel("io.cilium.k8s.policy.cluster", "default", labels.LabelSourceK8s)
+	// io.kubernetes.pod.namespace=docker matches because the default list has k8s:io.kubernetes.pod.namespace.
+	allLabels["io.kubernetes.pod.namespace"] = labels.NewLabel("io.kubernetes.pod.namespace", "docker", labels.LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	require.Len(t, filtered, 7)
 
