@@ -72,7 +72,7 @@ func send(iface *net.Interface, ip netip.Addr) error {
 	}
 	defer arpClient.Close()
 
-	arp, err := arp.NewPacket(arp.OperationReply, iface.HardwareAddr, ip.AsSlice(), ethernet.Broadcast, ip.AsSlice())
+	arp, err := arp.NewPacket(arp.OperationReply, iface.HardwareAddr, ip, ethernet.Broadcast, ip)
 	if err != nil {
 		return fmt.Errorf("failed to craft ARP reply packet: %w", err)
 	}
