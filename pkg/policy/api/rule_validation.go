@@ -95,6 +95,12 @@ func (r *Rule) Sanitize() error {
 		}
 	}
 
+	for i := range r.EgressDeny {
+		if err := r.EgressDeny[i].sanitize(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -362,6 +368,61 @@ func (e *EgressRule) sanitize(hostPolicy bool) error {
 	for i := range e.ToFQDNs {
 		err := e.ToFQDNs[i].sanitize()
 		if err != nil {
+			return err
+		}
+	}
+
+	e.SetAggregatedSelectors()
+
+	return nil
+}
+
+func (e *EgressDenyRule) sanitize() error {
+	l3Members := map[string]int{
+		"ToCIDR":      len(e.ToCIDR),
+		"ToCIDRSet":   countNonGeneratedCIDRRules(e.ToCIDRSet),
+		"ToEndpoints": countNonGeneratedEndpoints(e.ToEndpoints),
+		"ToEntities":  len(e.ToEntities),
+		"ToServices":  len(e.ToServices),
+		"ToGroups":    len(e.ToGroups),
+		"ToNodes":     len(e.ToNodes),
+	}
+	l3DependentL4Support := map[interface{}]bool{
+		"ToCIDR":      true,
+		"ToCIDRSet":   true,
+		"ToEndpoints": true,
+		"ToEntities":  true,
+		"ToServices":  true,
+		"ToGroups":    true,
+		"ToNodes":     true,
+	}
+
+	if err := e.EgressCommonRule.sanitize(l3Members); err != nil {
+		return err
+	}
+
+	for member := range l3Members {
+		if l3Members[member] > 0 && len(e.ToPorts) > 0 && !l3DependentL4Support[member] {
+			return fmt.Errorf("combining %s and ToPorts is not supported yet", member)
+		}
+	}
+
+	if len(e.ICMPs) > 0 && !option.Config.EnableICMPRules {
+		return fmt.Errorf("ICMP rules can only be applied when the %q flag is set", option.EnableICMPRules)
+	}
+
+	if len(e.ICMPs) > 0 && len(e.ToPorts) > 0 {
+		return errUnsupportedICMPWithToPorts
+	}
+
+	for i := range e.ToPorts {
+		if err := e.ToPorts[i].sanitize(); err != nil {
+			return err
+		}
+	}
+
+	for n := range e.ICMPs {
+		if err := e.ICMPs[n].verify(); err != nil {
 			return err
 		}
 	}
