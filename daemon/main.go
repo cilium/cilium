@@ -6,5 +6,6 @@ package main
 import "github.com/cilium/cilium/daemon/cmd"
 
 func main() {
+	// empty
 	cmd.Execute()
 }
