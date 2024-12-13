@@ -813,10 +813,10 @@ enabled, the following metrics are available:
 ============================================ ======= ========== ============================================================
 Name                                         Labels  Default    Description
 ============================================ ======= ========== ============================================================
-``doublewrite_identity_crd_total_count``             Enabled    The total number of CRD identities
-``doublewrite_identity_kvstore_total_count``         Enabled    The total number of identities in the KVStore
-``doublewrite_identity_crd_only_count``              Enabled    The number of CRD identities not present in the KVStore
-``doublewrite_identity_kvstore_only_count``          Enabled    The number of identities in the KVStore not present as a CRD
+``doublewrite_identity_crd_total``                   Enabled    The total number of CRD identities
+``doublewrite_identity_kvstore_total``               Enabled    The total number of identities in the KVStore
+``doublewrite_identity_crd_only_total``              Enabled    The number of CRD identities not present in the KVStore
+``doublewrite_identity_kvstore_only_total``          Enabled    The number of identities in the KVStore not present as a CRD
 ============================================ ======= ========== ============================================================
 
 
