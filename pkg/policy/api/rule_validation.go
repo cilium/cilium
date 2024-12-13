@@ -21,6 +21,9 @@ const (
 
 var (
 	ErrFromToNodesRequiresNodeSelectorOption = fmt.Errorf("FromNodes/ToNodes rules can only be applied when the %q flag is set", option.EnableNodeSelectorLabels)
+
+	errUnsupportedICMPWithToPorts = errors.New("the ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts")
+	errEmptyServerName            = errors.New("empty server name is not allowed")
 )
 
 // Sanitize validates and sanitizes a policy rule. Minor edits such as
@@ -44,10 +47,10 @@ func (r *Rule) Sanitize() error {
 	}
 
 	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
-		return fmt.Errorf("rule must have one of EndpointSelector or NodeSelector")
+		return errors.New("rule must have one of EndpointSelector or NodeSelector")
 	}
 	if r.EndpointSelector.LabelSelector != nil && r.NodeSelector.LabelSelector != nil {
-		return fmt.Errorf("rule cannot have both EndpointSelector and NodeSelector")
+		return errors.New("rule cannot have both EndpointSelector and NodeSelector")
 	}
 
 	if r.EndpointSelector.LabelSelector != nil {
@@ -102,8 +105,6 @@ func countL7Rules(ports []PortRule) map[string]int {
 }
 
 func (i *IngressRule) sanitize() error {
-	var retErr error
-
 	l3Members := map[string]int{
 		"FromEndpoints": len(i.FromEndpoints),
 		"FromCIDR":      len(i.FromCIDR),
@@ -122,7 +123,7 @@ func (i *IngressRule) sanitize() error {
 	for m1 := range l3Members {
 		for m2 := range l3Members {
 			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
-				return fmt.Errorf("Combining %s and %s is not supported yet", m1, m2)
+				return fmt.Errorf("combining %s and %s is not supported yet", m1, m2)
 			}
 		}
 	}
@@ -141,8 +142,10 @@ func (i *IngressRule) sanitize() error {
 	}
 
 	if len(i.ICMPs) > 0 && len(i.ToPorts) > 0 {
-		return fmt.Errorf("The ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts.")
+		return errUnsupportedICMPWithToPorts
 	}
+
+	var retErr error
 
 	if len(i.FromNodes) > 0 && !option.Config.EnableNodeSelectorLabels {
 		retErr = ErrFromToNodesRequiresNodeSelectorOption
@@ -150,50 +153,50 @@ func (i *IngressRule) sanitize() error {
 
 	for _, es := range i.FromEndpoints {
 		if err := es.sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for _, es := range i.FromRequires {
 		if err := es.sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.ToPorts {
 		if err := i.ToPorts[n].sanitize(true); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.ICMPs {
 		if err := i.ICMPs[n].verify(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for _, ns := range i.FromNodes {
 		if err := ns.sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.FromCIDR {
 		if err := i.FromCIDR[n].sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range i.FromCIDRSet {
 		if err := i.FromCIDRSet[n].sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for _, fromEntity := range i.FromEntities {
 		_, ok := EntitySelectorMapping[fromEntity]
 		if !ok {
-			return fmt.Errorf("unsupported entity: %s", fromEntity)
+			return errors.Join(fmt.Errorf("unsupported entity: %s", fromEntity), retErr)
 		}
 	}
 
@@ -220,8 +223,6 @@ func countNonGeneratedCIDRRules(s CIDRRuleSlice) int {
 }
 
 func (e *EgressRule) sanitize() error {
-	var retErr error
-
 	l3Members := map[string]int{
 		"ToCIDR":      len(e.ToCIDR),
 		"ToCIDRSet":   countNonGeneratedCIDRRules(e.ToCIDRSet),
@@ -252,13 +253,13 @@ func (e *EgressRule) sanitize() error {
 	for m1 := range l3Members {
 		for m2 := range l3Members {
 			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
-				return fmt.Errorf("Combining %s and %s is not supported yet", m1, m2)
+				return fmt.Errorf("combining %s and %s is not supported yet", m1, m2)
 			}
 		}
 	}
 	for member := range l3Members {
 		if l3Members[member] > 0 && len(e.ToPorts) > 0 && !l3DependentL4Support[member] {
-			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
+			return fmt.Errorf("combining %s and ToPorts is not supported yet", member)
 		}
 	}
 
@@ -276,8 +277,10 @@ func (e *EgressRule) sanitize() error {
 	}
 
 	if len(e.ICMPs) > 0 && len(e.ToPorts) > 0 {
-		return fmt.Errorf("The ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts.")
+		return errUnsupportedICMPWithToPorts
 	}
+
+	var retErr error
 
 	if len(e.ToNodes) > 0 && !option.Config.EnableNodeSelectorLabels {
 		retErr = ErrFromToNodesRequiresNodeSelectorOption
@@ -285,56 +288,56 @@ func (e *EgressRule) sanitize() error {
 
 	for _, es := range e.ToEndpoints {
 		if err := es.sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for _, es := range e.ToRequires {
 		if err := es.sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for i := range e.ToPorts {
 		if err := e.ToPorts[i].sanitize(false); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for n := range e.ICMPs {
 		if err := e.ICMPs[n].verify(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for _, ns := range e.ToNodes {
 		if err := ns.sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for i := range e.ToCIDR {
 		if err := e.ToCIDR[i].sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 	for i := range e.ToCIDRSet {
 		if err := e.ToCIDRSet[i].sanitize(); err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
 	for _, toEntity := range e.ToEntities {
 		_, ok := EntitySelectorMapping[toEntity]
 		if !ok {
-			return fmt.Errorf("unsupported entity: %s", toEntity)
+			return errors.Join(fmt.Errorf("unsupported entity: %s", toEntity), retErr)
 		}
 	}
 
 	for i := range e.ToFQDNs {
 		err := e.ToFQDNs[i].sanitize()
 		if err != nil {
-			return err
+			return errors.Join(err, retErr)
 		}
 	}
 
@@ -368,7 +371,7 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 		// Forthcoming TPROXY redirection restricts DNS proxy to the standard DNS port (53).
 		// Require the port 53 be explicitly configured, and disallow other port numbers.
 		if len(ports) == 0 {
-			return fmt.Errorf("Port 53 must be specified for DNS rules")
+			return errors.New("port 53 must be specified for DNS rules")
 		}
 
 		nTypes++
@@ -413,7 +416,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	}
 	for _, sn := range pr.ServerNames {
 		if sn == "" {
-			return fmt.Errorf("Empty server name is not allowed")
+			return errEmptyServerName
 		}
 	}
 
@@ -459,7 +462,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	// Sanitize L7 rules
 	if !pr.Rules.IsEmpty() {
 		if haveZeroPort {
-			return fmt.Errorf("L7 rules can not be used when a port is 0")
+			return errors.New("L7 rules can not be used when a port is 0")
 		}
 
 		if err := pr.Rules.sanitize(pr.Ports); err != nil {
@@ -471,7 +474,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 
 func (pp *PortProtocol) sanitize(hasL7Rules bool) (isZero bool, err error) {
 	if pp.Port == "" {
-		return isZero, fmt.Errorf("Port must be specified")
+		return isZero, errors.New("Port must be specified")
 	}
 
 	// Port names are formatted as IANA Service Names.  This means that
@@ -482,7 +485,7 @@ func (pp *PortProtocol) sanitize(hasL7Rules bool) (isZero bool, err error) {
 	} else {
 		p, err := strconv.ParseUint(pp.Port, 0, 16)
 		if err != nil {
-			return isZero, fmt.Errorf("Unable to parse port: %w", err)
+			return isZero, fmt.Errorf("unable to parse port: %w", err)
 		}
 		isZero = p == 0
 		if hasL7Rules && pp.EndPort > int32(p) {
@@ -543,7 +546,7 @@ func (c *CIDRRule) sanitize() error {
 	// the logic in api.CIDR.Sanitize().
 	prefix, err := netip.ParsePrefix(string(c.Cidr))
 	if err != nil {
-		return fmt.Errorf("Unable to parse CIDRRule %q: %w", c.Cidr, err)
+		return fmt.Errorf("unable to parse CIDRRule %q: %w", c.Cidr, err)
 	}
 
 	prefixLength := prefix.Bits()
