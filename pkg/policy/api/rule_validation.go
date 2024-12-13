@@ -259,13 +259,10 @@ func (e *EgressRule) sanitize() error {
 		"HTTP":  true,
 	}
 
-	for m1 := range l3Members {
-		for m2 := range l3Members {
-			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
-				return fmt.Errorf("combining %s and %s is not supported yet", m1, m2)
-			}
-		}
+	if err := e.EgressCommonRule.sanitize(l3Members); err != nil {
+		return err
 	}
+
 	for member := range l3Members {
 		if l3Members[member] > 0 && len(e.ToPorts) > 0 && !l3DependentL4Support[member] {
 			return fmt.Errorf("combining %s and ToPorts is not supported yet", member)
@@ -289,6 +286,39 @@ func (e *EgressRule) sanitize() error {
 		return errUnsupportedICMPWithToPorts
 	}
 
+	for i := range e.ToPorts {
+		if err := e.ToPorts[i].sanitize(false); err != nil {
+			return err
+		}
+	}
+
+	for n := range e.ICMPs {
+		if err := e.ICMPs[n].verify(); err != nil {
+			return err
+		}
+	}
+
+	for i := range e.ToFQDNs {
+		err := e.ToFQDNs[i].sanitize()
+		if err != nil {
+			return err
+		}
+	}
+
+	e.SetAggregatedSelectors()
+
+	return nil
+}
+
+func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
+	for m1 := range l3Members {
+		for m2 := range l3Members {
+			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
+				return fmt.Errorf("combining %s and %s is not supported yet", m1, m2)
+			}
+		}
+	}
+
 	var retErr error
 
 	if len(e.ToNodes) > 0 && !option.Config.EnableNodeSelectorLabels {
@@ -303,18 +333,6 @@ func (e *EgressRule) sanitize() error {
 
 	for _, es := range e.ToRequires {
 		if err := es.sanitize(); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	for i := range e.ToPorts {
-		if err := e.ToPorts[i].sanitize(false); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	for n := range e.ICMPs {
-		if err := e.ICMPs[n].verify(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -342,15 +360,6 @@ func (e *EgressRule) sanitize() error {
 			return errors.Join(fmt.Errorf("unsupported entity: %s", toEntity), retErr)
 		}
 	}
-
-	for i := range e.ToFQDNs {
-		err := e.ToFQDNs[i].sanitize()
-		if err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	e.SetAggregatedSelectors()
 
 	return retErr
 }
