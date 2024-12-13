@@ -1010,7 +1010,8 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif /* ENABLE_IPV4 */
 
 #if defined(ENABLE_IPSEC) && defined(TUNNEL_MODE)
-static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
+static __always_inline int
+do_netdev_encrypt_encap(struct __ctx_buff *ctx, __be16 proto, __u32 src_id)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_ENCRYPTED,
@@ -1020,9 +1021,8 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 	void *data, *data_end;
 	struct ipv6hdr *ip6 __maybe_unused;
 	struct iphdr *ip4 __maybe_unused;
-	__u16 proto;
 
-	if (!validate_ethertype(ctx, &proto))
+	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
 
 	switch (proto) {
@@ -1371,7 +1371,7 @@ int cil_from_host(struct __ctx_buff *ctx)
 				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 # ifdef TUNNEL_MODE
-		ret = do_netdev_encrypt_encap(ctx, identity);
+		ret = do_netdev_encrypt_encap(ctx, proto, identity);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, identity, ret,
 						      CTX_ACT_DROP, METRIC_EGRESS);
