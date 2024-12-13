@@ -1089,6 +1089,11 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		}
 	}
 
+	if option.Config.EnableEndpointDirectRouting &&
+		!e.IsHost() && e.GetParentIfIndex() > 0 {
+		fmt.Fprintf(fw, "#define THIS_INTERFACE_PARENT_IFINDEX %d\n", e.GetParentIfIndex())
+	}
+
 	if e.IsHost() {
 		// Only used to differentiate between host endpoint template and other templates.
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
