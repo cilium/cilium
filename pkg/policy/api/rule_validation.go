@@ -295,26 +295,8 @@ func countNonGeneratedEndpoints(s []EndpointSelector) int {
 }
 
 func (e *EgressRule) sanitize(hostPolicy bool) error {
-	l3Members := map[string]int{
-		"ToCIDR":      len(e.ToCIDR),
-		"ToCIDRSet":   countNonGeneratedCIDRRules(e.ToCIDRSet),
-		"ToEndpoints": countNonGeneratedEndpoints(e.ToEndpoints),
-		"ToEntities":  len(e.ToEntities),
-		"ToServices":  len(e.ToServices),
-		"ToFQDNs":     len(e.ToFQDNs),
-		"ToGroups":    len(e.ToGroups),
-		"ToNodes":     len(e.ToNodes),
-	}
-	l3DependentL4Support := map[interface{}]bool{
-		"ToCIDR":      true,
-		"ToCIDRSet":   true,
-		"ToEndpoints": true,
-		"ToEntities":  true,
-		"ToServices":  true,
-		"ToFQDNs":     true,
-		"ToGroups":    true,
-		"ToNodes":     true,
-	}
+	l3Members := e.l3Members()
+	l3DependentL4Support := e.l3DependentL4Support()
 	l7Members := countL7Rules(e.ToPorts)
 	l7EgressSupport := map[string]bool{
 		"DNS":   true,
@@ -377,25 +359,21 @@ func (e *EgressRule) sanitize(hostPolicy bool) error {
 	return nil
 }
 
+func (e *EgressRule) l3Members() map[string]int {
+	l3Members := e.EgressCommonRule.l3Members()
+	l3Members["ToFQDNs"] = len(e.ToFQDNs)
+	return l3Members
+}
+
+func (e *EgressRule) l3DependentL4Support() map[string]bool {
+	l3DependentL4Support := e.EgressCommonRule.l3DependentL4Support()
+	l3DependentL4Support["ToFQDNs"] = true
+	return l3DependentL4Support
+}
+
 func (e *EgressDenyRule) sanitize() error {
-	l3Members := map[string]int{
-		"ToCIDR":      len(e.ToCIDR),
-		"ToCIDRSet":   countNonGeneratedCIDRRules(e.ToCIDRSet),
-		"ToEndpoints": countNonGeneratedEndpoints(e.ToEndpoints),
-		"ToEntities":  len(e.ToEntities),
-		"ToServices":  len(e.ToServices),
-		"ToGroups":    len(e.ToGroups),
-		"ToNodes":     len(e.ToNodes),
-	}
-	l3DependentL4Support := map[interface{}]bool{
-		"ToCIDR":      true,
-		"ToCIDRSet":   true,
-		"ToEndpoints": true,
-		"ToEntities":  true,
-		"ToServices":  true,
-		"ToGroups":    true,
-		"ToNodes":     true,
-	}
+	l3Members := e.l3Members()
+	l3DependentL4Support := e.l3DependentL4Support()
 
 	if err := e.EgressCommonRule.sanitize(l3Members); err != nil {
 		return err
@@ -430,6 +408,14 @@ func (e *EgressDenyRule) sanitize() error {
 	e.SetAggregatedSelectors()
 
 	return nil
+}
+
+func (e *EgressDenyRule) l3Members() map[string]int {
+	return e.EgressCommonRule.l3Members()
+}
+
+func (e *EgressDenyRule) l3DependentL4Support() map[string]bool {
+	return e.EgressCommonRule.l3DependentL4Support()
 }
 
 func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
@@ -484,6 +470,30 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 	}
 
 	return retErr
+}
+
+func (e *EgressCommonRule) l3Members() map[string]int {
+	return map[string]int{
+		"ToCIDR":      len(e.ToCIDR),
+		"ToCIDRSet":   countNonGeneratedCIDRRules(e.ToCIDRSet),
+		"ToEndpoints": countNonGeneratedEndpoints(e.ToEndpoints),
+		"ToEntities":  len(e.ToEntities),
+		"ToServices":  len(e.ToServices),
+		"ToGroups":    len(e.ToGroups),
+		"ToNodes":     len(e.ToNodes),
+	}
+}
+
+func (e *EgressCommonRule) l3DependentL4Support() map[string]bool {
+	return map[string]bool{
+		"ToCIDR":      true,
+		"ToCIDRSet":   true,
+		"ToEndpoints": true,
+		"ToEntities":  true,
+		"ToServices":  true,
+		"ToGroups":    true,
+		"ToNodes":     true,
+	}
 }
 
 func (pr *L7Rules) sanitize(ports []PortProtocol) error {
