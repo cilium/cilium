@@ -106,6 +106,13 @@ func checkAndMarkNode(ctx context.Context, c kubernetes.Interface, nodeGetter sl
 
 	// should we remove the taint?
 	scheduled, running := nodeHasCiliumPod(node.GetName())
+
+	if !scheduled && options.RemoveNodeTaint {
+		logger.Info("No Cilium pod scheduled on node; removing agent-not-ready taint", logfields.NodeName, nodeName)
+		return removeAgentNotReadyTaint(ctx, c, nodeName, logger)
+
+	}
+
 	if running {
 		if (options.RemoveNodeTaint && hasAgentNotReadyTaint(node)) ||
 			(options.SetCiliumIsUpCondition && !HasCiliumIsUpCondition(node)) {
@@ -468,4 +475,44 @@ func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clien
 			}
 		}()
 	}
+}
+
+// removeAgentNotReadyTaint removes the AgentNotReady taint from the node
+func removeAgentNotReadyTaint(ctx context.Context, c kubernetes.Interface, nodeName string, logger *slog.Logger) error {
+	node, err := c.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get node %s: %w", nodeName, err)
+	}
+
+	taints := node.Spec.Taints
+	updatedTaints := []corev1.Taint{}
+
+	for _, taint := range taints {
+		if taint.Key != pkgOption.Config.AgentNotReadyNodeTaintValue() {
+			updatedTaints = append(updatedTaints, taint)
+		}
+	}
+
+	// Skip updating if no taint was removed
+	if len(taints) == len(updatedTaints) {
+		logger.Debug("No agent-not-ready taint to remove", logfields.NodeName, nodeName)
+		return nil
+	}
+
+	patchData, err := json.Marshal(map[string]interface{}{
+		"spec": map[string]interface{}{
+			"taints": updatedTaints,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal taint removal patch for node %s: %w", nodeName, err)
+	}
+
+	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, k8sTypes.StrategicMergePatchType, patchData, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to patch node %s to remove taint: %w", nodeName, err)
+	}
+
+	logger.Info("Removed agent-not-ready taint from node", logfields.NodeName, nodeName)
+	return nil
 }
