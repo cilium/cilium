@@ -936,7 +936,7 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 		scopedLog.WithFields(logrus.Fields{
 			"selectedInterface": a.allocation.InterfaceID,
 			"ipsToAllocate":     a.allocation.IPv4.AvailableForAllocation,
-		}).WithError(err).Warning("Unable to assign additional IPs to interface, will create new interface")
+		}).WithError(err).Info("Unable to assign additional IPs to interface, will create new interface")
 	}
 
 	return n.createInterface(ctx, a.allocation)
