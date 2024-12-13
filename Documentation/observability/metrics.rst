@@ -265,6 +265,50 @@ disable the following two metrics as they generate too much data:
 
 You can then configure the agent with ``--metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"``.
 
+Feature Metrics
+~~~~~~~~~~~~~~~
+
+Cilium Feature Metrics are exported under the ``cilium_feature`` Prometheus
+namespace.
+
+The following tables categorize feature metrics into four groups:
+
+- **Advanced Connectivity and Load Balancing** (:ref:`cilium-feature-adv-connect-and-lb`)
+
+  This category includes features related to advanced networking and load
+  balancing capabilities, such as Bandwidth Manager, BGP, Envoy Proxy, and
+  Cluster Mesh.
+
+- **Control Plane** (:ref:`cilium-feature-controlplane`)
+
+  These metrics track control plane configurations, including identity
+  allocation modes and IP address management (IPAM).
+
+- **Datapath** (:ref:`cilium-feature-datapath`)
+
+  Metrics in this group monitor datapath configurations, such as Internet
+  protocol modes, chaining modes, and network modes.
+
+- **Network Policies** (:ref:`cilium-feature-network-policies`)
+
+  This group encompasses metrics related to policy enforcement, including
+  Cilium Network Policies, Host Firewall, DNS policies, and Mutual Auth.
+
+For example, to check if the Bandwidth Manager is enabled on a Cilium agent,
+observe the metric ``cilium_feature_adv_connect_and_lb_bandwidth_manager_enabled``.
+All metrics follow the format ``cilium_feature`` + group name + metric name.
+A value of ``0`` indicates that the feature is disabled, while ``1`` indicates it
+is enabled.
+
+.. note::
+
+   For metrics of type "counter", the agent has processed the associated object
+   (e.g., a network policy) but might not be actively enforcing it. These
+   metrics serve to observe if the object has been received and processed, but
+   not necessarily enforced by the agent.
+
+.. include:: feature-metrics-agent.txt
+
 Exported Metrics
 ^^^^^^^^^^^^^^^^
 
@@ -630,6 +674,35 @@ Configuration
 option ``--enable-metrics``.  By default, the operator will expose metrics on
 port 9963, the port can be changed with the option
 ``--operator-prometheus-serve-addr``.
+
+Feature Metrics
+~~~~~~~~~~~~~~~
+
+Cilium Operator Feature Metrics are exported under the
+``cilium_operator_feature`` Prometheus namespace.
+
+The following tables categorize feature metrics into the following groups:
+
+- **Advanced Connectivity and Load Balancing** (:ref:`cilium-operator-feature-adv-connect-and-lb`)
+
+  This category includes features related to advanced networking and load
+  balancing capabilities, such as Gateway API, Ingress Controller, LB IPAM,
+  Node IPAM and L7 Aware Traffic Management.
+
+For example, to check if the Gateway API is enabled on a Cilium operator,
+observe the metric ``cilium_operator_feature_adv_connect_and_lb_gateway_api_enabled``.
+All metrics follows the format ``cilium_operator_feature`` + group name + metric name.
+A value of ``0`` indicates that the feature is disabled, while ``1`` indicates it
+is enabled.
+
+.. note::
+
+   For metrics of type "counter," the operator has processed the associated object
+   (e.g., a network policy) but might not be actively enforcing it. These
+   metrics serve to observe if the object has been received and processed, but
+   not necessarily enforced by the operator.
+
+.. include:: feature-metrics-operator.txt
 
 Exported Metrics
 ^^^^^^^^^^^^^^^^
