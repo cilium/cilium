@@ -105,30 +105,19 @@ func countL7Rules(ports []PortRule) map[string]int {
 }
 
 func (i *IngressRule) sanitize(hostPolicy bool) error {
-	l3Members := map[string]int{
-		"FromEndpoints": len(i.FromEndpoints),
-		"FromCIDR":      len(i.FromCIDR),
-		"FromCIDRSet":   len(i.FromCIDRSet),
-		"FromEntities":  len(i.FromEntities),
-		"FromNodes":     len(i.FromNodes),
-		"FromGroups":    len(i.FromGroups),
-	}
 	l7Members := countL7Rules(i.ToPorts)
 	l7IngressSupport := map[string]bool{
 		"DNS":   false,
 		"Kafka": true,
 		"HTTP":  true,
 	}
-	if hostPolicy && len(l7Members) > 0 {
-		return errors.New("L7 policy is not supported on host ingress yet")
+
+	if err := i.IngressCommonRule.sanitize(); err != nil {
+		return err
 	}
 
-	for m1 := range l3Members {
-		for m2 := range l3Members {
-			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
-				return fmt.Errorf("combining %s and %s is not supported yet", m1, m2)
-			}
-		}
+	if hostPolicy && len(l7Members) > 0 {
+		return errors.New("L7 policy is not supported on host ingress yet")
 	}
 
 	if len(l7Members) > 0 && !option.Config.EnableL7Proxy {
@@ -148,6 +137,41 @@ func (i *IngressRule) sanitize(hostPolicy bool) error {
 		return errUnsupportedICMPWithToPorts
 	}
 
+	for n := range i.ToPorts {
+		if err := i.ToPorts[n].sanitize(true); err != nil {
+			return err
+		}
+	}
+
+	for n := range i.ICMPs {
+		if err := i.ICMPs[n].verify(); err != nil {
+			return err
+		}
+	}
+
+	i.SetAggregatedSelectors()
+
+	return nil
+}
+
+func (i *IngressCommonRule) sanitize() error {
+	l3Members := map[string]int{
+		"FromEndpoints": len(i.FromEndpoints),
+		"FromCIDR":      len(i.FromCIDR),
+		"FromCIDRSet":   len(i.FromCIDRSet),
+		"FromEntities":  len(i.FromEntities),
+		"FromNodes":     len(i.FromNodes),
+		"FromGroups":    len(i.FromGroups),
+	}
+
+	for m1 := range l3Members {
+		for m2 := range l3Members {
+			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
+				return fmt.Errorf("combining %s and %s is not supported yet", m1, m2)
+			}
+		}
+	}
+
 	var retErr error
 
 	if len(i.FromNodes) > 0 && !option.Config.EnableNodeSelectorLabels {
@@ -162,18 +186,6 @@ func (i *IngressRule) sanitize(hostPolicy bool) error {
 
 	for _, es := range i.FromRequires {
 		if err := es.sanitize(); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	for n := range i.ToPorts {
-		if err := i.ToPorts[n].sanitize(true); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	for n := range i.ICMPs {
-		if err := i.ICMPs[n].verify(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -202,8 +214,6 @@ func (i *IngressRule) sanitize(hostPolicy bool) error {
 			return errors.Join(fmt.Errorf("unsupported entity: %s", fromEntity), retErr)
 		}
 	}
-
-	i.SetAggregatedSelectors()
 
 	return retErr
 }
