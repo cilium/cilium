@@ -5,7 +5,7 @@
       <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
    </picture>
 
-|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa| |gateway-api| |codespaces|
+|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa| |gateway-api| |codespaces| |gurubase|
 
 Cilium is a networking, observability, and security solution with an eBPF-based
 dataplane. It provides a simple flat Layer 3 network with the ability to span
@@ -408,3 +408,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. |codespaces| image:: https://img.shields.io/badge/Open_in_GitHub_Codespaces-gray?logo=github
     :alt: Github Codespaces
     :target: https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=48109239&machine=standardLinux32gb&location=WestEurope
+
+.. |gurubase| image:: https://img.shields.io/badge/Gurubase-Ask%20Cilium%20Guru-006BFF
+    :alt: Gurubase
+    :target: https://gurubase.io/g/cilium
