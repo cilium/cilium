@@ -18,7 +18,6 @@ import (
 const (
 	nextDirectorySuffix       = "_next"
 	nextFailedDirectorySuffix = "_next_fail"
-	backupDirectorySuffix     = "_stale"
 )
 
 // DirectoryPath returns the directory name for this endpoint bpf program.
