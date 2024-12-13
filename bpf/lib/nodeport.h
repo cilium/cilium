@@ -24,7 +24,9 @@
 #include "pcap.h"
 #include "host_firewall.h"
 #include "stubs.h"
+#if !defined(IS_BPF_XDP)
 #include "proxy_hairpin.h"
+#endif
 #include "fib.h"
 #include "srv6.h"
 

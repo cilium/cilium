@@ -32,8 +32,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 #endif
 	int ret = 0;
 
-	ctx_store_meta(ctx, CB_PROXY_MAGIC,
-		       MARK_MAGIC_TO_PROXY | (proxy_port << 16));
+	ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
 	bpf_barrier(); /* verifier workaround */
 
 	if (!ip4) {

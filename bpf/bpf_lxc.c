@@ -764,7 +764,7 @@ pass_to_stack:
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					SECLABEL_IPV6, false, false);
+					SECLABEL_IPV6, false);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 	} else
@@ -1318,7 +1318,7 @@ pass_to_stack:
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					SECLABEL_IPV4, false, false);
+					SECLABEL_IPV4, false);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 	} else
@@ -1727,9 +1727,6 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	/* Store meta: essential for proxy ingress, see bpf_host.c */
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
-
 #ifdef ENABLE_CUSTOM_CALLS
 	/* Make sure we skip the tail call when the packet is being redirected
 	 * to a L7 proxy, to avoid running the custom program twice on the
@@ -1809,7 +1806,6 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
-		ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
@@ -2086,9 +2082,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	/* Store meta: essential for proxy ingress, see bpf_host.c */
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
-
 #ifdef ENABLE_CUSTOM_CALLS
 	/* Make sure we skip the tail call when the packet is being redirected
 	 * to a L7 proxy, to avoid running the custom program twice on the
@@ -2167,7 +2160,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 		}
 
 		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
-		ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:

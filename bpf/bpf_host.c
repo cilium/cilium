@@ -406,7 +406,7 @@ skip_tunnel:
 	/* See IPv4 comment. */
 	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity, true, false);
+					 info->sec_identity, false);
 
 	if (from_proxy &&
 	    (!info || !identity_is_cluster(info->sec_identity)))
@@ -885,7 +885,7 @@ skip_tunnel:
 	/* We encrypt host to remote pod packets only if they are from proxy. */
 	if (from_proxy && info->tunnel_endpoint && encrypt_key)
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity, true, false);
+					 info->sec_identity, false);
 
 	if (from_proxy &&
 	    (!info || !identity_is_cluster(info->sec_identity)))
@@ -1662,7 +1662,7 @@ drop_err:
 __section_entry
 int cil_to_host(struct __ctx_buff *ctx)
 {
-	__u32 magic = ctx_load_meta(ctx, CB_PROXY_MAGIC);
+	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 	__u16 __maybe_unused proto = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1673,25 +1673,16 @@ int cil_to_host(struct __ctx_buff *ctx)
 	__u32 src_id = 0;
 	__s8 ext_err = 0;
 
-	/* Prefer ctx->mark when it is set to one of the expected values.
-	 * Also see https://github.com/cilium/cilium/issues/36329.
-	 */
-	if (((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) ||
-	    ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_TO_PROXY))
-		magic = ctx->mark;
-
-	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
-		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
+	if (magic == MARK_MAGIC_ENCRYPT) {
 		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
-	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
+	} else if (magic == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
-		__be16 port = magic >> 16;
+		__be16 port = ctx->mark >> 16;
 		/* We already traced this in the previous prog with more
 		 * background context, skip trace here.
 		 */
 		traced = true;
 
-		ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
 		ret = ctx_redirect_to_proxy_first(ctx, port);
 		goto out;
 	}

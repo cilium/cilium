@@ -103,7 +103,7 @@ set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 
 static __always_inline int
 set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
-		  __u32 seclabel, bool use_meta, bool use_spi_from_map)
+		  __u32 seclabel, bool use_spi_from_map)
 {
 	/* IPSec is performed by the stack on any packets with the
 	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
@@ -126,8 +126,6 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 		spi = get_min_encrypt_key(node_value->spi);
 
 	set_identity_meta(ctx, seclabel);
-	if (use_meta)
-		set_encrypt_key_meta(ctx, spi, node_value->id);
 	set_encrypt_key_mark(ctx, spi, node_value->id);
 
 	return CTX_ACT_OK;
@@ -253,8 +251,7 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 	/*
 	 * this is a vxlan packet so ip4->daddr is the tunnel endpoint
 	 */
-	ret = set_ipsec_encrypt(ctx, 0, ip4->daddr, ep_info->sec_id, false,
-				true);
+	ret = set_ipsec_encrypt(ctx, 0, ip4->daddr, ep_info->sec_id, true);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
