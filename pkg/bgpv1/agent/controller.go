@@ -270,6 +270,9 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		log.WithError(err).Error("failed to get BGPNodeConfig")
 		return err
 	}
+	if bgpncExists {
+		bgpnc = bgpnc.DeepCopy() // reconcilers can mutate the NodeConfig, make a copy to not mutate the version in store
+	}
 
 	switch c.ConfigMode.Get() {
 	case mode.Disabled:
