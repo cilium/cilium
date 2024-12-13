@@ -59,6 +59,12 @@ spec:
                   description: CiliumBGPNodeConfigInstanceOverride defines configuration
                     options which can be overridden for a specific BGP instance.
                   properties:
+                    localASN:
+                      description: LocalASN is the ASN to use for this BGP instance.
+                      format: int64
+                      maximum: 4294967295
+                      minimum: 1
+                      type: integer
                     localPort:
                       description: LocalPort is port to use for this BGP instance.
                       format: int32
