@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	// empty
 	agentHive := hive.New(cmd.Agent)
 
 	cmd.Execute(cmd.NewAgentCmd(agentHive))
