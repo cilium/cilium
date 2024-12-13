@@ -284,8 +284,7 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 		},
 	}
 	err = invalidPortRule.Sanitize()
-	require.Error(t, err)
-	require.Equal(t, "Empty server name is not allowed", err.Error())
+	require.ErrorIs(t, err, errEmptyServerName)
 
 	//  Rule is invalid because ServerNames with L7 rules are not allowed without TLS termination.
 	invalidPortRule = Rule{
@@ -1093,11 +1092,10 @@ func TestICMPRuleWithOtherRuleFailed(t *testing.T) {
 	}
 
 	option.Config.EnableICMPRules = true
-	errStr := "The ICMPs block may only be present without ToPorts. Define a separate rule to use ToPorts."
 	err := ingressICMPWithPort.Sanitize()
-	require.ErrorContains(t, err, errStr)
+	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
 	err = egressICMPWithPort.Sanitize()
-	require.ErrorContains(t, err, errStr)
+	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
 }
 
 // This test ensures that PortRules aren't configured in the wrong direction,
