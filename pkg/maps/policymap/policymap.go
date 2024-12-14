@@ -348,20 +348,20 @@ func newEntry(proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTyp
 	}
 }
 
-// newAllowEntry returns an allow PolicyEntry for the specified parameters in
+// NewAllowEntry returns an allow PolicyEntry for the specified parameters in
 // network byte-order.
 // This is separated out to be used in unit testing.
-func newAllowEntry(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) PolicyEntry {
+func NewAllowEntry(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) PolicyEntry {
 	pef := getPolicyEntryFlags(policyEntryFlagParams{
 		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
 	})
 	return newEntry(proxyPortPriority, authReq, proxyPort, pef)
 }
 
-// newDenyEntry returns a deny PolicyEntry for the specified parameters in
+// NewDenyEntry returns a deny PolicyEntry for the specified parameters in
 // network byte-order.
 // This is separated out to be used in unit testing.
-func newDenyEntry(key PolicyKey) PolicyEntry {
+func NewDenyEntry(key PolicyKey) PolicyEntry {
 	pef := getPolicyEntryFlags(policyEntryFlagParams{
 		IsDeny:    true,
 		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
@@ -372,7 +372,7 @@ func newDenyEntry(key PolicyKey) PolicyEntry {
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
 func (pm *PolicyMap) AllowKey(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) error {
-	entry := newAllowEntry(key, proxyPortPriority, authReq, proxyPort)
+	entry := NewAllowEntry(key, proxyPortPriority, authReq, proxyPort)
 	return pm.Update(&key, &entry)
 }
 
@@ -387,7 +387,7 @@ func (pm *PolicyMap) Allow(trafficDirection trafficdirection.TrafficDirection, i
 // DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
 func (pm *PolicyMap) DenyKey(key PolicyKey) error {
-	entry := newDenyEntry(key)
+	entry := NewDenyEntry(key)
 	return pm.Update(&key, &entry)
 }
 
