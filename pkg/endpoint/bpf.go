@@ -990,7 +990,12 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key) bool {
 }
 
 func (e *Endpoint) addPolicyKeys(adds policy.Keys) int {
-	var errors int
+	var (
+		errors    int
+		mapKeys   []bpf.MapKey
+		mapValues []bpf.MapValue
+	)
+	batchOpsSupported := bpf.HasBatchOperations() == nil
 	for keyToAdd := range adds {
 		entry, exists := e.desiredPolicy.Get(keyToAdd)
 		if !exists {
@@ -999,13 +1004,47 @@ func (e *Endpoint) addPolicyKeys(adds policy.Keys) int {
 			}).Warn("Tried adding policy map key not in policy")
 			continue
 		}
-
-		if !e.addPolicyKey(keyToAdd, entry) {
-			errors++
+		if batchOpsSupported {
+			pK, pV := policyKVToMapKV(keyToAdd, entry)
+			mapKeys = append(mapKeys, pK)
+			mapValues = append(mapValues, pV)
+		} else {
+			if !e.addPolicyKey(keyToAdd, entry) {
+				errors++
+			}
 		}
-
+	}
+	if batchOpsSupported {
+		return e.batchUpdatePolicy(mapKeys, mapValues)
 	}
 	return errors
+}
+
+func (e *Endpoint) batchUpdatePolicy(mapKeys []bpf.MapKey, mapValues []bpf.MapValue) int {
+	count, err := bpf.BatchUpdate[policymap.PolicyKey, policymap.PolicyEntry](e.policyMap.Map, mapKeys, mapValues)
+	for i := 0; i < count; i++ {
+		keyToAdd := mapKeys[i]
+		mapValue := mapValues[i]
+		e.PolicyDebug(logrus.Fields{
+			logfields.BPFMapKey:   keyToAdd,
+			logfields.BPFMapValue: mapValue,
+		}, "batchUpdatePolicy")
+	}
+	for i := count; i < len(mapKeys); i++ {
+		pmKey := mapKeys[i]
+		var proxyPort uint16
+		pmVal, ok := mapValues[i].(*policymap.PolicyEntry)
+		if ok {
+			proxyPort = pmVal.GetProxyPort()
+		}
+
+		e.getLogger().WithError(err).WithFields(logrus.Fields{
+			logfields.BPFMapKey: pmKey,
+			logfields.Port:      proxyPort,
+		}).Error("Failed to add PolicyMap key in batchUpdatePolicy")
+	}
+	e.updatePolicyMapPressureMetric(0)
+	return len(mapKeys) - count
 }
 
 func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
@@ -1306,8 +1345,6 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 // dumping the bpf policy map.
 // Only called when desired and realized policies are not the same.
 func (e *Endpoint) syncPolicyMap() error {
-	addErrors, deleteErrors := 0, 0
-
 	if e.shouldLockdownLocked(0) {
 		return e.startLockdownLocked(0)
 	}
@@ -1315,11 +1352,28 @@ func (e *Endpoint) syncPolicyMap() error {
 		return ErrComingOutOfLockdown
 	}
 
+	addErrors, deleteErrors := 0, 0
+	batchOps := bpf.HasBatchOperations() == nil
+
+	var (
+		mapKeys   []bpf.MapKey
+		mapValues []bpf.MapValue
+	)
+
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
-		if !e.addPolicyKey(k, v) {
-			addErrors++
+		if !batchOps {
+			if !e.addPolicyKey(k, v) {
+				addErrors++
+			}
+		} else {
+			pK, pV := policyKVToMapKV(k, v)
+			mapKeys = append(mapKeys, pK)
+			mapValues = append(mapValues, pV)
 		}
+	}
+	if batchOps {
+		addErrors = e.batchUpdatePolicy(mapKeys, mapValues)
 	}
 
 	// Delete policy keys present in the realized state, but not present in the desired state
@@ -1332,12 +1386,23 @@ func (e *Endpoint) syncPolicyMap() error {
 	// Retry adds after deletes. If policy map became full, there might be some space if any
 	// keys were deleted
 	if addErrors > 0 {
+		mapKeys = nil
+		mapValues = nil
 		addErrors = 0
 		// Add policy map entries before deleting to avoid transient drops
 		for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
-			if !e.addPolicyKey(k, v) {
-				addErrors++
+			if !batchOps {
+				if !e.addPolicyKey(k, v) {
+					addErrors++
+				}
+			} else {
+				pK, pV := policyKVToMapKV(k, v)
+				mapKeys = append(mapKeys, pK)
+				mapValues = append(mapValues, pV)
 			}
+		}
+		if batchOps {
+			addErrors = e.batchUpdatePolicy(mapKeys, mapValues)
 		}
 	}
 
@@ -1601,6 +1666,17 @@ func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error 
 		return fmt.Errorf("interface %s could not be found", e.ifName)
 	}
 	return nil
+}
+
+func policyKVToMapKV(k policy.Key, v policy.MapStateEntry) (bpf.MapKey, bpf.MapValue) {
+	pK := policymap.NewKey(k.TrafficDirection(), k.Identity, k.Nexthdr, k.DestPort, k.PortPrefixLen())
+	var pV policymap.PolicyEntry
+	if v.IsDeny() {
+		pV = policymap.NewDenyEntry(pK)
+	} else {
+		pV = policymap.NewAllowEntry(pK, v.ProxyPortPriority, v.AuthRequirement, v.ProxyPort)
+	}
+	return &pK, &pV
 }
 
 // CheckHealth verifies that the endpoint is alive and healthy by checking the

@@ -289,14 +289,14 @@ func TestPolicyMapWildcarding(t *testing.T) {
 		var entry PolicyEntry
 		switch tt.args.op {
 		case allow:
-			entry = newAllowEntry(key, tt.args.proxyPortPriority, tt.args.authReq, uint16(tt.args.proxyPort))
+			entry = NewAllowEntry(key, tt.args.proxyPortPriority, tt.args.authReq, uint16(tt.args.proxyPort))
 
 			require.Equal(t, policyEntryFlags(0), entry.Flags&policyFlagDeny)
 			require.Equal(t, tt.args.proxyPortPriority, entry.ProxyPortPriority)
 			require.Equal(t, tt.args.authReq, entry.AuthRequirement)
 			require.Equal(t, uint16(tt.args.proxyPort), byteorder.NetworkToHost16(entry.ProxyPortNetwork))
 		case deny:
-			entry = newDenyEntry(key)
+			entry = NewDenyEntry(key)
 
 			require.Equal(t, policyFlagDeny, entry.Flags&policyFlagDeny)
 			require.Equal(t, policyTypes.AuthRequirement(0), entry.AuthRequirement)
