@@ -119,7 +119,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@55dc4ee22412511ee8c3142cbea40418e6cec693 # v0.17.8
+        uses: anchore/sbom-action@df80a981bc6edbc4e220a492d3cbe9f5547a6e75 # v0.17.9
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
