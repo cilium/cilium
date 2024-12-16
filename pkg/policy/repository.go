@@ -878,7 +878,7 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 		stats.PolicyCalculation().Reset()
 	}
 
-	return sp, rev, nil
+	return sp, rev, err
 }
 
 // ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
