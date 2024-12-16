@@ -101,7 +101,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 28
+      max-parallel: 31
       matrix:
         include:
           - name: '1'
@@ -448,6 +448,43 @@ jobs:
           - name: '28'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '6.6-20241212.120648'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            lb-mode: 'snat'
+            endpoint-routes: 'true'
+            egress-gateway: 'true'
+            ingress-controller: 'true'
+
+          - name: '29'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.12-20241216.084703'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'vxlan'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            ingress-controller: 'true'
+
+          - name: '30'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.12-20241216.084703'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            ingress-controller: 'true'
+
+          - name: '31'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.12-20241216.084703'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
