@@ -209,6 +209,12 @@ spec:
         - name: KUBERNETES_SERVICE_PORT
           value: {{ include "k8sServicePort" . }}
         {{- end }}
+        {{- if .Values.k8sClientExponentialBackoff.enabled }}
+        - name: KUBE_CLIENT_BACKOFF_BASE
+          value: {{ .Values.k8sClientExponentialBackoff.backoffBaseSeconds | quote }}
+        - name: KUBE_CLIENT_BACKOFF_DURATION
+          value: {{ .Values.k8sClientExponentialBackoff.backoffMaxDurationSeconds | quote }}
+        {{- end }}
         {{- with .Values.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
