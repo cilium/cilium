@@ -188,3 +188,12 @@
 {{- if not (and (ge (int .Values.envoy.baseID) 0) (le (int .Values.envoy.baseID) 4294967295)) }}
   {{- fail "envoy.baseID must be an int. Supported values 0 - 4294967295" }}
 {{- end }}
+
+{{/* validate enableK8sClientExponentialBackoff and extraEnv to avoid duplicate env var keys */}}
+{{- if .Values.k8sClientExponentialBackoff.enabled }}
+  {{- range .Values.extraEnv }}
+    {{- if or (eq .name "KUBE_CLIENT_BACKOFF_BASE") (eq .name "KUBE_CLIENT_BACKOFF_DURATION") }}
+      {{ fail "k8sClientExponentialBackoff cannot be enabled when extraEnv contains KUBE_CLIENT_BACKOFF_BASE or KUBE_CLIENT_BACKOFF_DURATION" }}
+    {{- end }}
+  {{- end }}
+{{- end }}

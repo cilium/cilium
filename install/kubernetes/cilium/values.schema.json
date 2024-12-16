@@ -3896,6 +3896,20 @@
       },
       "type": "object"
     },
+    "k8sClientExponentialBackoff": {
+      "properties": {
+        "backoffBaseSeconds": {
+          "type": "integer"
+        },
+        "backoffMaxDurationSeconds": {
+          "type": "integer"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "k8sClientRateLimit": {
       "properties": {
         "burst": {
