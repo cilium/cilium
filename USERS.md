@@ -395,6 +395,12 @@ Users (Alphabetically)
       U: Networking, network policy, network visibility, cluster mesh
       Q: @Matthieu ANTOINE, @Carlos Castro, @Joao Coutinho (Slack)
 
+    * N: Kakao
+      D: Kakao is using Cilium as the CNI for their private cloud's managed Kubernetes service
+      U: Custom eBPF programs, networking, network policy, kube-proxy replacement
+      L: https://youtu.be/WRACr5nXl9U
+      Q: @gyutaeb
+
     * N: Keploy
       D: Keploy is using the Cilium to capture the network traffic to perform E2E Testing.
       U: Networking, network policy, Monitoring, E2E Testing
