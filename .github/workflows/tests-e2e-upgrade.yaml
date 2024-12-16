@@ -98,7 +98,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 27
+      max-parallel: 30
       matrix:
         include:
           - name: '1'
@@ -447,6 +447,44 @@ jobs:
             ingress-controller: 'true'
             host-fw: 'true'
             skip-upgrade: 'true'
+
+          - name: '28'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20241218.004849'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'vxlan'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            ingress-controller: 'true'
+
+          - name: '29'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20241218.004849'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            ingress-controller: 'true'
+
+          - name: '30'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20241218.004849'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            lb-mode: 'snat'
+            endpoint-routes: 'true'
+            egress-gateway: 'true'
+            # v1.15 doesn't have https://github.com/cilium/cilium/pull/35143:
+            # ingress-controller: 'true'
 
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
