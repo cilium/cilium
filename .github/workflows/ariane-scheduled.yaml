@@ -29,6 +29,8 @@ jobs:
             hourModulo: 2
           - branch: '1.16'
             hourModulo: 3
+          - branch: '1.17'
+            hourModulo: 4
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
