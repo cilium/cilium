@@ -198,6 +198,11 @@ egress.
 Additional Label Requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. warning::
+
+   The ``fromRequires`` and ``toRequires`` fields are deprecated as of Cilium
+   1.17.x. They will be dropped from support in Cilium 1.18.
+
 It is often required to apply the principle of *separation of concern* when defining
 policies. For this reason, an additional construct exists which allows to establish
 base requirements for any connectivity to happen.
