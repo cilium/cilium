@@ -410,6 +410,20 @@ Removed Metrics
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
+The metrics prefix of all Envoy NPDS (NetworkPolicy discovery service) metrics 
+has been renamed from ``envoy_cilium_policymap_<node-ip>_<node-id>_`` to ``envoy_cilium_npds_``.
+
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_control_plane_rate_limit_enforced`` -> ``envoy_cilium_npds_control_plane_rate_limit_enforced``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_control_plane_connected_state`` -> ``envoy_cilium_npds_control_plane_connected_state``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_control_plane_pending_requests`` -> ``envoy_cilium_npds_control_plane_pending_requests``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_init_fetch_timeout`` ->  ``envoy_cilium_npds_init_fetch_timeout``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_attempt`` -> ``envoy_cilium_npds_update_attempt``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_failure`` -> ``envoy_cilium_npds_update_failure``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_rejected`` -> ``envoy_cilium_npds_update_rejected``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_success`` -> ``envoy_cilium_npds_update_success``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_time`` -> ``envoy_cilium_npds_update_time``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_duration`` -> ``envoy_cilium_npds_update_duration``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_version`` -> ``envoy_cilium_npds_version``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
