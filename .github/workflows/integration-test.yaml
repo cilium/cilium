@@ -19,9 +19,9 @@ on:
         default: '{}'
   push:
     branches:
-    - main
-    - ft/main/**
-    - 'renovate/main-**'
+    - v1.17
+    - ft/v1.17/**
+    - 'renovate/v1.17-**'
     paths-ignore:
     - 'Documentation/**'
 

@@ -9,8 +9,8 @@ on:
   # The push event is only used to recreate the golang cache for hubble-cli
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.17
+      - ft/v1.17/**
     paths-ignore:
       - 'cilium-cli/**'
       - 'Documentation/**'

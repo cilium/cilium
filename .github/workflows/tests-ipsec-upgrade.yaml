@@ -19,10 +19,7 @@ on:
         default: '{}'
   push:
     branches:
-      - 'renovate/main-**'
-  # Run every 8 hours
-  schedule:
-    - cron:  '0 5/8 * * *'
+      - 'renovate/v1.17-**'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
