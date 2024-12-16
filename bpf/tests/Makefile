@@ -21,10 +21,14 @@ CLANG_FLAGS += -Wimplicit-fallthrough
 # Create dependency files for each .o file.
 CLANG_FLAGS += -MD
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifneq ($(KERNEL),54)
+ifeq ($(KERNEL),54)
+CLANG_FLAGS += -mcpu=v2
+else ifeq ($(KERNEL),510)
+CLANG_FLAGS += -mcpu=v3
+else ifeq ($(KERNEL),61)
 CLANG_FLAGS += -mcpu=v3
 else
-CLANG_FLAGS += -mcpu=v2
+CLANG_FLAGS += -mcpu=v4
 endif
 
 .PHONY: all clean run
