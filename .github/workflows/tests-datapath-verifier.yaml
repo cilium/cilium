@@ -16,13 +16,13 @@ on:
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
-        default: '{}'
+        default: "{}"
   push:
     branches:
-      - 'renovate/main-**'
+      - "renovate/main-**"
   # Run every 8 hours
   schedule:
-    - cron:  '0 5/8 * * *'
+    - cron: "0 5/8 * * *"
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -87,29 +87,29 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.4-20241218.004849'
-            ci-kernel: '54'
+          - kernel: "5.4-20241218.004849"
+            ci-kernel: "54"
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'rhel8.6-20241218.004849'
-            ci-kernel: '54'
+          - kernel: "rhel8.6-20241218.004849"
+            ci-kernel: "54"
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20241218.004849'
-            ci-kernel: '510'
+          - kernel: "5.10-20241218.004849"
+            ci-kernel: "510"
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20241218.004849'
-            ci-kernel: '510'
+          - kernel: "5.15-20241218.004849"
+            ci-kernel: "510"
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20241218.004849'
-            ci-kernel: '61'
+          - kernel: "6.1-20241218.004849"
+            ci-kernel: "61"
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.6-20241218.004849'
-            ci-kernel: '61'
+          - kernel: "6.6-20241218.004849"
+            ci-kernel: "66"
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.12-20241218.004849'
-            ci-kernel: '61'
+          - kernel: "6.12-20241218.004849"
+            ci-kernel: "66"
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20250105.013256'
-            ci-kernel: 'netnext'
+          - kernel: "bpf-next-20250105.013256"
+            ci-kernel: "netnext"
     timeout-minutes: 60
     steps:
       - name: Collect Workflow Telemetry
@@ -129,14 +129,14 @@ jobs:
         uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           test-name: datapath-bpf-complexity
-          image: 'complexity-test'
+          image: "complexity-test"
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
           lvh-version: "v0.0.19"
-          install-dependencies: 'true'
+          install-dependencies: "true"
           cmd: |
             for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
 
@@ -157,7 +157,7 @@ jobs:
       - name: Run verifier tests
         uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
-          provision: 'false'
+          provision: "false"
           cmd: |
             cd /host/
             # Run with cgo disabled, LVH images don't ship with gcc.
@@ -167,7 +167,7 @@ jobs:
         if: ${{ !success() }}
         uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
-          provision: 'false'
+          provision: "false"
           cmd: |
             cd /host
             mkdir datapath-verifier
