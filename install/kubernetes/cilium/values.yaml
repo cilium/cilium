@@ -103,6 +103,14 @@ k8sClientRateLimit:
     # The rate limiter will allow short bursts with a higher rate.
     # @default -- 200
     burst:
+# -- Configure exponential backoff for client-go in Cilium agent.
+k8sClientExponentialBackoff:
+  # -- Enable exponential backoff for client-go in Cilium agent.
+  enabled: true
+  # -- Configure base (in seconds) for exponential backoff.
+  backoffBaseSeconds: 1
+  # -- Configure maximum duration (in seconds) for exponential backoff.
+  backoffMaxDurationSeconds: 120
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
   # It must respect the following constraints:
