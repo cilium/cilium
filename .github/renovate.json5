@@ -67,6 +67,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main",
+    "v1.17",
     "v1.16",
     "v1.15",
     "v1.14",
@@ -189,6 +190,7 @@
       ],
       matchBaseBranches: [
         "main",
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -204,6 +206,7 @@
         "go.sum"
       ],
       matchBaseBranches: [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -265,6 +268,7 @@
         "minor",
       ],
       matchBaseBranches: [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -334,10 +338,21 @@
       ],
       "allowedVersions": "22.04",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
       ],
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      "allowedVersions": "<1.24",
+      "matchBaseBranches": [
+        "v1.17",
+      ]
     },
     {
       "matchPackageNames": [
@@ -357,6 +372,7 @@
       ],
       "allowedVersions": "<3.20",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15"
       ]
@@ -376,6 +392,7 @@
       ],
       "allowedVersions": "<0.2.0",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -416,6 +433,7 @@
       ],
       "matchBaseBranches": [
         "main",
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14"
@@ -451,6 +469,7 @@
         "golangci/golangci-lint"
       ],
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -487,6 +506,7 @@
       ],
       "allowedVersions": "!/bpf-next-.*/",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
       ],
     },
@@ -597,6 +617,7 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.30\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
