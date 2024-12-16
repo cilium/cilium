@@ -19,10 +19,7 @@ on:
         default: '{}'
   push:
     branches:
-      - 'renovate/main-**'
-  # Run every 8 hours
-  schedule:
-    - cron:  '0 5/8 * * *'
+      - 'renovate/v1.17-**'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -107,9 +104,6 @@ jobs:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.12-20241214.023514'
             ci-kernel: '61'
-          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20241213.013358'
-            ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
       - name: Collect Workflow Telemetry

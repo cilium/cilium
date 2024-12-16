@@ -9,8 +9,8 @@ on:
       - reopened
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.17
+      - ft/v1.17/**
 
 permissions: read-all
 

@@ -20,9 +20,9 @@ on:
 
   push:
     branches:
-      - main
-      - ft/main/**
-      - 'renovate/main-**'
+      - v1.17
+      - ft/v1.17/**
+      - 'renovate/v1.17-**'
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
@@ -304,7 +304,7 @@ jobs:
               --project cilium \
               --url github.com/cilium/cilium \
               --version main \
-              --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
+              --contact https://github.com/cilium/community/blob/v1.17/roles/Maintainers.md \
               --report-output report.yaml \
               -test.run "TestConformance" \
               -test.timeout=29m \
