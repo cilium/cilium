@@ -536,10 +536,10 @@ data:
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
 {{- end }}
 {{- if .Values.eni.subnetTagsFilter }}
-  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter |  join " " | quote }}
+  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter |  join "," | quote }}
 {{- end }}
 {{- if .Values.eni.instanceTagsFilter }}
-  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join " " | quote }}
+  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join "," | quote }}
 {{- end }}
 {{- end }}
 {{ if .Values.eni.gcInterval }}
