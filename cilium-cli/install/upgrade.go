@@ -38,6 +38,7 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Clien
 		ResetThenReuseValues: k.params.HelmResetThenReuseValues,
 		Wait:                 k.params.Wait,
 		WaitDuration:         k.params.WaitDuration,
+		MaxHistory:           k.params.HelmMaxHistory,
 
 		// In addition to the DryRun i/o, we need to tell Helm not to execute the upgrade
 		DryRun:           k.params.DryRun,
