@@ -20,8 +20,6 @@ import (
 
 // CNIChainingStatus Status of CNI chaining
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model CNIChainingStatus
 type CNIChainingStatus struct {
 

@@ -1960,7 +1960,7 @@ func init() {
       }
     },
     "BgpGracefulRestart": {
-      "description": "BGP graceful restart parameters negotiated with the peer.\n\n+k8s:deepcopy-gen=true",
+      "description": "BGP graceful restart parameters negotiated with the peer.",
       "properties": {
         "enabled": {
           "description": "When set, graceful restart capability is negotiated for all AFI/SAFIs of\nthis peer.",
@@ -2093,7 +2093,7 @@ func init() {
       }
     },
     "BgpPeerFamilies": {
-      "description": "BGP AFI SAFI state of the peer\n\n+k8s:deepcopy-gen=true",
+      "description": "BGP AFI SAFI state of the peer",
       "properties": {
         "accepted": {
           "description": "Number of routes accepted from the peer of this address family",
@@ -2255,7 +2255,7 @@ func init() {
       }
     },
     "CIDRPolicy": {
-      "description": "CIDR endpoint policy\n\n+k8s:deepcopy-gen=true",
+      "description": "CIDR endpoint policy",
       "type": "object",
       "properties": {
         "egress": {
@@ -2275,7 +2275,7 @@ func init() {
       }
     },
     "CNIChainingStatus": {
-      "description": "Status of CNI chaining\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of CNI chaining",
       "properties": {
         "mode": {
           "type": "string",
@@ -2339,7 +2339,7 @@ func init() {
       }
     },
     "ClockSource": {
-      "description": "Status of BPF clock source\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of BPF clock source",
       "type": "object",
       "properties": {
         "hertz": {
@@ -3084,7 +3084,7 @@ func init() {
       }
     },
     "EndpointPolicy": {
-      "description": "Policy information of an endpoint\n\n+k8s:deepcopy-gen=true",
+      "description": "Policy information of an endpoint",
       "type": "object",
       "properties": {
         "allowed-egress-identities": {
@@ -3533,7 +3533,7 @@ func init() {
       }
     },
     "IPV4BigTCP": {
-      "description": "Status of IPv4 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of IPv4 BIG TCP",
       "type": "object",
       "properties": {
         "enabled": {
@@ -3551,7 +3551,7 @@ func init() {
       }
     },
     "IPV6BigTCP": {
-      "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of IPv6 BIG TCP",
       "type": "object",
       "properties": {
         "enabled": {
@@ -3632,7 +3632,7 @@ func init() {
       }
     },
     "IdentityRange": {
-      "description": "Status of identity range of the cluster\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of identity range of the cluster",
       "properties": {
         "max-identity": {
           "description": "Maximum identity of the cluster",
@@ -3734,7 +3734,6 @@ func init() {
               "type": "boolean"
             },
             "externalIPs": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -3743,7 +3742,6 @@ func init() {
               }
             },
             "gracefulTermination": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -3752,7 +3750,6 @@ func init() {
               }
             },
             "hostPort": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -3798,7 +3795,6 @@ func init() {
                   }
                 },
                 "service": {
-                  "description": "\n\n+k8s:deepcopy-gen=true",
                   "type": "object",
                   "properties": {
                     "enabled": {
@@ -3809,7 +3805,6 @@ func init() {
               }
             },
             "nodePort": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "acceleration": {
@@ -3859,7 +3854,6 @@ func init() {
               }
             },
             "sessionAffinity": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -3868,7 +3862,6 @@ func init() {
               }
             },
             "socketLB": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -3877,7 +3870,6 @@ func init() {
               }
             },
             "socketLBTracing": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -3897,7 +3889,7 @@ func init() {
       }
     },
     "L4Policy": {
-      "description": "L4 endpoint policy\n\n+k8s:deepcopy-gen=true",
+      "description": "L4 endpoint policy",
       "type": "object",
       "properties": {
         "egress": {
@@ -4325,7 +4317,7 @@ func init() {
       }
     },
     "PolicyRule": {
-      "description": "A policy rule including the rule labels it derives from\n\n+k8s:deepcopy-gen=true",
+      "description": "A policy rule including the rule labels it derives from",
       "properties": {
         "derived-from-rules": {
           "description": "The policy rule labels identifying the policy rules this rule derives from",
@@ -4773,7 +4765,7 @@ func init() {
       }
     },
     "Routing": {
-      "description": "Status of routing\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of routing",
       "type": "object",
       "properties": {
         "inter-host-routing-mode": {
@@ -4962,7 +4954,7 @@ func init() {
       }
     },
     "Srv6": {
-      "description": "Status of the SRv6\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of the SRv6",
       "type": "object",
       "properties": {
         "enabled": {
@@ -7667,7 +7659,7 @@ func init() {
       }
     },
     "BgpGracefulRestart": {
-      "description": "BGP graceful restart parameters negotiated with the peer.\n\n+k8s:deepcopy-gen=true",
+      "description": "BGP graceful restart parameters negotiated with the peer.",
       "properties": {
         "enabled": {
           "description": "When set, graceful restart capability is negotiated for all AFI/SAFIs of\nthis peer.",
@@ -7800,7 +7792,7 @@ func init() {
       }
     },
     "BgpPeerFamilies": {
-      "description": "BGP AFI SAFI state of the peer\n\n+k8s:deepcopy-gen=true",
+      "description": "BGP AFI SAFI state of the peer",
       "properties": {
         "accepted": {
           "description": "Number of routes accepted from the peer of this address family",
@@ -7962,7 +7954,7 @@ func init() {
       }
     },
     "CIDRPolicy": {
-      "description": "CIDR endpoint policy\n\n+k8s:deepcopy-gen=true",
+      "description": "CIDR endpoint policy",
       "type": "object",
       "properties": {
         "egress": {
@@ -7982,7 +7974,7 @@ func init() {
       }
     },
     "CNIChainingStatus": {
-      "description": "Status of CNI chaining\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of CNI chaining",
       "properties": {
         "mode": {
           "type": "string",
@@ -8046,7 +8038,7 @@ func init() {
       }
     },
     "ClockSource": {
-      "description": "Status of BPF clock source\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of BPF clock source",
       "type": "object",
       "properties": {
         "hertz": {
@@ -8866,7 +8858,7 @@ func init() {
       }
     },
     "EndpointPolicy": {
-      "description": "Policy information of an endpoint\n\n+k8s:deepcopy-gen=true",
+      "description": "Policy information of an endpoint",
       "type": "object",
       "properties": {
         "allowed-egress-identities": {
@@ -9354,7 +9346,7 @@ func init() {
       }
     },
     "IPV4BigTCP": {
-      "description": "Status of IPv4 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of IPv4 BIG TCP",
       "type": "object",
       "properties": {
         "enabled": {
@@ -9372,7 +9364,7 @@ func init() {
       }
     },
     "IPV6BigTCP": {
-      "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of IPv6 BIG TCP",
       "type": "object",
       "properties": {
         "enabled": {
@@ -9453,7 +9445,7 @@ func init() {
       }
     },
     "IdentityRange": {
-      "description": "Status of identity range of the cluster\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of identity range of the cluster",
       "properties": {
         "max-identity": {
           "description": "Maximum identity of the cluster",
@@ -9542,7 +9534,6 @@ func init() {
               "type": "boolean"
             },
             "externalIPs": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9551,7 +9542,6 @@ func init() {
               }
             },
             "gracefulTermination": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9560,7 +9550,6 @@ func init() {
               }
             },
             "hostPort": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9606,7 +9595,6 @@ func init() {
                   }
                 },
                 "service": {
-                  "description": "\n\n+k8s:deepcopy-gen=true",
                   "type": "object",
                   "properties": {
                     "enabled": {
@@ -9617,7 +9605,6 @@ func init() {
               }
             },
             "nodePort": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "acceleration": {
@@ -9667,7 +9654,6 @@ func init() {
               }
             },
             "sessionAffinity": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9676,7 +9662,6 @@ func init() {
               }
             },
             "socketLB": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9685,7 +9670,6 @@ func init() {
               }
             },
             "socketLBTracing": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9735,7 +9719,6 @@ func init() {
           "type": "boolean"
         },
         "externalIPs": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9744,7 +9727,6 @@ func init() {
           }
         },
         "gracefulTermination": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9753,7 +9735,6 @@ func init() {
           }
         },
         "hostPort": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9799,7 +9780,6 @@ func init() {
               }
             },
             "service": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -9810,7 +9790,6 @@ func init() {
           }
         },
         "nodePort": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "acceleration": {
@@ -9860,7 +9839,6 @@ func init() {
           }
         },
         "sessionAffinity": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9869,7 +9847,6 @@ func init() {
           }
         },
         "socketLB": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9878,7 +9855,6 @@ func init() {
           }
         },
         "socketLBTracing": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9889,7 +9865,6 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesExternalIPs": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -9898,7 +9873,6 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesGracefulTermination": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -9907,7 +9881,6 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesHostPort": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -9953,7 +9926,6 @@ func init() {
           }
         },
         "service": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "enabled": {
@@ -9979,7 +9951,6 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesNat46X64Service": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -9988,7 +9959,6 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesNodePort": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "acceleration": {
@@ -10038,7 +10008,6 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesSessionAffinity": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -10047,7 +10016,6 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesSocketLB": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -10056,7 +10024,6 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesSocketLBTracing": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -10065,7 +10032,7 @@ func init() {
       }
     },
     "L4Policy": {
-      "description": "L4 endpoint policy\n\n+k8s:deepcopy-gen=true",
+      "description": "L4 endpoint policy",
       "type": "object",
       "properties": {
         "egress": {
@@ -10507,7 +10474,7 @@ func init() {
       }
     },
     "PolicyRule": {
-      "description": "A policy rule including the rule labels it derives from\n\n+k8s:deepcopy-gen=true",
+      "description": "A policy rule including the rule labels it derives from",
       "properties": {
         "derived-from-rules": {
           "description": "The policy rule labels identifying the policy rules this rule derives from",
@@ -10955,7 +10922,7 @@ func init() {
       }
     },
     "Routing": {
-      "description": "Status of routing\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of routing",
       "type": "object",
       "properties": {
         "inter-host-routing-mode": {
@@ -11212,7 +11179,7 @@ func init() {
       }
     },
     "Srv6": {
-      "description": "Status of the SRv6\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of the SRv6",
       "type": "object",
       "properties": {
         "enabled": {

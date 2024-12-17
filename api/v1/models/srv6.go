@@ -20,8 +20,6 @@ import (
 
 // Srv6 Status of the SRv6
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model Srv6
 type Srv6 struct {
 

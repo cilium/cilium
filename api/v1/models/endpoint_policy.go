@@ -18,8 +18,6 @@ import (
 
 // EndpointPolicy Policy information of an endpoint
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model EndpointPolicy
 type EndpointPolicy struct {
 

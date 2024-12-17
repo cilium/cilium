@@ -20,8 +20,6 @@ import (
 
 // ClockSource Status of BPF clock source
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model ClockSource
 type ClockSource struct {
 

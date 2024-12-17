@@ -17,8 +17,6 @@ import (
 
 // BgpGracefulRestart BGP graceful restart parameters negotiated with the peer.
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model BgpGracefulRestart
 type BgpGracefulRestart struct {
 
