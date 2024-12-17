@@ -2506,6 +2506,10 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		if err := linuxrouting.Delete(e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
 		}
+
+		if err := linuxrouting.Delete(e.IPv6, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
+			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
+		}
 	}
 
 	if e.noTrackPort > 0 {

@@ -1314,7 +1314,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) &&
 			len(option.Config.IPv4PodSubnets) == 0 {
 			if info := node.GetRouterInfo(); info != nil {
-				ipv4CIDRs := info.GetIPv4CIDRs()
+				ipv4CIDRs := info.GetCIDRs()
 				ipv4PodSubnets := make([]*cidr.CIDR, 0, len(ipv4CIDRs))
 				for _, c := range ipv4CIDRs {
 					ipv4PodSubnets = append(ipv4PodSubnets, cidr.NewCIDR(&c))

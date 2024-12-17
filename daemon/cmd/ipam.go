@@ -193,15 +193,34 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		}
 	}
 
-	// Coalescing multiple CIDRs. GH #18868
-	if option.Config.EnableIPv4Masquerade &&
-		option.Config.IPAM == ipamOption.IPAMENI &&
-		result != nil &&
-		len(result.CIDRs) > 0 {
-		result.CIDRs, err = coalesceCIDRs(result.CIDRs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to coalesce CIDRs: %w", err)
+	ipfamily := ipam.DeriveFamily(family.PrimaryExternal())
+	var masq bool
+	switch ipfamily {
+	case ipam.IPv4:
+		// Coalescing multiple CIDRs. GH #18868
+		if option.Config.EnableIPv4Masquerade &&
+			option.Config.IPAM == ipamOption.IPAMENI &&
+			result != nil &&
+			len(result.CIDRs) > 0 {
+			result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to coalesce CIDRs: %w", err)
+			}
 		}
+
+		masq = option.Config.EnableIPv4Masquerade
+	case ipam.IPv6:
+		if option.Config.EnableIPv6Masquerade &&
+			option.Config.IPAM == ipamOption.IPAMENI &&
+			result != nil &&
+			len(result.CIDRs) > 0 {
+			result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to coalesce CIDRs: %w", err)
+			}
+		}
+
+		masq = option.Config.EnableIPv6Masquerade
 	}
 
 	if (option.Config.IPAM == ipamOption.IPAMENI ||
@@ -210,7 +229,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		var routingInfo *linuxrouting.RoutingInfo
 		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
 			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
-			option.Config.EnableIPv4Masquerade)
+			masq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
 		}
@@ -590,12 +609,23 @@ func (d *Daemon) startIPAM() {
 }
 
 func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
-	return linuxrouting.NewRoutingInfo(
-		result.GatewayIP,
-		result.CIDRs,
-		result.PrimaryMAC,
-		result.InterfaceNumber,
-		option.Config.IPAM,
-		option.Config.EnableIPv4Masquerade,
-	)
+	if result.IP.To4() != nil {
+		return linuxrouting.NewRoutingInfo(
+			result.GatewayIP,
+			result.CIDRs,
+			result.PrimaryMAC,
+			result.InterfaceNumber,
+			option.Config.IPAM,
+			option.Config.EnableIPv4Masquerade,
+		)
+	} else {
+		return linuxrouting.NewRoutingInfo(
+			result.GatewayIP,
+			result.CIDRs,
+			result.PrimaryMAC,
+			result.InterfaceNumber,
+			option.Config.IPAM,
+			option.Config.EnableIPv6Masquerade,
+		)
+	}
 }
