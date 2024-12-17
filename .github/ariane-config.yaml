@@ -2,7 +2,7 @@ allowed-teams:
   - organization-members
 
 triggers:
-  /test-backport-1.17:
+  /test:
     workflows:
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
