@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -2038,17 +2037,4 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 
 		})
 	}
-}
-
-type dummyPolicyStats struct {
-	waitingForPolicyRepository spanstat.SpanStat
-	policyCalculation          spanstat.SpanStat
-}
-
-func (s *dummyPolicyStats) WaitingForPolicyRepository() *spanstat.SpanStat {
-	return &s.waitingForPolicyRepository
-}
-
-func (s *dummyPolicyStats) SelectorPolicyCalculation() *spanstat.SpanStat {
-	return &s.policyCalculation
 }
