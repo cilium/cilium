@@ -8,7 +8,7 @@ on:
 jobs:
   applyNeedsAttentionLabel:
     name: Apply Info Complete Label
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Apply Needs Attention Label
         uses: hramos/needs-attention@d0eaa7f961c04d4da86466b1176b56e0d4089022 # v2.0.0

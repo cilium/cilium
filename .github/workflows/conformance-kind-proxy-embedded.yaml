@@ -26,7 +26,7 @@ env:
 jobs:
   installation-and-connectivity:
     name: "Installation and Connectivity Test"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       job_name: "Installation and Connectivity Test"

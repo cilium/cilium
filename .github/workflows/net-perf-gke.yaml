@@ -79,7 +79,7 @@ jobs:
           echo '${{ tojson(inputs) }}'
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -88,7 +88,7 @@ jobs:
 
   installation-and-perf:
     name: Installation and Perf Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       job_name: "Installation and Perf Test"
@@ -316,7 +316,7 @@ jobs:
   merge-upload:
     if: ${{ always() }}
     name: Merge and Upload Artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: installation-and-perf
     steps:
       - name: Checkout context ref (trusted)
@@ -336,7 +336,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: installation-and-perf
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1

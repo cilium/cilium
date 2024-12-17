@@ -19,7 +19,7 @@ concurrency:
 jobs:
   go-mod:
     name: Check Go Modules
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Install Go
         uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
@@ -38,7 +38,7 @@ jobs:
 
   license-check:
     name: Check third party dependencies licenses
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Install Go
         uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
@@ -54,7 +54,7 @@ jobs:
 
   golangci:
     name: Lint Source Code
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -79,7 +79,7 @@ jobs:
           args: "--out-${NO_FUTURE}format colored-line-number --verbose --modules-download-mode=vendor"
 
   precheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Precheck
     steps:
       - name: Install Go
@@ -99,7 +99,7 @@ jobs:
           make precheck
 
   generate-api:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Generate API
     steps:
       - name: Install Go
@@ -119,7 +119,7 @@ jobs:
           contrib/scripts/check-api-code-gen.sh
 
   generate-k8s-api:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Generate k8s API
     steps:
       - name: Install Go

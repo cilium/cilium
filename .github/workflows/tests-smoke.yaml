@@ -48,7 +48,7 @@ jobs:
               - '!(test|Documentation)/**'
 
   preflight-clusterrole:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Preflight Clusterrole Check
     steps:
       - name: Checkout code
@@ -60,7 +60,7 @@ jobs:
         run: make check-k8s-clusterrole
 
   helm-charts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Helm Charts Check
     steps:
       - name: Checkout
@@ -78,7 +78,7 @@ jobs:
       job_name: "Conformance Smoke Test"
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' && github.event_name != 'merge_group' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Installation and Conformance Test
     steps:
       - name: Collect Workflow Telemetry
