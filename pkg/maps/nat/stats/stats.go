@@ -80,7 +80,6 @@ type NatMapStats struct {
 	RemotePort uint16
 	Proto      string
 	Count      int
-	Nth        int
 }
 
 func (s NatMapStats) Key() index.Key {
