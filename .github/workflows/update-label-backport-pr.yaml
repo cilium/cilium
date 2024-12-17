@@ -19,7 +19,7 @@
     jobs:
       backport-label-updater:
         name: Update labels of backported PRs
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         permissions:
           pull-requests: write # Adding and removing labels
           repository-projects: read # Additionally required by `gh pr edit`

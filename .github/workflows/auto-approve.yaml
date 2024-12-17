@@ -9,7 +9,7 @@ jobs:
   pre-approve:
     # Avoid running the 'auto-approve' environment if we don't need to.
     name: Pre-Approve
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{
          github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
          github.triggering_actor == 'cilium-renovate[bot]' &&
@@ -26,7 +26,7 @@ jobs:
     name: Approve
     needs: pre-approve
     environment: auto-approve
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: Debug
       run: |

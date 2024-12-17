@@ -14,7 +14,7 @@ jobs:
         (github.event.pull_request.author_association != 'COLLABORATOR') &&
         (github.event.pull_request.author_association != 'MEMBER')
       )
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: External Contributions
     permissions:
       pull-requests: write
@@ -80,7 +80,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: Label The PR
       uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5.0.0

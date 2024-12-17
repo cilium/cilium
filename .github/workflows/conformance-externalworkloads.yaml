@@ -78,7 +78,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -87,7 +87,7 @@ jobs:
 
   generate-matrix:
     name: Generate Matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       empty: ${{ steps.set-matrix.outputs.empty }}
@@ -176,7 +176,7 @@ jobs:
     name: Installation and Connectivity Test
     needs: generate-matrix
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       job_name: "Installation and Connectivity Test"
@@ -436,7 +436,7 @@ jobs:
   merge-upload:
     if: ${{ always() && needs.installation-and-connectivity.result != 'skipped' }}
     name: Merge and Upload Artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: installation-and-connectivity
     steps:
       - name: Checkout context ref (trusted)
@@ -467,7 +467,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: installation-and-connectivity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         if: ${{ needs.installation-and-connectivity.result != 'skipped' }}

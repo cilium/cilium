@@ -73,7 +73,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -84,7 +84,7 @@ jobs:
     name: Install and Connectivity Test
     env:
       job_name: "Install and Connectivity Test"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - name: Collect Workflow Telemetry
@@ -296,7 +296,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: multi-pool-ipam-conformance-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1

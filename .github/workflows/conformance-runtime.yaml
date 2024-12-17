@@ -72,7 +72,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -82,7 +82,7 @@ jobs:
   # Pre-build the ginkgo binary so that we don't have to build it for all
   # runners.
   build-ginkgo-binary:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Build Ginkgo Runtime
     steps:
       - name: Checkout context ref (trusted)
@@ -167,7 +167,7 @@ jobs:
 
   setup-and-test:
     needs: build-ginkgo-binary
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     name: "Runtime Test (${{matrix.focus}})"
     env:
       # GitHub doesn't provide a way to retrieve the name of a job, so we have
@@ -468,7 +468,7 @@ jobs:
   merge-upload:
     if: ${{ always() }}
     name: Merge and Upload Artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: setup-and-test
     steps:
       - name: Checkout context ref (trusted)
@@ -499,7 +499,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: setup-and-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1

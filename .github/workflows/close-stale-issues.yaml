@@ -11,7 +11,7 @@ permissions:
 jobs:
   stale:
     name: Close Stale Issues
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     # https://github.com/marketplace/actions/close-stale-issues
     - name: Close stale issues
