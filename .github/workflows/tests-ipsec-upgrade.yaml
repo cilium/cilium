@@ -298,8 +298,8 @@ jobs:
         uses: cilium/cilium-cli@c52e8c38e6d6235bd8e6e961199a984275547d6f # v0.16.22
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
-          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ steps.vars.outputs.sha }}
+          image-repo: "quay.io/cilium/cilium-cli-ci"
+          image-tag: "0cb64a1bd54308cd7feefde396d74c48f82a2c05"
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
