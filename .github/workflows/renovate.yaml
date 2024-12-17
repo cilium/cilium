@@ -16,7 +16,7 @@ on:
 jobs:
   renovate:
     name: Run self-hosted Renovate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # we need special permission to be able to operate renovate (view, list,
       # create issues, PR, etc.) and we use a GitHub application with fine
