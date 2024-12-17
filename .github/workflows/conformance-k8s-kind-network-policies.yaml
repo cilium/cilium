@@ -26,7 +26,7 @@ env:
 jobs:
   kubernetes-e2e-net-conformance:
     name: Installation and Conformance Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false

@@ -26,7 +26,7 @@ jobs:
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     strategy:
       matrix:
         include:
@@ -74,7 +74,7 @@ jobs:
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
-        if: runner.name == 'ubuntu-latest'
+        if: runner.name == 'ubuntu-24.04'
         uses: ./.github/actions/disk-cleanup
 
       - name: Set Environment Variables
