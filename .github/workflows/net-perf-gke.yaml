@@ -367,10 +367,12 @@ jobs:
           persist-credentials: false
 
       - name: Merge Features tested
-        uses: ./.github/actions/merge-artifacts
+        uses: actions/upload-artifact/merge@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: features-tested
           pattern: features-tested-*
+          retention-days: 5
+          delete-merged: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:
