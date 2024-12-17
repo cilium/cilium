@@ -44,22 +44,8 @@ of the Cilium organization.
 
 Depending on the PR target branch, a specific set of jobs is marked as required,
 as per the `Cilium CI matrix`_. They will be automatically featured in PR checks
-directly on the PR page. The following trigger phrases may be used to trigger
-them all at once:
-
-+------------------+--------------------------+
-| PR target branch | Trigger required PR jobs |
-+==================+==========================+
-| main             | /test                    |
-+------------------+--------------------------+
-| v1.17            | /test-backport-1.17      |
-+------------------+--------------------------+
-| v1.16            | /test-backport-1.16      |
-+------------------+--------------------------+
-| v1.15            | /test-backport-1.15      |
-+------------------+--------------------------+
-| v1.14            | /test-backport-1.14      |
-+------------------+--------------------------+
+directly on the PR page. The ``/test`` trigger phrase may be used to trigger
+them all at once.
 
 More triggers can be found in `ariane-config.yaml <https://github.com/cilium/cilium/blob/main/.github/ariane-config.yaml>`_
 
