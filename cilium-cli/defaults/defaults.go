@@ -124,6 +124,7 @@ var (
 	HelmRepoIDLen    = 4
 	HelmRepository   = "https://helm.cilium.io"
 	HelmRepositoryID = sha256.Sum256([]byte(HelmRepository))
+	HelmMaxHistory   = 10
 
 	// CiliumScheduleAffinity is the node affinity to prevent Cilium from being schedule on
 	// nodes labeled with CiliumNoScheduleLabel.

@@ -90,6 +90,7 @@ cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=clu
 	cmd.Flags().BoolVar(&params.DryRun, "dry-run", false, "Write resources to be installed to stdout without actually installing them")
 	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false, "Write non-default Helm values to stdout without performing the actual installation")
 	cmd.Flags().StringVar(&params.HelmRepository, "repository", defaults.HelmRepository, "Helm chart repository to download Cilium charts from")
+	cmd.Flags().IntVar(&params.HelmMaxHistory, "history-max", defaults.HelmMaxHistory, "limit the maximum number of revisions saved per release. Use 0 for no limit")
 	return cmd
 }
 
@@ -176,6 +177,7 @@ cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			params.HelmReleaseName = helmReleaseName
+
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {
 				params.Writer = io.Discard
@@ -205,6 +207,7 @@ cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false,
 		"Write non-default Helm values to stdout; without performing the actual upgrade")
 	cmd.Flags().StringVar(&params.HelmRepository, "repository", defaults.HelmRepository, "Helm chart repository to download Cilium charts from")
+	cmd.Flags().IntVar(&params.HelmMaxHistory, "history-max", defaults.HelmMaxHistory, "limit the maximum number of revisions saved per release. Use 0 for no limit")
 	return cmd
 }
 
