@@ -50,10 +50,10 @@ jobs:
             echo "Skipping scheduled workflows for branch ${{ matrix.branch }}"
             exit 0
           fi
-          BRANCH="${{ matrix.branch }}"
-          REF="v${BRANCH}"
+
+          REF="v${{ matrix.branch }}"
           SHA=$(git rev-parse ${REF})
-          readarray workflows < <(TRIGGER="/test-backport-${BRANCH}" yq '.triggers[env(TRIGGER)].workflows[]' .github/ariane-config.yaml)
+          readarray workflows < <(yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml)
 
           for workflow in ${workflows[@]}; do
             echo triggering ${workflow}
