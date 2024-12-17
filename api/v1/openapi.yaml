@@ -1630,8 +1630,6 @@ definitions:
   EndpointPolicy:
     description: |-
       Policy information of an endpoint
-
-      +k8s:deepcopy-gen=true
     type: object
     properties:
       policy-revision:
@@ -1677,8 +1675,6 @@ definitions:
   PolicyRule:
     description: |-
       A policy rule including the rule labels it derives from
-
-      +k8s:deepcopy-gen=true
     properties:
       rule:
         description: The policy rule as json
@@ -1702,8 +1698,6 @@ definitions:
   L4Policy:
     description: |-
       L4 endpoint policy
-
-      +k8s:deepcopy-gen=true
     type: object
     properties:
       ingress:
@@ -1719,8 +1713,6 @@ definitions:
   CIDRPolicy:
     description: |-
       CIDR endpoint policy
-
-      +k8s:deepcopy-gen=true
     type: object
     properties:
       ingress:
@@ -2291,10 +2283,6 @@ definitions:
         type: object
         properties:
           nodePort:
-            description: |-
-
-
-              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
@@ -2330,19 +2318,11 @@ definitions:
               lutSize:
                 type: integer
           hostPort:
-            description: |-
-
-
-              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
                 type: boolean
           externalIPs:
-            description: |-
-
-
-              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
@@ -2361,28 +2341,16 @@ definitions:
                 items:
                   type: string
           socketLB:
-            description: |-
-
-
-              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
                 type: boolean
           sessionAffinity:
-            description: |-
-
-
-              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
                 type: boolean
           gracefulTermination:
-            description: |-
-
-
-              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
@@ -2397,10 +2365,6 @@ definitions:
               enabled:
                 type: boolean
               service:
-                description: |-
-
-
-                  +k8s:deepcopy-gen=true
                 type: object
                 properties:
                   enabled:
@@ -2419,10 +2383,6 @@ definitions:
                     items:
                       type: string
           socketLBTracing:
-            description: |-
-
-
-              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
@@ -2905,8 +2865,6 @@ definitions:
   Srv6:
     description: |-
       Status of the SRv6
-
-      +k8s:deepcopy-gen=true
     type: object
     properties:
       enabled:
@@ -3293,8 +3251,6 @@ definitions:
   IdentityRange:
     description: |-
       Status of identity range of the cluster
-
-      +k8s:deepcopy-gen=true
     properties:
       min-identity:
         description: Minimum identity of the cluster
@@ -3370,8 +3326,6 @@ definitions:
   IPV6BigTCP:
     description: |-
       Status of IPv6 BIG TCP
-
-      +k8s:deepcopy-gen=true
     type: object
     properties:
       enabled:
@@ -3386,8 +3340,6 @@ definitions:
   IPV4BigTCP:
     description: |-
       Status of IPv4 BIG TCP
-
-      +k8s:deepcopy-gen=true
     type: object
     properties:
       enabled:
@@ -3463,8 +3415,6 @@ definitions:
   ClockSource:
     description: |-
       Status of BPF clock source
-
-      +k8s:deepcopy-gen=true
     type: object
     properties:
       mode:
@@ -3479,8 +3429,6 @@ definitions:
   Routing:
     description: |-
       Status of routing
-
-      +k8s:deepcopy-gen=true
     type: object
     properties:
       inter-host-routing-mode:
@@ -3813,8 +3761,6 @@ definitions:
   CNIChainingStatus:
     description: |-
       Status of CNI chaining
-
-      +k8s:deepcopy-gen=true
     properties:
       mode:
         type: string
@@ -3983,8 +3929,6 @@ definitions:
   BgpPeerFamilies:
     description: |-
       BGP AFI SAFI state of the peer
-
-      +k8s:deepcopy-gen=true
     properties:
       afi:
         description: BGP address family indicator
@@ -4004,8 +3948,6 @@ definitions:
   BgpGracefulRestart:
     description: |-
       BGP graceful restart parameters negotiated with the peer.
-
-      +k8s:deepcopy-gen=true
     properties:
       enabled:
         description: |-

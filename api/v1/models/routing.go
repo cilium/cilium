@@ -20,8 +20,6 @@ import (
 
 // Routing Status of routing
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model Routing
 type Routing struct {
 
