@@ -17,8 +17,6 @@ import (
 
 // PolicyRule A policy rule including the rule labels it derives from
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model PolicyRule
 type PolicyRule struct {
 

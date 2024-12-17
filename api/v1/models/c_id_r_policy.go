@@ -19,8 +19,6 @@ import (
 
 // CIDRPolicy CIDR endpoint policy
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model CIDRPolicy
 type CIDRPolicy struct {
 

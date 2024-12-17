@@ -17,8 +17,6 @@ import (
 
 // IdentityRange Status of identity range of the cluster
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model IdentityRange
 type IdentityRange struct {
 

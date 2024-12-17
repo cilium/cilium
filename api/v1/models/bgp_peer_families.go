@@ -17,8 +17,6 @@ import (
 
 // BgpPeerFamilies BGP AFI SAFI state of the peer
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model BgpPeerFamilies
 type BgpPeerFamilies struct {
 
