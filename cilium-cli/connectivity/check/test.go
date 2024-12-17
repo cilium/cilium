@@ -833,6 +833,16 @@ func (t *Test) collectSysdump() {
 func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
 	ipFams := []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6}
 
+	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
+	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
+	// and https://github.com/cilium/cilium/issues/23910).
+	if f, ok := t.Context().Feature(features.EndpointRoutes); ok &&
+		f.Enabled && t.HasNetworkPolicies() &&
+		versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) {
+
+		ipFams = []features.IPFamily{features.IPFamilyV4}
+	}
+
 	for _, ipFam := range ipFams {
 		switch ipFam {
 		case features.IPFamilyV4:
@@ -855,4 +865,13 @@ func (t *Test) CertificateCAs() map[string][]byte {
 
 func (t *Test) CiliumLocalRedirectPolicies() map[string]*ciliumv2.CiliumLocalRedirectPolicy {
 	return t.clrps
+}
+
+func (t *Test) HasNetworkPolicies() bool {
+	for _, obj := range t.resources {
+		if isPolicy(obj) {
+			return true
+		}
+	}
+	return false
 }
