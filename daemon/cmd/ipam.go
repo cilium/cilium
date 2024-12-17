@@ -193,8 +193,12 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		}
 	}
 
+	ipfamily := ipam.DeriveFamily(family.PrimaryExternal())
+	masq := (ipfamily == ipam.IPv4 && option.Config.EnableIPv4Masquerade) ||
+		(ipfamily == ipam.IPv6 && option.Config.EnableIPv6Masquerade)
+
 	// Coalescing multiple CIDRs. GH #18868
-	if option.Config.EnableIPv4Masquerade &&
+	if masq &&
 		option.Config.IPAM == ipamOption.IPAMENI &&
 		result != nil &&
 		len(result.CIDRs) > 0 {
@@ -210,7 +214,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		var routingInfo *linuxrouting.RoutingInfo
 		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
 			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
-			option.Config.EnableIPv4Masquerade)
+			masq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
 		}
@@ -590,12 +594,23 @@ func (d *Daemon) startIPAM() {
 }
 
 func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
-	return linuxrouting.NewRoutingInfo(
-		result.GatewayIP,
-		result.CIDRs,
-		result.PrimaryMAC,
-		result.InterfaceNumber,
-		option.Config.IPAM,
-		option.Config.EnableIPv4Masquerade,
-	)
+	if result.IP.To4() != nil {
+		return linuxrouting.NewRoutingInfo(
+			result.GatewayIP,
+			result.CIDRs,
+			result.PrimaryMAC,
+			result.InterfaceNumber,
+			option.Config.IPAM,
+			option.Config.EnableIPv4Masquerade,
+		)
+	} else {
+		return linuxrouting.NewRoutingInfo(
+			result.GatewayIP,
+			result.CIDRs,
+			result.PrimaryMAC,
+			result.InterfaceNumber,
+			option.Config.IPAM,
+			option.Config.EnableIPv6Masquerade,
+		)
+	}
 }

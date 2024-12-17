@@ -13,19 +13,19 @@ import (
 )
 
 // RoutingInfo represents information that's required to enable
-// connectivity via the local rule and route tables while in ENI or Azure IPAM mode.
+// connectivity via the local rule and route tables while in ENI,Azure IPAM mode and delegated IPAM mode.
 // The information in this struct is used to create rules and routes which direct
 // traffic out of the interface (egress).
 //
 // This struct is mostly derived from the `ipam.AllocationResult` as the
 // information comes from IPAM.
 type RoutingInfo struct {
-	// IPv4Gateway is the gateway where outbound/egress traffic is directed.
-	IPv4Gateway net.IP
+	// Gateway is the gateway where outbound/egress IPv4/IPv6 traffic is directed.
+	Gateway net.IP
 
-	// IPv4CIDRs is a list of CIDRs which the interface has access to. In most
+	// CIDRs is a list of CIDRs which the interface has access to. In most
 	// cases, it'll at least contain the CIDR of the IPv4Gateway IP address.
-	IPv4CIDRs []net.IPNet
+	CIDRs []net.IPNet
 
 	// MasterIfMAC is the MAC address of the master interface that egress
 	// traffic is directed to. This is the MAC of the interface itself which
@@ -44,8 +44,8 @@ type RoutingInfo struct {
 	IpamMode string
 }
 
-func (info *RoutingInfo) GetIPv4CIDRs() []net.IPNet {
-	return info.IPv4CIDRs
+func (info *RoutingInfo) GetCIDRs() []net.IPNet {
+	return info.CIDRs
 }
 
 // NewRoutingInfo creates a new RoutingInfo struct, from data that will be
@@ -60,7 +60,7 @@ func NewRoutingInfo(gateway string, cidrs []string, mac, ifaceNum, ipamMode stri
 func parse(gateway string, cidrs []string, macAddr, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
-		return nil, fmt.Errorf("invalid ip: %s", gateway)
+		return nil, fmt.Errorf("invalid gateway: %s", gateway)
 	}
 
 	if len(cidrs) == 0 && masquerade {
@@ -73,7 +73,6 @@ func parse(gateway string, cidrs []string, macAddr, ifaceNum, ipamMode string, m
 		if err != nil {
 			return nil, fmt.Errorf("invalid cidr: %s", cidr)
 		}
-
 		parsedCIDRs = append(parsedCIDRs, *c)
 	}
 
@@ -88,8 +87,8 @@ func parse(gateway string, cidrs []string, macAddr, ifaceNum, ipamMode string, m
 	}
 
 	return &RoutingInfo{
-		IPv4Gateway:     ip,
-		IPv4CIDRs:       parsedCIDRs,
+		Gateway:         ip,
+		CIDRs:           parsedCIDRs,
 		MasterIfMAC:     parsedMAC,
 		Masquerade:      masquerade,
 		InterfaceNumber: parsedIfaceNum,

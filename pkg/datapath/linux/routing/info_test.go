@@ -104,8 +104,8 @@ func TestParse(t *testing.T) {
 			macAddr:  "11:22:33:44:55:66",
 			ifaceNum: "1",
 			wantRInfo: &RoutingInfo{
-				IPv4Gateway:     net.ParseIP("192.168.1.1"),
-				IPv4CIDRs:       validCIDRs,
+				Gateway:         net.ParseIP("192.168.1.1"),
+				CIDRs:           validCIDRs,
 				MasterIfMAC:     fakeMAC,
 				InterfaceNumber: 1,
 				IpamMode:        ipamOption.IPAMENI,
@@ -120,8 +120,8 @@ func TestParse(t *testing.T) {
 			masq:     false,
 			ifaceNum: "0",
 			wantRInfo: &RoutingInfo{
-				IPv4Gateway: net.ParseIP("192.168.1.1"),
-				IPv4CIDRs:   []net.IPNet{},
+				Gateway:     net.ParseIP("192.168.1.1"),
+				CIDRs:       []net.IPNet{},
 				MasterIfMAC: fakeMAC,
 				IpamMode:    ipamOption.IPAMENI,
 			},

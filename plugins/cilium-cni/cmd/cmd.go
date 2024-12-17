@@ -216,36 +216,49 @@ func allocateIPsWithDelegatedPlugin(
 	// https://github.com/containernetworking/cni/pull/1137
 	masterMac := ""
 	for _, iface := range ipamResult.Interfaces {
-		if iface.Sandbox == "" && iface.Name != "" {
+		if iface.Sandbox != "" {
+			continue
+		}
+
+		if iface.Mac != "" {
+			if ifMac, err := net.ParseMAC(iface.Mac); err != nil {
+				return nil, releaseFunc, fmt.Errorf("failed to parse interface MAC %q: %w", iface.Mac, err)
+			} else {
+				masterMac = ifMac.String()
+			}
+		} else if iface.Name != "" {
 			if uplink, err := safenetlink.LinkByName(iface.Name); err != nil {
 				return nil, releaseFunc, fmt.Errorf("failed to get uplink %q: %w", iface.Name, err)
 			} else {
 				masterMac = uplink.Attrs().HardwareAddr.String()
 			}
-			break
 		}
+		break
 	}
 	// Interface number could not be determined from IPAM result for now.
 	// Set a static value zero before we have a proper solution.
 	// option.Config.EgressMultiHomeIPRuleCompat also needs to be set to true.
 	for _, ipConfig := range ipamResult.IPs {
 		ipNet := ipConfig.Address
-		if ipv4 := ipNet.IP.To4(); ipv4 != nil {
-			ipam.Address.IPV4 = ipNet.String()
-			ipam.IPV4 = &models.IPAMAddressResponse{
-				IP:              ipv4.String(),
-				Gateway:         ipConfig.Gateway.String(),
-				MasterMac:       masterMac,
-				InterfaceNumber: "0",
+		if ipNet.IP.To4() != nil {
+			if conf.Addressing.IPV4 != nil {
+				ipam.Address.IPV4 = ipNet.String()
+				ipam.IPV4 = &models.IPAMAddressResponse{
+					IP:              ipNet.IP.String(),
+					Gateway:         ipConfig.Gateway.String(),
+					MasterMac:       masterMac,
+					InterfaceNumber: "0",
+				}
 			}
-		} else if conf.Addressing.IPV6 != nil {
-			// assign ipam ipv6 address only if agent ipv6 config is enabled
-			ipam.Address.IPV6 = ipNet.String()
-			ipam.IPV6 = &models.IPAMAddressResponse{
-				IP:              ipNet.IP.String(),
-				Gateway:         ipConfig.Gateway.String(),
-				MasterMac:       masterMac,
-				InterfaceNumber: "0",
+		} else {
+			if conf.Addressing.IPV6 != nil {
+				ipam.Address.IPV6 = ipNet.String()
+				ipam.IPV6 = &models.IPAMAddressResponse{
+					IP:              ipNet.IP.String(),
+					Gateway:         ipConfig.Gateway.String(),
+					MasterMac:       masterMac,
+					InterfaceNumber: "0",
+				}
 			}
 		}
 	}
@@ -654,21 +667,22 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		var (
-			ipConfig *cniTypesV1.IPConfig
-			routes   []*cniTypes.Route
+			ipConfig   *cniTypesV1.IPConfig
+			ipv6Config *cniTypesV1.IPConfig
+			routes     []*cniTypes.Route
 		)
 		if ipv6IsEnabled(ipam) && conf.Addressing.IPV6 != nil {
 			ep.Addressing.IPV6 = ipam.Address.IPV6
 			ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
 			ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
-			ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, state, int(conf.RouteMTU))
+			ipv6Config, routes, err = prepareIP(ep.Addressing.IPV6, state, int(conf.RouteMTU))
 			if err != nil {
 				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV6, err)
 			}
 			// set the addresses interface index to that of the container-side interface
-			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
-			res.IPs = append(res.IPs, ipConfig)
+			ipv6Config.Interface = cniTypesV1.Int(len(res.Interfaces))
+			res.IPs = append(res.IPs, ipv6Config)
 			res.Routes = append(res.Routes, routes...)
 		}
 
@@ -688,9 +702,18 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		if needsEndpointRoutingOnHost(conf) {
-			err = interfaceAdd(ipConfig, ipam.IPV4, conf)
-			if err != nil {
-				return fmt.Errorf("unable to setup interface datapath: %w", err)
+			if ipam.IPV4 != nil && ipConfig != nil {
+				err = interfaceAdd(ipConfig, ipam.IPV4, conf)
+				if err != nil {
+					return fmt.Errorf("unable to setup interface datapath: %w", err)
+				}
+			}
+
+			if ipam.IPV6 != nil && ipv6Config != nil {
+				err = interfaceAdd(ipv6Config, ipam.IPV6, conf)
+				if err != nil {
+					return fmt.Errorf("unable to setup interface datapath: %w", err)
+				}
 			}
 		}
 
