@@ -70,8 +70,7 @@ func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, ri := getFakes(t, true, false)
-	ipv6 := netip.MustParseAddr("fd00::2").AsSlice()
-	err := ri.Configure(ipv6, 1500, false, false)
+	err := ri.Configure(nil, 1500, false, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -79,8 +78,8 @@ func TestConfigureRouteWithIncompatibleIP(t *testing.T) {
 func TestDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	ipv6 := netip.MustParseAddr("fd00::2")
-	err := Delete(ipv6, false)
+	ip := netip.Addr{}
+	err := Delete(ip, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
