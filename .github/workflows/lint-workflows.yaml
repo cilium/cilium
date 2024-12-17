@@ -17,7 +17,7 @@ concurrency:
 jobs:
   ginkgo-workflow-comments:
     name: Lint Ginkgo Workflows Comments
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -140,7 +140,7 @@ jobs:
 
   ginkgo-schema-validation:
     name: Validate Ginkgo Schema
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
@@ -165,7 +165,7 @@ jobs:
 
   conformance-schema-validation:
     name: Validate k8s Versions Schema
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
@@ -197,7 +197,7 @@ jobs:
 
   name-validation:
     name: Validate Workflow Names
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

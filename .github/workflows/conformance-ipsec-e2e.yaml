@@ -68,7 +68,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -77,7 +77,7 @@ jobs:
 
   generate-matrix:
     name: Generate Matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
@@ -105,7 +105,7 @@ jobs:
 
   wait-for-images:
     name: Wait for images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
@@ -121,7 +121,7 @@ jobs:
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
     name: 'Setup & Test'
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     env:
       job_name: 'Setup & Test'
     strategy:
@@ -144,7 +144,7 @@ jobs:
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
-        if: runner.name == 'ubuntu-latest'
+        if: runner.name == 'ubuntu-24.04'
         uses: ./.github/actions/disk-cleanup
 
       - name: Set Environment Variables
@@ -440,7 +440,7 @@ jobs:
   merge-upload:
     if: ${{ always() }}
     name: Merge and Upload Artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: setup-and-test
     steps:
       - name: Checkout context ref (trusted)
@@ -471,7 +471,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     needs: setup-and-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
