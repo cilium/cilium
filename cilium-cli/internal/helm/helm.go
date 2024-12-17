@@ -297,6 +297,8 @@ type UpgradeParameters struct {
 	// DryRunHelmValues writes non-default Helm values to stdout without performing the actual installation.
 	// For Helm installation mode only.
 	DryRunHelmValues bool
+	// MaxHistory is the maximum number of releases to keep in the release history
+	MaxHistory int
 }
 
 func (p *UpgradeParameters) IsDryRun() bool {
@@ -325,6 +327,7 @@ func Upgrade(
 	helmClient.Wait = params.Wait
 	helmClient.Timeout = params.WaitDuration
 	helmClient.DryRun = params.IsDryRun()
+	helmClient.MaxHistory = params.MaxHistory
 
 	return helmClient.RunWithContext(ctx, params.Name, params.Chart, params.Values)
 }
