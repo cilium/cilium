@@ -116,6 +116,25 @@ func TestL7RulesWithNonTCPProtocols(t *testing.T) {
 	err = validSCTPRule.Sanitize()
 	require.NoError(t, err, "Saw an error for an SCTP rule.")
 
+	validSCTPDenyRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		EgressDeny: []EgressDenyRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortDenyRule{{
+					Ports: []PortProtocol{
+						{Port: "4000", Protocol: ProtoSCTP},
+					},
+				}},
+			},
+		},
+	}
+
+	err = validSCTPDenyRule.Sanitize()
+	require.NoError(t, err, "Saw an error for an SCTP deny rule.")
+
 	// Rule is invalid because only ProtoTCP is allowed for L7 rules (except with DNS, below).
 	invalidPortRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
@@ -622,6 +641,7 @@ func TestToServicesSanitize(t *testing.T) {
 		"app": "tested-service",
 	}
 	selector := ServiceSelector(NewESFromMatchRequirements(svcLabels, nil))
+
 	toServicesL3L4 := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
@@ -647,6 +667,32 @@ func TestToServicesSanitize(t *testing.T) {
 	}
 
 	require.NoError(t, toServicesL3L4.Sanitize())
+
+	toServicesDenyL3L4 := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		EgressDeny: []EgressDenyRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToServices: []Service{
+						{
+							K8sServiceSelector: &K8sServiceSelectorNamespace{
+								Selector:  selector,
+								Namespace: "",
+							},
+						},
+					},
+				},
+				ToPorts: []PortDenyRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	require.NoError(t, toServicesDenyL3L4.Sanitize())
 }
 
 // This test ensures that PortRules using key-value pairs do not have empty keys
@@ -828,7 +874,7 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 	err = validL7RuleEgress.Sanitize()
 	require.NoError(t, err)
 
-	validL7RuleIngress := Rule{
+	validNodeRuleIngress := Rule{
 		NodeSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
 			{
@@ -838,7 +884,20 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 			},
 		},
 	}
-	err = validL7RuleIngress.Sanitize()
+	err = validNodeRuleIngress.Sanitize()
+	require.NoError(t, err)
+
+	validNodeRuleIngressDeny := Rule{
+		NodeSelector: WildcardEndpointSelector,
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+			},
+		},
+	}
+	err = validNodeRuleIngressDeny.Sanitize()
 	require.NoError(t, err)
 }
 
@@ -883,6 +942,20 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	err = invalidEpSelectorIngress.Sanitize()
 	require.Error(t, err)
 
+	invalidEpSelectorIngressDeny := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{invalidSel},
+				},
+			},
+		},
+	}
+
+	err = invalidEpSelectorIngressDeny.Sanitize()
+	require.Error(t, err)
+
 	invalidEpSelectorIngressFromReq := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
@@ -895,6 +968,20 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	}
 
 	err = invalidEpSelectorIngressFromReq.Sanitize()
+	require.Error(t, err)
+
+	invalidEpSelectorIngressDenyFromReq := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromRequires: []EndpointSelector{invalidSel},
+				},
+			},
+		},
+	}
+
+	err = invalidEpSelectorIngressDenyFromReq.Sanitize()
 	require.Error(t, err)
 
 	invalidEpSelectorEgress := Rule{
@@ -911,6 +998,20 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	err = invalidEpSelectorEgress.Sanitize()
 	require.Error(t, err)
 
+	invalidEpSelectorEgressDeny := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		EgressDeny: []EgressDenyRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{invalidSel},
+				},
+			},
+		},
+	}
+
+	err = invalidEpSelectorEgressDeny.Sanitize()
+	require.Error(t, err)
+
 	invalidEpSelectorEgressToReq := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
@@ -925,6 +1026,19 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	err = invalidEpSelectorEgressToReq.Sanitize()
 	require.Error(t, err)
 
+	invalidEpSelectorEgressDenyToReq := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		EgressDeny: []EgressDenyRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToRequires: []EndpointSelector{invalidSel},
+				},
+			},
+		},
+	}
+
+	err = invalidEpSelectorEgressDenyToReq.Sanitize()
+	require.Error(t, err)
 }
 
 func TestNodeSelector(t *testing.T) {
@@ -990,6 +1104,22 @@ func TestTooManyPortsRule(t *testing.T) {
 	}
 	err := tooManyPortsRule.Sanitize()
 	require.Error(t, err)
+
+	tooManyDenyPortsRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortDenyRule{{
+					Ports: portProtocols,
+				}},
+			},
+		},
+	}
+	err = tooManyDenyPortsRule.Sanitize()
+	require.Error(t, err)
 }
 
 func TestTooManyICMPFields(t *testing.T) {
@@ -1019,6 +1149,22 @@ func TestTooManyICMPFields(t *testing.T) {
 	}
 	err := tooManyICMPRule.Sanitize()
 	require.Error(t, err)
+
+	tooManyICMPDenyRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ICMPs: ICMPRules{{
+					Fields: fields,
+				}},
+			},
+		},
+	}
+	err = tooManyICMPDenyRule.Sanitize()
+	require.Error(t, err)
 }
 
 func TestWrongICMPFieldFamily(t *testing.T) {
@@ -1043,12 +1189,32 @@ func TestWrongICMPFieldFamily(t *testing.T) {
 	}
 	err := wrongFamilyICMPRule.Sanitize()
 	require.Error(t, err)
+
+	wrongFamilyICMPDenyRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ICMPs: ICMPRules{{
+					Fields: []ICMPField{{
+						Family: "hoge",
+						Type:   &icmpType,
+					}},
+				}},
+			},
+		},
+	}
+	err = wrongFamilyICMPDenyRule.Sanitize()
+	require.Error(t, err)
 }
 
 func TestICMPRuleWithOtherRuleFailed(t *testing.T) {
 	setUpSuite(t)
 
 	icmpType := intstr.FromInt(8)
+
 	ingressICMPWithPort := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Ingress: []IngressRule{
@@ -1057,6 +1223,27 @@ func TestICMPRuleWithOtherRuleFailed(t *testing.T) {
 					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
 				},
 				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+					},
+				}},
+				ICMPs: ICMPRules{{
+					Fields: []ICMPField{{
+						Type: &icmpType,
+					}},
+				}},
+			},
+		},
+	}
+
+	ingressICMPDenyWithPort := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortDenyRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
 					},
@@ -1091,10 +1278,35 @@ func TestICMPRuleWithOtherRuleFailed(t *testing.T) {
 		},
 	}
 
+	egressICMPDenyWithPort := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		EgressDeny: []EgressDenyRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: []PortDenyRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+					},
+				}},
+				ICMPs: ICMPRules{{
+					Fields: []ICMPField{{
+						Type: &icmpType,
+					}},
+				}},
+			},
+		},
+	}
+
 	option.Config.EnableICMPRules = true
 	err := ingressICMPWithPort.Sanitize()
 	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
 	err = egressICMPWithPort.Sanitize()
+	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
+	err = ingressICMPDenyWithPort.Sanitize()
+	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
+	err = egressICMPDenyWithPort.Sanitize()
 	require.ErrorIs(t, err, errUnsupportedICMPWithToPorts)
 }
 
