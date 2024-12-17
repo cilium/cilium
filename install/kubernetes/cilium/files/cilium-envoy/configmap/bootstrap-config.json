@@ -465,6 +465,16 @@
       }
     ]
   },
+  "layered_runtime": {
+    "layers": [
+      {
+        "name": "deprecation",
+        "static_layer": {
+          "envoy.restart_features.allow_slot_destroy_on_worker_threads": false
+        }
+      }
+    ]
+  },
   "application_log_config": {
     "log_format": {
 {{- if .Values.envoy.log.format_json }}

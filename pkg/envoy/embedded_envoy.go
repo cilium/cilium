@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -525,6 +526,19 @@ func writeBootstrapConfigFile(config bootstrapConfig) {
 					}),
 				},
 			}},
+		},
+		LayeredRuntime: &envoy_config_bootstrap.LayeredRuntime{
+			Layers: []*envoy_config_bootstrap.RuntimeLayer{
+				{
+					Name: "deprecation",
+					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
+						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
+							// Temporarily disable slot destroy on worker threads until we can
+							"envoy.reloadable_features.allow_slot_destroy_on_worker_threads": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
+						}},
+					},
+				},
+			},
 		},
 	}
 
