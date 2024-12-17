@@ -131,6 +131,17 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 func deleteEndpointHandler(d *Daemon, params DeleteEndpointParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/ request")
 
+	if params.Endpoint.ContainerID == "" {
+		return api.New(DeleteEndpointInvalidCode, "invalid container id")
+	}
+
+	// Bypass the rate limiter for endpoints that have already been deleted.
+	// Kubelet will generate at minimum 2 delete requests for a Pod, so this
+	// returns in earlier retruns for over half of all delete calls.
+	if eps := d.endpointManager.GetEndpointsByContainerID(params.Endpoint.ContainerID); len(eps) == 0 {
+		return api.New(DeleteEndpointNotFoundCode, "endpoints not found")
+	}
+
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointDelete)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
@@ -147,9 +158,9 @@ func deleteEndpointHandler(d *Daemon, params DeleteEndpointParams) middleware.Re
 		return api.Error(DeleteEndpointInvalidCode, err)
 	} else if nerr > 0 {
 		return NewDeleteEndpointErrors().WithPayload(int64(nerr))
-	} else {
-		return NewDeleteEndpointOK()
 	}
+
+	return NewDeleteEndpointOK()
 }
 
 func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Responder {
@@ -902,6 +913,15 @@ func (d *Daemon) EndpointRestored(ep *endpoint.Endpoint) {
 func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
 
+	// Bypass the rate limiter for endpoints that have already been deleted.
+	// Kubelet will generate at minimum 2 delete requests for a Pod, so this
+	// returns in earlier retruns for over half of all delete calls.
+	if ep, err := d.endpointManager.Lookup(params.ID); err != nil {
+		return api.Error(GetEndpointIDInvalidCode, err)
+	} else if ep == nil {
+		return NewGetEndpointIDNotFound()
+	}
+
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointDelete)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
@@ -918,9 +938,9 @@ func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middlewar
 		return api.Error(DeleteEndpointIDErrorsCode, err)
 	} else if nerr > 0 {
 		return NewDeleteEndpointIDErrors().WithPayload(int64(nerr))
-	} else {
-		return NewDeleteEndpointIDOK()
 	}
+
+	return NewDeleteEndpointIDOK()
 }
 
 // EndpointUpdate updates the options of the given endpoint and regenerates the endpoint
