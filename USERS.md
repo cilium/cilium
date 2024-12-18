@@ -875,6 +875,12 @@ Users (Alphabetically)
       L: https://app-catalog.vmware.com/catalog?gfilter=cilium
       Q: @carrodher
 
+    * N: VPSie
+      D: VPSie provides public & private cloud, on-premise, air-gapped cloud solutions, ensuring data sovereignty and seamless scalability for enterprise needs.
+      U: CNI, eBPF, CiliumNetworkPolicy, Service Mesh via Cilium Envoy with mTLS, 
+      L: https://vpsie.com
+      Q: @zozo6015
+  
     * N: Wildlife Studios
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
       U: ClusterMesh, Global Service Load Balancing.
