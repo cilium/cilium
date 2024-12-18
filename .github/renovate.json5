@@ -483,20 +483,6 @@
       "versioning": "regex:^((?<compatibility>[a-z0-9-.]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
     },
     {
-      "groupName": "old stable lvh-images",
-      "groupSlug": "old stable-lvh-images",
-      "matchPackageNames": [
-        "cilium/little-vm-helper",
-	// complexity-test needs https://github.com/cilium/little-vm-helper-images/issues/674.
-        "quay.io/lvh-images/kind"
-      ],
-      "allowedVersions": "!/bpf-next-.*/",
-      "matchBaseBranches": [
-        "v1.14",
-        "v1.15",
-      ],
-    },
-    {
       "groupName": "stable lvh-images",
       "groupSlug": "stable-lvh-images",
       "matchPackageNames": [
@@ -508,6 +494,8 @@
       "matchBaseBranches": [
         "v1.17",
         "v1.16",
+        "v1.15",
+        "v1.14",
       ],
     },
     {
