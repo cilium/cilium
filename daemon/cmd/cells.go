@@ -384,16 +384,19 @@ func allResourceGroups(cfg watchers.WatcherConfiguration) (resourceGroups, waitF
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
 		resources.K8sAPIGroupServiceV1Core,
-
-		// Namespaces can contain labels which are essential for
-		// endpoints being restored to have the right identity.
-		resources.K8sAPIGroupNamespaceV1Core,
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
 		resources.K8sAPIGroupPodV1Core,
 		// To perform the service translation and have the BPF LB datapath
 		// with the right service -> backend (k8s endpoints) translation.
 		resources.K8sAPIGroupEndpointSliceOrEndpoint,
+	}
+
+	if option.NetworkPolicyEnabled(option.Config) {
+		// Namespaces can contain labels which are essential for
+		// endpoints being restored to have the right identity.
+		// Namespaces are only used when network policies are enabled.
+		k8sGroups = append(k8sGroups, resources.K8sAPIGroupNamespaceV1Core)
 	}
 
 	if cfg.K8sNetworkPolicyEnabled() {
