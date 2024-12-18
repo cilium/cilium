@@ -119,7 +119,7 @@ type PolicyRepository interface {
 	// This is used to skip policy calculation when a certain revision delta is
 	// known to not affect the given identity. Pass a skipRevision of 0 to force
 	// calculation.
-	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error)
+	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64)
 
 	GetRevision() uint64
 	GetRulesList() *models.Policy
@@ -826,7 +826,7 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 // This is used to skip policy calculation when a certain revision delta is
 // known to not affect the given identity. Pass a skipRevision of 0 to force
 // calculation.
-func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error) {
+func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64) {
 	stats.WaitingForPolicyRepository().Start()
 	r.RLock()
 	defer r.RUnlock()
@@ -837,7 +837,7 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	// Do we already have a given revision?
 	// If so, skip calculation.
 	if skipRevision >= rev {
-		return nil, rev, nil
+		return nil, rev
 	}
 
 	stats.PolicyCalculation().Start()
@@ -851,7 +851,7 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 		stats.PolicyCalculation().Reset()
 	}
 
-	return sp, rev, nil
+	return sp, rev
 }
 
 // ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
