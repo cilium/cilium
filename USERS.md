@@ -876,7 +876,7 @@ Users (Alphabetically)
       Q: @carrodher
 
     * N: VPSie
-      D: VPSie provides public & private cloud, on-premise, air-gapped cloud solutions, ensuring data sovereignty and seamless scalability for enterprise needs.
+      D: VPSie provides public & private cloud, on-premise, air-gapped cloud solutions, ensuring data sovereignty and seamless scalability for enterprise needs using cilium as CNI for it's core networking on the kubernetes infrastructure.
       U: CNI, eBPF, CiliumNetworkPolicy, Service Mesh via Cilium Envoy with mTLS, 
       L: https://vpsie.com
       Q: @zozo6015
