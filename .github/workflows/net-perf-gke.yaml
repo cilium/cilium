@@ -373,7 +373,6 @@ jobs:
           pattern: features-tested-*
           retention-days: 5
           delete-merged: true
-          token: ${{ secrets.GITHUB_TOKEN }}
 
   commit-status-final:
     if: ${{ always() }}
