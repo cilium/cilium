@@ -401,9 +401,9 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (mapState, error) {
-	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{})
-	if err != nil {
-		return newMapState(), fmt.Errorf("failed to calculate policy: %w", err)
+	sp, _ := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{})
+	if sp == nil {
+		return newMapState(), fmt.Errorf("policy distillation skipped, rev: %v", d.Repository.GetRevision())
 	}
 	epp := sp.DistillPolicy(owner, testRedirects)
 	if epp == nil {
