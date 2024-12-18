@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type version uint64
@@ -53,6 +54,8 @@ type VersionHandle struct {
 	// Coordinator of this versionHandle, if any. Used for closing if non-nil.
 	// Atomic due to nilling and for copy prevention.
 	coordinator atomic.Pointer[Coordinator]
+	// Optional stack trace of the caller for debugging purposes
+	stacktrace hclog.CapturedStacktrace
 }
 
 func (h *VersionHandle) IsValid() bool {
@@ -98,7 +101,11 @@ func (h *VersionHandle) Close() error {
 func versionHandleFinalizer(h *VersionHandle) {
 	coordinator := h.coordinator.Load()
 	if coordinator != nil && coordinator.Logger != nil {
-		coordinator.Logger.WithField(logfields.Version, h.version).Error("Handle for version not closed.")
+		logger := coordinator.Logger
+		if h.stacktrace != "" {
+			logger = logger.WithField(logfields.Stacktrace, h.stacktrace)
+		}
+		logger.WithField(logfields.Version, h.version).Error("Handle for version not closed.")
 	}
 	h.Close()
 }
@@ -114,6 +121,11 @@ func newVersionHandle(version version, coordinator *Coordinator) *VersionHandle 
 		// Set a finalizer to catch unclosed handles. The finalizer function complains
 		// loudly, so that we do not rely the finalizer for closing.
 		runtime.SetFinalizer(h, versionHandleFinalizer)
+
+		if option.Config.Debug {
+			// capture a stacktrace for debugging
+			h.stacktrace = hclog.Stacktrace()
+		}
 	}
 	return h
 }
