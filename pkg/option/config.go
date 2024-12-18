@@ -782,6 +782,9 @@ const (
 	// EnableWireguard is the name of the option to enable WireGuard
 	EnableWireguard = "enable-wireguard"
 
+	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
+	WireguardTrackAllIPsFallback = "wireguard-track-all-ips-fallback"
+
 	// EnableL2Announcements is the name of the option to enable l2 announcements
 	EnableL2Announcements = "enable-l2-announcements"
 
@@ -1587,6 +1590,9 @@ type DaemonConfig struct {
 
 	// EnableEncryptionStrictMode enables strict mode for encryption
 	EnableEncryptionStrictMode bool
+
+	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
+	WireguardTrackAllIPsFallback bool
 
 	// EncryptionStrictModeCIDR is the CIDR to use for strict mode
 	EncryptionStrictModeCIDR netip.Prefix
@@ -2830,6 +2836,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPv6MCastDevice = vp.GetString(IPv6MCastDevice)
 	c.EnableIPSec = vp.GetBool(EnableIPSecName)
 	c.EnableWireguard = vp.GetBool(EnableWireguard)
+	c.WireguardTrackAllIPsFallback = vp.GetBool(WireguardTrackAllIPsFallback)
 	c.EnableL2Announcements = vp.GetBool(EnableL2Announcements)
 	c.L2AnnouncerLeaseDuration = vp.GetDuration(L2AnnouncerLeaseDuration)
 	c.L2AnnouncerRenewDeadline = vp.GetDuration(L2AnnouncerRenewDeadline)

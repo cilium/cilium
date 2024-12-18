@@ -1050,6 +1050,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
 	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)
 
+	flags.Bool(option.WireguardTrackAllIPsFallback, defaults.WireguardTrackAllIPsFallback, "Force WireGuard to track all IPs")
+	flags.MarkHidden(option.WireguardTrackAllIPsFallback)
+	option.BindEnv(vp, option.WireguardTrackAllIPsFallback)
+
 	flags.Bool(option.LBSourceRangeAllTypes, false, "Propagate loadbalancerSourceRanges to all corresponding service types")
 	option.BindEnv(vp, option.LBSourceRangeAllTypes)
 
