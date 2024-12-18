@@ -582,6 +582,9 @@ const (
 
 	// BGPRouterIDAllocationMode is default BGP router-id allocation mode
 	BGPRouterIDAllocationMode = "default"
+
+	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
+	WireguardTrackAllIPsFallback = false
 )
 
 var (
