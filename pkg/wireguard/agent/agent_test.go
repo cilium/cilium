@@ -187,6 +187,11 @@ func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 }
 
 func newTestAgent(ctx context.Context, wgClient wireguardClient) (*Agent, *ipcache.IPCache) {
+	// Mimic the same condition in NewAgent.
+	var needIPCacheEvents bool
+	if !option.Config.TunnelingEnabled() || option.Config.WireguardTrackAllIPsFallback {
+		needIPCacheEvents = true
+	}
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
 		Context: ctx,
 	})
@@ -197,8 +202,13 @@ func newTestAgent(ctx context.Context, wgClient wireguardClient) (*Agent, *ipcac
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
+
+		needIPCacheEvents: needIPCacheEvents,
 	}
-	ipCache.AddListener(wgAgent)
+	// Mimic the same condition in Agent.Init
+	if wgAgent.needIPCacheEvents {
+		ipCache.AddListener(wgAgent)
+	}
 	return wgAgent, ipCache
 }
 
@@ -212,6 +222,7 @@ type expectation struct {
 type config struct {
 	Name         string
 	RoutingMode  string
+	Fallback     bool
 	Expectations [][]expectation
 }
 
@@ -240,10 +251,22 @@ func TestAgent_PeerConfig(t *testing.T) {
 				{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx, pod3IPv4, pod3IPv6}},
 			},
 		}
+
+		tunnelRoutingAllowedIPs = [][]expectation{
+			// entry 1
+			{{k8s1NodeName, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
+			// entry 2
+			{
+				{k8s1NodeName, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2NodeName, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+			},
+		}
 	)
 
 	for _, c := range []config{
-		{"NativeRouting", option.RoutingModeNative, nativeRoutingAllowedIPs},
+		{"NativeRouting", option.RoutingModeNative, false, nativeRoutingAllowedIPs},
+		{"TunnelRouting With Fallback", option.RoutingModeTunnel, true, nativeRoutingAllowedIPs},
+		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -252,6 +275,10 @@ func TestAgent_PeerConfig(t *testing.T) {
 			prevRoutingMode := option.Config.RoutingMode
 			defer func() { option.Config.RoutingMode = prevRoutingMode }()
 			option.Config.RoutingMode = c.RoutingMode
+
+			prevFallback := option.Config.WireguardTrackAllIPsFallback
+			defer func() { option.Config.WireguardTrackAllIPsFallback = prevFallback }()
+			option.Config.WireguardTrackAllIPsFallback = c.Fallback
 
 			wgAgent, ipCache := newTestAgent(ctx, newFakeWgClient())
 			defer ipCache.Shutdown()
@@ -322,12 +349,16 @@ func TestAgent_PeerConfig(t *testing.T) {
 
 			// At this point we know both goroutines have been scheduled. We assume
 			// that they are now both blocked by checking they haven't closed the
-			// channel yet. Thus once release the lock we expect them to make progress
+			// channel yet. Thus once release the lock we expect them to make progress,
+			// unless the agent does not need to observe IPCache events: in this case,
+			// IPCache updates are not locked by the agent.
 			select {
 			case <-agentUpdated:
 				t.Fatal("agent update not blocked by agent lock")
 			case <-ipCacheUpdated:
-				t.Fatal("ipcache update not blocked by agent lock")
+				if wgAgent.needIPCacheEvents {
+					t.Fatal("ipcache update not blocked by agent lock")
+				}
 			default:
 			}
 
@@ -407,10 +438,44 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				{k8s2PubKey, []*net.IPNet{pod4IPv4, pod4IPv6, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
 			},
 		}
+
+		tunnelRoutingAllowedIPs = [][]expectation{
+			// entry 1
+			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4, pod2IPv6, pod3IPv6, pod4IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
+			// entry 2
+			{{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4, pod2IPv6, pod3IPv6, pod4IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}}},
+			// entry 3
+			{
+				{k8s1PubKey, []*net.IPNet{pod1IPv4, pod3IPv4, pod4IPv4, pod2IPv6, pod3IPv6, pod4IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+			},
+			// entry 4
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+			},
+			// entry 5
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey2, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+			},
+			// entry 6
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey2, []*net.IPNet{k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx}},
+			},
+			// entry 7
+			{
+				{k8s1PubKey, []*net.IPNet{k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx}},
+				{k8s2PubKey, []*net.IPNet{k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx}},
+			},
+		}
 	)
 
 	for _, c := range []config{
-		{"NativeRouting", option.RoutingModeNative, nativeRoutingAllowedIPs},
+		{"NativeRouting", option.RoutingModeNative, false, nativeRoutingAllowedIPs},
+		{"TunnelRouting With Fallback", option.RoutingModeTunnel, true, nativeRoutingAllowedIPs},
+		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
 		t.Run(c.Name, func(t *testing.T) {
 			ctx := context.Background()
@@ -418,6 +483,10 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			prevRoutingMode := option.Config.RoutingMode
 			defer func() { option.Config.RoutingMode = prevRoutingMode }()
 			option.Config.RoutingMode = c.RoutingMode
+
+			prevFallback := option.Config.WireguardTrackAllIPsFallback
+			defer func() { option.Config.WireguardTrackAllIPsFallback = prevFallback }()
+			option.Config.WireguardTrackAllIPsFallback = c.Fallback
 
 			key1, err := wgtypes.ParseKey(k8s1PubKey)
 			require.NoError(t, err, "Failed to parse WG key")

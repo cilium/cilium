@@ -82,10 +82,20 @@ type Agent struct {
 
 	// initialized in InitLocalNodeFromWireGuard
 	optOut bool
+	// initialized in NewAgent to subscribe or not to IPCache events.
+	needIPCacheEvents bool
 }
 
 // NewAgent creates a new WireGuard Agent
 func NewAgent(privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) (*Agent, error) {
+	// In tunneling mode we only need nodeIPs, which are always inserted in UpdatePeer.
+	// Therefore, we sync IPs from IPCache only in native routing mode
+	// or when the fallback flag WireguardTrackAllIPsFallback is enabled.
+	var needIPCacheEvents bool
+	if !option.Config.TunnelingEnabled() || option.Config.WireguardTrackAllIPsFallback {
+		needIPCacheEvents = true
+	}
+
 	wgClient, err := wgctrl.New()
 	if err != nil {
 		return nil, err
@@ -102,6 +112,8 @@ func NewAgent(privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
+
+		needIPCacheEvents: needIPCacheEvents,
 	}, nil
 }
 
@@ -166,7 +178,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 		// IPCache will call back into OnIPIdentityCacheChange which requires
 		// us to release a.mutex before we can add ourself as a listener.
 		a.Unlock()
-		if addIPCacheListener {
+		if addIPCacheListener && a.needIPCacheEvents {
 			a.ipCache.AddListener(a)
 		}
 	}()
@@ -351,8 +363,10 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	// To avoid running into a deadlock, we need to lock the IPCache before
 	// calling a.Lock(), because IPCache might try to call into
 	// OnIPIdentityCacheChange concurrently
-	a.ipCache.RLock()
-	defer a.ipCache.RUnlock()
+	if a.needIPCacheEvents {
+		a.ipCache.RLock()
+		defer a.ipCache.RUnlock()
+	}
 
 	a.Lock()
 	defer a.Unlock()
@@ -374,21 +388,23 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	}
 
 	peer := a.peerByNodeName[nodeName]
-	// (Re)initialize peer if this is the first time we are processing this node
-	// or if the peer's public key changed.
-	if peer == nil {
-		peer = &peerConfig{}
 
-		peer.queueAllowedIPsInsert(a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)...)
-	} else if peer.pubKey != pubKey {
+	// Reinitialize peer if its public key changed.
+	if peer != nil && peer.pubKey != pubKey {
 		log.WithField(logfields.NodeName, nodeName).Debug("Pubkey has changed")
-		// pubKeys differ, so delete old peer and create a "new" one
 		if err := a.deletePeerByPubKey(peer.pubKey); err != nil {
 			return err
 		}
+		peer = nil
+	}
 
+	// Initialize peer if this is the first time we are processing this node.
+	if peer == nil {
 		peer = &peerConfig{}
-		peer.queueAllowedIPsInsert(a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)...)
+
+		if a.needIPCacheEvents {
+			peer.queueAllowedIPsInsert(a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)...)
+		}
 	}
 
 	// Handle Node IP change
