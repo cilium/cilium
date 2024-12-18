@@ -94,6 +94,7 @@ type AzureParameters struct {
 
 type AWSParameters struct {
 	AwsNodeImageFamily string
+	NodeLabelSelector  string
 }
 
 type Parameters struct {

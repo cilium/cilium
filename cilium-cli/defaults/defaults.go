@@ -117,6 +117,8 @@ const (
 
 	LogLevelError   = "error"
 	LogLevelWarning = "warning"
+
+	AWSNodeLabelSelector = "eks.amazonaws.com/compute-type notin (fargate)"
 )
 
 var (

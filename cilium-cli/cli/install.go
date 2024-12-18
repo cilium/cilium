@@ -205,6 +205,7 @@ cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false,
 		"Write non-default Helm values to stdout; without performing the actual upgrade")
 	cmd.Flags().StringVar(&params.HelmRepository, "repository", defaults.HelmRepository, "Helm chart repository to download Cilium charts from")
+	cmd.Flags().StringVar(&params.AWS.NodeLabelSelector, "eks-node-label-selector", defaults.AWSNodeLabelSelector, "Node selector to use for EKS nodes")
 	return cmd
 }
 

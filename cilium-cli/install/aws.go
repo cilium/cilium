@@ -35,7 +35,9 @@ func (k *K8sInstaller) awsRetrieveNodeImageFamily() error {
 	// setting default fallback value
 	k.params.AWS.AwsNodeImageFamily = AwsNodeImageFamilyCustom
 
-	nodes, err := k.client.ListNodes(context.Background(), metav1.ListOptions{})
+	nodes, err := k.client.ListNodes(context.Background(), metav1.ListOptions{
+		LabelSelector: k.params.AWS.NodeLabelSelector,
+	})
 	if err != nil {
 		k.Log("❌ Could not list cluster nodes, defaulted to fallback node image family value: %s", k.params.AWS.AwsNodeImageFamily)
 		return err
