@@ -13,14 +13,6 @@
 #endif /* __ctx_is == __ctx_skb */
 
 #ifdef HAVE_ENCAP
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct tunnel_key);
-	__type(value, struct tunnel_value);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-} TUNNEL_MAP __section_maps_btf;
 
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
@@ -130,9 +122,11 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 						encrypt_key, seclabel, dstid,
 						trace);
 
-	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
-	if (!tunnel)
-		return DROP_NO_TUNNEL_ENDPOINT;
+	// FIXME: lookup into ipcache
+	// tunnel = map_lookup_elem(&TUNNEL_MAP, key);
+	// if (!tunnel)
+	// 	return DROP_NO_TUNNEL_ENDPOINT;
+	return DROP_NO_TUNNEL_ENDPOINT;
 
 # ifdef ENABLE_IPSEC
 	if (tunnel->key) {
@@ -153,9 +147,13 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 {
 	struct tunnel_value *tunnel;
 
-	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
-	if (!tunnel)
-		return DROP_NO_TUNNEL_ENDPOINT;
+	(void)(k);
+
+	// FIXME: lookup into ipcache
+	// tunnel = map_lookup_elem(&TUNNEL_MAP, k);
+	// if (!tunnel)
+	// 	return DROP_NO_TUNNEL_ENDPOINT;
+	return DROP_NO_TUNNEL_ENDPOINT;
 
 	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, encrypt_key,
 					      seclabel, 0, trace);
