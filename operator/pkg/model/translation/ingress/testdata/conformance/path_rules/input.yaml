@@ -1,0 +1,117 @@
+http:
+- hostname: exact-path-rules
+  name: ing-path-rules-random-namespace-exact-path-rules
+  port: 80
+  routes:
+  - backends:
+    - name: foo-exact
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      Exact: /foo
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: path-rules
+    namespace: random-namespace
+    version: networking.k8s.io/v1
+- hostname: mixed-path-rules
+  name: ing-path-rules-random-namespace-mixed-path-rules
+  port: 80
+  routes:
+  - backends:
+    - name: foo-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /foo
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: foo-exact
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      Exact: /foo
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: path-rules
+    namespace: random-namespace
+    version: networking.k8s.io/v1
+- hostname: prefix-path-rules
+  name: ing-path-rules-random-namespace-prefix-path-rules
+  port: 80
+  routes:
+  - backends:
+    - name: foo-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /foo
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: aaa-slash-bbb-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /aaa/bbb
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: aaa-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /aaa
+      Regex: ""
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: path-rules
+    namespace: random-namespace
+    version: networking.k8s.io/v1
+- hostname: trailing-slash-path-rules
+  name: ing-path-rules-random-namespace-trailing-slash-path-rules
+  port: 80
+  routes:
+  - backends:
+    - name: aaa-slash-bbb-slash-prefix
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /aaa/bbb/
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: foo-slash-exact
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      Exact: /foo/
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: path-rules
+    namespace: random-namespace
+    version: networking.k8s.io/v1
