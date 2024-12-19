@@ -4944,6 +4944,10 @@ type FederatedAuthenticationRequest struct {
 //
 // If you specify multiple filters, the filters are joined with an AND , and the
 // request returns only results that match all of the specified filters.
+//
+// For more information, see [List and filter using the CLI and API] in the Amazon EC2 User Guide.
+//
+// [List and filter using the CLI and API]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Filtering.html#Filtering_Resources_CLI
 type Filter struct {
 
 	// The name of the filter. Filter names are case-sensitive.
@@ -6909,6 +6913,9 @@ type Instance struct {
 	// The network interfaces for the instance.
 	NetworkInterfaces []InstanceNetworkInterface
 
+	// Contains settings for the network performance options for your instance.
+	NetworkPerformanceOptions *InstanceNetworkPerformanceOptions
+
 	// The service provider that manages the instance.
 	Operator *OperatorResponse
 
@@ -7841,6 +7848,39 @@ type InstanceNetworkInterfaceSpecification struct {
 	// The ID of the subnet associated with the network interface. Applies only if
 	// creating a network interface when launching an instance.
 	SubnetId *string
+
+	noSmithyDocumentSerde
+}
+
+// With network performance options, you can adjust your bandwidth preferences to
+// meet the needs of the workload that runs on your instance.
+type InstanceNetworkPerformanceOptions struct {
+
+	// When you configure network bandwidth weighting, you can boost your baseline
+	// bandwidth for either networking or EBS by up to 25%. The total available
+	// baseline bandwidth for your instance remains the same. The default option uses
+	// the standard bandwidth configuration for your instance type.
+	BandwidthWeighting InstanceBandwidthWeighting
+
+	noSmithyDocumentSerde
+}
+
+// Configure network performance options for your instance that are geared towards
+// performance improvements based on the workload that it runs.
+type InstanceNetworkPerformanceOptionsRequest struct {
+
+	// Specify the bandwidth weighting option to boost the associated type of baseline
+	// bandwidth, as follows:
+	//
+	// default This option uses the standard bandwidth configuration for your instance
+	// type.
+	//
+	// vpc-1 This option boosts your networking baseline bandwidth and reduces your
+	// EBS baseline bandwidth.
+	//
+	// ebs-1 This option boosts your EBS baseline bandwidth and reduces your
+	// networking baseline bandwidth.
+	BandwidthWeighting InstanceBandwidthWeighting
 
 	noSmithyDocumentSerde
 }
@@ -11163,6 +11203,40 @@ type LaunchTemplateLicenseConfigurationRequest struct {
 	noSmithyDocumentSerde
 }
 
+// With network performance options, you can adjust your bandwidth preferences to
+// meet the needs of the workload that runs on your instance at launch.
+type LaunchTemplateNetworkPerformanceOptions struct {
+
+	// When you configure network bandwidth weighting, you can boost baseline
+	// bandwidth for either networking or EBS by up to 25%. The total available
+	// baseline bandwidth for your instance remains the same. The default option uses
+	// the standard bandwidth configuration for your instance type.
+	BandwidthWeighting InstanceBandwidthWeighting
+
+	noSmithyDocumentSerde
+}
+
+// When you configure network performance options in your launch template, your
+// instance is geared for performance improvements based on the workload that it
+// runs as soon as it's available.
+type LaunchTemplateNetworkPerformanceOptionsRequest struct {
+
+	// Specify the bandwidth weighting option to boost the associated type of baseline
+	// bandwidth, as follows:
+	//
+	// default This option uses the standard bandwidth configuration for your instance
+	// type.
+	//
+	// vpc-1 This option boosts your networking baseline bandwidth and reduces your
+	// EBS baseline bandwidth.
+	//
+	// ebs-1 This option boosts your EBS baseline bandwidth and reduces your
+	// networking baseline bandwidth.
+	BandwidthWeighting InstanceBandwidthWeighting
+
+	noSmithyDocumentSerde
+}
+
 // Describes overrides for a launch template.
 type LaunchTemplateOverrides struct {
 
@@ -12754,6 +12828,10 @@ type NetworkCardInfo struct {
 
 // Describes the networking features of the instance type.
 type NetworkInfo struct {
+
+	// A list of valid settings for configurable bandwidth weighting for the instance
+	// type, if supported.
+	BandwidthWeightings []BandwidthWeightingType
 
 	// The index of the default network card, starting at 0.
 	DefaultNetworkCardIndex *int32
@@ -14963,6 +15041,10 @@ type RequestLaunchTemplateData struct {
 	// The network interfaces for the instance.
 	NetworkInterfaces []LaunchTemplateInstanceNetworkInterfaceSpecificationRequest
 
+	// Contains launch template settings to boost network performance for the type of
+	// workload that runs on your instance.
+	NetworkPerformanceOptions *LaunchTemplateNetworkPerformanceOptionsRequest
+
 	// The entity that manages the launch template.
 	Operator *OperatorRequest
 
@@ -15602,6 +15684,10 @@ type ResponseLaunchTemplateData struct {
 
 	// The network interfaces.
 	NetworkInterfaces []LaunchTemplateInstanceNetworkInterfaceSpecification
+
+	// Contains the launch template settings for network performance options for your
+	// instance.
+	NetworkPerformanceOptions *LaunchTemplateNetworkPerformanceOptions
 
 	// The entity that manages the launch template.
 	Operator *OperatorResponse
@@ -16692,6 +16778,10 @@ type SlotStartTimeRangeRequest struct {
 // Describes a snapshot.
 type Snapshot struct {
 
+	// The Availability Zone or Local Zone of the snapshot. For example, us-west-1a
+	// (Availability Zone) or us-west-2-lax-1a (Local Zone).
+	AvailabilityZone *string
+
 	// Only for snapshot copies created with time-based snapshot copy operations.
 	//
 	// The completion duration requested for the time-based snapshot copy operation.
@@ -16850,6 +16940,10 @@ type SnapshotDiskContainer struct {
 
 // Information about a snapshot.
 type SnapshotInfo struct {
+
+	// The Availability Zone or Local Zone of the snapshots. For example, us-west-1a
+	// (Availability Zone) or us-west-2-lax-1a (Local Zone).
+	AvailabilityZone *string
 
 	// Description specified by the CreateSnapshotRequest that has been applied to all
 	// snapshots.

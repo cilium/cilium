@@ -31,7 +31,8 @@ import (
 //     account or delegated administrators for the organization.
 //
 //   - An S3 bucket must be available before generating the report (you can create
-//     a new one or use an existing one), and it must have an appropriate bucket
+//     a new one or use an existing one), it must be in the same Region where the
+//     report generation request is made, and it must have an appropriate bucket
 //     policy. For a sample S3 policy, see Sample Amazon S3 policy under .
 //
 //   - Trusted access must be enabled for the service for which the declarative
@@ -67,7 +68,8 @@ func (c *Client) StartDeclarativePoliciesReport(ctx context.Context, params *Sta
 
 type StartDeclarativePoliciesReportInput struct {
 
-	// The name of the S3 bucket where the report will be saved.
+	// The name of the S3 bucket where the report will be saved. The bucket must be in
+	// the same Region where the report generation request is made.
 	//
 	// This member is required.
 	S3Bucket *string

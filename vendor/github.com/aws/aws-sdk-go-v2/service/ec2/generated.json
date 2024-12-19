@@ -547,6 +547,7 @@
         "api_op_ModifyInstanceMaintenanceOptions.go",
         "api_op_ModifyInstanceMetadataDefaults.go",
         "api_op_ModifyInstanceMetadataOptions.go",
+        "api_op_ModifyInstanceNetworkPerformanceOptions.go",
         "api_op_ModifyInstancePlacement.go",
         "api_op_ModifyIpam.go",
         "api_op_ModifyIpamPool.go",
