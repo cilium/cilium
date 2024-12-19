@@ -230,29 +230,43 @@ func Test_translator_Translate(t *testing.T) {
 		wantErr       bool
 	}{
 		{
-			name:          "conformance/default_backend",
-			args:          args{},
+			name: "conformance/default_backend",
+			args: args{
+				ipv4Enabled: true,
+				ipv6Enabled: true,
+			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name:          "conformance/host_rules",
-			args:          args{},
+			name: "conformance/host_rules",
+			args: args{
+				ipv4Enabled: true,
+				ipv6Enabled: true,
+			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name:          "conformance/host_rules/no_force_https",
-			args:          args{},
+			name: "conformance/host_rules/no_force_https",
+			args: args{
+				ipv4Enabled: true,
+				ipv6Enabled: true,
+			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name:          "conformance/path_rules",
-			args:          args{},
+			name: "conformance/path_rules",
+			args: args{
+				ipv4Enabled: true,
+				ipv6Enabled: true,
+			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
 			name: "conformance/proxy_protocol",
 			args: args{
 				useProxyProtocol: true,
+				ipv4Enabled:      true,
+				ipv6Enabled:      true,
 			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
@@ -262,6 +276,7 @@ func Test_translator_Translate(t *testing.T) {
 				hostNetworkEnabled:           true,
 				hostNetworkNodeLabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}},
 				ipv4Enabled:                  true,
+				ipv6Enabled:                  true,
 			},
 			wantLBSvcType: corev1.ServiceTypeClusterIP,
 		},
@@ -271,6 +286,7 @@ func Test_translator_Translate(t *testing.T) {
 				hostNetworkEnabled:           true,
 				hostNetworkNodeLabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}},
 				ipv4Enabled:                  true,
+				ipv6Enabled:                  true,
 			},
 			wantLBSvcType: corev1.ServiceTypeNodePort,
 		},

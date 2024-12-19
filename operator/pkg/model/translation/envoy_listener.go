@@ -176,7 +176,11 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // newListenerWithDefaults same as newListener but with default mutators applied.
-func newListenerWithDefaults(name string, ciliumSecretNamespace string, includeHTTPFilterchain bool, tlsSecretsToHostnames map[model.TLSSecret][]string, ptBackendsToHostnames map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func newListenerWithDefaults(name string, ciliumSecretNamespace string, includeHTTPFilterchain bool,
+	tlsSecretsToHostnames map[model.TLSSecret][]string,
+	ptBackendsToHostnames map[string][]string,
+	enableIpv4 bool, enableIpv6 bool,
+	mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutatorFunc,
 		WithSocketOption(
 			defaultTCPKeepAlive,
@@ -185,14 +189,15 @@ func newListenerWithDefaults(name string, ciliumSecretNamespace string, includeH
 			defaultTCPKeepAliveMaxFailures),
 	)
 
-	return newListener(name, ciliumSecretNamespace, includeHTTPFilterchain, tlsSecretsToHostnames, ptBackendsToHostnames, fns...)
+	return newListener(name, ciliumSecretNamespace, includeHTTPFilterchain, tlsSecretsToHostnames, ptBackendsToHostnames, enableIpv4, enableIpv6, fns...)
 }
 
-func httpFilterChain(name string) (*envoy_config_listener.FilterChain, error) {
+func httpFilterChain(name string, enableIpv4 bool, enableIpv6 bool) (*envoy_config_listener.FilterChain, error) {
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
 	insecureHttpConnectionManager, err := NewHTTPConnectionManager(
 		insecureHttpConnectionManagerName,
 		insecureHttpConnectionManagerName,
+		WithInternalAddressConfig(enableIpv4, enableIpv6),
 	)
 	if err != nil {
 		return nil, err
@@ -211,7 +216,8 @@ func httpFilterChain(name string) (*envoy_config_listener.FilterChain, error) {
 	}, nil
 }
 
-func httpsFilterChains(name string, ciliumSecretNamespace string, tlsSecretsToHostnames map[model.TLSSecret][]string) ([]*envoy_config_listener.FilterChain, error) {
+func httpsFilterChains(name string, ciliumSecretNamespace string, tlsSecretsToHostnames map[model.TLSSecret][]string,
+	enableIpv4 bool, enableIpv6 bool) ([]*envoy_config_listener.FilterChain, error) {
 	if len(tlsSecretsToHostnames) == 0 {
 		return nil, nil
 	}
@@ -225,7 +231,8 @@ func httpsFilterChains(name string, ciliumSecretNamespace string, tlsSecretsToHo
 		hostNames := tlsSecretsToHostnames[secret]
 
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
-		secureHttpConnectionManager, err := NewHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName)
+		secureHttpConnectionManager, err := NewHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName,
+			WithInternalAddressConfig(enableIpv4, enableIpv6))
 		if err != nil {
 			return nil, err
 		}
@@ -256,18 +263,22 @@ func httpsFilterChains(name string, ciliumSecretNamespace string, tlsSecretsToHo
 // The listener will have both secure and insecure filters.
 //
 // Secret Discovery Service (SDS) is used to fetch the TLS certificates.
-func newListener(name string, ciliumSecretNamespace string, includeHTTPFilterchain bool, tlsSecretsToHostnames map[model.TLSSecret][]string, tlsPassthroughBackendsMap map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func newListener(name string, ciliumSecretNamespace string, includeHTTPFilterchain bool,
+	tlsSecretsToHostnames map[model.TLSSecret][]string,
+	tlsPassthroughBackendsMap map[string][]string,
+	enableIpv4 bool, enableIpv6 bool,
+	mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	filterChains := []*envoy_config_listener.FilterChain{}
 
 	if includeHTTPFilterchain {
-		httpFilterChain, err := httpFilterChain(name)
+		httpFilterChain, err := httpFilterChain(name, enableIpv4, enableIpv6)
 		if err != nil {
 			return ciliumv2.XDSResource{}, err
 		}
 		filterChains = append(filterChains, httpFilterChain)
 	}
 
-	httpsFilterChains, err := httpsFilterChains(name, ciliumSecretNamespace, tlsSecretsToHostnames)
+	httpsFilterChains, err := httpsFilterChains(name, ciliumSecretNamespace, tlsSecretsToHostnames, enableIpv4, enableIpv6)
 	if err != nil {
 		return ciliumv2.XDSResource{}, fmt.Errorf("failed to create https filterchains: %w", err)
 	}
