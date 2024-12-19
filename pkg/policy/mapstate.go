@@ -394,17 +394,6 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	return mapStateEntry{MapStateEntry: types.DenyEntry()}, false
 }
 
-// Lookup finds the policy verdict applicable to the given 'key' using the same precedence logic
-// between L3 and L4-only policies as the bpf datapath  when both match the given 'key'.
-// To be used in testing in place of the bpf datapath when full integration testing is not desired.
-// Returns the closest matching covering policy entry, the labels of the rules that contributed to
-// that verdict, and 'true' if found.
-// 'key' must not have a wildcard identity or port.
-func (ms *mapState) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, bool) {
-	entry, found := ms.lookup(key)
-	return entry.MapStateEntry, entry.derivedFromRules, found
-}
-
 func (ms *mapState) Len() int {
 	return len(ms.entries)
 }
