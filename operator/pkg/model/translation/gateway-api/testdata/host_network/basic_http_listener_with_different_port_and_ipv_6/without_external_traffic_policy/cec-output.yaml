@@ -46,14 +46,6 @@ spec:
               '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
           internalAddressConfig:
             cidrRanges:
-            - addressPrefix: 10.0.0.0
-              prefixLen: 8
-            - addressPrefix: 172.16.0.0
-              prefixLen: 12
-            - addressPrefix: 192.168.0.0
-              prefixLen: 16
-            - addressPrefix: 127.0.0.1
-              prefixLen: 32
             - addressPrefix: ::1
               prefixLen: 128
           rds:
