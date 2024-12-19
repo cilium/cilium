@@ -26,7 +26,15 @@ spec:
     additionalAddresses:
     - address:
         socketAddress:
+          address: '::'
+          portValue: 80
+    - address:
+        socketAddress:
           address: 0.0.0.0
+          portValue: 443
+    - address:
+        socketAddress:
+          address: '::'
           portValue: 443
     address:
       socketAddress:

@@ -224,7 +224,8 @@ func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 		mutatorFuncs = append(mutatorFuncs, WithXffNumTrustedHops(i.xffNumTrustedHops))
 	}
 
-	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLSPassthrough), mutatorFuncs...)
+	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP),
+		tlsPassthroughBackendsToHostnames(m.TLSPassthrough), i.ipv4Enabled, i.ipv6Enabled, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
