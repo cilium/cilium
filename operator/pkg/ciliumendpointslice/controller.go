@@ -4,6 +4,7 @@
 package ciliumendpointslice
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -103,7 +104,11 @@ func registerController(p params) error {
 	if err != nil {
 		return err
 	}
-	if !clientset.IsEnabled() || !p.SharedCfg.EnableCiliumEndpointSlice {
+	if cmp.Or(
+		!clientset.IsEnabled(),
+		!p.SharedCfg.EnableCiliumEndpointSlice,
+		p.SharedCfg.DisableNetworkPolicy,
+	) {
 		return nil
 	}
 
