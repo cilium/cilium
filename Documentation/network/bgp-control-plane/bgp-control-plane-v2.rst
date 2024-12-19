@@ -776,11 +776,13 @@ local autonomous system number used in each peer for the node with a name ``bgpv
 RouterID
 --------
 
-When Cilium runs on an IPv4 single-stack or a dual-stack, the BGP Control Plane can use
-the IPv4 address assigned to the node as the BGP Router ID because the Router ID is 32 bit-long, and
-we can rely on the uniqueness of the IPv4 address to make the Router ID unique which is not the case
-for IPv6. Thus, when running in an IPv6 single-stack, or when the auto assignment of the Router ID
-is not desired, the administrator needs to manually define it.
+There is ``bgpControlPlane.routerIDAllocation.mode`` Helm chart value, which stipulates how the 
+Router ID is allocated. Currently, only ``default`` is supported. In ``default`` mode,
+when Cilium runs on an IPv4 single-stack or a dual-stack, the BGP Control Plane can use the IPv4 address
+assigned to the node as the BGP Router ID because the Router ID is 32 bit-long, and we can rely on the uniqueness
+of the IPv4 address to make the Router ID unique. When running in an IPv6 single-stack, the lower 32 bits
+of MAC address of ``cilium_host`` interface are used as Router ID. If the auto assignment of
+the Router ID is not desired, the administrator needs to manually define it.
 
 In order to configure custom Router ID, you can set ``routerID`` field in an IPv4 address format.
 
