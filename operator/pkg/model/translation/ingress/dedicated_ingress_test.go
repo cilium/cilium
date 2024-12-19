@@ -4,11 +4,17 @@
 package ingress
 
 import (
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -170,7 +176,6 @@ func Test_getEndpointForIngress(t *testing.T) {
 
 func Test_translator_Translate(t *testing.T) {
 	type args struct {
-		m            *model.Model
 		enforceHTTPs bool
 	}
 	tests := []struct {
@@ -180,34 +185,26 @@ func Test_translator_Translate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Conformance/DefaultBackend",
+			name: "conformance/default_backend",
 			args: args{
-				m: &model.Model{
-					HTTP: defaultBackendListeners,
-				},
 				enforceHTTPs: true,
 			},
-			want: defaultBackendListenersCiliumEnvoyConfig,
 		},
 		{
-			name: "Conformance/HostRules",
+			name: "conformance/host_rules",
 			args: args{
-				m: &model.Model{
-					HTTP: hostRulesListeners,
-				},
 				enforceHTTPs: true,
 			},
-			want: hostRulesListenersCiliumEnvoyConfig,
 		},
 		{
-			name: "Conformance/PathRules",
+			name: "conformance/host_rules/no_force_https",
+			args: args{},
+		},
+		{
+			name: "conformance/path_rules",
 			args: args{
-				m: &model.Model{
-					HTTP: pathRulesListeners,
-				},
 				enforceHTTPs: true,
 			},
-			want: pathRulesListenersCiliumEnvoyConfig,
 		},
 	}
 
@@ -218,10 +215,49 @@ func Test_translator_Translate(t *testing.T) {
 				enforceHTTPs:       tt.args.enforceHTTPs,
 				idleTimeoutSeconds: 60,
 			}
+			input := &model.Model{}
+			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
 
-			cec, _, _, err := trans.Translate(tt.args.m)
+			cec, _, _, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-			require.Equal(t, tt.want, cec, "CiliumEnvoyConfig did not match")
+
+			output := &ciliumv2.CiliumEnvoyConfig{}
+			readOutput(t, fmt.Sprintf("testdata/%s/output-cec.yaml", tt.name), output)
+
+			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
+			if len(diffOutput) != 0 {
+				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
+			}
 		})
 	}
+}
+
+func readInput(t *testing.T, file string, obj any) {
+	inputYaml, err := os.ReadFile(file)
+	require.NoError(t, err)
+
+	require.NoError(t, k8syaml.Unmarshal(inputYaml, obj))
+}
+
+func readOutput(t *testing.T, file string, obj any) string {
+	// unmarshal and marshal to prevent formatting diffs
+	outputYaml, err := os.ReadFile(file)
+	require.NoError(t, err)
+
+	if strings.TrimSpace(string(outputYaml)) == "" {
+		return strings.TrimSpace(string(outputYaml))
+	}
+
+	require.NoError(t, k8syaml.Unmarshal(outputYaml, obj))
+
+	yamlText := toYaml(t, obj)
+
+	return strings.TrimSpace(yamlText)
+}
+
+func toYaml(t *testing.T, obj any) string {
+	yamlText, err := k8syaml.Marshal(obj)
+	require.NoError(t, err)
+
+	return strings.TrimSpace(string(yamlText))
 }
