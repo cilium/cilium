@@ -17,12 +17,17 @@ suitable method.
 Quick Start
 -----------
 
-The below commands install Cilium within a `Kind`_-based Kubernetes cluster.
-Invoke them within the root of the Cilium repository. Their output will inform
-you of any missing dependencies (note that "Cilium not being found" refers to
-the Cilium CLI). The make targets are described in later sections.
+The following commands install Cilium in a `Kind`_-based Kubernetes cluster.
+Run them in the root directory of the Cilium repository. The ``make`` targets
+are described in section `Kind-based Setup <#kind-based-setup-preferred>`_.
 
 .. _Kind: https://kind.sigs.k8s.io/
+
+.. note::
+
+   The command output informs you of any missing dependencies. In particular,
+   if you get the message ``'cilium' not found``, it means you are missing the
+   Cilium CLI.
 
 On Linux:
 
