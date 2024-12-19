@@ -127,8 +127,8 @@ func NewController(
 		defaultLoadbalancerMode: opts.DefaultLoadbalancerMode,
 		defaultSecretNamespace:  opts.DefaultSecretNamespace,
 		defaultSecretName:       opts.DefaultSecretName,
-		sharedTranslator:        ingressTranslation.NewSharedIngressTranslator(opts.SharedLBServiceName, opts.CiliumNamespace, opts.SecretsNamespace, opts.EnforcedHTTPS, opts.IdleTimeoutSeconds),
-		dedicatedTranslator:     ingressTranslation.NewDedicatedIngressTranslator(opts.SecretsNamespace, opts.EnforcedHTTPS, opts.IdleTimeoutSeconds),
+		sharedTranslator:        ingressTranslation.NewSharedIngressTranslator(opts.SharedLBServiceName, opts.CiliumNamespace, opts.SecretsNamespace, opts.EnforcedHTTPS, opts.IdleTimeoutSeconds, opts.EnableIPv4, opts.EnableIPv6),
+		dedicatedTranslator:     ingressTranslation.NewDedicatedIngressTranslator(opts.SecretsNamespace, opts.EnforcedHTTPS, opts.IdleTimeoutSeconds, opts.EnableIPv4, opts.EnableIPv6),
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
 		utils.ListerWatcherFromTyped[*slim_networkingv1.IngressList](clientset.Slim().NetworkingV1().Ingresses(corev1.NamespaceAll)),

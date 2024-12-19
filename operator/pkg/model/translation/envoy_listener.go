@@ -85,7 +85,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // NewHTTPListenerWithDefaults same as NewListener but with default mutators applied.
-func NewHTTPListenerWithDefaults(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewHTTPListenerWithDefaults(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, enableIpv4 bool, enableIpv6 bool, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutatorFunc,
 		WithSocketOption(
 			defaultTCPKeepAlive,
@@ -93,17 +93,18 @@ func NewHTTPListenerWithDefaults(name string, ciliumSecretNamespace string, tls 
 			defaultTCPKeepAliveProbeIntervalInSeconds,
 			defaultTCPKeepAliveMaxFailures),
 	)
-	return NewHTTPListener(name, ciliumSecretNamespace, tls, fns...)
+	return NewHTTPListener(name, ciliumSecretNamespace, tls, enableIpv4, enableIpv6, fns...)
 }
 
 // NewHTTPListener creates a new Envoy listener with the given name.
 // The listener will have both secure and insecure filters.
 // Secret Discovery Service (SDS) is used to fetch the TLS certificates.
-func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TLSSecret][]string, enableIpv4 bool, enableIpv6 bool, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
-	insecureHttpConnectionManager, err := NewHTTPConnectionManager(insecureHttpConnectionManagerName, insecureHttpConnectionManagerName)
+	insecureHttpConnectionManager, err := NewHTTPConnectionManager(insecureHttpConnectionManagerName, insecureHttpConnectionManagerName,
+		WithInternalAddressConfig(enableIpv4, enableIpv6))
 	if err != nil {
 		return ciliumv2.XDSResource{}, err
 	}
@@ -122,7 +123,8 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 
 	for secret, hostNames := range tls {
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
-		secureHttpConnectionManager, err := NewHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName)
+		secureHttpConnectionManager, err := NewHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName,
+			WithInternalAddressConfig(enableIpv4, enableIpv6))
 		if err != nil {
 			return ciliumv2.XDSResource{}, err
 		}
