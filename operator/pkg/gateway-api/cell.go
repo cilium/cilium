@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	agentOption "github.com/cilium/cilium/pkg/option"
 )
 
 // Cell manages the Gateway API related controllers.
@@ -86,6 +87,8 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		params.CtrlRuntimeManager,
 		params.Config.GatewayAPISecretsNamespace,
 		operatorOption.Config.ProxyIdleTimeoutSeconds,
+		agentOption.Config.EnableIPv4,
+		agentOption.Config.EnableIPv6,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -144,12 +147,12 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 }
 
 // registerReconcilers registers the Gateway API reconcilers to the controller-runtime library manager.
-func registerReconcilers(mgr ctrlRuntime.Manager, secretsNamespace string, idleTimeoutSeconds int) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, secretsNamespace string, idleTimeoutSeconds int, enabledIpv4 bool, enabledIpv6 bool) error {
 	reconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr),
-		newGatewayReconciler(mgr, secretsNamespace, idleTimeoutSeconds),
+		newGatewayReconciler(mgr, secretsNamespace, idleTimeoutSeconds, enabledIpv4, enabledIpv6),
 		newReferenceGrantReconciler(mgr),
 		newHTTPRouteReconciler(mgr),
 		newGRPCRouteReconciler(mgr),

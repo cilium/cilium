@@ -21,6 +21,16 @@ import (
 
 type HttpConnectionManagerMutator func(*httpConnectionManagerv3.HttpConnectionManager) *httpConnectionManagerv3.HttpConnectionManager
 
+func WithInternalAddressConfig(enableIpv4, enableIpv6 bool) HttpConnectionManagerMutator {
+	return func(hcm *httpConnectionManagerv3.HttpConnectionManager) *httpConnectionManagerv3.HttpConnectionManager {
+		hcm.InternalAddressConfig = &httpConnectionManagerv3.HttpConnectionManager_InternalAddressConfig{
+			UnixSockets: false,
+			CidrRanges:  envoy.GetInternalListenerCIDRs(enableIpv4, enableIpv6),
+		}
+		return hcm
+	}
+}
+
 // NewHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
 // Mutation functions can be passed to modify the filter based on the caller's needs.
 func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnectionManagerMutator) (ciliumv2.XDSResource, error) {
@@ -52,18 +62,6 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 				ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
 					TypedConfig: toAny(&httpRouterv3.Router{}),
 				},
-			},
-		},
-		InternalAddressConfig: &httpConnectionManagerv3.HttpConnectionManager_InternalAddressConfig{
-			UnixSockets: false,
-			// only RFC1918 IP addresses will be considered internal
-			// https://datatracker.ietf.org/doc/html/rfc1918
-			CidrRanges: []*envoy_config_core.CidrRange{
-				{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
-				{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
-				{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
-				{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
-				{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
 			},
 		},
 		UpgradeConfigs: []*httpConnectionManagerv3.HttpConnectionManager_UpgradeConfig{

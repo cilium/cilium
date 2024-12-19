@@ -22,7 +22,7 @@ import (
 
 func TestNewListener(t *testing.T) {
 	t.Run("Empty", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", false, nil, nil)
+		res, err := newListener("dummy-name", "dummy-secret-namespace", false, nil, nil, true, true)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -35,7 +35,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("without TLS", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil)
+		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, true, true)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -48,7 +48,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("with default XffNumTrustedHops", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil)
+		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, true, true)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -65,7 +65,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("without TLS with Proxy Protocol", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, WithProxyProtocol())
+		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, true, true, WithProxyProtocol())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -87,11 +87,11 @@ func TestNewListener(t *testing.T) {
 		res1, err1 := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
-		}, nil)
+		}, nil, true, true)
 		res2, err2 := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
-		}, nil)
+		}, nil, true, true)
 
 		require.NoError(t, err1)
 		require.NoError(t, err2)
@@ -106,7 +106,7 @@ func TestNewListener(t *testing.T) {
 		res, err := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
-		}, nil)
+		}, nil, true, true)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -163,6 +163,7 @@ func TestNewListener(t *testing.T) {
 					"example.com",
 				},
 			},
+			true, true,
 		)
 		require.Nil(t, err)
 
@@ -191,6 +192,7 @@ func TestNewListener(t *testing.T) {
 					"foo.bar",
 				},
 			},
+			true, true,
 		)
 		res2, err2 := newListener("dummy-name",
 			"",
@@ -205,6 +207,7 @@ func TestNewListener(t *testing.T) {
 					"example.com",
 				},
 			},
+			true, true,
 		)
 		require.Nil(t, err1)
 		require.Nil(t, err2)
@@ -216,7 +219,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("TLS passthrough with Proxy Protocol", func(t *testing.T) {
-		res, err := newListener("dummy-name", "", false, nil, map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, WithProxyProtocol())
+		res, err := newListener("dummy-name", "", false, nil, map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, true, true, WithProxyProtocol())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -251,7 +254,7 @@ func TestNewListener(t *testing.T) {
 					"example.org",
 					"example.com",
 				},
-			},
+			}, true, true,
 		)
 		require.Nil(t, err)
 

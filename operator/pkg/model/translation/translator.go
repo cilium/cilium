@@ -47,10 +47,14 @@ type defaultTranslator struct {
 	hostNameSuffixMatch bool
 
 	idleTimeoutSeconds int
+	ipv4Enabled        bool
+	ipv6Enabled        bool
 }
 
 // NewTranslator returns a new translator
-func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) Translator {
+func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, useProxyProtocol bool,
+	hostNameSuffixMatch bool, idleTimeoutSeconds int,
+	ipv4Enabled bool, ipv6Enabled bool) Translator {
 	return &defaultTranslator{
 		name:                name,
 		namespace:           namespace,
@@ -59,6 +63,8 @@ func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, 
 		useProxyProtocol:    useProxyProtocol,
 		hostNameSuffixMatch: hostNameSuffixMatch,
 		idleTimeoutSeconds:  idleTimeoutSeconds,
+		ipv4Enabled:         ipv4Enabled,
+		ipv6Enabled:         ipv6Enabled,
 	}
 }
 
@@ -166,7 +172,8 @@ func (i *defaultTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
 	}
 
-	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLS), mutatorFuncs...)
+	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP),
+		tlsPassthroughBackendsToHostnames(m.TLS), i.ipv4Enabled, i.ipv6Enabled, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 

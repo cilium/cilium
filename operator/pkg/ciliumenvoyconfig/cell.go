@@ -12,6 +12,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	agentOption "github.com/cilium/cilium/pkg/option"
 )
 
 // Cell manages the CiliumEnvoyConfig related controllers.
@@ -70,6 +71,8 @@ func registerL7LoadBalancingController(params l7LoadbalancerParams) error {
 		params.Config.LoadBalancerL7Ports,
 		10,
 		operatorOption.Config.ProxyIdleTimeoutSeconds,
+		agentOption.Config.EnableIPv4,
+		agentOption.Config.EnableIPv6,
 	)
 
 	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {

@@ -39,14 +39,18 @@ type gatewayReconciler struct {
 	Scheme             *runtime.Scheme
 	SecretsNamespace   string
 	IdleTimeoutSeconds int
+	EnableIPv4         bool
+	EnableIPv6         bool
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, secretsNamespace string, idleTimeoutSeconds int) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, secretsNamespace string, idleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool) *gatewayReconciler {
 	return &gatewayReconciler{
 		Client:             mgr.GetClient(),
 		Scheme:             mgr.GetScheme(),
 		SecretsNamespace:   secretsNamespace,
 		IdleTimeoutSeconds: idleTimeoutSeconds,
+		EnableIPv4:         enableIpv4,
+		EnableIPv6:         enableIpv6,
 	}
 }
 

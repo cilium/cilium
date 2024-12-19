@@ -62,13 +62,15 @@ func newIngressReconciler(
 	defaultSecretNamespace string,
 	defaultSecretName string,
 	proxyIdleTimeoutSeconds int,
+	enableIpv4 bool,
+	enableIpv6 bool,
 ) *ingressReconciler {
 	return &ingressReconciler{
 		logger: logger,
 		client: c,
 
-		sharedTranslator:    ingressTranslation.NewSharedIngressTranslator(sharedLBServiceName, ciliumNamespace, secretsNamespace, enforceHTTPS, useProxyProtocol, proxyIdleTimeoutSeconds),
-		dedicatedTranslator: ingressTranslation.NewDedicatedIngressTranslator(secretsNamespace, enforceHTTPS, useProxyProtocol, proxyIdleTimeoutSeconds),
+		sharedTranslator:    ingressTranslation.NewSharedIngressTranslator(sharedLBServiceName, ciliumNamespace, secretsNamespace, enforceHTTPS, useProxyProtocol, proxyIdleTimeoutSeconds, enableIpv4, enableIpv6),
+		dedicatedTranslator: ingressTranslation.NewDedicatedIngressTranslator(secretsNamespace, enforceHTTPS, useProxyProtocol, proxyIdleTimeoutSeconds, enableIpv4, enableIpv6),
 
 		maxRetries:              10,
 		enforcedHTTPS:           enforceHTTPS,
