@@ -351,6 +351,9 @@ type DescribeInstancesInput struct {
 	//
 	//   - network-interface.vpc-id - The ID of the VPC for the network interface.
 	//
+	//   - network-performance-options.bandwidth-weighting - Where the performance
+	//   boost is applied, if applicable. Valid values: default , vpc-1 , ebs-1 .
+	//
 	//   - operator.managed - A Boolean that indicates whether this is a managed
 	//   instance.
 	//

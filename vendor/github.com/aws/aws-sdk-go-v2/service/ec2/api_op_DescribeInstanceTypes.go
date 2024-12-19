@@ -110,6 +110,9 @@ type DescribeInstanceTypesInput struct {
 	//
 	//   - memory-info.size-in-mib - The memory size.
 	//
+	//   - network-info.bandwidth-weightings - For instances that support bandwidth
+	//   weighting to boost performance ( default , vpc-1 , ebs-1 ).
+	//
 	//   - network-info.efa-info.maximum-efa-interfaces - The maximum number of Elastic
 	//   Fabric Adapters (EFAs) per instance.
 	//

@@ -664,6 +664,27 @@ func (AvailabilityZoneState) Values() []AvailabilityZoneState {
 	}
 }
 
+type BandwidthWeightingType string
+
+// Enum values for BandwidthWeightingType
+const (
+	BandwidthWeightingTypeDefault BandwidthWeightingType = "default"
+	BandwidthWeightingTypeVpc1    BandwidthWeightingType = "vpc-1"
+	BandwidthWeightingTypeEbs1    BandwidthWeightingType = "ebs-1"
+)
+
+// Values returns all known values for BandwidthWeightingType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (BandwidthWeightingType) Values() []BandwidthWeightingType {
+	return []BandwidthWeightingType{
+		"default",
+		"vpc-1",
+		"ebs-1",
+	}
+}
+
 type BareMetal string
 
 // Enum values for BareMetal
@@ -3007,6 +3028,27 @@ func (InstanceAutoRecoveryState) Values() []InstanceAutoRecoveryState {
 	return []InstanceAutoRecoveryState{
 		"disabled",
 		"default",
+	}
+}
+
+type InstanceBandwidthWeighting string
+
+// Enum values for InstanceBandwidthWeighting
+const (
+	InstanceBandwidthWeightingDefault InstanceBandwidthWeighting = "default"
+	InstanceBandwidthWeightingVpc1    InstanceBandwidthWeighting = "vpc-1"
+	InstanceBandwidthWeightingEbs1    InstanceBandwidthWeighting = "ebs-1"
+)
+
+// Values returns all known values for InstanceBandwidthWeighting. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (InstanceBandwidthWeighting) Values() []InstanceBandwidthWeighting {
+	return []InstanceBandwidthWeighting{
+		"default",
+		"vpc-1",
+		"ebs-1",
 	}
 }
 
@@ -7918,6 +7960,25 @@ func (SnapshotBlockPublicAccessState) Values() []SnapshotBlockPublicAccessState 
 		"block-all-sharing",
 		"block-new-sharing",
 		"unblocked",
+	}
+}
+
+type SnapshotLocationEnum string
+
+// Enum values for SnapshotLocationEnum
+const (
+	SnapshotLocationEnumRegional SnapshotLocationEnum = "regional"
+	SnapshotLocationEnumLocal    SnapshotLocationEnum = "local"
+)
+
+// Values returns all known values for SnapshotLocationEnum. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (SnapshotLocationEnum) Values() []SnapshotLocationEnum {
+	return []SnapshotLocationEnum{
+		"regional",
+		"local",
 	}
 }
 

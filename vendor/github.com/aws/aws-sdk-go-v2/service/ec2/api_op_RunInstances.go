@@ -309,6 +309,9 @@ type RunInstancesInput struct {
 	// The network interfaces to associate with the instance.
 	NetworkInterfaces []types.InstanceNetworkInterfaceSpecification
 
+	// Contains settings for the network performance options for the instance.
+	NetworkPerformanceOptions *types.InstanceNetworkPerformanceOptionsRequest
+
 	// Reserved for internal use.
 	Operator *types.OperatorRequest
 

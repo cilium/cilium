@@ -6,56 +6,67 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes a security group.
-//
-// If you attempt to delete a security group that is associated with an instance
-// or network interface, is referenced by another security group in the same VPC,
-// or has a VPC association, the operation fails with DependencyViolation .
-func (c *Client) DeleteSecurityGroup(ctx context.Context, params *DeleteSecurityGroupInput, optFns ...func(*Options)) (*DeleteSecurityGroupOutput, error) {
+// Change the configuration of the network performance options for an existing
+// instance.
+func (c *Client) ModifyInstanceNetworkPerformanceOptions(ctx context.Context, params *ModifyInstanceNetworkPerformanceOptionsInput, optFns ...func(*Options)) (*ModifyInstanceNetworkPerformanceOptionsOutput, error) {
 	if params == nil {
-		params = &DeleteSecurityGroupInput{}
+		params = &ModifyInstanceNetworkPerformanceOptionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteSecurityGroup", params, optFns, c.addOperationDeleteSecurityGroupMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceNetworkPerformanceOptions", params, optFns, c.addOperationModifyInstanceNetworkPerformanceOptionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DeleteSecurityGroupOutput)
+	out := result.(*ModifyInstanceNetworkPerformanceOptionsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DeleteSecurityGroupInput struct {
+type ModifyInstanceNetworkPerformanceOptionsInput struct {
 
-	// Checks whether you have the required permissions for the action, without
+	// Specify the bandwidth weighting option to boost the associated type of baseline
+	// bandwidth, as follows:
+	//
+	// default This option uses the standard bandwidth configuration for your instance
+	// type.
+	//
+	// vpc-1 This option boosts your networking baseline bandwidth and reduces your
+	// EBS baseline bandwidth.
+	//
+	// ebs-1 This option boosts your EBS baseline bandwidth and reduces your
+	// networking baseline bandwidth.
+	//
+	// This member is required.
+	BandwidthWeighting types.InstanceBandwidthWeighting
+
+	// The ID of the instance to update.
+	//
+	// This member is required.
+	InstanceId *string
+
+	// Checks whether you have the required permissions for the operation, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The ID of the security group.
-	GroupId *string
-
-	// [Default VPC] The name of the security group. You can specify either the
-	// security group name or the security group ID. For security groups in a
-	// nondefault VPC, you must specify the security group ID.
-	GroupName *string
-
 	noSmithyDocumentSerde
 }
 
-type DeleteSecurityGroupOutput struct {
+type ModifyInstanceNetworkPerformanceOptionsOutput struct {
 
-	// The ID of the deleted security group.
-	GroupId *string
+	// Contains the updated configuration for bandwidth weighting on the specified
+	// instance.
+	BandwidthWeighting types.InstanceBandwidthWeighting
 
-	// Returns true if the request succeeds; otherwise, returns an error.
-	Return *bool
+	// The instance ID that was updated.
+	InstanceId *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -63,19 +74,19 @@ type DeleteSecurityGroupOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDeleteSecurityGroupMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyInstanceNetworkPerformanceOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteSecurityGroup{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceNetworkPerformanceOptions{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDeleteSecurityGroup{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyInstanceNetworkPerformanceOptions{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteSecurityGroup"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyInstanceNetworkPerformanceOptions"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -127,7 +138,10 @@ func (c *Client) addOperationDeleteSecurityGroupMiddlewares(stack *middleware.St
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteSecurityGroup(options.Region), middleware.Before); err != nil {
+	if err = addOpModifyInstanceNetworkPerformanceOptionsValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyInstanceNetworkPerformanceOptions(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -160,10 +174,10 @@ func (c *Client) addOperationDeleteSecurityGroupMiddlewares(stack *middleware.St
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDeleteSecurityGroup(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opModifyInstanceNetworkPerformanceOptions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DeleteSecurityGroup",
+		OperationName: "ModifyInstanceNetworkPerformanceOptions",
 	}
 }
