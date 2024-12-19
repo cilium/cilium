@@ -1013,6 +1013,13 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		}
 	}
 
+	// Some maps don't support value sizes, but annotating their map definitions
+	// with __type macros can still be useful, especially to let bpf2go generate
+	// type definitions for them.
+	if value != nil && !mapType.canHaveValueSize() {
+		valueSize = 0
+	}
+
 	return &MapSpec{
 		Name:       SanitizeName(name, -1),
 		Type:       MapType(mapType),
