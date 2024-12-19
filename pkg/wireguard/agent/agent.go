@@ -535,14 +535,20 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		Peers:        []wgtypes.PeerConfig{peer},
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.Endpoint: p.endpoint,
-		logfields.PubKey:   p.pubKey,
-		logfields.IPAddrs:  peer.AllowedIPs,
-	}).Debug("Updating peer config")
+	// ConfigureDevice is called to add new allowedIPs:
+	// 1. during the first call to UpdatePeer;
+	// 2. when there are changes to the node's public key or IPs;
+	// 3. on IPcache upsertions.
+	if len(addedIPs) > 0 {
+		log.WithFields(logrus.Fields{
+			logfields.Endpoint: p.endpoint,
+			logfields.PubKey:   p.pubKey,
+			logfields.IPAddrs:  peer.AllowedIPs,
+		}).Debug("Updating peer config")
 
-	if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
-		return fmt.Errorf("while adding IPs to peer: %w", err)
+		if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
+			return fmt.Errorf("while adding IPs to peer: %w", err)
+		}
 	}
 
 	// WireGuard's netlink API does not support direct removal of allowed IPs
@@ -568,8 +574,9 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		}
 
 		log.WithFields(logrus.Fields{
-			logfields.PubKey:  wgDummyPeerKey,
-			logfields.IPAddrs: removedIPs,
+			logfields.Endpoint: p.endpoint,
+			logfields.PubKey:   wgDummyPeerKey,
+			logfields.IPAddrs:  removedIPs,
 		}).Debug("Moving removed IPs to dummy peer")
 
 		if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
