@@ -1793,11 +1793,6 @@ type DaemonConfig struct {
 	// is marked as healthy.
 	HealthCheckICMPFailureThreshold int
 
-	// KVstoreKeepAliveInterval is the interval in which the lease is being
-	// renewed. This must be set to a value lesser than the LeaseTTL ideally
-	// by a factor of 3.
-	KVstoreKeepAliveInterval time.Duration
-
 	// KVstoreLeaseTTL is the time-to-live for kvstore lease.
 	KVstoreLeaseTTL time.Duration
 
@@ -2911,7 +2906,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KeepConfig = vp.GetBool(KeepConfig)
 	c.KVStore = vp.GetString(KVStore)
 	c.KVstoreLeaseTTL = vp.GetDuration(KVstoreLeaseTTL)
-	c.KVstoreKeepAliveInterval = c.KVstoreLeaseTTL / defaults.KVstoreKeepAliveIntervalFactor
 	c.KVstorePeriodicSync = vp.GetDuration(KVstorePeriodicSync)
 	c.KVstoreConnectivityTimeout = vp.GetDuration(KVstoreConnectivityTimeout)
 	c.KVstorePodNetworkSupport = vp.GetBool(KVstorePodNetworkSupport)
