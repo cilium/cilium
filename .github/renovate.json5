@@ -329,6 +329,7 @@
       ],
       "allowedVersions": "24.04",
       "matchBaseBranches": [
+        "v1.17",
         "main",
       ],
     },
@@ -338,7 +339,6 @@
       ],
       "allowedVersions": "22.04",
       "matchBaseBranches": [
-        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -605,7 +605,6 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.30\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
-        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -618,6 +617,7 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.31\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
+        "v1.17",
         "main",
       ]
     },
