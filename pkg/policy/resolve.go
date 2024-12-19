@@ -103,6 +103,18 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 	return 0, fmt.Errorf("Proxy port for redirect %q not found", proxyID)
 }
 
+// Lookup finds the policy verdict applicable to the given 'key' using the same precedence logic
+// between L3 and L4-only policies like the bpf datapath when both match the given 'key'.
+// To be used in testing in place of the bpf datapath when full integration testing is not desired.
+// Returns the closest matching covering policy entry, the labels of the rules that contributed to
+// that verdict, and 'true' if found.
+// Returns a deny entry when a match is not found, mirroring the datapath default deny behavior.
+// 'key' must not have a wildcard identity or port.
+func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, bool) {
+	entry, found := p.policyMapState.lookup(key)
+	return entry.MapStateEntry, entry.derivedFromRules, found
+}
+
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
