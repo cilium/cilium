@@ -1,0 +1,128 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - Key: version
+      Match:
+        Exact: one
+        Prefix: ""
+        Regex: ""
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - Key: version
+      Match:
+        Exact: two
+        Prefix: ""
+        Regex: ""
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - Key: version
+      Match:
+        Exact: two
+        Prefix: ""
+        Regex: ""
+    - Key: color
+      Match:
+        Exact: orange
+        Prefix: ""
+        Regex: ""
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - Key: color
+      Match:
+        Exact: blue
+        Prefix: ""
+        Regex: ""
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - Key: color
+      Match:
+        Exact: green
+        Prefix: ""
+        Regex: ""
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - Key: color
+      Match:
+        Exact: red
+        Prefix: ""
+        Regex: ""
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    headers_match:
+    - Key: color
+      Match:
+        Exact: yellow
+        Prefix: ""
+        Regex: ""
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1
