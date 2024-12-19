@@ -6970,6 +6970,26 @@ func (m *validateOpModifyInstanceMetadataOptions) HandleInitialize(ctx context.C
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyInstanceNetworkPerformanceOptions struct {
+}
+
+func (*validateOpModifyInstanceNetworkPerformanceOptions) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyInstanceNetworkPerformanceOptions) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyInstanceNetworkPerformanceOptionsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyInstanceNetworkPerformanceOptionsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyInstancePlacement struct {
 }
 
@@ -10620,6 +10640,10 @@ func addOpModifyInstanceMaintenanceOptionsValidationMiddleware(stack *middleware
 
 func addOpModifyInstanceMetadataOptionsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyInstanceMetadataOptions{}, middleware.After)
+}
+
+func addOpModifyInstanceNetworkPerformanceOptionsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyInstanceNetworkPerformanceOptions{}, middleware.After)
 }
 
 func addOpModifyInstancePlacementValidationMiddleware(stack *middleware.Stack) error {
@@ -17774,6 +17798,24 @@ func validateOpModifyInstanceMetadataOptionsInput(v *ModifyInstanceMetadataOptio
 	invalidParams := smithy.InvalidParamsError{Context: "ModifyInstanceMetadataOptionsInput"}
 	if v.InstanceId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpModifyInstanceNetworkPerformanceOptionsInput(v *ModifyInstanceNetworkPerformanceOptionsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyInstanceNetworkPerformanceOptionsInput"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if len(v.BandwidthWeighting) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("BandwidthWeighting"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

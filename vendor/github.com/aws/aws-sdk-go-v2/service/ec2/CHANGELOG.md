@@ -1,3 +1,19 @@
+# v1.198.1 (2024-12-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.198.0 (2024-12-16)
+
+* **Feature**: This release adds support for EBS local snapshots in AWS Dedicated Local Zones, which allows you to store snapshots of EBS volumes locally in Dedicated Local Zones.
+
+# v1.197.0 (2024-12-13)
+
+* **Feature**: This release adds GroupId to the response for DeleteSecurityGroup.
+
+# v1.196.0 (2024-12-09)
+
+* **Feature**: This release includes a new API for modifying instance network-performance-options after launch.
+
 # v1.195.0 (2024-12-02)
 
 * **Feature**: Adds support for declarative policies that allow you to enforce desired configuration across an AWS organization through configuring account attributes. Adds support for Allowed AMIs that allows you to limit the use of AMIs in AWS accounts. Adds support for connectivity over non-HTTP protocols.
