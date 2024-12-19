@@ -127,6 +127,21 @@ func (mt MapType) canStoreProgram() bool {
 	return mt == ProgramArray
 }
 
+// canHaveValueSize returns true if the map type supports setting a value size.
+func (mt MapType) canHaveValueSize() bool {
+	switch mt {
+	case RingBuf, Arena:
+		return false
+
+	// Special-case perf events since they require a value size of either 0 or 4
+	// for historical reasons. Let the library fix this up later.
+	case PerfEventArray:
+		return false
+	}
+
+	return true
+}
+
 // ProgramType of the eBPF program
 type ProgramType uint32
 
