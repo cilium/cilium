@@ -149,13 +149,13 @@ func (l *TLSListener) GetPort() uint32 {
 type Service struct {
 	// Type is the type of service that is being used for Listener (e.g. Load Balancer or Node port)
 	// Defaults to Load Balancer type
-	Type string `json:"serviceType,omitempty"`
+	Type string `json:"type,omitempty"`
 	// InsecureNodePort is the back-end port of the service that is being used for HTTP Listener
 	// Applicable only if Type is Node NodePort
-	InsecureNodePort *uint32 `json:"insecureNodePort,omitempty"`
+	InsecureNodePort *uint32 `json:"insecure_node_port,omitempty"`
 	// SecureNodePort is the back-end port of the service that is being used for HTTPS Listener
 	// Applicable only if Type is Node NodePort
-	SecureNodePort *uint32 `json:"secureNodePort,omitempty"`
+	SecureNodePort *uint32 `json:"secure_node_port,omitempty"`
 }
 
 // FullyQualifiedResource stores the full details of a Kubernetes resource, including
@@ -167,7 +167,7 @@ type FullyQualifiedResource struct {
 	Group     string `json:"group,omitempty"`
 	Version   string `json:"version,omitempty"`
 	Kind      string `json:"kind,omitempty"`
-	UID       string `json:"uuid,omitempty"`
+	UID       string `json:"uid,omitempty"`
 }
 
 // TLSSecret holds a reference to a secret containing a TLS keypair.
@@ -179,13 +179,13 @@ type TLSSecret struct {
 // DirectResponse holds configuration for a direct response.
 type DirectResponse struct {
 	StatusCode int    `json:"status_code,omitempty"`
-	Body       string `json:"payload,omitempty"`
+	Body       string `json:"body,omitempty"`
 }
 
 // Header is a key-value pair.
 type Header struct {
-	Name  string
-	Value string
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value,omitempty"`
 }
 
 // HTTPHeaderFilter holds configuration for a request header filter.
@@ -225,7 +225,7 @@ type HTTPRequestRedirectFilter struct {
 	//
 	// Note that values may be added to this enum, implementations
 	// must ensure that unknown values will not cause a crash.
-	StatusCode *int `json:"statusCode,omitempty"`
+	StatusCode *int `json:"status_code,omitempty"`
 }
 
 // HTTPURLRewriteFilter defines a filter that modifies a request during
@@ -234,7 +234,7 @@ type HTTPRequestRedirectFilter struct {
 type HTTPURLRewriteFilter struct {
 	// Hostname is the value to be used to replace the Host header value during
 	// forwarding.
-	HostName *string `json:"hostname,omitempty"`
+	HostName *string `json:"host_name,omitempty"`
 
 	// Path is the values to be used to replace the path
 	Path *StringMatch `json:"path,omitempty"`
@@ -275,14 +275,14 @@ type HTTPRoute struct {
 
 	// RequestRedirect defines a schema for a filter that responds to the
 	// request with an HTTP redirection.
-	RequestRedirect *HTTPRequestRedirectFilter `json:"requestRedirect,omitempty"`
+	RequestRedirect *HTTPRequestRedirectFilter `json:"request_redirect,omitempty"`
 
 	// Rewrite defines a schema for a filter that modifies the URL of the request.
 	Rewrite *HTTPURLRewriteFilter `json:"rewrite,omitempty"`
 
 	// RequestMirrors defines a schema for a filter that mirrors HTTP requests
 	// Unlike other filter, multiple request mirrors are supported
-	RequestMirrors []*HTTPRequestMirror `json:"request_mirror,omitempty"`
+	RequestMirrors []*HTTPRequestMirror `json:"request_mirrors,omitempty"`
 
 	// IsGRPC is an indicator if this route is related to GRPC
 	IsGRPC bool `json:"is_grpc,omitempty"`
@@ -432,7 +432,7 @@ func (be *BackendPort) GetPort() string {
 // Timeout holds the timeout configuration for a route.
 type Timeout struct {
 	// Request is the timeout for the request.
-	Request *time.Duration
+	Request *time.Duration `json:"request,omitempty"`
 	// Backend is the timeout for the backend.
-	Backend *time.Duration
+	Backend *time.Duration `json:"backend,omitempty"`
 }
