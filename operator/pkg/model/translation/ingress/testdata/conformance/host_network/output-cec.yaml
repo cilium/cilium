@@ -15,6 +15,11 @@ spec:
       a: b
   resources:
   - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    additionalAddresses:
+    - address:
+        socketAddress:
+          address: '::'
+          portValue: 55555
     address:
       socketAddress:
         address: 0.0.0.0
