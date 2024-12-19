@@ -348,6 +348,7 @@ jobs:
         shell: bash
         run: |
           cilium upgrade \
+            --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
@@ -392,6 +393,7 @@ jobs:
         shell: bash
         run: |
           cilium upgrade \
+            --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
