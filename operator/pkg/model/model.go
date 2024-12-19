@@ -13,8 +13,8 @@ import (
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
 type Model struct {
-	HTTP           []HTTPListener
-	TLSPassthrough []TLSPassthroughListener
+	HTTP           []HTTPListener           `json:"http,omitempty"`
+	TLSPassthrough []TLSPassthroughListener `json:"tls_passthrough,omitempty"`
 }
 
 func (m *Model) GetListeners() []Listener {
@@ -47,35 +47,35 @@ type Listener interface {
 //   - Port
 type HTTPListener struct {
 	// Name of the HTTPListener
-	Name string
+	Name string `json:"name,omitempty"`
 	// Sources is a slice of fully qualified resources this HTTPListener is sourced
 	// from.
-	Sources []FullyQualifiedResource
+	Sources []FullyQualifiedResource `json:"sources,omitempty"`
 	// IPAddress that the listener should listen on.
 	// The string must be parseable as an IP address.
-	Address string
+	Address string `json:"address,omitempty"`
 	// Port on which the service can be expected to be accessed by clients.
-	Port uint32
+	Port uint32 `json:"port,omitempty"`
 	// Hostname that the listener should match.
 	// Wildcards are supported in prefix or suffix forms, or the special wildcard `*`.
 	// An empty list means that the Listener should match all hostnames.
-	Hostname string
+	Hostname string `json:"hostname,omitempty"`
 	// TLS Certificate information. If omitted, then the listener is a cleartext HTTP listener.
-	TLS []TLSSecret
+	TLS []TLSSecret `json:"tls,omitempty"`
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
-	Routes []HTTPRoute
+	Routes []HTTPRoute `json:"routes,omitempty"`
 	// Service configuration
-	Service *Service
+	Service *Service `json:"service,omitempty"`
 	// Infrastructure configuration
-	Infrastructure *Infrastructure
+	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
 	// ForceHTTPtoHTTPSRedirect enforces that, for HTTPListeners that have a
 	// TLS field set and create a HTTPS listener, an equivalent plaintext HTTP
 	// listener will be created that redirects requests from HTTP to HTTPS.
 	//
 	// This plaintext listener will override any other plaintext HTTP config in
 	// the final rendered Envoy Config.
-	ForceHTTPtoHTTPSRedirect bool
+	ForceHTTPtoHTTPSRedirect bool `json:"force_http_to_https_redirect,omitempty"`
 }
 
 func (l HTTPListener) GetSources() []FullyQualifiedResource {
@@ -108,26 +108,26 @@ func (l HTTPListener) GetLabels() map[string]string {
 //   - Port
 type TLSPassthroughListener struct {
 	// Name of the TLSListener
-	Name string
+	Name string `json:"name,omitempty"`
 	// Sources is a slice of fully qualified resources this TLSListener is sourced
 	// from.
-	Sources []FullyQualifiedResource
+	Sources []FullyQualifiedResource `json:"sources,omitempty"`
 	// IPAddress that the listener should listen on.
 	// The string must be parseable as an IP address.
-	Address string
+	Address string `json:"address,omitempty"`
 	// Port on which the service can be expected to be accessed by clients.
-	Port uint32
+	Port uint32 `json:"port,omitempty"`
 	// Hostname that the listener should match.
 	// Wildcards are supported in prefix or suffix forms, or the special wildcard `*`.
 	// An empty list means that the Listener should match all hostnames.
-	Hostname string
+	Hostname string `json:"hostname,omitempty"`
 	// Routes associated with traffic to the service.
 	// An empty list means that traffic will not be routed.
-	Routes []TLSPassthroughRoute
+	Routes []TLSPassthroughRoute `json:"routes,omitempty"`
 	// Service configuration
-	Service *Service
+	Service *Service `json:"service,omitempty"`
 	// Infrastructure configuration
-	Infrastructure *Infrastructure
+	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
 }
 
 func (l TLSPassthroughListener) GetAnnotations() map[string]string {
@@ -156,83 +156,83 @@ func (l TLSPassthroughListener) GetPort() uint32 {
 type Service struct {
 	// Type is the type of service that is being used for Listener (e.g. Load Balancer or Node port)
 	// Defaults to Load Balancer type
-	Type string
+	Type string `json:"type,omitempty"`
 	// InsecureNodePort is the back-end port of the service that is being used for HTTP Listener
 	// Applicable only if Type is Node NodePort
-	InsecureNodePort *uint32
+	InsecureNodePort *uint32 `json:"insecure_node_port,omitempty"`
 	// SecureNodePort is the back-end port of the service that is being used for HTTPS Listener
 	// Applicable only if Type is Node NodePort
-	SecureNodePort *uint32
+	SecureNodePort *uint32 `json:"secure_node_port,omitempty"`
 }
 
 // FullyQualifiedResource stores the full details of a Kubernetes resource, including
 // the Group, Version, and Kind.
 // Namespace must be set to the empty string for cluster-scoped resources.
 type FullyQualifiedResource struct {
-	Name      string
-	Namespace string
-	Group     string
-	Version   string
-	Kind      string
-	UID       string
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Group     string `json:"group,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Kind      string `json:"kind,omitempty"`
+	UID       string `json:"uid,omitempty"`
 }
 
 // TLSSecret holds a reference to a secret containing a TLS keypair.
 type TLSSecret struct {
-	Name      string
-	Namespace string
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // DirectResponse holds configuration for a direct response.
 type DirectResponse struct {
-	StatusCode int
-	Body       string
+	StatusCode int    `json:"status_code,omitempty"`
+	Body       string `json:"body,omitempty"`
 }
 
 // Header is a key-value pair.
 type Header struct {
-	Name  string
-	Value string
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value,omitempty"`
 }
 
 // HTTPHeaderFilter holds configuration for a request header filter.
 type HTTPHeaderFilter struct {
 	// HeadersToAdd is a list of headers to add to the request.
 	// Existing headers with the same name will be appended to.
-	HeadersToAdd []Header
+	HeadersToAdd []Header `json:"headers_to_add,omitempty"`
 	// HeadersToSet is a list of headers to set in the request.
 	// Existing headers will be overwritten.
-	HeadersToSet []Header
+	HeadersToSet []Header `json:"headers_to_set,omitempty"`
 	// HeadersToRemove is a list of headers to remove from the request.
-	HeadersToRemove []string
+	HeadersToRemove []string `json:"headers_to_remove,omitempty"`
 }
 
 // HTTPRequestRedirectFilter holds configuration for a request redirect.
 type HTTPRequestRedirectFilter struct {
 	// Scheme is the scheme to be used in the value of the `Location` header in
 	// the response. When empty, the scheme of the request is used.
-	Scheme *string
+	Scheme *string `json:"scheme,omitempty"`
 
 	// Hostname is the hostname to be used in the value of the `Location`
 	// header in the response.
 	// When empty, the hostname of the request is used.
-	Hostname *string
+	Hostname *string `json:"hostname,omitempty"`
 
 	// Path defines parameters used to modify the path of the incoming request.
 	// The modified path is then used to construct the `Location` header. When
 	// empty, the request path is used as-is.
-	Path *StringMatch
+	Path *StringMatch `json:"path,omitempty"`
 
 	// Port is the port to be used in the value of the `Location`
 	// header in the response.
 	// When empty, port (if specified) of the request is used.
-	Port *int32
+	Port *int32 `json:"port,omitempty"`
 
 	// StatusCode is the HTTP status code to be used in response.
 	//
 	// Note that values may be added to this enum, implementations
 	// must ensure that unknown values will not cause a crash.
-	StatusCode *int
+	StatusCode *int `json:"status_code,omitempty"`
 }
 
 // HTTPURLRewriteFilter defines a filter that modifies a request during
@@ -241,10 +241,10 @@ type HTTPRequestRedirectFilter struct {
 type HTTPURLRewriteFilter struct {
 	// Hostname is the value to be used to replace the Host header value during
 	// forwarding.
-	HostName *string
+	HostName *string `json:"host_name,omitempty"`
 
 	// Path is the values to be used to replace the path
-	Path *StringMatch
+	Path *StringMatch `json:"path,omitempty"`
 }
 
 // HTTPRequestMirror defines configuration for the RequestMirror filter.
@@ -255,59 +255,59 @@ type HTTPRequestMirror struct {
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
-	Name string
+	Name string `json:"name,omitempty"`
 	// Hostnames that the route should match
-	Hostnames []string
+	Hostnames []string `json:"hostnames,omitempty"`
 	// PathMatch specifies that the HTTPRoute should match a path.
-	PathMatch StringMatch
+	PathMatch StringMatch `json:"path_match"`
 	// HeadersMatch specifies that the HTTPRoute should match a set of headers.
-	HeadersMatch []KeyValueMatch
+	HeadersMatch []KeyValueMatch `json:"headers_match,omitempty"`
 	// QueryParamsMatch specifies that the HTTPRoute should match a set of query parameters.
-	QueryParamsMatch []KeyValueMatch
-	Method           *string
+	QueryParamsMatch []KeyValueMatch `json:"query_params_match,omitempty"`
+	Method           *string         `json:"method,omitempty"`
 	// Backend is the backend handling the requests
-	Backends []Backend
+	Backends []Backend `json:"backends,omitempty"`
 	// BackendHTTPFilters can be used to add or remove HTTP
-	BackendHTTPFilters []*BackendHTTPFilter
+	BackendHTTPFilters []*BackendHTTPFilter `json:"backend_http_filters,omitempty"`
 	// DirectResponse instructs the proxy to respond directly to the client.
-	DirectResponse *DirectResponse
+	DirectResponse *DirectResponse `json:"direct_response,omitempty"`
 
 	// RequestHeaderFilter can be used to add or remove an HTTP
 	// header from an HTTP request before it is sent to the upstream target.
-	RequestHeaderFilter *HTTPHeaderFilter
+	RequestHeaderFilter *HTTPHeaderFilter `json:"request_header_filter,omitempty"`
 
 	// ResponseHeaderModifier can be used to add or remove an HTTP
 	// header from an HTTP response before it is sent to the client.
-	ResponseHeaderModifier *HTTPHeaderFilter
+	ResponseHeaderModifier *HTTPHeaderFilter `json:"response_header_modifier,omitempty"`
 
 	// RequestRedirect defines a schema for a filter that responds to the
 	// request with an HTTP redirection.
-	RequestRedirect *HTTPRequestRedirectFilter
+	RequestRedirect *HTTPRequestRedirectFilter `json:"request_redirect,omitempty"`
 
 	// Rewrite defines a schema for a filter that modifies the URL of the request.
-	Rewrite *HTTPURLRewriteFilter
+	Rewrite *HTTPURLRewriteFilter `json:"rewrite,omitempty"`
 
 	// RequestMirrors defines a schema for a filter that mirrors HTTP requests
 	// Unlike other filter, multiple request mirrors are supported
-	RequestMirrors []*HTTPRequestMirror
+	RequestMirrors []*HTTPRequestMirror `json:"request_mirrors,omitempty"`
 
 	// IsGRPC is an indicator if this route is related to GRPC
-	IsGRPC bool
+	IsGRPC bool `json:"is_grpc,omitempty"`
 
 	// Timeout holds the timeout configuration for a route.
-	Timeout Timeout
+	Timeout Timeout `json:"timeout"`
 }
 
 type BackendHTTPFilter struct {
 	// Name is the name of the Backend, the name is having the format of "namespace:name:port"
-	Name string
+	Name string `json:"name,omitempty"`
 	// RequestHeaderFilter can be used to add or remove an HTTP
 	// header from an HTTP request before it is sent to the upstream target.
-	RequestHeaderFilter *HTTPHeaderFilter
+	RequestHeaderFilter *HTTPHeaderFilter `json:"request_header_filter,omitempty"`
 
 	// ResponseHeaderModifier can be used to add or remove an HTTP
 	// header from an HTTP response before it is sent to the client.
-	ResponseHeaderModifier *HTTPHeaderFilter
+	ResponseHeaderModifier *HTTPHeaderFilter `json:"response_header_modifier,omitempty"`
 }
 
 // Infrastructure holds the labels and annotations configuration,
@@ -357,11 +357,11 @@ func (r *HTTPRoute) GetMatchKey() string {
 
 // TLSPassthroughRoute holds all the details needed to route TLS traffic to a backend.
 type TLSPassthroughRoute struct {
-	Name string
+	Name string `json:"name,omitempty"`
 	// Hostnames that the route should match
-	Hostnames []string
+	Hostnames []string `json:"hostnames,omitempty"`
 	// Backend is the backend handling the requests
-	Backends []Backend
+	Backends []Backend `json:"backends,omitempty"`
 }
 
 // StringMatch describes various types of string matching.
@@ -406,29 +406,29 @@ func (kv KeyValueMatch) String() string {
 // Backend holds a Kubernetes Service that points to a backend for traffic.
 type Backend struct {
 	// Name of the Service.
-	Name string
+	Name string `json:"name,omitempty"`
 	// Namespace of the Service.
-	Namespace string
+	Namespace string `json:"namespace,omitempty"`
 	// Port contains the details of the port on the Service to connect to
 	// If unset, the same port as the top-level Listener will be used.
-	Port *BackendPort
+	Port *BackendPort `json:"port,omitempty"`
 	// AppProtocol contains the application protocol as per KEP-3726
 	// for the port of the Service.
-	AppProtocol *string
+	AppProtocol *string `json:"app_protocol,omitempty"`
 
 	// Weight specifies the percentage of traffic to send to this backend.
 	// This is computed as weight/(sum of all weights in backends) * 100.
-	Weight *int32
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // BackendPort holds the details of what port on the Service to connect to.
 // Only one of Port or Name can be set.
 type BackendPort struct {
 	// Port holds the numeric port to connect to.
-	Port uint32
+	Port uint32 `json:"port,omitempty"`
 	// Name holds a string which will be used to connect to the port with a
 	// matching spec.ports[].name in the target Service.
-	Name string
+	Name string `json:"name,omitempty"`
 }
 
 // GetPort return the string representation of the port (either the port number or the port name)
@@ -442,7 +442,7 @@ func (be *BackendPort) GetPort() string {
 // Timeout holds the timeout configuration for a route.
 type Timeout struct {
 	// Request is the timeout for the request.
-	Request *time.Duration
+	Request *time.Duration `json:"request,omitempty"`
 	// Backend is the timeout for the backend.
-	Backend *time.Duration
+	Backend *time.Duration `json:"backend,omitempty"`
 }
