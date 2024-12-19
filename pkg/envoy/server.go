@@ -286,13 +286,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 		},
 		InternalAddressConfig: &envoy_config_http.HttpConnectionManager_InternalAddressConfig{
 			UnixSockets: false,
-			CidrRanges: []*envoy_config_core.CidrRange{
-				{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
-				{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
-				{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
-				{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
-				{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
-			},
+			CidrRanges:  GetInternalListenerCIDRs(option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
 		},
 		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
@@ -528,6 +522,25 @@ func getLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core
 	}, additionalAddress
 }
 
+func GetInternalListenerCIDRs(ipv4, ipv6 bool) []*envoy_config_core.CidrRange {
+	var cidrRanges []*envoy_config_core.CidrRange
+	if ipv4 {
+		cidrRanges = append(cidrRanges,
+			[]*envoy_config_core.CidrRange{
+				{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
+				{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
+				{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
+				{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}}}...)
+	}
+	if ipv6 {
+		cidrRanges = append(cidrRanges, &envoy_config_core.CidrRange{
+			AddressPrefix: "::1",
+			PrefixLen:     &wrapperspb.UInt32Value{Value: 128},
+		})
+	}
+	return cidrRanges
+}
+
 // AddMetricsListener adds a prometheus metrics listener to Envoy.
 // We could do this in the bootstrap config, but then a failure to bind to the configured port
 // would fail starting Envoy.
@@ -552,13 +565,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 				UnixSockets: false,
 				// only RFC1918 IP addresses will be considered internal
 				// https://datatracker.ietf.org/doc/html/rfc1918
-				CidrRanges: []*envoy_config_core.CidrRange{
-					{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
-					{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
-					{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
-					{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
-					{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
-				},
+				CidrRanges: GetInternalListenerCIDRs(option.Config.IPv4Enabled(), option.Config.IPv6Enabled()),
 			},
 			StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{

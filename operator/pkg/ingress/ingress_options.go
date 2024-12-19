@@ -3,6 +3,10 @@
 
 package ingress
 
+import (
+	"github.com/cilium/cilium/pkg/defaults"
+)
+
 // Options stores all the configurations values for cilium ingress controller.
 type Options struct {
 	MaxRetries              int
@@ -16,6 +20,8 @@ type Options struct {
 	DefaultSecretNamespace  string
 	DefaultSecretName       string
 	IdleTimeoutSeconds      int
+	EnableIPv4              bool
+	EnableIPv6              bool
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
@@ -28,6 +34,8 @@ var DefaultIngressOptions = Options{
 	CiliumNamespace:         "kube-system",
 	DefaultLoadbalancerMode: "shared",
 	IdleTimeoutSeconds:      60,
+	EnableIPv4:              defaults.EnableIPv4,
+	EnableIPv6:              defaults.EnableIPv6,
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -117,6 +125,20 @@ func WithDefaultSecretName(defaultSecretName string) Option {
 func WithIdleTimeoutSeconds(idleTimeoutSeconds int) Option {
 	return func(o *Options) error {
 		o.IdleTimeoutSeconds = idleTimeoutSeconds
+		return nil
+	}
+}
+
+func EnabledIPv4(enableIPv4 bool) Option {
+	return func(o *Options) error {
+		o.EnableIPv4 = enableIPv4
+		return nil
+	}
+}
+
+func EnabledIPv6(enableIPv6 bool) Option {
+	return func(o *Options) error {
+		o.EnableIPv6 = enableIPv6
 		return nil
 	}
 }

@@ -56,7 +56,7 @@ type Controller struct {
 
 // NewController returns a new gateway controller, which is implemented
 // using the controller-runtime library.
-func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSeconds int) (*Controller, error) {
+func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSeconds int, enableIPv4 bool, enableIPv6 bool) (*Controller, error) {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		// Disable controller metrics server in favour of cilium's metrics server.
@@ -85,6 +85,8 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 		Model:              m,
 		controllerName:     controllerName,
 		IdleTimeoutSeconds: idleTimeoutSeconds,
+		EnableIPv4:         enableIPv4,
+		EnableIPv6:         enableIPv6,
 	}
 	if err = gwReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err

@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
+	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/version"
@@ -705,6 +706,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			ingress.WithDefaultSecretNamespace(operatorOption.Config.IngressDefaultSecretNamespace),
 			ingress.WithDefaultSecretName(operatorOption.Config.IngressDefaultSecretName),
 			ingress.WithIdleTimeoutSeconds(operatorOption.Config.ProxyIdleTimeoutSeconds),
+			ingress.EnabledIPv4(agentOption.Config.EnableIPv4),
+			ingress.EnabledIPv6(agentOption.Config.EnableIPv6),
 		)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, ingress.Subsys).Fatal(
@@ -718,6 +721,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			operatorOption.Config.EnableGatewayAPISecretsSync,
 			operatorOption.Config.GatewayAPISecretsNamespace,
 			operatorOption.Config.ProxyIdleTimeoutSeconds,
+			agentOption.Config.EnableIPv4,
+			agentOption.Config.EnableIPv6,
 		)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, gatewayapi.Subsys).Fatal(
@@ -732,6 +737,8 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			operatorOption.Config.LoadBalancerL7Ports,
 			operatorOption.Config.LoadBalancerL7Algorithm,
 			operatorOption.Config.ProxyIdleTimeoutSeconds,
+			agentOption.Config.EnableIPv4,
+			agentOption.Config.EnableIPv6,
 		)
 	}
 

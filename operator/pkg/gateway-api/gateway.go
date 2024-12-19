@@ -37,6 +37,8 @@ type gatewayReconciler struct {
 	Scheme             *runtime.Scheme
 	SecretsNamespace   string
 	IdleTimeoutSeconds int
+	EnableIPv4         bool
+	EnableIPv6         bool
 
 	controllerName string
 	Model          *internalModel

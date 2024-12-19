@@ -28,13 +28,17 @@ type DedicatedIngressTranslator struct {
 	secretsNamespace   string
 	enforceHTTPs       bool
 	idleTimeoutSeconds int
+	enableIpv4         bool
+	enableIpv6         bool
 }
 
-func NewDedicatedIngressTranslator(secretsNamespace string, enforceHTTPs bool, idleTimeoutSeconds int) *DedicatedIngressTranslator {
+func NewDedicatedIngressTranslator(secretsNamespace string, enforceHTTPs bool, idleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool) *DedicatedIngressTranslator {
 	return &DedicatedIngressTranslator{
 		secretsNamespace:   secretsNamespace,
 		enforceHTTPs:       enforceHTTPs,
 		idleTimeoutSeconds: idleTimeoutSeconds,
+		enableIpv4:         enableIpv4,
+		enableIpv6:         enableIpv6,
 	}
 }
 
@@ -48,7 +52,7 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	// The logic is same as what we have with default translator, but with a different model
 	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
-	translator := translation.NewTranslator(name, namespace, d.secretsNamespace, d.enforceHTTPs, false, d.idleTimeoutSeconds)
+	translator := translation.NewTranslator(name, namespace, d.secretsNamespace, d.enforceHTTPs, false, d.idleTimeoutSeconds, d.enableIpv4, d.enableIpv6)
 	cec, _, _, err := translator.Translate(m)
 	if err != nil {
 		return nil, nil, nil, err

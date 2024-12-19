@@ -18,7 +18,7 @@ import (
 
 func TestNewHTTPListener(t *testing.T) {
 	t.Run("without TLS", func(t *testing.T) {
-		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil)
+		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil, true, true)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -34,7 +34,7 @@ func TestNewHTTPListener(t *testing.T) {
 		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
-		})
+		}, true, true)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}

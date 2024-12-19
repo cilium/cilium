@@ -44,10 +44,13 @@ type defaultTranslator struct {
 	hostNameSuffixMatch bool
 
 	idleTimeoutSeconds int
+	ipv4Enabled        bool
+	ipv6Enabled        bool
 }
 
 // NewTranslator returns a new translator
-func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) Translator {
+func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
+	ipv4Enabled bool, ipv6Enabled bool) Translator {
 	return &defaultTranslator{
 		name:                name,
 		namespace:           namespace,
@@ -55,6 +58,8 @@ func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, 
 		enforceHTTPs:        enforceHTTPs,
 		hostNameSuffixMatch: hostNameSuffixMatch,
 		idleTimeoutSeconds:  idleTimeoutSeconds,
+		ipv4Enabled:         ipv4Enabled,
+		ipv6Enabled:         ipv6Enabled,
 	}
 }
 
@@ -151,7 +156,7 @@ func (i *defaultTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSR
 		}
 	}
 
-	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap)
+	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap, i.ipv4Enabled, i.ipv6Enabled)
 	return []ciliumv2.XDSResource{l}
 }
 

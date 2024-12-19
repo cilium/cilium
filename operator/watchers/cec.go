@@ -15,14 +15,14 @@ import (
 // StartCECController starts the service watcher if it hasn't already and looks
 // for service of type with envoy enabled LB annotation. Once such service is
 // found, it will try to create one CEC associated with the service.
-func StartCECController(ctx context.Context, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], ports []string, defaultAlgorithm string, idleTimeoutSeconds int) {
+func StartCECController(ctx context.Context, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], ports []string, defaultAlgorithm string, idleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool) {
 	go func() {
 		store, err := services.Store(ctx)
 		if err != nil {
 			log.WithError(err).Fatal("Failed to retrieve service store")
 		}
 
-		m, err := ciliumenvoyconfig.New(ctx, clientset, store.CacheStore(), ports, defaultAlgorithm, idleTimeoutSeconds)
+		m, err := ciliumenvoyconfig.New(ctx, clientset, store.CacheStore(), ports, defaultAlgorithm, idleTimeoutSeconds, enableIpv4, enableIpv6)
 		if err != nil {
 			log.WithError(err).Fatal("Error creating CiliumEnvoyConfiguration manager")
 		}

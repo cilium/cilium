@@ -38,10 +38,13 @@ type Manager struct {
 	serviceStore cache.Store
 	ports        []string
 	algorithm    string
+
+	enableIpv4 bool
+	enableIpv6 bool
 }
 
 // New returns a new Manager for CiliumEnvoyConfig
-func New(ctx context.Context, client client.Clientset, indexer cache.Store, ports []string, algorithm string, idleTimeoutSeconds int) (*Manager, error) {
+func New(ctx context.Context, client client.Clientset, indexer cache.Store, ports []string, algorithm string, idleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool) (*Manager, error) {
 	manager := &Manager{
 		queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		client:             client,
@@ -50,6 +53,8 @@ func New(ctx context.Context, client client.Clientset, indexer cache.Store, port
 		idleTimeoutSeconds: idleTimeoutSeconds,
 		ports:              ports,
 		algorithm:          algorithm,
+		enableIpv4:         enableIpv4,
+		enableIpv6:         enableIpv6,
 	}
 
 	envoyConfigManager, err := newEnvoyConfigManager(ctx, client, manager.maxRetries, manager.idleTimeoutSeconds)

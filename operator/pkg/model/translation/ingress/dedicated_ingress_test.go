@@ -214,6 +214,8 @@ func Test_translator_Translate(t *testing.T) {
 				secretsNamespace:   "cilium-secrets",
 				enforceHTTPs:       tt.args.enforceHTTPs,
 				idleTimeoutSeconds: 60,
+				enableIpv4:         true,
+				enableIpv6:         true,
 			}
 			input := &model.Model{}
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
