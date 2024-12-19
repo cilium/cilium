@@ -1,0 +1,93 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /prefix/one
+      Regex: ""
+    rewrite:
+      path:
+        Exact: ""
+        Prefix: /one
+        Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /full/one
+      Regex: ""
+    rewrite:
+      path:
+        Exact: /one
+        Prefix: ""
+        Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /full/rewrite-path-and-modify-headers
+      Regex: ""
+    request_header_filter:
+      headers_to_add:
+      - name: X-Header-Add
+        value: header-val-1
+      - name: X-Header-Add-Append
+        value: header-val-2
+      headers_to_remove:
+      - X-Header-Remove
+      headers_to_set:
+      - name: X-Header-Set
+        value: set-overwrites-values
+    rewrite:
+      path:
+        Exact: /test
+        Prefix: ""
+        Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /prefix/rewrite-path-and-modify-headers
+      Regex: ""
+    request_header_filter:
+      headers_to_add:
+      - name: X-Header-Add
+        value: header-val-1
+      - name: X-Header-Add-Append
+        value: header-val-2
+      headers_to_remove:
+      - X-Header-Remove
+      headers_to_set:
+      - name: X-Header-Set
+        value: set-overwrites-values
+    rewrite:
+      path:
+        Exact: ""
+        Prefix: /prefix
+        Regex: ""
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1
