@@ -4,6 +4,9 @@
 package ingress
 
 import (
+	"fmt"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -13,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -214,7 +218,6 @@ func Test_getEndpointForIngress(t *testing.T) {
 
 func Test_translator_Translate(t *testing.T) {
 	type args struct {
-		m                            *model.Model
 		useProxyProtocol             bool
 		hostNetworkEnabled           bool
 		hostNetworkNodeLabelSelector *slim_metav1.LabelSelector
@@ -224,85 +227,52 @@ func Test_translator_Translate(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          args
-		want          *ciliumv2.CiliumEnvoyConfig
 		wantLBSvcType corev1.ServiceType
 		wantErr       bool
 	}{
 		{
-			name: "Conformance/DefaultBackend",
-			args: args{
-				m: &model.Model{
-					HTTP: defaultBackendListeners,
-				},
-			},
-			want:          defaultBackendListenersCiliumEnvoyConfig,
+			name:          "conformance/default_backend",
+			args:          args{},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name: "Conformance/HostRules",
-			args: args{
-				m: &model.Model{
-					HTTP: hostRulesListenersEnforceHTTPS,
-				},
-			},
-			want:          hostRulesListenersEnforceHTTPSCiliumEnvoyConfig,
+			name:          "conformance/host_rules",
+			args:          args{},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name: "Conformance/HostRules,no Force HTTPS",
-			args: args{
-				m: &model.Model{
-					HTTP: hostRulesListeners,
-				},
-			},
-			want:          hostRulesListenersCiliumEnvoyConfig,
+			name:          "conformance/host_rules/no_force_https",
+			args:          args{},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name: "Conformance/PathRules",
-			args: args{
-				m: &model.Model{
-					HTTP: pathRulesListeners,
-				},
-			},
-			want:          pathRulesListenersCiliumEnvoyConfig,
+			name:          "conformance/path_rules",
+			args:          args{},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name: "Conformance/ProxyProtocol",
+			name: "conformance/proxy_protocol",
 			args: args{
-				m: &model.Model{
-					HTTP: proxyProtocolListeners,
-				},
 				useProxyProtocol: true,
 			},
-			want:          proxyProtoListenersCiliumEnvoyConfig,
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name: "Conformance/HostNetwork",
+			name: "conformance/host_network",
 			args: args{
-				m: &model.Model{
-					HTTP: hostNetworkListeners(55555),
-				},
 				hostNetworkEnabled:           true,
 				hostNetworkNodeLabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}},
 				ipv4Enabled:                  true,
 			},
-			want:          hostNetworkListenersCiliumEnvoyConfig("0.0.0.0", 55555, &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}}),
 			wantLBSvcType: corev1.ServiceTypeClusterIP,
 		},
 		{
-			name: "ComplexNodePortIngress",
+			name: "complex_node_port_ingress",
 			args: args{
-				m: &model.Model{
-					HTTP: complexNodePortIngressListeners,
-				},
 				hostNetworkEnabled:           true,
 				hostNetworkNodeLabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}},
 				ipv4Enabled:                  true,
 			},
-			want:          complexNodePortIngressCiliumEnvoyConfig,
 			wantLBSvcType: corev1.ServiceTypeNodePort,
 		},
 	}
@@ -313,19 +283,53 @@ func Test_translator_Translate(t *testing.T) {
 				cecTranslator:      translation.NewCECTranslator("cilium-secrets", tt.args.useProxyProtocol, false, false, 60, tt.args.hostNetworkEnabled, tt.args.hostNetworkNodeLabelSelector, tt.args.ipv4Enabled, tt.args.ipv6Enabled, 0),
 				hostNetworkEnabled: tt.args.hostNetworkEnabled,
 			}
+			input := &model.Model{}
+			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
 
-			cec, svc, ep, err := trans.Translate(tt.args.m)
+			cec, svc, ep, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 
-			diffOutput := cmp.Diff(tt.want, cec, protocmp.Transform())
+			output := &ciliumv2.CiliumEnvoyConfig{}
+			readOutput(t, fmt.Sprintf("testdata/%s/output-cec.yaml", tt.name), output)
+
+			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
 			if len(diffOutput) != 0 {
 				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
 			}
-
 			require.NotNil(t, svc)
 			assert.Equal(t, tt.wantLBSvcType, svc.Spec.Type)
 
 			require.NotNil(t, ep)
 		})
 	}
+}
+
+func readInput(t *testing.T, file string, obj any) {
+	inputYaml, err := os.ReadFile(file)
+	require.NoError(t, err)
+
+	require.NoError(t, k8syaml.Unmarshal(inputYaml, obj))
+}
+
+func readOutput(t *testing.T, file string, obj any) string {
+	// unmarshal and marshal to prevent formatting diffs
+	outputYaml, err := os.ReadFile(file)
+	require.NoError(t, err)
+
+	if strings.TrimSpace(string(outputYaml)) == "" {
+		return strings.TrimSpace(string(outputYaml))
+	}
+
+	require.NoError(t, k8syaml.Unmarshal(outputYaml, obj))
+
+	yamlText := toYaml(t, obj)
+
+	return strings.TrimSpace(yamlText)
+}
+
+func toYaml(t *testing.T, obj any) string {
+	yamlText, err := k8syaml.Marshal(obj)
+	require.NoError(t, err)
+
+	return strings.TrimSpace(string(yamlText))
 }
