@@ -256,6 +256,8 @@ func Test_translator_Translate(t *testing.T) {
 				enforceHTTPs:       tt.args.enforceHTTPs,
 				useProxyProtocol:   tt.args.useProxyProtocol,
 				idleTimeoutSeconds: 60,
+				enableIpv4:         true,
+				enableIpv6:         true,
 			}
 			input := &model.Model{}
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)

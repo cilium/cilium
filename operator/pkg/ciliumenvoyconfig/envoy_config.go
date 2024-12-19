@@ -223,13 +223,7 @@ func (r *ciliumEnvoyConfigReconciler) getConnectionManager(svc *corev1.Service) 
 			UnixSockets: false,
 			// only RFC1918 IP addresses will be considered internal
 			// https://datatracker.ietf.org/doc/html/rfc1918
-			CidrRanges: []*envoy_config_core_v3.CidrRange{
-				{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
-				{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
-				{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
-				{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
-				{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
-			},
+			CidrRanges: envoy.GetInternalListenerCIDRs(r.enableIpv4, r.enableIpv6),
 		},
 	}
 

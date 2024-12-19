@@ -58,7 +58,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -111,7 +111,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -164,7 +164,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -205,7 +205,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -272,7 +272,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -336,7 +336,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -387,7 +387,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -466,7 +466,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -535,7 +535,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -588,7 +588,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -625,7 +625,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test",
@@ -662,7 +662,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{"test.acme.io/"}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{"test.acme.io/"}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -744,7 +744,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -806,7 +806,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -845,7 +845,7 @@ func TestReconcile(t *testing.T) {
 			).
 			Build()
 
-		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol, testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -902,7 +902,7 @@ func TestReconcile(t *testing.T) {
 
 		reconciler := newIngressReconciler(logger, fakeClient, testCiliumNamespace, testEnforceHTTPS, testUseProxyProtocol,
 			testCiliumSecretsNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated",
-			testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout)
+			testDefaultSecretNamespace, testDefaultSecretName, testDefaultTimeout, true, false)
 
 		result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 			NamespacedName: types.NamespacedName{

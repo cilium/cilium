@@ -56,6 +56,8 @@ func Test_translator_Translate(t *testing.T) {
 			trans := &translator{
 				idleTimeoutSeconds: 60,
 				secretsNamespace:   "cilium-secrets",
+				enableIpv4:         true,
+				enableIpv6:         true,
 			}
 
 			input := &model.Model{}
@@ -85,6 +87,7 @@ func Test_translator_Translate_AppProtocol(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &translator{
 				idleTimeoutSeconds: 60,
+				enableIpv4:         true,
 			}
 
 			input := &model.Model{}

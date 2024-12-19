@@ -27,13 +27,17 @@ type translator struct {
 	secretsNamespace string
 
 	idleTimeoutSeconds int
+	enableIpv4         bool
+	enableIpv6         bool
 }
 
 // NewTranslator returns a new translator for Gateway API.
-func NewTranslator(secretsNamespace string, idleTimeoutSeconds int) translation.Translator {
+func NewTranslator(secretsNamespace string, idleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool) translation.Translator {
 	return &translator{
 		secretsNamespace:   secretsNamespace,
 		idleTimeoutSeconds: idleTimeoutSeconds,
+		enableIpv4:         enableIpv4,
+		enableIpv6:         enableIpv6,
 	}
 }
 
@@ -55,7 +59,7 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 		return nil, nil, nil, fmt.Errorf("model source name can't be empty")
 	}
 
-	trans := translation.NewTranslator(ciliumGatewayPrefix+source.Name, source.Namespace, t.secretsNamespace, false, false, true, t.idleTimeoutSeconds)
+	trans := translation.NewTranslator(ciliumGatewayPrefix+source.Name, source.Namespace, t.secretsNamespace, false, false, true, t.idleTimeoutSeconds, t.enableIpv4, t.enableIpv6)
 	cec, _, _, err := trans.Translate(m)
 	if err != nil {
 		return nil, nil, nil, err

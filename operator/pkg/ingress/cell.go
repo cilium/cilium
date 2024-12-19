@@ -16,6 +16,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	agentOption "github.com/cilium/cilium/pkg/option"
 )
 
 // Cell manages the Kubernetes Ingress related controllers.
@@ -94,6 +95,8 @@ func registerReconciler(params ingressParams) error {
 		params.Config.IngressDefaultSecretNamespace,
 		params.Config.IngressDefaultSecretName,
 		operatorOption.Config.ProxyIdleTimeoutSeconds,
+		agentOption.Config.EnableIPv4,
+		agentOption.Config.EnableIPv6,
 	)
 
 	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
