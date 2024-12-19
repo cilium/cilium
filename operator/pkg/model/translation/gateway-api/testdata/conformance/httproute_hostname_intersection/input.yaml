@@ -1,0 +1,81 @@
+http:
+- hostname: very.specific.com
+  name: listener-1
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - very.specific.com
+    path_match:
+      Exact: ""
+      Prefix: /s1
+      Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - very.specific.com
+    path_match:
+      Exact: ""
+      Prefix: /s3
+      Regex: ""
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: httproute-hostname-intersection
+    namespace: gateway-conformance-infra
+    version: v1
+- hostname: '*.wildcard.io'
+  name: listener-2
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - bar.wildcard.io
+    - foo.bar.wildcard.io
+    - foo.wildcard.io
+    path_match:
+      Exact: ""
+      Prefix: /s2
+      Regex: ""
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: httproute-hostname-intersection
+    namespace: gateway-conformance-infra
+    version: v1
+- hostname: '*.anotherwildcard.io'
+  name: listener-3
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - '*.anotherwildcard.io'
+    path_match:
+      Exact: ""
+      Prefix: /s4
+      Regex: ""
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: httproute-hostname-intersection
+    namespace: gateway-conformance-infra
+    version: v1

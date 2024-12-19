@@ -1,0 +1,29 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: /mirror
+      Regex: ""
+    request_mirrors:
+    - Backend:
+        name: infra-backend-v2
+        namespace: gateway-conformance-infra
+        port:
+          port: 8080
+      Denominator: 100
+      Numerator: 100
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1

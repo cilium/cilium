@@ -1,0 +1,80 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    query_params_match:
+    - Key: animal
+      Match:
+        Exact: whale
+        Prefix: ""
+        Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    query_params_match:
+    - Key: animal
+      Match:
+        Exact: dolphin
+        Prefix: ""
+        Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    query_params_match:
+    - Key: animal
+      Match:
+        Exact: dolphin
+        Prefix: ""
+        Regex: ""
+    - Key: color
+      Match:
+        Exact: blue
+        Prefix: ""
+        Regex: ""
+    timeout: {}
+  - backends:
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      Exact: ""
+      Prefix: ""
+      Regex: ""
+    query_params_match:
+    - Key: ANIMAL
+      Match:
+        Exact: Whale
+        Prefix: ""
+        Regex: ""
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1
