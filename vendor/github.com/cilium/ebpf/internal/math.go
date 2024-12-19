@@ -10,6 +10,17 @@ func IsPow[I Integer](n I) bool {
 	return n != 0 && (n&(n-1)) == 0
 }
 
+// Between returns the value clamped between a and b.
+func Between[I Integer](val, a, b I) I {
+	lower, upper := a, b
+	if lower > upper {
+		upper, lower = a, b
+	}
+
+	val = min(val, upper)
+	return max(val, lower)
+}
+
 // Integer represents all possible integer types.
 // Remove when x/exp/constraints is moved to the standard library.
 type Integer interface {

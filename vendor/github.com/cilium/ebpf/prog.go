@@ -51,6 +51,11 @@ const (
 // verifier log.
 const minVerifierLogSize = 64 * 1024
 
+// maxVerifierLogSize is the maximum size of verifier log buffer the kernel
+// will accept before returning EINVAL. May be increased to MaxUint32 in the
+// future, but avoid the unnecessary EINVAL for now.
+const maxVerifierLogSize = math.MaxUint32 >> 2
+
 // ProgramOptions control loading a program into the kernel.
 type ProgramOptions struct {
 	// Bitmap controlling the detail emitted by the kernel's eBPF verifier log.
@@ -69,6 +74,11 @@ type ProgramOptions struct {
 	// will always allocate an output buffer, but will result in only a single
 	// attempt at loading the program.
 	LogLevel LogLevel
+
+	// Starting size of the verifier log buffer. If the verifier log is larger
+	// than this size, the buffer will be grown to fit the entire log. Leave at
+	// its default value unless troubleshooting.
+	LogSizeStart uint32
 
 	// Disables the verifier log completely, regardless of other options.
 	LogDisabled bool
@@ -401,9 +411,10 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 
 	// The caller requested a specific verifier log level. Set up the log buffer
 	// so that there is a chance of loading the program in a single shot.
+	logSize := internal.Between(opts.LogSizeStart, minVerifierLogSize, maxVerifierLogSize)
 	var logBuf []byte
 	if !opts.LogDisabled && opts.LogLevel != 0 {
-		logBuf = make([]byte, minVerifierLogSize)
+		logBuf = make([]byte, logSize)
 		attr.LogLevel = opts.LogLevel
 		attr.LogSize = uint32(len(logBuf))
 		attr.LogBuf = sys.NewSlicePointer(logBuf)
@@ -437,12 +448,11 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 			attr.LogLevel = LogLevelBranch
 		}
 
-		// Make an educated guess how large the buffer should be. Start
-		// at minVerifierLogSize and then double the size.
-		logSize := uint32(max(len(logBuf)*2, minVerifierLogSize))
-		if int(logSize) < len(logBuf) {
-			return nil, errors.New("overflow while probing log buffer size")
-		}
+		// Make an educated guess how large the buffer should be by multiplying.
+		// Ensure the size doesn't overflow.
+		const factor = 2
+		logSize = internal.Between(logSize, minVerifierLogSize, maxVerifierLogSize/factor)
+		logSize *= factor
 
 		if attr.LogTrueSize != 0 {
 			// The kernel has given us a hint how large the log buffer has to be.
@@ -467,6 +477,12 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 			// check that the log is empty to reduce false positives.
 			return nil, fmt.Errorf("load program: %w (MEMLOCK may be too low, consider rlimit.RemoveMemlock)", err)
 		}
+
+	case errors.Is(err, unix.EFAULT):
+		// EFAULT is returned when the kernel hits a verifier bug, and always
+		// overrides ENOSPC, defeating the buffer growth strategy. Warn the user
+		// that they may need to increase the buffer size manually.
+		return nil, fmt.Errorf("load program: %w (hit verifier bug, increase LogSizeStart to fit the log and check dmesg)", err)
 
 	case errors.Is(err, unix.EINVAL):
 		if bytes.Contains(tail, coreBadCall) {

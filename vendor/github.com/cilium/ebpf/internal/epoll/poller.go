@@ -168,13 +168,8 @@ func (p *Poller) Wait(events []unix.EpollEvent, deadline time.Time) (int, error)
 	for {
 		timeout := int(-1)
 		if !deadline.IsZero() {
-			msec := time.Until(deadline).Milliseconds()
-			// Deadline is in the past, don't block.
-			msec = max(msec, 0)
-			// Deadline is too far in the future.
-			msec = min(msec, math.MaxInt)
-
-			timeout = int(msec)
+			// Ensure deadline is not in the past and not too far into the future.
+			timeout = int(internal.Between(time.Until(deadline).Milliseconds(), 0, math.MaxInt))
 		}
 
 		n, err := unix.EpollWait(p.epollFd, events, timeout)

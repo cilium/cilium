@@ -1291,6 +1291,20 @@ func UnderlyingType(typ Type) Type {
 	return &cycle{typ}
 }
 
+// QualifiedType returns the type with all qualifiers removed.
+func QualifiedType(typ Type) Type {
+	result := typ
+	for depth := 0; depth <= maxResolveDepth; depth++ {
+		switch v := (result).(type) {
+		case qualifier:
+			result = v.qualify()
+		default:
+			return result
+		}
+	}
+	return &cycle{typ}
+}
+
 // As returns typ if is of type T. Otherwise it peels qualifiers and Typedefs
 // until it finds a T.
 //

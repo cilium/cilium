@@ -81,10 +81,13 @@ func (fd *FD) Close() error {
 		return nil
 	}
 
-	return unix.Close(fd.disown())
+	return unix.Close(fd.Disown())
 }
 
-func (fd *FD) disown() int {
+// Disown destroys the FD and returns its raw file descriptor without closing
+// it. After this call, the underlying fd is no longer tied to the FD's
+// lifecycle.
+func (fd *FD) Disown() int {
 	value := fd.raw
 	fdtrace.ForgetFD(value)
 	fd.raw = -1
@@ -118,7 +121,7 @@ func (fd *FD) File(name string) *os.File {
 		return nil
 	}
 
-	return os.NewFile(uintptr(fd.disown()), name)
+	return os.NewFile(uintptr(fd.Disown()), name)
 }
 
 // ObjGetTyped wraps [ObjGet] with a readlink call to extract the type of the
