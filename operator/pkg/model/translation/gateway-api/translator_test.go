@@ -57,7 +57,7 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, false, false, 0),
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, true, true, 0),
 			}
 
 			input := &model.Model{}
@@ -86,7 +86,7 @@ func Test_translator_Translate_AppProtocol(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, true, 60, false, nil, false, false, 0),
+				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, true, 60, false, nil, true, true, 0),
 			}
 
 			input := &model.Model{}
@@ -196,7 +196,7 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, false, false, 2),
+				cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, true, true, 2),
 				hostNetworkEnabled: true,
 			}
 

@@ -54,8 +54,6 @@ spec:
               prefixLen: 16
             - addressPrefix: 127.0.0.1
               prefixLen: 32
-            - addressPrefix: ::1
-              prefixLen: 128
           rds:
             routeConfigName: listener-insecure
           statPrefix: listener-insecure
