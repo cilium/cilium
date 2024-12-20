@@ -393,7 +393,6 @@ jobs:
             secondary-network: 'true'
             ingress-controller: 'true'
             host-fw: 'true'
-            skip-upgrade: 'true'
 
           - name: '24'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -406,7 +405,6 @@ jobs:
             ciliumendpointslice: 'true'
             endpoint-routes: 'true'
             ingress-controller: 'true'
-            skip-upgrade: 'true'
 
           - name: '25'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -419,7 +417,6 @@ jobs:
             ciliumendpointslice: 'true'
             endpoint-routes: 'true'
             ingress-controller: 'true'
-            skip-upgrade: 'true'
 
           - name: '26'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
