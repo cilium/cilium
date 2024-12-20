@@ -332,7 +332,10 @@ type ProcessingResponse struct {
 	// It is also ignored by Envoy when the ext_proc filter config
 	// :ref:`allow_mode_override
 	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allow_mode_override>`
-	// is set to false.
+	// is set to false, or
+	// :ref:`send_body_without_waiting_for_header_response
+	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`
+	// is set to true.
 	ModeOverride *v31.ProcessingMode `protobuf:"bytes,9,opt,name=mode_override,json=modeOverride,proto3" json:"mode_override,omitempty"`
 	// When ext_proc server receives a request message, in case it needs more
 	// time to process the message, it sends back a ProcessingResponse message
@@ -533,12 +536,8 @@ type HttpHeaders struct {
 
 	// The HTTP request headers. All header keys will be
 	// lower-cased, because HTTP header keys are case-insensitive.
-	// The “headers“ encoding is based on the runtime guard
-	// envoy_reloadable_features_send_header_raw_value setting.
-	// When it is true, the header value is encoded in the
+	// The header value is encoded in the
 	// :ref:`raw_value <envoy_v3_api_field_config.core.v3.HeaderValue.raw_value>` field.
-	// When it is false, the header value is encoded in the
-	// :ref:`value <envoy_v3_api_field_config.core.v3.HeaderValue.value>` field.
 	Headers *v3.HeaderMap `protobuf:"bytes,1,opt,name=headers,proto3" json:"headers,omitempty"`
 	// [#not-implemented-hide:]
 	// This field is deprecated and not implemented. Attributes will be sent in
@@ -668,12 +667,8 @@ type HttpTrailers struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The “trailers“ encoding is based on the runtime guard
-	// envoy_reloadable_features_send_header_raw_value setting.
-	// When it is true, the header value is encoded in the
+	// The header value is encoded in the
 	// :ref:`raw_value <envoy_v3_api_field_config.core.v3.HeaderValue.raw_value>` field.
-	// When it is false, the header value is encoded in the
-	// :ref:`value <envoy_v3_api_field_config.core.v3.HeaderValue.value>` field.
 	Trailers *v3.HeaderMap `protobuf:"bytes,1,opt,name=trailers,proto3" json:"trailers,omitempty"`
 }
 
@@ -887,12 +882,8 @@ type CommonResponse struct {
 	// Add new trailers to the message. This may be used when responding to either a
 	// HttpHeaders or HttpBody message, but only if this message is returned
 	// along with the CONTINUE_AND_REPLACE status.
-	// The “trailers“ encoding is based on the runtime guard
-	// envoy_reloadable_features_send_header_raw_value setting.
-	// When it is true, the header value is encoded in the
+	// The header value is encoded in the
 	// :ref:`raw_value <envoy_v3_api_field_config.core.v3.HeaderValue.raw_value>` field.
-	// When it is false, the header value is encoded in the
-	// :ref:`value <envoy_v3_api_field_config.core.v3.HeaderValue.value>` field.
 	Trailers *v3.HeaderMap `protobuf:"bytes,4,opt,name=trailers,proto3" json:"trailers,omitempty"`
 	// Clear the route cache for the current client request. This is necessary
 	// if the remote server modified headers that are used to calculate the route.
@@ -1121,12 +1112,8 @@ type HeaderMutation struct {
 	// Add or replace HTTP headers. Attempts to set the value of
 	// any “x-envoy“ header, and attempts to set the “:method“,
 	// “:authority“, “:scheme“, or “host“ headers will be ignored.
-	// The “set_headers“ encoding is based on the runtime guard
-	// envoy_reloadable_features_send_header_raw_value setting.
-	// When it is true, the header value is encoded in the
+	// The header value is encoded in the
 	// :ref:`raw_value <envoy_v3_api_field_config.core.v3.HeaderValue.raw_value>` field.
-	// When it is false, the header value is encoded in the
-	// :ref:`value <envoy_v3_api_field_config.core.v3.HeaderValue.value>` field.
 	SetHeaders []*v3.HeaderValueOption `protobuf:"bytes,1,rep,name=set_headers,json=setHeaders,proto3" json:"set_headers,omitempty"`
 	// Remove these HTTP headers. Attempts to remove system headers --
 	// any header starting with “:“, plus “host“ -- will be ignored.
