@@ -815,58 +815,68 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	    const struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct icmphdr icmphdr __align_stack_8;
 	__u16 port_off;
 	int ret;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
 	switch (tuple->nexthdr) {
-	case IPPROTO_TCP:
-	case IPPROTO_UDP:
+        case IPPROTO_TCP:
+        case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
+        case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		ret = ipv4_load_l4_ports(ctx, ip4, off, CT_EGRESS,
-					 &tuple->dport, &has_l4_header);
-		if (ret < 0)
-			return ret;
+            ret = ipv4_load_l4_ports(ctx, ip4, off, CT_EGRESS,
+                         &tuple->dport, &has_l4_header);
+            if (ret < 0)
+                return ret;
 
-		ipv4_ct_tuple_swap_ports(tuple);
-		port_off = TCP_SPORT_OFF;
-		break;
-	case IPPROTO_ICMP:
-		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-			return DROP_INVALID;
+            ipv4_ct_tuple_swap_ports(tuple);
+            port_off = TCP_SPORT_OFF;
+            break;
+        case IPPROTO_ICMP: {
+            __u8                    type        = 0;
+            __u8                    code        = 0;
+            __be16                  identifier  = 0;
+	        struct icmphdr icmphdr  __align_stack_8;
 
-		switch (icmphdr.type) {
-		case ICMP_ECHO:
-			tuple->dport = 0;
-			tuple->sport = icmphdr.un.echo.id;
-			port_off = offsetof(struct icmphdr, un.echo.id);
-			break;
-		case ICMP_ECHOREPLY:
-			return NAT_PUNT_TO_STACK;
-		case ICMP_DEST_UNREACH:
-			switch (icmphdr.code) {
-			case ICMP_NET_UNREACH:
-			case ICMP_HOST_UNREACH:
-			case ICMP_PROT_UNREACH:
-			case ICMP_PORT_UNREACH:
-			case ICMP_FRAG_NEEDED:
-				break;
-			default:
-				return DROP_UNKNOWN_ICMP_CODE;
-			}
+            ret = ipv4_load_l4_ports_for_icmp(
+                ctx, off, CT_EGRESS,
+                &type, &code, &identifier,
+                true // create_frag_record
+            );
+            if (ret < 0)
+                return ret;
 
-			return snat_v4_nat_handle_icmp_dest_unreach(ctx, off,
-								    has_l4_header);
-		default:
-			return DROP_NAT_UNSUPP_PROTO;
-		}
-		break;
-	default:
-		return NAT_PUNT_TO_STACK;
+            switch (type) {
+                case ICMP_ECHO:
+                    tuple->dport = 0;
+                    tuple->sport = identifier;
+                    port_off = offsetof(struct icmphdr, un.echo.id);
+                    break;
+                case ICMP_ECHOREPLY:
+                    return NAT_PUNT_TO_STACK;
+                case ICMP_DEST_UNREACH:
+                    switch (icmphdr.code) {
+                    case ICMP_NET_UNREACH:
+                    case ICMP_HOST_UNREACH:
+                    case ICMP_PROT_UNREACH:
+                    case ICMP_PORT_UNREACH:
+                    case ICMP_FRAG_NEEDED:
+                        break;
+                    default:
+                        return DROP_UNKNOWN_ICMP_CODE;
+                    }
+
+                    return snat_v4_nat_handle_icmp_dest_unreach(ctx, off,
+                                            has_l4_header);
+                default:
+                    return DROP_NAT_UNSUPP_PROTO;
+            }
+            break;
+        }
+        default:
+            return NAT_PUNT_TO_STACK;
 	};
 
 	if (snat_v4_nat_can_skip(target, tuple))
@@ -955,12 +965,11 @@ static __always_inline __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
-	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state = NULL;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	bool has_l4_header = true;
+	bool has_l4_header;
 	__u64 off, inner_l3_off;
 	__be16 to_dport = 0;
 	__u16 port_off = 0;
@@ -973,58 +982,71 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 
 	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
 
+    has_l4_header = ipv4_has_l4_header(ip4);
+
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
-	case IPPROTO_TCP:
-	case IPPROTO_UDP:
+        case IPPROTO_TCP:
+        case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
+        case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		ret = ipv4_load_l4_ports(ctx, ip4, off, CT_INGRESS,
-					 &tuple.dport, &has_l4_header);
-		if (ret < 0)
-			return ret;
+            ret = ipv4_load_l4_ports(ctx, ip4, off, CT_INGRESS,
+                         &tuple.dport, &has_l4_header);
+            if (ret < 0)
+                return ret;
 
-		ipv4_ct_tuple_swap_ports(&tuple);
-		port_off = TCP_DPORT_OFF;
-		break;
-	case IPPROTO_ICMP:
-		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-			return DROP_INVALID;
-		switch (icmphdr.type) {
-		case ICMP_ECHOREPLY:
-			tuple.dport = icmphdr.un.echo.id;
-			tuple.sport = 0;
-			port_off = offsetof(struct icmphdr, un.echo.id);
-			break;
-		case ICMP_DEST_UNREACH:
-			switch (icmphdr.code) {
-			case ICMP_NET_UNREACH:
-			case ICMP_HOST_UNREACH:
-			case ICMP_PROT_UNREACH:
-			case ICMP_PORT_UNREACH:
-			case ICMP_FRAG_NEEDED:
-				break;
-			default:
-				return NAT_PUNT_TO_STACK;
-			}
+            ipv4_ct_tuple_swap_ports(&tuple);
+            port_off = TCP_DPORT_OFF;
+            break;
+        case IPPROTO_ICMP: {
+            __u8    type        = 0;
+            __u8    code        = 0;
+            __be16  identifier  = 0;
 
-			inner_l3_off = off + sizeof(struct icmphdr);
+            ret = ipv4_load_l4_ports_for_icmp(
+                ctx, off, CT_INGRESS,
+                &type, &code, &identifier,
+                true // create_frag_record
+            );
+            if (ret < 0)
+                return ret;
 
-			ret = snat_v4_rev_nat_handle_icmp_dest_unreach(ctx,
-								       inner_l3_off,
-								       &state);
-			if (IS_ERR(ret))
-				return ret;
+            switch (type) {
+                case ICMP_ECHOREPLY:
+                    tuple.dport = identifier;
+                    tuple.sport = 0;
+                    port_off = offsetof(struct icmphdr, un.echo.id);
+                    break;
+                case ICMP_DEST_UNREACH:
+                    switch (code) {
+                        case ICMP_NET_UNREACH:
+                        case ICMP_HOST_UNREACH:
+                        case ICMP_PROT_UNREACH:
+                        case ICMP_PORT_UNREACH:
+                        case ICMP_FRAG_NEEDED:
+                            break;
+                        default:
+                            return NAT_PUNT_TO_STACK;
+                    }
 
-			has_l4_header = true;
-			goto rewrite;
-		default:
-			return NAT_PUNT_TO_STACK;
-		}
-		break;
-	default:
-		return NAT_PUNT_TO_STACK;
+                    inner_l3_off = off + sizeof(struct icmphdr);
+
+                    ret = snat_v4_rev_nat_handle_icmp_dest_unreach(ctx,
+                                               inner_l3_off,
+                                               &state);
+                    if (IS_ERR(ret))
+                        return ret;
+
+                    has_l4_header = true;
+                    goto rewrite;
+                default:
+                    return NAT_PUNT_TO_STACK;
+            }
+            break;
+        }
+        default:
+            return NAT_PUNT_TO_STACK;
 	};
 
 	if (snat_v4_rev_nat_can_skip(target, &tuple))

@@ -75,26 +75,34 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	switch (ethertype) {
 	case ETH_P_IP:
 		if (proto == IPPROTO_ICMP) {
-			struct icmphdr icmphdr __align_stack_8;
+            __u8    type        = 0;
+            __u8    code        = 0;
+            __be16  identifier  = 0;
+            int     ret;
 
-			if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-				return DROP_INVALID;
+            ret = ipv4_load_l4_ports_for_icmp(
+                ctx, off, CT_INGRESS,
+                &type, &code, &identifier,
+                false // create_frag_record
+            );
+            if (ret < 0)
+                return ret;
 
-# if defined(ALLOW_ICMP_FRAG_NEEDED)
-			if (icmphdr.type == ICMP_DEST_UNREACH &&
-			    icmphdr.code == ICMP_FRAG_NEEDED) {
+#if defined(ALLOW_ICMP_FRAG_NEEDED)
+			if (type == ICMP_DEST_UNREACH &&
+			    code == ICMP_FRAG_NEEDED) {
 				*proxy_port = 0;
 				return CTX_ACT_OK;
 			}
-# endif
+#endif
 
-# if defined(ENABLE_ICMP_RULE)
-			key.dport = bpf_u8_to_be16(icmphdr.type);
-# endif
+#if defined(ENABLE_ICMP_RULE)
+			key.dport = bpf_u8_to_be16(type);
+#endif
 		}
 		break;
 	case ETH_P_IPV6:
-# if defined(ENABLE_ICMP_RULE)
+#if defined(ENABLE_ICMP_RULE)
 		if (proto == IPPROTO_ICMPV6) {
 			__u8 icmp_type;
 
@@ -103,7 +111,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 
 			key.dport = bpf_u8_to_be16(icmp_type);
 		}
-# endif
+#endif
 		break;
 	default:
 		break;
