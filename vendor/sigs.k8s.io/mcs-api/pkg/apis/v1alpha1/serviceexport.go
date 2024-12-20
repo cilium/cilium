@@ -29,12 +29,25 @@ type ServiceExport struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// spec defines the behavior of a ServiceExport.
+	// +optional
+	Spec ServiceExportSpec `json:"spec,omitempty"`
 	// status describes the current state of an exported service.
 	// Service configuration comes from the Service that had the same
 	// name and namespace as this ServiceExport.
 	// Populated by the multi-cluster service implementation's controller.
 	// +optional
 	Status ServiceExportStatus `json:"status,omitempty"`
+}
+
+// ServiceExportSpec describes an exported service extra information
+type ServiceExportSpec struct {
+	// exportedLabels describes the labels exported. It is optional for implementation.
+	// +optional
+	ExportedLabels map[string]string `json:"exportedLabels,omitempty"`
+	// exportedAnnotations describes the annotations exported. It is optional for implementation.
+	// +optional
+	ExportedAnnotations map[string]string `json:"exportedAnnotations,omitempty"`
 }
 
 // ServiceExportStatus contains the current status of an export.
