@@ -46,6 +46,19 @@ func (d *Daemon) WaitForEndpointRestore(ctx context.Context) error {
 	return nil
 }
 
+func (d *Daemon) WaitForInitialEnvoyPolicy(ctx context.Context) error {
+	if !option.Config.RestoreState {
+		return nil
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-d.endpointInitialPolicyComplete:
+	}
+	return nil
+}
+
 type endpointRestoreState struct {
 	possible map[uint16]*endpoint.Endpoint
 	restored []*endpoint.Endpoint
@@ -337,6 +350,13 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpoi
 		}(ep)
 	}
 	endpointCleanupCompleted.Wait()
+
+	go func() {
+		for _, ep := range state.restored {
+			<-ep.InitialEnvoyPolicyComputed
+		}
+		close(d.endpointInitialPolicyComplete)
+	}()
 
 	go func() {
 		regenerated, total := 0, 0

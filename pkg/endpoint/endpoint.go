@@ -160,6 +160,8 @@ type Endpoint struct {
 	// recalculated on endpoint restore.
 	createdAt time.Time
 
+	InitialEnvoyPolicyComputed chan struct{}
+
 	// mutex protects write operations to this endpoint structure
 	mutex lock.RWMutex
 
@@ -597,6 +599,8 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 
 		forcePolicyCompute: true,
 	}
+
+	ep.InitialEnvoyPolicyComputed = make(chan struct{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
