@@ -53,10 +53,11 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		if s.restorerPromise != nil {
+			log.Infof("Envoy: Waiting for endpoint restorer before serving xDS resources...")
 			restorer, err := s.restorerPromise.Await(ctx)
 			if err == nil && restorer != nil {
 				log.Infof("Envoy: Waiting for endpoint restoration before serving xDS resources...")
-				err = restorer.WaitForEndpointRestore(ctx)
+				err = restorer.WaitForInitialEnvoyPolicy(ctx)
 			}
 			if errors.Is(err, context.Canceled) {
 				log.Debug("Envoy: xDS server stopped before started serving")

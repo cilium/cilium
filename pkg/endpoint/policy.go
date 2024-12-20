@@ -786,6 +786,16 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	return done
 }
 
+// InitialPolicyComputedLocked marks computation of the initial Envoy policy done.
+// Endpoint lock must be held so that the channel is never closed twice.
+func (e *Endpoint) InitialPolicyComputedLocked() {
+	select {
+	case <-e.InitialEnvoyPolicyComputed:
+	default:
+		close(e.InitialEnvoyPolicyComputed)
+	}
+}
+
 // Compute initial policy for the endpoint. This computes the selector policy and Envoy policy for
 // the endpoint. This is called on the first endpoint regeneration before the build permit is
 // requested and before bpf compilation is performed. When the initial (Envoy) policy is computed,
@@ -855,6 +865,9 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 			return nil, release
 		}
 	}
+
+	// Signal computation of the initial Envoy policy if not done yet
+	e.InitialPolicyComputedLocked()
 
 	return nil, release
 }
