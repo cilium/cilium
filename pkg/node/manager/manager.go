@@ -734,6 +734,49 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
 
+	if !n.IsLocal() {
+		for _, cidr := range n.GetIPv4AllocCIDRs() {
+			if cidr == nil {
+				continue
+			}
+
+			prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
+			if !ok {
+				continue
+			}
+
+			metadata := []ipcache.IPMetadata{
+				ipcacheTypes.RequestedIdentity(identity.ReservedIdentityWorldIPv4),
+				ipcacheTypes.TunnelPeer{Addr: nodeIP},
+			}
+			if m.nodeAddressHasEncryptKey() {
+				metadata = append(metadata, ipcacheTypes.EncryptKey(n.EncryptionKey))
+			}
+
+			m.ipcache.UpsertMetadata(prefix, n.Source, resource, metadata...)
+		}
+		for _, cidr := range n.GetIPv6AllocCIDRs() {
+			if cidr == nil {
+				continue
+			}
+
+			prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
+			if !ok {
+				continue
+			}
+
+			metadata := []ipcache.IPMetadata{
+				ipcacheTypes.RequestedIdentity(identity.ReservedIdentityWorldIPv6),
+				ipcacheTypes.TunnelPeer{Addr: nodeIP},
+			}
+			if m.nodeAddressHasEncryptKey() {
+				metadata = append(metadata, ipcacheTypes.EncryptKey(n.EncryptionKey))
+			}
+
+			m.ipcache.UpsertMetadata(prefix, n.Source, resource, metadata...)
+		}
+	}
+
 	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
 		healthIP := ip.IPToNetPrefix(address)
 		if !healthIP.IsValid() {
@@ -901,6 +944,49 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 
 	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV4, v4Addrs...)
 	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV6, v6Addrs...)
+
+	if !oldNode.IsLocal() {
+		for _, cidr := range oldNode.GetIPv4AllocCIDRs() {
+			if cidr == nil {
+				continue
+			}
+
+			prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
+			if !ok {
+				continue
+			}
+
+			metadata := []ipcache.IPMetadata{
+				ipcacheTypes.RequestedIdentity(identity.ReservedIdentityWorldIPv4),
+				ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
+			}
+			if m.nodeAddressHasEncryptKey() {
+				metadata = append(metadata, ipcacheTypes.EncryptKey(oldNode.EncryptionKey))
+			}
+
+			m.ipcache.RemoveMetadata(prefix, resource, metadata...)
+		}
+		for _, cidr := range oldNode.GetIPv6AllocCIDRs() {
+			if cidr == nil {
+				continue
+			}
+
+			prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
+			if !ok {
+				continue
+			}
+
+			metadata := []ipcache.IPMetadata{
+				ipcacheTypes.RequestedIdentity(identity.ReservedIdentityWorldIPv6),
+				ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
+			}
+			if m.nodeAddressHasEncryptKey() {
+				metadata = append(metadata, ipcacheTypes.EncryptKey(oldNode.EncryptionKey))
+			}
+
+			m.ipcache.RemoveMetadata(prefix, resource, metadata...)
+		}
+	}
 
 	// Delete the old health IP addresses if they have changed in this node.
 	for _, address := range []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP} {
