@@ -219,21 +219,30 @@ func (s *Service6Value) SetFlags(flags uint16) {
 	s.Flags2 = uint8(flags >> 8)
 }
 
-func (s *Service6Value) GetLbAlg() uint8 {
-	return uint8(uint32(s.BackendID) >> 24)
+func (s *Service6Value) GetLbAlg() loadbalancer.SVCLoadBalancingAlgorithm {
+	return loadbalancer.SVCLoadBalancingAlgorithm(uint8(uint32(s.BackendID) >> 24))
 }
 
-func (s *Service6Value) SetLbAlg(lb uint8) {
-	s.BackendID = uint32(lb) << 24
+func (s *Service6Value) SetLbAlg(lb loadbalancer.SVCLoadBalancingAlgorithm) {
+	// See (* Service6Value).SetLbAlg() for comment
+	s.BackendID = uint32(lb)<<24 + (s.BackendID & sessionAffinityMask)
 }
 
 func (s *Service6Value) GetFlags() uint16 {
 	return (uint16(s.Flags2) << 8) | uint16(s.Flags)
 }
 
-func (s *Service6Value) SetSessionAffinityTimeoutSec(t uint32) {
+func (s *Service6Value) SetSessionAffinityTimeoutSec(t uint32) error {
 	// See (* Service4Value).SetSessionAffinityTimeoutSec() for comment
-	s.BackendID |= t
+	if t > sessionAffinityMask {
+		return fmt.Errorf("session affinity timeout %d does not fit into 24 bits (is larger than 16777215)", t)
+	}
+	s.BackendID = (s.BackendID & lbAlgMask) + (t & sessionAffinityMask)
+	return nil
+}
+
+func (s *Service6Value) GetSessionAffinityTimeoutSec() uint32 {
+	return s.BackendID & sessionAffinityMask
 }
 
 func (s *Service6Value) SetL7LBProxyPort(port uint16) {
