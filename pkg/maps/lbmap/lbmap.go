@@ -615,7 +615,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	v.SetCount(activeBackends)
 	v.SetQCount(quarantinedBackends)
 	v.SetRevNat(revNATID)
-	v.SetLbAlg(uint8(loadBalancingAlgorithm))
+	v.SetLbAlg(loadBalancingAlgorithm)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcFwdModeDSR:    svcForwardingMode == loadbalancer.SVCForwardingModeDSR,
@@ -631,7 +631,10 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	})
 	v.SetFlags(flag.UInt16())
 	if sessionAffinity {
-		v.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
+		if err := v.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec); err != nil {
+			log.Warn("Failure in updateMasterService due to error from SetSessionAffinityTimeoutSec", logfields.Error, err)
+			return err
+		}
 	}
 	if l7lbProxyPort != 0 {
 		v.SetL7LBProxyPort(l7lbProxyPort)
