@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"runtime"
 
 	"github.com/sirupsen/logrus"
 
@@ -222,7 +223,8 @@ func (p *EndpointPolicy) Detach() {
 	// in case the call was missed previouly
 	if p.Ready() == nil {
 		// succeeded, so it was missed previously
-		log.Warningf("Detach: EndpointPolicy was not marked as Ready")
+		_, file, line, _ := runtime.Caller(1)
+		log.Warningf("Detach: EndpointPolicy was not marked as Ready (%s:%d)", file, line)
 	}
 	// Also release the version handle held for incremental updates, if any.
 	// This must be done after the removeUser() call above, so that we do not get a new version
