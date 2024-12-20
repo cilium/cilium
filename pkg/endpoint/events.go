@@ -30,29 +30,33 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	e := ev.ep
 	regenContext := ev.regenContext
 
-	// Compute policy before acquiring the build permit in
+	// Compute policy on the first regeneration before acquiring the build permit in
 	// QueueEndpointBuild below
-	err, release := e.ComputeInitialPolicy(regenContext)
-	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			e.getLogger().WithError(err).Error("Initial policy compute failed")
-		}
+	select {
+	case <-e.InitialEnvoyPolicyComputed:
+		// Already done
+	default:
+		err, release := e.ComputeInitialPolicy(regenContext)
+		if err != nil {
+			if !errors.Is(err, context.Canceled) {
+				e.getLogger().WithError(err).Error("Initial policy compute failed")
+			}
 
-		res <- &EndpointRegenerationResult{
-			err: err,
+			res <- &EndpointRegenerationResult{
+				err: err,
+			}
+			return
 		}
-		return
+		// release policy results when done
+		defer release()
 	}
-	// release policy results when done
-	defer release()
 
-	err = e.rlockAlive()
+	err := e.rlockAlive()
 	if err != nil {
 		e.logDisconnectedMutexAction(err, "before regeneration")
 		res <- &EndpointRegenerationResult{
 			err: err,
 		}
-
 		return
 	}
 	e.runlock()

@@ -381,7 +381,8 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	require.Equal(t, expectedNetworkPolicy, qaBarNetworkPolicy)
+
+	require.EqualExportedValues(t, expectedNetworkPolicy, qaBarNetworkPolicy)
 
 	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	require.NotNil(t, prodBarNetworkPolicy)
@@ -424,7 +425,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	require.Equal(t, expectedNetworkPolicy, prodBarNetworkPolicy)
+	require.EqualExportedValues(t, expectedNetworkPolicy, prodBarNetworkPolicy)
 }
 
 func TestL4L7ShadowingEtcd(t *testing.T) {
@@ -511,7 +512,7 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	require.Equal(t, expectedNetworkPolicy, qaBarNetworkPolicy)
+	require.EqualExportedValues(t, expectedNetworkPolicy, qaBarNetworkPolicy)
 }
 
 func TestL4L7ShadowingShortCircuitEtcd(t *testing.T) {
@@ -595,7 +596,7 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	require.Equal(t, expectedNetworkPolicy, qaBarNetworkPolicy)
+	require.EqualExportedValues(t, expectedNetworkPolicy, qaBarNetworkPolicy)
 }
 
 func TestL3DependentL7Etcd(t *testing.T) {
@@ -700,7 +701,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 			{Protocol: envoy_config_core.SocketAddress_TCP},
 		},
 	}
-	require.Equal(t, expectedNetworkPolicy, qaBarNetworkPolicy)
+	require.EqualExportedValues(t, expectedNetworkPolicy, qaBarNetworkPolicy)
 }
 
 func TestReplacePolicyEtcd(t *testing.T) {
@@ -942,7 +943,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 			},
 		},
 	}
-	require.Equal(t, expectedIngressPolicy, qaBarNetworkPolicy.IngressPerPortPolicies[0])
+	require.EqualExportedValues(t, expectedIngressPolicy, qaBarNetworkPolicy.IngressPerPortPolicies[0])
 
 	// Allocate identities needed for this test
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
