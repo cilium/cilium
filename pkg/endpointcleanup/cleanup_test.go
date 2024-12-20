@@ -280,3 +280,7 @@ func (r *fakeRestorer) Await(context.Context) (endpointstate.Restorer, error) {
 func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {
 	return nil
 }
+
+func (r *fakeRestorer) WaitForInitialEnvoyPolicy(_ context.Context) error {
+	return nil
+}
