@@ -690,6 +690,9 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		if err != nil && !errors.Is(err, ErrPolicyEntryMaxExceeded) {
 			return err
 		}
+
+		// Signal computation of the initial Envoy policy if not done yet
+		e.InitialPolicyComputedLocked()
 	}
 
 	currentDir := datapathRegenCtxt.currentDir
@@ -915,7 +918,7 @@ func (e *Endpoint) scrubIPsInConntrackTable() {
 // SkipStateClean can be called on a endpoint before its first build to skip
 // the cleaning of state such as the conntrack table. This is useful when an
 // endpoint is being restored from state and the datapath state should not be
-// claned.
+// cleaned.
 //
 // The endpoint lock must NOT be held.
 func (e *Endpoint) SkipStateClean() {
