@@ -734,6 +734,34 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
 	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
 
+	if !n.IsLocal() {
+		for _, cidr := range append(n.GetIPv4AllocCIDRs(), n.GetIPv6AllocCIDRs()...) {
+			if cidr == nil {
+				continue
+			}
+
+			prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
+			if !ok {
+				continue
+			}
+
+			lbls := labels.Labels{
+				labels.IDNameCluster: labels.Label{
+					Key:    prefix.String(),
+					Value:  prefix.String(),
+					Source: labels.LabelSourceCIDR,
+				},
+			}
+
+			metadata := []ipcache.IPMetadata{lbls, ipcacheTypes.TunnelPeer{Addr: nodeIP}}
+			if m.nodeAddressHasEncryptKey() {
+				metadata = append(metadata, ipcacheTypes.EncryptKey(n.EncryptionKey))
+			}
+
+			m.ipcache.UpsertMetadata(prefix, n.Source, resource, metadata...)
+		}
+	}
+
 	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
 		healthIP := ip.IPToNetPrefix(address)
 		if !healthIP.IsValid() {

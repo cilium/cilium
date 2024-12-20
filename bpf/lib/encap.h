@@ -115,28 +115,36 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 		       __u32 seclabel, __u32 dstid,
 		       const struct trace_ctx *trace)
 {
-	struct tunnel_value *tunnel __maybe_unused;
+	struct remote_endpoint_info *ep __maybe_unused;
 
 	if (tunnel_endpoint)
 		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
 						encrypt_key, seclabel, dstid,
 						trace);
 
-	// FIXME: lookup into ipcache
-	// tunnel = map_lookup_elem(&TUNNEL_MAP, key);
-	// if (!tunnel)
-	// 	return DROP_NO_TUNNEL_ENDPOINT;
+	if (key->family == ENDPOINT_KEY_IPV4) {
+		ep = lookup_ip4_remote_endpoint(key->ip4, key->cluster_id);
+	} else {
+		ep = lookup_ip6_remote_endpoint(&key->ip6, key->cluster_id);
+	}
+	if (!ep || !ep->tunnel_endpoint)
+		return DROP_NO_TUNNEL_ENDPOINT;
+
 	return DROP_NO_TUNNEL_ENDPOINT;
 
 # ifdef ENABLE_IPSEC
-	if (tunnel->key) {
-		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
+	if (ep->key) {
+		__u8 min_encrypt_key = get_min_encrypt_key(ep->key);
 
-		return set_ipsec_encrypt(ctx, min_encrypt_key, tunnel->ip4,
+		return set_ipsec_encrypt(ctx, min_encrypt_key, ep->tunnel_endpoint,
 					 seclabel, false, false);
 	}
 # endif
+<<<<<<< HEAD
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
+=======
+	return __encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, seclabel,
+>>>>>>> e0dd6cdb9e (node: Use ipcache for tunneling)
 						dstid, NOT_VTEP_DST, trace);
 }
 
@@ -145,17 +153,17 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 			  __u8 encrypt_key, __u32 seclabel,
 			  const struct trace_ctx *trace)
 {
-	struct tunnel_value *tunnel;
+	struct remote_endpoint_info *ep;
 
-	(void)(k);
+	if (k->family == ENDPOINT_KEY_IPV4) {
+			ep = lookup_ip4_remote_endpoint(k->ip4, k->cluster_id);
+	} else {
+			ep = lookup_ip6_remote_endpoint(&k->ip6, k->cluster_id);
+	}
+	if (!ep || !ep->tunnel_endpoint)
+			return DROP_NO_TUNNEL_ENDPOINT;
 
-	// FIXME: lookup into ipcache
-	// tunnel = map_lookup_elem(&TUNNEL_MAP, k);
-	// if (!tunnel)
-	// 	return DROP_NO_TUNNEL_ENDPOINT;
-	return DROP_NO_TUNNEL_ENDPOINT;
-
-	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, encrypt_key,
+	return encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, encrypt_key,
 					      seclabel, 0, trace);
 }
 #endif /* TUNNEL_MODE */
