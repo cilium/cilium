@@ -736,6 +736,47 @@ func (m *UdpProxyConfig_SessionFilter) validate(all bool) error {
 			}
 		}
 
+	case *UdpProxyConfig_SessionFilter_ConfigDiscovery:
+		if v == nil {
+			err := UdpProxyConfig_SessionFilterValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetConfigDiscovery()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, UdpProxyConfig_SessionFilterValidationError{
+						field:  "ConfigDiscovery",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, UdpProxyConfig_SessionFilterValidationError{
+						field:  "ConfigDiscovery",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetConfigDiscovery()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return UdpProxyConfig_SessionFilterValidationError{
+					field:  "ConfigDiscovery",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}

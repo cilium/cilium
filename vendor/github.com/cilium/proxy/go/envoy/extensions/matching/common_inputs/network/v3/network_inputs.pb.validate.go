@@ -1055,3 +1055,306 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = FilterStateInputValidationError{}
+
+// Validate checks the field values on DynamicMetadataInput with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *DynamicMetadataInput) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DynamicMetadataInput with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DynamicMetadataInputMultiError, or nil if none found.
+func (m *DynamicMetadataInput) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DynamicMetadataInput) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetFilter()) < 1 {
+		err := DynamicMetadataInputValidationError{
+			field:  "Filter",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(m.GetPath()) < 1 {
+		err := DynamicMetadataInputValidationError{
+			field:  "Path",
+			reason: "value must contain at least 1 item(s)",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	for idx, item := range m.GetPath() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DynamicMetadataInputValidationError{
+						field:  fmt.Sprintf("Path[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DynamicMetadataInputValidationError{
+						field:  fmt.Sprintf("Path[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DynamicMetadataInputValidationError{
+					field:  fmt.Sprintf("Path[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return DynamicMetadataInputMultiError(errors)
+	}
+
+	return nil
+}
+
+// DynamicMetadataInputMultiError is an error wrapping multiple validation
+// errors returned by DynamicMetadataInput.ValidateAll() if the designated
+// constraints aren't met.
+type DynamicMetadataInputMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DynamicMetadataInputMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DynamicMetadataInputMultiError) AllErrors() []error { return m }
+
+// DynamicMetadataInputValidationError is the validation error returned by
+// DynamicMetadataInput.Validate if the designated constraints aren't met.
+type DynamicMetadataInputValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DynamicMetadataInputValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DynamicMetadataInputValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DynamicMetadataInputValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DynamicMetadataInputValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DynamicMetadataInputValidationError) ErrorName() string {
+	return "DynamicMetadataInputValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DynamicMetadataInputValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDynamicMetadataInput.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DynamicMetadataInputValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DynamicMetadataInputValidationError{}
+
+// Validate checks the field values on DynamicMetadataInput_PathSegment with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
+func (m *DynamicMetadataInput_PathSegment) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DynamicMetadataInput_PathSegment with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// DynamicMetadataInput_PathSegmentMultiError, or nil if none found.
+func (m *DynamicMetadataInput_PathSegment) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DynamicMetadataInput_PathSegment) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	oneofSegmentPresent := false
+	switch v := m.Segment.(type) {
+	case *DynamicMetadataInput_PathSegment_Key:
+		if v == nil {
+			err := DynamicMetadataInput_PathSegmentValidationError{
+				field:  "Segment",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofSegmentPresent = true
+
+		if utf8.RuneCountInString(m.GetKey()) < 1 {
+			err := DynamicMetadataInput_PathSegmentValidationError{
+				field:  "Key",
+				reason: "value length must be at least 1 runes",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+	if !oneofSegmentPresent {
+		err := DynamicMetadataInput_PathSegmentValidationError{
+			field:  "Segment",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return DynamicMetadataInput_PathSegmentMultiError(errors)
+	}
+
+	return nil
+}
+
+// DynamicMetadataInput_PathSegmentMultiError is an error wrapping multiple
+// validation errors returned by
+// DynamicMetadataInput_PathSegment.ValidateAll() if the designated
+// constraints aren't met.
+type DynamicMetadataInput_PathSegmentMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DynamicMetadataInput_PathSegmentMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DynamicMetadataInput_PathSegmentMultiError) AllErrors() []error { return m }
+
+// DynamicMetadataInput_PathSegmentValidationError is the validation error
+// returned by DynamicMetadataInput_PathSegment.Validate if the designated
+// constraints aren't met.
+type DynamicMetadataInput_PathSegmentValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DynamicMetadataInput_PathSegmentValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DynamicMetadataInput_PathSegmentValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DynamicMetadataInput_PathSegmentValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DynamicMetadataInput_PathSegmentValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DynamicMetadataInput_PathSegmentValidationError) ErrorName() string {
+	return "DynamicMetadataInput_PathSegmentValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DynamicMetadataInput_PathSegmentValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDynamicMetadataInput_PathSegment.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DynamicMetadataInput_PathSegmentValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DynamicMetadataInput_PathSegmentValidationError{}

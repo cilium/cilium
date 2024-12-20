@@ -97,6 +97,17 @@ func (m *BasicAuth) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if !_BasicAuth_AuthenticationHeader_Pattern.MatchString(m.GetAuthenticationHeader()) {
+		err := BasicAuthValidationError{
+			field:  "AuthenticationHeader",
+			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if len(errors) > 0 {
 		return BasicAuthMultiError(errors)
 	}
@@ -175,6 +186,8 @@ var _ interface {
 } = BasicAuthValidationError{}
 
 var _BasicAuth_ForwardUsernameHeader_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
+
+var _BasicAuth_AuthenticationHeader_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
 // Validate checks the field values on BasicAuthPerRoute with the rules defined
 // in the proto definition for this message. If any rules are violated, the
