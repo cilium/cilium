@@ -155,7 +155,7 @@ jobs:
             lb-mode: 'dsr'
             endpoint-routes: 'true'
             egress-gateway: 'true'
-            host-fw: 'false' # enabling breaks downgrading (missed tail calls)
+            host-fw: 'true'
             ingress-controller: 'true'
 
           - name: '6'
