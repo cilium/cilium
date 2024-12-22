@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -76,7 +77,34 @@ func (r *RoutePolicyReconciler) Init(_ *instance.ServerWithConfig) error {
 func (r *RoutePolicyReconciler) Cleanup(_ *instance.ServerWithConfig) {}
 
 func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
+	sc := params.CurrentServer
+	var lbPool []types.LbPool
+
+	if _, found := sc.ReconcilerMetadata["lbPool"]; !found {
+		sc.ReconcilerMetadata["lbPool"] = lbPool
+	}
+
 	l := log.WithFields(logrus.Fields{"component": "RoutePolicyReconciler"})
+
+	lbPoolList, _ := r.lbPoolStore.List()
+	for _, pool := range lbPoolList {
+		var cidrs []*net.IPNet
+		blocks := pool.Spec.Blocks
+		for _, block := range blocks {
+			cidr := block.Cidr
+			cidrStr := fmt.Sprintf("%v", cidr)
+			_, addr, err := net.ParseCIDR(cidrStr)
+			if err != nil {
+				continue
+			}
+			cidrs = append(cidrs, addr)
+		}
+		summarize := pool.Spec.Summarize
+
+		lbPool = append(lbPool, types.LbPool{Cidrs: cidrs, Summarize: summarize})
+	}
+
+	sc.ReconcilerMetadata["lbPool"] = lbPool
 
 	if params.DesiredConfig == nil {
 		return fmt.Errorf("attempted routing policy reconciliation with nil DesiredConfig")

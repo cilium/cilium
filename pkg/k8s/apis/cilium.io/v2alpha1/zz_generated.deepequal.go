@@ -1464,6 +1464,9 @@ func (in *CiliumLoadBalancerIPPoolSpec) DeepEqual(other *CiliumLoadBalancerIPPoo
 	if in.Disabled != other.Disabled {
 		return false
 	}
+	if in.Summarize != other.Summarize {
+		return false
+	}
 
 	return true
 }

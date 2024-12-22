@@ -150,6 +150,11 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
+              summarize:
+                default: false
+                description: Summarize flag, when set enables aggregation cidrs for
+                  BGP route advertisement for service
+                type: boolean
             type: object
           status:
             description: |-

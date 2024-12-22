@@ -85,6 +85,11 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	Disabled bool `json:"disabled"`
+	// Summarize flag, when set enables aggregation cidrs for BGP route advertisement for service
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	Summarize bool `json:"summarize,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=Yes;No
