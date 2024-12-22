@@ -536,10 +536,10 @@ data:
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
 {{- end }}
 {{- if .Values.eni.subnetTagsFilter }}
-  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter |  join " " | quote }}
+  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter |  join "," | quote }}
 {{- end }}
 {{- if .Values.eni.instanceTagsFilter }}
-  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join " " | quote }}
+  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join "," | quote }}
 {{- end }}
 {{- end }}
 {{ if .Values.eni.gcInterval }}
@@ -1162,6 +1162,7 @@ data:
   enable-bgp-control-plane: "true"
   bgp-secrets-namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
   enable-bgp-control-plane-status-report: {{ .Values.bgpControlPlane.statusReport.enabled | quote }}
+  bgp-router-id-allocation-mode: {{ .Values.bgpControlPlane.routerIDAllocation.mode | quote }}
 {{- end }}
 
 {{- if .Values.pmtuDiscovery.enabled }}

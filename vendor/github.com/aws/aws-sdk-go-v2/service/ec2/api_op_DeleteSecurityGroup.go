@@ -50,6 +50,13 @@ type DeleteSecurityGroupInput struct {
 }
 
 type DeleteSecurityGroupOutput struct {
+
+	// The ID of the deleted security group.
+	GroupId *string
+
+	// Returns true if the request succeeds; otherwise, returns an error.
+	Return *bool
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 

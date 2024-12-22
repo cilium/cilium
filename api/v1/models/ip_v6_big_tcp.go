@@ -17,8 +17,6 @@ import (
 
 // IPV6BigTCP Status of IPv6 BIG TCP
 //
-// +k8s:deepcopy-gen=true
-//
 // swagger:model IPV6BigTCP
 type IPV6BigTCP struct {
 

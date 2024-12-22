@@ -1,3 +1,8 @@
+# v2.6.26 (2024-12-19)
+
+* **Bug Fix**: Fix improper use of printf-style functions.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v2.6.25 (2024-12-02)
 
 * **Dependency Update**: Updated to the latest SDK module versions

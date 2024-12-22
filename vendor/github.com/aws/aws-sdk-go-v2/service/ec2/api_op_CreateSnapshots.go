@@ -11,19 +11,24 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates crash-consistent snapshots of multiple EBS volumes and stores the data
-// in S3. Volumes are chosen by specifying an instance. Any attached volumes will
-// produce one snapshot each that is crash-consistent across the instance.
+// Creates crash-consistent snapshots of multiple EBS volumes attached to an
+// Amazon EC2 instance. Volumes are chosen by specifying an instance. Each volume
+// attached to the specified instance will produce one snapshot that is
+// crash-consistent across the instance. You can include all of the volumes
+// currently attached to the instance, or you can exclude the root volume or
+// specific data (non-root) volumes from the multi-volume snapshot set.
 //
-// You can include all of the volumes currently attached to the instance, or you
-// can exclude the root volume or specific data (non-root) volumes from the
-// multi-volume snapshot set.
+// The location of the source instance determines where you can create the
+// snapshots.
 //
-// You can create multi-volume snapshots of instances in a Region and instances on
-// an Outpost. If you create snapshots from an instance in a Region, the snapshots
-// must be stored in the same Region as the instance. If you create snapshots from
-// an instance on an Outpost, the snapshots can be stored on the same Outpost as
-// the instance, or in the Region for that Outpost.
+//   - If the source instance is in a Region, you must create the snapshots in the
+//     same Region as the instance.
+//
+//   - If the source instance is in a Local Zone, you can create the snapshots in
+//     the same Local Zone or in parent Amazon Web Services Region.
+//
+//   - If the source instance is on an Outpost, you can create the snapshots on
+//     the same Outpost or in its parent Amazon Web Services Region.
 func (c *Client) CreateSnapshots(ctx context.Context, params *CreateSnapshotsInput, optFns ...func(*Options)) (*CreateSnapshotsOutput, error) {
 	if params == nil {
 		params = &CreateSnapshotsInput{}
@@ -58,23 +63,31 @@ type CreateSnapshotsInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The Amazon Resource Name (ARN) of the Outpost on which to create the local
-	// snapshots.
+	// Only supported for instances in Local Zones. If the source instance is not in a
+	// Local Zone, omit this parameter.
 	//
-	//   - To create snapshots from an instance in a Region, omit this parameter. The
-	//   snapshots are created in the same Region as the instance.
+	//   - To create local snapshots in the same Local Zone as the source instance,
+	//   specify local .
 	//
-	//   - To create snapshots from an instance on an Outpost and store the snapshots
-	//   in the Region, omit this parameter. The snapshots are created in the Region for
-	//   the Outpost.
+	//   - To create a regional snapshots in the parent Region of the Local Zone,
+	//   specify regional or omit this parameter.
 	//
-	//   - To create snapshots from an instance on an Outpost and store the snapshots
-	//   on an Outpost, specify the ARN of the destination Outpost. The snapshots must be
-	//   created on the same Outpost as the instance.
+	// Default value: regional
+	Location types.SnapshotLocationEnum
+
+	// Only supported for instances on Outposts. If the source instance is not on an
+	// Outpost, omit this parameter.
 	//
-	// For more information, see [Create multi-volume local snapshots from instances on an Outpost] in the Amazon EBS User Guide.
+	//   - To create the snapshots on the same Outpost as the source instance, specify
+	//   the ARN of that Outpost. The snapshots must be created on the same Outpost as
+	//   the instance.
 	//
-	// [Create multi-volume local snapshots from instances on an Outpost]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#create-multivol-snapshot
+	//   - To create the snapshots in the parent Region of the Outpost, omit this
+	//   parameter.
+	//
+	// For more information, see [Create local snapshots from volumes on an Outpost] in the Amazon EBS User Guide.
+	//
+	// [Create local snapshots from volumes on an Outpost]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#create-snapshot
 	OutpostArn *string
 
 	// Tags to apply to every snapshot specified by the instance.

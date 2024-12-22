@@ -33,7 +33,7 @@ the cluster based on its ``nodeSelector`` field. Each ``CiliumBGPClusterConfig``
 more BGP instances, which are uniquely identified by their ``name`` field.
 
 A BGP instance can have one or more peers. Each peer is uniquely identified by its ``name`` field. The Peer
-autonomous number and peer address are defined by the ``peerASN`` and ``peerAddress`` fields,
+autonomous system number and peer address are defined by the ``peerASN`` and ``peerAddress`` fields,
 respectively. The configuration of the peers is defined by the ``peerConfigRef`` field, which is a reference
 to a peer configuration resource. ``Group`` and ``kind`` in ``peerConfigRef`` are optional and default to
 ``cilium.io`` and ``CiliumBGPPeerConfig``, respectively.
@@ -744,8 +744,8 @@ BGP Configuration Override
 The ``CiliumBGPNodeConfigOverride`` resource can be used to override some of the auto-generated configuration
 on a per-node basis.
 
-Here is an example of the ``CiliumBGPNodeConfigOverride`` resource, that sets Router ID and local address
-used in each peer for the node with a name ``bgpv2-cplane-dev-multi-homing-worker``.
+Here is an example of the ``CiliumBGPNodeConfigOverride`` resource, that sets Router ID, local address and
+local autonomous system number used in each peer for the node with a name ``bgpv2-cplane-dev-multi-homing-worker``.
 
 .. code-block:: yaml
 
@@ -758,6 +758,7 @@ used in each peer for the node with a name ``bgpv2-cplane-dev-multi-homing-worke
         - name: "instance-65000"
           routerID: "192.168.10.1"
           localPort: 1790
+          localASN: 65010
           peers:
             - name: "peer-65000-tor1"
               localAddress: fd00:10:0:2::2
@@ -775,11 +776,13 @@ used in each peer for the node with a name ``bgpv2-cplane-dev-multi-homing-worke
 RouterID
 --------
 
-When Cilium runs on an IPv4 single-stack or a dual-stack, the BGP Control Plane can use
-the IPv4 address assigned to the node as the BGP Router ID because the Router ID is 32 bit-long, and
-we can rely on the uniqueness of the IPv4 address to make the Router ID unique which is not the case
-for IPv6. Thus, when running in an IPv6 single-stack, or when the auto assignment of the Router ID
-is not desired, the administrator needs to manually define it.
+There is ``bgpControlPlane.routerIDAllocation.mode`` Helm chart value, which stipulates how the 
+Router ID is allocated. Currently, only ``default`` is supported. In ``default`` mode,
+when Cilium runs on an IPv4 single-stack or a dual-stack, the BGP Control Plane can use the IPv4 address
+assigned to the node as the BGP Router ID because the Router ID is 32 bit-long, and we can rely on the uniqueness
+of the IPv4 address to make the Router ID unique. When running in an IPv6 single-stack, the lower 32 bits
+of MAC address of ``cilium_host`` interface are used as Router ID. If the auto assignment of
+the Router ID is not desired, the administrator needs to manually define it.
 
 In order to configure custom Router ID, you can set ``routerID`` field in an IPv4 address format.
 
@@ -802,6 +805,14 @@ BGP peering should be setup.
 
 To configure the source address, the ``peers[*].localAddress`` field can be set. It should be an
 address configured on one of the links on the node.
+
+Local ASN
+---------
+
+It is possible to override the Autonomous System Number (ASN) of a node using the field ``LocalASN`` of the
+``CiliumBGPNodeConfigOverride`` resource. When this field is not defined, the ``LocalASN`` from the matching
+``CiliumBGPClusterConfig`` is used as local ASN for the node. This customization allows individual nodes to
+operate with a different ASN when required by the network design.
 
 Sample Configurations
 =====================
