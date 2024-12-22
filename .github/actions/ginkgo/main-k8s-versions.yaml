@@ -25,6 +25,6 @@ include:
   - k8s-version: "1.29"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "kindest/node:v1.29.10@sha256:3b2d8c31753e6c8069d4fc4517264cd20e86fd36220671fb7d0a5855103aa84b"
+    kube-image: "kindest/node:v1.29.12@sha256:62c0672ba99a4afd7396512848d6fc382906b8f33349ae68fb1dbfe549f70dec"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
     kernel: "5.4-20241218.004849@sha256:7e3279228075a3b9d227c7b09298f79559d9bef236173ce0f8b58e159d4a0788"
