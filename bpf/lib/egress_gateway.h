@@ -58,9 +58,6 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 		if (!neigh_resolver_available())
 			return CTX_ACT_OK;
 
-		/* Don't redirect without a valid target ifindex: */
-		if (!is_defined(HAVE_FIB_IFINDEX))
-			return CTX_ACT_OK;
 		break;
 	default:
 		*ext_err = (__s8)ret;

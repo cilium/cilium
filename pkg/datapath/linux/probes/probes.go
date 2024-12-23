@@ -94,13 +94,8 @@ type ProgramHelper struct {
 	Helper  asm.BuiltinFunc
 }
 
-type miscFeatures struct {
-	HaveFibIfindex bool
-}
-
 type FeatureProbes struct {
 	ProgramHelpers map[ProgramHelper]bool
-	Misc           miscFeatures
 }
 
 // SystemConfig contains kernel configuration and sysctl parameters related to
@@ -400,13 +395,6 @@ func HaveBoundedLoops(logger *slog.Logger) error {
 	return nil
 }
 
-// HaveFibIfindex checks if kernel has d1c362e1dd68 ("bpf: Always return target
-// ifindex in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
-// as the new redirect helpers.
-func HaveFibIfindex() error {
-	return nil
-}
-
 // HaveWriteableQueueMapping checks if kernel has 74e31ca850c1 ("bpf: add
 // skb->queue_mapping write access from tc clsact") which is 5.1+. This got merged
 // in the same kernel as the bpf_skb_ecn_set_ce() helper.
@@ -689,7 +677,6 @@ func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
 func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 	probes := FeatureProbes{
 		ProgramHelpers: make(map[ProgramHelper]bool),
-		Misc:           miscFeatures{},
 	}
 
 	progHelpers := []ProgramHelper{
@@ -716,8 +703,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 		probes.ProgramHelpers[ph] = (HaveProgramHelper(logger, ph.Program, ph.Helper) == nil)
 	}
 
-	probes.Misc.HaveFibIfindex = (HaveFibIfindex() == nil)
-
 	return &probes
 }
 
@@ -730,9 +715,8 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
-		"HAVE_CGROUP_ID":   probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
-		"HAVE_SET_RETVAL":  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
-		"HAVE_FIB_IFINDEX": probes.Misc.HaveFibIfindex,
+		"HAVE_CGROUP_ID":  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
+		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
 	}
 
 	return writeFeatureHeader(writer, features, true)
