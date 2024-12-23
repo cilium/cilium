@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
-	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -72,9 +71,6 @@ var Cell = cell.Module(
 
 	// The sysctl reconciler to read and write kernel sysctl parameters.
 	sysctl.Cell,
-
-	// The modules manager to search and load kernel modules.
-	modules.Cell,
 
 	// Manages Cilium-specific iptables rules.
 	iptables.Cell,
