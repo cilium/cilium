@@ -64,6 +64,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for bpf_redirect_neigh() (Linux 5.10.0 or newer)")
 		}
 
+		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
+			return errors.New("Require support for bpf_redirect_peer() (Linux 5.10.0 or newer)")
+		}
+
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			// TODO(vincentmli): revisit log when GH#14314 has been resolved
 			// Warn missing required kernel config option
