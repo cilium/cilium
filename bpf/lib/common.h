@@ -1089,9 +1089,6 @@ struct ct_state {
 		  closing:1,
 	      reserved:7;
 	__u32 src_sec_id;
-#ifndef HAVE_FIB_IFINDEX
-	__u16 ifindex;
-#endif
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
 
