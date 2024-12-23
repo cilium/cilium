@@ -6,6 +6,8 @@
 #include <bpf/api.h>
 #include "pktgen.h"
 
+#define TEST_BPF_SOCK 1
+
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #undef ENABLE_HEALTH_CHECK

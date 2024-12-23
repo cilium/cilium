@@ -21,6 +21,7 @@
 #include "common.h"
 #include "events.h"
 #include "ratelimit.h"
+#include "sock.h"
 
 /* L4 protocol for the trace event */
 enum l4_protocol {
