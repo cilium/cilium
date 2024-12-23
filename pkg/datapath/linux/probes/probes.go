@@ -94,10 +94,6 @@ type ProgramHelper struct {
 	Helper  asm.BuiltinFunc
 }
 
-type miscFeatures struct {
-	HaveFibIfindex bool
-}
-
 type FeatureProbes struct {
 	ProgramHelpers map[ProgramHelper]bool
 	Misc           miscFeatures
@@ -384,13 +380,6 @@ func HaveBoundedLoops() error {
 		log.WithError(err).Fatal("failed to probe bounded loops")
 	}
 	return nil
-}
-
-// HaveFibIfindex checks if kernel has d1c362e1dd68 ("bpf: Always return target
-// ifindex in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
-// as the new redirect helpers.
-func HaveFibIfindex() error {
-	return true
 }
 
 // HaveWriteableQueueMapping checks if kernel has 74e31ca850c1 ("bpf: add
@@ -765,8 +754,6 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		probes.ProgramHelpers[ph] = (HaveProgramHelper(ph.Program, ph.Helper) == nil)
 	}
 
-	probes.Misc.HaveFibIfindex = (HaveFibIfindex() == nil)
-
 	return &probes
 }
 
@@ -779,9 +766,8 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
-		"HAVE_CGROUP_ID":   probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
-		"HAVE_SET_RETVAL":  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
-		"HAVE_FIB_IFINDEX": probes.Misc.HaveFibIfindex,
+		"HAVE_CGROUP_ID":  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
+		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
 	}
 
 	return writeFeatureHeader(writer, features, true)

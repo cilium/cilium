@@ -898,9 +898,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 		ctx_snat_done_set(ctx);
-#ifndef HAVE_FIB_IFINDEX
-		ifindex = ct_state.ifindex;
-#endif
+
 #ifdef TUNNEL_MODE
 		{
 			union v6addr *dst = (union v6addr *)&ip6->daddr;
@@ -1292,9 +1290,6 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		case CT_NEW:
 			ct_state.src_sec_id = WORLD_IPV6_ID;
 			ct_state.node_port = 1;
-#ifndef HAVE_FIB_IFINDEX
-			ct_state.ifindex = (__u16)THIS_INTERFACE_IFINDEX;
-#endif
 
 			ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
 					 CT_EGRESS, &ct_state, ext_err);
@@ -2177,9 +2172,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 		ctx_snat_done_set(ctx);
-#ifndef HAVE_FIB_IFINDEX
-		ifindex = ct_state.ifindex;
-#endif
+
 #if defined(TUNNEL_MODE)
 		{
 			struct remote_endpoint_info *info;
@@ -2626,9 +2619,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		case CT_NEW:
 			ct_state.src_sec_id = src_sec_identity;
 			ct_state.node_port = 1;
-#ifndef HAVE_FIB_IFINDEX
-			ct_state.ifindex = (__u16)THIS_INTERFACE_IFINDEX;
-#endif
 
 			ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 					 CT_EGRESS, &ct_state, ext_err);
