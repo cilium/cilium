@@ -1131,28 +1131,29 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      CTX_ACT_DROP, METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
-		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
+		if (from_host) {
+			identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, true);
 
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6)
-		if (from_host) {
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
 			 * comment in ipv6_host_policy_egress() for details.
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
+		} else {
+			identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, false);
 
 # ifdef ENABLE_WIREGUARD
-		if (!from_host) {
 			next_proto = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
 			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
 				trace.reason = TRACE_REASON_ENCRYPTED;
-		}
 # endif /* ENABLE_WIREGUARD */
+		}
+
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
@@ -1174,28 +1175,28 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      CTX_ACT_DROP, METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid,
-					      from_host);
-		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
+		if (from_host) {
+			identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid, true);
 
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
-		if (from_host) {
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
 			 * comment in ipv4_host_policy_egress() for details.
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
+		} else {
+			identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid, false);
 
 #ifdef ENABLE_WIREGUARD
-		if (!from_host) {
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
 			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
 				trace.reason = TRACE_REASON_ENCRYPTED;
-		}
 #endif /* ENABLE_WIREGUARD */
+		}
+
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
