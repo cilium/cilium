@@ -377,24 +377,22 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		m.disableIPEarlyDemux()
 	}
 
-	if err := m.modulesMgr.FindOrLoadModules(
-		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw", "iptable_filter",
-	); err != nil {
-		m.logger.WithError(err).Warning(
-			"iptables modules could not be initialized. It probably means that iptables is not available on this system")
+	for _, table := range []string{"nat", "mangle", "raw", "filter"} {
+		if err := ip4tables.runProg([]string{"-t", table, "-L"}); err != nil {
+			m.logger.WithError(err).Warningf("iptables table %s is not available on this system", table)
+		}
 	}
 
-	if err := m.modulesMgr.FindOrLoadModules(
-		"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter",
-	); err != nil {
-		if m.sharedCfg.EnableIPv6 {
-			return fmt.Errorf(
-				"IPv6 is enabled and ip6tables modules initialization failed: %w "+
-					"(try disabling IPv6 in Cilium or loading ip6_tables, ip6table_mangle, ip6table_raw and ip6table_filter kernel modules)", err)
+	for _, table := range []string{"mangle", "raw", "filter"} {
+		if err := ip6tables.runProg([]string{"-t", table, "-L"}); err != nil {
+			m.logger.WithError(err).Debugf("ip6tables table %s is not available on this system", table)
+			m.haveIp6tables = false
 		}
-		m.logger.WithError(err).Debug(
-			"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
-		m.haveIp6tables = false
+	}
+	if !m.haveIp6tables {
+		if m.sharedCfg.EnableIPv6 {
+			return fmt.Errorf("IPv6 is enabled, but the needed ip6tables tables are unavailable (try disabling IPv6 in Cilium or installing ip6tables and kernel modules: ip6_tables, ip6table_mangle, ip6table_raw, ip6table_filter)")
+		}
 	} else {
 		ipv6Disabled, err := os.ReadFile("/sys/module/ipv6/parameters/disable")
 		if err != nil {
@@ -412,8 +410,8 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		}
 	}
 
-	if err := m.modulesMgr.FindOrLoadModules("xt_socket"); err != nil {
-		m.logger.WithError(err).Warning("xt_socket kernel module could not be loaded")
+	if err := ip4tables.runProg([]string{"-t", "mangle", "-L", "-m", "socket"}); err != nil {
+		m.logger.WithError(err).Warning("iptables match socket is not available (try installing xt_socket kernel module)")
 
 		if !m.sharedCfg.TunnelingEnabled {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
