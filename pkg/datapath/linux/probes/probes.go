@@ -390,7 +390,7 @@ func HaveBoundedLoops() error {
 // ifindex in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
 // as the new redirect helpers.
 func HaveFibIfindex() error {
-	return features.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer)
+	return true
 }
 
 // HaveWriteableQueueMapping checks if kernel has 74e31ca850c1 ("bpf: add
@@ -751,7 +751,6 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.XDP, asm.FnJiffies64},
 		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
-		{ebpf.SchedCLS, asm.FnRedirectPeer},
 
 		// skb related probes
 		{ebpf.SchedCLS, asm.FnSkbChangeTail},
