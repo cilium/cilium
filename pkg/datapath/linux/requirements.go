@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -37,6 +39,10 @@ func CheckRequirements(log *slog.Logger) error {
 	// bpftool checks
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager()
+
+		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetSocketCookie) != nil {
+			return errors.New("Require support for bpf_get_socket_cookie() (Linux 4.12 or newer)")
+		}
 
 		if probes.HaveDeadCodeElim() != nil {
 			return errors.New("Require support for dead code elimination (Linux 5.1 or newer)")

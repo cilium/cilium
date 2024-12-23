@@ -745,7 +745,6 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		// common probes
 		{ebpf.CGroupSock, asm.FnGetNetnsCookie},
 		{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie},
-		{ebpf.CGroupSockAddr, asm.FnGetSocketCookie},
 		{ebpf.CGroupSock, asm.FnJiffies64},
 		{ebpf.CGroupSockAddr, asm.FnJiffies64},
 		{ebpf.SchedCLS, asm.FnJiffies64},
@@ -778,7 +777,6 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
 		"HAVE_NETNS_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnGetNetnsCookie}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie}],
-		"HAVE_SOCKET_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetSocketCookie}],
 		"HAVE_JIFFIES": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&

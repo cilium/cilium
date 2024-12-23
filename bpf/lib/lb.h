@@ -2257,36 +2257,3 @@ __wsum icmp_wsum_accumulate(void *data_start, void *data_end, int sample_len)
 }
 
 #endif /* SERVICE_NO_BACKEND_RESPONSE */
-
-/* sock_local_cookie retrieves the socket cookie for the
- * passed socket structure.
- */
-static __always_inline __maybe_unused
-__sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
-{
-#ifdef HAVE_SOCKET_COOKIE
-	/* prandom() breaks down on UDP, hence preference is on
-	 * socket cookie as built-in selector. On older kernels,
-	 * get_socket_cookie() provides a unique per netns cookie
-	 * for the life-time of the socket. For newer kernels this
-	 * is fixed to be a unique system _global_ cookie. Older
-	 * kernels could have a cookie collision when two pods with
-	 * different netns talk to same service backend, but that
-	 * is fine since we always reverse translate to the same
-	 * service IP/port pair. The only case that could happen
-	 * for older kernels is that we have a cookie collision
-	 * where one pod talks to the service IP/port and the
-	 * other pod talks to that same specific backend IP/port
-	 * directly _w/o_ going over service IP/port. Then the
-	 * reverse sock addr is translated to the service IP/port.
-	 * With a global socket cookie this collision cannot take
-	 * place. There, only the even more unlikely case could
-	 * happen where the same UDP socket talks first to the
-	 * service and then to the same selected backend IP/port
-	 * directly which can be considered negligible.
-	 */
-       return get_socket_cookie(ctx);
-#else
-       return ctx->protocol == IPPROTO_TCP ? get_prandom_u32() : 0;
-#endif
-}
