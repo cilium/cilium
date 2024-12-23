@@ -585,14 +585,30 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
+	// lock the endpoint, read our values, then unlock
+	err := e.lockAlive()
+	if err != nil {
+		return err
+	}
+	identityRevision := e.identityRevision
+	e.unlock()
+	policyRevision := e.policyGetter.GetPolicyRepository().GetRevision()
+
 	// regenerate policy without holding the lock.
 	// This is because policy generation needs the ipcache to make progress, and the ipcache
 	// needs to call endpoint.ApplyPolicyMapChanges()
-	stats.policyCalculation.Start()
-	policyResult, err := e.regeneratePolicy(stats, datapathRegenCtxt)
-	stats.policyCalculation.End(err == nil)
-	if err != nil {
-		return fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
+	// Computed only if not already done earlier, or if policy has updated since the policy was
+	// computed.
+	if datapathRegenCtxt.policyResult == nil ||
+		datapathRegenCtxt.policyResult.endpointPolicy == nil ||
+		datapathRegenCtxt.policyResult.identityRevision < identityRevision ||
+		datapathRegenCtxt.policyResult.policyRevision < policyRevision {
+		stats.policyCalculation.Start()
+		err := e.regeneratePolicy(stats, datapathRegenCtxt)
+		stats.policyCalculation.End(err == nil)
+		if err != nil {
+			return fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
+		}
 	}
 
 	// Any possible DNS redirects had their rules updated by 'e.regeneratePolicy' above, so we
@@ -638,11 +654,13 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// Note that the incoming policy can be the same as the previous policy in cases
 	// where an unnecessary policy computation was skipped. In that case
 	// e.desiredPolicy == e.realizedPolicy also after this call.
-	if err := e.setDesiredPolicy(policyResult, datapathRegenCtxt); err != nil {
+	if err := e.setDesiredPolicy(datapathRegenCtxt); err != nil {
 		return err
 	}
-	// Mark the desired policy as ready when done before the lock is released
-	defer e.desiredPolicy.Ready()
+	// Mark the new desired policy as ready when done before the lock is released
+	if e.desiredPolicy != e.realizedPolicy {
+		defer e.desiredPolicy.Ready()
+	}
 
 	// Apply pending policy map changes so that desired map is up-to-date before
 	// syncing the maps below.
