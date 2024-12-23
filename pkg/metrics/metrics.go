@@ -1378,7 +1378,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 	ifindexOpts := metric.GaugeOpts{
 		ConfigName: Namespace + "_endpoint_max_ifindex",
-		Disabled:   !enableIfIndexMetric(),
+		Disabled:   true,
 		Namespace:  Namespace,
 		Name:       "endpoint_max_ifindex",
 		Help:       "Maximum interface index observed for existing endpoints",
