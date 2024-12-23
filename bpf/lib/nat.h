@@ -755,7 +755,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			break;
 		default:
-			return DROP_UNKNOWN_ICMP_CODE;
+			return DROP_UNKNOWN_ICMP4_CODE;
 		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
@@ -850,7 +850,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code > NR_ICMP_UNREACH)
-				return DROP_UNKNOWN_ICMP_CODE;
+				return DROP_UNKNOWN_ICMP4_CODE;
 
 			goto nat_icmp_v4;
 		case ICMP_TIME_EXCEEDED:
@@ -859,7 +859,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			case ICMP_EXC_FRAGTIME:
 				break;
 			default:
-				return DROP_UNKNOWN_ICMP_CODE;
+				return DROP_UNKNOWN_ICMP4_CODE;
 			}
 
 nat_icmp_v4:
@@ -933,7 +933,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 		case ICMP_ECHOREPLY:
 			return NAT_PUNT_TO_STACK;
 		default:
-			return DROP_UNKNOWN_ICMP_CODE;
+			return DROP_UNKNOWN_ICMP4_CODE;
 		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
