@@ -32,6 +32,8 @@
     "go.sum",
     "Makefile.defs",
     "test/packet/scripts/install.sh",
+    "images/builder/install-protoc.sh",
+    "images/builder/install-protoplugins.sh",
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
     "install/kubernetes/Makefile.values",
@@ -587,8 +589,21 @@
       }
     },
     {
+      "matchFiles": [
+        "images/builder/install-protoc.sh",
+        "images/builder/install-protoplugins.sh"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
       matchPackageNames: [
         "protocolbuffers/protobuf",
+        "protocolbuffers/protobuf-go",
         "quay.io/goswagger/swagger"
       ],
       "postUpgradeTasks": {
