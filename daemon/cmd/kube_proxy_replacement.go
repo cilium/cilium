@@ -361,8 +361,7 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
 			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
 		default:
-			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
-				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
+			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
 				msg = "BPF host routing requires kernel 5.10 or newer."
 			}
 		}

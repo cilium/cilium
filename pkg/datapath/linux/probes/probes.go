@@ -751,7 +751,6 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.XDP, asm.FnJiffies64},
 		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
-		{ebpf.SchedCLS, asm.FnRedirectNeigh},
 		{ebpf.SchedCLS, asm.FnRedirectPeer},
 
 		// skb related probes
@@ -783,7 +782,6 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
 		"HAVE_CGROUP_ID":   probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
 		"HAVE_SET_RETVAL":  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
-		"HAVE_FIB_NEIGH":   probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
 		"HAVE_FIB_IFINDEX": probes.Misc.HaveFibIfindex,
 	}
 
