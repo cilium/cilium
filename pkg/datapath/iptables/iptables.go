@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -249,9 +248,8 @@ type Manager struct {
 	// GetProxyPort() methods.
 	lock lock.Mutex
 
-	logger     logrus.FieldLogger
-	modulesMgr *modules.Manager
-	sysctl     sysctl.Sysctl
+	logger logrus.FieldLogger
+	sysctl sysctl.Sysctl
 
 	cfg       Config
 	sharedCfg SharedConfig
@@ -285,7 +283,6 @@ type params struct {
 	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
 
-	ModulesMgr       *modules.Manager
 	Sysctl           sysctl.Sysctl
 	CNIConfigManager cni.CNIConfigManager
 	LocalNodeStore   *node.LocalNodeStore
@@ -300,12 +297,11 @@ type params struct {
 
 func newIptablesManager(p params) datapath.IptablesManager {
 	iptMgr := &Manager{
-		logger:     p.Logger,
-		modulesMgr: p.ModulesMgr,
-		sysctl:     p.Sysctl,
-		cfg:        p.Cfg,
-		sharedCfg:  p.SharedCfg,
-		argsInit:   lock.NewStoppableWaitGroup(),
+		logger:    p.Logger,
+		sysctl:    p.Sysctl,
+		cfg:       p.Cfg,
+		sharedCfg: p.SharedCfg,
+		argsInit:  lock.NewStoppableWaitGroup(),
 		reconcilerParams: reconcilerParams{
 			clock:          clock.RealClock{},
 			localNodeStore: p.LocalNodeStore,
