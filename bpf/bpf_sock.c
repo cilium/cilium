@@ -17,6 +17,7 @@
 #include "lib/identity.h"
 #include "lib/metrics.h"
 #include "lib/nat_46x64.h"
+#include "lib/sock.h"
 #include "lib/trace_sock.h"
 
 #define SYS_REJECT	0
