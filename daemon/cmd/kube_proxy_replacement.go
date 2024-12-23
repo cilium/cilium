@@ -348,10 +348,6 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		// KPR=true is needed or we might rely on netfilter.
 		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
 			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
-		default:
-			if probes.HaveProgramHelper(logging.DefaultSlogLogger, ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
-				msg = "BPF host routing requires kernel 5.10 or newer."
-			}
 		}
 		if msg != "" {
 			option.Config.EnableHostLegacyRouting = true
