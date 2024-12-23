@@ -302,15 +302,17 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 }
 
 func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint, cmp *completion.WaitGroup) {
-	res, err := ep.regeneratePolicy(s.stats, s.datapathRegenCtxt)
+	err := ep.regeneratePolicy(s.stats, s.datapathRegenCtxt)
 	require.NoError(t, err)
+	res := s.datapathRegenCtxt.policyResult
 
 	oldDesiredPolicy := ep.desiredPolicy
 	s.datapathRegenCtxt.revertStack.Push(func() error {
 		ep.desiredPolicy = oldDesiredPolicy
 		return nil
 	})
-	ep.setDesiredPolicy(res, s.datapathRegenCtxt)
+	s.datapathRegenCtxt.policyResult = res
+	ep.setDesiredPolicy(s.datapathRegenCtxt)
 
 	// This will also remove old redirects
 	s.datapathRegenCtxt.finalizeList.Finalize()

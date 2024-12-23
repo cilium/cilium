@@ -1219,6 +1219,9 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	errs := []error{}
 
 	// Remove policy references from shared policy structures
+	// Endpoint with desiredPolicy computed can get deleted while queueing for regeneration,
+	// must mark the policy as 'Ready' so that Detach does not complain about it.
+	e.desiredPolicy.Ready()
 	e.desiredPolicy.Detach()
 	// Passing a new map of nil will purge all redirects
 	e.removeOldRedirects(nil, e.desiredPolicy.Redirects)
