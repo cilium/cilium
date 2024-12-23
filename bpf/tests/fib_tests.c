@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-/* make neigh_resolver_available() return true */
-#define HAVE_FIB_NEIGH 1
 /* assume fib_lookup always returns target oif if available */
 #define HAVE_FIB_IFINDEX 1
 

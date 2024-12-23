@@ -98,9 +98,6 @@ long mock_fib_lookup(__maybe_unused struct __ctx_buff * volatile ctx, struct bpf
 	if (!params)
 		return BPF_FIB_LKUP_RET_BLACKHOLE;
 
-	if (settings && settings->fail_fib)
-		return BPF_FIB_LKUP_RET_NO_NEIGH;
-
 	params->ifindex = DEFAULT_IFACE;
 
 	if (params->ipv4_dst == BACKEND_IP_REMOTE) {
@@ -115,6 +112,9 @@ long mock_fib_lookup(__maybe_unused struct __ctx_buff * volatile ctx, struct bpf
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
 		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
 	}
+
+	if (settings && settings->fail_fib)
+		return BPF_FIB_LKUP_RET_NO_NEIGH;
 
 	return 0;
 }
@@ -825,7 +825,7 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 	return 0;
 }
 
-static __always_inline int check_reply(const struct __ctx_buff *ctx)
+static __always_inline int check_reply(const struct __ctx_buff *ctx, bool check_l2)
 {
 	void *data, *data_end;
 	__u32 *status_code;
@@ -857,10 +857,12 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+	if (check_l2) {
+		if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
+			test_fatal("src MAC is not the LB MAC")
+		if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
+			test_fatal("dst MAC is not the client MAC")
+	}
 
 	if (l3->saddr != FRONTEND_IP_REMOTE)
 		test_fatal("src IP hasn't been RevNATed to frontend IP");
@@ -901,7 +903,7 @@ int nodeport_nat_fwd_reply_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_check(const struct __ctx_buff *ctx)
 {
-	return check_reply(ctx);
+	return check_reply(ctx, true);
 }
 
 /* Test that the LB RevDNATs and RevSNATs a reply from the
@@ -931,7 +933,7 @@ int nodeport_nat_fwd_reply2_egw_check(const struct __ctx_buff *ctx)
 {
 	del_egressgw_policy_entry(CLIENT_IP, v4_all, 0);
 
-	return check_reply(ctx);
+	return check_reply(ctx, true);
 }
 
 /* Test that the LB RevDNATs and RevSNATs a reply from the
@@ -962,7 +964,8 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	return check_reply(ctx);
+	/* Don't check L2 addresses, they get handled by redirect_neigh(). */
+	return check_reply(ctx, false);
 }
 
 /* The following three tests are checking the scenario where a Rev NAT entry gets
@@ -1171,7 +1174,7 @@ int nodeport_nat_fwd_restore_reply_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_nodeport_nat_fwd_restore_reply")
 int nodeport_nat_fwd_restore_reply_check(const struct __ctx_buff *ctx)
 {
-	return check_reply(ctx);
+	return check_reply(ctx, true);
 }
 
  /* The following three tests are checking the scenario where a Original NAT entry gets deleted:
@@ -1342,7 +1345,7 @@ int nodeport_nat_fwd_restore_original_entry_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_nodeport_nat_fwd_restore_original_entry")
 int nodeport_nat_fwd_restore_original_entry_check(struct __ctx_buff *ctx)
 {
-	return check_reply(ctx);
+	return check_reply(ctx, true);
 }
 
 /* Test that a SVC request that is LBed to a NAT remote backend

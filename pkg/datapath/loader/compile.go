@@ -18,9 +18,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
-
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -136,16 +133,9 @@ var (
 func getBPFCPU(logger *slog.Logger) string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
-			// We can probe the availability of BPF instructions indirectly
-			// based on what kernel helpers are available when both were
-			// added in the same release.
-			// We want to enable v3 only on kernels 5.10+ where we have
-			// tested it and need it to work around complexity issues.
 			if probes.HaveV3ISA(logger) == nil {
-				if probes.HaveProgramHelper(logger, ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
-					nameBPFCPU = "v3"
-					return
-				}
+				nameBPFCPU = "v3"
+				return
 			}
 			// We want to enable v2 on all kernels that support it, that is,
 			// kernels 4.14+.
