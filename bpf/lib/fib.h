@@ -90,19 +90,8 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	/* determine which oif to use before needs_l2_check determines if layer 2
 	 * header needs to be pushed.
 	 */
-	if (fib_params) {
-		if (fib_result == BPF_FIB_LKUP_RET_NO_NEIGH &&
-		    !is_defined(HAVE_FIB_IFINDEX) && *oif) {
-			/* For kernels without d1c362e1dd68 ("bpf: Always
-			 * return target ifindex in bpf_fib_lookup") we
-			 * fall back to use the caller-provided oif when
-			 * necessary.
-			 * no-op
-			 */
-		} else {
-			*oif = fib_params->l.ifindex;
-		}
-	}
+	if (fib_params)
+		*oif = fib_params->l.ifindex;
 
 	/* determine if we need to append layer 2 header */
 	if (needs_l2_check) {

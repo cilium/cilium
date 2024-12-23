@@ -129,7 +129,6 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		switch (ret) {
 		case CT_NEW:
 			ct_state_new.node_port = ct_state.node_port;
-			ct_state_new.ifindex = ct_state.ifindex;
 			ret = ct_create4(get_ct_map4(&tuple), &cilium_ct_any4_global, &tuple, ctx,
 					 CT_EGRESS, &ct_state_new, NULL);
 			break;
