@@ -153,6 +153,13 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint
 		}
 	}
 
+	stringLBAlg := func(alg loadbalancer.SVCLoadBalancingAlgorithm, slot int) string {
+		if slot != 0 {
+			return ""
+		}
+		return "LBALG=" + loadbalancer.SVCLoadBalancingAlgorithm(alg).String() + " "
+	}
+
 	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
 		svcKey = svcKey.ToHost()
 		svcValue = svcValue.ToHost()
@@ -162,13 +169,14 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint
 		if svcKey.GetScope() == loadbalancer.ScopeInternal {
 			addrS += "/i"
 		}
-		out = append(out, fmt.Sprintf("SVC: ID=%s ADDR=%s SLOT=%d BEID=%s COUNT=%d QCOUNT=%d FLAGS=%s",
+		out = append(out, fmt.Sprintf("SVC: ID=%s ADDR=%s SLOT=%d BEID=%s COUNT=%d QCOUNT=%d %sFLAGS=%s",
 			sanitizeID(svcValue.GetRevNat(), sanitizeIDs),
 			addrS,
 			svcKey.GetBackendSlot(),
 			sanitizeID(svcValue.GetBackendID(), sanitizeIDs),
 			svcValue.GetCount(),
 			svcValue.GetQCount(),
+			stringLBAlg(svcValue.GetLbAlg(), svcKey.GetBackendSlot()),
 			strings.ReplaceAll(
 				loadbalancer.ServiceFlags(svcValue.GetFlags()).String(),
 				", ", "+"),
