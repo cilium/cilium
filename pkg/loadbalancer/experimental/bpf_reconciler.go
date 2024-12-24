@@ -18,10 +18,12 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -232,7 +234,7 @@ func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
 	ops.log.Debug("Delete frontend", "id", feID, "address", fe.Address)
 
 	// Delete Maglev.
-	if ops.cfg.NodePortAlg == option.NodePortAlgMaglev {
+	if ops.lbAlgorithm(fe) == loadbalancer.SVCLoadBalancingAlgorithmMaglev {
 		if err := ops.LBMaps.DeleteMaglev(lbmap.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
 		}
@@ -677,7 +679,8 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	// Update Maglev
-	if ops.cfg.NodePortAlg == option.NodePortAlgMaglev {
+	algorithm := ops.lbAlgorithm(fe)
+	if algorithm == loadbalancer.SVCLoadBalancingAlgorithmMaglev {
 		ops.log.Debug("Update Maglev", "feID", feID)
 		if err := ops.updateMaglev(fe, feID, orderedBackends[:activeCount]); err != nil {
 			return err
@@ -736,7 +739,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	ops.log.Debug("Update master service", "id", feID)
-	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
+	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount, algorithm); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
@@ -750,6 +753,19 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	ops.updateReferences(fe.Address, backendAddrs)
 
 	return nil
+}
+
+func (ops *BPFOps) lbAlgorithm(fe *Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
+	defaultAlgorithm := ops.cfg.NodePortAlg
+	if ops.cfg.LoadBalancerAlgorithmAnnotation {
+		alg, err := k8s.GetAnnotationServiceLoadBalancingAlgorithm(fe.service.Annotations, defaultAlgorithm)
+		if err != nil {
+			ops.log.Warn("Ignoring %q annotation, using the default algorithm %q instead.", annotation.ServiceLoadBalancingAlgorithm, defaultAlgorithm)
+		} else {
+			return alg
+		}
+	}
+	return loadbalancer.ToSVCLoadBalancingAlgorithm(defaultAlgorithm)
 }
 
 func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue) error {
@@ -768,17 +784,20 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 	return err
 }
 
-func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, inactiveBackends int) error {
+func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, inactiveBackends int, algorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
 	svcKey.SetBackendSlot(0)
 	svcVal.SetCount(activeBackends)
 	svcVal.SetQCount(inactiveBackends)
 	svcVal.SetBackendID(0)
+	svcVal.SetLbAlg(algorithm)
 
 	svc := fe.Service()
 
 	// Set the SessionAffinity/L7ProxyPort. These re-use the "backend ID".
 	if svc.SessionAffinity {
-		svcVal.SetSessionAffinityTimeoutSec(uint32(svc.SessionAffinityTimeout.Seconds()))
+		if err := svcVal.SetSessionAffinityTimeoutSec(uint32(svc.SessionAffinityTimeout.Seconds())); err != nil {
+			return err
+		}
 	}
 	if svc.ProxyRedirect.Redirects(fe.ServicePort) {
 		svcVal.SetL7LBProxyPort(svc.ProxyRedirect.ProxyPort)
