@@ -40,28 +40,34 @@ type TestConfig struct {
 	// NodePortAlg mirrors option.Config.NodePortAlg. This can be removed when the NodePort config
 	// flags move away from option.DaemonConfig and can thus be set directly.
 	NodePortAlg string `mapstructure:"node-port-algorithm"`
+
+	// LoadBalancerAlgorithmAnnotation mirrors option.Config.LoadBalancerAlgorithmAnnotation.
+	LoadBalancerAlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
 	flags.String("node-port-algorithm", option.NodePortAlgRandom, "NodePort algorithm")
+	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
 type ExternalConfig struct {
-	ExternalClusterIP        bool
-	EnableSessionAffinity    bool
-	NodePortMin, NodePortMax uint16
-	NodePortAlg              string
+	ExternalClusterIP               bool
+	EnableSessionAffinity           bool
+	NodePortMin, NodePortMax        uint16
+	NodePortAlg                     string
+	LoadBalancerAlgorithmAnnotation bool
 }
 
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
-		ExternalClusterIP:     cfg.ExternalClusterIP,
-		EnableSessionAffinity: cfg.EnableSessionAffinity,
-		NodePortMin:           uint16(cfg.NodePortMin),
-		NodePortMax:           uint16(cfg.NodePortMax),
-		NodePortAlg:           cfg.NodePortAlg,
+		ExternalClusterIP:               cfg.ExternalClusterIP,
+		EnableSessionAffinity:           cfg.EnableSessionAffinity,
+		NodePortMin:                     uint16(cfg.NodePortMin),
+		NodePortMax:                     uint16(cfg.NodePortMax),
+		NodePortAlg:                     cfg.NodePortAlg,
+		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 	}
 }
