@@ -75,13 +75,14 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                   true,
-							EnableIPv6:                   true,
-							SockRevNatEntries:            1000,
-							LBMapEntries:                 1000,
-							NodePortAlg:                  cfg.NodePortAlg,
-							EnableHealthCheckNodePort:    cfg.EnableHealthCheckNodePort,
-							EnableK8sTerminatingEndpoint: true,
+							EnableIPv4:                      true,
+							EnableIPv6:                      true,
+							SockRevNatEntries:               1000,
+							LBMapEntries:                    1000,
+							NodePortAlg:                     cfg.NodePortAlg,
+							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
+							EnableK8sTerminatingEndpoint:    true,
+							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
 				),
