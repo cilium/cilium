@@ -79,14 +79,18 @@ func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) (loadbalancer.
 }
 
 func getAnnotationServiceLoadBalancingAlgorithm(svc *slim_corev1.Service) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
-	if value, ok := annotation.Get(svc, annotation.ServiceLoadBalancingAlgorithm); ok {
+	return GetAnnotationServiceLoadBalancingAlgorithm(svc.Annotations, option.Config.NodePortAlg)
+}
+
+func GetAnnotationServiceLoadBalancingAlgorithm(ann map[string]string, defaultAlg string) (loadbalancer.SVCLoadBalancingAlgorithm, error) {
+	if value, ok := ann[annotation.ServiceLoadBalancingAlgorithm]; ok {
 		val := loadbalancer.ToSVCLoadBalancingAlgorithm(strings.ToLower(value))
 		if val != loadbalancer.SVCLoadBalancingAlgorithmUndef {
 			return val, nil
 		}
-		return loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg), fmt.Errorf("Value %q is not supported for %q", val, annotation.ServiceLoadBalancingAlgorithm)
+		return loadbalancer.ToSVCLoadBalancingAlgorithm(defaultAlg), fmt.Errorf("Value %q is not supported for %q", val, annotation.ServiceLoadBalancingAlgorithm)
 	}
-	return loadbalancer.ToSVCLoadBalancingAlgorithm(option.Config.NodePortAlg), nil
+	return loadbalancer.ToSVCLoadBalancingAlgorithm(defaultAlg), nil
 }
 
 func getTopologyAware(svc *slim_corev1.Service) bool {
