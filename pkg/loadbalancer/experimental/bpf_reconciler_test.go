@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -824,6 +825,130 @@ var testCases = [][]testCase{
 	sessionAffinityTestCases,
 }
 
+type setWithAlgo struct {
+	testCaseSet []testCase
+	algo        string
+}
+
+var perServiceAlgorithmCases = []setWithAlgo{
+	{
+		testCaseSet: []testCase{
+			newTestCase(
+				"ClusterIP_1_backend_explicitMaglev",
+				func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+					fe.Type = ClusterIP
+					fe.Address = autoAddr
+					if svc.Annotations == nil {
+						svc.Annotations = make(map[string]string)
+					}
+					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgMaglev
+					return false, []Backend{baseBackend}
+				},
+				[]MapDump{
+					"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
+					"REV: ID=1 ADDR=<auto>",
+					"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=33554432 COUNT=1 QCOUNT=0 LBALG=maglev FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+					"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+				},
+				[]MapDump{
+					"MAGLEV: ID=1 INNER=[1(1021)]",
+				},
+			),
+			newTestCase(
+				"ClusterIPs_explicitMaglev_cleanup",
+				deleteFrontend(autoAddr, ClusterIP),
+				[]MapDump{},
+				nil,
+			),
+		},
+		algo: option.NodePortAlgRandom,
+	},
+	{
+		testCaseSet: []testCase{
+			newTestCase(
+				"ClusterIP_1_backend_noExplicitMaglev",
+				func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+					fe.Type = ClusterIP
+					fe.Address = autoAddr
+					return false, []Backend{baseBackend}
+				},
+				[]MapDump{
+					"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
+					"REV: ID=1 ADDR=<auto>",
+					"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=16777216 COUNT=1 QCOUNT=0 LBALG=random FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+					"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+				},
+				nil,
+			),
+			newTestCase(
+				"ClusterIPs_noExplicitMaglev_cleanup",
+				deleteFrontend(autoAddr, ClusterIP),
+				[]MapDump{},
+				nil,
+			),
+		},
+		algo: option.NodePortAlgRandom,
+	},
+	{
+		testCaseSet: []testCase{
+			newTestCase(
+				"ClusterIP_1_backend_explicitRandom",
+				func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+					fe.Type = ClusterIP
+					fe.Address = autoAddr
+					if svc.Annotations == nil {
+						svc.Annotations = make(map[string]string)
+					}
+					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = option.NodePortAlgRandom
+					return false, []Backend{baseBackend}
+				},
+				[]MapDump{
+					"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
+					"REV: ID=1 ADDR=<auto>",
+					"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=16777216 COUNT=1 QCOUNT=0 LBALG=random FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+					"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+				},
+				nil,
+			),
+			newTestCase(
+				"ClusterIPs_explicitRandom_cleanup",
+				deleteFrontend(autoAddr, ClusterIP),
+				[]MapDump{},
+				nil,
+			),
+		},
+		algo: option.NodePortAlgMaglev,
+	},
+	{
+		testCaseSet: []testCase{
+			newTestCase(
+				"ClusterIP_1_backend_noExplicitRandom",
+				func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
+					fe.Type = ClusterIP
+					fe.Address = autoAddr
+					return false, []Backend{baseBackend}
+				},
+				[]MapDump{
+					"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
+					"REV: ID=1 ADDR=<auto>",
+					"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=33554432 COUNT=1 QCOUNT=0 LBALG=maglev FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+					"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+				},
+				[]MapDump{
+					"MAGLEV: ID=1 INNER=[1(1021)]",
+				},
+			),
+			newTestCase(
+				"ClusterIPs_noExplicitMaglev_cleanup",
+				deleteFrontend(autoAddr, ClusterIP),
+				[]MapDump{},
+				nil,
+			),
+		},
+		algo: option.NodePortAlgMaglev,
+	},
+}
+
 func TestBPFOps(t *testing.T) {
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
@@ -993,6 +1118,19 @@ func TestBPFOps(t *testing.T) {
 				validateMaglev := algo == option.NodePortAlgMaglev
 				runTests(ops, testCaseSet, algo, addr, validateMaglev)
 			}
+		}
+	}
+
+	extCfg.LoadBalancerAlgorithmAnnotation = true
+	for _, setWithAlgo := range perServiceAlgorithmCases {
+		// Run each set with IPv4 and IPv6 addresses.
+		for _, addr := range frontendAddrs {
+			// For each set of test cases, use a fresh instance so each set gets
+			// fresh IDs.
+			external := extCfg
+			external.NodePortAlg = setWithAlgo.algo
+			ops := newBPFOps(lc, log, cfg, external, lbmaps, maglev)
+			runTests(ops, setWithAlgo.testCaseSet, setWithAlgo.algo, addr, true)
 		}
 	}
 }
