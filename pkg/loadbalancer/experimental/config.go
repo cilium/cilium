@@ -44,31 +44,37 @@ type TestConfig struct {
 	// EnableHealthCheckNodePort is defined here to allow script tests to enable this.
 	// Can be removed once this option moves out from DaemonConfig into [Config].
 	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
+
+	// LoadBalancerAlgorithmAnnotation mirrors option.Config.LoadBalancerAlgorithmAnnotation.
+	LoadBalancerAlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
 	flags.String("node-port-algorithm", option.NodePortAlgRandom, "NodePort algorithm")
 	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
+	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
 type ExternalConfig struct {
-	ExternalClusterIP         bool
-	EnableSessionAffinity     bool
-	EnableHealthCheckNodePort bool
-	NodePortMin, NodePortMax  uint16
-	NodePortAlg               string
+	ExternalClusterIP               bool
+	EnableSessionAffinity           bool
+	EnableHealthCheckNodePort       bool
+	NodePortMin, NodePortMax        uint16
+	NodePortAlg                     string
+	LoadBalancerAlgorithmAnnotation bool
 }
 
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
-		ExternalClusterIP:         cfg.ExternalClusterIP,
-		EnableSessionAffinity:     cfg.EnableSessionAffinity,
-		EnableHealthCheckNodePort: cfg.EnableHealthCheckNodePort,
-		NodePortMin:               uint16(cfg.NodePortMin),
-		NodePortMax:               uint16(cfg.NodePortMax),
-		NodePortAlg:               cfg.NodePortAlg,
+		ExternalClusterIP:               cfg.ExternalClusterIP,
+		EnableSessionAffinity:           cfg.EnableSessionAffinity,
+		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
+		NodePortMin:                     uint16(cfg.NodePortMin),
+		NodePortMax:                     uint16(cfg.NodePortMax),
+		NodePortAlg:                     cfg.NodePortAlg,
+		LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 	}
 }
