@@ -401,7 +401,10 @@ func (r *reconciler) updateAllPodsInNamespace(namespace string) error {
 	var lastErr error
 
 	for _, pod := range podList {
-		r.queueOps.enqueueReconciliation(PodItem{podResourceKey(pod.Name, pod.Namespace)}, 0)
+		if !pod.Spec.HostNetwork {
+			r.logger.Debug("Reconcile Pod in namespace", logfields.K8sPodName, pod.Name)
+			r.queueOps.enqueueReconciliation(PodItem{podResourceKey(pod.Name, pod.Namespace)}, 0)
+		}
 	}
 
 	return lastErr
