@@ -74,10 +74,21 @@ func ToSVCForwardingMode(s string) SVCForwardingMode {
 type SVCLoadBalancingAlgorithm uint8
 
 const (
-	SVCLoadBalancingAlgorithmUndef  = 0
-	SVCLoadBalancingAlgorithmRandom = 1
-	SVCLoadBalancingAlgorithmMaglev = 2
+	SVCLoadBalancingAlgorithmUndef  SVCLoadBalancingAlgorithm = 0
+	SVCLoadBalancingAlgorithmRandom SVCLoadBalancingAlgorithm = 1
+	SVCLoadBalancingAlgorithmMaglev SVCLoadBalancingAlgorithm = 2
 )
+
+func (d SVCLoadBalancingAlgorithm) String() string {
+	switch d {
+	case SVCLoadBalancingAlgorithmRandom:
+		return "random"
+	case SVCLoadBalancingAlgorithmMaglev:
+		return "maglev"
+	default:
+		return "undef"
+	}
+}
 
 func ToSVCLoadBalancingAlgorithm(s string) SVCLoadBalancingAlgorithm {
 	if s == option.NodePortAlgMaglev {
