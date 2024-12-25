@@ -485,6 +485,7 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 		}
 	}
 	for _, r := range m.Reconcilers {
+		// ServiceReconciler.Priority() > RoutePolicyReconciler.Priority()
 		if err := r.Reconcile(ctx, reconciler.ReconcileParams{
 			CurrentServer: sc,
 			DesiredConfig: newc,

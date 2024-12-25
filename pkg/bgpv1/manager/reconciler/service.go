@@ -7,10 +7,13 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net"
 	"net/netip"
-	"slices"
 
+	"github.com/Potterli20/golibs-fork/netutil"
 	"github.com/cilium/hive/cell"
+	"github.com/projectdiscovery/mapcidr"
+	"go4.org/netipx"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -51,6 +54,8 @@ type pathReference struct {
 // pathReferencesMap holds path references of resources producing path advertisement, indexed by path's NLRI string
 type pathReferencesMap map[string]*pathReference
 
+type RoutesMap map[resource.Key]map[*netip.Prefix]*types.Path
+
 func NewServiceReconciler(diffStore store.DiffStore[*slim_corev1.Service], epDiffStore store.DiffStore[*k8s.Endpoints]) LBServiceReconcilerOut {
 	if diffStore == nil {
 		return LBServiceReconcilerOut{}
@@ -69,7 +74,8 @@ func (r *ServiceReconciler) Name() string {
 }
 
 func (r *ServiceReconciler) Priority() int {
-	return 40
+	// ServiceReconciler.Priority() > RoutePolicyReconciler.Priority()
+	return 80
 }
 
 func (r *ServiceReconciler) Init(sc *instance.ServerWithConfig) error {
@@ -89,17 +95,34 @@ func (r *ServiceReconciler) Cleanup(sc *instance.ServerWithConfig) {
 }
 
 func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
+	sc := p.CurrentServer
+
 	if p.CiliumNode == nil {
 		return fmt.Errorf("attempted service reconciliation with nil local CiliumNode")
 	}
 
-	// compute existing path to resource references
-	pathRefs := r.computePathReferences(r.getMetadata(p.CurrentServer))
-
+	var reconciliationServiceList func(*instance.ServerWithConfig) ([]*slim_corev1.Service, []resource.Key, error)
 	if r.requiresFullReconciliation(p) {
-		return r.fullReconciliation(ctx, p, pathRefs)
+		// reconciliation for all services, this is a heavy operation due to the potential amount of services and
+		// thus should be avoided if partial reconciliation is an option.
+		reconciliationServiceList = r.fullReconciliationServiceList
+	} else {
+		// reconciliation for only on services which have been created, updated or deleted since the last diff reconciliation.
+		reconciliationServiceList = r.diffReconciliationServiceList
 	}
-	return r.svcDiffReconciliation(ctx, p, pathRefs)
+
+	toReconcile, toWithdraw, err := reconciliationServiceList(sc)
+	if err != nil {
+		return err
+	}
+
+	if len(toReconcile) > 0 || len(toWithdraw) > 0 {
+		if err := r.updateRoutes(ctx, sc, toReconcile, toWithdraw, p); err != nil {
+			return fmt.Errorf("failed to update routes: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (r *ServiceReconciler) getMetadata(sc *instance.ServerWithConfig) LBServiceReconcilerMetadata {
@@ -107,6 +130,13 @@ func (r *ServiceReconciler) getMetadata(sc *instance.ServerWithConfig) LBService
 		sc.ReconcilerMetadata[r.Name()] = make(LBServiceReconcilerMetadata)
 	}
 	return sc.ReconcilerMetadata[r.Name()].(LBServiceReconcilerMetadata)
+}
+
+func (r *ServiceReconciler) getRoutes(sc *instance.ServerWithConfig) RoutesMap {
+	if _, found := sc.ReconcilerMetadata["RoutesMap"]; !found {
+		sc.ReconcilerMetadata["RoutesMap"] = make(RoutesMap)
+	}
+	return sc.ReconcilerMetadata["RoutesMap"].(RoutesMap)
 }
 
 func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
@@ -174,55 +204,6 @@ endpointsLoop:
 func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
 	_, found := ls[k8s.ServiceID{Name: svc.GetName(), Namespace: svc.GetNamespace()}]
 	return found
-}
-
-// fullReconciliation reconciles all services, this is a heavy operation due to the potential amount of services and
-// thus should be avoided if partial reconciliation is an option.
-func (r *ServiceReconciler) fullReconciliation(ctx context.Context, p ReconcileParams, pathRefs pathReferencesMap) error {
-	toReconcile, toWithdraw, err := r.fullReconciliationServiceList(p.CurrentServer)
-	if err != nil {
-		return err
-	}
-	ls, err := r.populateLocalServices(p.CiliumNode.Name)
-	if err != nil {
-		return err
-	}
-	for _, svc := range toReconcile {
-		if err := r.reconcileService(ctx, p.CurrentServer, p.DesiredConfig, svc, ls, pathRefs); err != nil {
-			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
-		}
-	}
-	for _, svc := range toWithdraw {
-		if err := r.withdrawService(ctx, p.CurrentServer, svc, pathRefs); err != nil {
-			return fmt.Errorf("failed to withdraw service %s/%s: %w", svc.Namespace, svc.Name, err)
-		}
-	}
-	return nil
-}
-
-// svcDiffReconciliation performs reconciliation, only on services which have been created, updated or deleted since
-// the last diff reconciliation.
-func (r *ServiceReconciler) svcDiffReconciliation(ctx context.Context, p ReconcileParams, pathRefs pathReferencesMap) error {
-	toReconcile, toWithdraw, err := r.diffReconciliationServiceList(p.CurrentServer)
-	if err != nil {
-		return err
-	}
-	ls, err := r.populateLocalServices(p.CiliumNode.Name)
-	if err != nil {
-		return err
-	}
-	for _, svc := range toReconcile {
-		if err := r.reconcileService(ctx, p.CurrentServer, p.DesiredConfig, svc, ls, pathRefs); err != nil {
-			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
-		}
-	}
-	// Loop over the deleted services
-	for _, svcKey := range toWithdraw {
-		if err := r.withdrawService(ctx, p.CurrentServer, svcKey, pathRefs); err != nil {
-			return fmt.Errorf("failed to withdraw service %s: %w", svcKey, err)
-		}
-	}
-	return nil
 }
 
 // fullReconciliationServiceList return a list of services to reconcile and to withdraw when performing
@@ -423,79 +404,6 @@ func (r *ServiceReconciler) lbSvcDesiredRoutes(svc *slim_corev1.Service, ls loca
 	return desiredRoutes
 }
 
-// reconcileService gets the desired routes of a given service and makes sure that is what is being announced.
-func (r *ServiceReconciler) reconcileService(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices, pathRefs pathReferencesMap) error {
-
-	desiredRoutes, err := r.svcDesiredRoutes(newc, svc, ls)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve svc desired routes: %w", err)
-	}
-	return r.reconcileServiceRoutes(ctx, sc, svc, desiredRoutes, pathRefs)
-}
-
-// reconcileServiceRoutes ensures that desired routes of a given service are announced,
-// adding missing announcements or withdrawing unwanted ones.
-func (r *ServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *instance.ServerWithConfig, svc *slim_corev1.Service, desiredRoutes []netip.Prefix, pathRefs pathReferencesMap) error {
-	serviceAnnouncements := r.getMetadata(sc)
-	svcKey := resource.NewKey(svc)
-
-	for _, desiredCidr := range desiredRoutes {
-		// If this route has already been announced, don't add it again
-		if slices.IndexFunc(serviceAnnouncements[svcKey], func(existing *types.Path) bool {
-			return desiredCidr.String() == existing.NLRI.String()
-		}) != -1 {
-			continue
-		}
-		// Advertise the new cidr
-		path, err := r.advertisePath(ctx, sc, pathRefs, desiredCidr)
-		if err != nil {
-			return err
-		}
-		serviceAnnouncements[svcKey] = append(serviceAnnouncements[svcKey], path)
-	}
-
-	// Loop over announcements in reverse order so we can delete entries without effecting iteration.
-	for i := len(serviceAnnouncements[svcKey]) - 1; i >= 0; i-- {
-		announcement := serviceAnnouncements[svcKey][i]
-		// If the announcement is within the list of desired routes, don't remove it
-		if slices.IndexFunc(desiredRoutes, func(existing netip.Prefix) bool {
-			return existing.String() == announcement.NLRI.String()
-		}) != -1 {
-			continue
-		}
-		if err := r.withdrawPath(ctx, sc, pathRefs, announcement); err != nil {
-			return err
-		}
-		// Delete announcement from slice
-		serviceAnnouncements[svcKey] = slices.Delete(serviceAnnouncements[svcKey], i, i+1)
-	}
-	return nil
-}
-
-// withdrawService removes all announcements for the given service
-func (r *ServiceReconciler) withdrawService(ctx context.Context, sc *instance.ServerWithConfig, key resource.Key, pathRefs pathReferencesMap) error {
-	serviceAnnouncements := r.getMetadata(sc)
-	advertisements := serviceAnnouncements[key]
-	// Loop in reverse order so we can delete without effect to the iteration.
-	for i := len(advertisements) - 1; i >= 0; i-- {
-		advertisement := advertisements[i]
-
-		if err := r.withdrawPath(ctx, sc, pathRefs, advertisement); err != nil {
-			// Persist remaining advertisements
-			serviceAnnouncements[key] = advertisements
-			return err
-		}
-
-		// Delete the advertisement after each withdraw in case we error half way through
-		advertisements = slices.Delete(advertisements, i, i+1)
-	}
-
-	// If all were withdrawn without error, we can delete the whole svc from the map
-	delete(serviceAnnouncements, key)
-
-	return nil
-}
-
 func (r *ServiceReconciler) diffID(asn uint32) string {
 	return fmt.Sprintf("%s-%d", r.Name(), asn)
 }
@@ -564,4 +472,132 @@ func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {
 	svcLabels["io.kubernetes.service.name"] = svc.Name
 	svcLabels["io.kubernetes.service.namespace"] = svc.Namespace
 	return labels.Set(svcLabels)
+}
+
+func (r *ServiceReconciler) getSumDesiredRoutes(sc *instance.ServerWithConfig, desiredEndPoints map[*netip.Prefix]bool) (map[*netip.Prefix]bool, error) {
+	toSummarizeRoutes := make(map[*netip.Prefix]bool)
+	sumDesiredRoutes := make(map[*netip.Prefix]bool)
+
+	lbPool := sc.ReconcilerMetadata["lbPool"]
+	lbPoolList := lbPool.([]types.LbPool)
+	for desiredCidr := range desiredEndPoints {
+		for _, lbPool := range lbPoolList {
+			if lbPool.Summarize {
+				for _, cidr := range lbPool.Cidrs {
+					cidrPrefix := netip.MustParsePrefix(cidr.String())
+					//check if service ip-addr in loadbalancer pool
+					if desiredCidr.Overlaps(cidrPrefix) {
+						// Separate routes by summarization flag
+						if lbPool.Summarize {
+							toSummarizeRoutes[desiredCidr] = true
+						} else {
+							sumDesiredRoutes[desiredCidr] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// The variable to_SummarizeRoutes is needed to convert map *netip.Prefix to []*netip.IPNet
+	var toSummarizeRoutesIPNet []*net.IPNet
+	for cidr := range toSummarizeRoutes {
+		toSummarizeRoutesIPNet = append(toSummarizeRoutesIPNet, netipx.PrefixIPNet(*cidr))
+	}
+
+	summarizedRoutes := make(map[*netip.Prefix]bool)
+	if len(toSummarizeRoutesIPNet) != 1 {
+		// Summarize (aggregate) routes with summarization flag
+		summarizedRoutesLst, _ := mapcidr.AggregateApproxIPs(toSummarizeRoutesIPNet)
+		for _, route := range summarizedRoutesLst {
+			// Convert back *netip.Prefix to map *netip.IPNet
+			routePref, err := netutil.IPNetToPrefixNoMapped(route)
+			if err != nil {
+				return nil, fmt.Errorf("failed to *netip.Prefix to map *netip.IPNet: %w", err)
+			}
+			summarizedRoutes[&routePref] = true
+		}
+	} else {
+		routePref, err := netutil.IPNetToPrefixNoMapped(toSummarizeRoutesIPNet[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to *netip.Prefix to map *netip.IPNet: %w", err)
+		}
+		summarizedRoutes[&routePref] = true
+	}
+
+	maps.Copy(sumDesiredRoutes, summarizedRoutes)
+
+	return sumDesiredRoutes, nil
+}
+
+func (r *ServiceReconciler) updateRoutes(ctx context.Context, sc *instance.ServerWithConfig, toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, p ReconcileParams) error {
+	newc := p.DesiredConfig
+
+	serviceAnnouncements := r.getMetadata(sc)
+	_ = serviceAnnouncements
+
+	// compute existing path to resource references
+	pathRefs := r.computePathReferences(r.getMetadata(sc))
+
+	routes := r.getRoutes(sc)
+
+	ls, err := r.populateLocalServices(p.CiliumNode.Name)
+	if err != nil {
+		return err
+	}
+
+	// Endpoint means an advertised ip-address of service
+	desiredEndPoints := make(map[*netip.Prefix]bool)
+	for _, svc := range toReconcile {
+		svcKey := resource.NewKey(svc)
+		if _, ok := routes[svcKey]; !ok {
+			routes[svcKey] = make(map[*netip.Prefix]*types.Path)
+		}
+		desiredRoutes, err := r.svcDesiredRoutes(newc, svc, ls)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve svc desired routes: %w", err)
+		}
+		for _, cidr := range desiredRoutes {
+			desiredEndPoints[&cidr] = true
+		}
+
+		sumDesiredRoutes, err := r.getSumDesiredRoutes(sc, desiredEndPoints)
+		if err != nil {
+			return err
+		}
+
+		for cidr := range routes[svcKey] {
+			// Check if the advertised cidr is desired
+			_, ok := sumDesiredRoutes[cidr]
+			if !ok {
+				if err := r.withdrawPath(ctx, sc, pathRefs, routes[svcKey][cidr]); err != nil {
+					return fmt.Errorf("failed to withdraw service route %s: %w", cidr, err)
+				}
+				delete(routes[svcKey], cidr)
+			}
+		}
+
+		for cidr := range sumDesiredRoutes {
+			// Check if the cidr is new
+			_, ok := routes[svcKey][cidr]
+			if !ok {
+				path, err := r.advertisePath(ctx, sc, pathRefs, *cidr)
+				if err != nil {
+					return err
+				}
+				routes[svcKey][cidr] = path
+			}
+		}
+	}
+
+	for _, svcKey := range toWithdraw {
+		for cidr := range routes[svcKey] {
+			if err := r.withdrawPath(ctx, sc, pathRefs, routes[svcKey][cidr]); err != nil {
+				return fmt.Errorf("failed to withdraw service route %s: %w", cidr, err)
+			}
+			delete(routes[svcKey], cidr)
+		}
+	}
+
+	return nil
 }
