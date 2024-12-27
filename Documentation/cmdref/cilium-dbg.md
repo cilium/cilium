@@ -11,10 +11,12 @@ CLI for interacting with the local Cilium Agent
 ### Options
 
 ```
-      --config string   Config file (default is $HOME/.cilium.yaml)
-  -D, --debug           Enable debug messages
-  -h, --help            help for cilium-dbg
-  -H, --host string     URI to server-side API
+      --config string        Config file (default is $HOME/.cilium.yaml)
+  -D, --debug                Enable debug messages
+  -h, --help                 help for cilium-dbg
+  -H, --host string          URI to server-side API
+      --log-driver strings   Logging endpoints to use (example: syslog)
+      --log-opt map          Log driver options (example: format=json)
 ```
 
 ### SEE ALSO
