@@ -702,10 +702,10 @@ Users (Alphabetically)
       Q: @fanux, @yangchuansheng
 
     * N: SeatGeek
-      D: SeatGeek uses Cilium as the default CNI for AWS hosted clusters
-      U: CNI, ClusterMesh, Network Policy, Hubble
+      D: SeatGeek uses Cilium as the default CNI/service mesh for AWS hosted clusters
+      U: CNI, ClusterMesh, Network Policy, Hubble, L7 Mesh
       L: https://seatgeek.com
-      Q: @byxorna
+      Q: @byxorna, @aetimmes
 
     * N: Seznam.cz
       D: Seznam.cz uses Cilium in multiple scenarios in on-prem DCs. At first as L4LB which loadbalances external traffic into k8s+openstack clusters then as CNI in multiple k8s and openstack clusters which are all connected in a clustermesh to enforce NetworkPolicies across pods/VMs.
