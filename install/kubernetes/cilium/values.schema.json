@@ -2402,6 +2402,9 @@
         "externalTrafficPolicy": {
           "type": "string"
         },
+        "ipFamilyPolicy": {
+          "type": "string"
+        },
         "gatewayClass": {
           "properties": {
             "create": {

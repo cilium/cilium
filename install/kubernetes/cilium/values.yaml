@@ -951,6 +951,8 @@ gatewayAPI:
   # Note that this value will be ignored when `hostNetwork.enabled == true`.
   # ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
   externalTrafficPolicy: Cluster
+  # -- Control the dual-stack-ness requested or required by the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "SingleStack", "PreferDualStack" and "RequireDualStack"
+  ipFamilyPolicy: SingleStack
   gatewayClass:
     # -- Enable creation of GatewayClass resource
     # The default value is 'auto' which decides according to presence of gateway.networking.k8s.io/v1/GatewayClass in the cluster.

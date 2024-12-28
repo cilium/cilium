@@ -1584,6 +1584,10 @@
      - Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker
      - object
      - ``{}``
+   * - :spelling:ignore:`gatewayAPI.ipFamilyPolicy`
+     - Control the dual-stack-ness requested or required by the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "SingleStack", "PreferDualStack" and "RequireDualStack"
+     - string
+     - ``"SingleStack"``
    * - :spelling:ignore:`gatewayAPI.secretsNamespace`
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object
