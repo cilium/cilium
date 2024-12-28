@@ -123,7 +123,8 @@ func (r *tlsRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to TLSRoute
-		For(&gatewayv1alpha2.TLSRoute{}).
+		For(&gatewayv1alpha2.TLSRoute{},
+			builder.WithPredicates(predicate.NewPredicateFuncs(r.hasMatchingGatewayParent()))).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
@@ -214,5 +215,33 @@ func (r *tlsRouteReconciler) enqueueAll() handler.MapFunc {
 			scopedLog.Info("Enqueued TLSRoute for resource", tlsRoute, route)
 		}
 		return requests
+	}
+}
+
+func (r *tlsRouteReconciler) hasMatchingGatewayParent() func(object client.Object) bool {
+	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, controllerName, r.logger)
+	return func(obj client.Object) bool {
+		tr, ok := obj.(*gatewayv1alpha2.TLSRoute)
+		if !ok {
+			return false
+		}
+
+		for _, parent := range tr.Spec.ParentRefs {
+			if !helpers.IsGateway(parent) {
+				continue
+			}
+			gw := &gatewayv1.Gateway{}
+			if err := r.Client.Get(context.Background(), types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, tr.Namespace),
+				Name:      string(parent.Name),
+			}, gw); err != nil {
+				continue
+			}
+			if hasMatchingControllerFn(gw) {
+				return true
+			}
+		}
+
+		return false
 	}
 }

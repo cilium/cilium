@@ -62,7 +62,8 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to GRPCRoute
-		For(&gatewayv1.GRPCRoute{}).
+		For(&gatewayv1.GRPCRoute{},
+			builder.WithPredicates(predicate.NewPredicateFuncs(r.hasMatchingGatewayParent()))).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
@@ -221,5 +222,33 @@ func (r *grpcRouteReconciler) enqueueAll() handler.MapFunc {
 			scopedLog.Info("Enqueued GRPCRoute for resource", grpcRoute, route)
 		}
 		return requests
+	}
+}
+
+func (r *grpcRouteReconciler) hasMatchingGatewayParent() func(object client.Object) bool {
+	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, controllerName, r.logger)
+	return func(obj client.Object) bool {
+		gr, ok := obj.(*gatewayv1.GRPCRoute)
+		if !ok {
+			return false
+		}
+
+		for _, parent := range gr.Spec.ParentRefs {
+			if !helpers.IsGateway(parent) {
+				continue
+			}
+			gw := &gatewayv1.Gateway{}
+			if err := r.Client.Get(context.Background(), types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, gr.Namespace),
+				Name:      string(parent.Name),
+			}, gw); err != nil {
+				continue
+			}
+			if hasMatchingControllerFn(gw) {
+				return true
+			}
+		}
+
+		return false
 	}
 }
