@@ -116,6 +116,12 @@
   {{- end }}
 {{- end }}
 
+{{- if .Values.gatewayAPI.enabled }}
+  {{- if not (or (eq .Values.gatewayAPI.ipFamilyPolicy "SingleStack") (eq .Values.gatewayAPI.ipFamilyPolicy "PreferDualStack") (eq .Values.gatewayAPI.ipFamilyPolicy "RequireDualStack")) }}
+    {{ fail "Cilium GatewayAPI needs an ipFamilyPolicy set to 'SingleStack', 'PreferDualStack' or 'RequireDualStack'." }}
+  {{- end }}
+{{- end }}
+
 {{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
   {{- if or (eq (toString .Values.kubeProxyReplacement) "disabled") (and (not (hasKey .Values "kubeProxyReplacement")) (not (semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility)))) }}
     {{ fail "Ingress/Gateway API controller and EnvoyConfig require .Values.kubeProxyReplacement to be explicitly set to 'false' or 'true'" }}

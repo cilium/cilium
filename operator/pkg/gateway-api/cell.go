@@ -42,6 +42,7 @@ var Cell = cell.Module(
 		EnableGatewayAPIAppProtocol:            false,
 		EnableGatewayAPIAlpn:                   false,
 		GatewayAPIServiceExternalTrafficPolicy: "Cluster",
+		GatewayAPIServiceIpFamilyPolicy:        "SingleStack",
 		GatewayAPISecretsNamespace:             "cilium-secrets",
 		GatewayAPIXffNumTrustedHops:            0,
 
@@ -71,6 +72,7 @@ type gatewayApiConfig struct {
 	EnableGatewayAPIAppProtocol            bool
 	EnableGatewayAPIAlpn                   bool
 	GatewayAPIServiceExternalTrafficPolicy string
+	GatewayAPIServiceIpFamilyPolicy        string
 	GatewayAPISecretsNamespace             string
 	GatewayAPIXffNumTrustedHops            uint32
 
@@ -85,6 +87,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-alpn", r.EnableGatewayAPIAlpn, "Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API")
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	flags.String("gateway-api-service-externaltrafficpolicy", r.GatewayAPIServiceExternalTrafficPolicy, "Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances.")
+	flags.String("gateway-api-service-ipfamilypolicy", r.GatewayAPIServiceIpFamilyPolicy, "Kubernetes LoadBalancer Service ipFamilyPolicy for all Gateway instances.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
 	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
@@ -115,6 +118,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	}
 
 	if err := validateExternalTrafficPolicy(params); err != nil {
+		return err
+	}
+
+	if err := validateIpFamilyPolicy(params); err != nil {
 		return err
 	}
 
@@ -159,6 +166,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		cecTranslator,
 		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
 		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy,
+		params.GatewayApiConfig.GatewayAPIServiceIpFamilyPolicy,
 	)
 
 	if err := registerReconcilers(
@@ -204,6 +212,15 @@ func validateExternalTrafficPolicy(params gatewayAPIParams) error {
 		return nil
 	}
 	return fmt.Errorf("invalid externalTrafficPolicy: %s", params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy)
+}
+
+func validateIpFamilyPolicy(params gatewayAPIParams) error {
+	if params.GatewayApiConfig.GatewayAPIServiceIpFamilyPolicy == string(corev1.IPFamilyPolicySingleStack) ||
+		params.GatewayApiConfig.GatewayAPIServiceIpFamilyPolicy == string(corev1.IPFamilyPolicyPreferDualStack) ||
+		params.GatewayApiConfig.GatewayAPIServiceIpFamilyPolicy == string(corev1.IPFamilyPolicyRequireDualStack) {
+		return nil
+	}
+	return fmt.Errorf("invalid ipFamilyPolicy: %s", params.GatewayApiConfig.GatewayAPIServiceIpFamilyPolicy)
 }
 
 func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.GroupVersionKind) error {
