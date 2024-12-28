@@ -128,7 +128,7 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to HTTPRoute
 		For(&gatewayv1.HTTPRoute{},
-			builder.WithPredicates(predicate.NewPredicateFuncs(r.hasGatewayParent()))).
+			builder.WithPredicates(predicate.NewPredicateFuncs(r.hasMatchingGatewayParent()))).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
@@ -146,7 +146,8 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return builder.Complete(r)
 }
 
-func (r *httpRouteReconciler) hasGatewayParent() func(object client.Object) bool {
+func (r *httpRouteReconciler) hasMatchingGatewayParent() func(object client.Object) bool {
+	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, controllerName, r.logger)
 	return func(obj client.Object) bool {
 		hr, ok := obj.(*gatewayv1.HTTPRoute)
 		if !ok {
@@ -154,7 +155,17 @@ func (r *httpRouteReconciler) hasGatewayParent() func(object client.Object) bool
 		}
 
 		for _, parent := range hr.Spec.ParentRefs {
-			if helpers.IsGateway(parent) {
+			if !helpers.IsGateway(parent) {
+				continue
+			}
+			gw := &gatewayv1.Gateway{}
+			if err := r.Client.Get(context.Background(), types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
+				Name:      string(parent.Name),
+			}, gw); err != nil {
+				continue
+			}
+			if hasMatchingControllerFn(gw) {
 				return true
 			}
 		}
