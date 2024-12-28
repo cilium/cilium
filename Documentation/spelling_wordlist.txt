@@ -603,6 +603,7 @@ os
 oseq
 otx
 pahole
+parentRefs
 parsable
 parserfactory
 parsers
@@ -610,6 +611,7 @@ passthrough
 pc
 pcap
 perf
+pipelined
 pipelining
 pluggable
 pmdabcc
