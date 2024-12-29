@@ -20,9 +20,14 @@ import (
 
 // envoyRedirect implements the RedirectImplementation interface for an l7 proxy.
 type envoyRedirect struct {
+	Redirect
 	listenerName string
 	xdsServer    envoy.XDSServer
 	adminClient  *envoy.EnvoyAdminClient
+}
+
+func (dr *envoyRedirect) GetRedirect() *Redirect {
+	return &dr.Redirect
 }
 
 type envoyProxyIntegration struct {
@@ -32,15 +37,16 @@ type envoyProxyIntegration struct {
 }
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
-func (p *envoyProxyIntegration) createRedirect(r *Redirect, wg *completion.WaitGroup, cb func(err error)) (RedirectImplementation, error) {
+func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGroup, cb func(err error)) (RedirectImplementation, error) {
 	if r.proxyPort.ProxyType == types.ProxyTypeCRD {
 		// CRD Listeners already exist, create a no-op implementation
-		return &CRDRedirect{}, nil
+		return &CRDRedirect{Redirect: r}, nil
 	}
 
 	// create an Envoy Listener for Cilium policy enforcement
 	l := r.proxyPort
 	redirect := &envoyRedirect{
+		Redirect:     r,
 		listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.ProxyPort)),
 		xdsServer:    p.xdsServer,
 		adminClient:  p.adminClient,

@@ -42,7 +42,7 @@ type Proxy struct {
 	// redirects is the map of all redirect configurations indexed by
 	// the redirect identifier. Redirects may be implemented by different
 	// proxies.
-	redirects map[string]*Redirect
+	redirects map[string]RedirectImplementation
 
 	envoyIntegration *envoyProxyIntegration
 	dnsIntegration   *dnsProxyIntegration
@@ -59,7 +59,7 @@ func createProxy(
 	dnsIntegration *dnsProxyIntegration,
 ) *Proxy {
 	return &Proxy{
-		redirects:        make(map[string]*Redirect),
+		redirects:        make(map[string]RedirectImplementation),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
 		proxyPorts:       proxyports.NewProxyPorts(minPort, maxPort, datapathUpdater),
@@ -122,7 +122,7 @@ func OpenLocalPorts() map[uint16]struct{} {
 func (p *Proxy) CreateOrUpdateRedirect(
 	ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup,
 ) (
-	uint16, error, revert.FinalizeFunc, revert.RevertFunc,
+	uint16, error, revert.RevertFunc,
 ) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -132,17 +132,15 @@ func (p *Proxy) CreateOrUpdateRedirect(
 		WithField(logfields.Listener, l4.GetListener()).
 		WithField("l7parser", l4.GetL7Parser())
 
-	var finalizeList revert.FinalizeList
-	var revertStack revert.RevertStack
-
 	// Check for existing redirect and try to update it if possible. Otherwise, it gets removed before re-creation.
-	if existingRedirect, ok := p.redirects[id]; ok {
+	if existingImpl, ok := p.redirects[id]; ok {
+		existingRedirect := existingImpl.GetRedirect()
 		// Only consider configured (but not necessarily acked) proxy ports for update
 		if p.proxyPorts.HasProxyType(existingRedirect.proxyPort, types.ProxyType(l4.GetL7Parser())) {
 			// (DNS) proxy policy is updated in finalize function
-			revert, err := existingRedirect.implementation.UpdateRules(l4.GetPerSelectorPolicies())
+			revert, err := existingImpl.UpdateRules(l4.GetPerSelectorPolicies())
 			if err != nil {
-				return 0, fmt.Errorf("unable to update existing redirect: %w", err), nil, nil
+				return 0, fmt.Errorf("unable to update existing redirect: %w", err), nil
 			}
 			scopedLog.
 				WithField(logfields.Object, logfields.Repr(existingRedirect)).
@@ -150,7 +148,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 				Debug("updated existing proxy instance")
 
 			// Must return the proxy port when successful
-			return existingRedirect.proxyPort.ProxyPort, nil, nil, revert
+			return existingRedirect.proxyPort.ProxyPort, nil, revert
 		}
 
 		// Stale or incompatible redirects get removed before a new one is created below
@@ -158,15 +156,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	}
 
 	// Create a new redirect
-	port, err, newRedirectRevertFunc := p.createNewRedirect(ctx, l4, id, epID, wg)
-	if err != nil {
-		p.revertStackUnlocked(revertStack)
-		return 0, fmt.Errorf("failed to create new redirect: %w", err), nil, nil
-	}
-
-	revertStack.Push(newRedirectRevertFunc)
-
-	return port, nil, finalizeList.Finalize, revertStack.Revert
+	return p.createNewRedirect(ctx, l4, id, epID, wg)
 }
 
 func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress bool) error {
@@ -193,7 +183,7 @@ func (p *Proxy) createNewRedirect(
 		return 0, proxyTypeNotFoundError(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress()), nil
 	}
 
-	redirect := newRedirect(epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
+	redirect := initRedirect(epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
 
 	scopedLog = scopedLog.
 		WithField("portName", ppName)
@@ -227,6 +217,7 @@ func (p *Proxy) createNewRedirect(
 		}
 	}
 
+	var impl RedirectImplementation
 	var err error
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if err != nil {
@@ -243,7 +234,7 @@ func (p *Proxy) createNewRedirect(
 			break
 		}
 
-		err = p.createRedirectImpl(redirect, l4, wg, proxyCallback)
+		impl, err = p.createRedirectImpl(redirect, l4, wg, proxyCallback)
 		if err == nil {
 			break
 		}
@@ -261,7 +252,7 @@ func (p *Proxy) createNewRedirect(
 
 	// Set the rules on the new redirect. Returned revert function not used, removing the rules
 	// is explicitly handled by the revertFunc below by calling redirect.implementation.Close()
-	_, err = redirect.implementation.UpdateRules(l4.GetPerSelectorPolicies())
+	_, err = impl.UpdateRules(l4.GetPerSelectorPolicies())
 	if err != nil {
 		return 0, fmt.Errorf("unable to set rules on redirect: %w", err), nil
 	}
@@ -271,7 +262,7 @@ func (p *Proxy) createNewRedirect(
 		WithField(logfields.ProxyPort, pp.ProxyPort).
 		Info("Created new proxy instance")
 
-	p.redirects[id] = redirect
+	p.redirects[id] = impl
 	p.updateRedirectMetrics()
 
 	revertFunc := func() error {
@@ -281,7 +272,7 @@ func (p *Proxy) createNewRedirect(
 		p.updateRedirectMetrics()
 		p.proxyPorts.ReleaseProxyPort(ppName)
 		p.mutex.Unlock()
-		redirect.implementation.Close()
+		impl.Close()
 		return nil
 	}
 
@@ -289,28 +280,14 @@ func (p *Proxy) createNewRedirect(
 	return pp.ProxyPort, nil, revertFunc
 }
 
-func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup, cb func(err error)) error {
-	var err error
-
+func (p *Proxy) createRedirectImpl(redir Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup, cb func(err error)) (impl RedirectImplementation, err error) {
 	switch l4.GetL7Parser() {
 	case policy.ParserTypeDNS:
-		redir.implementation, err = p.dnsIntegration.createRedirect(redir)
 		// 'cb' not called for DNS redirects, which have a static proxy port
+		return p.dnsIntegration.createRedirect(redir)
 	default:
-		redir.implementation, err = p.envoyIntegration.createRedirect(redir, wg, cb)
+		return p.envoyIntegration.createRedirect(redir, wg, cb)
 	}
-
-	return err
-}
-
-func (p *Proxy) revertStackUnlocked(revertStack revert.RevertStack) {
-	// We ignore errors while reverting. This is best-effort.
-	// revertFunc must be called after p.mutex is unlocked, because
-	// some functions in the revert stack (like removeRevertFunc)
-	// require it
-	p.mutex.Unlock()
-	revertStack.Revert()
-	p.mutex.Lock()
 }
 
 // RemoveRedirect removes an existing redirect that has been successfully created earlier.
@@ -330,21 +307,19 @@ func (p *Proxy) removeRedirect(id string) {
 		WithField(fieldProxyRedirectID, id).
 		Debug("Removing proxy redirect")
 
-	r, ok := p.redirects[id]
+	impl, ok := p.redirects[id]
 	if !ok {
 		return
 	}
+	r := impl.GetRedirect()
 	delete(p.redirects, id)
 
-	r.implementation.Close()
+	impl.Close()
 
 	// Delay the release and reuse of the port number so it is guaranteed to be
 	// safe to listen on the port again.
 	proxyPort := r.proxyPort.ProxyPort
 	listenerName := r.name
-
-	// break GC loop (implementation may point back to 'r')
-	r.implementation = nil
 
 	err := p.proxyPorts.ReleaseProxyPort(listenerName)
 	if err != nil {
@@ -393,7 +368,8 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 		TotalRedirects: int64(len(p.redirects)),
 	}
 
-	for name, redirect := range p.redirects {
+	for name, impl := range p.redirects {
+		redirect := impl.GetRedirect()
 		result.Redirects = append(result.Redirects, &models.ProxyRedirect{
 			Name:      name,
 			Proxy:     redirect.name,
@@ -411,7 +387,8 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 // in Prometheus. Lock needs to be held to call this function.
 func (p *Proxy) updateRedirectMetrics() {
 	result := map[string]int{}
-	for _, redirect := range p.redirects {
+	for _, impl := range p.redirects {
+		redirect := impl.GetRedirect()
 		result[string(redirect.proxyPort.ProxyType)]++
 	}
 	for proto, count := range result {

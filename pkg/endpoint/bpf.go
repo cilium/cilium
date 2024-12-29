@@ -260,15 +260,14 @@ func (p *proxyPolicy) GetListener() string {
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Only called after a new selector policy has been computed.
-func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]uint16, ff revert.FinalizeFunc, rf revert.RevertFunc) {
+func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]uint16, rf revert.RevertFunc) {
 	if e.isProperty(PropertyFakeEndpoint) || e.IsProxyDisabled() {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	desiredRedirects = make(map[string]uint16)
 
 	var (
-		finalizeList revert.FinalizeList
 		revertStack  revert.RevertStack
 		updatedStats []*models.ProxyStatistics
 	)
@@ -297,7 +296,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		}
 
 		pp := newProxyPolicy(l4, listener, dstPort, dstProto)
-		proxyPort, err, finalizeFunc, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
+		proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
 		if err != nil {
 			// Skip redirects that can not be created or updated.  This
 			// can happen when a listener is missing, for example when
@@ -308,7 +307,6 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			e.getLogger().WithField(logfields.Listener, pp.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
 			continue
 		}
-		finalizeList.Append(finalizeFunc)
 		revertStack.Push(revertFunc)
 		desiredRedirects[proxyID] = proxyPort
 
@@ -331,7 +329,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		return nil
 	})
 
-	return desiredRedirects, finalizeList.Finalize, revertStack.Revert
+	return desiredRedirects, revertStack.Revert
 }
 
 // Must be called with endpoint.mutex locked for writing, as this calls back to

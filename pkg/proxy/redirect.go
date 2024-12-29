@@ -14,6 +14,9 @@ import (
 // RedirectImplementation is the generic proxy redirect interface that each
 // proxy redirect type must implement
 type RedirectImplementation interface {
+	// GetRedirect returns the static config of the redirect
+	GetRedirect() *Redirect
+
 	// UpdateRules synchronously updates the rules for the given proxy redirect.
 	// Note: UpdateRules is not called when a redirect is created.
 	UpdateRules(rules policy.L7DataMap) (revert.RevertFunc, error)
@@ -25,18 +28,16 @@ type RedirectImplementation interface {
 	Close()
 }
 
+// Redirect is the common static config for each RedirectImplementation
 type Redirect struct {
-	// The following fields are only written to during initialization, it
-	// is safe to read these fields without locking the mutex
-	name           string
-	proxyPort      *proxyports.ProxyPort
-	dstPortProto   restore.PortProto
-	endpointID     uint16
-	implementation RedirectImplementation
+	name         string
+	proxyPort    *proxyports.ProxyPort
+	dstPortProto restore.PortProto
+	endpointID   uint16
 }
 
-func newRedirect(epID uint16, name string, listener *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) *Redirect {
-	return &Redirect{
+func initRedirect(epID uint16, name string, listener *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) Redirect {
+	return Redirect{
 		name:         name,
 		proxyPort:    listener,
 		dstPortProto: restore.MakeV2PortProto(port, proto),
