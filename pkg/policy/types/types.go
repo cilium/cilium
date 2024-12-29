@@ -246,10 +246,4 @@ func (k LPMKey) BitValueAt(i uint) uint8 {
 	}
 }
 
-// Value implements the Value method for the
-// bitlpm.Key interface.
-func (k LPMKey) Value() LPMKey {
-	return k
-}
-
 type Keys map[Key]struct{}
