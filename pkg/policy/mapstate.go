@@ -102,7 +102,7 @@ type mapState struct {
 	entries mapStateMap
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
-	trie bitlpm.Trie[bitlpm.Key[types.LPMKey], IDSet]
+	trie bitlpm.Trie[types.LPMKey, IDSet]
 }
 
 type IDSet map[identity.NumericIdentity]struct{}
@@ -125,12 +125,12 @@ func (ms *mapState) upsert(k Key, e mapStateEntry) {
 	// Update indices if 'k' is a new key
 	if !exists {
 		// Update trie
-		idSet, ok := ms.trie.ExactLookup(k.PrefixLength(), k)
+		idSet, ok := ms.trie.ExactLookup(k.PrefixLength(), k.LPMKey)
 		if !ok {
 			idSet = make(IDSet)
 			kCpy := k
 			kCpy.Identity = 0
-			ms.trie.Upsert(kCpy.PrefixLength(), kCpy, idSet)
+			ms.trie.Upsert(kCpy.PrefixLength(), kCpy.LPMKey, idSet)
 		}
 
 		idSet[k.Identity] = struct{}{}
@@ -143,11 +143,11 @@ func (ms *mapState) delete(k Key) {
 		delete(ms.entries, k)
 
 		id := k.Identity
-		idSet, ok := ms.trie.ExactLookup(k.PrefixLength(), k)
+		idSet, ok := ms.trie.ExactLookup(k.PrefixLength(), k.LPMKey)
 		if ok {
 			delete(idSet, id)
 			if len(idSet) == 0 {
-				ms.trie.Delete(k.PrefixLength(), k)
+				ms.trie.Delete(k.PrefixLength(), k.LPMKey)
 			}
 		}
 	}
@@ -208,9 +208,9 @@ func (ms *mapState) forID(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) b
 // or wildcard ID) in the trie.
 func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
-		iter := ms.trie.AncestorIterator(key.PrefixLength(), key)
+		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
-			k := Key{LPMKey: lpmKey.Value()}
+			k := Key{LPMKey: lpmKey}
 
 			// ANY identity is broader or equal to all identities, visit it first if it exists
 			if !ms.forID(k.WithIdentity(0), idSet, yield) {
@@ -231,9 +231,9 @@ func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 // state that allows iteration to be continued even if the current trie node is removed.
 func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
-		iter := ms.trie.DescendantIterator(key.PrefixLength(), key)
+		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
-			k := Key{LPMKey: lpmKey.Value()}
+			k := Key{LPMKey: lpmKey}
 
 			// All identities are narrower or equal to ANY identity.
 			if key.Identity == 0 {
@@ -254,9 +254,9 @@ func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 // with most specific match with the same ID as in 'key' being returned first.
 func (ms *mapState) CoveringKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
-		iter := ms.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key)
+		iter := ms.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
-			k := Key{LPMKey: lpmKey.Value()}
+			k := Key{LPMKey: lpmKey}
 
 			// Visit key with the same identity, if port/proto is different.
 			if !k.PortProtoIsEqual(key) && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
@@ -270,9 +270,9 @@ func (ms *mapState) CoveringKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry
 // order (least specific match first).
 func (ms *mapState) SubsetKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
-		iter := ms.trie.DescendantShortestPrefixFirstIterator(key.PrefixLength(), key)
+		iter := ms.trie.DescendantShortestPrefixFirstIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
-			k := Key{LPMKey: lpmKey.Value()}
+			k := Key{LPMKey: lpmKey}
 
 			// Visit key with the same identity, if port/proto is different.
 			if !k.PortProtoIsEqual(key) && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
@@ -286,9 +286,9 @@ func (ms *mapState) SubsetKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] 
 // with most specific match with the same ID as in 'key' being returned first.
 func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
-		iter := ms.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key)
+		iter := ms.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
-			k := Key{LPMKey: lpmKey.Value()}
+			k := Key{LPMKey: lpmKey}
 
 			// Visit key with the same identity, if port/proto is different.
 			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
