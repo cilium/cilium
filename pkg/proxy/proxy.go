@@ -137,35 +137,24 @@ func (p *Proxy) CreateOrUpdateRedirect(
 
 	// Check for existing redirect and try to update it if possible. Otherwise, it gets removed before re-creation.
 	if existingRedirect, ok := p.redirects[id]; ok {
-		existingRedirect.mutex.Lock()
-
 		// Only consider configured (but not necessarily acked) proxy ports for update
-		if p.proxyPorts.HasProxyType(existingRedirect.listener, types.ProxyType(l4.GetL7Parser())) {
-			updateRevertFunc := existingRedirect.updateRules(l4)
-			revertStack.Push(updateRevertFunc)
-			implUpdateRevertFunc, err := existingRedirect.implementation.UpdateRules(wg)
+		if p.proxyPorts.HasProxyType(existingRedirect.proxyPort, types.ProxyType(l4.GetL7Parser())) {
+			// (DNS) proxy policy is updated in finalize function
+			revert, err := existingRedirect.implementation.UpdateRules(l4.GetPerSelectorPolicies())
 			if err != nil {
-				existingRedirect.mutex.Unlock()
-				p.revertStackUnlocked(revertStack)
 				return 0, fmt.Errorf("unable to update existing redirect: %w", err), nil, nil
 			}
-
-			revertStack.Push(implUpdateRevertFunc)
-
 			scopedLog.
 				WithField(logfields.Object, logfields.Repr(existingRedirect)).
-				WithField("proxyType", existingRedirect.listener.ProxyType).
+				WithField("proxyType", existingRedirect.proxyPort.ProxyType).
 				Debug("updated existing proxy instance")
 
-			existingRedirect.mutex.Unlock()
-
 			// Must return the proxy port when successful
-			return existingRedirect.listener.ProxyPort, nil, nil, revertStack.Revert
+			return existingRedirect.proxyPort.ProxyPort, nil, nil, revert
 		}
 
 		// Stale or incompatible redirects get removed before a new one is created below
 		p.removeRedirect(id)
-		existingRedirect.mutex.Unlock()
 	}
 
 	// Create a new redirect
@@ -205,8 +194,6 @@ func (p *Proxy) createNewRedirect(
 	}
 
 	redirect := newRedirect(epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
-	_ = redirect.updateRules(l4) // revertFunc not used because revert will remove whole redirect
-	// Rely on create*Redirect to update rules, unlike the update case above.
 
 	scopedLog = scopedLog.
 		WithField("portName", ppName)
@@ -272,6 +259,13 @@ func (p *Proxy) createNewRedirect(
 		return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil
 	}
 
+	// Set the rules on the new redirect. Returned revert function not used, removing the rules
+	// is explicitly handled by the revertFunc below by calling redirect.implementation.Close()
+	_, err = redirect.implementation.UpdateRules(l4.GetPerSelectorPolicies())
+	if err != nil {
+		return 0, fmt.Errorf("unable to set rules on redirect: %w", err), nil
+	}
+
 	scopedLog.
 		WithField(logfields.Object, logfields.Repr(redirect)).
 		WithField(logfields.ProxyPort, pp.ProxyPort).
@@ -300,7 +294,7 @@ func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, wg *c
 
 	switch l4.GetL7Parser() {
 	case policy.ParserTypeDNS:
-		redir.implementation, err = p.dnsIntegration.createRedirect(redir, wg)
+		redir.implementation, err = p.dnsIntegration.createRedirect(redir)
 		// 'cb' not called for DNS redirects, which have a static proxy port
 	default:
 		redir.implementation, err = p.envoyIntegration.createRedirect(redir, wg, cb)
@@ -346,7 +340,7 @@ func (p *Proxy) removeRedirect(id string) {
 
 	// Delay the release and reuse of the port number so it is guaranteed to be
 	// safe to listen on the port again.
-	proxyPort := r.listener.ProxyPort
+	proxyPort := r.proxyPort.ProxyPort
 	listenerName := r.name
 
 	// break GC loop (implementation may point back to 'r')
@@ -403,7 +397,7 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 		result.Redirects = append(result.Redirects, &models.ProxyRedirect{
 			Name:      name,
 			Proxy:     redirect.name,
-			ProxyPort: int64(p.proxyPorts.GetRulesPort(redirect.listener)),
+			ProxyPort: int64(p.proxyPorts.GetRulesPort(redirect.proxyPort)),
 		})
 	}
 	result.EnvoyDeploymentMode = "embedded"
@@ -418,7 +412,7 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 func (p *Proxy) updateRedirectMetrics() {
 	result := map[string]int{}
 	for _, redirect := range p.redirects {
-		result[string(redirect.listener.ProxyType)]++
+		result[string(redirect.proxyPort.ProxyType)]++
 	}
 	for proto, count := range result {
 		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))

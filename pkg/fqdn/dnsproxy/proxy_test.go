@@ -287,7 +287,7 @@ func TestRejectFromDifferentEndpoint(t *testing.T) {
 	query := name
 
 	// Reject a query from not endpoint 1
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID2, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
@@ -308,7 +308,7 @@ func TestAcceptFromMatchingEndpoint(t *testing.T) {
 	query := name
 
 	// accept a query that matches from endpoint1
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
@@ -329,7 +329,7 @@ func TestAcceptNonRegex(t *testing.T) {
 	query := name
 
 	// accept a query that matches from endpoint1
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
@@ -350,7 +350,7 @@ func TestRejectNonRegex(t *testing.T) {
 	query := "ciliumXio."
 
 	// reject a query for a non-regex where a . is different (i.e. ensure simple FQDNs treat . as .)
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
@@ -368,7 +368,7 @@ func (s *DNSProxyTestSuite) requestRejectNonMatchingRefusedResponse(t *testing.T
 	}
 	query := "notcilium.io."
 
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
@@ -420,7 +420,7 @@ func TestRespondViaCorrectProtocol(t *testing.T) {
 	}
 	query := name
 
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
@@ -450,7 +450,7 @@ func TestRespondMixedCaseInRequestResponse(t *testing.T) {
 	}
 	query := "CILIUM.io."
 
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
@@ -481,7 +481,7 @@ func TestCheckNoRules(t *testing.T) {
 	}
 	query := name
 
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Error when inserting rules")
 
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
@@ -496,7 +496,7 @@ func TestCheckNoRules(t *testing.T) {
 			},
 		},
 	}
-	err = s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Error when inserting rules")
 
 	allowed, err = s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
@@ -518,23 +518,23 @@ func TestCheckAllowedTwiceRemovedOnce(t *testing.T) {
 	query := name
 
 	// Add the rule twice
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
-	err = s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
 	require.True(t, allowed, "request was rejected when it should be allowed")
 
 	// Delete once, it should reject
-	err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
+	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err = s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
 	require.False(t, allowed, "request was allowed when it should be rejected")
 
 	// Delete once, it should reject and not crash
-	err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
+	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
 	require.NoError(t, err, "Could not update with rules")
 	allowed, err = s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
 	require.NoError(t, err, "Error when checking allowed")
@@ -600,7 +600,7 @@ func TestFullPathDependence(t *testing.T) {
 	//	| EP1  | DstID1 |      53 |  UDP  | *.ubuntu.com   |
 	//	| EP1  | DstID1 |      53 |  UDP  | aws.amazon.com |
 	//	| EP1  | DstID2 |      53 |  UDP  | cilium.io      |
-	err := s.proxy.UpdateAllowed(epID1, udpProtoPort53, policy.L7DataMap{
+	_, err := s.proxy.UpdateAllowed(epID1, udpProtoPort53, policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
@@ -620,7 +620,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.NoError(t, err, "Could not update with port 53 rules")
 
 	//      | EP1  | DstID1 |      53 |  TCP  | sub.ubuntu.com |
-	err = s.proxy.UpdateAllowed(epID1, tcpProtoPort53, policy.L7DataMap{
+	_, err = s.proxy.UpdateAllowed(epID1, tcpProtoPort53, policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
@@ -632,7 +632,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.NoError(t, err, "Could not update with rules")
 
 	//	| EP1  | DstID1 |      54 |  UDP  | example.com    |
-	err = s.proxy.UpdateAllowed(epID1, udpProtoPort54, policy.L7DataMap{
+	_, err = s.proxy.UpdateAllowed(epID1, udpProtoPort54, policy.L7DataMap{
 		cachedWildcardSelector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
@@ -646,7 +646,7 @@ func TestFullPathDependence(t *testing.T) {
 	// | EP3  | DstID1 |      53 |  UDP  | example.com    |
 	// | EP3  | DstID3 |      53 |  UDP  | *              |
 	// | EP3  | DstID4 |      53 |  UDP  | nil            |
-	err = s.proxy.UpdateAllowed(epID3, udpProtoPort53, policy.L7DataMap{
+	_, err = s.proxy.UpdateAllowed(epID3, udpProtoPort53, policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
@@ -666,7 +666,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.NoError(t, err, "Could not update with rules")
 
 	// | EP3  | DstID3 |      53 |  TCP  | example.com    |
-	err = s.proxy.UpdateAllowed(epID3, tcpProtoPort53, policy.L7DataMap{
+	_, err = s.proxy.UpdateAllowed(epID3, tcpProtoPort53, policy.L7DataMap{
 		cachedDstID3Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
@@ -926,7 +926,7 @@ func TestFullPathDependence(t *testing.T) {
 	require.True(t, exists)
 
 	// Set empty ruleset, check that restored rules were deleted in epID3
-	err = s.proxy.UpdateAllowed(epID3, udpProtoPort53, nil)
+	_, err = s.proxy.UpdateAllowed(epID3, udpProtoPort53, nil)
 	require.NoError(t, err, "Could not update with rules")
 
 	_, exists = s.proxy.restored[epID3]
@@ -1078,7 +1078,7 @@ func TestRestoredEndpoint(t *testing.T) {
 	}
 	queries := []string{name, strings.ReplaceAll(pattern, "*", "sub")}
 
-	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
+	_, err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
 	require.NoError(t, err, "Could not update with rules")
 	for _, query := range queries {
 		allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
@@ -1110,7 +1110,7 @@ func TestRestoredEndpoint(t *testing.T) {
 	restored.Sort(nil)
 
 	// remove rules
-	err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
+	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
 	require.NoError(t, err, "Could not remove rules")
 
 	// 2nd request, refused due to no rules
