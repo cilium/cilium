@@ -36,7 +36,7 @@ func proxyForTest() (*Proxy, func()) {
 
 type fakeProxyPolicy struct{}
 
-func (p *fakeProxyPolicy) CopyL7RulesPerEndpoint() policy.L7DataMap {
+func (p *fakeProxyPolicy) GetPerSelectorPolicies() policy.L7DataMap {
 	return policy.L7DataMap{}
 }
 
