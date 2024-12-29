@@ -433,7 +433,7 @@ func TestCommonPrefix(t *testing.T) {
 	} {
 
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			have := cidrKey(tc.v1).CommonPrefix(tc.v2)
+			have := cidrKey(tc.v1).CommonPrefix(cidrKey(tc.v2))
 			if have != tc.want {
 				t.Errorf("p1 %v p2 %v got %d want %d", tc.v1, tc.v2, have, tc.want)
 			}
@@ -546,7 +546,7 @@ func BenchmarkTraversal(b *testing.B) {
 			n = 0
 			lastLen = prefixLen
 			for ok, k, _ := iter.Next(); ok; ok, k, _ = iter.Next() {
-				pLen := k.Value().Bits()
+				pLen := netip.Prefix(k).Bits()
 				assert.LessOrEqual(b, pLen, lastLen)
 				lastLen = pLen
 				n++
@@ -612,7 +612,7 @@ func BenchmarkTraversal(b *testing.B) {
 			n = 0
 			lastLen = 0
 			for ok, k, _ := iter.Next(); ok; ok, k, _ = iter.Next() {
-				pLen := k.Value().Bits()
+				pLen := netip.Prefix(k).Bits()
 				assert.GreaterOrEqual(b, pLen, lastLen)
 				lastLen = pLen
 				n++
