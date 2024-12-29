@@ -9,7 +9,13 @@ import (
 )
 
 // Redirect type for custom Listeners, which are managed externally.
-type CRDRedirect struct{}
+type CRDRedirect struct {
+	Redirect
+}
+
+func (dr *CRDRedirect) GetRedirect() *Redirect {
+	return &dr.Redirect
+}
 
 func (r *CRDRedirect) UpdateRules(rules policy.L7DataMap) (revert.RevertFunc, error) {
 	return nil, nil
