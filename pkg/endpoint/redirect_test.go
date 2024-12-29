@@ -96,9 +96,10 @@ type RedirectSuiteProxy struct {
 
 // CreateOrUpdateRedirect returns the proxy port for the given L7Parser from the
 // ProxyPolicy parameter.
-func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc) {
 	pp := r.parserProxyPortMap[l4.GetL7Parser().String()+l4.GetListener()]
-	return pp, nil, func() { r.redirects[id] = pp }, nil
+	r.redirects[id] = pp
+	return pp, nil, nil
 }
 
 // RemoveRedirect removes a redirect from the map
