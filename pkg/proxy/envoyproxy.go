@@ -33,13 +33,13 @@ type envoyProxyIntegration struct {
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
 func (p *envoyProxyIntegration) createRedirect(r *Redirect, wg *completion.WaitGroup, cb func(err error)) (RedirectImplementation, error) {
-	if r.listener.ProxyType == types.ProxyTypeCRD {
+	if r.proxyPort.ProxyType == types.ProxyTypeCRD {
 		// CRD Listeners already exist, create a no-op implementation
 		return &CRDRedirect{}, nil
 	}
 
 	// create an Envoy Listener for Cilium policy enforcement
-	l := r.listener
+	l := r.proxyPort
 	redirect := &envoyRedirect{
 		listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.ProxyPort)),
 		xdsServer:    p.xdsServer,
@@ -73,8 +73,8 @@ func (p *envoyProxyIntegration) RemoveNetworkPolicy(ep endpoint.EndpointInfoSour
 }
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the xDS cache.
-func (k *envoyRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc, error) {
-	return func() error { return nil }, nil
+func (k *envoyRedirect) UpdateRules(rules policy.L7DataMap) (revert.RevertFunc, error) {
+	return nil, nil
 }
 
 // Close the redirect.
