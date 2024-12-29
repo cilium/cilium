@@ -20,8 +20,12 @@ var (
 
 // dnsRedirect implements the Redirect interface for an l7 proxy
 type dnsRedirect struct {
-	redirect         *Redirect
+	Redirect
 	proxyRuleUpdater proxyRuleUpdater
+}
+
+func (dr *dnsRedirect) GetRedirect() *Redirect {
+	return &dr.Redirect
 }
 
 // proxyRuleUpdater updates L7 proxy rules per endpoint.
@@ -38,9 +42,9 @@ type proxyRuleUpdater interface {
 func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) (revert.RevertFunc, error) {
 	log.WithFields(logrus.Fields{
 		"newRules":           newRules,
-		logfields.EndpointID: dr.redirect.endpointID,
+		logfields.EndpointID: dr.endpointID,
 	}).Debug("DNS Proxy updating matchNames in allowed list during UpdateRules")
-	return dr.proxyRuleUpdater.UpdateAllowed(uint64(dr.redirect.endpointID), dr.redirect.dstPortProto, newRules)
+	return dr.proxyRuleUpdater.UpdateAllowed(uint64(dr.endpointID), dr.dstPortProto, newRules)
 }
 
 // UpdateRules atomically replaces the proxy rules in effect for this redirect.
@@ -60,9 +64,9 @@ type dnsProxyIntegration struct {
 
 // createRedirect creates a redirect to the dns proxy. The redirect structure passed
 // in is safe to access for reading and writing.
-func (p *dnsProxyIntegration) createRedirect(r *Redirect) (RedirectImplementation, error) {
+func (p *dnsProxyIntegration) createRedirect(redirect Redirect) (RedirectImplementation, error) {
 	dr := &dnsRedirect{
-		redirect:         r,
+		Redirect:         redirect,
 		proxyRuleUpdater: DefaultDNSProxy,
 	}
 
