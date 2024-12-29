@@ -59,7 +59,7 @@ func newRedirect(epID uint16, name string, listener *proxyports.ProxyPort, port 
 // TODO: Replace this with RedirectImplementation UpdateRules method!
 func (r *Redirect) updateRules(p policy.ProxyPolicy) revert.RevertFunc {
 	oldRules := r.rules
-	r.rules = p.CopyL7RulesPerEndpoint()
+	r.rules = p.GetPerSelectorPolicies()
 	return func() error {
 		r.mutex.Lock()
 		r.rules = oldRules
