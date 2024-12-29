@@ -321,15 +321,6 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-// ShallowCopy returns a shallow copy of the L7DataMap.
-func (l7 L7DataMap) ShallowCopy() L7DataMap {
-	m := make(L7DataMap, len(l7))
-	for k, v := range l7 {
-		m[k] = v
-	}
-	return m
-}
-
 // L7ParserType is the type used to indicate what L7 parser to use.
 // Consts are defined for all well known L7 parsers.
 // Unknown string values are created for key-value pair policies, which
@@ -459,8 +450,8 @@ func (l4 *L4Filter) SelectsAllEndpoints() bool {
 
 // CopyL7RulesPerEndpoint returns a shallow copy of the PerSelectorPolicies of the
 // L4Filter.
-func (l4 *L4Filter) CopyL7RulesPerEndpoint() L7DataMap {
-	return l4.PerSelectorPolicies.ShallowCopy()
+func (l4 *L4Filter) GetPerSelectorPolicies() L7DataMap {
+	return l4.PerSelectorPolicies
 }
 
 // GetL7Parser returns the L7ParserType of the L4Filter.
@@ -1785,7 +1776,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 // ProxyPolicy is any type which encodes state needed to redirect to an L7
 // proxy.
 type ProxyPolicy interface {
-	CopyL7RulesPerEndpoint() L7DataMap
+	GetPerSelectorPolicies() L7DataMap
 	GetL7Parser() L7ParserType
 	GetIngress() bool
 	GetPort() uint16
