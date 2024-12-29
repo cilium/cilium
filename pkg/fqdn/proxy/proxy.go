@@ -8,12 +8,13 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/revert"
 )
 
 type DNSProxier interface {
 	GetRules(*versioned.VersionHandle, uint16) (restore.DNSRules, error)
 	RemoveRestoredRules(uint16)
-	UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) error
+	UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error)
 	GetBindPort() uint16
 	SetRejectReply(string)
 	RestoreRules(op *endpoint.Endpoint)
@@ -29,8 +30,8 @@ func (m MockFQDNProxy) GetRules(*versioned.VersionHandle, uint16) (restore.DNSRu
 func (m MockFQDNProxy) RemoveRestoredRules(u uint16) {
 }
 
-func (m MockFQDNProxy) UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) error {
-	return nil
+func (m MockFQDNProxy) UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error) {
+	return nil, nil
 }
 
 func (m MockFQDNProxy) GetBindPort() uint16 {
