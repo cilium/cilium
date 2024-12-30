@@ -245,6 +245,12 @@ Users (Alphabetically)
       U: Networking and network policy
       L: https://github.com/digitalocean/DOKS
 
+    * N: Docaposte
+      D: Docaposte is the digital trust leader in France. We have selected Cilium as our CNI for Kubernetes deployments in production environments, due to its performance and advanced features.
+      U: eBPF, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, kube-proxy replacement, Hubble
+      L: https://docaposte.fr
+      Q: @albundy83
+
     * N: ECCO Data and AI
       D: ECCO Data and AI is using Cilium as CNI in all their clusters and environments (EKS in AWS).
       U: CNI, IPv6 networking, Service Load Balancing and Cluster Mesh
