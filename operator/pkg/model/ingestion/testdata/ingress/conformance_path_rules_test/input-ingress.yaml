@@ -1,0 +1,76 @@
+metadata:
+  creationTimestamp: null
+  name: path-rules
+  namespace: random-namespace
+spec:
+  rules:
+  - host: exact-path-rules
+    http:
+      paths:
+      - backend:
+          service:
+            name: foo-exact
+            port:
+              number: 8080
+        path: /foo
+        pathType: Exact
+  - host: prefix-path-rules
+    http:
+      paths:
+      - backend:
+          service:
+            name: foo-prefix
+            port:
+              number: 8080
+        path: /foo
+        pathType: Prefix
+      - backend:
+          service:
+            name: aaa-slash-bbb-prefix
+            port:
+              number: 8080
+        path: /aaa/bbb
+        pathType: Prefix
+      - backend:
+          service:
+            name: aaa-prefix
+            port:
+              number: 8080
+        path: /aaa
+        pathType: Prefix
+  - host: mixed-path-rules
+    http:
+      paths:
+      - backend:
+          service:
+            name: foo-prefix
+            port:
+              number: 8080
+        path: /foo
+        pathType: Prefix
+      - backend:
+          service:
+            name: foo-exact
+            port:
+              number: 8080
+        path: /foo
+        pathType: Exact
+  - host: trailing-slash-path-rules
+    http:
+      paths:
+      - backend:
+          service:
+            name: aaa-slash-bbb-slash-prefix
+            port:
+              number: 8080
+        path: /aaa/bbb/
+        pathType: Prefix
+      - backend:
+          service:
+            name: foo-slash-exact
+            port:
+              number: 8080
+        path: /foo/
+        pathType: Exact
+status:
+  loadBalancer: {}

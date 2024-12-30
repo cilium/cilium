@@ -1,0 +1,15 @@
+metadata:
+  annotations:
+    ingress.cilium.io/request-timeout: 10s
+  creationTimestamp: null
+  name: load-balancing-request-timeout-annotation
+  namespace: random-namespace
+spec:
+  defaultBackend:
+    service:
+      name: default-backend
+      port:
+        number: 8080
+  ingressClassName: cilium
+status:
+  loadBalancer: {}

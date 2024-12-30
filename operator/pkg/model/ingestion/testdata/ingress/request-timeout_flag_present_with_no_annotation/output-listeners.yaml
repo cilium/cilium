@@ -1,0 +1,16 @@
+- hostname: '*'
+  port: 80
+  routes:
+  - backends:
+    - name: default-backend
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match: {}
+    timeout:
+      request: 10000000000
+  sources:
+  - kind: Ingress
+    name: load-balancing
+    namespace: random-namespace
+    version: v1

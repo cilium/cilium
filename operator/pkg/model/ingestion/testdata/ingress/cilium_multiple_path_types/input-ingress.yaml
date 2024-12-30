@@ -1,0 +1,33 @@
+metadata:
+  creationTimestamp: null
+  name: dummy-ingress
+  namespace: dummy-namespace
+  uid: d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e
+spec:
+  ingressClassName: cilium
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: dummy-backend
+            port:
+              number: 8080
+        path: /impl
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: another-dummy-backend
+            port:
+              number: 8081
+        path: /
+        pathType: Prefix
+      - backend:
+          service:
+            name: another-dummy-backend
+            port:
+              number: 8081
+        path: /exact
+        pathType: Exact
+status:
+  loadBalancer: {}
