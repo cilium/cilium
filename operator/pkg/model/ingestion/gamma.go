@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 )
 
-// Input is the input for GatewayAPI.
+// GammaInput is the input for GatewayAPI.
 type GammaInput struct {
 	HTTPRoutes      []gatewayv1.HTTPRoute
 	ReferenceGrants []gatewayv1beta1.ReferenceGrant
