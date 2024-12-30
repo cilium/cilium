@@ -31,3 +31,23 @@ specs:
           path: "/"
           headers:
           - "X-Very-Secret-Token: 42"
+  - toFQDNs:
+    - matchName: "{{.ExternalOtherTarget}}"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      terminatingTLS:
+        secret:
+          namespace: "{{.TestNamespace}}"
+          name: externaltarget-tls # internal certificate to terminate in cluster
+      originatingTLS:
+        secret:
+          namespace: "{{.ExternalTargetCANamespace}}"
+          name: "{{.ExternalTargetCAName}}" # public CA bundle to validate external target
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+          headers:
+          - "X-Very-Secret-Token: 42"
