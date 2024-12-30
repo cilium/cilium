@@ -1,0 +1,16 @@
+- metadata:
+    creationTimestamp: null
+    name: gateway-conformance-infra-test
+    namespace: gateway-conformance-infra
+  spec:
+    hostnames:
+    - abc.example.com
+    parentRefs:
+    - name: gateway-tlsroute
+      namespace: gateway-conformance-infra
+    rules:
+    - backendRefs:
+      - name: tls-backend
+        port: 443
+  status:
+    parents: null

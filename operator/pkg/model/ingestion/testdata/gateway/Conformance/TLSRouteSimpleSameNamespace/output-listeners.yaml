@@ -1,0 +1,17 @@
+- hostname: '*'
+  name: https
+  port: 443
+  routes:
+  - backends:
+    - name: tls-backend
+      namespace: gateway-conformance-infra
+      port:
+        port: 443
+    hostnames:
+    - abc.example.com
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway-tlsroute
+    namespace: gateway-conformance-infra
+    version: v1

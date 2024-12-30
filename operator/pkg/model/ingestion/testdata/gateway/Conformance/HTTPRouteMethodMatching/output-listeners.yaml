@@ -1,0 +1,23 @@
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    method: POST
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    method: GET
+    path_match: {}
+    timeout: {}
+  sources:
+  - name: same-namespace
+    namespace: gateway-conformance-infra

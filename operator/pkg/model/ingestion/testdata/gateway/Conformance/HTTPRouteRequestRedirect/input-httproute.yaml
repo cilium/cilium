@@ -1,0 +1,41 @@
+- metadata:
+    creationTimestamp: null
+    name: request-redirect
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      filters:
+      - requestRedirect:
+          hostname: example.com
+        type: RequestRedirect
+      matches:
+      - path:
+          type: PathPrefix
+          value: /hostname-redirect
+    - filters:
+      - requestRedirect:
+          statusCode: 301
+        type: RequestRedirect
+      matches:
+      - path:
+          type: PathPrefix
+          value: /status-code-301
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      filters:
+      - requestRedirect:
+          hostname: example.com
+          statusCode: 301
+        type: RequestRedirect
+      matches:
+      - path:
+          type: PathPrefix
+          value: /host-and-status
+  status:
+    parents: null

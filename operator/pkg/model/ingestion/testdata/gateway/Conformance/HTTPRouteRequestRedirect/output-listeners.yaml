@@ -1,0 +1,38 @@
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /hostname-redirect
+    request_redirect:
+      hostname: example.com
+      port: 80
+    timeout: {}
+  - direct_response:
+      status_code: 500
+    path_match:
+      prefix: /status-code-301
+    request_redirect:
+      port: 80
+      status_code: 301
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /host-and-status
+    request_redirect:
+      hostname: example.com
+      port: 80
+      status_code: 301
+    timeout: {}
+  sources:
+  - name: same-namespace
+    namespace: gateway-conformance-infra
