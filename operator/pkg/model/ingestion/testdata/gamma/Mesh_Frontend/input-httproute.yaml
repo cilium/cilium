@@ -1,0 +1,22 @@
+- metadata:
+    creationTimestamp: null
+    name: mesh-split-v1
+    namespace: gateway-conformance-mesh
+  spec:
+    parentRefs:
+    - group: ""
+      kind: Service
+      name: echo-v2
+      port: 80
+    rules:
+    - backendRefs:
+      - name: echo-v2
+        port: 80
+      filters:
+      - responseHeaderModifier:
+          set:
+          - name: X-Header-Set
+            value: set
+        type: ResponseHeaderModifier
+  status:
+    parents: null
