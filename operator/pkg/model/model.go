@@ -250,10 +250,10 @@ type HTTPURLRewriteFilter struct {
 // HTTPRequestMirror defines configuration for the RequestMirror filter.
 type HTTPRequestMirror struct {
 	// Backend is the backend handling the requests
-	Backend *Backend
+	Backend *Backend `json:"backend,omitempty"`
 
-	Numerator   int32
-	Denominator int32
+	Numerator   int32 `json:"numerator,omitempty"`
+	Denominator int32 `json:"denominator,omitempty"`
 }
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
@@ -375,9 +375,9 @@ type TLSPassthroughRoute struct {
 // If no fields are set, all paths should match (no path match criteria should
 // be generated for Envoy.)
 type StringMatch struct {
-	Prefix string
-	Exact  string
-	Regex  string
+	Prefix string `json:"prefix,omitempty"`
+	Exact  string `json:"exact,omitempty"`
+	Regex  string `json:"regex,omitempty"`
 }
 
 func (sm StringMatch) String() string {
@@ -396,8 +396,8 @@ func (sm StringMatch) String() string {
 }
 
 type KeyValueMatch struct {
-	Key   string
-	Match StringMatch
+	Key   string      `json:"key,omitempty"`
+	Match StringMatch `json:"match"`
 }
 
 func (kv KeyValueMatch) String() string {

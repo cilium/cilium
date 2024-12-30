@@ -9,9 +9,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /one
-      Prefix: ""
-      Regex: ""
+      exact: /one
     timeout: {}
   - backends:
     - name: infra-backend-v2
@@ -19,9 +17,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /two
-      Prefix: ""
-      Regex: ""
+      exact: /two
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io
