@@ -1,0 +1,31 @@
+metadata:
+  creationTimestamp: null
+  name: host-rules
+  namespace: random-namespace
+spec:
+  rules:
+  - host: '*.foo.com'
+    http:
+      paths:
+      - backend:
+          service:
+            name: wildcard-foo-com
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  - host: foo.bar.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: foo-bar-com
+            port:
+              name: http
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - foo.bar.com
+status:
+  loadBalancer: {}

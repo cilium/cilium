@@ -1,0 +1,13 @@
+metadata:
+  creationTimestamp: null
+  name: load-balancing
+  namespace: random-namespace
+spec:
+  defaultBackend:
+    service:
+      name: default-backend
+      port:
+        number: 8080
+  ingressClassName: cilium
+status:
+  loadBalancer: {}
