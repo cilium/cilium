@@ -7,10 +7,7 @@ http:
       namespace: dummy-namespace
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   - backends:
     - name: dummy-backend
@@ -18,9 +15,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /dummy-path
-      Prefix: ""
-      Regex: ""
+      exact: /dummy-path
     timeout: {}
   - backends:
     - name: another-dummy-backend
@@ -28,9 +23,7 @@ http:
       port:
         port: 8081
     path_match:
-      Exact: ""
-      Prefix: /another-dummy-path
-      Regex: ""
+      prefix: /another-dummy-path
     timeout: {}
   service:
     insecure_node_port: 30000
@@ -50,10 +43,7 @@ http:
       namespace: dummy-namespace
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   - backends:
     - name: dummy-backend
@@ -61,9 +51,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /dummy-path
-      Prefix: ""
-      Regex: ""
+      exact: /dummy-path
     timeout: {}
   - backends:
     - name: another-dummy-backend
@@ -71,9 +59,7 @@ http:
       port:
         port: 8081
     path_match:
-      Exact: ""
-      Prefix: /another-dummy-path
-      Regex: ""
+      prefix: /another-dummy-path
     timeout: {}
   service:
     insecure_node_port: 30000
@@ -96,10 +82,7 @@ http:
       namespace: dummy-namespace
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   - backends:
     - name: dummy-backend
@@ -107,9 +90,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /dummy-path
-      Prefix: ""
-      Regex: ""
+      exact: /dummy-path
     timeout: {}
   - backends:
     - name: another-dummy-backend
@@ -117,9 +98,7 @@ http:
       port:
         port: 8081
     path_match:
-      Exact: ""
-      Prefix: /another-dummy-path
-      Regex: ""
+      prefix: /another-dummy-path
     timeout: {}
   service:
     insecure_node_port: 30000
@@ -142,10 +121,7 @@ http:
       namespace: dummy-namespace
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   - backends:
     - name: dummy-backend
@@ -153,9 +129,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /dummy-path
-      Prefix: ""
-      Regex: ""
+      exact: /dummy-path
     timeout: {}
   - backends:
     - name: another-dummy-backend
@@ -163,9 +137,7 @@ http:
       port:
         port: 8081
     path_match:
-      Exact: ""
-      Prefix: /another-dummy-path
-      Regex: ""
+      prefix: /another-dummy-path
     timeout: {}
   service:
     insecure_node_port: 30000

@@ -9,9 +9,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /set
-      Regex: ""
+      prefix: /set
     response_header_modifier:
       headers_to_set:
       - name: X-Header-Set
@@ -23,9 +21,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /add
-      Regex: ""
+      prefix: /add
     response_header_modifier:
       headers_to_add:
       - name: X-Header-Add
@@ -37,9 +33,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /remove
-      Regex: ""
+      prefix: /remove
     response_header_modifier:
       headers_to_remove:
       - X-Header-Remove
@@ -50,9 +44,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /multiple
-      Regex: ""
+      prefix: /multiple
     response_header_modifier:
       headers_to_add:
       - name: X-Header-Add-1
@@ -76,9 +68,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /case-insensitivity
-      Regex: ""
+      prefix: /case-insensitivity
     response_header_modifier:
       headers_to_add:
       - name: X-Header-Add

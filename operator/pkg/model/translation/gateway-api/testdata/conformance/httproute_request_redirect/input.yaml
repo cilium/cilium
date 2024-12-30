@@ -9,18 +9,14 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /hostname-redirect
-      Regex: ""
+      prefix: /hostname-redirect
     request_redirect:
       hostname: example.com
     timeout: {}
   - direct_response:
       status_code: 500
     path_match:
-      Exact: ""
-      Prefix: /status-code-301
-      Regex: ""
+      prefix: /status-code-301
     request_redirect:
       status_code: 301
     timeout: {}
@@ -30,9 +26,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /host-and-status
-      Regex: ""
+      prefix: /host-and-status
     request_redirect:
       hostname: example.com
       status_code: 301

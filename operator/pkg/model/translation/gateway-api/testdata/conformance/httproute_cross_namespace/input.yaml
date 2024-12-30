@@ -8,10 +8,7 @@ http:
       namespace: gateway-conformance-web-backend
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

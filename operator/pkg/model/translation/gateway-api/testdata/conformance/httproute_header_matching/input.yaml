@@ -9,15 +9,10 @@ http:
       port:
         port: 8080
     headers_match:
-    - Key: version
-      Match:
-        Exact: one
-        Prefix: ""
-        Regex: ""
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    - key: version
+      match:
+        exact: one
+    path_match: {}
     timeout: {}
   - backends:
     - name: infra-backend-v2
@@ -25,15 +20,10 @@ http:
       port:
         port: 8080
     headers_match:
-    - Key: version
-      Match:
-        Exact: two
-        Prefix: ""
-        Regex: ""
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    - key: version
+      match:
+        exact: two
+    path_match: {}
     timeout: {}
   - backends:
     - name: infra-backend-v1
@@ -41,20 +31,13 @@ http:
       port:
         port: 8080
     headers_match:
-    - Key: version
-      Match:
-        Exact: two
-        Prefix: ""
-        Regex: ""
-    - Key: color
-      Match:
-        Exact: orange
-        Prefix: ""
-        Regex: ""
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    - key: version
+      match:
+        exact: two
+    - key: color
+      match:
+        exact: orange
+    path_match: {}
     timeout: {}
   - backends:
     - name: infra-backend-v1
@@ -62,15 +45,10 @@ http:
       port:
         port: 8080
     headers_match:
-    - Key: color
-      Match:
-        Exact: blue
-        Prefix: ""
-        Regex: ""
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    - key: color
+      match:
+        exact: blue
+    path_match: {}
     timeout: {}
   - backends:
     - name: infra-backend-v1
@@ -78,15 +56,10 @@ http:
       port:
         port: 8080
     headers_match:
-    - Key: color
-      Match:
-        Exact: green
-        Prefix: ""
-        Regex: ""
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    - key: color
+      match:
+        exact: green
+    path_match: {}
     timeout: {}
   - backends:
     - name: infra-backend-v2
@@ -94,15 +67,10 @@ http:
       port:
         port: 8080
     headers_match:
-    - Key: color
-      Match:
-        Exact: red
-        Prefix: ""
-        Regex: ""
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    - key: color
+      match:
+        exact: red
+    path_match: {}
     timeout: {}
   - backends:
     - name: infra-backend-v2
@@ -110,15 +78,10 @@ http:
       port:
         port: 8080
     headers_match:
-    - Key: color
-      Match:
-        Exact: yellow
-        Prefix: ""
-        Regex: ""
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    - key: color
+      match:
+        exact: yellow
+    path_match: {}
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io
