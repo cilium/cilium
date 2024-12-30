@@ -4,10 +4,22 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/cloudflare/cfssl/cli/genkey"
+	"github.com/cloudflare/cfssl/config"
+	"github.com/cloudflare/cfssl/csr"
+	"github.com/cloudflare/cfssl/helpers"
+	"github.com/cloudflare/cfssl/signer"
+	"github.com/cloudflare/cfssl/signer/local"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
@@ -157,4 +169,141 @@ func (s *podToWorldWithTLSIntercept) Run(ctx context.Context, t *check.Test) {
 
 		i++
 	}
+}
+
+// PodToWorldWithExtraTLSIntercept is same as PodToWorldWithTLSIntercept but with extra host in middle of the test
+// The goal is to make sure the secret update path is verified.
+func PodToWorldWithExtraTLSIntercept(caName string, curlOpts ...string) check.Scenario {
+	s := &podToWorldWithExtraTLSIntercept{
+		caName:   caName,
+		curlOpts: []string{"--cacert", "/tmp/test-ca.crt"}, // skip TLS verification as it will be our internal cert
+	}
+
+	s.curlOpts = append(s.curlOpts, curlOpts...)
+
+	return s
+}
+
+type podToWorldWithExtraTLSIntercept struct {
+	caName   string
+	curlOpts []string
+}
+
+func (s *podToWorldWithExtraTLSIntercept) Name() string {
+	return "pod-to-world-with-extra-tls-intercept"
+}
+
+func (s *podToWorldWithExtraTLSIntercept) Run(ctx context.Context, t *check.Test) {
+	fp := check.FlowParameters{
+		DNSRequired: true,
+		RSTAllowed:  true,
+	}
+
+	var i int
+	ct := t.Context()
+
+	var caBundle []byte
+	// join all the CA certs into a single file
+	for _, caFile := range t.CertificateCAs() {
+		caBundle = append(caBundle, caFile...)
+		caBundle = append(caBundle, '\n')
+	}
+	s.updateSecret(ctx, t)
+
+	for _, client := range ct.ClientPods() {
+		// With https, over port 443.
+		for _, target := range []string{
+			t.Context().Params().ExternalTarget,
+			t.Context().Params().ExternalOtherTarget,
+		} {
+			https := check.HTTPEndpoint(target+"-https", "https://"+target)
+			t.NewAction(s, fmt.Sprintf("https-to-%s-%d", target, i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
+				a.WriteDataToPod(ctx, "/tmp/test-ca.crt", caBundle)
+				a.ExecInPod(ctx, ct.CurlCommand(https, features.IPFamilyAny, s.curlOpts...))
+				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+			})
+		}
+		i++
+	}
+}
+
+// updateSecret adds another hosts (e.g. ExternalOtherTarget) into the existing secrets using the same CA.
+func (s *podToWorldWithExtraTLSIntercept) updateSecret(ctx context.Context, t *check.Test) {
+	caCert, caKey := t.CertificateCAs()[s.caName], t.CertificateKeys()[s.caName]
+
+	g := &csr.Generator{Validator: genkey.Validator}
+
+	csrBytes, keyBytes, err := g.ProcessRequest(&csr.CertificateRequest{
+		CN: "Cilium External Targets",
+		Hosts: []string{
+			t.Context().Params().ExternalTarget,      // Original target
+			t.Context().Params().ExternalOtherTarget, // Additional target
+		},
+	})
+	if err != nil {
+		t.Fatalf("Unable to create CA: %s", err)
+	}
+	parsedCa, err := helpers.ParseCertificatePEM(caCert)
+	if err != nil {
+		t.Fatalf("Unable to create CSR: %s", err)
+	}
+	caPriv, err := helpers.ParsePrivateKeyPEM(caKey)
+	if err != nil {
+		t.Fatalf("Unable to parse CA key: %s", err)
+	}
+
+	signConf := &config.Signing{
+		Default: &config.SigningProfile{
+			Expiry: 365 * 24 * time.Hour,
+			Usage:  []string{"key encipherment", "server auth", "digital signature"},
+		},
+	}
+
+	sign, err := local.NewSigner(caPriv, parsedCa, signer.DefaultSigAlgo(caPriv), signConf)
+	if err != nil {
+		t.Fatalf("Unable to create signer: %s", err)
+	}
+	certBytes, err := sign.Sign(signer.SignRequest{Request: string(csrBytes)})
+	if err != nil {
+		t.Fatalf("Unable to sign certificate: %s", err)
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s.caName,
+			Namespace: t.Context().Params().TestNamespace,
+		},
+		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			corev1.TLSCertKey:       certBytes,
+			corev1.TLSPrivateKeyKey: keyBytes,
+		},
+	}
+
+	t.Infof("📜 Appending secret '%s' to namespace '%s'..", secret.Name, secret.Namespace)
+	if err := ensureSecret(ctx, t.Context().Clients()[0], secret); err != nil {
+		t.Fatalf("Unable to rotate secret: %s", err)
+	}
+}
+
+func ensureSecret(ctx context.Context, client *k8s.Client, secret *corev1.Secret) error {
+	if existing, err := client.GetSecret(ctx, secret.Namespace, secret.Name, metav1.GetOptions{}); err == nil {
+		needsUpdate := false
+		for k, v := range existing.Data {
+			if v2, ok := secret.Data[k]; !ok || !bytes.Equal(v, v2) {
+				needsUpdate = true
+				break
+			}
+		}
+
+		if !needsUpdate {
+			return nil
+		}
+
+		_, err = client.UpdateSecret(ctx, secret.Namespace, secret, metav1.UpdateOptions{})
+		return err
+	}
+
+	_, err := client.CreateSecret(ctx, secret.Namespace, secret, metav1.CreateOptions{})
+	return err
 }

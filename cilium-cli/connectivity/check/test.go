@@ -121,7 +121,8 @@ type Test struct {
 	secrets map[string]*corev1.Secret
 
 	// CA certificates of the certificates that have to be present during the test.
-	certificateCAs map[string][]byte
+	certificateCAs  map[string][]byte
+	certificateKeys map[string][]byte
 
 	// A custom sysdump policy for the given test.
 	sysdumpPolicy SysdumpPolicy
@@ -707,6 +708,11 @@ func (t *Test) WithCertificate(name, hostname string) *Test {
 	}
 	t.certificateCAs[name] = caCert
 
+	if t.certificateKeys == nil {
+		t.certificateKeys = make(map[string][]byte)
+	}
+	t.certificateKeys[name] = caKey
+
 	return t.WithSecret(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -861,6 +867,11 @@ func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
 // CertificateCAs returns the CAs used to sign the certificates within the test.
 func (t *Test) CertificateCAs() map[string][]byte {
 	return t.certificateCAs
+}
+
+// CertificateKeys returns the CA keys used to sign the certificates within the test.
+func (t *Test) CertificateKeys() map[string][]byte {
+	return t.certificateKeys
 }
 
 func (t *Test) CiliumLocalRedirectPolicies() map[string]*ciliumv2.CiliumLocalRedirectPolicy {
