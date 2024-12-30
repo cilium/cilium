@@ -1,0 +1,30 @@
+- metadata:
+    creationTimestamp: null
+    name: rewrite-host
+    namespace: gateway-conformance-infra
+  spec:
+    hostnames:
+    - rewrite.example
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      filters:
+      - type: URLRewrite
+        urlRewrite:
+          hostname: one.example.org
+      matches:
+      - path:
+          type: PathPrefix
+          value: /one
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+      filters:
+      - type: URLRewrite
+        urlRewrite:
+          hostname: example.org
+  status:
+    parents: null
