@@ -1,0 +1,148 @@
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      response_header_modifier:
+        headers_to_set:
+        - name: X-Header-Set
+          value: set-overwrites-values
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /set
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      response_header_modifier:
+        headers_to_add:
+        - name: X-Header-Add
+          value: add-appends-values
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /add
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      response_header_modifier:
+        headers_to_remove:
+        - X-Header-Remove
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /remove
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      response_header_modifier:
+        headers_to_add:
+        - name: X-Header-Add-1
+          value: header-add-1
+        - name: X-Header-Add-2
+          value: header-add-2
+        - name: X-Header-Add-3
+          value: header-add-3
+        headers_to_remove:
+        - X-Header-Remove-1
+        - X-Header-Remove-2
+        headers_to_set:
+        - name: X-Header-Set-1
+          value: header-set-1
+        - name: X-Header-Set-2
+          value: header-set-2
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /multiple
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      response_header_modifier:
+        headers_to_add:
+        - name: X-Header-Add-1
+          value: header-add-1
+        headers_to_remove:
+        - X-Header-Remove-1
+        headers_to_set:
+        - name: X-Header-Set-1
+          value: header-set-1
+    - name: gateway-conformance-infra:infra-backend-v2:8080
+      response_header_modifier:
+        headers_to_add:
+        - name: X-Header-Add-2
+          value: header-add-2
+        headers_to_remove:
+        - X-Header-Remove-2
+        headers_to_set:
+        - name: X-Header-Set-2
+          value: header-set-2
+    - name: gateway-conformance-infra:infra-backend-v3:8080
+      response_header_modifier:
+        headers_to_add:
+        - name: X-Header-Add-3
+          value: header-add-3
+        headers_to_remove:
+        - X-Header-Remove-3
+        headers_to_set:
+        - name: X-Header-Set-3
+          value: header-set-3
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /multiple-backends
+    timeout: {}
+  - backend_http_filters:
+    - name: gateway-conformance-infra:infra-backend-v1:8080
+      response_header_modifier:
+        headers_to_add:
+        - name: X-Header-Add
+          value: header-add
+        - name: x-lowercase-add
+          value: lowercase-add
+        - name: x-Mixedcase-ADD-1
+          value: mixedcase-add-1
+        - name: X-mixeDcase-add-2
+          value: mixedcase-add-2
+        - name: X-UPPERCASE-ADD
+          value: uppercase-add
+        headers_to_remove:
+        - X-Header-Remove
+        headers_to_set:
+        - name: X-Header-Set
+          value: header-set
+    backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /case-insensitivity
+    timeout: {}
+  sources:
+  - name: same-namespace
+    namespace: gateway-conformance-infra

@@ -1,0 +1,64 @@
+- hostname: bar.com
+  name: listener-1
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - bar.com
+    path_match: {}
+    timeout: {}
+  sources:
+  - name: httproute-listener-hostname-matching
+    namespace: gateway-conformance-infra
+- hostname: foo.bar.com
+  name: listener-2
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - foo.bar.com
+    path_match: {}
+    timeout: {}
+  sources:
+  - name: httproute-listener-hostname-matching
+    namespace: gateway-conformance-infra
+- hostname: '*.bar.com'
+  name: listener-3
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - '*.bar.com'
+    path_match: {}
+    timeout: {}
+  sources:
+  - name: httproute-listener-hostname-matching
+    namespace: gateway-conformance-infra
+- hostname: '*.foo.com'
+  name: listener-4
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - '*.foo.com'
+    path_match: {}
+    timeout: {}
+  sources:
+  - name: httproute-listener-hostname-matching
+    namespace: gateway-conformance-infra

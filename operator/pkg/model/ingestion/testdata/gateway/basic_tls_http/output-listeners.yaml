@@ -1,0 +1,21 @@
+- hostname: '*'
+  name: prod-web-gw
+  port: 443
+  routes:
+  - backends:
+    - name: my-service
+      namespace: default
+      port:
+        port: 443
+    - name: my-service
+      namespace: default
+      port:
+        port: 443
+    hostnames:
+    - example.com
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1

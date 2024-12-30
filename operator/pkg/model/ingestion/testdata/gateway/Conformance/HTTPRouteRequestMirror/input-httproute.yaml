@@ -1,0 +1,24 @@
+- metadata:
+    creationTimestamp: null
+    name: request-mirror
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      filters:
+      - requestMirror:
+          backendRef:
+            name: infra-backend-v2
+            namespace: gateway-conformance-infra
+            port: 8080
+        type: RequestMirror
+      matches:
+      - path:
+          type: PathPrefix
+          value: /mirror
+  status:
+    parents: null

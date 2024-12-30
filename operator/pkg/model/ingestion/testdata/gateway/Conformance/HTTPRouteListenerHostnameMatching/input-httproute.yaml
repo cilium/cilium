@@ -1,0 +1,48 @@
+- metadata:
+    creationTimestamp: null
+    name: backend-v1
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: httproute-listener-hostname-matching
+      namespace: gateway-conformance-infra
+      sectionName: listener-1
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+  status:
+    parents: null
+- metadata:
+    creationTimestamp: null
+    name: backend-v2
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: httproute-listener-hostname-matching
+      namespace: gateway-conformance-infra
+      sectionName: listener-2
+    rules:
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+  status:
+    parents: null
+- metadata:
+    creationTimestamp: null
+    name: backend-v3
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: httproute-listener-hostname-matching
+      namespace: gateway-conformance-infra
+      sectionName: listener-3
+    - name: httproute-listener-hostname-matching
+      namespace: gateway-conformance-infra
+      sectionName: listener-4
+    rules:
+    - backendRefs:
+      - name: infra-backend-v3
+        port: 8080
+  status:
+    parents: null
