@@ -15,9 +15,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /set
-      Prefix: ""
-      Regex: ""
+      exact: /set
     timeout: {}
   - backend_http_filters:
     - name: gateway-conformance-infra:infra-backend-v1:8080
@@ -31,9 +29,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /add
-      Prefix: ""
-      Regex: ""
+      exact: /add
     timeout: {}
   - backend_http_filters:
     - name: gateway-conformance-infra:infra-backend-v1:8080
@@ -46,9 +42,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /remove
-      Prefix: ""
-      Regex: ""
+      exact: /remove
     timeout: {}
   - backend_http_filters:
     - name: gateway-conformance-infra:infra-backend-v1:8080
@@ -74,9 +68,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /multiple
-      Prefix: ""
-      Regex: ""
+      exact: /multiple
     timeout: {}
   - backend_http_filters:
     - name: gateway-conformance-infra:infra-backend-v1:8080
@@ -116,9 +108,7 @@ http:
         port: 8080
       weight: 50
     path_match:
-      Exact: /multiple-backends
-      Prefix: ""
-      Regex: ""
+      exact: /multiple-backends
     timeout: {}
   - backend_http_filters:
     - name: gateway-conformance-infra:infra-backend-v2:8080
@@ -143,9 +133,7 @@ http:
         port: 8080
       weight: 50
     path_match:
-      Exact: /multiple-backends-some-missing
-      Prefix: ""
-      Regex: ""
+      exact: /multiple-backends-some-missing
     timeout: {}
   - backend_http_filters:
     - name: gateway-conformance-infra:infra-backend-v2:8080
@@ -185,9 +173,7 @@ http:
         port: 8080
       weight: 70
     path_match:
-      Exact: /multiple-backends-two-filters
-      Prefix: ""
-      Regex: ""
+      exact: /multiple-backends-two-filters
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

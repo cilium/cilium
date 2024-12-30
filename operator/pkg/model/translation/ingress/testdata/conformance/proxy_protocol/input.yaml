@@ -7,10 +7,7 @@ http:
       namespace: random-namespace
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   sources:
   - kind: Ingress

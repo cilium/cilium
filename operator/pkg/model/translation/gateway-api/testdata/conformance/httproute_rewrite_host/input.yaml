@@ -11,9 +11,7 @@ http:
     hostnames:
     - rewrite.example
     path_match:
-      Exact: ""
-      Prefix: /one
-      Regex: ""
+      prefix: /one
     rewrite:
       host_name: one.example.org
     timeout: {}
@@ -24,10 +22,7 @@ http:
         port: 8080
     hostnames:
     - rewrite.example
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     rewrite:
       host_name: example.org
     timeout: {}

@@ -9,9 +9,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /bar
-      Regex: ""
+      prefix: /bar
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

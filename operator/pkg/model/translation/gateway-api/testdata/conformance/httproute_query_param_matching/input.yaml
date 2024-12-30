@@ -8,69 +8,47 @@ http:
       namespace: gateway-conformance-infra
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     query_params_match:
-    - Key: animal
-      Match:
-        Exact: whale
-        Prefix: ""
-        Regex: ""
+    - key: animal
+      match:
+        exact: whale
     timeout: {}
   - backends:
     - name: infra-backend-v2
       namespace: gateway-conformance-infra
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     query_params_match:
-    - Key: animal
-      Match:
-        Exact: dolphin
-        Prefix: ""
-        Regex: ""
+    - key: animal
+      match:
+        exact: dolphin
     timeout: {}
   - backends:
     - name: infra-backend-v3
       namespace: gateway-conformance-infra
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     query_params_match:
-    - Key: animal
-      Match:
-        Exact: dolphin
-        Prefix: ""
-        Regex: ""
-    - Key: color
-      Match:
-        Exact: blue
-        Prefix: ""
-        Regex: ""
+    - key: animal
+      match:
+        exact: dolphin
+    - key: color
+      match:
+        exact: blue
     timeout: {}
   - backends:
     - name: infra-backend-v3
       namespace: gateway-conformance-infra
       port:
         port: 8080
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     query_params_match:
-    - Key: ANIMAL
-      Match:
-        Exact: Whale
-        Prefix: ""
-        Regex: ""
+    - key: ANIMAL
+      match:
+        exact: Whale
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

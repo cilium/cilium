@@ -9,9 +9,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /foo
-      Prefix: ""
-      Regex: ""
+      exact: /foo
     timeout: {}
   sources:
   - kind: Ingress
@@ -28,9 +26,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /foo
-      Regex: ""
+      prefix: /foo
     timeout: {}
   - backends:
     - name: foo-exact
@@ -38,9 +34,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /foo
-      Prefix: ""
-      Regex: ""
+      exact: /foo
     timeout: {}
   sources:
   - kind: Ingress
@@ -57,9 +51,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /foo
-      Regex: ""
+      prefix: /foo
     timeout: {}
   - backends:
     - name: aaa-slash-bbb-prefix
@@ -67,9 +59,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /aaa/bbb
-      Regex: ""
+      prefix: /aaa/bbb
     timeout: {}
   - backends:
     - name: aaa-prefix
@@ -77,9 +67,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /aaa
-      Regex: ""
+      prefix: /aaa
     timeout: {}
   sources:
   - kind: Ingress
@@ -96,9 +84,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /aaa/bbb/
-      Regex: ""
+      prefix: /aaa/bbb/
     timeout: {}
   - backends:
     - name: foo-slash-exact
@@ -106,9 +92,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: /foo/
-      Prefix: ""
-      Regex: ""
+      exact: /foo/
     timeout: {}
   sources:
   - kind: Ingress
