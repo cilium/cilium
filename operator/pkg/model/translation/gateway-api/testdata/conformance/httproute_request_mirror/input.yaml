@@ -9,17 +9,15 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /mirror
-      Regex: ""
+      prefix: /mirror
     request_mirrors:
-    - Backend:
+    - backend:
         name: infra-backend-v2
         namespace: gateway-conformance-infra
         port:
           port: 8080
-      Denominator: 100
-      Numerator: 100
+      denominator: 100
+      numerator: 100
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

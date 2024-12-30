@@ -11,9 +11,7 @@ http:
     hostnames:
     - very.specific.com
     path_match:
-      Exact: ""
-      Prefix: /s1
-      Regex: ""
+      prefix: /s1
     timeout: {}
   - backends:
     - name: infra-backend-v3
@@ -23,9 +21,7 @@ http:
     hostnames:
     - very.specific.com
     path_match:
-      Exact: ""
-      Prefix: /s3
-      Regex: ""
+      prefix: /s3
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io
@@ -47,9 +43,7 @@ http:
     - foo.bar.wildcard.io
     - foo.wildcard.io
     path_match:
-      Exact: ""
-      Prefix: /s2
-      Regex: ""
+      prefix: /s2
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io
@@ -69,9 +63,7 @@ http:
     hostnames:
     - '*.anotherwildcard.io'
     path_match:
-      Exact: ""
-      Prefix: /s4
-      Regex: ""
+      prefix: /s4
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

@@ -9,10 +9,7 @@ http:
       port:
         port: 8080
     method: POST
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   - backends:
     - name: infra-backend-v2
@@ -20,10 +17,7 @@ http:
       port:
         port: 8080
     method: GET
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

@@ -10,10 +10,7 @@ http:
         port: 8080
     hostnames:
     - bar.com
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io
@@ -32,10 +29,7 @@ http:
         port: 8080
     hostnames:
     - foo.bar.com
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io
@@ -54,10 +48,7 @@ http:
         port: 8080
     hostnames:
     - '*.bar.com'
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io
@@ -76,10 +67,7 @@ http:
         port: 8080
     hostnames:
     - '*.foo.com'
-    path_match:
-      Exact: ""
-      Prefix: ""
-      Regex: ""
+    path_match: {}
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

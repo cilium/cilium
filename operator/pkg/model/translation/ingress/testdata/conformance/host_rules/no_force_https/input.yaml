@@ -9,9 +9,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /
-      Regex: ""
+      prefix: /
     timeout: {}
   sources:
   - kind: Ingress
@@ -28,9 +26,7 @@ http:
       port:
         name: http
     path_match:
-      Exact: ""
-      Prefix: /
-      Regex: ""
+      prefix: /
     timeout: {}
   sources:
   - kind: Ingress
@@ -47,9 +43,7 @@ http:
       port:
         name: http
     path_match:
-      Exact: ""
-      Prefix: /
-      Regex: ""
+      prefix: /
     timeout: {}
   sources:
   - kind: Ingress
