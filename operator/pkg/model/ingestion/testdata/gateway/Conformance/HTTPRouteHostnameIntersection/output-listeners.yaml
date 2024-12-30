@@ -1,0 +1,63 @@
+- hostname: very.specific.com
+  name: listener-1
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - very.specific.com
+    path_match:
+      prefix: /s1
+    timeout: {}
+  - backends:
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - very.specific.com
+    path_match:
+      prefix: /s3
+    timeout: {}
+  sources:
+  - name: httproute-hostname-intersection
+    namespace: gateway-conformance-infra
+- hostname: '*.wildcard.io'
+  name: listener-2
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - bar.wildcard.io
+    - foo.bar.wildcard.io
+    - foo.wildcard.io
+    path_match:
+      prefix: /s2
+    timeout: {}
+  sources:
+  - name: httproute-hostname-intersection
+    namespace: gateway-conformance-infra
+- hostname: '*.anotherwildcard.io'
+  name: listener-3
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    hostnames:
+    - '*.anotherwildcard.io'
+    path_match:
+      prefix: /s4
+    timeout: {}
+  sources:
+  - name: httproute-hostname-intersection
+    namespace: gateway-conformance-infra

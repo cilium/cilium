@@ -1,0 +1,16 @@
+metadata:
+  creationTimestamp: null
+  name: backend-namespaces
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        selector:
+          matchLabels:
+            gateway-conformance: backend
+    name: http
+    port: 80
+    protocol: HTTP
+status: {}
