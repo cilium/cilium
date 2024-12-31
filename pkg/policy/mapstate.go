@@ -128,11 +128,8 @@ func (ms *mapState) upsert(k Key, e mapStateEntry) {
 		idSet, ok := ms.trie.ExactLookup(k.PrefixLength(), k.LPMKey)
 		if !ok {
 			idSet = make(IDSet)
-			kCpy := k
-			kCpy.Identity = 0
-			ms.trie.Upsert(kCpy.PrefixLength(), kCpy.LPMKey, idSet)
+			ms.trie.Upsert(k.PrefixLength(), k.LPMKey, idSet)
 		}
-
 		idSet[k.Identity] = struct{}{}
 	}
 }
@@ -142,10 +139,9 @@ func (ms *mapState) delete(k Key) {
 	if exists {
 		delete(ms.entries, k)
 
-		id := k.Identity
 		idSet, ok := ms.trie.ExactLookup(k.PrefixLength(), k.LPMKey)
 		if ok {
-			delete(idSet, id)
+			delete(idSet, k.Identity)
 			if len(idSet) == 0 {
 				ms.trie.Delete(k.PrefixLength(), k.LPMKey)
 			}
