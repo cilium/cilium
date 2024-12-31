@@ -36,7 +36,7 @@ type MapStateOwner = types.CachedSelector
 
 const NoAuthRequirement = types.NoAuthRequirement
 
-// Map type for external use. Internally we have more detail in private 'mapSteteEntry' type,
+// Map type for external use. Internally we have more detail in private 'mapStateEntry' type,
 // as well as more extensive indexing via tries.
 type MapStateMap map[Key]MapStateEntry
 
@@ -286,12 +286,12 @@ func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// Visit key with the same identity, if port/proto is different.
+			// Visit key with the same identity, if one exists.
 			if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
 				return
 			}
 			// Then visit key with zero identity if not already done above and one
-			// exists
+			// exists.
 			if key.Identity != 0 && !ms.forID(k.WithIdentity(0), idSet, yield) {
 				return
 			}
@@ -394,7 +394,7 @@ func (ms *mapState) Len() int {
 	return len(ms.entries)
 }
 
-// mapSteteEntry is the entry type with additional internal bookkeping of the relation between
+// mapStateEntry is the entry type with additional internal bookkeping of the relation between
 // explicitly and implicitly added entries.
 type mapStateEntry struct {
 	MapStateEntry
