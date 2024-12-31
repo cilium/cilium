@@ -76,7 +76,7 @@ const (
 	// renovate: datasource=docker
 	ConnectivityTestConnDisruptImage = "quay.io/cilium/test-connection-disruption:v0.0.14@sha256:c3fd56e326ae16f6cb63dbb2e26b4e47ec07a123040623e11399a7fe1196baa0"
 	// renovate: datasource=docker
-	ConnectivityTestFRRImage = "quay.io/frrouting/frr:10.2.0@sha256:68733b8504b30d2a8565e43038f1313a500f2d9d58251882915eff0fbbd85e59"
+	ConnectivityTestFRRImage = "quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb"
 	// renovate: datasource=docker
 	ConnectivityTestSocatImage = "docker.io/alpine/socat:1.8.0.0@sha256:a6be4c0262b339c53ddad723cdd178a1a13271e1137c65e27f90a08c16de02b8"
 
