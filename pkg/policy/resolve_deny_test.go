@@ -432,7 +432,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, nil)
 	policy.Ready()
 
-	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(td.wildcardCachedSelector)
+	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel})
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -589,7 +589,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(cachedSelectorTest)
+	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel})
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -630,9 +630,9 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey(): allowEgressMapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry.withOwners(cachedSelectorWorld),
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorldV4, cachedSelectorWorld),
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorldV6, cachedSelectorWorld),
+			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry,
 			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry,
 			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry,
 		}),
