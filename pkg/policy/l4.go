@@ -624,7 +624,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, chang
 				continue
 			}
 		}
-		entry := newMapStateEntry(cs, l4.RuleOrigin[cs], proxyPort, priority, isDenyRule, authReq)
+		entry := newMapStateEntry(l4.RuleOrigin[cs], proxyPort, priority, isDenyRule, authReq)
 
 		if cs.IsWildcard() {
 			for _, keyToAdd := range keysToAdd {
@@ -1655,7 +1655,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := newMapStateEntry(cs, derivedFrom, proxyPort, priority, isDeny, authReq)
+		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq)
 
 		if option.Config.Debug {
 			authString := "default"
