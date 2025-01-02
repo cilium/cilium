@@ -640,7 +640,7 @@ func Test_MergeL3(t *testing.T) {
 				if err != nil {
 					t.Errorf("Policy resolution failure: %s", err)
 				}
-				if equal := assert.True(t, mapstate.equalsWithLabels(&tt.result), mapstate.diff(&tt.result)); !equal {
+				if equal := assert.True(t, mapstate.Equal(&tt.result), mapstate.diff(&tt.result)); !equal {
 					t.Logf("Rules:\n%s\n\n", api.Rules(rules).String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 					t.Errorf("Policy obtained didn't match expected for endpoint %s:\nObtained: %v\nExpected: %v", labelsFoo, mapstate, tt.result)
@@ -1184,7 +1184,7 @@ func Test_MergeRules(t *testing.T) {
 			// Ignore generated rules as they lap LabelArrayList which would
 			// make the tests fail.
 			if i < generatedIdx {
-				if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
+				if equal := assert.True(t, mapstate.Equal(&tt.expected), mapstate.diff(&tt.expected)); !equal {
 					require.EqualExportedValuesf(t, tt.expected, mapstate, "Policy obtained didn't match expected for endpoint %s", labelsFoo)
 					t.Logf("Rules:\n%s\n\n", tt.rules.String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
@@ -1276,7 +1276,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			require.Truef(t, mapstate.equalsWithLabels(&tt.expected),
+			require.Truef(t, mapstate.Equal(&tt.expected),
 				"Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, mapstate.diff(&tt.expected))
 		})
 	}
@@ -1322,7 +1322,7 @@ func Test_AllowAll(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.Equal(&tt.expected), mapstate.diff(&tt.expected)); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
@@ -1740,7 +1740,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.Equal(&tt.expected), mapstate.diff(&tt.expected)); !equal {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}
@@ -1821,7 +1821,7 @@ func Test_Allowception(t *testing.T) {
 	if err != nil {
 		t.Errorf("Policy resolution failure: %s", err)
 	}
-	if equal := assert.True(t, mapstate.equalsWithLabels(&computedMapStateForAllowCeption), mapstate.diff(&computedMapStateForAllowCeption)); !equal {
+	if equal := assert.True(t, mapstate.Equal(&computedMapStateForAllowCeption), mapstate.diff(&computedMapStateForAllowCeption)); !equal {
 		t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 		t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
 	}
@@ -1869,7 +1869,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.equalsWithLabels(&tt.expected), mapstate.diff(&tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.Equal(&tt.expected), mapstate.diff(&tt.expected)); !equal {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}

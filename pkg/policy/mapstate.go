@@ -12,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -32,7 +31,6 @@ import (
 type Key = types.Key
 type Keys = types.Keys
 type MapStateEntry = types.MapStateEntry
-type MapStateOwner = types.CachedSelector
 
 const NoAuthRequirement = types.NoAuthRequirement
 
@@ -402,10 +400,6 @@ type mapStateEntry struct {
 	// derivedFromRules tracks the policy rules this entry derives from.
 	// In sorted order.
 	derivedFromRules labels.LabelArrayList
-
-	// owners collects the keys in the map and selectors in the policy that require this key to be present.
-	// TODO: keep track which selector needed the entry to be deny, redirect, or just allow.
-	owners set.Set[MapStateOwner]
 }
 
 // newMapStateEntry creates a map state entry. If redirect is true, the
@@ -414,21 +408,20 @@ type mapStateEntry struct {
 // 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
 // will become sticky and cannot be completely removed via incremental updates. Even in this case
 // the entry may be overridden or removed by a deny entry.
-func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxyPort uint16, priority uint8, deny bool, authReq AuthRequirement) mapStateEntry {
-	return NewMapStateEntry(types.NewMapStateEntry(deny, proxyPort, priority, authReq), derivedFrom, cs)
+func newMapStateEntry(derivedFrom labels.LabelArrayList, proxyPort uint16, priority uint8, deny bool, authReq AuthRequirement) mapStateEntry {
+	return NewMapStateEntry(types.NewMapStateEntry(deny, proxyPort, priority, authReq), derivedFrom)
 }
 
-// newAllowEntryWithLabels creates an allow entry with the specified labels and a 'nil' owner.
+// newAllowEntryWithLabels creates an allow entry with the specified labels.
 // Used for adding allow-all entries when policy enforcement is not wanted.
 func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
-	return newMapStateEntry(nil, labels.LabelArrayList{lbls}, 0, 0, false, NoAuthRequirement)
+	return newMapStateEntry(labels.LabelArrayList{lbls}, 0, 0, false, NoAuthRequirement)
 }
 
-func NewMapStateEntry(e MapStateEntry, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) mapStateEntry {
+func NewMapStateEntry(e MapStateEntry, derivedFrom labels.LabelArrayList) mapStateEntry {
 	return mapStateEntry{
 		MapStateEntry:    e,
 		derivedFromRules: derivedFrom,
-		owners:           set.NewSet(owners...),
 	}
 }
 
@@ -482,19 +475,6 @@ func (ms *mapState) updateExisting(k Key, v mapStateEntry) {
 	ms.entries[k] = v
 }
 
-// equalsWithLabels determines if this mapState is equal to the
-// argument MapState. Only compares the exported MapStateEntry and derivedFromLabels.
-// Only used for testing.
-func (msA *mapState) equalsWithLabels(msB *mapState) bool {
-	if msA.Len() != msB.Len() {
-		return false
-	}
-	return msA.forEach(func(kA Key, vA mapStateEntry) bool {
-		vB, ok := msB.get(kA)
-		return ok && (&vB).DatapathAndDerivedFromEqual(&vA)
-	})
-}
-
 // Equals determines if this MapState is equal to the
 // argument (exported) MapStateMap
 // Only used for testing from other packages.
@@ -516,7 +496,7 @@ func (msA *mapState) Equal(msB *mapState) bool {
 	}
 	return msA.forEach(func(kA Key, vA mapStateEntry) bool {
 		vB, ok := msB.get(kA)
-		return ok && (&vB).deepEqual(&vA)
+		return ok && (&vB).Equal(&vA)
 	})
 }
 
@@ -551,7 +531,7 @@ func (obtained *mapState) diff(expected *mapState) (res string) {
 	res += "Missing (-), Unexpected (+):\n"
 	expected.forEach(func(kE Key, vE mapStateEntry) bool {
 		if vO, ok := obtained.get(kE); ok {
-			if !(&vO).deepEqual(&vE) {
+			if !(&vO).Equal(&vE) {
 				res += "- " + kE.String() + ": " + vE.String() + "\n"
 				res += "+ " + kE.String() + ": " + vO.String() + "\n"
 			}
@@ -577,11 +557,9 @@ func (ms mapState) String() (res string) {
 	return res
 }
 
-// DatapathAndDerivedFromEqual returns true of two entries are equal in the datapath's PoV,
-// i.e., IsDeny, ProxyPort and AuthType are the same for both entries, and the DerivedFromRules
-// fields are also equal.
+// Equal returns true of two entries are equal.
 // This is used for testing only via mapState.Equal and mapState.Diff.
-func (e *mapStateEntry) DatapathAndDerivedFromEqual(o *mapStateEntry) bool {
+func (e *mapStateEntry) Equal(o *mapStateEntry) bool {
 	if e == nil || o == nil {
 		return e == o
 	}
@@ -589,37 +567,20 @@ func (e *mapStateEntry) DatapathAndDerivedFromEqual(o *mapStateEntry) bool {
 	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules.DeepEqual(&o.derivedFromRules)
 }
 
-// DeepEqual is a manually generated deepequal function, deeply comparing the
-// receiver with other. in must be non-nil.
-// Defined manually due to deepequal-gen not supporting interface types.
-func (e *mapStateEntry) deepEqual(o *mapStateEntry) bool {
-	if !e.DatapathAndDerivedFromEqual(o) {
-		return false
-	}
-
-	if !e.owners.Equal(o.owners) {
-		return false
-	}
-
-	return true
-}
-
 // String returns a string representation of the MapStateEntry
 func (e mapStateEntry) String() string {
 	return e.MapStateEntry.String() +
-		",derivedFromRules=" + fmt.Sprintf("%v", e.derivedFromRules) +
-		",owners=" + e.owners.String()
+		",derivedFromRules=" + fmt.Sprintf("%v", e.derivedFromRules)
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
 func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes ChangeState) bool {
-	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	var datapathEqual bool
 	oldEntry, exists := ms.get(key)
 	// Only merge if both old and new are allows or denies
 	if exists && oldEntry.IsDeny() == entry.IsDeny() {
 		// Do nothing if entries are equal
-		if entry.deepEqual(&oldEntry) {
+		if entry.Equal(&oldEntry) {
 			return false // nothing to do
 		}
 
@@ -631,7 +592,6 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 		datapathEqual = oldEntry.MapStateEntry == entry.MapStateEntry
 
 		oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
-		oldEntry.owners.Merge(entry.owners)
 		if len(entry.derivedFromRules) > 0 {
 			oldEntry.derivedFromRules.MergeSorted(entry.derivedFromRules)
 		}
@@ -665,34 +625,11 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 	return true
 }
 
-// deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds'
-// and 'deletes'.
-// The key is unconditionally deleted if 'owner' is nil, otherwise only the contribution of this
-// 'owner' is removed.
-func (ms *mapState) deleteKeyWithChanges(owner MapStateOwner, key Key, changes ChangeState) {
+// deleteKeyWithChanges deletes a 'key' from 'ms' keeping track of incremental changes in 'changes'
+func (ms *mapState) deleteKeyWithChanges(key Key, changes ChangeState) {
 	if entry, exists := ms.get(key); exists {
 		// Save old value before any changes, if desired
-		oldAdded := changes.insertOldIfNotExists(key, entry)
-		if owner != nil {
-			if entry.owners.Has(owner) {
-				// remove this owner from entry's owners
-				changed := entry.owners.Remove(owner)
-				// key is not deleted if other owners still need it
-				if entry.owners.Len() > 0 {
-					if changed {
-						// re-insert entry due to owner change
-						ms.updateExisting(key, entry)
-					}
-					return
-				}
-			} else {
-				// 'owner' was not found, do not change anything
-				if oldAdded {
-					delete(changes.old, key)
-				}
-				return
-			}
-		}
+		changes.insertOldIfNotExists(key, entry)
 
 		if changes.Deletes != nil {
 			changes.Deletes[key] = struct{}{}
@@ -766,7 +703,7 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 		// Delete covered allows and denies with a different key
 		for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 			if !v.IsDeny() || k != newKey {
-				ms.deleteKeyWithChanges(nil, k, changes)
+				ms.deleteKeyWithChanges(k, changes)
 			}
 		}
 	} else {
@@ -787,7 +724,7 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 		if features.contains(redirectRules) {
 			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 				if !v.IsDeny() && v.ProxyPortPriority < newEntry.ProxyPortPriority {
-					ms.deleteKeyWithChanges(nil, k, changes)
+					ms.deleteKeyWithChanges(k, changes)
 				}
 			}
 		}
@@ -869,7 +806,6 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry mapStateEntry) b
 		if _, added := changes.Adds[key]; !added {
 			// Clone to keep this entry separate from the one that may remain in 'keys'
 			entry.derivedFromRules = slices.Clone(entry.derivedFromRules)
-			entry.owners = entry.owners.Clone()
 
 			changes.old[key] = entry
 			return true
@@ -1007,8 +943,7 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental
 			// changes
-			cs, _ := entry.owners.Get() // get the sole selector
-			p.policyMapState.deleteKeyWithChanges(cs, key, changes)
+			p.policyMapState.deleteKeyWithChanges(key, changes)
 		}
 	}
 

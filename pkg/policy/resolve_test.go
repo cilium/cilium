@@ -482,7 +482,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
 	policy.Ready()
 
-	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel).withOwners(td.wildcardCachedSelector)
+	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -641,7 +641,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel).withOwners(cachedSelectorTest)
+	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -687,9 +687,9 @@ func TestMapStateWithIngress(t *testing.T) {
 		PolicyOwner: DummyOwner{},
 		policyMapState: newMapState().withState(mapStateMap{
 			EgressKey(): allowEgressMapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry.withOwners(cachedSelectorWorld),
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorld, cachedSelectorWorldV4),
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorld, cachedSelectorWorldV6),
+			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry,
 			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
 			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
 		}),
