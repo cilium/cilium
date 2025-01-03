@@ -4,37 +4,121 @@
 package translation
 
 import (
-	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
+	"cmp"
+	"fmt"
+	goslices "slices"
 
+	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+
+	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 type RouteConfigurationMutator func(*envoy_config_route_v3.RouteConfiguration) *envoy_config_route_v3.RouteConfiguration
 
-// NewRouteConfiguration returns a new route configuration for a given list of http routes.
-func NewRouteConfiguration(name string, virtualhosts []*envoy_config_route_v3.VirtualHost, mutators ...RouteConfigurationMutator) (ciliumv2.XDSResource, error) {
+// desiredEnvoyHTTPRouteConfiguration returns the route configuration for the given model.
+func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv2.XDSResource {
+	var res []ciliumv2.XDSResource
+
+	type hostnameRedirect struct {
+		hostname string
+		redirect bool
+	}
+
+	portHostNameRedirect := map[string][]hostnameRedirect{}
+	hostNamePortRoutes := map[string]map[string][]model.HTTPRoute{}
+
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			port := insecureHost
+			if l.TLS != nil {
+				port = secureHost
+			}
+
+			if len(r.Hostnames) == 0 {
+				hnr := hostnameRedirect{
+					hostname: l.Hostname,
+					redirect: l.ForceHTTPtoHTTPSRedirect,
+				}
+				portHostNameRedirect[port] = append(portHostNameRedirect[port], hnr)
+				if _, ok := hostNamePortRoutes[l.Hostname]; !ok {
+					hostNamePortRoutes[l.Hostname] = map[string][]model.HTTPRoute{}
+				}
+				hostNamePortRoutes[l.Hostname][port] = append(hostNamePortRoutes[l.Hostname][port], r)
+				continue
+			}
+			for _, h := range r.Hostnames {
+				hnr := hostnameRedirect{
+					hostname: h,
+					redirect: l.ForceHTTPtoHTTPSRedirect,
+				}
+				portHostNameRedirect[port] = append(portHostNameRedirect[port], hnr)
+				if _, ok := hostNamePortRoutes[h]; !ok {
+					hostNamePortRoutes[h] = map[string][]model.HTTPRoute{}
+				}
+				hostNamePortRoutes[h][port] = append(hostNamePortRoutes[h][port], r)
+			}
+		}
+	}
+
+	for _, port := range []string{insecureHost, secureHost} {
+		hostNames, exists := portHostNameRedirect[port]
+		if !exists {
+			continue
+		}
+		var virtualhosts []*envoy_config_route_v3.VirtualHost
+
+		redirectedHost := map[string]struct{}{}
+		// Add HTTPs redirect virtual host for secure host
+		if port == insecureHost {
+			for _, h := range slices.Unique(portHostNameRedirect[secureHost]) {
+				if h.redirect {
+					vhs, _ := i.desiredVirtualHost(hostNamePortRoutes[h.hostname][secureHost], VirtualHostParameter{
+						HostNames:     []string{h.hostname},
+						HTTPSRedirect: true,
+						ListenerPort:  m.HTTP[0].Port,
+					})
+					virtualhosts = append(virtualhosts, vhs)
+					redirectedHost[h.hostname] = struct{}{}
+				}
+			}
+		}
+		for _, h := range slices.Unique(hostNames) {
+			if port == insecureHost {
+				if _, ok := redirectedHost[h.hostname]; ok {
+					continue
+				}
+			}
+			routes, exists := hostNamePortRoutes[h.hostname][port]
+			if !exists {
+				continue
+			}
+			vhs, _ := i.desiredVirtualHost(routes, VirtualHostParameter{
+				HostNames:     []string{h.hostname},
+				HTTPSRedirect: false,
+				ListenerPort:  m.HTTP[0].Port,
+			})
+			virtualhosts = append(virtualhosts, vhs)
+		}
+
+		// the route name should match the value in http connection manager
+		// otherwise the request will be dropped by envoy
+		routeName := fmt.Sprintf("listener-%s", port)
+		goslices.SortStableFunc(virtualhosts, func(a, b *envoy_config_route_v3.VirtualHost) int { return cmp.Compare(a.Name, b.Name) })
+		rc, _ := routeConfiguration(routeName, virtualhosts)
+		res = append(res, rc)
+	}
+
+	return res
+}
+
+// routeConfiguration returns a new route configuration for a given list of http routes.
+func routeConfiguration(name string, virtualhosts []*envoy_config_route_v3.VirtualHost) (ciliumv2.XDSResource, error) {
 	routeConfig := &envoy_config_route_v3.RouteConfiguration{
 		Name:         name,
 		VirtualHosts: virtualhosts,
 	}
-
-	// Apply mutation functions for customizing the route configuration.
-	for _, fn := range mutators {
-		routeConfig = fn(routeConfig)
-	}
-
-	routeBytes, err := proto.Marshal(routeConfig)
-	if err != nil {
-		return ciliumv2.XDSResource{}, err
-	}
-
-	return ciliumv2.XDSResource{
-		Any: &anypb.Any{
-			TypeUrl: envoy.RouteTypeURL,
-			Value:   routeBytes,
-		},
-	}, nil
+	return toXdsResource(routeConfig, envoy.RouteTypeURL)
 }
