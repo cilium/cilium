@@ -1335,7 +1335,9 @@ data:
 {{- if .Values.envoy.log.defaultLevel }}
   envoy-default-log-level: {{ .Values.envoy.log.defaultLevel | quote }}
 {{- end }}
-
+{{- if .Values.envoy.log.accessLogBufferSize }}
+  envoy-access-log-buffer-size: {{ .Values.envoy.log.accessLogBufferSize | quote }}
+{{- end }}
   envoy-keep-cap-netbindservice: {{ .Values.envoy.securityContext.capabilities.keepCapNetBindService | quote }}
 
 {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
