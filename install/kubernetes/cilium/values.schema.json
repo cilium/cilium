@@ -2032,6 +2032,12 @@
         },
         "log": {
           "properties": {
+            "accessLogBufferSize": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
             "defaultLevel": {
               "oneOf": [
                 {
