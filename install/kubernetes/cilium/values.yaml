@@ -2318,6 +2318,13 @@ envoy:
     # Possible values: trace, debug, info, warning, error, critical, off
     # @default -- Defaults to the default log level of the Cilium Agent - `info`
     defaultLevel: ~
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Size of the Envoy access log buffer created within the agent in bytes.
+    # Tune this value up if you encounter "Envoy: Discarded truncated access log message" errors.
+    # Large request/response header sizes (e.g. 16KiB) will require a larger buffer size.
+    accessLogBufferSize: 4096
   # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
   # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
