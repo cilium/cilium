@@ -30,13 +30,15 @@ type AccessLogServer struct {
 	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
 	stopCh             chan struct{}
+	bufferSize         uint
 }
 
-func newAccessLogServer(envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore) *AccessLogServer {
+func newAccessLogServer(envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
 	return &AccessLogServer{
 		socketPath:         getAccessLogSocketPath(envoySocketDir),
 		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
+		bufferSize:         bufferSize,
 	}
 }
 
@@ -127,7 +129,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 		stopCh <- struct{}{}
 	}()
 
-	buf := make([]byte, 4096)
+	buf := make([]byte, s.bufferSize)
 	for {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
 		if err != nil {
@@ -137,7 +139,9 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			break
 		}
 		if flags&unix.MSG_TRUNC != 0 {
-			log.Warning("Envoy: Discarded truncated access log message")
+			log.WithFields(logrus.Fields{
+				"access_log_buffer_size": s.bufferSize,
+			}).Warning("Envoy: Discarded truncated access log message - increase buffer size via --envoy-access-log-buffer-size")
 			continue
 		}
 		pblog := cilium.LogEntry{}
