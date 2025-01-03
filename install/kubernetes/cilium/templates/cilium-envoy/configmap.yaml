@@ -12,6 +12,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 data:
-{{- (tpl (.Files.Glob "files/cilium-envoy/configmap/bootstrap-config.json").AsConfig .) | nindent 2 }}
-
+  # Keep the key name as bootstrap-config.json to avoid breaking changes
+  bootstrap-config.json: |
+    {{- (tpl (.Files.Get "files/cilium-envoy/configmap/bootstrap-config.yaml") .) | fromYaml | toJson | nindent 4 }}
 {{- end }}
