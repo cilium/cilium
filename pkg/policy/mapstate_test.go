@@ -2407,9 +2407,9 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithSubnets(c *check.
 		}
 		if tt.outcome&insertBWithAProtoAsDeny > 0 {
 			bKeyWithAProto := Key{tt.bIdentity, tt.aPort, tt.aProto, 0}
-			bEntryAsDeny := bEntry.WithOwners(aKey).asDeny()
-			aEntryWithDep := aEntry.WithDependents(bKeyWithAProto)
-			expectedKeys.denies[aKey] = aEntryWithDep
+			bEntryAsDeny := bEntry.WithOwners(bKey).asDeny()
+			bEntryWithDep := bEntry.WithDependents(bKeyWithAProto)
+			expectedKeys.allows[bKey] = bEntryWithDep
 			expectedKeys.denies[bKeyWithAProto] = bEntryAsDeny
 		}
 		outcomeKeys := newMapState(nil)

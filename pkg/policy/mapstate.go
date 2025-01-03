@@ -933,12 +933,14 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// must be added.
 					denyKeyCpy := k
 					denyKeyCpy.Identity = newKey.Identity
-					l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+					// Note that we let the new key own this copy, since only
+					// the new key can be incrementally deleted.
+					l3l4DenyEntry := NewMapStateEntry(newKey, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
 					ms.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, changes)
 					// L3-only entries can be deleted incrementally so we need
 					// to track their effects on other entries so that those
 					// effects can be reverted when the identity is removed.
-					ms.addDependentOnEntry(k, v, denyKeyCpy, changes)
+					newEntry.AddDependent(denyKeyCpy)
 				}
 			}
 
