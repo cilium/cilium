@@ -4,13 +4,15 @@
 package translation
 
 import (
+	"fmt"
+	goslices "slices"
+
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -29,101 +31,74 @@ const (
 	HTTPVersion3          HTTPVersionType = 3
 )
 
-type ClusterMutator func(*envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster
-
-// WithClusterLbPolicy sets the cluster's load balancing policy.
-// https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers
-func WithClusterLbPolicy(lbPolicy int32) ClusterMutator {
-	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
-		if cluster == nil {
-			return cluster
-		}
-		cluster.LbPolicy = envoy_config_cluster_v3.Cluster_LbPolicy(lbPolicy)
-		return cluster
+func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string) []ClusterMutator {
+	res := []ClusterMutator{
+		withConnectionTimeout(5),
+		withIdleTimeout(i.idleTimeoutSeconds),
+		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
+		withOutlierDetection(true),
 	}
+	if grpcService {
+		res = append(res, withProtocol(HTTPVersion2))
+	} else if i.useAppProtocol {
+		switch appProtocol {
+		case AppProtocolH2C:
+			res = append(res, withProtocol(HTTPVersion2))
+		default:
+			// When --use-app-protocol is used, envoy will set upstream protocol to HTTP/1.1
+			res = append(res, withProtocol(HTTPVersion1))
+		}
+	}
+	return res
 }
 
-// WithOutlierDetection enables outlier detection on the cluster.
-func WithOutlierDetection(splitExternalLocalOriginErrors bool) ClusterMutator {
-	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
-		if cluster == nil {
-			return cluster
-		}
-		cluster.OutlierDetection = &envoy_config_cluster_v3.OutlierDetection{
-			SplitExternalLocalOriginErrors: splitExternalLocalOriginErrors,
-		}
-		return cluster
-	}
+func (i *cecTranslator) tcpClusterMutators(mutationFunc ...ClusterMutator) []ClusterMutator {
+	return append(mutationFunc,
+		withConnectionTimeout(5),
+		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
+		withOutlierDetection(true),
+	)
 }
 
-// WithConnectionTimeout sets the cluster's connection timeout.
-func WithConnectionTimeout(seconds int) ClusterMutator {
-	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
-		if cluster == nil {
-			return cluster
-		}
-		cluster.ConnectTimeout = &durationpb.Duration{Seconds: int64(seconds)}
-		return cluster
-	}
-}
+func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) []ciliumv2.XDSResource {
+	envoyClusters := map[string]ciliumv2.XDSResource{}
+	var sortedClusterNames []string
 
-// WithIdleTimeout sets the cluster's connection idle timeout.
-func WithIdleTimeout(seconds int) ClusterMutator {
-	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
-		if cluster == nil {
-			return cluster
-		}
-		a := cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType]
-		opts := &envoy_upstreams_http_v3.HttpProtocolOptions{}
-		if err := a.UnmarshalTo(opts); err != nil {
-			return cluster
-		}
-		opts.CommonHttpProtocolOptions = &envoy_config_core_v3.HttpProtocolOptions{
-			IdleTimeout: &durationpb.Duration{Seconds: int64(seconds)},
-		}
-		cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType] = toAny(opts)
-		return cluster
-	}
-}
-
-func WithProtocol(protocolVersion HTTPVersionType) ClusterMutator {
-	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
-		a := cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType]
-		options := &envoy_upstreams_http_v3.HttpProtocolOptions{}
-		if err := a.UnmarshalTo(options); err != nil {
-			return cluster
-		}
-		switch protocolVersion {
-		// Default protocol version in Envoy is HTTP1.1.
-		case HTTPVersion1, HTTPVersionAuto:
-			options.UpstreamProtocolOptions = &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
-				ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
-				},
-			}
-		case HTTPVersion2:
-			options.UpstreamProtocolOptions = &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
-				ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
-				},
-			}
-		case HTTPVersion3:
-			options.UpstreamProtocolOptions = &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
-				ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http3ProtocolOptions{},
-				},
+	for ns, v := range getNamespaceNamePortsMapForHTTP(m) {
+		for name, ports := range v {
+			for _, port := range ports {
+				clusterName := getClusterName(ns, name, port)
+				clusterServiceName := getClusterServiceName(ns, name, port)
+				sortedClusterNames = append(sortedClusterNames, clusterName)
+				envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName,
+					isGRPCService(m, ns, name, port),
+					getAppProtocol(m, ns, name, port))
 			}
 		}
-
-		cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
-			httpProtocolOptionsType: toAny(options),
-		}
-		return cluster
 	}
+
+	for ns, v := range getNamespaceNamePortsMapForTLS(m) {
+		for name, ports := range v {
+			for _, port := range ports {
+				clusterName := getClusterName(ns, name, port)
+				clusterServiceName := getClusterServiceName(ns, name, port)
+				sortedClusterNames = append(sortedClusterNames, clusterName)
+				envoyClusters[clusterName], _ = i.tcpCluster(clusterName, clusterServiceName)
+			}
+		}
+	}
+
+	goslices.Sort(sortedClusterNames)
+	res := make([]ciliumv2.XDSResource, len(sortedClusterNames))
+	for i, name := range sortedClusterNames {
+		res[i] = envoyClusters[name]
+	}
+
+	return res
 }
 
-// NewHTTPCluster creates a new Envoy cluster.
-func NewHTTPCluster(clusterName string, clusterServiceName string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
+// httpCluster creates a new Envoy cluster.
+func (i *cecTranslator) httpCluster(clusterName string, clusterServiceName string, isGRPCService bool, appProtocol string) (ciliumv2.XDSResource, error) {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: clusterName,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
@@ -144,36 +119,16 @@ func NewHTTPCluster(clusterName string, clusterServiceName string, mutationFunc 
 	}
 
 	// Apply mutation functions for customizing the cluster.
-	for _, fn := range mutationFunc {
+	for _, fn := range i.clusterMutators(isGRPCService, appProtocol) {
 		cluster = fn(cluster)
 	}
 
-	clusterBytes, err := proto.Marshal(cluster)
-	if err != nil {
-		return ciliumv2.XDSResource{}, err
-	}
-
-	return ciliumv2.XDSResource{
-		Any: &anypb.Any{
-			TypeUrl: envoy.ClusterTypeURL,
-			Value:   clusterBytes,
-		},
-	}, nil
+	return toXdsResource(cluster, envoy.ClusterTypeURL)
 }
 
-// NewTCPClusterWithDefaults same as NewTCPCluster but has default mutation functions applied.
+// tcpCluster same as NewTCPCluster but has default mutation functions applied.
 // currently this is only used for TLSRoutes to create a passthrough proxy
-func NewTCPClusterWithDefaults(clusterName string, clusterServiceName string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
-	fns := append(mutationFunc,
-		WithConnectionTimeout(5),
-		WithClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
-		WithOutlierDetection(true),
-	)
-	return NewTCPCluster(clusterName, clusterServiceName, fns...)
-}
-
-// NewTCPCluster creates a new Envoy cluster.
-func NewTCPCluster(clusterName string, clusterServiceName string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
+func (i *cecTranslator) tcpCluster(clusterName string, clusterServiceName string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: clusterName,
 		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
@@ -185,27 +140,50 @@ func NewTCPCluster(clusterName string, clusterServiceName string, mutationFunc .
 	}
 
 	// Apply mutation functions for customizing the cluster.
-	for _, fn := range mutationFunc {
+	for _, fn := range i.tcpClusterMutators(mutationFunc...) {
 		cluster = fn(cluster)
 	}
 
-	clusterBytes, err := proto.Marshal(cluster)
-	if err != nil {
-		return ciliumv2.XDSResource{}, err
-	}
-
-	return ciliumv2.XDSResource{
-		Any: &anypb.Any{
-			TypeUrl: envoy.ClusterTypeURL,
-			Value:   clusterBytes,
-		},
-	}, nil
+	return toXdsResource(cluster, envoy.ClusterTypeURL)
 }
 
-func toAny(message proto.Message) *anypb.Any {
-	a, err := anypb.New(message)
-	if err != nil {
-		return nil
+func getClusterName(ns, name, port string) string {
+	// the name is having the format of "namespace:name:port"
+	// -> slash would prevent ParseResources from rewriting with CEC namespace and name!
+	return fmt.Sprintf("%s:%s:%s", ns, name, port)
+}
+
+func getClusterServiceName(ns, name, port string) string {
+	// the name is having the format of "namespace/name:port"
+	return fmt.Sprintf("%s/%s:%s", ns, name, port)
+}
+
+// getNamespaceNamePortsMapForHTTP returns a map of namespace -> name -> ports.
+// The ports are sorted and unique.
+func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]string {
+	namespaceNamePortMap := map[string]map[string][]string{}
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+			for _, rm := range r.RequestMirrors {
+				if rm.Backend == nil {
+					continue
+				}
+				mergeBackendsInNamespaceNamePortMap([]model.Backend{*rm.Backend}, namespaceNamePortMap)
+			}
+		}
 	}
-	return a
+	return namespaceNamePortMap
+}
+
+// getNamespaceNamePortsMapFroTLS returns a map of namespace -> name -> ports.
+// The ports are sorted and unique.
+func getNamespaceNamePortsMapForTLS(m *model.Model) map[string]map[string][]string {
+	namespaceNamePortMap := map[string]map[string][]string{}
+	for _, l := range m.TLSPassthrough {
+		for _, r := range l.Routes {
+			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+		}
+	}
+	return namespaceNamePortMap
 }
