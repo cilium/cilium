@@ -1969,6 +1969,12 @@
         },
         "log": {
           "properties": {
+            "accessLogBufferSize": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
             "format": {
               "type": "string"
             },

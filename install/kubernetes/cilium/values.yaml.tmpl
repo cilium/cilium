@@ -2157,6 +2157,13 @@ envoy:
     format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"
     # -- Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
     path: ""
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Size of the Envoy access log buffer created within the agent in bytes.
+    # Tune this value up if you encounter "Envoy: Discarded truncated access log message" errors.
+    # Large request/response header sizes (e.g. 16KiB) will require a larger buffer size.
+    accessLogBufferSize: 4096
   # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
   # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
