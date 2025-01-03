@@ -11,8 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestNewRouteConfiguration(t *testing.T) {
-	res, err := NewRouteConfiguration("dummy-name", []*envoy_config_route_v3.VirtualHost{
+func Test_routeConfiguration(t *testing.T) {
+	res, err := routeConfiguration("dummy-name", []*envoy_config_route_v3.VirtualHost{
 		{
 			Name: "dummy-virtual-host",
 		},

@@ -26,7 +26,6 @@ import (
 const (
 	wildCard       = "*"
 	envoyAuthority = ":authority"
-	slash          = "/"
 	dot            = "."
 	starDot        = "*."
 	dotRegex       = "[.]"
@@ -121,27 +120,19 @@ func (s SortableRoute) Swap(i, j int) {
 
 // VirtualHostParameter is the parameter for NewVirtualHost
 type VirtualHostParameter struct {
-	HostNames           []string
-	HTTPSRedirect       bool
-	HostNameSuffixMatch bool
-	ListenerPort        uint32
+	HostNames     []string
+	HTTPSRedirect bool
+	ListenerPort  uint32
 }
 
-// NewVirtualHostWithDefaults is same as NewVirtualHost but with a few
-// default mutator function. If there are multiple http routes having
-// the same path matching (e.g. exact, prefix or regex), the incoming
-// request will be load-balanced to multiple backends equally.
-func NewVirtualHostWithDefaults(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
-	return NewVirtualHost(httpRoutes, param, mutators...)
-}
-
-// NewVirtualHost creates a new VirtualHost with the given host and routes.
-func NewVirtualHost(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
+// desiredVirtualHost creates a new VirtualHost with the given HTTP routes, set of pre-defined params as well mutator
+// based on global configuration.
+func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
 	var routes SortableRoute
 	if param.HTTPSRedirect {
-		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, param.HostNameSuffixMatch)
+		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.hostNameSuffixMatch)
 	} else {
-		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, param.HostNameSuffixMatch, param.ListenerPort)
+		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.hostNameSuffixMatch, param.ListenerPort)
 	}
 
 	// This is to make sure that the Exact match is always having higher priority.

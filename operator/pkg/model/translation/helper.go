@@ -6,6 +6,10 @@ package translation
 import (
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -29,4 +33,26 @@ func ParseNodeLabelSelector(nodeLabelSelectorString string) *slim_metav1.LabelSe
 	return &slim_metav1.LabelSelector{
 		MatchLabels: labels,
 	}
+}
+
+func toXdsResource(m proto.Message, typeUrl string) (ciliumv2.XDSResource, error) {
+	protoBytes, err := proto.Marshal(m)
+	if err != nil {
+		return ciliumv2.XDSResource{}, err
+	}
+
+	return ciliumv2.XDSResource{
+		Any: &anypb.Any{
+			TypeUrl: typeUrl,
+			Value:   protoBytes,
+		},
+	}, nil
+}
+
+func toAny(message proto.Message) *anypb.Any {
+	a, err := anypb.New(message)
+	if err != nil {
+		return nil
+	}
+	return a
 }
