@@ -31,7 +31,7 @@ func WithInternalAddressConfig(enableIpv4, enableIpv6 bool) HttpConnectionManage
 // httpConnectionManagerMutators returns a list of mutator functions for customizing the HTTP connection manager.
 func (i *cecTranslator) httpConnectionManagerMutators() []HttpConnectionManagerMutator {
 	return []HttpConnectionManagerMutator{
-		WithInternalAddressConfig(i.ipv4Enabled, i.ipv6Enabled),
+		WithInternalAddressConfig(i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled),
 	}
 }
 

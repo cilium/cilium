@@ -112,18 +112,30 @@ func registerReconciler(params ingressParams) error {
 		return nil
 	}
 
-	cecTranslator := translation.NewCECTranslator(
-		params.IngressConfig.IngressSecretsNamespace,
-		params.IngressConfig.EnableIngressProxyProtocol,
-		false,
-		false, // hostNameSuffixMatch
-		params.OperatorConfig.ProxyIdleTimeoutSeconds,
-		params.IngressConfig.IngressHostnetworkEnabled,
-		translation.ParseNodeLabelSelector(params.IngressConfig.IngressHostnetworkNodelabelselector),
-		params.AgentConfig.EnableIPv4,
-		params.AgentConfig.EnableIPv6,
-		params.IngressConfig.IngressDefaultXffNumTrustedHops,
-	)
+	cecTranslator := translation.NewCECTranslator(translation.Config{
+		SecretsNamespace: params.IngressConfig.IngressSecretsNamespace,
+		HostNetworkConfig: translation.HostNetworkConfig{
+			Enabled:           params.IngressConfig.IngressHostnetworkEnabled,
+			NodeLabelSelector: translation.ParseNodeLabelSelector(params.IngressConfig.IngressHostnetworkNodelabelselector),
+		},
+		IPConfig: translation.IPConfig{
+			IPv4Enabled: params.AgentConfig.EnableIPv4,
+			IPv6Enabled: params.AgentConfig.EnableIPv6,
+		},
+		ListenerConfig: translation.ListenerConfig{
+			UseProxyProtocol: params.IngressConfig.EnableIngressProxyProtocol,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: params.OperatorConfig.ProxyIdleTimeoutSeconds,
+			UseAppProtocol:     false,
+		},
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: false,
+		},
+		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+			XFFNumTrustedHops: params.IngressConfig.IngressDefaultXffNumTrustedHops,
+		},
+	})
 
 	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)
 
