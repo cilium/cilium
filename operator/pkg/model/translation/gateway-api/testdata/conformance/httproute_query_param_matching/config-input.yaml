@@ -1,0 +1,11 @@
+cluster_config:
+  idle_timeout_seconds: 60
+host_network_config: {}
+ip_config:
+  ipv4_enabled: true
+  ipv6_enabled: true
+listener_config: {}
+original_ip_detection_config: {}
+route_config:
+  host_name_suffix_match: true
+secrets_namespace: cilium-secrets

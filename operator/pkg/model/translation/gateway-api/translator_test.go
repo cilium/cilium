@@ -56,8 +56,10 @@ func Test_translator_Translate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cfg := translation.Config{}
+			readInput(t, fmt.Sprintf("testdata/%s/config-input.yaml", tt.name), &cfg)
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, true, true, 0),
+				cecTranslator: translation.NewCECTranslator(cfg),
 			}
 
 			input := &model.Model{}
@@ -85,8 +87,11 @@ func Test_translator_Translate_AppProtocol(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cfg := translation.Config{}
+			readInput(t, fmt.Sprintf("testdata/%s/config-input.yaml", tt.name), &cfg)
+
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, true, 60, false, nil, true, true, 0),
+				cecTranslator: translation.NewCECTranslator(cfg),
 			}
 
 			input := &model.Model{}
@@ -144,14 +149,46 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 			{
 				name: "without_external_traffic_policy",
 				gatewayAPITranslator: &gatewayAPITranslator{
-					cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
+					cecTranslator: translation.NewCECTranslator(translation.Config{
+						SecretsNamespace: "cilium-secrets",
+						RouteConfig: translation.RouteConfig{
+							HostNameSuffixMatch: true,
+						},
+						ClusterConfig: translation.ClusterConfig{
+							IdleTimeoutSeconds: 60,
+						},
+						HostNetworkConfig: translation.HostNetworkConfig{
+							Enabled:           true,
+							NodeLabelSelector: tt.nodeLabelSelector,
+						},
+						IPConfig: translation.IPConfig{
+							IPv4Enabled: tt.ipv4Enabled,
+							IPv6Enabled: tt.ipv6Enabled,
+						},
+					}),
 					hostNetworkEnabled: true,
 				},
 			},
 			{
 				name: "with_external_traffic_policy",
 				gatewayAPITranslator: &gatewayAPITranslator{
-					cecTranslator:         translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
+					cecTranslator: translation.NewCECTranslator(translation.Config{
+						SecretsNamespace: "cilium-secrets",
+						RouteConfig: translation.RouteConfig{
+							HostNameSuffixMatch: true,
+						},
+						ClusterConfig: translation.ClusterConfig{
+							IdleTimeoutSeconds: 60,
+						},
+						HostNetworkConfig: translation.HostNetworkConfig{
+							Enabled:           true,
+							NodeLabelSelector: tt.nodeLabelSelector,
+						},
+						IPConfig: translation.IPConfig{
+							IPv4Enabled: tt.ipv4Enabled,
+							IPv6Enabled: tt.ipv6Enabled,
+						},
+					}),
 					hostNetworkEnabled:    true,
 					externalTrafficPolicy: "Cluster",
 				},
@@ -196,7 +233,18 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, true, true, 2),
+				cecTranslator: translation.NewCECTranslator(translation.Config{
+					OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+						XFFNumTrustedHops: 2,
+					},
+					ClusterConfig: translation.ClusterConfig{
+						IdleTimeoutSeconds: 60,
+					},
+					IPConfig: translation.IPConfig{
+						IPv4Enabled: true,
+						IPv6Enabled: true,
+					},
+				}),
 				hostNetworkEnabled: true,
 			}
 

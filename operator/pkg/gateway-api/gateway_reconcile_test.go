@@ -309,7 +309,14 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 
-	cecTranslator := translation.NewCECTranslator("", false, false, true, 60, false, nil, false, false, 0)
+	cecTranslator := translation.NewCECTranslator(translation.Config{
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: true,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: 60,
+		},
+	})
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, false, string(corev1.ServiceExternalTrafficPolicyCluster))
 
 	r := &gatewayReconciler{
