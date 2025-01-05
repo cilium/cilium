@@ -257,8 +257,12 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 
 func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 	i := &cecTranslator{
-		secretsNamespace: "cilium-secrets",
-		useProxyProtocol: true,
+		Config: Config{
+			SecretsNamespace: "cilium-secrets",
+			ListenerConfig: ListenerConfig{
+				UseProxyProtocol: true,
+			},
+		},
 	}
 	res := i.desiredEnvoyListener(&model.Model{
 		HTTP: []model.HTTPListener{
@@ -288,7 +292,9 @@ func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 
 func TestSharedIngressTranslator_getListener(t *testing.T) {
 	i := &cecTranslator{
-		secretsNamespace: "cilium-secrets",
+		Config: Config{
+			SecretsNamespace: "cilium-secrets",
+		},
 	}
 
 	res := i.desiredEnvoyListener(&model.Model{

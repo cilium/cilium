@@ -29,6 +29,50 @@ const (
 
 var _ CECTranslator = (*cecTranslator)(nil)
 
+type HostNetworkConfig struct {
+	Enabled           bool                       `json:"enabled,omitempty"`
+	NodeLabelSelector *slim_metav1.LabelSelector `json:"node_label_selector,omitempty"`
+}
+
+type IPConfig struct {
+	IPv4Enabled bool `json:"ipv4_enabled,omitempty"`
+	IPv6Enabled bool `json:"ipv6_enabled,omitempty"`
+}
+
+type ListenerConfig struct {
+	UseAlpn          bool `json:"use_alpn,omitempty"`
+	UseProxyProtocol bool `json:"use_proxy_protocol,omitempty"`
+}
+
+type ClusterConfig struct {
+	IdleTimeoutSeconds int  `json:"idle_timeout_seconds,omitempty"`
+	UseAppProtocol     bool `json:"use_app_protocol,omitempty"`
+}
+
+type RouteConfig struct {
+	// hostNameSuffixMatch is a flag to control whether the host name suffix match.
+	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
+	// as a suffix match. That means that a match for `*.example.com` would match
+	// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
+	HostNameSuffixMatch bool `json:"host_name_suffix_match,omitempty"`
+}
+
+type OriginalIPDetectionConfig struct {
+	UseRemoteAddress  bool   `json:"use_remote_address,omitempty"`
+	XFFNumTrustedHops uint32 `json:"xff_num_trusted_hops,omitempty"`
+}
+
+type Config struct {
+	SecretsNamespace string `json:"secrets_namespace,omitempty"`
+
+	HostNetworkConfig         HostNetworkConfig         `json:"host_network_config"`
+	IPConfig                  IPConfig                  `json:"ip_config"`
+	ListenerConfig            ListenerConfig            `json:"listener_config"`
+	ClusterConfig             ClusterConfig             `json:"cluster_config"`
+	RouteConfig               RouteConfig               `json:"route_config"`
+	OriginalIPDetectionConfig OriginalIPDetectionConfig `json:"original_ip_detection_config"`
+}
+
 // cecTranslator is the translator from model to CiliumEnvoyConfig
 //
 // This translator is used for shared LB mode.
@@ -36,49 +80,14 @@ var _ CECTranslator = (*cecTranslator)(nil)
 //     in-secure).
 //   - no LB service and endpoint
 type cecTranslator struct {
-	secretsNamespace string
-	useProxyProtocol bool
-	useAppProtocol   bool
-	useAlpn          bool
-
-	hostNetworkEnabled           bool
-	hostNetworkNodeLabelSelector *slim_metav1.LabelSelector
-	ipv4Enabled                  bool
-	ipv6Enabled                  bool
-
-	// hostNameSuffixMatch is a flag to control whether the host name suffix match.
-	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
-	// as a suffix match. That means that a match for `*.example.com` would match
-	// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
-	hostNameSuffixMatch bool
-
-	idleTimeoutSeconds int
-
-	xffNumTrustedHops uint32
+	Config Config
 }
 
 // NewCECTranslator returns a new translator
-func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, useAppProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
-	hostNetworkEnabled bool, hostNetworkNodeLabelSelector *slim_metav1.LabelSelector, ipv4Enabled bool, ipv6Enabled bool,
-	xffNumTrustedHops uint32,
-) CECTranslator {
+func NewCECTranslator(config Config) CECTranslator {
 	return &cecTranslator{
-		secretsNamespace:             secretsNamespace,
-		useProxyProtocol:             useProxyProtocol,
-		useAppProtocol:               useAppProtocol,
-		useAlpn:                      false,
-		hostNameSuffixMatch:          hostNameSuffixMatch,
-		idleTimeoutSeconds:           idleTimeoutSeconds,
-		xffNumTrustedHops:            xffNumTrustedHops,
-		hostNetworkEnabled:           hostNetworkEnabled,
-		hostNetworkNodeLabelSelector: hostNetworkNodeLabelSelector,
-		ipv4Enabled:                  ipv4Enabled,
-		ipv6Enabled:                  ipv6Enabled,
+		Config: config,
 	}
-}
-
-func (i *cecTranslator) WithUseAlpn(useAlpn bool) {
-	i.useAlpn = useAlpn
 }
 
 func (i *cecTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
@@ -164,11 +173,11 @@ func (i *cecTranslator) desiredResources(m *model.Model) []ciliumv2.XDSResource 
 }
 
 func (i *cecTranslator) desiredNodeSelector() *slim_metav1.LabelSelector {
-	if !i.hostNetworkEnabled {
+	if !i.Config.HostNetworkConfig.Enabled {
 		return nil
 	}
 
-	return i.hostNetworkNodeLabelSelector
+	return i.Config.HostNetworkConfig.NodeLabelSelector
 }
 
 func isGRPCService(m *model.Model, ns string, name string, port string) bool {

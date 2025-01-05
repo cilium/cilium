@@ -296,7 +296,27 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &dedicatedIngressTranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", tt.args.useProxyProtocol, false, false, 60, tt.args.hostNetworkEnabled, tt.args.hostNetworkNodeLabelSelector, tt.args.ipv4Enabled, tt.args.ipv6Enabled, 0),
+				cecTranslator: translation.NewCECTranslator(translation.Config{
+					SecretsNamespace: "cilium-secrets",
+					HostNetworkConfig: translation.HostNetworkConfig{
+						Enabled:           tt.args.hostNetworkEnabled,
+						NodeLabelSelector: tt.args.hostNetworkNodeLabelSelector,
+					},
+					IPConfig: translation.IPConfig{
+						IPv4Enabled: tt.args.ipv4Enabled,
+						IPv6Enabled: tt.args.ipv6Enabled,
+					},
+					ListenerConfig: translation.ListenerConfig{
+						UseProxyProtocol: tt.args.useProxyProtocol,
+					},
+					ClusterConfig: translation.ClusterConfig{
+						IdleTimeoutSeconds: 60,
+						UseAppProtocol:     false,
+					},
+					RouteConfig: translation.RouteConfig{
+						HostNameSuffixMatch: false,
+					},
+				}),
 				hostNetworkEnabled: tt.args.hostNetworkEnabled,
 			}
 			input := &model.Model{}

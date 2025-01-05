@@ -208,14 +208,14 @@ func (i *cecTranslator) filterChains(name string, m *model.Model) []*envoy_confi
 	var filterChains []*envoy_config_listener.FilterChain
 
 	if len(m.HTTP) > 0 {
-		httpFilterChain, err := i.httpFilterChain(name, i.ipv4Enabled, i.ipv6Enabled)
+		httpFilterChain, err := i.httpFilterChain(name, i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled)
 		if err != nil {
 			return nil
 		}
 		filterChains = append(filterChains, httpFilterChain)
 	}
 
-	httpsFilterChains, err := i.httpsFilterChains(name, i.secretsNamespace, tlsSecretsToHostnames(m), i.ipv4Enabled, i.ipv6Enabled)
+	httpsFilterChains, err := i.httpsFilterChains(name, i.Config.SecretsNamespace, tlsSecretsToHostnames(m), i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled)
 	if err != nil {
 		return nil
 	}
@@ -239,20 +239,20 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 			defaultTCPKeepAliveProbeIntervalInSeconds,
 			defaultTCPKeepAliveMaxFailures),
 	}
-	if i.useProxyProtocol {
+	if i.Config.ListenerConfig.UseProxyProtocol {
 		res = append(res, withProxyProtocol())
 	}
 
-	if i.useAlpn {
+	if i.Config.ListenerConfig.UseAlpn {
 		res = append(res, withAlpn())
 	}
 
-	if i.hostNetworkEnabled {
-		res = append(res, withHostNetworkPort(m, i.ipv4Enabled, i.ipv6Enabled))
+	if i.Config.HostNetworkConfig.Enabled {
+		res = append(res, withHostNetworkPort(m, i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled))
 	}
 
-	if i.xffNumTrustedHops > 0 {
-		res = append(res, withXffNumTrustedHops(i.xffNumTrustedHops))
+	if i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops > 0 {
+		res = append(res, withXffNumTrustedHops(i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops))
 	}
 	return res
 }
