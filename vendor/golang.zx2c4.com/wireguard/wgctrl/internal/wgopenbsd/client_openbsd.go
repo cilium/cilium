@@ -358,6 +358,7 @@ func ioctlWGDataIO(fd int) func(*wgh.WGDataIO) error {
 
 // ioctl is a raw wrapper for the ioctl system call.
 func ioctl(fd int, req uint, arg unsafe.Pointer) error {
+	//lint:ignore SA1019 temporarily permitted until we switch to a libc wrapper
 	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(req), uintptr(arg))
 	if errno != 0 {
 		return os.NewSyscallError("ioctl", errno)
