@@ -449,21 +449,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: cilium-sysdumps-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: cilium-junits-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: features-tested-${{ matrix.name }}-${{ matrix.mode }}
           path: ${{ env.job_name }}*.json
