@@ -311,7 +311,7 @@ jobs:
 
           - name: '17'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241218.004849'
+            kernel: 'bpf-20250103.013255'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -323,7 +323,7 @@ jobs:
 
           - name: '18'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241218.004849'
+            kernel: 'bpf-20250103.013255'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -335,7 +335,7 @@ jobs:
 
           - name: '19'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241218.004849'
+            kernel: 'bpf-20250103.013255'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -347,7 +347,7 @@ jobs:
 
           - name: '20'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241218.004849'
+            kernel: 'bpf-20250103.013255'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -358,7 +358,7 @@ jobs:
 
           - name: '21'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241218.004849'
+            kernel: 'bpf-20250103.013255'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -369,7 +369,7 @@ jobs:
 
           - name: '22'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241218.004849'
+            kernel: 'bpf-20250103.013255'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -380,7 +380,7 @@ jobs:
 
           - name: '23'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20241218.004849'
+            kernel: 'bpf-20250103.013255'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -394,7 +394,7 @@ jobs:
 
           - name: '24'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20241218.004849'
+            kernel: 'bpf-net-20250103.013255'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -407,7 +407,7 @@ jobs:
 
           - name: '25'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20241218.004849'
+            kernel: 'bpf-net-20250103.013255'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
