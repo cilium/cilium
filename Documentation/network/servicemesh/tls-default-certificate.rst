@@ -35,7 +35,7 @@ Installation
                 --namespace kube-system \\
                 --reuse-values \\
                 --set ingressController.defaultSecretNamespace=kube-system \\
-                --set ingressController.defaultSecretName=default-cert \\
+                --set ingressController.defaultSecretName=default-cert
 
             $ kubectl -n kube-system rollout restart deployment/cilium-operator
             $ kubectl -n kube-system rollout restart ds/cilium
