@@ -14,10 +14,6 @@ if [ "${KERNEL}" == "OpenBSD" ]; then
     # Configure a WireGuard interface.
     doas ifconfig wg0 create
     doas ifconfig wg0 up
-
-    # TODO: wireguard-go only builds using Go 1.19+. However, openbsd/latest
-    # currently has an older version.
-    exit 0
 fi
 
 if [ "${KERNEL}" == "FreeBSD" ]; then
@@ -33,7 +29,7 @@ if [ "${KERNEL}" == "Linux" ]; then
 fi
 
 # Set up wireguard-go on all OSes.
-git clone git://git.zx2c4.com/wireguard-go
+git clone https://git.zx2c4.com/wireguard-go
 cd wireguard-go
 
 if [ "${KERNEL}" == "Linux" ]; then
