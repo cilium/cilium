@@ -1096,7 +1096,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args:      []args{
 			//{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(),
+		state: emptyMapState(),
 		adds:  Keys{
 			//HttpIngressKey(42): allowEntry(),
 		},
@@ -1112,7 +1112,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		},
 		PolicyOwner: DummyOwner{},
 	}
-	policyMapState := newMapState()
+	policyMapState := emptyMapState()
 
 	for _, tt := range tests {
 		policyMaps := MapChanges{}
@@ -1282,7 +1282,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 		},
-		state: newMapState(),
+		state: emptyMapState(),
 		adds:  Keys{},
 		deletes: Keys{
 			// Delete of the key is recoded as the key may have existed already in the (bpf) map
@@ -1411,7 +1411,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args:      []args{
 			//{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(),
+		state: emptyMapState(),
 		adds:  Keys{
 			//HttpIngressKey(42): allowEntry(),
 		},
@@ -1427,13 +1427,13 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		},
 		PolicyOwner: DummyOwner{},
 	}
-	policyMapState := newMapState()
+	policyMapState := emptyMapState()
 
 	for _, tt := range tests {
 		t.Log(tt.name)
 		policyMaps := MapChanges{}
 		if !tt.continued {
-			policyMapState = newMapState()
+			policyMapState = emptyMapState()
 		}
 		epPolicy.policyMapState = policyMapState
 
@@ -1674,7 +1674,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			bKeys = append(bKeys, IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
 		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement), nil)
-		expectedKeys := newMapState()
+		expectedKeys := emptyMapState()
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
 		}
@@ -1720,7 +1720,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			denyEntry := NewMapStateEntry(DenyEntry, nil)
 			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
-		outcomeKeys := newMapState()
+		outcomeKeys := emptyMapState()
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
@@ -1739,7 +1739,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s (MapState):\n%s\nExpected:\n%s\nObtained:\n%s\n", tt.name, outcomeKeys.diff(&expectedKeys), expectedKeys, outcomeKeys)
 
 		// Test also with reverse insertion order
-		outcomeKeys = newMapState()
+		outcomeKeys = emptyMapState()
 
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
@@ -1772,7 +1772,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			bKeys = append(bKeys, EgressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
 		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement), nil)
-		expectedKeys := newMapState()
+		expectedKeys := emptyMapState()
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
 			expectedKeys.insert(anyEgressKey, allowEntry)
@@ -1783,7 +1783,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		for _, bKey := range bKeys {
 			expectedKeys.insert(bKey, bEntry)
 		}
-		outcomeKeys := newMapState()
+		outcomeKeys := emptyMapState()
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
@@ -1800,7 +1800,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
 
 		// Test also with reverse insertion order
-		outcomeKeys = newMapState()
+		outcomeKeys = emptyMapState()
 
 		for _, bKey := range bKeys {
 			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
@@ -1818,7 +1818,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 }
 
 func TestMapState_Get_stacktrace(t *testing.T) {
-	ms := newMapState()
+	ms := emptyMapState()
 	// This should produce a stacktrace in the error log. It is not validated here but can be
 	// observed manually.
 	// Example log (with newlines expanded):
