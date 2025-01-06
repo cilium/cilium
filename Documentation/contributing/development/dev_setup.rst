@@ -17,19 +17,33 @@ suitable method.
 Quick Start
 -----------
 
-If you're in a hurry, here are the essential steps to get started:
+The following commands install Cilium in a `Kind`_-based Kubernetes cluster.
+Run them in the root directory of the Cilium repository. The ``make`` targets
+are described in section `Kind-based Setup <#kind-based-setup-preferred>`_.
+
+.. _Kind: https://kind.sigs.k8s.io/
+
+.. note::
+
+   The command output informs you of any missing dependencies. In particular,
+   if you get the message ``'cilium' not found``, it means you are missing the
+   Cilium CLI.
 
 On Linux:
 
-1. ``make kind`` - Provisions a Kind cluster.
-2. ``make kind-install-cilium-fast`` - Installs Cilium on the Kind cluster.
-3. ``make kind-image-fast`` - Builds Cilium and deploys it.
+.. code-block:: shell-session
+
+   make kind
+   make kind-image-fast
+   make kind-install-cilium-fast
 
 On any OS:
 
-1. ``make kind`` - Provisions a Kind cluster.
-2. ``make kind-image`` - Builds Docker images.
-3. ``make kind-install-cilium`` - Installs Cilium on the Kind cluster.
+.. code-block:: shell-session
+
+   make kind
+   make kind-image
+   make kind-install-cilium
 
 Detailed Instructions
 ---------------------
@@ -94,14 +108,14 @@ group.
 Kind-based Setup (preferred)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can find the setup for a `kind <https://kind.sigs.k8s.io/>`_ environment in
+You can find the setup for a `Kind`_ environment in
 ``contrib/scripts/kind.sh``. This setup doesn't require any VMs and/or
 VirtualBox on Linux, but does require `Docker for Mac
 <https://docs.docker.com/desktop/install/mac-install/>`_ for Mac OS.
 
 Makefile targets automate the task of spinning up an environment:
 
-* ``make kind``: Creates a kind cluster based on the configuration passed in.
+* ``make kind``: Creates a Kind cluster based on the configuration passed in.
   For more information, see `configurations_for_clusters`.
 * ``make kind-down``: Tears down and deletes the cluster.
 
@@ -142,7 +156,7 @@ code, in an pre-existing running Cilium container.
   Cilium CLI with the volume mounts defined.
 
 * ``make kind-image-fast``: Builds all Cilium binaries and loads them into all
-  kind clusters available in the host.
+  Kind clusters available in the host.
 
 Configuration for Cilium
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -167,8 +181,8 @@ the clusters it creates. The following parameters are the most commonly used:
 * ``CONTROLPLANES``: How many control-plane nodes are created.
 * ``WORKERS``: How many worker nodes are created.
 * ``CLUSTER_NAME``: The name of the Kubernetes cluster.
-* ``IMAGE``: The image for kind, for example: ``kindest/node:v1.11.10``.
-* ``KUBEPROXY_MODE``: Pass directly as ``kubeProxyMode`` to the kind
+* ``IMAGE``: The image for Kind, for example: ``kindest/node:v1.11.10``.
+* ``KUBEPROXY_MODE``: Pass directly as ``kubeProxyMode`` to the Kind
   configuration Custom Resource Definition (CRD).
 
 For more environment variables, see ``contrib/scripts/kind.sh``.
@@ -234,7 +248,8 @@ This allows you to use a preconfigured development environment in the cloud or l
 The container is based on the official Cilium builder image and provides all the dependencies
 required to build Cilium.
 
-You can also install common packages, such as kind, kubectl, and cilium-cli, with ``contrib/scripts/devcontainer-setup.sh``:
+You can also install common packages, such as ``kind``, ``kubectl``, and
+``cilium-cli``, with ``contrib/scripts/devcontainer-setup.sh``:
 
 .. code-block:: shell-session
 
