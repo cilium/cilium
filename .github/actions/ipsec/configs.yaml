@@ -26,7 +26,7 @@
   kvstore: 'true'
 - name: '4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'bpf-next-20240711.013133'
+  kernel: '6.12-20241218.004849'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'geneve'
@@ -63,7 +63,7 @@
   key-two: 'gcm(aes)'
 - name: '8'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: 'bpf-next-20240711.013133'
+  kernel: '6.12-20241218.004849'
   kube-proxy: 'none'
   kpr: 'true'
   tunnel: 'vxlan'
