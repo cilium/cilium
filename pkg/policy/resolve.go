@@ -166,7 +166,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[st
 		calculatedPolicy = &EndpointPolicy{
 			selectorPolicy: p,
 			VersionHandle:  version,
-			policyMapState: newMapState(),
+			policyMapState: emptyMapState(),
 			policyMapChanges: MapChanges{
 				firstVersion: version.Version(),
 			},
@@ -421,6 +421,6 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 func NewEndpointPolicy(repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: newMapState(),
+		policyMapState: emptyMapState(),
 	}
 }
