@@ -462,7 +462,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(mapStateMap{
+		policyMapState: emptyMapState().withState(mapStateMap{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey():                  allowEgressMapStateEntry,
@@ -626,7 +626,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(mapStateMap{
+		policyMapState: emptyMapState().withState(mapStateMap{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey(): allowEgressMapStateEntry,
