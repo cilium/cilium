@@ -61,13 +61,13 @@ kprobe:br_forward
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
 
     if ($proto == PROTO_IPV4) {
-      $trace_override =
+      $pod_to_pod_via_proxy =
         @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
         @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
 
       // Skip CiliumInternalIP addresses, as they belong to the PodCIDR,
       // unless the given flow is explicitly marked as traced (i.e., from proxy).
-      if (!$trace_override &&
+      if (!$pod_to_pod_via_proxy &&
            ($ip4h->saddr == (uint32)pton(str($1)) || $ip4h->daddr == (uint32)pton(str($1)) ||
             $ip4h->saddr == (uint32)pton(str($3)) || $ip4h->daddr == (uint32)pton(str($3)) ||
             $ip4h->saddr == (uint32)pton(str($5)) || $ip4h->daddr == (uint32)pton(str($5)))) {
@@ -76,13 +76,13 @@ kprobe:br_forward
     }
 
     if ($proto == PROTO_IPV6) {
-      $trace_override =
+      $pod_to_pod_via_proxy =
         @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
         @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
 
       // Skip CiliumInternalIP addresses, as they belong to the PodCIDR
       // unless the given flow is explicitly marked as traced (i.e., from proxy).
-      if (!$trace_override &&
+      if (!$pod_to_pod_via_proxy &&
            ($ip6h->saddr.in6_u.u6_addr8 == pton(str($2)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($2)) ||
             $ip6h->saddr.in6_u.u6_addr8 == pton(str($4)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($4)) ||
             $ip6h->saddr.in6_u.u6_addr8 == pton(str($6)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($6)))) {
@@ -95,11 +95,11 @@ kprobe:br_forward
     $src_is_pod = (bswap($ip4h->saddr) & MASK4) == CIDR4;
     $dst_is_pod = (bswap($ip4h->daddr) & MASK4) == CIDR4;
 
-    $trace_override =
+    $pod_to_pod_via_proxy =
         @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
         @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
 
-    if (($src_is_pod && $dst_is_pod) || ($trace_override && ($src_is_pod || $dst_is_pod))) {
+    if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
       $tcph = (struct tcphdr*)$udph;
       printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
         strftime("%H:%M:%S:%f", nsecs),
@@ -113,7 +113,7 @@ kprobe:br_forward
         $skb->encapsulation,
         $skb->dev->ifindex,
         $skb->dev->nd_net.net->ns.inum,
-        $trace_override);
+        $pod_to_pod_via_proxy);
 
       if ($ip4h->protocol == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
         $dns = (struct dnshdr*)($udph + 1);
@@ -131,11 +131,11 @@ kprobe:br_forward
     $src_is_pod = bswap($ip6h->saddr.in6_u.u6_addr16[0]) == CIDR6;
     $dst_is_pod = bswap($ip6h->daddr.in6_u.u6_addr16[0]) == CIDR6;
 
-    $trace_override =
+    $pod_to_pod_via_proxy =
         @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
         @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
 
-    if (($src_is_pod && $dst_is_pod) || ($trace_override && ($src_is_pod || $dst_is_pod))) {
+    if (($src_is_pod && $dst_is_pod) || ($pod_to_pod_via_proxy && ($src_is_pod || $dst_is_pod))) {
       $tcph = (struct tcphdr*)$udph;
       printf("[%s] %s:%d -> %s:%d (proto: %d, TCP flags: %c%c%c%c, encap: %d, ifindex: %d, netns: %x, override: %d)\n",
         strftime("%H:%M:%S:%f", nsecs),
@@ -149,7 +149,7 @@ kprobe:br_forward
         $skb->encapsulation,
         $skb->dev->ifindex,
         $skb->dev->nd_net.net->ns.inum,
-        $trace_override);
+        $pod_to_pod_via_proxy);
 
       if ($ip6h->nexthdr == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
         $dns = (struct dnshdr*)($udph + 1);
