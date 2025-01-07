@@ -351,7 +351,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
-          ./cilium-cli upgrade --reset-then-reuse-values=false \
+          ./cilium-cli upgrade --reset-values=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
@@ -382,7 +382,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
-          ./cilium-cli upgrade --reset-then-reuse-values=false \
+          ./cilium-cli upgrade --reset-values=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
