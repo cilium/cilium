@@ -15,6 +15,7 @@ import (
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -69,7 +70,16 @@ func derivedName(name types.NamespacedName) string {
 	return "derived-" + strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(hash.Sum(nil)))[:10]
 }
 
-func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport) []corev1.ServicePort {
+func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport, localSvc *corev1.Service) []corev1.ServicePort {
+	// Populate the derived service targetPort from the local service so that local
+	// EndpointSlice are generated correctly
+	localTargetPortMap := map[int32]intstr.IntOrString{}
+	if localSvc != nil {
+		for _, port := range localSvc.Spec.Ports {
+			localTargetPortMap[port.Port] = port.TargetPort
+		}
+	}
+
 	ports := make([]corev1.ServicePort, 0, len(svcImport.Spec.Ports))
 	for _, port := range svcImport.Spec.Ports {
 		ports = append(ports, corev1.ServicePort{
@@ -77,8 +87,10 @@ func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport) []corev1.ServicePort 
 			Protocol:    port.Protocol,
 			AppProtocol: port.AppProtocol,
 			Port:        port.Port,
+			TargetPort:  localTargetPortMap[port.Port],
 		})
 	}
+
 	return ports
 }
 
@@ -194,7 +206,7 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		svc.Spec.Selector = localSvc.Spec.Selector
 	}
 
-	svc.Spec.Ports = servicePorts(svcImport)
+	svc.Spec.Ports = servicePorts(svcImport, localSvc)
 	if err := ctrl.SetControllerReference(svcImport, svc, r.Scheme()); err != nil {
 		return controllerruntime.Fail(err)
 	}
