@@ -288,12 +288,7 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 }
 
 func reinitializeWireguard(ctx context.Context) (err error) {
-	// to-wireguard bpf is only used for rev-DNAT, which is only needed when NodePort, KPR, native routing and L7 proxy are enabled together
-	if !option.Config.EnableWireguard ||
-		!option.Config.EnableNodePort ||
-		!option.Config.EnableL7Proxy ||
-		option.Config.RoutingMode != option.RoutingModeNative ||
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue {
+	if !option.Config.EnableWireguard {
 		return
 	}
 
@@ -320,14 +315,6 @@ func reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []s
 		return nil
 	}
 	for _, dev := range devices {
-		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
-		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
-		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
-		// is enabled, otherwise we will get "operation not supported" error.
-		if dev == wgTypes.IfaceName {
-			continue
-		}
-
 		if err := compileAndLoadXDPProg(ctx, dev, xdpConfig.Mode(), extraCArgs); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
 				log.WithError(err).WithField(logfields.Device, dev).Info("Failed to attach XDP program, ignoring due to best-effort mode")
