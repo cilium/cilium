@@ -276,7 +276,7 @@ jobs:
               --boot-disk-type pd-standard \
               --boot-disk-size 10GB \
               --image-project ubuntu-os-cloud \
-              --image-family ubuntu-2004-lts \
+              --image-family ubuntu-2404-lts-amd64 \
               --metadata hostname=${{ env.vmName }}-${{ matrix.vmIndex }} \
               --metadata-from-file startup-script=${{ env.vmStartupScript}}
 
