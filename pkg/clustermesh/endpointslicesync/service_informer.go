@@ -111,8 +111,10 @@ func newMeshServiceInformer(
 }
 
 // toKubeServicePort use the clusterSvc to get a list of ServicePort to build
-// the kubernetes (non slim) Service. Note that we cannot use the slim Service to get this
-// as the slim Service trims the TargetPort which we needs inside the EndpointSliceReconciler
+// the kubernetes (non slim) Service. Note that we intentionally not use the local
+// Service to build the port list so that we don't change the remote Cluster Service port
+// list. Also targetPort might be targeting a named port and we currently don't
+// sync the container ports names.
 func toKubeServicePort(clusterSvc *store.ClusterService) []v1.ServicePort {
 	// Merge all the port config into one to get all the possible ports
 	globalPortConfig := store.PortConfiguration{}
@@ -294,9 +296,11 @@ func (i *meshServiceInformer) Start(ctx context.Context) error {
 func (i *meshServiceInformer) Services(namespace string) listersv1.ServiceNamespaceLister {
 	return &meshServiceLister{informer: i, namespace: namespace}
 }
+
 func (i *meshServiceInformer) Informer() cache.SharedIndexInformer {
 	return i
 }
+
 func (i *meshServiceInformer) Lister() listersv1.ServiceLister {
 	return i
 }
