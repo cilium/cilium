@@ -1116,8 +1116,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.2.1"
-    digest: "sha256:ab6b1928e9c5f424f6b0f51c68065b9fd85e2f8d3e5f21fbd1a3cb27e6fb9321"
+    tag: "v0.2.2"
+    digest: "sha256:e4f80054d2d503e04337ed61b64c12fa3cca5a32963ba8bd2080d20e1ccc1d8d"
     useDigest: true
     pullPolicy: "Always"
   # -- Seconds after which the completed job pod will be deleted
@@ -2340,9 +2340,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.32.3-1734605470-b2e1bb5839df451af4acc7f8cecdf6c42f1f8bfe"
+    tag: "v1.32.3-1736159612-072829658e72d49f0d5fa9b1daa6001bab87e601"
     pullPolicy: "Always"
-    digest: "sha256:dfb16e17f98094ccf7ff4833a5be19671a33945d619a3092c06b283f75abac56"
+    digest: "sha256:d77c4415fa950f7323254f9ca4b3fef01345d1091cc5ed2bdb161cb9c3c84795"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
