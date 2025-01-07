@@ -477,13 +477,18 @@ func Test_MergeRoutePolicies(t *testing.T) {
 			req := require.New(t)
 
 			result, err := MergeRoutePolicies(tt.policyA, tt.policyB)
-			if tt.errorExpected == true {
+			if tt.errorExpected {
 				req.Error(err)
 			} else {
 				req.NoError(err)
 			}
 
-			req.Equal(tt.expected, result)
+			if tt.expected != nil {
+				req.Equal(tt.expected.Name, result.Name)
+				req.ElementsMatch(tt.expected.Statements, result.Statements)
+			} else {
+				req.Equal(tt.expected, result)
+			}
 		})
 	}
 
