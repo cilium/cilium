@@ -7,6 +7,8 @@
 #include <node_config.h>
 #include <ep_config.h>
 
+#define USELESS_DEFINE 1
+
 #define IS_BPF_HOST 1
 
 #define EVENT_SOURCE HOST_EP_ID
