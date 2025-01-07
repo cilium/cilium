@@ -33,7 +33,7 @@ endpoint IPs, CIDRs, and MAC addresses.
 Enable VXLAN Tunnel Endpoint (VTEP) integration
 ===============================================
 
-This feature requires a Linux 5.2 kernel or later, and is disabled by default. When enabling the
+This feature is disabled by default. When enabling the
 VTEP integration, you must also specify the IPs, CIDR ranges and MACs for each VTEP device
 as part of the configuration.
 
