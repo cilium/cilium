@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define IS_BPF_WIREGUARD 1
-#define ENABLE_WIREGUARD
-
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
 #include <bpf/helpers_skb.h>
 #include "pktgen.h"
 
-#define ETH_HLEN		0
-#define SECCTX_FROM_IPCACHE	1
 #define ENABLE_HOST_ROUTING
 #define ENABLE_IPV4
 
@@ -23,7 +18,8 @@ static volatile const __u8 *node_mac = mac_one;
 
 #include "bpf_wireguard.c"
 
-ASSIGN_CONFIG(__u32, interface_ifindex, WG_IFINDEX)
+#define TAIL_FROM_WIREGUARD	0
+#define TAIL_TO_WIREGUARD	1
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -32,12 +28,13 @@ struct {
 	__array(values, int());
 } entry_call_map __section(".maps") = {
 	.values = {
-		[0] = &cil_to_wireguard,
+		[TAIL_FROM_WIREGUARD] = &cil_from_wireguard,
+		[TAIL_TO_WIREGUARD]	= &cil_to_wireguard,
 	},
 };
 
-PKTGEN("tc", "wireguard_egress_metrics")
-int wireguard_egress_metrics_pktgen(struct __ctx_buff *ctx)
+static __always_inline
+int wireguard_metrics_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -64,8 +61,8 @@ int wireguard_egress_metrics_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "wireguard_egress_metrics")
-int wireguard_egress_metrics_setup(struct __ctx_buff *ctx)
+static __always_inline
+int wireguard_metrics_setup(struct __ctx_buff *ctx, int tailno)
 {
 	void *data = (void *)(long)ctx->data;
 	void *data_end = (void *)(long)ctx->data_end;
@@ -77,8 +74,20 @@ int wireguard_egress_metrics_setup(struct __ctx_buff *ctx)
 
 	skb_adjust_room(ctx, -__ETH_HLEN, BPF_ADJ_ROOM_MAC, flags);
 
-	tail_call_static(ctx, entry_call_map, 0);
+	tail_call_static(ctx, entry_call_map, tailno);
 	return TEST_ERROR;
+}
+
+PKTGEN("tc", "wireguard_egress_metrics")
+int wireguard_egress_metrics_pktgen(struct __ctx_buff *ctx)
+{
+	return wireguard_metrics_pktgen(ctx);
+}
+
+SETUP("tc", "wireguard_egress_metrics")
+int wireguard_egress_metrics_setup(struct __ctx_buff *ctx)
+{
+	return wireguard_metrics_setup(ctx, TAIL_TO_WIREGUARD);
 }
 
 CHECK("tc", "wireguard_egress_metrics")
@@ -92,6 +101,41 @@ int wireguard_egress_metrics_check(__maybe_unused const struct __ctx_buff *ctx)
 	/* Check that the packet was recorded in the metrics. */
 	key.reason = REASON_ENCRYPTING;
 	key.dir = METRIC_EGRESS;
+
+	entry = map_lookup_elem(&METRICS_MAP, &key);
+	if (!entry)
+		test_fatal("metrics entry not found")
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
+
+	test_finish();
+}
+
+PKTGEN("tc", "wireguard_ingress_metrics")
+int wireguard_ingress_metrics_pktgen(struct __ctx_buff *ctx)
+{
+	return wireguard_metrics_pktgen(ctx);
+}
+
+SETUP("tc", "wireguard_ingress_metrics")
+int wireguard_ingress_metrics_setup(struct __ctx_buff *ctx)
+{
+	return wireguard_metrics_setup(ctx, TAIL_FROM_WIREGUARD);
+}
+
+CHECK("tc", "wireguard_ingress_metrics")
+int wireguard_ingress_metrics_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	struct metrics_value *entry = NULL;
+	struct metrics_key key = {};
+
+	test_init();
+
+	/* Check that the packet was recorded in the metrics. */
+	key.reason = REASON_DECRYPTING;
+	key.dir = METRIC_INGRESS;
 
 	entry = map_lookup_elem(&METRICS_MAP, &key);
 	if (!entry)

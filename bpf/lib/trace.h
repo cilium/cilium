@@ -136,14 +136,12 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	 * In both the cases, THIS_INTERFACE_IFINDEX is set to WG_IFINDEX value.
 	 * Using these obs points from different programs would result in a build bug.
 	 */
-#if defined(ENABLE_WIREGUARD) && (defined(IS_BPF_WIREGUARD) || defined(IS_BPF_HOST))
+#ifdef IS_BPF_WIREGUARD
 	case TRACE_TO_CRYPTO:
-		build_bug_on(THIS_INTERFACE_IFINDEX != WG_IFINDEX);
 		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 				REASON_ENCRYPTING, line, file);
 		break;
 	case TRACE_FROM_CRYPTO:
-		build_bug_on(THIS_INTERFACE_IFINDEX != WG_IFINDEX);
 		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 				REASON_DECRYPTING, line, file);
 		break;
