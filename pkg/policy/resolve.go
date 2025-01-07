@@ -392,12 +392,7 @@ func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, *P
 	return ok
 }
 
-// ConsumeMapChanges transfers the changes from MapChanges to the caller.
-// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock.
-// Endpoints explicitly wait for a WaitGroup signaling completion of AccumulatePolicyMapChanges
-// calls before calling ConsumeMapChanges so that if we see any partial changes here, there will be
-// another call after to cover for the rest.
-// PolicyOwner (aka Endpoint) is locked during this call.
+// ConsumeMapChanges applies accumulated MapChanges to EndpointPolicy 'p' and returns a symmary of changes.
 // Caller is responsible for calling the returned 'closer' to release resources held for the new version!
 // 'closer' may not be called while selector cache is locked!
 func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState) {
