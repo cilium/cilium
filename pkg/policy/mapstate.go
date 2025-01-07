@@ -507,6 +507,29 @@ func (msA *mapState) Equal(msB *mapState) bool {
 // Diff returns the string of differences between 'obtained' and 'expected' prefixed with
 // '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
 // For use in debugging from other packages.
+func (obtained MapStateMap) Diff(expected MapStateMap) (res string) {
+	res += "Missing (-), Unexpected (+):\n"
+	for kE, vE := range expected {
+		if vO, ok := obtained[kE]; ok {
+			if vO != vE {
+				res += "- " + kE.String() + ": " + vE.String() + "\n"
+				res += "+ " + kE.String() + ": " + vO.String() + "\n"
+			}
+		} else {
+			res += "- " + kE.String() + ": " + vE.String() + "\n"
+		}
+	}
+	for kO, vO := range obtained {
+		if _, ok := expected[kO]; !ok {
+			res += "+ " + kO.String() + ": " + vO.String() + "\n"
+		}
+	}
+	return res
+}
+
+// Diff returns the string of differences between 'obtained' and 'expected' prefixed with
+// '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
+// For use in debugging from other packages.
 func (obtained *mapState) Diff(expected MapStateMap) (res string) {
 	res += "Missing (-), Unexpected (+):\n"
 	for kE, vE := range expected {
