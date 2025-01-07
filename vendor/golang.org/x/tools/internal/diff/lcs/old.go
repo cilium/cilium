@@ -199,6 +199,7 @@ func (e *editGraph) bdone(D, k int) (bool, lcs) {
 }
 
 // run the backward algorithm, until success or up to the limit on D.
+// (used only by tests)
 func backward(e *editGraph) lcs {
 	e.setBackward(0, 0, e.ux)
 	if ok, ans := e.bdone(0, 0); ok {
