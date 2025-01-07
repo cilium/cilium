@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -61,6 +62,10 @@ var (
 			Spec: mcsapiv1alpha1.ServiceImportSpec{
 				Ports: []mcsapiv1alpha1.ServicePort{{
 					Name: "my-port-1",
+					Port: 42,
+				}, {
+					Name: "my-port-target-port",
+					Port: 4242,
 				}},
 			},
 		},
@@ -75,6 +80,11 @@ var (
 				},
 				Ports: []corev1.ServicePort{{
 					Name: "not-used",
+					Port: 43,
+				}, {
+					Name:       "my-port-target-port",
+					Port:       4242,
+					TargetPort: intstr.FromString("test-target-port"),
 				}},
 			},
 		},
@@ -101,6 +111,10 @@ var (
 			Spec: mcsapiv1alpha1.ServiceImportSpec{
 				Ports: []mcsapiv1alpha1.ServicePort{{
 					Name: "my-port-1",
+					Port: 42,
+				}, {
+					Name: "my-port-target-port",
+					Port: 4242,
 				}},
 			},
 		},
@@ -113,6 +127,14 @@ var (
 				Selector: map[string]string{
 					"selector": "value",
 				},
+				Ports: []corev1.ServicePort{{
+					Name: "not-used",
+					Port: 43,
+				}, {
+					Name:       "my-port-target-port",
+					Port:       4242,
+					TargetPort: intstr.FromString("test-target-port"),
+				}},
 			},
 		},
 		&corev1.Service{
@@ -137,6 +159,7 @@ var (
 			Spec: mcsapiv1alpha1.ServiceImportSpec{
 				Ports: []mcsapiv1alpha1.ServicePort{{
 					Name: "my-port-2",
+					Port: 42,
 				}},
 			},
 		},
@@ -150,6 +173,7 @@ var (
 			Spec: mcsapiv1alpha1.ServiceImportSpec{
 				Ports: []mcsapiv1alpha1.ServicePort{{
 					Name: "my-port-2",
+					Port: 42,
 				}},
 			},
 		},
@@ -261,8 +285,10 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 			require.Equal(t, "true", svc.Annotations[annotation.GlobalService])
 			require.Equal(t, "copied", svc.Annotations["test-annotation"])
 
-			require.Len(t, svc.Spec.Ports, 1)
+			require.Len(t, svc.Spec.Ports, 2)
 			require.Equal(t, "my-port-1", svc.Spec.Ports[0].Name)
+			require.Equal(t, "my-port-target-port", svc.Spec.Ports[1].Name)
+			require.Equal(t, "test-target-port", svc.Spec.Ports[1].TargetPort.String())
 
 			require.Equal(t, "value", svc.Spec.Selector["selector"])
 
