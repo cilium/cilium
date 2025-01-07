@@ -400,7 +400,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
-func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (mapState, error) {
+func (d *policyDistillery) distillPolicy(owner PolicyOwner, identity *identity.Identity) (mapState, error) {
 	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{})
 	if err != nil {
 		return emptyMapState(), fmt.Errorf("failed to calculate policy: %w", err)
@@ -637,7 +637,7 @@ func Test_MergeL3(t *testing.T) {
 			t.Run(fmt.Sprintf("permutation_%d-%d", tt.test, round), func(t *testing.T) {
 				logBuffer := new(bytes.Buffer)
 				repo = repo.WithLogBuffer(logBuffer)
-				mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+				mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
 				if err != nil {
 					t.Errorf("Policy resolution failure: %s", err)
 				}
@@ -1178,7 +1178,7 @@ func Test_MergeRules(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
@@ -1273,7 +1273,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
@@ -1319,7 +1319,7 @@ func Test_AllowAll(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
@@ -1737,7 +1737,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
@@ -1818,7 +1818,7 @@ func Test_Allowception(t *testing.T) {
 	}
 	logBuffer := new(bytes.Buffer)
 	repo = repo.WithLogBuffer(logBuffer)
-	mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+	mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
 	if err != nil {
 		t.Errorf("Policy resolution failure: %s", err)
 	}
@@ -1866,7 +1866,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
@@ -2015,7 +2015,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 			repo := newPolicyDistillery(td.sc)
 			repo.MustAddList(api.Rules{&tr.Rule})
 			repo = repo.WithLogBuffer(buffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsA, identity)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
 			require.NoError(t, err)
 			require.NotNil(t, mapstate)
 
