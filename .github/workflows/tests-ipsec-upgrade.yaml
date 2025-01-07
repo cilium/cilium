@@ -384,7 +384,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
-          CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+          CILIUM_CLI_MODE=helm ./cilium-cli upgrade --reset-values=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
@@ -415,7 +415,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
-          CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+          CILIUM_CLI_MODE=helm ./cilium-cli upgrade --reset-values=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
