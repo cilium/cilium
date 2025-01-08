@@ -35,10 +35,14 @@ func (mw *markdownWriter) printHeader(nodesSorted []string) error {
 }
 
 func (mw *markdownWriter) printNode(metricName, labels string, isBinary bool, values map[float64]struct{}, key string, nodesSorted []string, metricsPerNode map[string]map[string]float64) {
-	if isBinary && len(values) <= 1 {
-		mw.builder.WriteString("| :heavy_check_mark: ")
+	if isBinary {
+		if len(values) <= 1 {
+			mw.builder.WriteString("| :heavy_check_mark: ")
+		} else {
+			mw.builder.WriteString("| :warning: ")
+		}
 	} else {
-		mw.builder.WriteString("| :warning: ")
+		mw.builder.WriteString("| ")
 	}
 
 	mw.builder.WriteString(fmt.Sprintf("| %s | %s |", metricName, labels))
