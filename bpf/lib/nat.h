@@ -689,11 +689,11 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			if (identity_is_remote_node(remote_ep->sec_identity))
 				return NAT_PUNT_TO_STACK;
 		}
+	}
 
-		if (local_ep) {
-			target->addr = IPV4_MASQUERADE;
-			return NAT_NEEDED;
-		}
+	if (local_ep) {
+		target->addr = IPV4_MASQUERADE;
+		return NAT_NEEDED;
 	}
 #endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
 
@@ -1519,11 +1519,11 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			if (identity_is_remote_node(remote_ep->sec_identity))
 				return NAT_PUNT_TO_STACK;
 		}
+	}
 
-		if (local_ep) {
-			ipv6_addr_copy(&target->addr, &masq_addr);
-			return NAT_NEEDED;
-		}
+	if (local_ep) {
+		ipv6_addr_copy(&target->addr, &masq_addr);
+		return NAT_NEEDED;
 	}
 #endif /* ENABLE_MASQUERADE_IPV6 && IS_BPF_HOST */
 
