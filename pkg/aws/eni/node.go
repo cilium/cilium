@@ -19,9 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/smithy-go"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/aws/ec2"
-	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
@@ -132,7 +130,13 @@ func (n *Node) getLimits() (ipamTypes.Limits, bool) {
 // getLimitsLocked is the same function as getLimits, but assumes the n.mutex
 // is read locked.
 func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
-	return limits.Get(n.k8sObj.Spec.ENI.InstanceType)
+	limit, ok := n.manager.limitsGetter.Get(n.k8sObj.Spec.ENI.InstanceType)
+	if !ok {
+		n.logger.Load().Debug("Instance type not found in limits packages",
+			logfields.InstanceType, n.k8sObj.Spec.ENI.InstanceType,
+		)
+	}
+	return limit, ok
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
@@ -747,20 +751,11 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 	if !limitsAvailable {
 		adviseOperatorFlagOnce.Do(func() {
 			n.logger.Load().Warn(
-				fmt.Sprintf(
-					"Unable to find limits for instance type, consider setting --%s=true on the Operator",
-					operatorOption.UpdateEC2AdapterLimitViaAPI,
-				),
+				"Unable to find limits for instance type",
 				logfields.InstanceType, n.k8sObj.Spec.ENI.InstanceType,
 			)
 		})
 
-		n.logger.Load().Warn(
-			"Could not determine instance limits, falling back to default pre-allocate value",
-			logfields.AdaptersLimit, "unknown",
-			logfields.FirstInterfaceIndex, index,
-			logfields.PreAllocate, minimum,
-		)
 		return minimum
 	}
 
