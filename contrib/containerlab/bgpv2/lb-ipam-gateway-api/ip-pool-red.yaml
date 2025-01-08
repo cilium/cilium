@@ -1,0 +1,10 @@
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: "ip-pool-red"
+spec:
+  blocks:
+  - cidr: "30.0.10.0/24"
+  serviceSelector:
+    matchLabels:
+      color: red
