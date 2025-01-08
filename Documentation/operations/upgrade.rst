@@ -294,10 +294,15 @@ communicating via the proxy must reconnect to re-establish connections.
 ------------------
 * ``cilium-dbg bpf policy`` now prints ``ANY`` and not ``reserved:unknown`` for a bpf policy entry that allows any peer identity.
 
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
 * The previously deprecated high-scale mode for ipcache has been removed.
+* The ``update-ec2-adapter-limit-via-api`` CLI flag for the operator has been removed since the operator will only and always use the 
+  EC2API to update the EC2 instance limit.
+* The ``aws-instance-limit-mapping`` CLI flag for the operator has been removed since the operator will only and always use the
+  EC2API to update the EC2 instance limit.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -316,6 +321,7 @@ Helm Options
   are now located under ``hubble.export.static`` and the dynamic exporter options that generate
   a configmap containing the exporter configuration are now under ``hubble.export.dynamic.config.content``.
 * The Helm option ``ciliumEndpointSlice.sliceMode`` has been removed. The slice mode defaults to first-come-first-serve mode.
+* ``eni.updateEC2AdapterLimitViaAPI`` is removed since the operator will only and always use the EC2API to update the EC2 instance limit.
 
 Agent Options
 ~~~~~~~~~~~~~
