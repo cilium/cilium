@@ -162,6 +162,19 @@ in any of the Cilium pods and look for the line reporting the status for
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
 
+To enable eBPF Host-Routing:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set bpf.masquerade=true \\
+             --set kubeProxyReplacement=true
+
 .. _ipv6_big_tcp:
 
 IPv6 BIG TCP
