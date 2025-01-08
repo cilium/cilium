@@ -15,6 +15,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
+	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -23,6 +24,12 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/testutils"
 	testipam "github.com/cilium/cilium/pkg/testutils/ipam"
+)
+
+const (
+	testTriggerMinInterval = time.Second
+	testEC2apiTimeout      = time.Second
+	testEC2apiRetryCount   = 2
 )
 
 var (
@@ -61,10 +68,16 @@ func setup(tb testing.TB) {
 	})
 }
 
+func newTestEC2APIWithTrigger(t *testing.T, subnets []*ipamTypes.Subnet, vpc []*ipamTypes.VirtualNetwork, sgs []*types.SecurityGroup) *ec2mock.API {
+	ec2api := ec2mock.NewAPI(subnets, vpc, sgs)
+	limits.InitEC2APIUpdateTrigger(ec2api, testTriggerMinInterval, testEC2apiTimeout, testEC2apiRetryCount)
+	return ec2api
+}
+
 func TestGetNodeNames(t *testing.T) {
 	setup(t)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -93,7 +106,7 @@ func TestGetNodeNames(t *testing.T) {
 func TestNodeManagerGet(t *testing.T) {
 	setup(t)
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -123,7 +136,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerDefaultAllocation-0"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -168,7 +181,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 	const instanceID = "i-testNodeManagerDefaultAllocation-0"
 
 	pdTestSubnet := *testSubnet
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{&pdTestSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{&pdTestSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, true)
@@ -237,7 +250,7 @@ func TestNodeManagerENIWithSGTags(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerDefaultAllocation-0"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -297,7 +310,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerMinAllocate20-1"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -353,7 +366,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerMinAllocateAndPreallocate-1"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -418,7 +431,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	const instanceID = "i-testNodeManagerReleaseAddress-1"
 
 	operatorOption.Config.ExcessIPReleaseDelay = 2
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -520,7 +533,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerDefaultAllocation-0"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -588,7 +601,7 @@ func TestNodeManagerExceedENICapacity(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerExceedENICapacity-1"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -646,7 +659,7 @@ func TestInterfaceCreatedInInitialSubnet(t *testing.T) {
 		Tags:               ipamTypes.Tags{"k": "v"},
 	}
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet, testSubnet2}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet, testSubnet2}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, testSubnet.ID, "desc", []string{"sg1", "sg2"}, false)
@@ -710,7 +723,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 		{ID: "s-3", AvailabilityZone: "us-west-1", VirtualNetworkID: "vpc-1", AvailableAddresses: 400},
 	}
 
-	ec2api := ec2mock.NewAPI(subnets, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, subnets, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instancesManager := NewInstancesManager(ec2api)
 	mngr, err := ipam.NewNodeManager(instancesManager, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
@@ -778,7 +791,7 @@ func TestNodeManagerInstanceNotRunning(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerInstanceNotRunning-0"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	metricsMock := metricsmock.NewMockMetrics()
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
@@ -824,7 +837,7 @@ func TestInstanceBeenDeleted(t *testing.T) {
 
 	const instanceID = "i-testInstanceBeenDeleted-0"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -883,7 +896,7 @@ func TestNodeManagerStaticIP(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerStaticIP-0"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -927,7 +940,7 @@ func TestNodeManagerStaticIPAlreadyAssociated(t *testing.T) {
 
 	const instanceID = "i-testNodeManagerStaticIPAlreadyAssociated-0"
 
-	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	ec2api := newTestEC2APIWithTrigger(t, []*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
