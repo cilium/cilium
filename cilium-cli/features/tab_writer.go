@@ -32,10 +32,14 @@ func (t *tabWriter) printNode(metricName, labels string, isBinary bool, values m
 	// Determine if "Yes" should be placed in "Uniform" column
 	// if len(values) <= 1 then it means that all nodes have a value of
 	// either 0 or 1.
-	if isBinary && len(values) <= 1 {
-		fmt.Fprintf(t.tb, "Yes\t")
+	if isBinary {
+		if len(values) <= 1 {
+			fmt.Fprintf(t.tb, "Yes\t")
+		} else {
+			fmt.Fprintf(t.tb, "No\t")
+		}
 	} else {
-		fmt.Fprintf(t.tb, "No\t")
+		fmt.Fprintf(t.tb, " \t")
 	}
 
 	fmt.Fprintf(t.tb, "%s\t%s\t", metricName, labels)
