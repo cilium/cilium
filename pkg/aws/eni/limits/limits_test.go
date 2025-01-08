@@ -4,7 +4,6 @@
 package limits
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,35 +13,69 @@ import (
 
 	"github.com/cilium/cilium/operator/option"
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/time"
 )
+
+const (
+	testTriggerMinInterval = time.Second
+	testEC2apiTimeout      = time.Second
+	testEC2apiRetryCount   = 2
+)
+
+var api *ec2mock.API
+
+func init() {
+	api = ec2mock.NewAPI(nil, nil, nil)
+	InitEC2APIUpdateTrigger(api, testTriggerMinInterval, testEC2apiTimeout, testEC2apiRetryCount)
+}
 
 func TestGet(t *testing.T) {
 	option.Config.AWSInstanceLimitMapping = map[string]string{"a2.custom2": "4,5,6"}
 
-	_, ok := Get("unknown")
+	// Test 1: Get unknown instance type (should trigger EC2 API call but fail)
+	// sleep to wait for the trigger can be triggered
+	time.Sleep(testTriggerMinInterval)
+	limit, ok := Get("unknown", api)
 	require.False(t, ok)
+	require.Equal(t, ipamTypes.Limits{}, limit)
 
-	l, ok := Get("m3.large")
-	require.True(t, ok)
-	require.NotEqual(t, 0, l.Adapters)
-	require.NotEqual(t, 0, l.IPv4)
-	require.Equal(t, "xen", l.HypervisorType)
-
+	// Test 2: Get predefined instance type
 	UpdateFromUserDefinedMappings(option.Config.AWSInstanceLimitMapping)
-	l, ok = Get("a2.custom2")
+	limit, ok = Get("a2.custom2", api)
 	require.True(t, ok)
-	require.Equal(t, 4, l.Adapters)
-	require.Equal(t, 5, l.IPv4)
-	require.Equal(t, 6, l.IPv6)
+	require.Equal(t, ipamTypes.Limits{Adapters: 4, IPv4: 5, IPv6: 6}, limit)
+
+	// Test 4: Get instance type from EC2 API
+	api.UpdateInstanceTypes([]ec2_types.InstanceTypeInfo{{
+		InstanceType: "newtype",
+		NetworkInfo: &ec2_types.NetworkInfo{
+			MaximumNetworkInterfaces:  ptr.To[int32](4),
+			Ipv4AddressesPerInterface: ptr.To[int32](15),
+			Ipv6AddressesPerInterface: ptr.To[int32](15),
+		},
+		Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+	}})
+	// sleep to wait for the trigger can be triggered
+	time.Sleep(testTriggerMinInterval)
+	limit, ok = Get("newtype", api)
+	require.True(t, ok)
+	require.Equal(t, ipamTypes.Limits{
+		Adapters:       4,
+		IPv4:           15,
+		IPv6:           15,
+		HypervisorType: "nitro",
+	}, limit)
 }
 
 func TestUpdateFromUserDefinedMappings(t *testing.T) {
+	api := ec2mock.NewAPI(nil, nil, nil)
 	m1 := map[string]string{"a1.medium": "2,4,100"}
 
 	err := UpdateFromUserDefinedMappings(m1)
 	require.NoError(t, err)
 
-	limit, ok := Get("a1.medium")
+	limit, ok := Get("a1.medium", api)
 	require.True(t, ok)
 	require.Equal(t, 2, limit.Adapters)
 	require.Equal(t, 4, limit.IPv4)
@@ -86,7 +119,7 @@ func TestParseLimitString(t *testing.T) {
 	require.ErrorContains(t, err, "invalid limit value")
 }
 
-func TestUpdateFromEC2API(t *testing.T) {
+func TestInitEC2APIUpdateTrigger(t *testing.T) {
 	instanceTypes := []ec2_types.InstanceTypeInfo{
 		{
 			Hypervisor:   ec2_types.InstanceTypeHypervisorXen,
@@ -98,11 +131,10 @@ func TestUpdateFromEC2API(t *testing.T) {
 			},
 		},
 	}
-	api := ec2mock.NewAPI(nil, nil, nil)
 	api.UpdateInstanceTypes(instanceTypes)
-	UpdateFromEC2API(context.Background(), api)
-
-	limit, ok := Get("newinstance.medium")
+	// sleep to wait for the trigger can be triggered
+	time.Sleep(testTriggerMinInterval)
+	limit, ok := Get("newinstance.medium", api)
 	require.True(t, ok)
 	require.Equal(t, 8, limit.Adapters)
 	require.Equal(t, 30, limit.IPv4)
