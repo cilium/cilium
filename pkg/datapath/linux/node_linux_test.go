@@ -262,7 +262,6 @@ func removeDevice(name string) {
 }
 
 func TestAll(t *testing.T) {
-
 	for _, tt := range []string{"IPv4", "IPv6", "dual"} {
 		t.Run(tt, func(t *testing.T) {
 			t.Run("TestUpdateNodeRoute", func(t *testing.T) {
@@ -807,6 +806,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
 	config := s.nodeConfigTemplate
 	config.EnableIPSec = true
+	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
 	s.testNodeChurnXFRMLeaksWithConfig(t, config)
 }
 
@@ -836,6 +836,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksSubnetMode(t *testi
 	require.NoError(t, err)
 	require.NotNil(t, ipv6PodSubnets)
 	config.IPv6PodSubnets = []*cidr.CIDR{ipv6PodSubnets}
+	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
 	s.testNodeChurnXFRMLeaksWithConfig(t, config)
 }
 
@@ -1587,7 +1588,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
 	require.NoError(t, err)
 
-	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1, true)
+	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
 	wait(nodev1.Identity(), "veth0", &now, false)
 
 	assertNeigh(ip1, func(neigh netlink.Neigh) bool {
@@ -1637,7 +1638,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			defer wg.Done()
 			ticker := time.NewTicker(100 * time.Millisecond)
 			for {
-				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1, true)
+				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1)
 				select {
 				case <-ticker.C:
 				case <-done:
@@ -1687,8 +1688,8 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 
 	// Setup routine for the 2. test
 	setupRemoteNode := func(vethName, vethPeerName, netnsName, vethCIDR, vethIPAddr,
-		vethPeerIPAddr string) (cleanup func(), errRet error) {
-
+		vethPeerIPAddr string,
+	) (cleanup func(), errRet error) {
 		veth := &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{Name: vethName},
 			PeerName:  vethPeerName,
@@ -1824,7 +1825,8 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 		Name: "node2",
 		IPAddresses: []nodeTypes.Address{{
 			Type: nodeaddressing.NodeInternalIP,
-			IP:   node2IP}},
+			IP:   node2IP,
+		}},
 	}
 	now = time.Now()
 	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
@@ -1937,8 +1939,8 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 
 	// insertNeighbor is invoked async, so thus this wait based on last ping
 	now = time.Now()
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2, true)
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3, true)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
 	waitGw("f00d::251", nodev2.Identity(), "veth0", &now)
 	waitGw("f00d::250", nodev3.Identity(), "veth0", &now)
 
@@ -1955,8 +1957,8 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 
 	// insertNeighbor is invoked async, so thus this wait based on last ping
 	now = time.Now()
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2, true)
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3, true)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
 	waitGw("f00d::251", nodev2.Identity(), "veth0", &now)
 	waitGw("f00d::251", nodev3.Identity(), "veth0", &now)
 
@@ -2173,7 +2175,8 @@ func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 				LinkIndex: veth2.Attrs().Index,
 				Gw:        v2IP1,
 			},
-		}}
+		},
+	}
 
 	err = netlink.RouteAdd(r)
 	require.NoError(t, err)
@@ -2374,7 +2377,7 @@ func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 	err = netlink.LinkSetHardwareAddr(veth2, veth3HwAddr)
 	require.NoError(t, err)
 
-	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1, true)
+	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
 	wait(nodev1.Identity(), "veth0", &now, false)
 	wait(nodev1.Identity(), "veth2", &now, false)
 
@@ -2613,7 +2616,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	err = netlink.LinkSetHardwareAddr(veth0, veth1HwAddr)
 	require.NoError(t, err)
 
-	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1, true)
+	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
 	wait(nodev1.Identity(), "veth0", &now, false)
 
 	assertNeigh(ip1,
@@ -2665,7 +2668,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 			defer wg.Done()
 			ticker := time.NewTicker(100 * time.Millisecond)
 			for {
-				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1, true)
+				linuxNodeHandler.insertNeighbor(context.Background(), &nodev1)
 				select {
 				case <-ticker.C:
 				case <-done:
@@ -2715,8 +2718,8 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 
 	// Setup routine for the 2. test
 	setupRemoteNode := func(vethName, vethPeerName, netnsName, vethCIDR, vethIPAddr,
-		vethPeerIPAddr string) (cleanup func(), errRet error) {
-
+		vethPeerIPAddr string,
+	) (cleanup func(), errRet error) {
 		veth := &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{Name: vethName},
 			PeerName:  vethPeerName,
@@ -2965,8 +2968,8 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 
 	// insertNeighbor is invoked async, so thus this wait based on last ping
 	now = time.Now()
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2, true)
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3, true)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
 	waitGw("9.9.9.251", nodev2.Identity(), "veth0", &now)
 	waitGw("9.9.9.250", nodev3.Identity(), "veth0", &now)
 
@@ -2983,8 +2986,8 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 
 	// insertNeighbor is invoked async, so thus this wait based on last ping
 	now = time.Now()
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2, true)
-	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3, true)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev2)
+	linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev3)
 	waitGw("9.9.9.251", nodev2.Identity(), "veth0", &now)
 	waitGw("9.9.9.251", nodev3.Identity(), "veth0", &now)
 
@@ -3196,7 +3199,8 @@ func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
 				LinkIndex: veth2.Attrs().Index,
 				Gw:        v2IP1,
 			},
-		}}
+		},
+	}
 	err = netlink.RouteAdd(r)
 	require.NoError(t, err)
 	defer netlink.RouteDel(r)
@@ -3398,7 +3402,7 @@ func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
 	err = netlink.LinkSetHardwareAddr(veth2, veth3HwAddr)
 	require.NoError(t, err)
 
-	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1, true)
+	linuxNodeHandler.NodeNeighborRefresh(context.TODO(), nodev1)
 	wait(nodev1.Identity(), "veth0", &now, false)
 	wait(nodev1.Identity(), "veth2", &now, false)
 

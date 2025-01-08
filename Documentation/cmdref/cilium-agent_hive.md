@@ -13,6 +13,8 @@ cilium-agent hive [flags]
 ```
       --agent-liveness-update-interval duration                   Interval at which the agent updates liveness time for the datapath (default 1s)
       --api-rate-limit string                                     API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
+      --bpf-lb-maglev-hash-seed string                            Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")
+      --bpf-lb-maglev-table-size uint                             Maglev per service backend table size (parameter M, one of: [251 509 1021 2039 4093 8191 16381 32749 65521 131071]) (default 16381)
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --certificates-directory string                             Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cluster-id uint32                                         Unique identifier of the cluster
@@ -57,6 +59,7 @@ cilium-agent hive [flags]
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
+      --endpoint-regen-interval duration                          Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
       --envoy-base-id uint                                        Envoy base ID
       --envoy-config-retry-interval duration                      Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated. (default 15s)
       --envoy-config-timeout duration                             Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources (default 2m0s)
@@ -152,6 +155,7 @@ cilium-agent hive [flags]
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)
       --proxy-idle-timeout-seconds int                            Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s (default 60)
       --proxy-initial-fetch-timeout uint                          Time after which an xDS stream is considered timed out (in seconds) (default 30)
+      --proxy-max-concurrent-retries uint32                       Maximum number of concurrent retries on Envoy clusters (default 128)
       --proxy-max-connection-duration-seconds int                 Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
       --proxy-max-requests-per-connection int                     Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
       --proxy-portrange-max uint16                                End of port range that is used to allocate ports for L7 proxies. (default 20000)

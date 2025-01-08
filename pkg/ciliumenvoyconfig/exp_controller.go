@@ -474,7 +474,7 @@ func (c *cecController) onServiceUpsert(txn statedb.ReadTxn, svc *experimental.S
 type policyTriggerWrapper struct{ updater *policy.Updater }
 
 func (p policyTriggerWrapper) TriggerPolicyUpdates() {
-	p.updater.TriggerPolicyUpdates(true, "Envoy Listeners changed")
+	p.updater.TriggerPolicyUpdates("Envoy Listeners changed")
 }
 
 func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {

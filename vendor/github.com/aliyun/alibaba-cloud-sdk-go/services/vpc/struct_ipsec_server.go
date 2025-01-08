@@ -32,6 +32,7 @@ type IpsecServer struct {
 	MultiFactorAuthEnabled bool        `json:"MultiFactorAuthEnabled" xml:"MultiFactorAuthEnabled"`
 	MaxConnections         int         `json:"MaxConnections" xml:"MaxConnections"`
 	ClientIpPool           string      `json:"ClientIpPool" xml:"ClientIpPool"`
+	ResourceGroupId        string      `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	IkeConfig              IkeConfig   `json:"IkeConfig" xml:"IkeConfig"`
 	IpsecConfig            IpsecConfig `json:"IpsecConfig" xml:"IpsecConfig"`
 }

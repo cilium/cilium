@@ -15,6 +15,13 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+func (p *ProxyPorts) released(pp *ProxyPort) bool {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	return pp.nRedirects == 0 && pp.ProxyPort == 0 && !pp.configured && !pp.acknowledged
+}
+
 func TestPortAllocator(t *testing.T) {
 	testRunDir := t.TempDir()
 	socketDir := envoy.GetSocketDir(testRunDir)
@@ -37,32 +44,35 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, port1, port1a)
 
-	name, pp := p.FindByType(types.ProxyTypeCRD, "listener1", false)
+	name, pp := p.FindByTypeWithReference(types.ProxyTypeCRD, "listener1", false)
 	require.Equal(t, "listener1", name)
 	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
 	require.Equal(t, port, pp.ProxyPort)
 	require.False(t, pp.Ingress)
 	require.True(t, pp.configured)
+	require.False(t, pp.acknowledged)
 	require.False(t, pp.isStatic)
-	require.Equal(t, 0, pp.nRedirects)
+	require.Equal(t, 1, pp.nRedirects)
 	require.Equal(t, uint16(0), pp.rulesPort)
 
-	// Proxy port without references can not be released, so increment to simulate proxy
-	// redirect creation
-	pp.nRedirects++
+	// Unacknowledged proxy port is released due to a NACK
+	p.ResetUnacknowledged(pp)
+	require.False(t, pp.configured)
+	require.False(t, pp.acknowledged)
+	require.Equal(t, uint16(0), pp.ProxyPort)
 
 	err = p.releaseProxyPort("listener1", 10*time.Millisecond)
 	require.NoError(t, err)
 
 	// Proxy port is not released immediately
-	require.Equal(t, 1, pp.nRedirects)
-	require.Equal(t, port, pp.ProxyPort)
+	require.Equal(t, 0, pp.nRedirects)
+	require.Equal(t, uint16(0), pp.ProxyPort)
 	port1a, _, err = p.GetProxyPort("listener1")
 	require.NoError(t, err)
-	require.Equal(t, port, port1a)
+	require.Equal(t, uint16(0), port1a)
 
 	require.Eventually(t, func() bool {
-		return pp.nRedirects == 0
+		return p.released(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
@@ -71,6 +81,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, uint16(0), port1b)
 	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.False(t, pp.configured)
+	require.False(t, pp.acknowledged)
 	require.Equal(t, 0, pp.nRedirects)
 
 	// the port was never acked, so rulesPort is 0
@@ -80,27 +91,30 @@ func TestPortAllocator(t *testing.T) {
 	port2, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.NotEqual(t, port, port2)
-	name2, pp2 := p.FindByType(types.ProxyTypeCRD, "listener1", false)
+	name2, pp2 := p.FindByTypeWithReference(types.ProxyTypeCRD, "listener1", false)
 	require.Equal(t, name2, name)
 	require.Equal(t, pp2, pp)
 	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
 	require.False(t, pp.Ingress)
 	require.Equal(t, port2, pp.ProxyPort)
 	require.True(t, pp.configured)
+	require.False(t, pp.acknowledged)
 	require.False(t, pp.isStatic)
-	require.Equal(t, 0, pp.nRedirects)
+	require.Equal(t, 1, pp.nRedirects)
 	require.Equal(t, uint16(0), pp.rulesPort)
 
 	// Ack configures the port to the datapath
-	err = p.AckProxyPortWithReference(context.TODO(), "listener1")
+	err = p.AckProxyPort(context.TODO(), "listener1", pp)
 	require.NoError(t, err)
 	require.Equal(t, 1, pp.nRedirects)
+	require.True(t, pp.acknowledged)
 	require.Equal(t, port2, pp.rulesPort)
 
 	// Another Ack takes another reference
 	err = p.AckProxyPortWithReference(context.TODO(), "listener1")
 	require.NoError(t, err)
 	require.Equal(t, 2, pp.nRedirects)
+	require.True(t, pp.acknowledged)
 	require.Equal(t, port2, pp.rulesPort)
 
 	// 1st release decreases the count
@@ -108,6 +122,14 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, pp.nRedirects)
 	require.True(t, pp.configured)
+	require.True(t, pp.acknowledged)
+	require.Equal(t, port2, pp.ProxyPort)
+
+	// Acknowledged proxy port is not released due to a NACK
+	p.ResetUnacknowledged(pp)
+	require.Equal(t, 1, pp.nRedirects)
+	require.True(t, pp.configured)
+	require.True(t, pp.acknowledged)
 	require.Equal(t, port2, pp.ProxyPort)
 
 	// 2nd release decreases the count to zero
@@ -115,11 +137,12 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return pp.nRedirects == 0
+		return p.released(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	require.Equal(t, 0, pp.nRedirects)
 	require.False(t, pp.configured)
+	require.False(t, pp.acknowledged)
 	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port2, pp.rulesPort)
 
@@ -136,21 +159,23 @@ func TestPortAllocator(t *testing.T) {
 	require.NotEqual(t, uint16(0), port3)
 	require.NotEqual(t, port2, port3)
 	require.NotEqual(t, port1, port3)
-	name2, pp2 = p.FindByType(types.ProxyTypeCRD, "listener1", false)
+	name2, pp2 = p.FindByTypeWithReference(types.ProxyTypeCRD, "listener1", false)
 	require.Equal(t, name2, name)
 	require.Equal(t, pp2, pp)
 	require.Equal(t, types.ProxyTypeCRD, pp.ProxyType)
 	require.False(t, pp.Ingress)
 	require.Equal(t, port3, pp.ProxyPort)
 	require.True(t, pp.configured)
+	require.False(t, pp.acknowledged)
 	require.False(t, pp.isStatic)
-	require.Equal(t, 0, pp.nRedirects)
+	require.Equal(t, 1, pp.nRedirects)
 	require.Equal(t, port2, pp.rulesPort)
 
 	// Ack configures the port to the datapath
-	err = p.AckProxyPortWithReference(context.TODO(), "listener1")
+	err = p.AckProxyPort(context.TODO(), "listener1", pp)
 	require.NoError(t, err)
 	require.Equal(t, 1, pp.nRedirects)
+	require.True(t, pp.acknowledged)
 	require.Equal(t, port3, pp.rulesPort)
 
 	// Release marks the port as unallocated
@@ -158,11 +183,12 @@ func TestPortAllocator(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return pp.nRedirects == 0
+		return p.released(pp)
 	}, 100*time.Millisecond, time.Millisecond)
 
 	require.Equal(t, 0, pp.nRedirects)
 	require.False(t, pp.configured)
+	require.False(t, pp.acknowledged)
 	require.Equal(t, uint16(0), pp.ProxyPort)
 	require.Equal(t, port3, pp.rulesPort)
 
@@ -178,6 +204,7 @@ func TestPortAllocator(t *testing.T) {
 	require.False(t, pp.Ingress)
 	require.Equal(t, port4, pp.ProxyPort)
 	require.True(t, pp.configured)
+	require.False(t, pp.acknowledged)
 	require.False(t, pp.isStatic)
 	require.Equal(t, 0, pp.nRedirects)
 	require.Equal(t, port3, pp.rulesPort)

@@ -77,6 +77,7 @@ type DescribeInstanceHistoryEventsRequest struct {
 	PageNumber               requests.Integer                    `position:"Query" name:"PageNumber"`
 	ImpactLevel              string                              `position:"Query" name:"ImpactLevel"`
 	ResourceGroupId          string                              `position:"Query" name:"ResourceGroupId"`
+	NextToken                string                              `position:"Query" name:"NextToken"`
 	PageSize                 requests.Integer                    `position:"Query" name:"PageSize"`
 	InstanceEventCycleStatus *[]string                           `position:"Query" name:"InstanceEventCycleStatus"  type:"Repeated"`
 	Tag                      *[]DescribeInstanceHistoryEventsTag `position:"Query" name:"Tag"  type:"Repeated"`
@@ -91,6 +92,7 @@ type DescribeInstanceHistoryEventsRequest struct {
 	EventPublishTimeStart    string                              `position:"Query" name:"EventPublishTime.Start"`
 	InstanceId               string                              `position:"Query" name:"InstanceId"`
 	NotBeforeEnd             string                              `position:"Query" name:"NotBefore.End"`
+	MaxResults               requests.Integer                    `position:"Query" name:"MaxResults"`
 	EventType                string                              `position:"Query" name:"EventType"`
 }
 
@@ -107,6 +109,7 @@ type DescribeInstanceHistoryEventsResponse struct {
 	RequestId              string                 `json:"RequestId" xml:"RequestId"`
 	PageNumber             int                    `json:"PageNumber" xml:"PageNumber"`
 	TotalCount             int                    `json:"TotalCount" xml:"TotalCount"`
+	NextToken              string                 `json:"NextToken" xml:"NextToken"`
 	InstanceSystemEventSet InstanceSystemEventSet `json:"InstanceSystemEventSet" xml:"InstanceSystemEventSet"`
 }
 

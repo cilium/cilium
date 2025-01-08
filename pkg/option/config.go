@@ -206,6 +206,13 @@ const (
 	// K8sServiceCacheSize is service cache size for cilium k8s package.
 	K8sServiceCacheSize = "k8s-service-cache-size"
 
+	// K8sServiceDebounceBufferSize is the maximum number of service events to buffer.
+	K8sServiceDebounceBufferSize = "k8s-service-debounce-buffer-size"
+
+	// K8sServiceDebounceBufferWaitTime is the amount of time to wait before emitting
+	// the service event buffer.
+	K8sServiceDebounceWaitTime = "k8s-service-debounce-wait-time"
+
 	// K8sSyncTimeout is the timeout since last event was received to synchronize all resources with k8s.
 	K8sSyncTimeoutName = "k8s-sync-timeout"
 
@@ -286,12 +293,6 @@ const (
 
 	// LoadBalancerProtocolDifferentiation enables support for service protocol differentiation (TCP, UDP, SCTP)
 	LoadBalancerProtocolDifferentiation = "bpf-lb-proto-diff"
-
-	// MaglevTableSize determines the size of the backend table per service
-	MaglevTableSize = "bpf-lb-maglev-table-size"
-
-	// MaglevHashSeed contains the cluster-wide seed for the hash
-	MaglevHashSeed = "bpf-lb-maglev-hash-seed"
 
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection = "node-port-bind-protection"
@@ -775,6 +776,11 @@ const (
 	// This feature will encrypt overlay traffic before it leaves the cluster.
 	EnableIPSecEncryptedOverlay = "enable-ipsec-encrypted-overlay"
 
+	// BootIDFilename is a hidden flag that allows users to specify a
+	// filename other than /proc/sys/kernel/random/boot_id. This can be
+	// useful for testing purposes in local containerized cluster.
+	BootIDFilename = "boot-id-file"
+
 	// EnableWireguard is the name of the option to enable WireGuard
 	EnableWireguard = "enable-wireguard"
 
@@ -854,6 +860,9 @@ const (
 	// EndpointGCInterval interval to attempt garbage collection of
 	// endpoints that are no longer alive and healthy.
 	EndpointGCInterval = "endpoint-gc-interval"
+
+	// EndpointRegenInterval is the interval of the periodic endpoint regeneration loop.
+	EndpointRegenInterval = "endpoint-regen-interval"
 
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 = "ipv4-service-loopback-address"
@@ -1088,6 +1097,9 @@ const (
 	// EnableBGPControlPlaneStatusReport enables BGP Control Plane CRD status reporting
 	EnableBGPControlPlaneStatusReport = "enable-bgp-control-plane-status-report"
 
+	// BGP router-id allocation mode in ipv6 standalone environment
+	BGPRouterIDAllocationMode = "bgp-router-id-allocation-mode"
+
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -1141,6 +1153,10 @@ const (
 
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies = "enable-non-default-deny-policies"
+
+	// EnableEndpointLockdownOnPolicyOverflow enables endpoint lockdown when an endpoint's
+	// policy map overflows.
+	EnableEndpointLockdownOnPolicyOverflow = "enable-endpoint-lockdown-on-policy-overflow"
 )
 
 // Default string arguments
@@ -1397,6 +1413,13 @@ type DaemonConfig struct {
 	// K8sServiceCacheSize is the service cache size for cilium k8s package.
 	K8sServiceCacheSize uint
 
+	// Number of distinct services to buffer at most.
+	K8sServiceDebounceBufferSize int
+
+	// The amount of time to wait to debounce service events before
+	// emitting the buffer.
+	K8sServiceDebounceWaitTime time.Duration
+
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
 
@@ -1557,6 +1580,9 @@ type DaemonConfig struct {
 
 	// EnableIPSecEncryptedOverlay enables IPSec encryption for overlay traffic.
 	EnableIPSecEncryptedOverlay bool
+
+	// BootIDFile is the file containing the boot ID of the node
+	BootIDFile string
 
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
@@ -1767,11 +1793,6 @@ type DaemonConfig struct {
 	// is marked as healthy.
 	HealthCheckICMPFailureThreshold int
 
-	// KVstoreKeepAliveInterval is the interval in which the lease is being
-	// renewed. This must be set to a value lesser than the LeaseTTL ideally
-	// by a factor of 3.
-	KVstoreKeepAliveInterval time.Duration
-
 	// KVstoreLeaseTTL is the time-to-live for kvstore lease.
 	KVstoreLeaseTTL time.Duration
 
@@ -1891,12 +1912,6 @@ type DaemonConfig struct {
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
 	EnablePMTUDiscovery bool
-
-	// Maglev backend table size (M) per service. Must be prime number.
-	MaglevTableSize int
-
-	// MaglevHashSeed contains the cluster-wide seed for the hash(es).
-	MaglevHashSeed string
 
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic", "native", or "best-effort")
@@ -2173,6 +2188,9 @@ type DaemonConfig struct {
 	// Enables BGP control plane status reporting.
 	EnableBGPControlPlaneStatusReport bool
 
+	// BGPRouterIDAllocationMode is the mode to allocate the BGP router-id in ipv6 standalone environment.
+	BGPRouterIDAllocationMode string
+
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
 	BPFMapEventBuffers          map[string]string
@@ -2243,6 +2261,10 @@ type DaemonConfig struct {
 
 	// EnableSourceIPVerification enables the source ip validation of connection from endpoints to endpoints
 	EnableSourceIPVerification bool
+
+	// EnableEndpointLockdownOnPolicyOverflow enables endpoint lockdown when an endpoint's
+	// policy map overflows.
+	EnableEndpointLockdownOnPolicyOverflow bool
 }
 
 var (
@@ -2825,9 +2847,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
 	c.EnableTCX = vp.GetBool(EnableTCX)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
-	if masqInfs := vp.GetString(MasqueradeInterfaces); masqInfs != "" {
-		c.MasqueradeInterfaces = strings.Split(masqInfs, ",")
-	}
+	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
@@ -2852,8 +2872,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableSVCSourceRangeCheck = vp.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = vp.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
-	c.MaglevTableSize = vp.GetInt(MaglevTableSize)
-	c.MaglevHashSeed = vp.GetString(MaglevHashSeed)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
@@ -2880,13 +2898,14 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))
+	c.K8sServiceDebounceBufferSize = vp.GetInt(K8sServiceDebounceBufferSize)
+	c.K8sServiceDebounceWaitTime = vp.GetDuration(K8sServiceDebounceWaitTime)
 	c.K8sSyncTimeout = vp.GetDuration(K8sSyncTimeoutName)
 	c.AllocatorListTimeout = vp.GetDuration(AllocatorListTimeoutName)
 	c.K8sWatcherEndpointSelector = vp.GetString(K8sWatcherEndpointSelector)
 	c.KeepConfig = vp.GetBool(KeepConfig)
 	c.KVStore = vp.GetString(KVStore)
 	c.KVstoreLeaseTTL = vp.GetDuration(KVstoreLeaseTTL)
-	c.KVstoreKeepAliveInterval = c.KVstoreLeaseTTL / defaults.KVstoreKeepAliveIntervalFactor
 	c.KVstorePeriodicSync = vp.GetDuration(KVstorePeriodicSync)
 	c.KVstoreConnectivityTimeout = vp.GetDuration(KVstoreConnectivityTimeout)
 	c.KVstorePodNetworkSupport = vp.GetBool(KVstorePodNetworkSupport)
@@ -2956,6 +2975,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
 	c.LBSourceRangeAllTypes = vp.GetBool(LBSourceRangeAllTypes)
+	c.BootIDFile = vp.GetString(BootIDFilename)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
@@ -3279,6 +3299,12 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Enable BGP control plane status reporting
 	c.EnableBGPControlPlaneStatusReport = vp.GetBool(EnableBGPControlPlaneStatusReport)
+
+	// BGP router-id allocation mode in IPv6 standalone environment
+	c.BGPRouterIDAllocationMode = vp.GetString(BGPRouterIDAllocationMode)
+
+	// Support failure-mode for policy map overflow
+	c.EnableEndpointLockdownOnPolicyOverflow = vp.GetBool(EnableEndpointLockdownOnPolicyOverflow)
 
 	// Parse node label patterns
 	nodeLabelPatterns := vp.GetStringSlice(ExcludeNodeLabelPatterns)

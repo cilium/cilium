@@ -271,28 +271,49 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p ReconcileParams, desire
 				if !labelSelector.Matches(serviceLabelSet(svc)) {
 					continue
 				}
+
 				// LoadBalancerIP
 				lbPolicy, err := r.getLoadBalancerIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired LoadBalancerIP route policy: %w", err)
 				}
 				if lbPolicy != nil {
+					currentLbPolicy := desiredSvcRoutePolicies[lbPolicy.Name]
+					if currentLbPolicy != nil {
+						if lbPolicy, err = MergeRoutePolicies(currentLbPolicy, lbPolicy); err != nil {
+							return nil, err
+						}
+					}
 					desiredSvcRoutePolicies[lbPolicy.Name] = lbPolicy
 				}
+
 				// ExternalIP
 				extPolicy, err := r.getExternalIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired ExternalIP route policy: %w", err)
 				}
 				if extPolicy != nil {
+					currentExtPolicy := desiredSvcRoutePolicies[extPolicy.Name]
+					if currentExtPolicy != nil {
+						if extPolicy, err = MergeRoutePolicies(currentExtPolicy, extPolicy); err != nil {
+							return nil, err
+						}
+					}
 					desiredSvcRoutePolicies[extPolicy.Name] = extPolicy
 				}
+
 				// ClusterIP
 				clusterPolicy, err := r.getClusterIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired ClusterIP route policy: %w", err)
 				}
 				if clusterPolicy != nil {
+					currentClusterPolicy := desiredSvcRoutePolicies[clusterPolicy.Name]
+					if currentClusterPolicy != nil {
+						if clusterPolicy, err = MergeRoutePolicies(currentClusterPolicy, clusterPolicy); err != nil {
+							return nil, err
+						}
+					}
 					desiredSvcRoutePolicies[clusterPolicy.Name] = clusterPolicy
 				}
 			}
@@ -662,9 +683,12 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p ReconcileParams, peer
 	}
 
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPLoadBalancerIPAddr)
@@ -706,9 +730,12 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p ReconcileParams, peer
 
 func (r *ServiceReconciler) getExternalIPRoutePolicy(p ReconcileParams, peer string, family types.Family, svc *slim_corev1.Service, advert v2alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*types.RoutePolicy, error) {
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPExternalIPAddr)
@@ -760,9 +787,12 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p ReconcileParams, peer str
 
 func (r *ServiceReconciler) getClusterIPRoutePolicy(p ReconcileParams, peer string, family types.Family, svc *slim_corev1.Service, advert v2alpha1.BGPAdvertisement, ls sets.Set[resource.Key]) (*types.RoutePolicy, error) {
 	// get the peer address
-	peerAddr, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
+	peerAddr, peerAddrExists, err := GetPeerAddressFromConfig(p.DesiredConfig, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer address: %w", err)
+	}
+	if !peerAddrExists {
+		return nil, nil
 	}
 
 	valid, err := checkServiceAdvertisement(advert, v2alpha1.BGPClusterIPAddr)

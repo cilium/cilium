@@ -26,6 +26,7 @@ type InstanceType struct {
 	NetworkEncryptionSupport    bool               `json:"NetworkEncryptionSupport" xml:"NetworkEncryptionSupport"`
 	Cores                       int                `json:"Cores" xml:"Cores"`
 	NetworkCardQuantity         int                `json:"NetworkCardQuantity" xml:"NetworkCardQuantity"`
+	JumboFrameSupport           bool               `json:"JumboFrameSupport" xml:"JumboFrameSupport"`
 	InstanceTypeId              string             `json:"InstanceTypeId" xml:"InstanceTypeId"`
 	InstanceBandwidthRx         int                `json:"InstanceBandwidthRx" xml:"InstanceBandwidthRx"`
 	InstanceType                string             `json:"InstanceType" xml:"InstanceType"`

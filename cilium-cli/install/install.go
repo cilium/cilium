@@ -92,10 +92,6 @@ type AzureParameters struct {
 	IsBYOCNI             bool
 }
 
-type AWSParameters struct {
-	AwsNodeImageFamily string
-}
-
 type Parameters struct {
 	Namespace             string
 	Writer                io.Writer
@@ -106,7 +102,6 @@ type Parameters struct {
 	DatapathMode          string
 	IPv4NativeRoutingCIDR string
 	Azure                 AzureParameters
-	AWS                   AWSParameters
 
 	// HelmChartDirectory points to the location of a helm chart directory.
 	// Useful to test from upstream where a helm release is not available yet.
@@ -130,6 +125,10 @@ type Parameters struct {
 	// HelmReuseValues if true, will reuse the helm values from the latest release when upgrading, unless overrides are
 	// specified by other flags. This options take precedence over the HelmResetValues option.
 	HelmReuseValues bool
+
+	// HelmResetThenReuseValues if true, will reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --set and -f.
+	// If '--reset-values' or '--reuse-values' is specified, this is ignored
+	HelmResetThenReuseValues bool
 
 	// DryRun writes resources to be installed to stdout without actually installing them. For Helm
 	// installation mode only.
@@ -225,11 +224,6 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 			}
 		}
 	case k8s.KindEKS:
-		// detect AWS AMI type
-		if err := k.awsRetrieveNodeImageFamily(); err != nil {
-			return err
-		}
-
 		// setup chaining mode
 		if err := k.awsSetupChainingMode(ctx, helmValues); err != nil {
 			return err

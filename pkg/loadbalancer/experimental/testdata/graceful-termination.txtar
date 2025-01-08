@@ -4,27 +4,31 @@
 hive start
 
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
-db initialized
+db/initialized
 
 k8s add service.yaml endpointslice.yaml
-db cmp services services.table
-db cmp frontends frontends.table
-db cmp backends backends.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
 
-lb-maps cmp lbmaps-active.dump
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-active.expected lbmaps.actual
 
 # Set the backend as terminating
 k8s update endpointslice-terminating.yaml
-db cmp frontends frontends-terminating.table
-db cmp backends backends-terminating.table
+db/cmp frontends frontends-terminating.table
+db/cmp backends backends-terminating.table
 
-lb-maps cmp lbmaps-terminating.dump
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-terminating.expected lbmaps.actual
 
 # Cleanup
 k8s delete service.yaml endpointslice.yaml 
-db cmp services services_empty.table
-db cmp frontends frontends_empty.table
-db cmp backends backends_empty.table
+db/cmp services services_empty.table
+db/cmp frontends frontends_empty.table
+db/cmp backends backends_empty.table
 
 #####
 
@@ -168,12 +172,12 @@ ports:
   port: 8081
   protocol: TCP
 
--- lbmaps-active.dump --
+-- lbmaps-active.expected --
 BE: ID=1 ADDR=10.244.0.112:8081 STATE=active
 REV: ID=1 ADDR=10.96.116.33:8081
 SVC: ID=1 ADDR=10.96.116.33:8081 SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=10.96.116.33:8081 SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
--- lbmaps-terminating.dump --
+-- lbmaps-terminating.expected --
 BE: ID=1 ADDR=10.244.0.112:8081 STATE=terminating
 REV: ID=1 ADDR=10.96.116.33:8081
 SVC: ID=1 ADDR=10.96.116.33:8081 SLOT=0 BEID=0 COUNT=0 QCOUNT=1 FLAGS=ClusterIP+non-routable

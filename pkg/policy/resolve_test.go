@@ -292,7 +292,9 @@ func TestL7WithIngressWildcard(t *testing.T) {
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 					},
-				})},
+				}),
+					features: redirectRules,
+				},
 				Egress:        newL4DirectionPolicy(),
 				redirectTypes: redirectTypeEnvoy,
 			},
@@ -403,7 +405,9 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 						},
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 					},
-				})},
+				}),
+					features: redirectRules,
+				},
 				Egress:        newL4DirectionPolicy(),
 				redirectTypes: redirectTypeEnvoy,
 			},
@@ -508,7 +512,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(map[Key]mapStateEntry{
+		policyMapState: newMapState().withState(mapStateMap{
 			EgressKey():                  allowEgressMapStateEntry,
 			IngressKey().WithTCPPort(80): rule1MapStateEntry,
 		}),
@@ -681,7 +685,7 @@ func TestMapStateWithIngress(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(map[Key]mapStateEntry{
+		policyMapState: newMapState().withState(mapStateMap{
 			EgressKey(): allowEgressMapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry.withOwners(cachedSelectorWorld),
 			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorld, cachedSelectorWorldV4),
@@ -732,7 +736,7 @@ func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingr
 		ingress = true
 	} else {
 		key := IngressKey().WithIdentity(identity)
-		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
+		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny() {
 			ingress = true
 		}
 	}
@@ -741,7 +745,7 @@ func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingr
 		egress = true
 	} else {
 		key := EgressKey().WithIdentity(identity)
-		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
+		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny() {
 			egress = true
 		}
 	}
@@ -801,7 +805,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+				PolicyMapState: newMapState().withState(mapStateMap{
 					IngressKey(): {},
 				}),
 			},
@@ -818,7 +822,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
+				PolicyMapState: newMapState().withState(mapStateMap{
 					EgressKey(): {},
 				}),
 			},
@@ -835,8 +839,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
-					IngressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
+				PolicyMapState: newMapState().withState(mapStateMap{
+					IngressKey(): NewMapStateEntry(DenyEntry, nil),
 				}),
 			},
 			args: args{
@@ -852,8 +856,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
-					IngressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
+				PolicyMapState: newMapState().withState(mapStateMap{
+					IngressKey(): NewMapStateEntry(DenyEntry, nil),
 				}),
 			},
 			args: args{
@@ -869,8 +873,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
-					EgressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
+				PolicyMapState: newMapState().withState(mapStateMap{
+					EgressKey(): NewMapStateEntry(DenyEntry, nil),
 				}),
 			},
 			args: args{
@@ -886,8 +890,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: newMapState().withState(map[Key]mapStateEntry{
-					EgressKey(): {MapStateEntry: MapStateEntry{IsDeny: true}},
+				PolicyMapState: newMapState().withState(mapStateMap{
+					EgressKey(): NewMapStateEntry(DenyEntry, nil),
 				}),
 			},
 			args: args{

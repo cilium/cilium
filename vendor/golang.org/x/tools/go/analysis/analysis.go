@@ -50,7 +50,7 @@ type Analyzer struct {
 	// RunDespiteErrors allows the driver to invoke
 	// the Run method of this analyzer even on a
 	// package that contains parse or type errors.
-	// The Pass.TypeErrors field may consequently be non-empty.
+	// The [Pass.TypeErrors] field may consequently be non-empty.
 	RunDespiteErrors bool
 
 	// Requires is a set of analyzers that must run successfully
@@ -156,10 +156,17 @@ type Pass struct {
 
 	// AllPackageFacts returns a new slice containing all package
 	// facts of the analysis's FactTypes in unspecified order.
+	// See comments for AllObjectFacts.
 	AllPackageFacts func() []PackageFact
 
 	// AllObjectFacts returns a new slice containing all object
 	// facts of the analysis's FactTypes in unspecified order.
+	//
+	// The result includes all facts exported by packages
+	// whose symbols are referenced by the current package
+	// (by qualified identifiers or field/method selections).
+	// And it includes all facts exported from the current
+	// package by the current analysis pass.
 	AllObjectFacts func() []ObjectFact
 
 	/* Further fields may be added in future. */

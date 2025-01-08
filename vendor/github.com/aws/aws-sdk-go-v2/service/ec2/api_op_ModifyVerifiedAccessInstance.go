@@ -35,6 +35,9 @@ type ModifyVerifiedAccessInstanceInput struct {
 	// This member is required.
 	VerifiedAccessInstanceId *string
 
+	// The custom subdomain.
+	CidrEndpointsCustomSubDomain *string
+
 	// A unique, case-sensitive token that you provide to ensure idempotency of your
 	// modification request. For more information, see [Ensuring idempotency].
 	//

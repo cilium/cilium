@@ -209,6 +209,7 @@ type CreateAutoProvisioningGroupLaunchTemplateConfig struct {
 	Architectures             *[]string                                                                   `name:"Architectures" type:"Repeated"`
 	BurstablePerformance      string                                                                      `name:"BurstablePerformance"`
 	SecondaryNetworkInterface *[]CreateAutoProvisioningGroupLaunchTemplateConfigSecondaryNetworkInterface `name:"SecondaryNetworkInterface" type:"Repeated"`
+	ImageId                   string                                                                      `name:"ImageId"`
 }
 
 // CreateAutoProvisioningGroupLaunchConfigurationTag is a repeated param struct in CreateAutoProvisioningGroupRequest

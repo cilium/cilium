@@ -1,0 +1,77 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /prefix/one
+    rewrite:
+      path:
+        prefix: /one
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /full/one
+    rewrite:
+      path:
+        exact: /one
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /full/rewrite-path-and-modify-headers
+    request_header_filter:
+      headers_to_add:
+      - name: X-Header-Add
+        value: header-val-1
+      - name: X-Header-Add-Append
+        value: header-val-2
+      headers_to_remove:
+      - X-Header-Remove
+      headers_to_set:
+      - name: X-Header-Set
+        value: set-overwrites-values
+    rewrite:
+      path:
+        exact: /test
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /prefix/rewrite-path-and-modify-headers
+    request_header_filter:
+      headers_to_add:
+      - name: X-Header-Add
+        value: header-val-1
+      - name: X-Header-Add-Append
+        value: header-val-2
+      headers_to_remove:
+      - X-Header-Remove
+      headers_to_set:
+      - name: X-Header-Set
+        value: set-overwrites-values
+    rewrite:
+      path:
+        prefix: /prefix
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1

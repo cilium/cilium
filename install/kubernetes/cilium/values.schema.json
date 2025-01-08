@@ -460,6 +460,14 @@
         "enabled": {
           "type": "boolean"
         },
+        "routerIDAllocation": {
+          "properties": {
+            "mode": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "secretsNamespace": {
           "properties": {
             "create": {
@@ -1737,6 +1745,9 @@
       },
       "type": "object"
     },
+    "endpointLockdownOnMapOverflow": {
+      "type": "boolean"
+    },
     "endpointRoutes": {
       "properties": {
         "enabled": {
@@ -1917,6 +1928,12 @@
         "baseID": {
           "type": "integer"
         },
+        "bootstrapConfigMap": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "connectTimeoutSeconds": {
           "type": "integer"
         },
@@ -1973,6 +1990,9 @@
           "type": "array"
         },
         "healthPort": {
+          "type": "integer"
+        },
+        "httpRetryCount": {
           "type": "integer"
         },
         "idleTimeoutDurationSeconds": {
@@ -2055,6 +2075,9 @@
             }
           },
           "type": "object"
+        },
+        "maxConcurrentRetries": {
+          "type": "integer"
         },
         "maxConnectionDurationSeconds": {
           "type": "integer"

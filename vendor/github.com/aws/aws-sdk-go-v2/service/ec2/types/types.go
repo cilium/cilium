@@ -752,6 +752,29 @@ type AttributeBooleanValue struct {
 	noSmithyDocumentSerde
 }
 
+// A summary report for the attribute across all Regions.
+type AttributeSummary struct {
+
+	// The name of the attribute.
+	AttributeName *string
+
+	// The configuration value that is most frequently observed for the attribute.
+	MostFrequentValue *string
+
+	// The number of accounts with the same configuration value for the attribute that
+	// is most frequently observed.
+	NumberOfMatchedAccounts *int32
+
+	// The number of accounts with a configuration value different from the most
+	// frequently observed value for the attribute.
+	NumberOfUnmatchedAccounts *int32
+
+	// The summary report for each Region for the attribute.
+	RegionalSummaries []RegionalSummary
+
+	noSmithyDocumentSerde
+}
+
 // Describes a value for a resource attribute that is a String.
 type AttributeValue struct {
 
@@ -2839,6 +2862,24 @@ type CreateTransitGatewayVpcAttachmentRequestOptions struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the CIDR options for a Verified Access endpoint.
+type CreateVerifiedAccessEndpointCidrOptions struct {
+
+	// The CIDR.
+	Cidr *string
+
+	// The port ranges.
+	PortRanges []CreateVerifiedAccessEndpointPortRange
+
+	// The protocol.
+	Protocol VerifiedAccessEndpointProtocol
+
+	// The IDs of the subnets.
+	SubnetIds []string
+
+	noSmithyDocumentSerde
+}
+
 // Describes the network interface options when creating an Amazon Web Services
 // Verified Access endpoint using the network-interface type.
 type CreateVerifiedAccessEndpointEniOptions struct {
@@ -2848,6 +2889,9 @@ type CreateVerifiedAccessEndpointEniOptions struct {
 
 	// The IP port number.
 	Port *int32
+
+	// The port ranges.
+	PortRanges []CreateVerifiedAccessEndpointPortRange
 
 	// The IP protocol.
 	Protocol VerifiedAccessEndpointProtocol
@@ -2865,11 +2909,83 @@ type CreateVerifiedAccessEndpointLoadBalancerOptions struct {
 	// The IP port number.
 	Port *int32
 
+	// The port ranges.
+	PortRanges []CreateVerifiedAccessEndpointPortRange
+
 	// The IP protocol.
 	Protocol VerifiedAccessEndpointProtocol
 
 	// The IDs of the subnets.
 	SubnetIds []string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the port range for a Verified Access endpoint.
+type CreateVerifiedAccessEndpointPortRange struct {
+
+	// The start of the port range.
+	FromPort *int32
+
+	// The end of the port range.
+	ToPort *int32
+
+	noSmithyDocumentSerde
+}
+
+// Describes the RDS options for a Verified Access endpoint.
+type CreateVerifiedAccessEndpointRdsOptions struct {
+
+	// The port.
+	Port *int32
+
+	// The protocol.
+	Protocol VerifiedAccessEndpointProtocol
+
+	// The ARN of the DB cluster.
+	RdsDbClusterArn *string
+
+	// The ARN of the RDS instance.
+	RdsDbInstanceArn *string
+
+	// The ARN of the RDS proxy.
+	RdsDbProxyArn *string
+
+	// The RDS endpoint.
+	RdsEndpoint *string
+
+	// The IDs of the subnets.
+	SubnetIds []string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the OpenID Connect (OIDC) options.
+type CreateVerifiedAccessNativeApplicationOidcOptions struct {
+
+	// The authorization endpoint of the IdP.
+	AuthorizationEndpoint *string
+
+	// The OAuth 2.0 client identifier.
+	ClientId *string
+
+	// The OAuth 2.0 client secret.
+	ClientSecret *string
+
+	// The OIDC issuer identifier of the IdP.
+	Issuer *string
+
+	// The public signing key endpoint.
+	PublicSigningKeyEndpoint *string
+
+	// The set of user claims to be requested from the IdP.
+	Scope *string
+
+	// The token endpoint of the IdP.
+	TokenEndpoint *string
+
+	// The user info endpoint of the IdP.
+	UserInfoEndpoint *string
 
 	noSmithyDocumentSerde
 }
@@ -3065,6 +3181,44 @@ type DataResponse struct {
 
 	// The statistic used for the network performance request.
 	Statistic StatisticType
+
+	noSmithyDocumentSerde
+}
+
+// Describes the metadata of the account status report.
+type DeclarativePoliciesReport struct {
+
+	// The time when the report generation ended.
+	EndTime *time.Time
+
+	// The ID of the report.
+	ReportId *string
+
+	// The name of the Amazon S3 bucket where the report is located.
+	S3Bucket *string
+
+	// The prefix for your S3 object.
+	S3Prefix *string
+
+	// The time when the report generation started.
+	StartTime *time.Time
+
+	// The current status of the report.
+	Status ReportState
+
+	// Any tags assigned to the report.
+	Tags []Tag
+
+	// The root ID, organizational unit ID, or account ID.
+	//
+	// Format:
+	//
+	//   - For root: r-ab12
+	//
+	//   - For OU: ou-ab12-cdef1234
+	//
+	//   - For account: 123456789012
+	TargetId *string
 
 	noSmithyDocumentSerde
 }
@@ -3797,7 +3951,7 @@ type EbsInstanceBlockDevice struct {
 	// Indicates whether the volume is deleted on instance termination.
 	DeleteOnTermination *bool
 
-	// The entity that manages the EBS volume.
+	// The service provider that manages the EBS volume.
 	Operator *OperatorResponse
 
 	// The attachment state.
@@ -4790,6 +4944,10 @@ type FederatedAuthenticationRequest struct {
 //
 // If you specify multiple filters, the filters are joined with an AND , and the
 // request returns only results that match all of the specified filters.
+//
+// For more information, see [List and filter using the CLI and API] in the Amazon EC2 User Guide.
+//
+// [List and filter using the CLI and API]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Filtering.html#Filtering_Resources_CLI
 type Filter struct {
 
 	// The name of the filter. Filter names are case-sensitive.
@@ -6081,6 +6239,16 @@ type Image struct {
 	// The hypervisor type of the image. Only xen is supported. ovm is not supported.
 	Hypervisor HypervisorType
 
+	// If true , the AMI satisfies the criteria for Allowed AMIs and can be discovered
+	// and used in the account. If false and Allowed AMIs is set to enabled , the AMI
+	// can't be discovered or used in the account. If false and Allowed AMIs is set to
+	// audit-mode , the AMI can be discovered and used in the account.
+	//
+	// For more information, see [Control the discovery and use of AMIs in Amazon EC2 with Allowed AMIs] in Amazon EC2 User Guide.
+	//
+	// [Control the discovery and use of AMIs in Amazon EC2 with Allowed AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-allowed-amis.html
+	ImageAllowed *bool
+
 	// The ID of the AMI.
 	ImageId *string
 
@@ -6213,6 +6381,71 @@ type Image struct {
 	noSmithyDocumentSerde
 }
 
+// The list of criteria that are evaluated to determine whch AMIs are discoverable
+// and usable in the account in the specified Amazon Web Services Region.
+// Currently, the only criteria that can be specified are AMI providers.
+//
+// Up to 10 imageCriteria objects can be specified, and up to a total of 200
+// values for all imageProviders . For more information, see [JSON configuration for the Allowed AMIs criteria] in the Amazon EC2
+// User Guide.
+//
+// [JSON configuration for the Allowed AMIs criteria]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-allowed-amis.html#allowed-amis-json-configuration
+type ImageCriterion struct {
+
+	// A list of AMI providers whose AMIs are discoverable and useable in the account.
+	// Up to a total of 200 values can be specified.
+	//
+	// Possible values:
+	//
+	// amazon : Allow AMIs created by Amazon Web Services.
+	//
+	// aws-marketplace : Allow AMIs created by verified providers in the Amazon Web
+	// Services Marketplace.
+	//
+	// aws-backup-vault : Allow AMIs created by Amazon Web Services Backup.
+	//
+	// 12-digit account ID: Allow AMIs created by this account. One or more account
+	// IDs can be specified.
+	//
+	// none : Allow AMIs created by your own account only.
+	ImageProviders []string
+
+	noSmithyDocumentSerde
+}
+
+// The list of criteria that are evaluated to determine whch AMIs are discoverable
+// and usable in the account in the specified Amazon Web Services Region.
+// Currently, the only criteria that can be specified are AMI providers.
+//
+// Up to 10 imageCriteria objects can be specified, and up to a total of 200
+// values for all imageProviders . For more information, see [JSON configuration for the Allowed AMIs criteria] in the Amazon EC2
+// User Guide.
+//
+// [JSON configuration for the Allowed AMIs criteria]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-allowed-amis.html#allowed-amis-json-configuration
+type ImageCriterionRequest struct {
+
+	// A list of image providers whose AMIs are discoverable and useable in the
+	// account. Up to a total of 200 values can be specified.
+	//
+	// Possible values:
+	//
+	// amazon : Allow AMIs created by Amazon Web Services.
+	//
+	// aws-marketplace : Allow AMIs created by verified providers in the Amazon Web
+	// Services Marketplace.
+	//
+	// aws-backup-vault : Allow AMIs created by Amazon Web Services Backup.
+	//
+	// 12-digit account ID: Allow AMIs created by this account. One or more account
+	// IDs can be specified.
+	//
+	// none : Allow AMIs created by your own account only. When none is specified, no
+	// other values can be specified.
+	ImageProviders []string
+
+	noSmithyDocumentSerde
+}
+
 // Describes the disk container object for an import image task.
 type ImageDiskContainer struct {
 
@@ -6249,6 +6482,15 @@ type ImageMetadata struct {
 	// The deprecation date and time of the AMI, in UTC, in the following format:
 	// YYYY-MM-DDTHH:MM:SSZ.
 	DeprecationTime *string
+
+	// If true , the AMI satisfies the criteria for Allowed AMIs and can be discovered
+	// and used in the account. If false , the AMI can't be discovered or used in the
+	// account.
+	//
+	// For more information, see [Control the discovery and use of AMIs in Amazon EC2 with Allowed AMIs] in Amazon EC2 User Guide.
+	//
+	// [Control the discovery and use of AMIs in Amazon EC2 with Allowed AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-allowed-amis.html
+	ImageAllowed *bool
 
 	// The ID of the AMI.
 	ImageId *string
@@ -6671,7 +6913,10 @@ type Instance struct {
 	// The network interfaces for the instance.
 	NetworkInterfaces []InstanceNetworkInterface
 
-	// The entity that manages the instance.
+	// Contains settings for the network performance options for your instance.
+	NetworkPerformanceOptions *InstanceNetworkPerformanceOptions
+
+	// The service provider that manages the instance.
 	Operator *OperatorResponse
 
 	// The Amazon Resource Name (ARN) of the Outpost.
@@ -7208,6 +7453,17 @@ type InstanceMetadataDefaultsResponse struct {
 	// [Work with instance tags using the instance metadata]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#work-with-tags-in-IMDS
 	InstanceMetadataTags InstanceMetadataTagsState
 
+	// The entity that manages the IMDS default settings. Possible values include:
+	//
+	//   - account - The IMDS default settings are managed by the account.
+	//
+	//   - declarative-policy - The IMDS default settings are managed by a declarative
+	//   policy and can't be modified by the account.
+	ManagedBy ManagedBy
+
+	// The customized exception message that is specified in the declarative policy.
+	ManagedExceptionMessage *string
+
 	noSmithyDocumentSerde
 }
 
@@ -7368,7 +7624,7 @@ type InstanceNetworkInterface struct {
 	// The ID of the network interface.
 	NetworkInterfaceId *string
 
-	// The entity that manages the network interface.
+	// The service provider that manages the network interface.
 	Operator *OperatorResponse
 
 	// The ID of the Amazon Web Services account that created the network interface.
@@ -7592,6 +7848,39 @@ type InstanceNetworkInterfaceSpecification struct {
 	// The ID of the subnet associated with the network interface. Applies only if
 	// creating a network interface when launching an instance.
 	SubnetId *string
+
+	noSmithyDocumentSerde
+}
+
+// With network performance options, you can adjust your bandwidth preferences to
+// meet the needs of the workload that runs on your instance.
+type InstanceNetworkPerformanceOptions struct {
+
+	// When you configure network bandwidth weighting, you can boost your baseline
+	// bandwidth for either networking or EBS by up to 25%. The total available
+	// baseline bandwidth for your instance remains the same. The default option uses
+	// the standard bandwidth configuration for your instance type.
+	BandwidthWeighting InstanceBandwidthWeighting
+
+	noSmithyDocumentSerde
+}
+
+// Configure network performance options for your instance that are geared towards
+// performance improvements based on the workload that it runs.
+type InstanceNetworkPerformanceOptionsRequest struct {
+
+	// Specify the bandwidth weighting option to boost the associated type of baseline
+	// bandwidth, as follows:
+	//
+	// default This option uses the standard bandwidth configuration for your instance
+	// type.
+	//
+	// vpc-1 This option boosts your networking baseline bandwidth and reduces your
+	// EBS baseline bandwidth.
+	//
+	// ebs-1 This option boosts your EBS baseline bandwidth and reduces your
+	// networking baseline bandwidth.
+	BandwidthWeighting InstanceBandwidthWeighting
 
 	noSmithyDocumentSerde
 }
@@ -8458,7 +8747,7 @@ type InstanceStatus struct {
 	// such as impaired reachability.
 	InstanceStatus *InstanceStatusSummary
 
-	// The entity that manages the instance.
+	// The service provider that manages the instance.
 	Operator *OperatorResponse
 
 	// The Amazon Resource Name (ARN) of the Outpost.
@@ -10914,6 +11203,40 @@ type LaunchTemplateLicenseConfigurationRequest struct {
 	noSmithyDocumentSerde
 }
 
+// With network performance options, you can adjust your bandwidth preferences to
+// meet the needs of the workload that runs on your instance at launch.
+type LaunchTemplateNetworkPerformanceOptions struct {
+
+	// When you configure network bandwidth weighting, you can boost baseline
+	// bandwidth for either networking or EBS by up to 25%. The total available
+	// baseline bandwidth for your instance remains the same. The default option uses
+	// the standard bandwidth configuration for your instance type.
+	BandwidthWeighting InstanceBandwidthWeighting
+
+	noSmithyDocumentSerde
+}
+
+// When you configure network performance options in your launch template, your
+// instance is geared for performance improvements based on the workload that it
+// runs as soon as it's available.
+type LaunchTemplateNetworkPerformanceOptionsRequest struct {
+
+	// Specify the bandwidth weighting option to boost the associated type of baseline
+	// bandwidth, as follows:
+	//
+	// default This option uses the standard bandwidth configuration for your instance
+	// type.
+	//
+	// vpc-1 This option boosts your networking baseline bandwidth and reduces your
+	// EBS baseline bandwidth.
+	//
+	// ebs-1 This option boosts your EBS baseline bandwidth and reduces your
+	// networking baseline bandwidth.
+	BandwidthWeighting InstanceBandwidthWeighting
+
+	noSmithyDocumentSerde
+}
+
 // Describes overrides for a launch template.
 type LaunchTemplateOverrides struct {
 
@@ -11897,12 +12220,24 @@ type ModifyTransitGatewayVpcAttachmentRequestOptions struct {
 	noSmithyDocumentSerde
 }
 
+// The CIDR options for a Verified Access endpoint.
+type ModifyVerifiedAccessEndpointCidrOptions struct {
+
+	// The port ranges.
+	PortRanges []ModifyVerifiedAccessEndpointPortRange
+
+	noSmithyDocumentSerde
+}
+
 // Describes the options when modifying a Verified Access endpoint with the
 // network-interface type.
 type ModifyVerifiedAccessEndpointEniOptions struct {
 
 	// The IP port number.
 	Port *int32
+
+	// The port ranges.
+	PortRanges []ModifyVerifiedAccessEndpointPortRange
 
 	// The IP protocol.
 	Protocol VerifiedAccessEndpointProtocol
@@ -11917,11 +12252,71 @@ type ModifyVerifiedAccessEndpointLoadBalancerOptions struct {
 	// The IP port number.
 	Port *int32
 
+	// The port ranges.
+	PortRanges []ModifyVerifiedAccessEndpointPortRange
+
 	// The IP protocol.
 	Protocol VerifiedAccessEndpointProtocol
 
 	// The IDs of the subnets.
 	SubnetIds []string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the port range for a Verified Access endpoint.
+type ModifyVerifiedAccessEndpointPortRange struct {
+
+	// The start of the port range.
+	FromPort *int32
+
+	// The end of the port range.
+	ToPort *int32
+
+	noSmithyDocumentSerde
+}
+
+// The RDS options for a Verified Access endpoint.
+type ModifyVerifiedAccessEndpointRdsOptions struct {
+
+	// The port.
+	Port *int32
+
+	// The RDS endpoint.
+	RdsEndpoint *string
+
+	// The IDs of the subnets.
+	SubnetIds []string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the OpenID Connect (OIDC) options.
+type ModifyVerifiedAccessNativeApplicationOidcOptions struct {
+
+	// The authorization endpoint of the IdP.
+	AuthorizationEndpoint *string
+
+	// The OAuth 2.0 client identifier.
+	ClientId *string
+
+	// The OAuth 2.0 client secret.
+	ClientSecret *string
+
+	// The OIDC issuer identifier of the IdP.
+	Issuer *string
+
+	// The public signing key endpoint.
+	PublicSigningKeyEndpoint *string
+
+	// The set of user claims to be requested from the IdP.
+	Scope *string
+
+	// The token endpoint of the IdP.
+	TokenEndpoint *string
+
+	// The user info endpoint of the IdP.
+	UserInfoEndpoint *string
 
 	noSmithyDocumentSerde
 }
@@ -12263,6 +12658,33 @@ type NatGatewayAddress struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the OpenID Connect (OIDC) options.
+type NativeApplicationOidcOptions struct {
+
+	// The authorization endpoint of the IdP.
+	AuthorizationEndpoint *string
+
+	// The OAuth 2.0 client identifier.
+	ClientId *string
+
+	// The OIDC issuer identifier of the IdP.
+	Issuer *string
+
+	// The public signing key endpoint.
+	PublicSigningKeyEndpoint *string
+
+	// The set of user claims to be requested from the IdP.
+	Scope *string
+
+	// The token endpoint of the IdP.
+	TokenEndpoint *string
+
+	// The user info endpoint of the IdP.
+	UserInfoEndpoint *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes a network ACL.
 type NetworkAcl struct {
 
@@ -12406,6 +12828,10 @@ type NetworkCardInfo struct {
 
 // Describes the networking features of the instance type.
 type NetworkInfo struct {
+
+	// A list of valid settings for configurable bandwidth weighting for the instance
+	// type, if supported.
+	BandwidthWeightings []BandwidthWeightingType
 
 	// The index of the default network card, starting at 0.
 	DefaultNetworkCardIndex *int32
@@ -12691,7 +13117,7 @@ type NetworkInterface struct {
 	// The ID of the network interface.
 	NetworkInterfaceId *string
 
-	// The entity that manages the network interface.
+	// The service provider that manages the network interface.
 	Operator *OperatorResponse
 
 	// The Amazon Resource Name (ARN) of the Outpost.
@@ -13130,24 +13556,24 @@ type OnDemandOptionsRequest struct {
 	noSmithyDocumentSerde
 }
 
-// The entity that manages the resource.
+// The service provider that manages the resource.
 type OperatorRequest struct {
 
-	// The entity that manages the resource.
+	// The service provider that manages the resource.
 	Principal *string
 
 	noSmithyDocumentSerde
 }
 
-// Describes whether the resource is managed by an entity and, if so, describes
-// the entity that manages it.
+// Describes whether the resource is managed by an service provider and, if so,
+// describes the service provider that manages it.
 type OperatorResponse struct {
 
-	// If true , the resource is managed by an entity.
+	// If true , the resource is managed by an service provider.
 	Managed *bool
 
-	// If managed is true , then the principal is returned. The principal is the entity
-	// that manages the resource.
+	// If managed is true , then the principal is returned. The principal is the
+	// service provider that manages the resource.
 	Principal *string
 
 	noSmithyDocumentSerde
@@ -14218,6 +14644,23 @@ type Region struct {
 	noSmithyDocumentSerde
 }
 
+// A summary report for the attribute for a Region.
+type RegionalSummary struct {
+
+	// The number of accounts in the Region with the same configuration value for the
+	// attribute that is most frequently observed.
+	NumberOfMatchedAccounts *int32
+
+	// The number of accounts in the Region with a configuration value different from
+	// the most frequently observed value for the attribute.
+	NumberOfUnmatchedAccounts *int32
+
+	// The Amazon Web Services Region.
+	RegionName *string
+
+	noSmithyDocumentSerde
+}
+
 // Information about the tag keys to register for the current Region. You can
 // either specify individual tag keys or register all tag keys in the current
 // Region. You must specify either IncludeAllTagsOfInstance or InstanceTagKeys in
@@ -14597,6 +15040,10 @@ type RequestLaunchTemplateData struct {
 
 	// The network interfaces for the instance.
 	NetworkInterfaces []LaunchTemplateInstanceNetworkInterfaceSpecificationRequest
+
+	// Contains launch template settings to boost network performance for the type of
+	// workload that runs on your instance.
+	NetworkPerformanceOptions *LaunchTemplateNetworkPerformanceOptionsRequest
 
 	// The entity that manages the launch template.
 	Operator *OperatorRequest
@@ -15237,6 +15684,10 @@ type ResponseLaunchTemplateData struct {
 
 	// The network interfaces.
 	NetworkInterfaces []LaunchTemplateInstanceNetworkInterfaceSpecification
+
+	// Contains the launch template settings for network performance options for your
+	// instance.
+	NetworkPerformanceOptions *LaunchTemplateNetworkPerformanceOptions
 
 	// The entity that manages the launch template.
 	Operator *OperatorResponse
@@ -16327,6 +16778,10 @@ type SlotStartTimeRangeRequest struct {
 // Describes a snapshot.
 type Snapshot struct {
 
+	// The Availability Zone or Local Zone of the snapshot. For example, us-west-1a
+	// (Availability Zone) or us-west-2-lax-1a (Local Zone).
+	AvailabilityZone *string
+
 	// Only for snapshot copies created with time-based snapshot copy operations.
 	//
 	// The completion duration requested for the time-based snapshot copy operation.
@@ -16485,6 +16940,10 @@ type SnapshotDiskContainer struct {
 
 // Information about a snapshot.
 type SnapshotInfo struct {
+
+	// The Availability Zone or Local Zone of the snapshots. For example, us-west-1a
+	// (Availability Zone) or us-west-2-lax-1a (Local Zone).
+	AvailabilityZone *string
 
 	// Description specified by the CreateSnapshotRequest that has been applied to all
 	// snapshots.
@@ -17905,6 +18364,18 @@ type SubnetConfiguration struct {
 	Ipv6 *string
 
 	// The ID of the subnet.
+	SubnetId *string
+
+	noSmithyDocumentSerde
+}
+
+// Prefixes of the subnet IP.
+type SubnetIpPrefixes struct {
+
+	// Array of SubnetIpPrefixes objects.
+	IpPrefixes []string
+
+	// ID of the subnet.
 	SubnetId *string
 
 	noSmithyDocumentSerde
@@ -19721,6 +20192,9 @@ type VerifiedAccessEndpoint struct {
 	// Services Verified Access endpoint and the application.
 	AttachmentType VerifiedAccessEndpointAttachmentType
 
+	// The options for a CIDR endpoint.
+	CidrOptions *VerifiedAccessEndpointCidrOptions
+
 	// The creation time.
 	CreationTime *string
 
@@ -19754,6 +20228,9 @@ type VerifiedAccessEndpoint struct {
 	// The options for network-interface type endpoint.
 	NetworkInterfaceOptions *VerifiedAccessEndpointEniOptions
 
+	// The options for an RDS endpoint.
+	RdsOptions *VerifiedAccessEndpointRdsOptions
+
 	// The IDs of the security groups for the endpoint.
 	SecurityGroupIds []string
 
@@ -19778,6 +20255,24 @@ type VerifiedAccessEndpoint struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the CIDR options for a Verified Access endpoint.
+type VerifiedAccessEndpointCidrOptions struct {
+
+	// The CIDR.
+	Cidr *string
+
+	// The port ranges.
+	PortRanges []VerifiedAccessEndpointPortRange
+
+	// The protocol.
+	Protocol VerifiedAccessEndpointProtocol
+
+	// The IDs of the subnets.
+	SubnetIds []string
+
+	noSmithyDocumentSerde
+}
+
 // Options for a network-interface type endpoint.
 type VerifiedAccessEndpointEniOptions struct {
 
@@ -19786,6 +20281,9 @@ type VerifiedAccessEndpointEniOptions struct {
 
 	// The IP port number.
 	Port *int32
+
+	// The port ranges.
+	PortRanges []VerifiedAccessEndpointPortRange
 
 	// The IP protocol.
 	Protocol VerifiedAccessEndpointProtocol
@@ -19803,8 +20301,50 @@ type VerifiedAccessEndpointLoadBalancerOptions struct {
 	// The IP port number.
 	Port *int32
 
+	// The port ranges.
+	PortRanges []VerifiedAccessEndpointPortRange
+
 	// The IP protocol.
 	Protocol VerifiedAccessEndpointProtocol
+
+	// The IDs of the subnets.
+	SubnetIds []string
+
+	noSmithyDocumentSerde
+}
+
+// Describes a port range.
+type VerifiedAccessEndpointPortRange struct {
+
+	// The start of the port range.
+	FromPort *int32
+
+	// The end of the port range.
+	ToPort *int32
+
+	noSmithyDocumentSerde
+}
+
+// Describes the RDS options for a Verified Access endpoint.
+type VerifiedAccessEndpointRdsOptions struct {
+
+	// The port.
+	Port *int32
+
+	// The protocol.
+	Protocol VerifiedAccessEndpointProtocol
+
+	// The ARN of the DB cluster.
+	RdsDbClusterArn *string
+
+	// The ARN of the RDS instance.
+	RdsDbInstanceArn *string
+
+	// The ARN of the RDS proxy.
+	RdsDbProxyArn *string
+
+	// The RDS endpoint.
+	RdsEndpoint *string
 
 	// The IDs of the subnets.
 	SubnetIds []string
@@ -19820,6 +20360,21 @@ type VerifiedAccessEndpointStatus struct {
 
 	// The status message of the Verified Access endpoint.
 	Message *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the targets for the specified Verified Access endpoint.
+type VerifiedAccessEndpointTarget struct {
+
+	// The ID of the Verified Access endpoint.
+	VerifiedAccessEndpointId *string
+
+	// The DNS name of the target.
+	VerifiedAccessEndpointTargetDns *string
+
+	// The IP address of the target.
+	VerifiedAccessEndpointTargetIpAddress *string
 
 	noSmithyDocumentSerde
 }
@@ -19863,6 +20418,9 @@ type VerifiedAccessGroup struct {
 // Describes a Verified Access instance.
 type VerifiedAccessInstance struct {
 
+	// The custom subdomain.
+	CidrEndpointsCustomSubDomain *VerifiedAccessInstanceCustomSubDomain
+
 	// The creation time.
 	CreationTime *string
 
@@ -19888,6 +20446,18 @@ type VerifiedAccessInstance struct {
 	noSmithyDocumentSerde
 }
 
+// Describes a custom subdomain for a network CIDR endpoint for Verified Access.
+type VerifiedAccessInstanceCustomSubDomain struct {
+
+	// The name servers.
+	Nameservers []string
+
+	// The subdomain.
+	SubDomain *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes logging options for an Amazon Web Services Verified Access instance.
 type VerifiedAccessInstanceLoggingConfiguration struct {
 
@@ -19896,6 +20466,63 @@ type VerifiedAccessInstanceLoggingConfiguration struct {
 
 	// The ID of the Amazon Web Services Verified Access instance.
 	VerifiedAccessInstanceId *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes a set of routes.
+type VerifiedAccessInstanceOpenVpnClientConfiguration struct {
+
+	// The base64-encoded Open VPN client configuration.
+	Config *string
+
+	// The routes.
+	Routes []VerifiedAccessInstanceOpenVpnClientConfigurationRoute
+
+	noSmithyDocumentSerde
+}
+
+// Describes a route.
+type VerifiedAccessInstanceOpenVpnClientConfigurationRoute struct {
+
+	// The CIDR block.
+	Cidr *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the trust provider.
+type VerifiedAccessInstanceUserTrustProviderClientConfiguration struct {
+
+	// The authorization endpoint of the IdP.
+	AuthorizationEndpoint *string
+
+	// The OAuth 2.0 client identifier.
+	ClientId *string
+
+	// The OAuth 2.0 client secret.
+	ClientSecret *string
+
+	// The OIDC issuer identifier of the IdP.
+	Issuer *string
+
+	// Indicates whether Proof of Key Code Exchange (PKCE) is enabled.
+	PkceEnabled *bool
+
+	// The public signing key endpoint.
+	PublicSigningKeyEndpoint *string
+
+	// The set of user claims to be requested from the IdP.
+	Scopes *string
+
+	// The token endpoint of the IdP.
+	TokenEndpoint *string
+
+	// The trust provider type.
+	Type UserTrustProviderType
+
+	// The user info endpoint of the IdP.
+	UserInfoEndpoint *string
 
 	noSmithyDocumentSerde
 }
@@ -20106,6 +20733,9 @@ type VerifiedAccessTrustProvider struct {
 	// The last updated time.
 	LastUpdatedTime *string
 
+	// The OpenID Connect (OIDC) options.
+	NativeApplicationOidcOptions *NativeApplicationOidcOptions
+
 	// The options for an OpenID Connect-compatible user-identity trust provider.
 	OidcOptions *OidcOptions
 
@@ -20212,7 +20842,7 @@ type Volume struct {
 	// Indicates whether Amazon EBS Multi-Attach is enabled.
 	MultiAttachEnabled *bool
 
-	// The entity that manages the volume.
+	// The service provider that manages the volume.
 	Operator *OperatorResponse
 
 	// The Amazon Resource Name (ARN) of the Outpost.
@@ -20569,6 +21199,12 @@ type VpcBlockPublicAccessOptions struct {
 	// An Amazon Web Services Region.
 	AwsRegion *string
 
+	// Determines if exclusions are allowed. If you have [enabled VPC BPA at the Organization level], exclusions may be
+	// not-allowed . Otherwise, they are allowed .
+	//
+	// [enabled VPC BPA at the Organization level]: https://docs.aws.amazon.com/vpc/latest/userguide/security-vpc-bpa.html#security-vpc-bpa-exclusions-orgs
+	ExclusionsAllowed VpcBlockPublicAccessExclusionsAllowed
+
 	// The current mode of VPC BPA.
 	//
 	//   - off : VPC BPA is not enabled and traffic is allowed to and from internet
@@ -20586,6 +21222,14 @@ type VpcBlockPublicAccessOptions struct {
 
 	// The last time the VPC BPA mode was updated.
 	LastUpdateTimestamp *time.Time
+
+	// The entity that manages the state of VPC BPA. Possible values include:
+	//
+	//   - account - The state is managed by the account.
+	//
+	//   - declarative-policy - The state is managed by a declarative policy and can't
+	//   be modified by the account.
+	ManagedBy ManagedBy
 
 	// The reason for the current state.
 	Reason *string
@@ -20652,12 +21296,21 @@ type VpcEndpoint struct {
 	// The DNS options for the endpoint.
 	DnsOptions *DnsOptions
 
+	// Reason for the failure.
+	FailureReason *string
+
 	// (Interface endpoint) Information about the security groups that are associated
 	// with the network interface.
 	Groups []SecurityGroupIdentifier
 
 	// The IP address type for the endpoint.
 	IpAddressType IpAddressType
+
+	// Array of IPv4 prefixes.
+	Ipv4Prefixes []SubnetIpPrefixes
+
+	// Array of IPv6 prefixes.
+	Ipv6Prefixes []SubnetIpPrefixes
 
 	// The last error that occurred for endpoint.
 	LastError *LastError
@@ -20678,11 +21331,17 @@ type VpcEndpoint struct {
 	// Indicates whether the endpoint is being managed by its service.
 	RequesterManaged *bool
 
+	// The Amazon Resource Name (ARN) of the resource configuration.
+	ResourceConfigurationArn *string
+
 	// (Gateway endpoint) The IDs of the route tables associated with the endpoint.
 	RouteTableIds []string
 
 	// The name of the service to which the endpoint is associated.
 	ServiceName *string
+
+	// The Amazon Resource Name (ARN) of the service network.
+	ServiceNetworkArn *string
 
 	// The Region where the service is hosted.
 	ServiceRegion *string
@@ -20704,6 +21363,51 @@ type VpcEndpoint struct {
 
 	// The ID of the VPC to which the endpoint is associated.
 	VpcId *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the VPC resources, VPC endpoint services, Lattice services, or
+// service networks associated with the VPC endpoint.
+type VpcEndpointAssociation struct {
+
+	// The connectivity status of the resources associated to a VPC endpoint. The
+	// resource is accessible if the associated resource configuration is AVAILABLE ,
+	// otherwise the resource is inaccessible.
+	AssociatedResourceAccessibility *string
+
+	// The Amazon Resource Name (ARN) of the associated resource.
+	AssociatedResourceArn *string
+
+	// The DNS entry of the VPC endpoint association.
+	DnsEntry *DnsEntry
+
+	// An error code related to why an VPC endpoint association failed.
+	FailureCode *string
+
+	// A message related to why an VPC endpoint association failed.
+	FailureReason *string
+
+	// The ID of the VPC endpoint association.
+	Id *string
+
+	// The private DNS entry of the VPC endpoint association.
+	PrivateDnsEntry *DnsEntry
+
+	// The Amazon Resource Name (ARN) of the resource configuration group.
+	ResourceConfigurationGroupArn *string
+
+	// The Amazon Resource Name (ARN) of the service network.
+	ServiceNetworkArn *string
+
+	// The name of the service network.
+	ServiceNetworkName *string
+
+	// The tags to apply to the VPC endpoint association.
+	Tags []Tag
+
+	// The ID of the VPC endpoint.
+	VpcEndpointId *string
 
 	noSmithyDocumentSerde
 }

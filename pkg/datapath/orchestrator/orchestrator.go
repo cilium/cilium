@@ -156,7 +156,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	// Wait until the local node has the loopback IP and internal IP (cilium_host) allocated before
 	// proceeding. These are needed by the config file writer and we cannot proceed without them.
 	health.OK("Waiting for Cilium internal IP")
-	localNodes := stream.ToChannel(ctx,
+	localNodes := stream.ToTruncatingChannel(ctx,
 		stream.Filter(o.params.LocalNodeStore,
 			func(n node.LocalNode) bool {
 				if agentConfig.EnableIPv4 {

@@ -182,13 +182,10 @@ type PerSelectorPolicy struct {
 
 	// Priority of the listener used when multiple listeners would apply to the same
 	// MapStateEntry.
-	// Lower numbers indicate higher priority. If left out, the proxy
-	// port number (10000-20000) is used as priority, so that traffic will be consistently
-	// redirected to the same listener.  If higher priority desired, a low unique number like 1,
-	// 2, or 3 should be explicitly specified here.  If a lower than default priority is needed,
-	// then a unique number higher than 20000 should be explicitly specified. Numbers on the
-	// default range (10000-20000) are not allowed.
-	Priority uint16 `json:"priority,omitempty"`
+	// Lower numbers indicate higher priority. Except for the default 0, which indicates the
+	// lowest priority.  If higher priority desired, a low unique number like 1, 2, or 3 should
+	// be explicitly specified here.
+	Priority uint8 `json:"priority,omitempty"`
 
 	// Pre-computed HTTP rules, computed after rule merging is complete
 	EnvoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
@@ -230,7 +227,7 @@ func (a *PerSelectorPolicy) GetListener() string {
 }
 
 // GetPriority returns the pritority of the listener of the PerSelectorPolicy.
-func (a *PerSelectorPolicy) GetPriority() uint16 {
+func (a *PerSelectorPolicy) GetPriority() uint8 {
 	if a == nil {
 		return 0
 	}
@@ -509,9 +506,9 @@ func (l4 *L4Filter) Equals(bL4 *L4Filter) bool {
 // ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
 // All fields are maps so we can pass this by value.
 type ChangeState struct {
-	Adds    Keys                  // Added or modified keys, if not nil
-	Deletes Keys                  // deleted keys, if not nil
-	old     map[Key]mapStateEntry // Old values of all modified or deleted keys, if not nil
+	Adds    Keys        // Added or modified keys, if not nil
+	Deletes Keys        // deleted keys, if not nil
+	old     mapStateMap // Old values of all modified or deleted keys, if not nil
 }
 
 // NewRevertState returns an empty ChangeState suitable for reverting MapState changes.
@@ -519,7 +516,7 @@ type ChangeState struct {
 func NewRevertState() ChangeState {
 	return ChangeState{
 		Adds: make(Keys),
-		old:  make(map[Key]mapStateEntry),
+		old:  make(mapStateMap),
 	}
 }
 
@@ -527,11 +524,25 @@ func (c *ChangeState) Empty() bool {
 	return len(c.Adds)+len(c.Deletes)+len(c.old) == 0
 }
 
+// Size returns the total number of Adds minus
+// the total number of true Deletes (Deletes
+// that are not also in Adds). The return value
+// can be negative.
+func (c *ChangeState) Size() int {
+	deleteLen := 0
+	for k := range c.Deletes {
+		if _, ok := c.Adds[k]; !ok {
+			deleteLen++
+		}
+	}
+	return len(c.Adds) - deleteLen
+}
+
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
 // AuthType, and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to
-// 'p.PolicyMapState' using denyPreferredInsertWithChanges().
+// 'p.PolicyMapState' using insertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
 // p.SelectorCache is used as Identities interface during this call, which only has GetPrefix() that
@@ -748,7 +759,7 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls labels.LabelArr
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, priority uint16) {
+func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, priority uint8) {
 	isRedirect := !deny && (listener != "" || terminatingTLS != nil || originatingTLS != nil || len(sni) > 0 || !rules.IsEmpty())
 	for epsel := range l7 {
 		l7policy := &PerSelectorPolicy{
@@ -861,7 +872,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	var rules *api.L7Rules
 	var sni []string
 	listener := ""
-	var priority uint16
+	var priority uint8
 
 	pr := rule.GetPortRule()
 	if pr != nil {
@@ -969,6 +980,10 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 	var features policyFeatures
 	for cs, cp := range l4.PerSelectorPolicies {
 		if cp != nil {
+			if cp.isRedirect {
+				features.setFeature(redirectRules)
+			}
+
 			if cp.IsDeny {
 				features.setFeature(denyRules)
 			}
@@ -1403,6 +1418,7 @@ type policyFeatures uint8
 
 const (
 	denyRules policyFeatures = 1 << iota
+	redirectRules
 	authRules
 
 	allFeatures policyFeatures = ^policyFeatures(0)

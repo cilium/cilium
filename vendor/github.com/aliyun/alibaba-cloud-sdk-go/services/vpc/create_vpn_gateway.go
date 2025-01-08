@@ -75,6 +75,7 @@ type CreateVpnGatewayRequest struct {
 	ClientToken               string                  `position:"Query" name:"ClientToken"`
 	EnableIpsec               requests.Boolean        `position:"Query" name:"EnableIpsec"`
 	NetworkType               string                  `position:"Query" name:"NetworkType"`
+	ResourceGroupId           string                  `position:"Query" name:"ResourceGroupId"`
 	InstanceChargeType        string                  `position:"Query" name:"InstanceChargeType"`
 	Period                    requests.Integer        `position:"Query" name:"Period"`
 	AutoPay                   requests.Boolean        `position:"Query" name:"AutoPay"`

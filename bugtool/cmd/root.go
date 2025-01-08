@@ -66,39 +66,34 @@ for sensitive information.
 // confDir is the directory where the output of "config commands" (e.g: "uname -r") is stored.
 // cmdDir is the directory where the output of "info commands" (e.g: "cilium-dbg debuginfo",
 // "cilium-dbg metrics list" and pprof traces) is stored.
-// k8sPods is a list of the cilium pods.
 //
 // It returns a slice of strings with all the commands to be executed.
-type ExtraCommandsFunc func(confDir string, cmdDir string, k8sPods []string) []string
+type ExtraCommandsFunc func(confDir string, cmdDir string) []string
 
 // ExtraCommands is a slice of ExtraCommandsFunc each of which generates a list of additional
 // commands to be executed alongside the default ones.
 var ExtraCommands []ExtraCommandsFunc
 
 var (
-	archive                  bool
-	archiveType              string
-	k8s                      bool
-	dumpPath                 string
-	host                     string
-	k8sNamespace             string
-	k8sLabel                 string
-	execTimeout              time.Duration
-	configPath               string
-	dryRunMode               bool
-	enableMarkdown           bool
-	archivePrefix            string
-	getPProf                 bool
-	pprofDebug               int
-	envoyDump                bool
-	envoyMetrics             bool
-	pprofPort                int
-	traceSeconds             int
-	parallelWorkers          int
-	ciliumAgentContainerName string
-	excludeObjectFiles       bool
-	hubbleMetrics            bool
-	hubbleMetricsPort        int
+	archive            bool
+	archiveType        string
+	dumpPath           string
+	host               string
+	execTimeout        time.Duration
+	configPath         string
+	dryRunMode         bool
+	enableMarkdown     bool
+	archivePrefix      string
+	getPProf           bool
+	pprofDebug         int
+	envoyDump          bool
+	envoyMetrics       bool
+	pprofPort          int
+	traceSeconds       int
+	parallelWorkers    int
+	excludeObjectFiles bool
+	hubbleMetrics      bool
+	hubbleMetricsPort  int
 )
 
 func init() {
@@ -116,51 +111,17 @@ func init() {
 	)
 	BugtoolRootCmd.Flags().IntVar(&traceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")
 	BugtoolRootCmd.Flags().StringVarP(&archiveType, "archiveType", "o", "tar", "Archive type: tar | gz")
-	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
-	BugtoolRootCmd.Flags().MarkDeprecated("k8s-mode", "This option is deprecated, and will be removed in v1.18")
 	BugtoolRootCmd.Flags().BoolVar(&dryRunMode, "dry-run", false, "Create configuration file of all commands that would have been executed")
 	BugtoolRootCmd.Flags().StringVarP(&dumpPath, "tmp", "t", defaultDumpPath, "Path to store extracted files. Use '-' to send to stdout.")
 	BugtoolRootCmd.Flags().StringVarP(&host, "host", "H", "", "URI to server-side API")
-	BugtoolRootCmd.Flags().StringVarP(&k8sNamespace, "k8s-namespace", "", "kube-system", "Kubernetes namespace for Cilium pod")
-	BugtoolRootCmd.Flags().MarkDeprecated("k8s-namespace", "This option is deprecated, and will be removed in v1.18")
-	BugtoolRootCmd.Flags().StringVarP(&k8sLabel, "k8s-label", "", "k8s-app=cilium", "Kubernetes label for Cilium pod")
-	BugtoolRootCmd.Flags().MarkDeprecated("k8s-label", "This option is deprecated, and will be removed in v1.18")
 	BugtoolRootCmd.Flags().DurationVarP(&execTimeout, "exec-timeout", "", 30*time.Second, "The default timeout for any cmd execution in seconds")
 	BugtoolRootCmd.Flags().StringVarP(&configPath, "config", "", "./.cilium-bugtool.config", "Configuration to decide what should be run")
 	BugtoolRootCmd.Flags().BoolVar(&enableMarkdown, "enable-markdown", false, "Dump output of commands in markdown format")
 	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
 	BugtoolRootCmd.Flags().IntVar(&parallelWorkers, "parallel-workers", 0, "Maximum number of parallel worker tasks, use 0 for number of CPUs")
-	BugtoolRootCmd.Flags().StringVarP(&ciliumAgentContainerName, "cilium-agent-container-name", "", "cilium-agent", "Name of the Cilium Agent main container (when k8s-mode is true)")
-	BugtoolRootCmd.Flags().MarkDeprecated("cilium-agent-container-name", "This option is deprecated, and will be removed in v1.18")
 	BugtoolRootCmd.Flags().BoolVar(&excludeObjectFiles, "exclude-object-files", false, "Exclude per-endpoint object files. Template object files will be kept")
 	BugtoolRootCmd.Flags().BoolVar(&hubbleMetrics, "hubble-metrics", true, "When set, hubble prometheus metrics")
 	BugtoolRootCmd.Flags().IntVar(&hubbleMetricsPort, "hubble-metrics-port", 9965, "Port to query for hubble metrics")
-}
-
-func getVerifyCiliumPods() (k8sPods []string) {
-	if k8s {
-		var err error
-		// By default try to pick either Kubernetes or non-k8s (host mode). If
-		// we find Cilium pod(s) then it's k8s-mode otherwise host mode.
-		// Passing extra flags can override the default.
-		k8sPods, err = getCiliumPods(k8sNamespace, k8sLabel)
-		// When the k8s flag is set, perform extra checks that we actually do have pods or fail.
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s\nFailed to find pods, is kube-apiserver running?\n", err)
-			os.Exit(1)
-		}
-		if len(k8sPods) < 1 {
-			fmt.Fprint(os.Stderr, "Found no pods, is kube-apiserver running?\n")
-			os.Exit(1)
-		}
-	}
-	if os.Getuid() != 0 && !k8s && len(k8sPods) == 0 {
-		// When the k8s flag is not set and the user is not root,
-		// debuginfo and BPF related commands can fail.
-		fmt.Fprintf(os.Stderr, "Warning, some of the BPF commands might fail when run as not root\n")
-	}
-
-	return k8sPods
 }
 
 func removeIfEmpty(dir string) {
@@ -229,11 +190,14 @@ func runTool() {
 	cmdDir := createDir(dbgDir, "cmd")
 	confDir := createDir(dbgDir, "conf")
 
-	k8sPods := getVerifyCiliumPods()
+	if os.Getuid() != 0 {
+		// When the user is not root, debuginfo and BPF related commands can fail.
+		fmt.Fprintf(os.Stderr, "Warning, some of the BPF commands might fail when run as not root\n")
+	}
 
-	commands := defaultCommands(confDir, cmdDir, k8sPods)
+	commands := defaultCommands(confDir, cmdDir)
 	for _, f := range ExtraCommands {
-		commands = append(commands, f(confDir, cmdDir, k8sPods)...)
+		commands = append(commands, f(confDir, cmdDir)...)
 	}
 
 	if dryRunMode {
@@ -285,10 +249,10 @@ func runTool() {
 		}
 
 		defer printDisclaimer()
-		runAll(commands, cmdDir, k8sPods)
+		runAll(commands, cmdDir)
 
 		if excludeObjectFiles {
-			removeObjectFiles(cmdDir, k8sPods)
+			removeObjectFiles(cmdDir)
 		}
 	}
 
@@ -359,11 +323,7 @@ func createDir(dbgDir string, newDir string) string {
 	return confDir
 }
 
-func podPrefix(pod, cmd string) string {
-	return fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", pod, ciliumAgentContainerName, k8sNamespace, cmd)
-}
-
-func runAll(commands []string, cmdDir string, k8sPods []string) {
+func runAll(commands []string, cmdDir string) {
 	if len(commands) == 0 {
 		return
 	}
@@ -378,7 +338,7 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			// iptables commands hold locks so we can't have multiple runs. They
 			// have to be run one at a time to avoid 'Another app is currently
 			// holding the xtables lock...'
-			writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, nil)
+			writeCmdToFile(cmdDir, cmd, enableMarkdown, nil)
 			continue
 		}
 
@@ -386,9 +346,9 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			if strings.Contains(cmd, "xfrm state") {
 				//  Output of 'ip -s xfrm state' needs additional processing to replace
 				// raw keys by their hash.
-				writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, hashEncryptionKeys)
+				writeCmdToFile(cmdDir, cmd, enableMarkdown, hashEncryptionKeys)
 			} else {
-				writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, nil)
+				writeCmdToFile(cmdDir, cmd, enableMarkdown, nil)
 			}
 			return nil
 		})
@@ -410,7 +370,7 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 	}
 }
 
-func removeObjectFiles(cmdDir string, k8sPods []string) {
+func removeObjectFiles(cmdDir string) {
 	// Remove object files for each endpoint. Endpoints directories are in the
 	// state directory and have numerical names.
 	rmFunc := func(path string) {
@@ -426,15 +386,8 @@ func removeObjectFiles(cmdDir string, k8sPods []string) {
 		}
 	}
 
-	if k8s {
-		for _, pod := range k8sPods {
-			path := filepath.Join(cmdDir, fmt.Sprintf("%s-%s", pod, defaults.StateDir))
-			rmFunc(path)
-		}
-	} else {
-		path := filepath.Join(cmdDir, defaults.StateDir)
-		rmFunc(path)
-	}
+	path := filepath.Join(cmdDir, defaults.StateDir)
+	rmFunc(path)
 }
 
 func execCommand(prompt string) ([]byte, error) {
@@ -448,7 +401,7 @@ func execCommand(prompt string) ([]byte, error) {
 }
 
 // writeCmdToFile will execute command and write markdown output to a file
-func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool, postProcess func(output []byte) []byte) {
+func writeCmdToFile(cmdDir, prompt string, enableMarkdown bool, postProcess func(output []byte) []byte) {
 	// Clean up the filename
 	name := strings.Replace(prompt, "/", " ", -1)
 	name = strings.Replace(name, " ", "-", -1)
@@ -466,25 +419,12 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 	}
 	defer f.Close()
 
-	cmd, args := split(prompt)
+	cmd := strings.Split(prompt, " ")[0]
 
-	if len(k8sPods) == 0 {
-		// The command does not exist, abort.
-		if _, err := exec.LookPath(cmd); err != nil {
-			os.Remove(f.Name())
-			return
-		}
-	} else if len(args) > 5 {
-		// Boundary check is necessary to skip other non exec kubectl
-		// commands.
-		ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
-		defer cancel()
-		if _, err := exec.CommandContext(ctx, "kubectl", "exec",
-			args[1], "-n", args[3], "--", "which",
-			args[5]).CombinedOutput(); err != nil || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			os.Remove(f.Name())
-			return
-		}
+	// The command does not exist, abort.
+	if _, err := exec.LookPath(cmd); err != nil {
+		os.Remove(f.Name())
+		return
 	}
 
 	var output []byte
@@ -517,43 +457,6 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 	if err != nil {
 		fmt.Fprintf(f, "> Error while running '%s':  %s\n\n", prompt, err)
 	}
-}
-
-// split takes a command prompt and returns the command and arguments separately
-func split(prompt string) (string, []string) {
-	// Split the command and arguments
-	split := strings.Split(prompt, " ")
-	argc := len(split)
-	var args []string
-	cmd := split[0]
-
-	if argc > 1 {
-		args = split[1:]
-	}
-
-	return cmd, args
-}
-
-func getCiliumPods(namespace, label string) ([]string, error) {
-	output, err := execCommand(fmt.Sprintf("kubectl -n %s get pods -l %s", namespace, label))
-	if err != nil {
-		return nil, err
-	}
-
-	lines := bytes.Split(output, []byte("\n"))
-	ciliumPods := make([]string, 0, len(lines))
-	for _, l := range lines {
-		if !bytes.HasPrefix(l, []byte("cilium")) {
-			continue
-		}
-		// NAME           READY     STATUS    RESTARTS   AGE
-		// cilium-cfmww   0/1       Running   0          3m
-		// ^
-		pod := bytes.Split(l, []byte(" "))[0]
-		ciliumPods = append(ciliumPods, string(pod))
-	}
-
-	return ciliumPods, nil
 }
 
 func dumpHubbleMetrics(rootDir string) error {
@@ -606,13 +509,13 @@ func pprofTraces(rootDir string, pprofDebug int) error {
 	}
 
 	cmd := fmt.Sprintf("gops stack $(pidof %s)", components.CiliumAgentName)
-	writeCmdToFile(rootDir, cmd, nil, enableMarkdown, nil)
+	writeCmdToFile(rootDir, cmd, enableMarkdown, nil)
 
 	cmd = fmt.Sprintf("gops stats $(pidof %s)", components.CiliumAgentName)
-	writeCmdToFile(rootDir, cmd, nil, enableMarkdown, nil)
+	writeCmdToFile(rootDir, cmd, enableMarkdown, nil)
 
 	cmd = fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName)
-	writeCmdToFile(rootDir, cmd, nil, enableMarkdown, nil)
+	writeCmdToFile(rootDir, cmd, enableMarkdown, nil)
 
 	wg.Wait()
 	if profileErr != nil {

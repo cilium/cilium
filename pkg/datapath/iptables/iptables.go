@@ -256,7 +256,8 @@ type Manager struct {
 	cfg       Config
 	sharedCfg SharedConfig
 
-	argsInit *lock.StoppableWaitGroup
+	argsInit  *lock.StoppableWaitGroup
+	startDone lock.DoneFunc
 
 	// anything that can trigger a reconciliation
 	reconcilerParams reconcilerParams
@@ -319,10 +320,10 @@ func newIptablesManager(p params) datapath.IptablesManager {
 	}
 
 	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
-	iptMgr.argsInit.Add()
+	initDone := iptMgr.argsInit.Add()
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			defer iptMgr.argsInit.Done()
+			defer initDone()
 			ip4tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
 			if p.SharedCfg.EnableIPv6 {
 				ip6tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
@@ -332,7 +333,7 @@ func newIptablesManager(p params) datapath.IptablesManager {
 	})
 
 	// init haveIp6tables argument before using it in a reconciliation loop
-	iptMgr.argsInit.Add()
+	iptMgr.startDone = iptMgr.argsInit.Add()
 	p.Lifecycle.Append(iptMgr)
 
 	p.JobGroup.Add(
@@ -361,7 +362,7 @@ func newIptablesManager(p params) datapath.IptablesManager {
 
 // Start initializes the iptables manager and checks for iptables kernel modules availability.
 func (m *Manager) Start(ctx cell.HookContext) error {
-	defer m.argsInit.Done()
+	defer m.startDone()
 
 	if os.Getenv("CILIUM_PREPEND_IPTABLES_CHAIN") != "" {
 		m.logger.Warning("CILIUM_PREPEND_IPTABLES_CHAIN env var has been deprecated. Please use 'CILIUM_PREPEND_IPTABLES_CHAINS' " +

@@ -73,6 +73,7 @@ Klusters
 KubeVersion
 Lando
 Leblond
+Lockdown
 Lund
 Lx
 Majkowski
@@ -327,6 +328,8 @@ ethernet
 ethtool
 existingSecret
 expirations
+exportedAnnotations
+exportedLabels
 extTrafficPolicy
 extern
 externalIPs
@@ -504,6 +507,7 @@ loadbalancers
 loadbalancing
 loadinfo
 localhost
+lockdown
 lockless
 logfile
 lookups
@@ -601,6 +605,7 @@ os
 oseq
 otx
 pahole
+parentRefs
 parsable
 parserfactory
 parsers
@@ -608,6 +613,7 @@ passthrough
 pc
 pcap
 perf
+pipelined
 pipelining
 pluggable
 pmdabcc

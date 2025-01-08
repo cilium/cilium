@@ -1,0 +1,20 @@
+- hostname: sslpassthru.example.com
+  name: ing-sslpassthru-ingress-dummy-namespace-sslpassthru.example.com
+  port: 443
+  routes:
+  - backends:
+    - name: dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    hostnames:
+    - sslpassthru.example.com
+  service:
+    insecure_node_port: 30000
+    secure_node_port: 30001
+    type: NodePort
+  sources:
+  - kind: Ingress
+    name: sslpassthru-ingress
+    namespace: dummy-namespace
+    version: v1

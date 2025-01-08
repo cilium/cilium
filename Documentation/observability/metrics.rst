@@ -265,6 +265,50 @@ disable the following two metrics as they generate too much data:
 
 You can then configure the agent with ``--metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"``.
 
+Feature Metrics
+~~~~~~~~~~~~~~~
+
+Cilium Feature Metrics are exported under the ``cilium_feature`` Prometheus
+namespace.
+
+The following tables categorize feature metrics into four groups:
+
+- **Advanced Connectivity and Load Balancing** (:ref:`cilium-feature-adv-connect-and-lb`)
+
+  This category includes features related to advanced networking and load
+  balancing capabilities, such as Bandwidth Manager, BGP, Envoy Proxy, and
+  Cluster Mesh.
+
+- **Control Plane** (:ref:`cilium-feature-controlplane`)
+
+  These metrics track control plane configurations, including identity
+  allocation modes and IP address management (IPAM).
+
+- **Datapath** (:ref:`cilium-feature-datapath`)
+
+  Metrics in this group monitor datapath configurations, such as Internet
+  protocol modes, chaining modes, and network modes.
+
+- **Network Policies** (:ref:`cilium-feature-network-policies`)
+
+  This group encompasses metrics related to policy enforcement, including
+  Cilium Network Policies, Host Firewall, DNS policies, and Mutual Auth.
+
+For example, to check if the Bandwidth Manager is enabled on a Cilium agent,
+observe the metric ``cilium_feature_adv_connect_and_lb_bandwidth_manager_enabled``.
+All metrics follow the format ``cilium_feature`` + group name + metric name.
+A value of ``0`` indicates that the feature is disabled, while ``1`` indicates it
+is enabled.
+
+.. note::
+
+   For metrics of type "counter", the agent has processed the associated object
+   (e.g., a network policy) but might not be actively enforcing it. These
+   metrics serve to observe if the object has been received and processed, but
+   not necessarily enforced by the agent.
+
+.. include:: feature-metrics-agent.txt
+
 Exported Metrics
 ^^^^^^^^^^^^^^^^
 
@@ -433,6 +477,9 @@ Name                                     Labels                                 
 ``identity_gc_latency``                  ``outcome``, ``identity_type``                     Enabled    Duration of the last successful identity GC run
 ``ipcache_errors_total``                 ``type``, ``error``                                Enabled    Number of errors interacting with the ipcache
 ``ipcache_events_total``                 ``type``                                           Enabled    Number of events interacting with the ipcache
+``identity_cache_timer_duration``        ``name``                                           Enabled    Seconds required to execute periodic policy processes. ``name="id-alloc-update-policy-maps"`` is the time taken to apply incremental updates to the BPF policy maps.
+``identity_cache_timer_trigger_latency`` ``name``                                           Enabled    Seconds spent waiting for a previous process to finish before starting the next round. ``name="id-alloc-update-policy-maps"`` is the time waiting before applying incremental updates to the BPF policy maps.
+``identity_cache_timer_trigger_folds``   ``name``                                           Enabled    Number of timer triggers that were coalesced in to one execution. ``name="id-alloc-update-policy-maps"`` applies the incremental updates to the BPF policy maps.
 ======================================== ================================================== ========== ========================================================
 
 Events external to Cilium
@@ -605,13 +652,15 @@ Name                                           Labels                           
 BGP Control Plane
 ~~~~~~~~~~~~~~~~~
 
-====================== =============================================================== ======== ===================================================================
-Name                   Labels                                                          Default  Description
-====================== =============================================================== ======== ===================================================================
-``session_state``      ``vrouter``, ``neighbor``, ``neighbor_asn``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
-``advertised_routes``  ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
-``received_routes``    ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
-====================== =============================================================== ======== ===================================================================
+================================== =============================================================== ======== ===================================================================
+Name                               Labels                                                          Default  Description
+================================== =============================================================== ======== ===================================================================
+``session_state``                  ``vrouter``, ``neighbor``, ``neighbor_asn``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
+``advertised_routes``              ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
+``received_routes``                ``vrouter``, ``neighbor``, ``neighbor_asn``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
+``reconcile_error_count``          ``vrouter``                                                     Enabled  Number of reconciliation runs that returned an error
+``reconcile_run_duration_seconds`` ``vrouter``                                                     Enabled  Histogram of reconciliation run duration
+================================== =============================================================== ======== ===================================================================
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
@@ -626,10 +675,52 @@ option ``--enable-metrics``.  By default, the operator will expose metrics on
 port 9963, the port can be changed with the option
 ``--operator-prometheus-serve-addr``.
 
+Feature Metrics
+~~~~~~~~~~~~~~~
+
+Cilium Operator Feature Metrics are exported under the
+``cilium_operator_feature`` Prometheus namespace.
+
+The following tables categorize feature metrics into the following groups:
+
+- **Advanced Connectivity and Load Balancing** (:ref:`cilium-operator-feature-adv-connect-and-lb`)
+
+  This category includes features related to advanced networking and load
+  balancing capabilities, such as Gateway API, Ingress Controller, LB IPAM,
+  Node IPAM and L7 Aware Traffic Management.
+
+For example, to check if the Gateway API is enabled on a Cilium operator,
+observe the metric ``cilium_operator_feature_adv_connect_and_lb_gateway_api_enabled``.
+All metrics follows the format ``cilium_operator_feature`` + group name + metric name.
+A value of ``0`` indicates that the feature is disabled, while ``1`` indicates it
+is enabled.
+
+.. note::
+
+   For metrics of type "counter," the operator has processed the associated object
+   (e.g., a network policy) but might not be actively enforcing it. These
+   metrics serve to observe if the object has been received and processed, but
+   not necessarily enforced by the operator.
+
+.. include:: feature-metrics-operator.txt
+
 Exported Metrics
 ^^^^^^^^^^^^^^^^
 
 All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
+
+.. _metrics_bgp_control_plane_operator:
+
+BGP Control Plane Operator
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+================================== ======================= ======== ======================================================================
+Name                               Labels                  Default  Description
+================================== ======================= ======== ======================================================================
+``cluster_config_error_count``     ``bgp_cluster_config``  Enabled  Number of errors returned per BGP cluster configuration reconciliation
+================================== ======================= ======== ======================================================================
+
+All metrics are enabled only when the BGP Control Plane is enabled.
 
 .. _ipam_metrics:
 

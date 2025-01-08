@@ -79,6 +79,7 @@ type CreateImageRequest struct {
 	Description          string                          `position:"Query" name:"Description"`
 	Platform             string                          `position:"Query" name:"Platform"`
 	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
+	Features             CreateImageFeatures             `position:"Query" name:"Features"  type:"Struct"`
 	BootMode             string                          `position:"Query" name:"BootMode"`
 	ImageName            string                          `position:"Query" name:"ImageName"`
 	StorageLocationArn   string                          `position:"Query" name:"StorageLocationArn"`
@@ -106,6 +107,11 @@ type CreateImageSystemTag struct {
 	Scope string `name:"Scope"`
 	Value string `name:"Value"`
 	Key   string `name:"Key"`
+}
+
+// CreateImageFeatures is a repeated param struct in CreateImageRequest
+type CreateImageFeatures struct {
+	ImdsSupport string `name:"ImdsSupport"`
 }
 
 // CreateImageTag is a repeated param struct in CreateImageRequest

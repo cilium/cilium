@@ -464,6 +464,32 @@ func (sc *SelectorCache) ChangeUser(selector types.CachedSelector, from, to Cach
 	sc.mutex.Unlock()
 }
 
+// CanSkipUpdate returns true if a proposed update is already known to the SelectorCache
+// and thus a no-op. Is used to de-dup an ID update stream, because identical updates
+// may come from multiple sources.
+func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool {
+	sc.mutex.RLock()
+	defer sc.mutex.RUnlock()
+
+	for nid := range deleted {
+		if _, exists := sc.idCache[nid]; exists {
+			return false
+		}
+	}
+
+	for nid, lbls := range added {
+		haslbls, exists := sc.idCache[nid]
+		if !exists { // id not known to us: cannot skip
+			return false
+		}
+		if !haslbls.lbls.Equals(lbls) {
+			// labels are not equal: cannot skip
+			return false
+		}
+	}
+	return true
+}
+
 // UpdateIdentities propagates identity updates to selectors
 //
 // The caller is responsible for making sure the same identity is not

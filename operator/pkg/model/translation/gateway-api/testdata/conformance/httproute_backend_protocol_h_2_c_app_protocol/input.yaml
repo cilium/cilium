@@ -1,0 +1,19 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - app_protocol: kubernetes.io/h2c
+      name: backend-protocol-h2c
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1

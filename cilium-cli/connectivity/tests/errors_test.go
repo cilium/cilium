@@ -22,35 +22,59 @@ level=error msg="bar"
 level=error error="Failed to update lock:..."
 level=warning msg="baz"
 level=error msg="bar"
+[debug][admin] request complete: path: /server_info
+[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()
+[critical][backtrace] Caught Aborted, suspect faulting address 0xd
 `
 
 	for _, tt := range []struct {
 		levels        []string
+		version       semver.Version
 		wantLen       int
 		wantLogsCount map[string]int
 	}{
 		{
 			levels:  defaults.LogCheckLevels,
-			wantLen: 2,
+			version: semver.MustParse("1.17.0"),
+			wantLen: 4,
 			wantLogsCount: map[string]int{
 				`level=error msg="bar"`:   2,
 				`level=warning msg="baz"`: 1,
+				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
+				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
+			},
+		},
+		{
+			levels:  defaults.LogCheckLevels,
+			version: semver.MustParse("1.16.99"),
+			wantLen: 3,
+			wantLogsCount: map[string]int{
+				`level=error msg="bar"`: 2,
+				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
+				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
 			},
 		},
 		{
 			levels:  []string{defaults.LogLevelError},
-			wantLen: 1,
+			version: semver.MustParse("1.17.0"),
+			wantLen: 3,
 			wantLogsCount: map[string]int{
 				`level=error msg="bar"`: 2,
+				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
+				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
 			},
 		},
 		{
-			levels:        []string{},
-			wantLen:       0,
-			wantLogsCount: map[string]int{},
+			levels:  []string{},
+			version: semver.MustParse("1.17.0"),
+			wantLen: 2,
+			wantLogsCount: map[string]int{
+				`[error][envoy_bug] envoy bug failure: !Thread::MainThread::isMainOrTestThread()`: 1,
+				`[critical][backtrace] Caught Aborted, suspect faulting address 0xd`:              1,
+			},
 		},
 	} {
-		s := NoErrorsInLogs(semver.MustParse("1.15.0"), tt.levels).(*noErrorsInLogs)
+		s := NoErrorsInLogs(tt.version, tt.levels).(*noErrorsInLogs)
 		fails := s.findUniqueFailures(errs)
 		assert.Len(t, fails, tt.wantLen)
 		for wantMsg, wantCount := range tt.wantLogsCount {

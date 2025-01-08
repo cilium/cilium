@@ -306,10 +306,10 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
 		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
-			features.NodePort.LutSize = int64(option.Config.MaglevTableSize)
+			features.NodePort.LutSize = int64(d.maglevConfig.MaglevTableSize)
 		}
 		if option.Config.LoadBalancerAlgorithmAnnotation {
-			features.NodePort.LutSize = int64(option.Config.MaglevTableSize)
+			features.NodePort.LutSize = int64(d.maglevConfig.MaglevTableSize)
 		}
 		if option.Config.NodePortAcceleration == option.NodePortAccelerationGeneric {
 			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGeneric

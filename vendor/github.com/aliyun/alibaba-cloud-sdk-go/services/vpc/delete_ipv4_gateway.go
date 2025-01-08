@@ -78,6 +78,7 @@ type DeleteIpv4GatewayRequest struct {
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	InternetMode         string           `position:"Query" name:"InternetMode"`
 }
 
 // DeleteIpv4GatewayResponse is the response struct for api DeleteIpv4Gateway

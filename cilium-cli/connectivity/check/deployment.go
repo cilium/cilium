@@ -28,6 +28,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -574,6 +575,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 
 			if enabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.CNP)); enabled {
+				ipsec, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec"))
+				if ipsec && versioncheck.MustCompile(">=1.14.0 <1.16.0")(ct.CiliumVersion) {
+					// https://github.com/cilium/cilium/issues/36681
+					continue
+				}
 				for _, client := range ct.Clients() {
 					ct.Logf("✨ [%s] Deploying %s CiliumNetworkPolicy...", client.ClusterName(), testConnDisruptCNPName)
 					_, err = client.ApplyGeneric(ctx, newConnDisruptCNP(ct.params.TestNamespace))
@@ -1751,7 +1757,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					}
 					ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
 				}
-				if ct.Features[features.IPv4].Enabled {
+				if ct.Features[features.IPv6].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
 					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
 					if err != nil {

@@ -19,7 +19,6 @@ package vpc
 type TunnelBgpConfig struct {
 	PeerAsn    string `json:"PeerAsn" xml:"PeerAsn"`
 	BgpStatus  string `json:"BgpStatus" xml:"BgpStatus"`
-	EnableBgp  string `json:"EnableBgp" xml:"EnableBgp"`
 	TunnelCidr string `json:"TunnelCidr" xml:"TunnelCidr"`
 	LocalAsn   string `json:"LocalAsn" xml:"LocalAsn"`
 	LocalBgpIp string `json:"LocalBgpIp" xml:"LocalBgpIp"`

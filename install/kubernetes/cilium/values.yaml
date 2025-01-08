@@ -459,6 +459,10 @@ bgpControlPlane:
     # It is recommended to enable status reporting in general, but if you have any issue
     # such as high API server load, you can disable it by setting this to false.
     enabled: true
+  # -- BGP router-id allocation mode
+  routerIDAllocation:
+    # -- BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
+    mode: "default"
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
@@ -1028,6 +1032,8 @@ endpointRoutes:
 k8sNetworkPolicy:
   # -- Enable support for K8s NetworkPolicy
   enabled: true
+# -- Enable endpoint lockdown on policy map overflow.
+endpointLockdownOnMapOverflow: false
 eni:
   # -- Enable Elastic Network Interface (ENI) integration.
   enabled: false
@@ -1110,8 +1116,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.2.1"
-    digest: "sha256:ab6b1928e9c5f424f6b0f51c68065b9fd85e2f8d3e5f21fbd1a3cb27e6fb9321"
+    tag: "v0.2.2"
+    digest: "sha256:e4f80054d2d503e04337ed61b64c12fa3cca5a32963ba8bd2080d20e1ccc1d8d"
     useDigest: true
     pullPolicy: "Always"
   # -- Seconds after which the completed job pod will be deleted
@@ -2312,6 +2318,10 @@ envoy:
   connectTimeoutSeconds: 2
   # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
   initialFetchTimeoutSeconds: 30
+  # -- Maximum number of concurrent retries on Envoy clusters
+  maxConcurrentRetries: 128
+  # -- Maximum number of retries for each HTTP request
+  httpRetryCount: 3
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
@@ -2330,9 +2340,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.31.3-1733229491-16e43f505747e9351d9e96927f02d72eecffa3e4"
+    tag: "v1.32.3-1736159612-072829658e72d49f0d5fa9b1daa6001bab87e601"
     pullPolicy: "Always"
-    digest: "sha256:8e2fa2d42ead99b63c8f47ceb978f2c10fe191a2c160dc2d1a2ba5de4d46996b"
+    digest: "sha256:d77c4415fa950f7323254f9ca4b3fef01345d1091cc5ed2bdb161cb9c3c84795"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -2368,6 +2378,15 @@ envoy:
       maxUnavailable: 2
   # -- Roll out cilium envoy pods automatically when configmap is updated.
   rollOutPods: false
+  # -- ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a `bootstrap-config.json` key.
+  # When specified, Envoy will use this ConfigMap instead of the default provided by the chart.
+  # WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to
+  # syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support
+  # cannot be provided for custom Envoy bootstrap configs.
+  # @schema
+  # type: [null, string]
+  # @schema
+  bootstrapConfigMap: ~
   # -- Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
   annotations: {}
   # -- Security Context for cilium-envoy pods.
@@ -3599,7 +3618,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:db142d433cdde11f10ae479dbf92f3b13d693fd1c91053da9979728cceb1dc68"
+          digest: "sha256:2919d0172f7524b2d8df9e50066a682669e6d170ac0f6a49676d54358fe970b5"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration

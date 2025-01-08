@@ -1,12 +1,12 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:4c05ca2fc27ba64ff05047cd92d6b3f04e9130d1@sha256:4c54d33f22ef3fc29ef1092fc14a7dfe6d7568bab42d937a628b5a9ef26c4590
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:53996e879d2da2af30b009ab76dcc631b4cbc5a9@sha256:f4233c0c20da5f5a6317c98c6164418057e12a3ef6472422e6b2fa629a50bcb2
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:d23b7ecf4f5c1f6661b78fe7c1d7ef113cd7dc20@sha256:c42e2765c9186a49a08f4b4767e61cab6e9c16a3ef4183af5d461da0a8c74b43
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:4d69a5fca9170ccb81c7a25ac7041e6380ef1bdd@sha256:f872e9272dbe9715d93402d6dc997c64077461ad26d5ecdb08edf540b00f27fb
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.31.3-1733229491-16e43f505747e9351d9e96927f02d72eecffa3e4@sha256:8e2fa2d42ead99b63c8f47ceb978f2c10fe191a2c160dc2d1a2ba5de4d46996b
+ARG CILIUM_ENVOY_IMAGE=quay.io/cilium/cilium-envoy:v1.32.3-1736159612-072829658e72d49f0d5fa9b1daa6001bab87e601@sha256:d77c4415fa950f7323254f9ca4b3fef01345d1091cc5ed2bdb161cb9c3c84795
 
 FROM ${CILIUM_ENVOY_IMAGE} AS cilium-envoy
 
@@ -34,10 +34,12 @@ ARG MODIFIERS
 # as that will mess with caching for incremental builds!
 #
 WORKDIR /go/src/github.com/cilium/cilium
+# We must override NOSTRIP=1 to ensure binaries include debug symbols for extraction. They will be stripped subsequently
+# in accordance with the supplied/default NOSTRIP setting. See "Extract debug symbols" below.
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
-    make GOARCH=${TARGETARCH} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} PKG_BUILD=1 $(echo $MODIFIERS | tr -d '"') \
+    make GOARCH=${TARGETARCH} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} PKG_BUILD=1 $(echo $MODIFIERS | tr -d '"') NOSTRIP=1 \
     build-container install-container-binary
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
@@ -57,7 +59,6 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
 # Extract debug symbols to /tmp/debug and strip the binaries if NOSTRIP is not set.
 RUN set -xe && \
     export D=/tmp/debug/${TARGETOS}/${TARGETARCH} && \
-    mkdir -p $D && \
     cd /tmp/install/${TARGETOS}/${TARGETARCH} && \
     find . -type f \
       -executable \
@@ -65,8 +66,13 @@ RUN set -xe && \
         'filename=$(basename ${0}) && \
          objcopy --only-keep-debug ${0} ${0}.debug && \
          if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then objcopy --strip-all ${0} && (cd $(dirname ${0}) && objcopy --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
-         mv -v ${0}.debug ${D}/${filename}.debug' \
+         mkdir -p $(dirname ${D}/${0}) && \
+         mv -v ${0}.debug ${D}/${0}.debug' \
       {} \;
+
+# Check debug symbols are present
+RUN for f in $(find /tmp/debug -type f -name '*.debug') ; do readelf -S ${f} | grep -q \\.symtab || \
+    (echo Debug symbols are missing in ${f} - possibly due to incorrect build parameters && false); done
 
 COPY images/cilium/init-container.sh \
      plugins/cilium-cni/install-plugin.sh \
@@ -122,11 +128,10 @@ COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-agent 
 COPY --from=builder /go/bin/dlv /usr/bin/dlv
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/bin/debug-wrapper /usr/bin/cilium-agent
 
-# Copy in the debug symbols in case the binaries were stripped
-COPY --from=builder /tmp/debug/${TARGETOS}/${TARGETARCH} /usr/lib/debug
+# Copy the debug symbols across in case the binaries were stripped
+COPY --from=builder /tmp/debug/${TARGETOS}/${TARGETARCH}/ /usr/lib/debug/
 
 # Ensure dlv finds the debug symbols. Due to CGO_ENABLED=0, we have no GNU build-id, so Delve's default search path
 # is insufficient.
 RUN mkdir -p ${HOME}/.config/dlv && \
-    echo 'debug-info-directories: ["/usr/lib/debug/.build-id","/usr/lib/debug"]' > ${HOME}/.config/dlv/config.yml && \
-    ln -s /usr/lib/debug/cilium-agent.debug /usr/lib/debug/cilium-agent-bin.debug
+    echo 'debug-info-directories: ["/usr/lib/debug/.build-id","/usr/lib/debug"]' > ${HOME}/.config/dlv/config.yml

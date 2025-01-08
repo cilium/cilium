@@ -158,6 +158,17 @@ func (spec *MapSpec) fixupMagicFields() (*MapSpec, error) {
 			// behaviour in the past.
 			spec.MaxEntries = n
 		}
+
+	case CPUMap:
+		n, err := PossibleCPU()
+		if err != nil {
+			return nil, fmt.Errorf("fixup cpu map: %w", err)
+		}
+
+		if n := uint32(n); spec.MaxEntries == 0 || spec.MaxEntries > n {
+			// Perform clamping similar to PerfEventArray.
+			spec.MaxEntries = n
+		}
 	}
 
 	return spec, nil
@@ -1560,14 +1571,21 @@ func (m *Map) unmarshalValue(value any, buf sysenc.Buffer) error {
 	return buf.Unmarshal(value)
 }
 
-// LoadPinnedMap loads a Map from a BPF file.
+// LoadPinnedMap opens a Map from a pin (file) on the BPF virtual filesystem.
+//
+// Requires at least Linux 4.5.
 func LoadPinnedMap(fileName string, opts *LoadPinOptions) (*Map, error) {
-	fd, err := sys.ObjGet(&sys.ObjGetAttr{
+	fd, typ, err := sys.ObjGetTyped(&sys.ObjGetAttr{
 		Pathname:  sys.NewStringPointer(fileName),
 		FileFlags: opts.Marshal(),
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if typ != sys.BPF_TYPE_MAP {
+		_ = fd.Close()
+		return nil, fmt.Errorf("%s is not a Map", fileName)
 	}
 
 	m, err := newMapFromFD(fd)

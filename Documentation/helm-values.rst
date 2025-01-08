@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:db142d433cdde11f10ae479dbf92f3b13d693fd1c91053da9979728cceb1dc68","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:2919d0172f7524b2d8df9e50066a682669e6d170ac0f6a49676d54358fe970b5","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -271,11 +271,19 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false,"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
+     - ``{"enabled":false,"routerIDAllocation":{"mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
      - bool
      - ``false``
+   * - :spelling:ignore:`bgpControlPlane.routerIDAllocation`
+     - BGP router-id allocation mode
+     - object
+     - ``{"mode":"default"}``
+   * - :spelling:ignore:`bgpControlPlane.routerIDAllocation.mode`
+     - BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
+     - string
+     - ``"default"``
    * - :spelling:ignore:`bgpControlPlane.secretsNamespace`
      - SecretsNamespace is the namespace which BGP support will retrieve secrets from.
      - object
@@ -439,7 +447,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:ab6b1928e9c5f424f6b0f51c68065b9fd85e2f8d3e5f21fbd1a3cb27e6fb9321","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.1","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:e4f80054d2d503e04337ed61b64c12fa3cca5a32963ba8bd2080d20e1ccc1d8d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.2","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -1172,6 +1180,10 @@
      - Enable connectivity health checking between virtual endpoints.
      - bool
      - ``true``
+   * - :spelling:ignore:`endpointLockdownOnMapOverflow`
+     - Enable endpoint lockdown on policy map overflow.
+     - bool
+     - ``false``
    * - :spelling:ignore:`endpointRoutes.enabled`
      - Enable use of per endpoint routes instead of routing via the cilium_host interface.
      - bool
@@ -1236,6 +1248,10 @@
      - Set Envoy'--base-id' to use when allocating shared memory regions. Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0'
      - int
      - ``0``
+   * - :spelling:ignore:`envoy.bootstrapConfigMap`
+     - ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a ``bootstrap-config.json`` key. When specified, Envoy will use this ConfigMap instead of the default provided by the chart. WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support cannot be provided for custom Envoy bootstrap configs. @schema type: [null, string] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
      - Time in seconds after which a TCP connection attempt times out
      - int
@@ -1284,6 +1300,10 @@
      - TCP port for the health API.
      - int
      - ``9878``
+   * - :spelling:ignore:`envoy.httpRetryCount`
+     - Maximum number of retries for each HTTP request
+     - int
+     - ``3``
    * - :spelling:ignore:`envoy.idleTimeoutDurationSeconds`
      - Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s
      - int
@@ -1291,7 +1311,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:8e2fa2d42ead99b63c8f47ceb978f2c10fe191a2c160dc2d1a2ba5de4d46996b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.31.3-1733229491-16e43f505747e9351d9e96927f02d72eecffa3e4","useDigest":true}``
+     - ``{"digest":"sha256:d77c4415fa950f7323254f9ca4b3fef01345d1091cc5ed2bdb161cb9c3c84795","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1736159612-072829658e72d49f0d5fa9b1daa6001bab87e601","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1320,6 +1340,10 @@
      - Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
      - string
      - ``""``
+   * - :spelling:ignore:`envoy.maxConcurrentRetries`
+     - Maximum number of concurrent retries on Envoy clusters
+     - int
+     - ``128``
    * - :spelling:ignore:`envoy.maxConnectionDurationSeconds`
      - Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
      - int

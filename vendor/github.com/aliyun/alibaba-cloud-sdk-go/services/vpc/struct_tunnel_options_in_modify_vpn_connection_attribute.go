@@ -24,7 +24,6 @@ type TunnelOptionsInModifyVpnConnectionAttribute struct {
 	RemoteCaCertificate string                                          `json:"RemoteCaCertificate" xml:"RemoteCaCertificate"`
 	Role                string                                          `json:"Role" xml:"Role"`
 	State               string                                          `json:"State" xml:"State"`
-	Status              string                                          `json:"Status" xml:"Status"`
 	TunnelId            string                                          `json:"TunnelId" xml:"TunnelId"`
 	ZoneNo              string                                          `json:"ZoneNo" xml:"ZoneNo"`
 	TunnelBgpConfig     TunnelBgpConfigInModifyVpnConnectionAttribute   `json:"TunnelBgpConfig" xml:"TunnelBgpConfig"`

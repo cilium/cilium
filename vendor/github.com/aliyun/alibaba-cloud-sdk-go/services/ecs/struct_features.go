@@ -18,4 +18,5 @@ package ecs
 // Features is a nested struct in ecs response
 type Features struct {
 	NvmeSupport string `json:"NvmeSupport" xml:"NvmeSupport"`
+	ImdsSupport string `json:"ImdsSupport" xml:"ImdsSupport"`
 }

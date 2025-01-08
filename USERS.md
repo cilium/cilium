@@ -245,6 +245,12 @@ Users (Alphabetically)
       U: Networking and network policy
       L: https://github.com/digitalocean/DOKS
 
+    * N: Docaposte
+      D: Docaposte is the digital trust leader in France. We have selected Cilium as our CNI for Kubernetes deployments in production environments, due to its performance and advanced features.
+      U: eBPF, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, kube-proxy replacement, Hubble
+      L: https://docaposte.fr
+      Q: @albundy83
+
     * N: ECCO Data and AI
       D: ECCO Data and AI is using Cilium as CNI in all their clusters and environments (EKS in AWS).
       U: CNI, IPv6 networking, Service Load Balancing and Cluster Mesh
@@ -394,6 +400,12 @@ Users (Alphabetically)
       D: JUMO is using Cilium as their CNI plugin for all of their AWS-hosted EKS clusters
       U: Networking, network policy, network visibility, cluster mesh
       Q: @Matthieu ANTOINE, @Carlos Castro, @Joao Coutinho (Slack)
+
+    * N: Kakao
+      D: Kakao is using Cilium as the CNI for their private cloud's managed Kubernetes service
+      U: Custom eBPF programs, networking, network policy, kube-proxy replacement
+      L: https://youtu.be/WRACr5nXl9U
+      Q: @gyutaeb
 
     * N: Keploy
       D: Keploy is using the Cilium to capture the network traffic to perform E2E Testing.
@@ -690,10 +702,10 @@ Users (Alphabetically)
       Q: @fanux, @yangchuansheng
 
     * N: SeatGeek
-      D: SeatGeek uses Cilium as the default CNI for AWS hosted clusters
-      U: CNI, ClusterMesh, Network Policy, Hubble
+      D: SeatGeek uses Cilium as the default CNI/service mesh for AWS hosted clusters
+      U: CNI, ClusterMesh, Network Policy, Hubble, L7 Mesh
       L: https://seatgeek.com
-      Q: @byxorna
+      Q: @byxorna, @aetimmes
 
     * N: Seznam.cz
       D: Seznam.cz uses Cilium in multiple scenarios in on-prem DCs. At first as L4LB which loadbalances external traffic into k8s+openstack clusters then as CNI in multiple k8s and openstack clusters which are all connected in a clustermesh to enforce NetworkPolicies across pods/VMs.

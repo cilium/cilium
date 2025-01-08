@@ -1,0 +1,39 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /hostname-redirect
+    request_redirect:
+      hostname: example.com
+    timeout: {}
+  - direct_response:
+      status_code: 500
+    path_match:
+      prefix: /status-code-301
+    request_redirect:
+      status_code: 301
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /host-and-status
+    request_redirect:
+      hostname: example.com
+      status_code: 301
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1

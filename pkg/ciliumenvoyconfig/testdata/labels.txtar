@@ -2,7 +2,7 @@
 
 # Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
-db initialized
+db/initialized
 
 set-node-labels foo=a
 
@@ -10,7 +10,7 @@ set-node-labels foo=a
 k8s add cec_a.yaml cec_b.yaml
 
 # CEC with foo=a should be selected.
-db cmp ciliumenvoyconfigs cec_a.table
+db/cmp ciliumenvoyconfigs cec_a.table
 envoy envoy.out
 * cmp envoy.out envoy_a.expected
 
@@ -18,7 +18,7 @@ envoy envoy.out
 set-node-labels foo=b
 
 # CEC with foo=b should be selected.
-db cmp ciliumenvoyconfigs cec_b.table
+db/cmp ciliumenvoyconfigs cec_b.table
 envoy envoy.out
 * cmp envoy.out envoy_b.expected
 

@@ -30,9 +30,14 @@ var (
 
 func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool, logger *slog.Logger) {
 	serviceHandler := func(event k8s.ServiceEvent) {
-		defer event.SWG.Done()
+		defer event.SWGDone()
 
-		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+		var svc serviceStore.ClusterService
+		if event.Action == k8s.UpdateService {
+			svc = k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+		} else if event.Action == k8s.DeleteService {
+			svc = k8s.NewClusterService(event.ID, event.OldService, event.OldEndpoints)
+		}
 		svc.Cluster = cinfo.Name
 		svc.ClusterID = cinfo.ID
 
@@ -42,10 +47,12 @@ func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bo
 			"action", event.Action,
 			"service", event.Service,
 			"endpoints", event.Endpoints,
-			"shared", event.Service.Shared,
+			"old-service", event.OldService,
+			"old-endpoints", event.OldEndpoints,
+			"shared", svc.Shared,
 		)
 
-		if shared && !event.Service.Shared {
+		if shared && !svc.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			kvs.DeleteKey(ctx, &svc)
 			return

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/uuid"
 	coordinationv1client "k8s.io/client-go/kubernetes/typed/coordination/v1"
@@ -49,6 +50,12 @@ type Options struct {
 	// LeaderElectionID determines the name of the resource that leader election
 	// will use for holding the leader lock.
 	LeaderElectionID string
+
+	// RenewDeadline is the renew deadline for this leader election client.
+	// Must be set to ensure the resource lock has an appropriate client timeout.
+	// Without that, a single slow response from the API server can result
+	// in losing leadership.
+	RenewDeadline time.Duration
 }
 
 // NewResourceLock creates a new resource lock for use in a leader election loop.
@@ -88,6 +95,20 @@ func NewResourceLock(config *rest.Config, recorderProvider recorder.Provider, op
 
 	// Construct clients for leader election
 	rest.AddUserAgent(config, "leader-election")
+
+	if options.RenewDeadline != 0 {
+		return resourcelock.NewFromKubeconfig(options.LeaderElectionResourceLock,
+			options.LeaderElectionNamespace,
+			options.LeaderElectionID,
+			resourcelock.ResourceLockConfig{
+				Identity:      id,
+				EventRecorder: recorderProvider.GetEventRecorderFor(id),
+			},
+			config,
+			options.RenewDeadline,
+		)
+	}
+
 	corev1Client, err := corev1client.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -97,7 +118,6 @@ func NewResourceLock(config *rest.Config, recorderProvider recorder.Provider, op
 	if err != nil {
 		return nil, err
 	}
-
 	return resourcelock.New(options.LeaderElectionResourceLock,
 		options.LeaderElectionNamespace,
 		options.LeaderElectionID,
@@ -106,7 +126,8 @@ func NewResourceLock(config *rest.Config, recorderProvider recorder.Provider, op
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: recorderProvider.GetEventRecorderFor(id),
-		})
+		},
+	)
 }
 
 func getInClusterNamespace() (string, error) {

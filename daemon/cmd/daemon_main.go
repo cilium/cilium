@@ -333,7 +333,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	option.BindEnv(vp, option.DisableCiliumEndpointCRDName)
 
-	flags.String(option.MasqueradeInterfaces, "", "Limit iptables-based egress masquerading to interfaces selector")
+	flags.StringSlice(option.MasqueradeInterfaces, []string{}, "Limit iptables-based egress masquerading to interfaces selector")
 	option.BindEnv(vp, option.MasqueradeInterfaces)
 
 	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
@@ -490,6 +490,14 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.K8sServiceCacheSize)
 	flags.MarkHidden(option.K8sServiceCacheSize)
 
+	flags.Int(option.K8sServiceDebounceBufferSize, 128, "Number of distinct services to buffer for event debouncing")
+	option.BindEnv(vp, option.K8sServiceDebounceBufferSize)
+	flags.MarkHidden(option.K8sServiceDebounceBufferSize)
+
+	flags.Duration(option.K8sServiceDebounceWaitTime, 200*time.Millisecond, "The amount of time to wait to debounce service events")
+	option.BindEnv(vp, option.K8sServiceDebounceWaitTime)
+	flags.MarkHidden(option.K8sServiceDebounceWaitTime)
+
 	flags.String(option.K8sWatcherEndpointSelector, defaults.K8sWatcherEndpointSelector, "K8s endpoint watcher will watch for these k8s endpoints")
 	option.BindEnv(vp, option.K8sWatcherEndpointSelector)
 
@@ -500,7 +508,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.KVStore)
 
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
-	flags.MarkHidden(option.KVstoreLeaseTTL)
 	option.BindEnv(vp, option.KVstoreLeaseTTL)
 
 	flags.Uint(option.KVstoreMaxConsecutiveQuorumErrorsName, defaults.KVstoreMaxConsecutiveQuorumErrors, "Max acceptable kvstore consecutive quorum errors before the agent assumes permanent failure")
@@ -612,12 +619,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.LoadBalancerProtocolDifferentiation, true, "Enable support for service protocol differentiation (TCP, UDP, SCTP)")
 	option.BindEnv(vp, option.LoadBalancerProtocolDifferentiation)
 
-	flags.Uint(option.MaglevTableSize, maglev.DefaultTableSize, "Maglev per service backend table size (parameter M)")
-	option.BindEnv(vp, option.MaglevTableSize)
-
-	flags.String(option.MaglevHashSeed, maglev.DefaultHashSeed, "Maglev cluster-wide hash seed (base64 encoded)")
-	option.BindEnv(vp, option.MaglevHashSeed)
-
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
 		"Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps "+
 			"with ephemeral port range (net.ipv4.ip_local_port_range)")
@@ -637,6 +638,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableHighScaleIPcache, defaults.EnableHighScaleIPcache, "Enable the high scale mode for ipcache")
 	option.BindEnv(vp, option.EnableHighScaleIPcache)
+	flags.MarkDeprecated(option.EnableHighScaleIPcache, "The high-scale mode for ipcache is deprecated and will be removed in v1.18.")
 
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(vp, option.EnableHostFirewall)
@@ -1011,6 +1013,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableBGPControlPlaneStatusReport, true, "Enable the BGP control plane status reporting")
 	option.BindEnv(vp, option.EnableBGPControlPlaneStatusReport)
 
+	flags.String(option.BGPRouterIDAllocationMode, defaults.BGPRouterIDAllocationMode, "BGP router-id allocation mode. Currently supported values: 'default' ")
+	option.BindEnv(vp, option.BGPRouterIDAllocationMode)
+
 	flags.Bool(option.EnablePMTUDiscovery, false, "Enable path MTU discovery to send ICMP fragmentation-needed replies to the client")
 	option.BindEnv(vp, option.EnablePMTUDiscovery)
 
@@ -1051,6 +1056,13 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.LBSourceRangeAllTypes, false, "Propagate loadbalancerSourceRanges to all corresponding service types")
 	option.BindEnv(vp, option.LBSourceRangeAllTypes)
+
+	flags.Bool(option.EnableEndpointLockdownOnPolicyOverflow, false, "When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.")
+	option.BindEnv(vp, option.EnableEndpointLockdownOnPolicyOverflow)
+
+	flags.String(option.BootIDFilename, "/proc/sys/kernel/random/boot_id", "Path to filename of the boot ID")
+	flags.MarkHidden(option.BootIDFilename)
+	option.BindEnv(vp, option.BootIDFilename)
 
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
@@ -1617,6 +1629,7 @@ type daemonParams struct {
 	IPTablesManager     datapath.IptablesManager
 	Hubble              hubblecell.HubbleIntegration
 	LRPManager          *redirectpolicy.Manager
+	MaglevConfig        maglev.Config
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

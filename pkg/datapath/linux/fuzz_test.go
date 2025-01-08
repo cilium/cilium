@@ -32,9 +32,9 @@ func FuzzNodeHandler(f *testing.F) {
 		if err != nil {
 			t.Skip()
 		}
-		linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev1, true)
+		linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev1)
 		linuxNodeHandler.NodeDelete(nodev1)
-		linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev1, true)
+		linuxNodeHandler.NodeNeighborRefresh(context.Background(), nodev1)
 	})
 }
 
@@ -42,9 +42,9 @@ type mockEnqueuer struct {
 	nh *linuxNodeHandler
 }
 
-func (q *mockEnqueuer) Enqueue(n *nodeTypes.Node, refresh bool) {
+func (q *mockEnqueuer) Enqueue(n *nodeTypes.Node) {
 	if q.nh != nil {
-		if err := q.nh.insertNeighbor(context.Background(), n, refresh); err != nil {
+		if err := q.nh.insertNeighbor(context.Background(), n); err != nil {
 			q.nh.log.Error("MockQ NodeNeighborRefresh failed", logfields.Error, err)
 		}
 	}

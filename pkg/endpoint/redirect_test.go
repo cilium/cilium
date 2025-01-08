@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -391,13 +392,9 @@ func TestRedirectWithDeny(t *testing.T) {
 	require.Len(t, ep.desiredPolicy.Redirects, 1)
 
 	expected := policy.MapStateMap{
-		mapKeyAllowAllE: {},
-		mapKeyAllL7: {
-			ProxyPort: httpPort,
-		},
-		mapKeyFoo: {
-			IsDeny: true,
-		},
+		mapKeyAllowAllE: policyTypes.AllowEntry(),
+		mapKeyAllL7:     policyTypes.AllowEntry().WithProxyPort(httpPort),
+		mapKeyFoo:       policyTypes.DenyEntry(),
 	}
 
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
@@ -526,14 +523,14 @@ func TestRedirectWithPriority(t *testing.T) {
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
 	expected := policy.MapStateMap{
-		mapKeyAllowAllE: {},
-		mapKeyFooL7:     {ProxyPort: crd2Port},
-		mapKeyAllL7:     {},
+		mapKeyAllowAllE: policyTypes.AllowEntry(),
+		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd2Port).WithProxyPriority(1),
+		mapKeyAllL7:     policyTypes.AllowEntry(),
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
-		mapKeyFooL7:     labels.LabelArrayList{lblsL4AllowListener1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
-		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80},                                     // lblsL4AllowListener1, lblsL4L7AllowListener2Priority1
+		mapKeyFooL7:     labels.LabelArrayList{lblsL4L7AllowListener2Priority1},
+		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80},
 	})
 	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
@@ -581,9 +578,9 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
 	expected := policy.MapStateMap{
-		mapKeyAllowAllE: {},
-		mapKeyFooL7:     {ProxyPort: crd1Port},
-		mapKeyAllL7:     {},
+		mapKeyAllowAllE: policyTypes.AllowEntry(),
+		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd1Port).WithProxyPriority(1),
+		mapKeyAllL7:     policyTypes.AllowEntry(),
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},

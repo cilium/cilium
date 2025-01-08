@@ -13,16 +13,16 @@ type clientEgressL7TlsHeaders struct{}
 
 func (t clientEgressL7TlsHeaders) build(ct *check.ConnectivityTest, templates map[string]string) {
 	clientEgressL7TlsHeadersTest(ct, templates, false)
-	if ct.Features[features.PortRanges].Enabled {
+	if ct.Features[features.L7PortRanges].Enabled {
 		clientEgressL7TlsHeadersTest(ct, templates, true)
 	}
 }
 
 func clientEgressL7TlsHeadersTest(ct *check.ConnectivityTest, templates map[string]string, portRanges bool) {
-	testName := "client-egress-l7-tls-headers"
+	testName := "seq-client-egress-l7-tls-headers"
 	yamlFile := templates["clientEgressL7TLSPolicyYAML"]
 	if portRanges {
-		testName = "client-egress-l7-tls-headers-port-range"
+		testName = "seq-client-egress-l7-tls-headers-port-range"
 		yamlFile = templates["clientEgressL7TLSPolicyPortRangeYAML"]
 	}
 	// Test L7 HTTPS interception using an egress policy on the clients.

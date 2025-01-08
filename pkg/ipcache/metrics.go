@@ -7,8 +7,7 @@ var (
 	metricTypeUpsert = "upsert"
 	metricTypeDelete = "delete"
 
-	metricErrorIdempotent = "idempotent_operation"
-	metricErrorInvalid    = "invalid_prefix"
-	metricErrorNoExist    = "no_such_prefix"
-	metricErrorOverwrite  = "cannot_overwrite_by_source"
+	metricErrorInvalid   = "invalid_prefix"
+	metricErrorNoExist   = "no_such_prefix"
+	metricErrorOverwrite = "cannot_overwrite_by_source"
 )

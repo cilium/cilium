@@ -162,9 +162,11 @@ func TestRemoteClusterRun(t *testing.T) {
 					Metrics:               NewMetrics(),
 					StoreFactory:          store,
 					ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+					FeatureMetrics:        NewClusterMeshMetricsNoop(),
 					Logger:                logrus.New(),
 				},
 				globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
+				FeatureMetrics: NewClusterMeshMetricsNoop(),
 			}
 			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)
@@ -225,12 +227,10 @@ func (o *fakeObserver) NodeDeleted(_ nodeTypes.Node) { o.deletes.Add(1) }
 
 func (o *fakeObserver) MergeExternalServiceUpdate(_ *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	o.updates.Add(1)
-	swg.Done()
 }
 
 func (o *fakeObserver) MergeExternalServiceDelete(_ *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	o.deletes.Add(1)
-	swg.Done()
 }
 
 func (o *fakeObserver) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcache.Identity) (bool, error) {
@@ -294,8 +294,10 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			Metrics:               NewMetrics(),
 			StoreFactory:          store,
 			ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+			FeatureMetrics:        NewClusterMeshMetricsNoop(),
 			Logger:                logrus.New(),
 		},
+		FeatureMetrics: NewClusterMeshMetricsNoop(),
 		globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
 	}
 	rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
@@ -408,4 +410,16 @@ func TestIPCacheWatcherOpts(t *testing.T) {
 			assert.Len(t, rc.ipCacheWatcherOpts(tt.config), tt.expected)
 		})
 	}
+}
+
+type clusterMeshMetricsNoop struct{}
+
+func (m clusterMeshMetricsNoop) AddClusterMeshConfig(mode string, maxClusters string) {
+}
+
+func (m clusterMeshMetricsNoop) DelClusterMeshConfig(mode string, maxClusters string) {
+}
+
+func NewClusterMeshMetricsNoop() ClusterMeshMetrics {
+	return &clusterMeshMetricsNoop{}
 }

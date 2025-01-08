@@ -34,4 +34,7 @@ type SslVpnServer struct {
 	EnableMultiFactorAuth bool   `json:"EnableMultiFactorAuth" xml:"EnableMultiFactorAuth"`
 	ClientIpPool          string `json:"ClientIpPool" xml:"ClientIpPool"`
 	Proto                 string `json:"Proto" xml:"Proto"`
+	ResourceGroupId       string `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	IDaaSApplicationId    string `json:"IDaaSApplicationId" xml:"IDaaSApplicationId"`
+	IDaaSInstanceVersion  string `json:"IDaaSInstanceVersion" xml:"IDaaSInstanceVersion"`
 }

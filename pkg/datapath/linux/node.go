@@ -648,17 +648,7 @@ type NextHop struct {
 	IsNew bool
 }
 
-func (n *linuxNodeHandler) insertNeighborCommon(ctx context.Context, nextHop NextHop, link netlink.Link, refresh bool) error {
-	if refresh {
-		if lastPing, found := n.neighLastPingByNextHop[nextHop.Name]; found &&
-			time.Since(lastPing) < option.Config.ARPPingRefreshPeriod {
-			// Last ping was issued less than option.Config.ARPPingRefreshPeriod
-			// ago, so skip it (e.g. to avoid ddos'ing the same GW if nodes are
-			// L3 connected)
-			return nil
-		}
-	}
-
+func (n *linuxNodeHandler) insertNeighborCommon(ctx context.Context, nextHop NextHop, link netlink.Link) error {
 	// Don't proceed if the refresh controller cancelled the context
 	select {
 	case <-ctx.Done():
@@ -725,7 +715,7 @@ func (n *linuxNodeHandler) insertNeighborCommon(ctx context.Context, nextHop Nex
 	return errs
 }
 
-func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) error {
+func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link) error {
 	newNodeIP := newNode.GetNodeIP(false)
 	nextHopIPv4 := make(net.IP, len(newNodeIP))
 	copy(nextHopIPv4, newNodeIP)
@@ -793,14 +783,14 @@ func (n *linuxNodeHandler) insertNeighbor4(ctx context.Context, newNode *nodeTyp
 		IsNew: nextHopIsNew,
 	}
 
-	if err := errors.Join(errs, n.insertNeighborCommon(ctx, nh, link, refresh)); err != nil {
+	if err := errors.Join(errs, n.insertNeighborCommon(ctx, nh, link)); err != nil {
 		return fmt.Errorf("insert node neighbor IPv4 for %s(%s) failed : %w", link.Attrs().Name, newNodeIP, err)
 	}
 
 	return errs
 }
 
-func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link, refresh bool) error {
+func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTypes.Node, link netlink.Link) error {
 	newNodeIP := newNode.GetNodeIP(true)
 	nextHopIPv6 := make(net.IP, len(newNodeIP))
 	copy(nextHopIPv6, newNodeIP)
@@ -869,7 +859,7 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 		IsNew: nextHopIsNew,
 	}
 
-	if err := errors.Join(errs, n.insertNeighborCommon(ctx, nh, link, refresh)); err != nil {
+	if err := errors.Join(errs, n.insertNeighborCommon(ctx, nh, link)); err != nil {
 		scopedLog.Debug("insert node neighbor IPv6 failed", logfields.Error, err)
 		return err
 	}
@@ -881,11 +871,7 @@ func (n *linuxNodeHandler) insertNeighbor6(ctx context.Context, newNode *nodeTyp
 // "newNode" (ip route get newNodeIP.GetNodeIP()). The L2 addr of the nexthop is
 // determined by the Linux kernel's neighboring subsystem. The related iface for
 // the neighbor is specified by n.neighDiscoveryLink.
-//
-// The given "refresh" param denotes whether the method is called by a controller
-// which tries to update neighbor entries previously inserted by insertNeighbor().
-// In this case the kernel refreshes the entry via NTF_USE.
-func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node, refresh bool) error {
+func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeTypes.Node) error {
 	var links []netlink.Link
 
 	n.neighLock.Lock()
@@ -912,7 +898,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 
 	if newNode.GetNodeIP(false).To4() != nil {
 		for _, l := range links {
-			errs = append(errs, n.insertNeighbor4(ctx, newNode, l, refresh))
+			errs = append(errs, n.insertNeighbor4(ctx, newNode, l))
 		}
 		if ciliumslices.AllMatch(errs, isNotRoutableErr) {
 			errV4 = fmt.Errorf("unable to determine next hop address for any neighbor discovery link: %w", errors.Join(errs...))
@@ -923,7 +909,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 
 	if newNode.GetNodeIP(true).To16() != nil {
 		for _, l := range links {
-			errs = append(errs, n.insertNeighbor6(ctx, newNode, l, refresh))
+			errs = append(errs, n.insertNeighbor6(ctx, newNode, l))
 		}
 		if ciliumslices.AllMatch(errs, isNotRoutableErr) {
 			errV6 = fmt.Errorf("unable to determine next hop address for any neighbor discovery link: %w", errors.Join(errs...))
@@ -936,7 +922,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 }
 
 func (n *linuxNodeHandler) InsertMiscNeighbor(newNode *nodeTypes.Node) {
-	n.nodeNeighborQueue.Enqueue(newNode, false)
+	n.nodeNeighborQueue.Enqueue(newNode)
 }
 
 func (n *linuxNodeHandler) deleteNeighborCommon(nextHopStr string) {
@@ -1032,7 +1018,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 
 	if n.enableNeighDiscovery && !newNode.IsLocal() {
 		// If neighbor discovery is enabled, enqueue the request so we can monitor/report call health.
-		n.nodeNeighborQueue.Enqueue(newNode, false)
+		n.nodeNeighborQueue.Enqueue(newNode)
 	}
 
 	// Local node update
@@ -1411,9 +1397,7 @@ func (n *linuxNodeHandler) NodeNeighDiscoveryEnabled() bool {
 
 // NodeNeighborRefresh is called to refresh node neighbor table.
 // This is currently triggered by controller neighbor-table-refresh
-// When refresh is set, insertNeighbor will perform a timestamp check on
-// the last ping and potentially skip the refresh to prevent ddos on the gateway.
-func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefresh nodeTypes.Node, refresh bool) error {
+func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefresh nodeTypes.Node) error {
 	n.mutex.Lock()
 	if !n.isInitialized {
 		n.mutex.Unlock()
@@ -1422,7 +1406,7 @@ func (n *linuxNodeHandler) NodeNeighborRefresh(ctx context.Context, nodeToRefres
 		return nil
 	}
 	n.mutex.Unlock()
-	return n.insertNeighbor(ctx, &nodeToRefresh, refresh)
+	return n.insertNeighbor(ctx, &nodeToRefresh)
 }
 
 func (n *linuxNodeHandler) NodeCleanNeighborsLink(l netlink.Link, migrateOnly bool) bool {

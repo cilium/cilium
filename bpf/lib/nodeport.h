@@ -1219,6 +1219,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    int l3_off,
 					    int l4_off,
 					    __u32 src_sec_identity __maybe_unused,
+					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
 	struct ct_state ct_state_svc = {};
@@ -1234,14 +1235,25 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 #if defined(ENABLE_L7_LB)
 	if (lb6_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
-		if (ctx_is_xdp())
-			return CTX_ACT_OK;
+# if !defined(IS_BPF_XDP)
+		__be16 proxy_port = (__be16)svc->l7_lb_proxy_port;
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
 				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor);
-		return ctx_redirect_to_proxy_hairpin_ipv6(ctx,
-							  (__be16)svc->l7_lb_proxy_port);
+
+#  if defined(ENABLE_TPROXY)
+		return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
+#  else
+		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
+		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
+		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
+
+		*punt_to_stack = true;
+#  endif /* ENABLE_TPROXY */
+# endif /* IS_BPF_XDP */
+
+		return CTX_ACT_OK;
 	}
 #endif
 	ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
@@ -1339,6 +1351,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					__u32 src_sec_identity,
+					bool *punt_to_stack,
 					__s8 *ext_err,
 					bool __maybe_unused *dsr)
 {
@@ -1368,7 +1381,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	svc = lb6_lookup_service(&key, false);
 	if (svc) {
 		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
-					l4_off, src_sec_identity, ext_err);
+					l4_off, src_sec_identity, punt_to_stack,
+					ext_err);
 	} else {
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
@@ -2504,6 +2518,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    bool has_l4_header,
 					    int l4_off,
 					    __u32 src_sec_identity,
+					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
 	bool is_fragment = ipv4_is_fragment(ip4);
@@ -2525,14 +2540,28 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		 * Therefore, let the bpf_host to handle the L7 ingress
 		 * request.
 		 */
-		if (ctx_is_xdp())
-			return CTX_ACT_OK;
+# if !defined(IS_BPF_XDP)
+		__be16 proxy_port = (__be16)svc->l7_lb_proxy_port;
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
-				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
+				  bpf_ntohs(proxy_port),
 				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor);
-		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4,
-							  (__be16)svc->l7_lb_proxy_port);
+
+#  if defined(ENABLE_TPROXY)
+		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
+#  else
+		/* Pass the packet straight to the proxy, without redirecting via
+		 * cilium_host.
+		 */
+		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
+		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
+		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
+
+		*punt_to_stack = true;
+#  endif /* ENABLE_TPROXY */
+# endif /* IS_BPF_XDP */
+
+		return CTX_ACT_OK;
 	}
 #endif
 	if (lb4_to_lb6_service(svc)) {
@@ -2657,6 +2686,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					struct iphdr *ip4,
 					int l3_off,
 					__u32 src_sec_identity,
+					bool *punt_to_stack,
 					__s8 *ext_err,
 					bool __maybe_unused *dsr)
 {
@@ -2688,7 +2718,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	if (svc) {
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					has_l4_header, l4_off,
-					src_sec_identity, ext_err);
+					src_sec_identity, punt_to_stack, ext_err);
 	} else {
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY

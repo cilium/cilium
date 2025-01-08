@@ -214,6 +214,21 @@ The purpose of this rule is to allow establishing base requirements such as, any
 endpoint in ``env=prod`` can only be accessed if the source endpoint also carries
 the label ``env=prod``.
 
+.. warning::
+
+   ``toRequires`` and ``fromRequires`` apply to all rules that share the same
+   endpoint selector and are not limited by other egress or ingress rules.
+   As a result ``toRequires`` and ``fromRequires`` limits all ingress and egress traffic
+   that applies to its endpoint selector. An important implication of the fact
+   that ``toRequires`` and ``fromRequires`` limit all ingress and egress traffic
+   that applies to an endpoint selector is that the other egress and ingress rules
+   (such as ``fromEndpoints``, ``fromPorts``, ``toEntities``, ``toServices``, and the rest)
+   do not limit the scope of the ``toRequires`` of ``fromRequires`` fields. Pairing other
+   ingress and egress rules with a ``toRequires`` or ``fromRequires`` will result in valid
+   policy, but the requirements set in ``toRequires`` and ``fromRequires`` stay in effect
+   no matter what would otherwise be allowed by the other rules.
+
+
 This example shows how to require every endpoint with the label ``env=prod`` to
 be only accessible if the source endpoint also has the label ``env=prod``.
 
@@ -533,8 +548,8 @@ toCIDR
   the respective destination endpoints.
 
 toCIDRSet
-  List of destination prefixes/CIDRs that are allowed to talk to all endpoints
-  selected by the ``endpointSelector``, along with an optional list of
+  List of destination prefixes/CIDRs that endpoints selected by
+  ``endpointSelector`` are allowed to talk to, along with an optional list of
   prefixes/CIDRs per source prefix/CIDR that are subnets of the destination
   prefix/CIDR to which communication is not allowed.
 
@@ -1210,10 +1225,9 @@ allowed but connections to the returned IPs are not, as there is no L3
 
 Obtaining DNS Data for use by ``toFQDNs``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-IPs are obtained via intercepting DNS requests with a proxy or DNS polling, and
-matching names are inserted irrespective of how the data is obtained. These IPs
-can be selected with ``toFQDN`` rules. DNS responses are cached within Cilium
-agent respecting TTL.
+IPs are obtained via intercepting DNS requests with a proxy. These IPs can be
+selected with ``toFQDN`` rules. DNS responses are cached within Cilium agent
+respecting TTL.
 
 .. _DNS Proxy:
 

@@ -42,7 +42,8 @@ type cecManager struct {
 	backendSyncer  *envoyServiceBackendSyncer
 	resourceParser *cecResourceParser
 
-	envoyConfigTimeout time.Duration
+	envoyConfigTimeout   time.Duration
+	maxConcurrentRetries uint32
 
 	services  resource.Resource[*slim_corev1.Service]
 	endpoints resource.Resource[*k8s.Endpoints]
@@ -57,21 +58,23 @@ func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
 	backendSyncer *envoyServiceBackendSyncer,
 	resourceParser *cecResourceParser,
 	envoyConfigTimeout time.Duration,
+	maxConcurrentRetries uint32,
 	services resource.Resource[*slim_corev1.Service],
 	endpoints resource.Resource[*k8s.Endpoints],
 	metricsManager CECMetrics,
 ) *cecManager {
 	return &cecManager{
-		logger:             logger,
-		policyUpdater:      policyUpdater,
-		serviceManager:     serviceManager,
-		xdsServer:          xdsServer,
-		backendSyncer:      backendSyncer,
-		resourceParser:     resourceParser,
-		envoyConfigTimeout: envoyConfigTimeout,
-		services:           services,
-		endpoints:          endpoints,
-		metricsManager:     metricsManager,
+		logger:               logger,
+		policyUpdater:        policyUpdater,
+		serviceManager:       serviceManager,
+		xdsServer:            xdsServer,
+		backendSyncer:        backendSyncer,
+		resourceParser:       resourceParser,
+		envoyConfigTimeout:   envoyConfigTimeout,
+		maxConcurrentRetries: maxConcurrentRetries,
+		services:             services,
+		endpoints:            endpoints,
+		metricsManager:       metricsManager,
 	}
 }
 
@@ -109,7 +112,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 		// the bpf maps are not updated with the new proxy ports either. Move from the
 		// simple boolean to an enum that can more selectively skip regeneration steps (like
 		// we do for the datapath recompilations already?)
-		r.policyUpdater.TriggerPolicyUpdates(true, "Envoy Listeners added")
+		r.policyUpdater.TriggerPolicyUpdates("Envoy Listeners added")
 	}
 
 	return err
@@ -383,7 +386,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 	}
 
 	if oldResources.ListenersAddedOrDeleted(&newResources) {
-		r.policyUpdater.TriggerPolicyUpdates(true, "Envoy Listeners added or deleted")
+		r.policyUpdater.TriggerPolicyUpdates("Envoy Listeners added or deleted")
 	}
 
 	return nil
@@ -482,7 +485,7 @@ func (r *cecManager) deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, ce
 	}
 
 	if len(resources.Listeners) > 0 {
-		r.policyUpdater.TriggerPolicyUpdates(true, "Envoy Listeners deleted")
+		r.policyUpdater.TriggerPolicyUpdates("Envoy Listeners deleted")
 	}
 
 	return nil

@@ -274,6 +274,44 @@ func (AllocationType) Values() []AllocationType {
 	}
 }
 
+type AllowedImagesSettingsDisabledState string
+
+// Enum values for AllowedImagesSettingsDisabledState
+const (
+	AllowedImagesSettingsDisabledStateDisabled AllowedImagesSettingsDisabledState = "disabled"
+)
+
+// Values returns all known values for AllowedImagesSettingsDisabledState. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (AllowedImagesSettingsDisabledState) Values() []AllowedImagesSettingsDisabledState {
+	return []AllowedImagesSettingsDisabledState{
+		"disabled",
+	}
+}
+
+type AllowedImagesSettingsEnabledState string
+
+// Enum values for AllowedImagesSettingsEnabledState
+const (
+	AllowedImagesSettingsEnabledStateEnabled   AllowedImagesSettingsEnabledState = "enabled"
+	AllowedImagesSettingsEnabledStateAuditMode AllowedImagesSettingsEnabledState = "audit-mode"
+)
+
+// Values returns all known values for AllowedImagesSettingsEnabledState. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (AllowedImagesSettingsEnabledState) Values() []AllowedImagesSettingsEnabledState {
+	return []AllowedImagesSettingsEnabledState{
+		"enabled",
+		"audit-mode",
+	}
+}
+
 type AllowsMultipleInstanceTypes string
 
 // Enum values for AllowsMultipleInstanceTypes
@@ -623,6 +661,27 @@ func (AvailabilityZoneState) Values() []AvailabilityZoneState {
 		"impaired",
 		"unavailable",
 		"constrained",
+	}
+}
+
+type BandwidthWeightingType string
+
+// Enum values for BandwidthWeightingType
+const (
+	BandwidthWeightingTypeDefault BandwidthWeightingType = "default"
+	BandwidthWeightingTypeVpc1    BandwidthWeightingType = "vpc-1"
+	BandwidthWeightingTypeEbs1    BandwidthWeightingType = "ebs-1"
+)
+
+// Values returns all known values for BandwidthWeightingType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (BandwidthWeightingType) Values() []BandwidthWeightingType {
+	return []BandwidthWeightingType{
+		"default",
+		"vpc-1",
+		"ebs-1",
 	}
 }
 
@@ -2972,6 +3031,27 @@ func (InstanceAutoRecoveryState) Values() []InstanceAutoRecoveryState {
 	}
 }
 
+type InstanceBandwidthWeighting string
+
+// Enum values for InstanceBandwidthWeighting
+const (
+	InstanceBandwidthWeightingDefault InstanceBandwidthWeighting = "default"
+	InstanceBandwidthWeightingVpc1    InstanceBandwidthWeighting = "vpc-1"
+	InstanceBandwidthWeightingEbs1    InstanceBandwidthWeighting = "ebs-1"
+)
+
+// Values returns all known values for InstanceBandwidthWeighting. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (InstanceBandwidthWeighting) Values() []InstanceBandwidthWeighting {
+	return []InstanceBandwidthWeighting{
+		"default",
+		"vpc-1",
+		"ebs-1",
+	}
+}
+
 type InstanceBootModeValues string
 
 // Enum values for InstanceBootModeValues
@@ -4127,6 +4207,24 @@ const (
 	InstanceTypeX8g48xlarge       InstanceType = "x8g.48xlarge"
 	InstanceTypeX8gMetal24xl      InstanceType = "x8g.metal-24xl"
 	InstanceTypeX8gMetal48xl      InstanceType = "x8g.metal-48xl"
+	InstanceTypeI7ieLarge         InstanceType = "i7ie.large"
+	InstanceTypeI7ieXlarge        InstanceType = "i7ie.xlarge"
+	InstanceTypeI7ie2xlarge       InstanceType = "i7ie.2xlarge"
+	InstanceTypeI7ie3xlarge       InstanceType = "i7ie.3xlarge"
+	InstanceTypeI7ie6xlarge       InstanceType = "i7ie.6xlarge"
+	InstanceTypeI7ie12xlarge      InstanceType = "i7ie.12xlarge"
+	InstanceTypeI7ie18xlarge      InstanceType = "i7ie.18xlarge"
+	InstanceTypeI7ie24xlarge      InstanceType = "i7ie.24xlarge"
+	InstanceTypeI7ie48xlarge      InstanceType = "i7ie.48xlarge"
+	InstanceTypeI8gLarge          InstanceType = "i8g.large"
+	InstanceTypeI8gXlarge         InstanceType = "i8g.xlarge"
+	InstanceTypeI8g2xlarge        InstanceType = "i8g.2xlarge"
+	InstanceTypeI8g4xlarge        InstanceType = "i8g.4xlarge"
+	InstanceTypeI8g8xlarge        InstanceType = "i8g.8xlarge"
+	InstanceTypeI8g12xlarge       InstanceType = "i8g.12xlarge"
+	InstanceTypeI8g16xlarge       InstanceType = "i8g.16xlarge"
+	InstanceTypeI8g24xlarge       InstanceType = "i8g.24xlarge"
+	InstanceTypeI8gMetal24xl      InstanceType = "i8g.metal-24xl"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4999,6 +5097,24 @@ func (InstanceType) Values() []InstanceType {
 		"x8g.48xlarge",
 		"x8g.metal-24xl",
 		"x8g.metal-48xl",
+		"i7ie.large",
+		"i7ie.xlarge",
+		"i7ie.2xlarge",
+		"i7ie.3xlarge",
+		"i7ie.6xlarge",
+		"i7ie.12xlarge",
+		"i7ie.18xlarge",
+		"i7ie.24xlarge",
+		"i7ie.48xlarge",
+		"i8g.large",
+		"i8g.xlarge",
+		"i8g.2xlarge",
+		"i8g.4xlarge",
+		"i8g.8xlarge",
+		"i8g.12xlarge",
+		"i8g.16xlarge",
+		"i8g.24xlarge",
+		"i8g.metal-24xl",
 	}
 }
 
@@ -6267,6 +6383,25 @@ func (LogDestinationType) Values() []LogDestinationType {
 	}
 }
 
+type ManagedBy string
+
+// Enum values for ManagedBy
+const (
+	ManagedByAccount           ManagedBy = "account"
+	ManagedByDeclarativePolicy ManagedBy = "declarative-policy"
+)
+
+// Values returns all known values for ManagedBy. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ManagedBy) Values() []ManagedBy {
+	return []ManagedBy{
+		"account",
+		"declarative-policy",
+	}
+}
+
 type MarketType string
 
 // Enum values for MarketType
@@ -7171,6 +7306,29 @@ func (ReportInstanceReasonCodes) Values() []ReportInstanceReasonCodes {
 	}
 }
 
+type ReportState string
+
+// Enum values for ReportState
+const (
+	ReportStateRunning   ReportState = "running"
+	ReportStateCancelled ReportState = "cancelled"
+	ReportStateComplete  ReportState = "complete"
+	ReportStateError     ReportState = "error"
+)
+
+// Values returns all known values for ReportState. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ReportState) Values() []ReportState {
+	return []ReportState{
+		"running",
+		"cancelled",
+		"complete",
+		"error",
+	}
+}
+
 type ReportStatusType string
 
 // Enum values for ReportStatusType
@@ -7283,6 +7441,7 @@ const (
 	ResourceTypeCustomerGateway                                        ResourceType = "customer-gateway"
 	ResourceTypeCarrierGateway                                         ResourceType = "carrier-gateway"
 	ResourceTypeCoipPool                                               ResourceType = "coip-pool"
+	ResourceTypeDeclarativePoliciesReport                              ResourceType = "declarative-policies-report"
 	ResourceTypeDedicatedHost                                          ResourceType = "dedicated-host"
 	ResourceTypeDhcpOptions                                            ResourceType = "dhcp-options"
 	ResourceTypeEgressOnlyInternetGateway                              ResourceType = "egress-only-internet-gateway"
@@ -7364,6 +7523,7 @@ const (
 	ResourceTypeIpamResourceDiscovery                                  ResourceType = "ipam-resource-discovery"
 	ResourceTypeIpamResourceDiscoveryAssociation                       ResourceType = "ipam-resource-discovery-association"
 	ResourceTypeInstanceConnectEndpoint                                ResourceType = "instance-connect-endpoint"
+	ResourceTypeVerifiedAccessEndpointTarget                           ResourceType = "verified-access-endpoint-target"
 	ResourceTypeIpamExternalResourceVerificationToken                  ResourceType = "ipam-external-resource-verification-token"
 )
 
@@ -7378,6 +7538,7 @@ func (ResourceType) Values() []ResourceType {
 		"customer-gateway",
 		"carrier-gateway",
 		"coip-pool",
+		"declarative-policies-report",
 		"dedicated-host",
 		"dhcp-options",
 		"egress-only-internet-gateway",
@@ -7459,6 +7620,7 @@ func (ResourceType) Values() []ResourceType {
 		"ipam-resource-discovery",
 		"ipam-resource-discovery-association",
 		"instance-connect-endpoint",
+		"verified-access-endpoint-target",
 		"ipam-external-resource-verification-token",
 	}
 }
@@ -7801,6 +7963,25 @@ func (SnapshotBlockPublicAccessState) Values() []SnapshotBlockPublicAccessState 
 	}
 }
 
+type SnapshotLocationEnum string
+
+// Enum values for SnapshotLocationEnum
+const (
+	SnapshotLocationEnumRegional SnapshotLocationEnum = "regional"
+	SnapshotLocationEnumLocal    SnapshotLocationEnum = "local"
+)
+
+// Values returns all known values for SnapshotLocationEnum. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (SnapshotLocationEnum) Values() []SnapshotLocationEnum {
+	return []SnapshotLocationEnum{
+		"regional",
+		"local",
+	}
+}
+
 type SnapshotState string
 
 // Enum values for SnapshotState
@@ -7971,6 +8152,7 @@ const (
 	StateRejected          State = "Rejected"
 	StateFailed            State = "Failed"
 	StateExpired           State = "Expired"
+	StatePartial           State = "Partial"
 )
 
 // Values returns all known values for State. Note that this can be expanded in
@@ -7987,6 +8169,7 @@ func (State) Values() []State {
 		"Rejected",
 		"Failed",
 		"Expired",
+		"Partial",
 	}
 }
 
@@ -9097,6 +9280,7 @@ type VerifiedAccessEndpointProtocol string
 const (
 	VerifiedAccessEndpointProtocolHttp  VerifiedAccessEndpointProtocol = "http"
 	VerifiedAccessEndpointProtocolHttps VerifiedAccessEndpointProtocol = "https"
+	VerifiedAccessEndpointProtocolTcp   VerifiedAccessEndpointProtocol = "tcp"
 )
 
 // Values returns all known values for VerifiedAccessEndpointProtocol. Note that
@@ -9108,6 +9292,7 @@ func (VerifiedAccessEndpointProtocol) Values() []VerifiedAccessEndpointProtocol 
 	return []VerifiedAccessEndpointProtocol{
 		"http",
 		"https",
+		"tcp",
 	}
 }
 
@@ -9143,6 +9328,8 @@ type VerifiedAccessEndpointType string
 const (
 	VerifiedAccessEndpointTypeLoadBalancer     VerifiedAccessEndpointType = "load-balancer"
 	VerifiedAccessEndpointTypeNetworkInterface VerifiedAccessEndpointType = "network-interface"
+	VerifiedAccessEndpointTypeRds              VerifiedAccessEndpointType = "rds"
+	VerifiedAccessEndpointTypeCidr             VerifiedAccessEndpointType = "cidr"
 )
 
 // Values returns all known values for VerifiedAccessEndpointType. Note that this
@@ -9153,6 +9340,8 @@ func (VerifiedAccessEndpointType) Values() []VerifiedAccessEndpointType {
 	return []VerifiedAccessEndpointType{
 		"load-balancer",
 		"network-interface",
+		"rds",
+		"cidr",
 	}
 }
 
@@ -9379,6 +9568,26 @@ func (VpcAttributeName) Values() []VpcAttributeName {
 	}
 }
 
+type VpcBlockPublicAccessExclusionsAllowed string
+
+// Enum values for VpcBlockPublicAccessExclusionsAllowed
+const (
+	VpcBlockPublicAccessExclusionsAllowedAllowed    VpcBlockPublicAccessExclusionsAllowed = "allowed"
+	VpcBlockPublicAccessExclusionsAllowedNotAllowed VpcBlockPublicAccessExclusionsAllowed = "not-allowed"
+)
+
+// Values returns all known values for VpcBlockPublicAccessExclusionsAllowed. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (VpcBlockPublicAccessExclusionsAllowed) Values() []VpcBlockPublicAccessExclusionsAllowed {
+	return []VpcBlockPublicAccessExclusionsAllowed{
+		"allowed",
+		"not-allowed",
+	}
+}
+
 type VpcBlockPublicAccessExclusionState string
 
 // Enum values for VpcBlockPublicAccessExclusionState
@@ -9470,6 +9679,8 @@ const (
 	VpcEndpointTypeInterface           VpcEndpointType = "Interface"
 	VpcEndpointTypeGateway             VpcEndpointType = "Gateway"
 	VpcEndpointTypeGatewayLoadBalancer VpcEndpointType = "GatewayLoadBalancer"
+	VpcEndpointTypeResource            VpcEndpointType = "Resource"
+	VpcEndpointTypeServiceNetwork      VpcEndpointType = "ServiceNetwork"
 )
 
 // Values returns all known values for VpcEndpointType. Note that this can be
@@ -9481,6 +9692,8 @@ func (VpcEndpointType) Values() []VpcEndpointType {
 		"Interface",
 		"Gateway",
 		"GatewayLoadBalancer",
+		"Resource",
+		"ServiceNetwork",
 	}
 }
 

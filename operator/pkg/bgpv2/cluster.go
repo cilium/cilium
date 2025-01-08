@@ -27,6 +27,7 @@ func (b *BGPResourceManager) reconcileBGPClusterConfigs(ctx context.Context) err
 	for _, config := range b.clusterConfigStore.List() {
 		rcErr := b.reconcileBGPClusterConfig(ctx, config)
 		if rcErr != nil {
+			b.metrics.BGPClusterConfigErrorCount.WithLabelValues(config.Name).Inc()
 			err = errors.Join(err, rcErr)
 		}
 	}
@@ -300,6 +301,9 @@ func toNodeBGPInstance(clusterBGPInstances []v2alpha1.CiliumBGPInstance, overrid
 			if overrideBGPInstance.Name == clusterBGPInstance.Name {
 				nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
 				nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
+				if overrideBGPInstance.LocalASN != nil {
+					nodeBGPInstance.LocalASN = overrideBGPInstance.LocalASN
+				}
 				override = overrideBGPInstance
 				break
 			}

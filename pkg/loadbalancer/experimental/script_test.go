@@ -4,11 +4,8 @@
 package experimental
 
 import (
-	"bufio"
 	"context"
 	"maps"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -29,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestScript(t *testing.T) {
@@ -42,12 +40,12 @@ func TestScript(t *testing.T) {
 	// pkg/k8s/endpoints.go uses this in ParseEndpointSlice*
 	option.Config.EnableK8sTerminatingEndpoint = true
 
-	maglevTableSize := 1021
-	require.NoError(t, maglev.Init(maglev.DefaultHashSeed, uint64(maglevTableSize)), "maglev.Init")
-
 	log := hivetest.Logger(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
 	scripttest.Test(t,
-		context.Background(),
+		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			h := hive.New(
 				client.FakeClientCell,
@@ -57,6 +55,7 @@ func TestScript(t *testing.T) {
 					// By default 10% of the time the LBMap operations fail
 					TestFaultProbability: 0.1,
 				}),
+				maglev.Cell,
 				cell.Provide(
 					func(cfg TestConfig) *TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
@@ -69,7 +68,6 @@ func TestScript(t *testing.T) {
 							SockRevNatEntries:            1000,
 							LBMapEntries:                 1000,
 							NodePortAlg:                  cfg.NodePortAlg,
-							MaglevTableSize:              maglevTableSize,
 							EnableK8sTerminatingEndpoint: true,
 						}
 					},
@@ -84,13 +82,10 @@ func TestScript(t *testing.T) {
 			flags.Set("enable-experimental-lb", "true")
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
+			flags.Set("bpf-lb-maglev-table-size", "1021")
 
-			// Parse and process the "#! --flag=true" magic line.
-			_, scriptFile, _ := strings.Cut(t.Name(), "/")
-			if args := parseArgsLine("testdata/" + scriptFile); len(args) > 0 {
-				require.NoError(t, flags.Parse(args), "flags.Parse")
-				t.Logf("Parsed arguments: %v", args)
-			}
+			// Parse the shebang arguments in the script.
+			require.NoError(t, flags.Parse(args), "flags.Parse")
 
 			t.Cleanup(func() {
 				assert.NoError(t, h.Stop(log, context.TODO()))
@@ -103,17 +98,4 @@ func TestScript(t *testing.T) {
 				Cmds: cmds,
 			}
 		}, []string{}, "testdata/*.txtar")
-}
-
-func parseArgsLine(file string) []string {
-	f, err := os.Open(file)
-	if err != nil {
-		panic(err)
-	}
-	b, _, _ := bufio.NewReader(f).ReadLine()
-	if strings.HasPrefix(string(b), "#! ") {
-		line := string(b[3:])
-		return strings.Split(line, " ")
-	}
-	return nil
 }

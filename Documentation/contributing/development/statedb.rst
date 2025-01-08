@@ -169,7 +169,7 @@ The ``show`` command prints out the table using the *TableRow* and *TableHeader*
 
 .. code-block:: shell-session
 
-    root@kind-worker:/home/cilium# cilium-dbg shell -- db show mtu
+    root@kind-worker:/home/cilium# cilium-dbg shell -- db/show mtu
     Prefix      DeviceMTU   RouteMTU   RoutePostEncryptMTU
     ::/0        1500        1450       1450
     0.0.0.0/0   1500        1450       1450
@@ -204,13 +204,13 @@ The shell session can also be run interactively:
         Inspect and manipulate StateDB
         ...
     
-    cilium> db show mtu
+    cilium> db/show mtu
     [stdout]
     Prefix      DeviceMTU   RouteMTU   RoutePostEncryptMTU
     ::/0        1500        1450       1450
     0.0.0.0/0   1500        1450       1450
 
-    cilium> db show -o=/tmp/devices.json -format=json devices
+    cilium> db/show -o=/tmp/devices.json -format=json devices
     ...
 
 Kubernetes reflection

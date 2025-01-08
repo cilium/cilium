@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -73,6 +74,13 @@ type remoteCluster struct {
 	synced synced
 
 	log logrus.FieldLogger
+
+	// featureMetrics will track which features are enabled with in clustermesh.
+	featureMetrics ClusterMeshMetrics
+
+	// featureMetricMaxClusters contains the max clusters defined for this
+	// clustermesh config.
+	featureMetricMaxClusters string
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config cmtypes.CiliumClusterConfig, ready chan<- error) {
@@ -87,6 +95,10 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		close(ready)
 		return
 	}
+
+	rc.featureMetrics.AddClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode), rc.featureMetricMaxClusters)
+
+	defer rc.featureMetrics.DelClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode), rc.featureMetricMaxClusters)
 
 	remoteIdentityCache, err := rc.remoteIdentityWatcher.WatchRemoteIdentities(rc.name, rc.clusterID, backend, config.Capabilities.Cached)
 	if err != nil {
@@ -124,7 +136,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	})
 
 	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
-		rc.remoteIdentityCache.Watch(ctx, func(context.Context) { rc.synced.identities.Done() })
+		rc.remoteIdentityCache.Watch(ctx, func(context.Context) { rc.synced.identitiesDone() })
 	})
 
 	close(ready)
@@ -224,10 +236,11 @@ func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig)
 
 type synced struct {
 	wait.SyncedCommon
-	services   *lock.StoppableWaitGroup
-	nodes      chan struct{}
-	ipcache    chan struct{}
-	identities *lock.StoppableWaitGroup
+	services       *lock.StoppableWaitGroup
+	nodes          chan struct{}
+	ipcache        chan struct{}
+	identities     *lock.StoppableWaitGroup
+	identitiesDone lock.DoneFunc
 }
 
 func newSynced() synced {
@@ -236,15 +249,16 @@ func newSynced() synced {
 	// synced (as the callback is executed every time the etcd connection
 	// is restarted, differently from the other resource types).
 	idswg := lock.NewStoppableWaitGroup()
-	idswg.Add()
+	done := idswg.Add()
 	idswg.Stop()
 
 	return synced{
-		SyncedCommon: wait.NewSyncedCommon(),
-		services:     lock.NewStoppableWaitGroup(),
-		nodes:        make(chan struct{}),
-		ipcache:      make(chan struct{}),
-		identities:   idswg,
+		SyncedCommon:   wait.NewSyncedCommon(),
+		services:       lock.NewStoppableWaitGroup(),
+		nodes:          make(chan struct{}),
+		ipcache:        make(chan struct{}),
+		identities:     idswg,
+		identitiesDone: done,
 	}
 }
 
@@ -270,4 +284,30 @@ func (s *synced) Services(ctx context.Context) error {
 // (i.e., node addresses, health, ingress, ...).
 func (s *synced) IPIdentities(ctx context.Context) error {
 	return s.Wait(ctx, s.ipcache, s.identities.WaitChannel(), s.nodes)
+}
+
+type ClusterMeshMetrics interface {
+	AddClusterMeshConfig(mode string, maxClusters string)
+	DelClusterMeshConfig(mode string, maxClusters string)
+}
+
+const (
+	ClusterMeshModeClusterMeshAPIServer       = "clustermesh-apiserver"
+	ClusterMeshModeETCD                       = "etcd"
+	ClusterMeshModeKVStoreMesh                = "kvstoremesh"
+	ClusterMeshModeClusterMeshAPIServerOrETCD = ClusterMeshModeClusterMeshAPIServer + "_or_" + ClusterMeshModeETCD
+)
+
+// ClusterMeshMode returns the mode of the local cluster.
+func ClusterMeshMode(rcc cmtypes.CiliumClusterConfig, identityMode string) string {
+	switch {
+	case rcc.Capabilities.Cached:
+		return ClusterMeshModeKVStoreMesh
+	case identityMode == option.IdentityAllocationModeCRD:
+		return ClusterMeshModeClusterMeshAPIServer
+	case identityMode == option.IdentityAllocationModeKVstore:
+		return ClusterMeshModeETCD
+	default:
+		return ClusterMeshModeClusterMeshAPIServerOrETCD
+	}
 }

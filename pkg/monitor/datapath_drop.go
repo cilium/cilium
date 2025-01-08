@@ -15,8 +15,18 @@ import (
 )
 
 const (
-	// DropNotifyLen is the amount of packet data provided in a drop notification
-	DropNotifyLen = 36
+	DropNotifyVersion0 = 0
+	DropNotifyVersion1 = 1
+
+	// DropNotifyV1Len is the amount of packet data provided in a v1 drop notification.
+	DropNotifyV1Len = 36
+)
+
+var (
+	dropNotifyLengthFromVersion = map[uint16]uint{
+		DropNotifyVersion0: DropNotifyV1Len, // retain backwards compatibility for testing.
+		DropNotifyVersion1: DropNotifyV1Len,
+	}
 )
 
 // DropNotify is the message format of a drop notification in the BPF ring buffer
@@ -26,7 +36,8 @@ type DropNotify struct {
 	Source   uint16
 	Hash     uint32
 	OrigLen  uint32
-	CapLen   uint32
+	CapLen   uint16
+	Version  uint16
 	SrcLabel identity.NumericIdentity
 	DstLabel identity.NumericIdentity
 	DstID    uint32
@@ -53,8 +64,8 @@ func DecodeDropNotify(data []byte, dn *DropNotify) error {
 }
 
 func (n *DropNotify) decodeDropNotify(data []byte) error {
-	if l := len(data); l < DropNotifyLen {
-		return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", DropNotifyLen, l)
+	if l := len(data); l < DropNotifyV1Len {
+		return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", DropNotifyV1Len, l)
 	}
 
 	n.Type = data[0]
@@ -62,7 +73,8 @@ func (n *DropNotify) decodeDropNotify(data []byte) error {
 	n.Source = byteorder.Native.Uint16(data[2:4])
 	n.Hash = byteorder.Native.Uint32(data[4:8])
 	n.OrigLen = byteorder.Native.Uint32(data[8:12])
-	n.CapLen = byteorder.Native.Uint32(data[12:16])
+	n.CapLen = byteorder.Native.Uint16(data[12:14])
+	n.Version = byteorder.Native.Uint16(data[14:16])
 	n.SrcLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
 	n.DstLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[20:24]))
 	n.DstID = byteorder.Native.Uint32(data[24:28])
@@ -74,13 +86,21 @@ func (n *DropNotify) decodeDropNotify(data []byte) error {
 	return nil
 }
 
+// DataOffset returns the offset from the beginning of DropNotify where the
+// notification data begins.
+//
+// Returns zero for invalid or unknown DropNotify messages.
+func (n *DropNotify) DataOffset() uint {
+	return dropNotifyLengthFromVersion[n.Version]
+}
+
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	buf := bufio.NewWriter(os.Stdout)
 	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s:%d, ",
 		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, api.BPFFileName(n.File), int(n.Line))
 	n.dumpIdentity(buf, numeric)
-	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[DropNotifyLen:]))
+	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():]))
 	buf.Flush()
 }
 
@@ -100,8 +120,8 @@ func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string, numer
 		fmt.Fprintf(buf, "\n")
 	}
 
-	if n.CapLen > 0 && len(data) > DropNotifyLen {
-		Dissect(dissect, data[DropNotifyLen:])
+	if offset := int(n.DataOffset()); n.CapLen > 0 && len(data) > offset {
+		Dissect(dissect, data[offset:])
 	}
 	buf.Flush()
 }
@@ -110,8 +130,8 @@ func (n *DropNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
 
 	v := DropNotifyToVerbose(n)
 	v.CPUPrefix = cpuPrefix
-	if n.CapLen > 0 && len(data) > DropNotifyLen {
-		v.Summary = GetDissectSummary(data[DropNotifyLen:])
+	if offset := int(n.DataOffset()); n.CapLen > 0 && len(data) > offset {
+		v.Summary = GetDissectSummary(data[offset:])
 	}
 
 	ret, err := json.Marshal(v)

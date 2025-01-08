@@ -240,6 +240,7 @@ type RunInstancesNetworkInterface struct {
 	NetworkInterfaceId          string    `name:"NetworkInterfaceId"`
 	RxQueueSize                 string    `name:"RxQueueSize"`
 	TxQueueSize                 string    `name:"TxQueueSize"`
+	SourceDestCheck             string    `name:"SourceDestCheck"`
 }
 
 // RunInstancesDataDisk is a repeated param struct in RunInstancesRequest

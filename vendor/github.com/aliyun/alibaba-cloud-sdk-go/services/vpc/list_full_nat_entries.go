@@ -76,6 +76,7 @@ type ListFullNatEntriesRequest struct {
 	NetworkInterfaceIds  *[]string        `position:"Query" name:"NetworkInterfaceIds"  type:"Repeated"`
 	FullNatEntryStatus   string           `position:"Query" name:"FullNatEntryStatus"`
 	FullNatEntryId       string           `position:"Query" name:"FullNatEntryId"`
+	NatIpPort            string           `position:"Query" name:"NatIpPort"`
 	FullNatTableId       string           `position:"Query" name:"FullNatTableId"`
 	NextToken            string           `position:"Query" name:"NextToken"`
 	FullNatEntryNames    *[]string        `position:"Query" name:"FullNatEntryNames"  type:"Repeated"`
@@ -84,6 +85,7 @@ type ListFullNatEntriesRequest struct {
 	IpProtocol           string           `position:"Query" name:"IpProtocol"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	NatIp                string           `position:"Query" name:"NatIp"`
 	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
 }
 

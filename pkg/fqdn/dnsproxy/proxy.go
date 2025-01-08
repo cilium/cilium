@@ -1070,7 +1070,11 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
-	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, true, &stat)
+	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, request, protocol, true, &stat); err != nil {
+		scopedLog.WithError(err).Error("Failed to process DNS query")
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
 
 	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
 	// requests that were too large for UDP.
@@ -1148,7 +1152,11 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.Success = true
 
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
-	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, response, protocol, true, &stat)
+	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddrStr, response, protocol, true, &stat); err != nil {
+		scopedLog.WithField(logfields.Response, response).WithError(err).Error("Failed to process DNS response")
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
 
 	scopedLog.Debug("Responding to original DNS query")
 	// Ensure the ID matches the initial request - the upstream query may have changed the ID to avoid duplicates.
@@ -1248,13 +1256,20 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []netip.Addr, TT
 		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
 		switch ans := ans.(type) {
 		case *dns.A:
-			// Parsing of the DNS message does the IP validation for us.
-			responseIPs = append(responseIPs, netipx.MustFromStdIP(ans.A))
+			ip, ok := netipx.FromStdIP(ans.A)
+			if !ok {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in A record")
+			}
+			responseIPs = append(responseIPs, ip)
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 		case *dns.AAAA:
-			responseIPs = append(responseIPs, netipx.MustFromStdIP(ans.AAAA))
+			ip, ok := netipx.FromStdIP(ans.AAAA)
+			if !ok {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in AAAA record")
+			}
+			responseIPs = append(responseIPs, ip)
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}

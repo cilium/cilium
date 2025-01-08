@@ -19,7 +19,7 @@ import (
 // for further processing.
 type NodeNeighborEnqueuer interface {
 	// Enqueue enqueues a node for processing node neighbors updates.
-	Enqueue(*nodeTypes.Node, bool)
+	Enqueue(*nodeTypes.Node)
 }
 
 // DeviceConfiguration is an interface for injecting configuration of datapath

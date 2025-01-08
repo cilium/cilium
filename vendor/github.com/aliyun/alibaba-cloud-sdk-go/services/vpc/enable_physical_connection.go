@@ -76,6 +76,7 @@ type EnablePhysicalConnectionRequest struct {
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	ByPassSp             requests.Boolean `position:"Query" name:"ByPassSp"`
 	PhysicalConnectionId string           `position:"Query" name:"PhysicalConnectionId"`
 }
 

@@ -22,6 +22,7 @@ const (
 	HostFirewall       Feature = "host-firewall"
 	ICMPPolicy         Feature = "icmp-policy"
 	PortRanges         Feature = "port-ranges"
+	L7PortRanges       Feature = "l7-port-ranges"
 	Tunnel             Feature = "tunnel"
 	EndpointRoutes     Feature = "endpoint-routes"
 
@@ -142,6 +143,9 @@ func (fs Set) MatchRequirements(reqs ...Requirement) (bool, string) {
 		if req.requiresMode && (req.mode != status.Mode) {
 			return false, fmt.Sprintf("requires Feature %s mode %s, got %s", req.Feature, req.mode, status.Mode)
 		}
+		if req.requireModeIsNot && (req.mode == status.Mode) {
+			return false, fmt.Sprintf("requires Feature %s mode %s to not equal %s, req.Feature", req.Feature, status.Mode, req.mode)
+		}
 	}
 
 	return true, ""
@@ -183,8 +187,9 @@ type Requirement struct {
 	requiresEnabled bool
 	enabled         bool
 
-	requiresMode bool
-	mode         string
+	requiresMode     bool
+	requireModeIsNot bool
+	mode             string
 }
 
 // RequireEnabled constructs a Requirement which expects the
@@ -217,15 +222,37 @@ func RequireMode(feature Feature, mode string) Requirement {
 	}
 }
 
+// RequiredModeIsNot constructs a Requirement which expects the Feature to not
+// be in the given mode
+//
+// When evaluating a set of requirements with MatchRequirements,
+// having a RequireMode requirement of the same feature and mode will cause
+// conflicting results.
+func RequireModeIsNot(feature Feature, mode string) Requirement {
+	return Requirement{
+		Feature:          feature,
+		requireModeIsNot: true,
+		mode:             mode,
+	}
+}
+
 // ExtractFromVersionedConfigMap extracts features based on Cilium version and cilium-config
 // ConfigMap.
 func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
 	fs[Tunnel] = ExtractTunnelFeatureFromVersionedConfigMap(ciliumVersion, cm)
 	fs[PortRanges] = ExtractPortRanges(ciliumVersion)
+	fs[L7PortRanges] = ExtractL7PortRanges(ciliumVersion)
 }
 
 func ExtractPortRanges(ciliumVersion semver.Version) Status {
 	enabled := versioncheck.MustCompile(">=1.16.0")(ciliumVersion)
+	return Status{
+		Enabled: enabled,
+	}
+}
+
+func ExtractL7PortRanges(ciliumVersion semver.Version) Status {
+	enabled := versioncheck.MustCompile(">=1.17.0")(ciliumVersion)
 	return Status{
 		Enabled: enabled,
 	}

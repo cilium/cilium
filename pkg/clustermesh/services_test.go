@@ -132,6 +132,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          store,
+		FeatureMetrics:        NewClusterMeshMetricsNoop(),
 		Logger:                logrus.New(),
 	})
 	require.NotNil(tb, s.mesh)
@@ -154,7 +155,7 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(t *testing.T, action k8s.Cach
 		case <-time.After(defaults.NodeDeleteDelay + timeout):
 			c.Errorf("Timeout while waiting for event to be received")
 		}
-		defer event.SWG.Done()
+		defer event.SWGDone()
 
 		require.Equal(t, action, event.Action)
 		require.Equal(t, id, event.ID)
@@ -310,7 +311,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 
 	require.NoError(t, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2"))
 	s.expectEvent(t, k8s.DeleteService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
-		assert.Empty(c, event.Endpoints.Backends)
+		assert.Contains(c, event.OldEndpoints.Backends, cmtypes.MustParseAddrCluster("90.0.185.196"))
 	})
 
 	swgSvcs.Stop()

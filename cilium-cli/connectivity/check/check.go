@@ -74,6 +74,7 @@ type Parameters struct {
 	DeploymentAnnotations  annotationsMap
 	NamespaceAnnotations   annotations
 	ExternalTarget         string
+	ExternalOtherTarget    string
 	ExternalCIDR           string
 	ExternalIP             string
 	ExternalDeploymentPort int
@@ -114,6 +115,7 @@ type Parameters struct {
 	ConnectTimeout time.Duration
 	RequestTimeout time.Duration
 	CurlInsecure   bool
+	CurlParallel   uint
 
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options

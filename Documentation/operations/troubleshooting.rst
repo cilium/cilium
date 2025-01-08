@@ -543,7 +543,7 @@ Policymap pressure and overflow
 The most important step in debugging policymap pressure is finding out which
 node(s) are impacted.
 
-The ``cilium_bpf_map_pressure{map_name="cilium_policy_*"}`` metric monitors the
+The ``cilium_bpf_map_pressure{map_name="cilium_policy_v2_*"}`` metric monitors the
 endpoint's BPF policymap pressure. This metric exposes the maximum BPF map
 pressure on the node, meaning the policymap experiencing the most pressure on a
 particular node.

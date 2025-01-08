@@ -97,6 +97,7 @@ type CreateNatGatewayRequest struct {
 	PrivateLinkEnabled        requests.Boolean                    `position:"Query" name:"PrivateLinkEnabled"`
 	EipBindMode               string                              `position:"Query" name:"EipBindMode"`
 	PricingCycle              string                              `position:"Query" name:"PricingCycle"`
+	AccessMode                CreateNatGatewayAccessMode          `position:"Query" name:"AccessMode"  type:"Struct"`
 }
 
 // CreateNatGatewayTag is a repeated param struct in CreateNatGatewayRequest
@@ -112,6 +113,12 @@ type CreateNatGatewayBandwidthPackage struct {
 	InternetChargeType string `name:"InternetChargeType"`
 	ISP                string `name:"ISP"`
 	IpCount            string `name:"IpCount"`
+}
+
+// CreateNatGatewayAccessMode is a repeated param struct in CreateNatGatewayRequest
+type CreateNatGatewayAccessMode struct {
+	ModeValue  string `name:"ModeValue"`
+	TunnelType string `name:"TunnelType"`
 }
 
 // CreateNatGatewayResponse is the response struct for api CreateNatGateway

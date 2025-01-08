@@ -233,8 +233,12 @@ build-clustermesh-apiserver: ## Build cilium clustermesh-apiserver binary
 build-hubble-cli: ## Build hubble cli binary
 	$(QUIET)$(MAKE) -C hubble GOOS=linux
 
+.PHONY: build-bugtool
+build-bugtool: ## Build bugtool binary
+	$(QUIET)$(MAKE) -C bugtool GOOS=linux
+
 .PHONY: kind-image-fast-agent
-kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli ## Build cilium cli, daemon binaries, and hubble cli. Copy the bins and bpf files to kind nodes.
+kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli build-bugtool ## Build cilium cli, daemon binaries, and hubble cli. Copy the bins and bpf files to kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
@@ -256,6 +260,10 @@ kind-image-fast-agent: kind-ready build-cli build-agent build-hubble-cli ## Buil
 			docker exec $${node_name} rm -f "${dst}/hubble"; \
 			docker cp "./hubble/hubble" $${node_name}:"${dst}"; \
 			docker exec $${node_name} chmod +x "${dst}/hubble"; \
+			\
+			docker exec $${node_name} rm -f "${dst}/cilium-bugtool"; \
+			docker cp "./bugtool/cilium-bugtool" $${node_name}:"${dst}"; \
+			docker exec $${node_name} chmod +x "${dst}/cilium-bugtool"; \
 		done; \
 		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
 	done

@@ -4,39 +4,47 @@
 hive start
 
 # Wait for tables to initialize (e.g. reflector to start) before adding more objects.
-db initialized
+db/initialized
 
 k8s add service.yaml endpointslice.yaml
-db cmp services services.table
-db cmp frontends frontends.table
-db cmp backends backends.table 
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table 
 
-lb-maps cmp lbmaps.dump
+# Check that BPF maps are reconciled
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
 
 # Run prune. Nothing should change.
-lb-prune
+lb/prune
 sleep 0.1s
-lb-maps cmp lbmaps.dump
+lb/maps-dump lbmaps.actual
+cmp lbmaps.expected lbmaps.actual
 
 # Snapshot the contents of the maps so we have something to prune.
-lb-maps snapshot
+lb/maps-snapshot
 
 # Cleanup
 k8s delete service.yaml endpointslice.yaml 
-db cmp services services_empty.table
-db cmp frontends frontends_empty.table
-db cmp backends backends_empty.table
+db/cmp services services_empty.table
+db/cmp frontends frontends_empty.table
+db/cmp backends backends_empty.table
 
 # Maps should be empty now.
-lb-maps cmp lbmaps-empty.dump
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-empty.expected lbmaps.actual
 
 # Restore the contents from the earlier snapshot.
-lb-maps restore
-lb-maps cmp lbmaps.dump
+lb/maps-restore
+lb/maps-dump lbmaps.actual
+cmp lbmaps.expected lbmaps.actual
 
 # Force pruning. This should clean up everything.
-lb-prune
-lb-maps cmp lbmaps-empty.dump
+lb/prune
+
+# Check that everything gets cleaned up
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-empty.expected lbmaps.actual
 
 #####
 
@@ -117,10 +125,10 @@ ports:
   port: 80
   protocol: TCP
 
--- lbmaps.dump --
+-- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80 STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
 SVC: ID=1 ADDR=10.96.50.104:80 SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=10.96.50.104:80 SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
--- lbmaps-empty.dump --
+-- lbmaps-empty.expected --
 

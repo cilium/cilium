@@ -536,10 +536,10 @@ data:
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
 {{- end }}
 {{- if .Values.eni.subnetTagsFilter }}
-  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter |  join " " | quote }}
+  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter |  join "," | quote }}
 {{- end }}
 {{- if .Values.eni.instanceTagsFilter }}
-  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join " " | quote }}
+  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join "," | quote }}
 {{- end }}
 {{- end }}
 {{ if .Values.eni.gcInterval }}
@@ -738,8 +738,6 @@ data:
 {{- end }}
 {{- if hasKey $socketLB "terminatePodConnections" }}
   bpf-lb-sock-terminate-pod-connections: {{ $socketLB.terminatePodConnections | quote }}
-{{- else if hasKey $socketLB "enabled" }}
-  bpf-lb-sock-terminate-pod-connections: {{ $socketLB.enabled | quote }}
 {{- end }}
 {{- if hasKey $socketLB "tracing" }}
   trace-sock: {{ $socketLB.tracing | quote }}
@@ -747,12 +745,12 @@ data:
 {{- end }}
 
 {{- if hasKey .Values "hostPort" }}
-{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
+{{- if eq $kubeProxyReplacement "partial" }}
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "externalIPs" }}
-{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
+{{- if eq $kubeProxyReplacement "partial" }}
   enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
 {{- end }}
 {{- end }}
@@ -861,6 +859,7 @@ data:
 {{- if hasKey .Values.k8sNetworkPolicy "enabled" }}
   enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
 {{- end }}
+  enable-endpoint-lockdown-on-policy-overflow: {{ .Values.endpointLockdownOnMapOverflow | quote }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
 {{- if .Values.cni.customConf  }}
@@ -1163,6 +1162,7 @@ data:
   enable-bgp-control-plane: "true"
   bgp-secrets-namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
   enable-bgp-control-plane-status-report: {{ .Values.bgpControlPlane.statusReport.enabled | quote }}
+  bgp-router-id-allocation-mode: {{ .Values.bgpControlPlane.routerIDAllocation.mode | quote }}
 {{- end }}
 
 {{- if .Values.pmtuDiscovery.enabled }}
@@ -1324,6 +1324,8 @@ data:
   proxy-max-requests-per-connection: {{ .Values.envoy.maxRequestsPerConnection | quote }}
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
+  proxy-max-concurrent-retries: {{ .Values.envoy.maxConcurrentRetries | quote }}
+  http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
 
   external-envoy-proxy: {{ include "envoyDaemonSetEnabled" . | quote }}
   envoy-base-id: {{ .Values.envoy.baseID | quote }}

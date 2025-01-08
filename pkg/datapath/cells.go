@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -82,14 +83,14 @@ var Cell = cell.Module(
 
 	cell.Provide(newWireguardAgent),
 
-	cell.Provide(func(expConfig experimental.Config) types.LBMap {
+	cell.Provide(func(expConfig experimental.Config, maglev *maglev.Maglev) types.LBMap {
 		if expConfig.EnableExperimentalLB {
 			// The experimental control-plane is enabled. Use a fake LBMap
 			// to effectively disable the other code paths writing to LBMaps.
 			return mockmaps.NewLBMockMap()
 		}
 
-		return lbmap.New()
+		return lbmap.New(maglev)
 	}),
 
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]

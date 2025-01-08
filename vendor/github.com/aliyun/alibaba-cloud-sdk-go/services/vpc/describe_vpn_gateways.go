@@ -74,6 +74,7 @@ type DescribeVpnGatewaysRequest struct {
 	ResourceOwnerId        requests.Integer          `position:"Query" name:"ResourceOwnerId"`
 	IncludeReservationData requests.Boolean          `position:"Query" name:"IncludeReservationData"`
 	PageNumber             requests.Integer          `position:"Query" name:"PageNumber"`
+	ResourceGroupId        string                    `position:"Query" name:"ResourceGroupId"`
 	PageSize               requests.Integer          `position:"Query" name:"PageSize"`
 	Tag                    *[]DescribeVpnGatewaysTag `position:"Query" name:"Tag"  type:"Repeated"`
 	BusinessStatus         string                    `position:"Query" name:"BusinessStatus"`

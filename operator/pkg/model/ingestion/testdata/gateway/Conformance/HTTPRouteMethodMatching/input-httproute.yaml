@@ -1,0 +1,20 @@
+- metadata:
+    creationTimestamp: null
+    name: method-matching
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      matches:
+      - method: POST
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+      matches:
+      - method: GET
+  status:
+    parents: null

@@ -1,0 +1,20 @@
+- metadata:
+    creationTimestamp: null
+    name: grpc-route
+    namespace: default
+  spec:
+    hostnames:
+    - example.com
+    parentRefs:
+    - name: my-gateway
+    rules:
+    - backendRefs:
+      - name: grp-service
+        port: 8080
+      matches:
+      - method:
+          method: Ping
+          service: service.Echo
+          type: Exact
+  status:
+    parents: null

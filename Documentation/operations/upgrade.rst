@@ -335,6 +335,8 @@ communicating via the proxy must reconnect to re-establish connections.
 * The Cilium status API now reports the KVStore subsystem with ``Disabled`` state when disabled,
   instead of ``OK`` state and ``Disabled`` message.
 * Support for ``metallb-bgp``, deprecated since 1.14, has been removed.
+* Layer 7 policy support for Cassandra and Memcached have been deprecated and
+  their getting started guides have been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -351,6 +353,7 @@ Removed Options
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
 
+* The high-scale mode for ipcache has been deprecated and will be removed in v1.18.
 * The hubble-relay flag ``--dial-timeout`` has been deprecated (now a no-op)
   and will be removed in Cilium 1.18.
 
@@ -394,13 +397,33 @@ Added Metrics
 * ``cilium_node_health_connectivity_latency_seconds``
 * ``cilium_operator_unmanaged_pods``
 * ``cilium_policy_selector_match_count_max``
+* ``cilium_identity_cache_timer_duration``
+* ``cilium_identity_cache_timer_trigger_latency``
+* ``cilium_identity_cache_timer_trigger_folds``
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
 * ``cilium_cidrgroup_translation_time_stats_seconds`` has been removed, as the measured code path no longer exists.
+* ``cilium_triggers_policy_update_total`` has been removed.
+* ``cilium_triggers_policy_update_folds`` has been removed.
+* ``cilium_triggers_policy_update_call_duration`` has been removed.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
+The metrics prefix of all Envoy NPDS (NetworkPolicy discovery service) metrics 
+has been renamed from ``envoy_cilium_policymap_<node-ip>_<node-id>_`` to ``envoy_cilium_npds_``.
+
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_control_plane_rate_limit_enforced`` -> ``envoy_cilium_npds_control_plane_rate_limit_enforced``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_control_plane_connected_state`` -> ``envoy_cilium_npds_control_plane_connected_state``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_control_plane_pending_requests`` -> ``envoy_cilium_npds_control_plane_pending_requests``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_init_fetch_timeout`` ->  ``envoy_cilium_npds_init_fetch_timeout``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_attempt`` -> ``envoy_cilium_npds_update_attempt``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_failure`` -> ``envoy_cilium_npds_update_failure``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_rejected`` -> ``envoy_cilium_npds_update_rejected``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_success`` -> ``envoy_cilium_npds_update_success``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_time`` -> ``envoy_cilium_npds_update_time``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_update_duration`` -> ``envoy_cilium_npds_update_duration``
+* ``envoy_cilium_policymap_<node-ip>_<node-id>_version`` -> ``envoy_cilium_npds_version``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~

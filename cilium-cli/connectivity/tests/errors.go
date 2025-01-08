@@ -64,24 +64,26 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string) check.Sc
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
-		panicMessage:        nil,
-		deadLockHeader:      nil,
-		RunInitFailed:       nil,
-		emptyBPFInitArg:     nil,
-		RemovingMapMsg:      {stringMatcher("globals/cilium_policy")},
-		symbolSubstitution:  nil,
-		uninitializedRegen:  nil,
-		unstableStat:        nil,
-		missingIptablesWait: nil,
-		localIDRestoreFail:  nil,
-		routerIPMismatch:    nil,
-		emptyIPNodeIDAlloc:  nil,
-		"DATA RACE":         nil,
+		panicMessage:         nil,
+		deadLockHeader:       nil,
+		RunInitFailed:        nil,
+		emptyBPFInitArg:      nil,
+		RemovingMapMsg:       {stringMatcher("globals/cilium_policy")},
+		symbolSubstitution:   nil,
+		uninitializedRegen:   nil,
+		unstableStat:         nil,
+		missingIptablesWait:  nil,
+		localIDRestoreFail:   nil,
+		routerIPMismatch:     nil,
+		emptyIPNodeIDAlloc:   nil,
+		"DATA RACE":          nil,
+		envoyErrorMessage:    nil,
+		envoyCriticalMessage: nil,
 	}
 	if slices.Contains(checkLevels, defaults.LogLevelError) {
 		errorMsgsWithExceptions["level=error"] = errorLogExceptions
 	}
-	if slices.Contains(checkLevels, defaults.LogLevelWarning) {
+	if slices.Contains(checkLevels, defaults.LogLevelWarning) && ciliumVersion.GE(semver.MustParse("1.17.0")) {
 		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
 	return &noErrorsInLogs{errorMsgsWithExceptions}
@@ -303,12 +305,16 @@ const (
 	mutationDetectorKlog      stringMatcher = "Mutation detector is enabled, this will result in memory leakage."     // cf. https://github.com/cilium/cilium/issues/35929
 	hubbleFailedCreatePeer    stringMatcher = "Failed to create peer client for peers synchronization"                // cf. https://github.com/cilium/cilium/issues/35930
 	fqdnDpUpdatesTimeout      stringMatcher = "Timed out waiting for datapath updates of FQDN IP information"         // cf. https://github.com/cilium/cilium/issues/35931
-	longNetpolUpdate          stringMatcher = "took longer than 100ms to update network policy"                       // cf. https://github.com/cilium/cilium/issues/36067
+	longNetpolUpdate          stringMatcher = "onConfigUpdate(): Worker threads took longer than"                     // cf. https://github.com/cilium/cilium/issues/36067
 	failedToGetEpLabels       stringMatcher = "Failed to get identity labels for endpoint"                            // cf. https://github.com/cilium/cilium/issues/36068
 	failedCreategRPCClient    stringMatcher = "Failed to create gRPC client"                                          // cf. https://github.com/cilium/cilium/issues/36070
 	unableReallocateIngressIP stringMatcher = "unable to re-allocate ingress IPv6"                                    // cf. https://github.com/cilium/cilium/issues/36072
 	fqdnMaxIPPerHostname      stringMatcher = "Raise tofqdns-endpoint-max-ip-per-hostname to mitigate this"           // cf. https://github.com/cilium/cilium/issues/36073
 	failedGetMetricsAPI       stringMatcher = "retrieve the complete list of server APIs: metrics.k8s.io/v1beta1"     // cf. https://github.com/cilium/cilium/issues/36085
+
+	// Logs messages that should not be in the cilium-envoy DS logs
+	envoyErrorMessage    = "[error]"
+	envoyCriticalMessage = "[critical]"
 )
 
 var (

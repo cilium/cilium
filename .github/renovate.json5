@@ -32,6 +32,8 @@
     "go.sum",
     "Makefile.defs",
     "test/packet/scripts/install.sh",
+    "images/builder/install-protoc.sh",
+    "images/builder/install-protoplugins.sh",
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
     "install/kubernetes/Makefile.values",
@@ -67,6 +69,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main",
+    "v1.17",
     "v1.16",
     "v1.15",
     "v1.14",
@@ -189,6 +192,7 @@
       ],
       matchBaseBranches: [
         "main",
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -204,6 +208,7 @@
         "go.sum"
       ],
       matchBaseBranches: [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -212,12 +217,6 @@
     {
       "enabled": false,
       "matchPackageNames": [
-        // All of these packages are maintained on a Cilium fork. Thus, we don't
-        // want to update them automatically.
-        "go.universe.tf/metallb",
-        "github.com/cilium/metallb",
-        // metallb is still using an old version of "github.com/mdlayher/arp"
-        "github.com/mdlayher/arp",
         "github.com/miekg/dns",
         "github.com/cilium/dns",
         "sigs.k8s.io/controller-tools",
@@ -271,6 +270,7 @@
         "minor",
       ],
       matchBaseBranches: [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -284,6 +284,17 @@
       "allowedVersions": "<3.5.5",
       "matchBaseBranches": [
         "v1.14",
+      ]
+    },
+    {
+      // Do not ping helm/kind since the last version (1.10.0) has a bug which
+      // prevents it from downloading kubectl in older versions.
+      "enabled": false,
+      "matchDepNames": [
+        "helm/kind-action"
+      ],
+      "matchUpdateTypes": [
+        "digest"
       ]
     },
     {
@@ -320,6 +331,7 @@
       ],
       "allowedVersions": "24.04",
       "matchBaseBranches": [
+        "v1.17",
         "main",
       ],
     },
@@ -339,6 +351,16 @@
         "docker.io/library/golang",
         "go"
       ],
+      "allowedVersions": "<1.24",
+      "matchBaseBranches": [
+        "v1.17",
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
       "allowedVersions": "<1.23",
       "matchBaseBranches": [
         "v1.16",
@@ -352,6 +374,7 @@
       ],
       "allowedVersions": "<3.20",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15"
       ]
@@ -371,6 +394,7 @@
       ],
       "allowedVersions": "<0.2.0",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -411,6 +435,7 @@
       ],
       "matchBaseBranches": [
         "main",
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14"
@@ -446,6 +471,7 @@
         "golangci/golangci-lint"
       ],
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
         "v1.15",
         "v1.14",
@@ -459,20 +485,6 @@
       "versioning": "regex:^((?<compatibility>[a-z0-9-.]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
     },
     {
-      "groupName": "old stable lvh-images",
-      "groupSlug": "old stable-lvh-images",
-      "matchPackageNames": [
-        "cilium/little-vm-helper",
-	// complexity-test needs https://github.com/cilium/little-vm-helper-images/issues/674.
-        "quay.io/lvh-images/kind"
-      ],
-      "allowedVersions": "!/bpf-next-.*/",
-      "matchBaseBranches": [
-        "v1.14",
-        "v1.15",
-      ],
-    },
-    {
       "groupName": "stable lvh-images",
       "groupSlug": "stable-lvh-images",
       "matchPackageNames": [
@@ -482,7 +494,10 @@
       ],
       "allowedVersions": "!/bpf-next-.*/",
       "matchBaseBranches": [
+        "v1.17",
         "v1.16",
+        "v1.15",
+        "v1.14",
       ],
     },
     {
@@ -574,8 +589,21 @@
       }
     },
     {
+      "matchFiles": [
+        "images/builder/install-protoc.sh",
+        "images/builder/install-protoplugins.sh"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
       matchPackageNames: [
         "protocolbuffers/protobuf",
+        "protocolbuffers/protobuf-go",
         "quay.io/goswagger/swagger"
       ],
       "postUpgradeTasks": {
@@ -603,6 +631,16 @@
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.31\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
+        "v1.17",
+      ]
+    },
+    {
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
+      "allowedVersions": "/^v1\\.32\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "main",
       ]

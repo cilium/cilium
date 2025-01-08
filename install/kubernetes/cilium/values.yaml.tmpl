@@ -460,6 +460,10 @@ bgpControlPlane:
     # It is recommended to enable status reporting in general, but if you have any issue
     # such as high API server load, you can disable it by setting this to false.
     enabled: true
+  # -- BGP router-id allocation mode
+  routerIDAllocation:
+    # -- BGP router-id allocation mode. In default mode, the router-id is derived from the IPv4 address if it is available, or else it is determined by the lower 32 bits of the MAC address.
+    mode: "default"
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
@@ -1037,6 +1041,8 @@ endpointRoutes:
 k8sNetworkPolicy:
   # -- Enable support for K8s NetworkPolicy
   enabled: true
+# -- Enable endpoint lockdown on policy map overflow.
+endpointLockdownOnMapOverflow: false
 eni:
   # -- Enable Elastic Network Interface (ENI) integration.
   enabled: false
@@ -2327,6 +2333,10 @@ envoy:
   connectTimeoutSeconds: 2
   # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
   initialFetchTimeoutSeconds: 30
+  # -- Maximum number of concurrent retries on Envoy clusters
+  maxConcurrentRetries: 128
+  # -- Maximum number of retries for each HTTP request
+  httpRetryCount: 3
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
@@ -2383,6 +2393,15 @@ envoy:
       maxUnavailable: 2
   # -- Roll out cilium envoy pods automatically when configmap is updated.
   rollOutPods: false
+  # -- ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a `bootstrap-config.json` key.
+  # When specified, Envoy will use this ConfigMap instead of the default provided by the chart.
+  # WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to
+  # syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support
+  # cannot be provided for custom Envoy bootstrap configs.
+  # @schema
+  # type: [null, string]
+  # @schema
+  bootstrapConfigMap: ~
   # -- Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
   annotations: {}
   # -- Security Context for cilium-envoy pods.

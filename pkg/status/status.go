@@ -118,8 +118,7 @@ func NewCollector(probes []Probe, config Config) *Collector {
 	}
 
 	for i := range probes {
-		c.firstRunSwg.Add()
-		c.spawnProbe(&probes[i], c.firstRunSwg.Done)
+		c.spawnProbe(&probes[i], c.firstRunSwg.Add())
 	}
 	c.firstRunSwg.Stop()
 

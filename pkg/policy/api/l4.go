@@ -28,6 +28,12 @@ func (l4 L4Proto) IsAny() bool {
 	return l4 == ProtoAny || string(l4) == ""
 }
 
+// SupportedProtocols returns the currently supported protocols in the policy
+// engine, excluding "ANY".
+func SupportedProtocols() []L4Proto {
+	return []L4Proto{ProtoTCP, ProtoUDP, ProtoSCTP}
+}
+
 // PortProtocol specifies an L4 port with an optional transport protocol
 type PortProtocol struct {
 	// Port can be an L4 port number, or a name in the form of "http"
@@ -160,7 +166,7 @@ type Listener struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=100
 	// +kubebuilder:validation:Optional
-	Priority uint16 `json:"priority"`
+	Priority uint8 `json:"priority"`
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7

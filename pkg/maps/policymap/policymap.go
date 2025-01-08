@@ -31,7 +31,7 @@ const (
 	// MapName is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
 	// with that identity on that port for that direction.
-	MapName = "cilium_policy_"
+	MapName = "cilium_policy_v2_"
 
 	// PolicyCallMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
@@ -166,12 +166,14 @@ const (
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
 // match the layout of policy_entry in bpf/lib/common.h.
 type PolicyEntry struct {
-	ProxyPortNetwork uint16                      `align:"proxy_port"` // In network byte-order
-	Flags            policyEntryFlags            `align:"deny"`
-	AuthRequirement  policyTypes.AuthRequirement `align:"auth_type"`
-	Pad1             uint32                      `align:"pad1"`
-	Packets          uint64                      `align:"packets"`
-	Bytes            uint64                      `align:"bytes"`
+	ProxyPortNetwork  uint16                        `align:"proxy_port"` // In network byte-order
+	Flags             policyEntryFlags              `align:"deny"`
+	AuthRequirement   policyTypes.AuthRequirement   `align:"auth_type"`
+	ProxyPortPriority policyTypes.ProxyPortPriority `align:"proxy_port_priority"`
+	Pad1              uint8                         `align:"pad1"`
+	Pad2              uint16                        `align:"pad2"`
+	Packets           uint64                        `align:"packets"`
+	Bytes             uint64                        `align:"bytes"`
 }
 
 // GetProxyPort returns the ProxyPortNetwork in host byte order
@@ -337,22 +339,23 @@ func NewKey(trafficDirection trafficdirection.TrafficDirection, id identity.Nume
 
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
-func newEntry(authReq policyTypes.AuthRequirement, proxyPort uint16, flags policyEntryFlags) PolicyEntry {
+func newEntry(proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16, flags policyEntryFlags) PolicyEntry {
 	return PolicyEntry{
-		ProxyPortNetwork: byteorder.HostToNetwork16(proxyPort),
-		Flags:            flags,
-		AuthRequirement:  authReq,
+		ProxyPortNetwork:  byteorder.HostToNetwork16(proxyPort),
+		Flags:             flags,
+		AuthRequirement:   authReq,
+		ProxyPortPriority: proxyPortPriority,
 	}
 }
 
 // newAllowEntry returns an allow PolicyEntry for the specified parameters in
 // network byte-order.
 // This is separated out to be used in unit testing.
-func newAllowEntry(key PolicyKey, authReq policyTypes.AuthRequirement, proxyPort uint16) PolicyEntry {
+func newAllowEntry(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) PolicyEntry {
 	pef := getPolicyEntryFlags(policyEntryFlagParams{
 		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
 	})
-	return newEntry(authReq, proxyPort, pef)
+	return newEntry(proxyPortPriority, authReq, proxyPort, pef)
 }
 
 // newDenyEntry returns a deny PolicyEntry for the specified parameters in
@@ -363,22 +366,22 @@ func newDenyEntry(key PolicyKey) PolicyEntry {
 		IsDeny:    true,
 		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
 	})
-	return newEntry(0, 0, pef)
+	return newEntry(0, 0, 0, pef)
 }
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(key PolicyKey, authReq policyTypes.AuthRequirement, proxyPort uint16) error {
-	entry := newAllowEntry(key, authReq, proxyPort)
+func (pm *PolicyMap) AllowKey(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) error {
+	entry := newAllowEntry(key, proxyPortPriority, authReq, proxyPort)
 	return pm.Update(&key, &entry)
 }
 
 // Allow pushes an entry into the PolicyMap to allow traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
 // protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
-func (pm *PolicyMap) Allow(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8, authReq policyTypes.AuthRequirement, proxyPort uint16) error {
+func (pm *PolicyMap) Allow(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) error {
 	key := NewKey(trafficDirection, id, proto, dport, portPrefixLen)
-	return pm.AllowKey(key, authReq, proxyPort)
+	return pm.AllowKey(key, proxyPortPriority, authReq, proxyPort)
 }
 
 // DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.

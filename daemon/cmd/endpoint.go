@@ -16,6 +16,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -130,6 +131,17 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 func deleteEndpointHandler(d *Daemon, params DeleteEndpointParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/ request")
 
+	if params.Endpoint.ContainerID == "" {
+		return api.New(DeleteEndpointInvalidCode, "invalid container id")
+	}
+
+	// Bypass the rate limiter for endpoints that have already been deleted.
+	// Kubelet will generate at minimum 2 delete requests for a Pod, so this
+	// returns in earlier retruns for over half of all delete calls.
+	if eps := d.endpointManager.GetEndpointsByContainerID(params.Endpoint.ContainerID); len(eps) == 0 {
+		return api.New(DeleteEndpointNotFoundCode, "endpoints not found")
+	}
+
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointDelete)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
@@ -146,9 +158,9 @@ func deleteEndpointHandler(d *Daemon, params DeleteEndpointParams) middleware.Re
 		return api.Error(DeleteEndpointInvalidCode, err)
 	} else if nerr > 0 {
 		return NewDeleteEndpointErrors().WithPayload(int64(nerr))
-	} else {
-		return NewDeleteEndpointOK()
 	}
+
+	return NewDeleteEndpointOK()
 }
 
 func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Responder {
@@ -176,25 +188,35 @@ func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Resp
 // fetchK8sMetadataForEndpoint wraps the k8s package to fetch and provide
 // endpoint metadata. It implements endpoint.MetadataResolverCB.
 // The returned pod is deepcopied which means the its fields can be written
-// into.
-func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
-	ns, p, err := d.endpointMetadataFetcher.Fetch(nsName, podName)
+// into. Returns an error If a uid is given, and the uid of the retrieved
+// pod does not match it.
+func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName, uid string) (*slim_corev1.Pod, *endpoint.K8sMetadata, error) {
+	p, err := d.endpointMetadataFetcher.FetchPod(nsName, podName)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	containerPorts, lbls, annotations, err := k8s.GetPodMetadata(ns, p)
-	if err != nil {
-		return nil, nil, err
+	if uid != "" && uid != string(p.GetUID()) {
+		return nil, nil, podStoreOutdatedErr
 	}
 
+	metadata, err := d.fetchK8sMetadataForEndpointFromPod(p)
+	return p, metadata, err
+}
+
+func (d *Daemon) fetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
+	ns, err := d.endpointMetadataFetcher.FetchNamespace(p.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	containerPorts, lbls := k8s.GetPodMetadata(ns, p)
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
-	return p, &endpoint.K8sMetadata{
+	return &endpoint.K8sMetadata{
 		ContainerPorts: containerPorts,
 		IdentityLabels: identityLabels,
 		InfoLabels:     infoLabels,
-		Annotations:    annotations,
 	}, nil
 }
 
@@ -202,16 +224,12 @@ type cachedEndpointMetadataFetcher struct {
 	k8sWatcher *watchers.K8sWatcher
 }
 
-func (cemf *cachedEndpointMetadataFetcher) Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error) {
-	p, err := cemf.k8sWatcher.GetCachedPod(nsName, podName)
-	if err != nil {
-		return nil, nil, err
-	}
-	ns, err := cemf.k8sWatcher.GetCachedNamespace(nsName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ns, p, err
+func (cemf *cachedEndpointMetadataFetcher) FetchNamespace(nsName string) (*slim_corev1.Namespace, error) {
+	return cemf.k8sWatcher.GetCachedNamespace(nsName)
+}
+
+func (cemf *cachedEndpointMetadataFetcher) FetchPod(nsName, podName string) (*slim_corev1.Pod, error) {
+	return cemf.k8sWatcher.GetCachedPod(nsName, podName)
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
@@ -458,9 +476,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 				err = errors.Join(err, err2)
 			} else {
 				pod = newPod
-				// Clear the error so the code can proceed below as we've
-				// succeeded here.
-				err = nil
+				// Clear the error so the code can proceed below, if the metadata
+				// retrieval succeeds correctly.
+				k8sMetadata, err = d.fetchK8sMetadataForEndpointFromPod(pod)
 			}
 		}
 
@@ -471,21 +489,21 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
 			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
 			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
-			if _, ok := k8sMetadata.Annotations[bandwidth.IngressBandwidth]; ok {
+			if _, ok := pod.Annotations[bandwidth.IngressBandwidth]; ok {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(k8sMetadata.Annotations),
+					logfields.Annotations: logfields.Repr(pod.Annotations),
 				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
 					bandwidth.IngressBandwidth)
 			}
-			if _, ok := k8sMetadata.Annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
+			if _, ok := pod.Annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-					logfields.Annotations: logfields.Repr(k8sMetadata.Annotations),
+					logfields.Annotations: logfields.Repr(pod.Annotations),
 				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					bandwidth.EgressBandwidth)
 			}
-			if hwAddr, ok := k8sMetadata.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
+			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
 				m, err := mac.ParseMAC(hwAddr)
 				if err != nil {
 					log.WithField(logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName).
@@ -593,6 +611,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	return ep, 0, nil
 }
 
+// handleOutdatedPodInformerRetryPeriod allows to configure the retry period for
+// testing purposes.
+var handleOutdatedPodInformerRetryPeriod = 100 * time.Millisecond
+
 func (d *Daemon) handleOutdatedPodInformer(
 	ctx context.Context,
 	ep *endpoint.Endpoint,
@@ -600,16 +622,16 @@ func (d *Daemon) handleOutdatedPodInformer(
 	var once sync.Once
 
 	// Average attempt is every 100ms.
-	err = resiliency.Retry(ctx, 2*time.Second, 20, func(_ context.Context, _ int) (bool, error) {
+	err = resiliency.Retry(ctx, handleOutdatedPodInformerRetryPeriod, 20, func(_ context.Context, _ int) (bool, error) {
 		var err2 error
-		pod, k8sMetadata, err2 = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
+		pod, k8sMetadata, err2 = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName, ep.K8sUID)
 		if ep.K8sUID == "" {
 			// If the CNI did not set the UID, then don't retry and just exit
 			// out of the loop to proceed as normal.
-			return true, nil
+			return true, err2
 		}
 
-		if pod != nil && ep.K8sUID != string(pod.GetUID()) {
+		if errors.Is(err2, podStoreOutdatedErr) {
 			once.Do(func() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName: ep.K8sNamespace + "/" + ep.K8sPodName,
@@ -617,10 +639,14 @@ func (d *Daemon) handleOutdatedPodInformer(
 				}).Warn("Detected outdated Pod UID during Endpoint creation. Endpoint creation cannot proceed with an outdated Pod store. Attempting to fetch latest Pod.")
 			})
 
-			return false, podStoreOutdatedErr
+			return false, nil
 		}
 		return true, err2
 	})
+
+	if wait.Interrupted(err) {
+		return nil, nil, podStoreOutdatedErr
+	}
 
 	return pod, k8sMetadata, err
 }
@@ -887,6 +913,15 @@ func (d *Daemon) EndpointRestored(ep *endpoint.Endpoint) {
 func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
 
+	// Bypass the rate limiter for endpoints that have already been deleted.
+	// Kubelet will generate at minimum 2 delete requests for a Pod, so this
+	// returns in earlier retruns for over half of all delete calls.
+	if ep, err := d.endpointManager.Lookup(params.ID); err != nil {
+		return api.Error(GetEndpointIDInvalidCode, err)
+	} else if ep == nil {
+		return NewGetEndpointIDNotFound()
+	}
+
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointDelete)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
@@ -903,9 +938,9 @@ func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middlewar
 		return api.Error(DeleteEndpointIDErrorsCode, err)
 	} else if nerr > 0 {
 		return NewDeleteEndpointIDErrors().WithPayload(int64(nerr))
-	} else {
-		return NewDeleteEndpointIDOK()
 	}
+
+	return NewDeleteEndpointIDOK()
 }
 
 // EndpointUpdate updates the options of the given endpoint and regenerates the endpoint

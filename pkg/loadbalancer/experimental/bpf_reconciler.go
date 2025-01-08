@@ -12,9 +12,7 @@ import (
 	"net/netip"
 	"sort"
 
-	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
@@ -46,11 +44,11 @@ var ReconcilerCell = cell.Module(
 	),
 )
 
-func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], hive.ScriptCmdOut, error) {
+func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
 	if !w.IsEnabled() {
-		return nil, hive.ScriptCmdOut{}, nil
+		return nil, nil
 	}
-	r, err := reconciler.Register(
+	return reconciler.Register(
 		p,
 		w.fes,
 
@@ -69,26 +67,13 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *BPFOps, w *Writer) (
 			30*time.Minute,
 		),
 	)
-	if err != nil {
-		return nil, hive.ScriptCmdOut{}, err
-	}
-	cmd := hive.NewScriptCmd(
-		"lb-prune",
-		script.Command(
-			script.CmdUsage{Summary: "Force pruning of LB maps"},
-			func(s *script.State, args ...string) (script.WaitFunc, error) {
-				r.Prune()
-				return nil, nil
-			},
-		),
-	)
-	return r, cmd, err
 }
 
 type BPFOps struct {
 	LBMaps LBMaps
 	log    *slog.Logger
 	cfg    ExternalConfig
+	maglev *maglev.Maglev
 
 	serviceIDAlloc     idAllocator
 	restoredServiceIDs sets.Set[loadbalancer.ID]
@@ -120,12 +105,13 @@ type backendState struct {
 	id       loadbalancer.BackendID
 }
 
-func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg ExternalConfig, lbmaps LBMaps) *BPFOps {
+func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg ExternalConfig, lbmaps LBMaps, maglev *maglev.Maglev) *BPFOps {
 	if !cfg.EnableExperimentalLB {
 		return nil
 	}
 	ops := &BPFOps{
 		cfg:                extCfg,
+		maglev:             maglev,
 		serviceIDAlloc:     newIDAllocator(firstFreeServiceID, maxSetOfServiceID),
 		restoredServiceIDs: sets.New[loadbalancer.ID](),
 		backendIDAlloc:     newIDAllocator(firstFreeBackendID, maxSetOfBackendID),
@@ -946,28 +932,29 @@ func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L
 }
 
 func (ops *BPFOps) computeMaglevTable(svc *Service, bes []BackendWithRevision) ([]loadbalancer.BackendID, error) {
-	backendsMap := make(map[string]*loadbalancer.Backend, len(bes))
-	for _, be := range bes {
-		output := &loadbalancer.Backend{} // We only populate selected fields used in maglev.GetLookupTable().
-		output.L3n4Addr = be.L3n4Addr
-		id, err := ops.backendIDAlloc.lookupLocalID(output.L3n4Addr)
-		if err != nil {
-			return nil, fmt.Errorf("local id for address %s not found: %w", output.L3n4Addr.String(), err)
+	var errs []error
+	backendInfos := func(yield func(maglev.BackendInfo) bool) {
+		for _, be := range bes {
+			instance := be.GetInstance(svc.Name)
+			if instance == nil {
+				errs = append(errs, fmt.Errorf("instance of backend %q for service %q not found", be.String(), svc.Name.String()))
+				continue
+			}
+			id, err := ops.backendIDAlloc.lookupLocalID(be.L3n4Addr)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("local id for address %s not found: %w", be.L3n4Addr.String(), err))
+				continue
+			}
+			if !yield(maglev.BackendInfo{
+				ID:     loadbalancer.BackendID(id),
+				Addr:   be.L3n4Addr,
+				Weight: instance.Weight,
+			}) {
+				break
+			}
 		}
-		output.ID = loadbalancer.BackendID(id)
-		instance := be.GetInstance(svc.Name)
-		if instance == nil {
-			return nil, fmt.Errorf("instance of backend %q for service %q not found", be.String(), svc.Name.String())
-		}
-		output.Weight = instance.Weight
-		backendsMap[output.String()] = output
 	}
-	var maglevTable []int = maglev.GetLookupTable(backendsMap, uint64(ops.cfg.MaglevTableSize))
-	maglevTableTyped := make([]loadbalancer.BackendID, len(maglevTable))
-	for i, id := range maglevTable {
-		maglevTableTyped[i] = loadbalancer.BackendID(id)
-	}
-	return maglevTableTyped, nil
+	return ops.maglev.GetLookupTable(backendInfos), errors.Join(errs...)
 }
 
 // sortedBackends sorts the backends in-place with the following sort order:

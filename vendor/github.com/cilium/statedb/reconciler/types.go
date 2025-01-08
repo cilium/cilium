@@ -140,7 +140,7 @@ type Status struct {
 	// has really changed when committing the resulting status.
 	// This allows multiple reconcilers to exist for a single
 	// object without repeating work when status is updated.
-	id uint64
+	ID uint64 `json:"id,omitempty" yaml:"id,omitempty"`
 }
 
 func (s Status) IsPendingOrRefreshing() bool {
@@ -169,7 +169,7 @@ func StatusPending() Status {
 		Kind:      StatusKindPending,
 		UpdatedAt: time.Now(),
 		Error:     "",
-		id:        nextID(),
+		ID:        nextID(),
 	}
 }
 
@@ -186,7 +186,7 @@ func StatusRefreshing() Status {
 		Kind:      StatusKindRefreshing,
 		UpdatedAt: time.Now(),
 		Error:     "",
-		id:        nextID(),
+		ID:        nextID(),
 	}
 }
 
@@ -197,7 +197,7 @@ func StatusDone() Status {
 		Kind:      StatusKindDone,
 		UpdatedAt: time.Now(),
 		Error:     "",
-		id:        nextID(),
+		ID:        nextID(),
 	}
 }
 
@@ -208,7 +208,7 @@ func StatusError(err error) Status {
 		Kind:      StatusKindError,
 		UpdatedAt: time.Now(),
 		Error:     err.Error(),
-		id:        nextID(),
+		ID:        nextID(),
 	}
 }
 
@@ -249,7 +249,7 @@ func (s StatusSet) Pending() StatusSet {
 	s.statuses = slices.Clone(s.statuses)
 	for i := range s.statuses {
 		s.statuses[i].Kind = StatusKindPending
-		s.statuses[i].id = s.id
+		s.statuses[i].ID = s.id
 	}
 	return s
 }
@@ -331,7 +331,7 @@ func (s StatusSet) Get(name string) Status {
 		return Status{
 			Kind:      StatusKindPending,
 			UpdatedAt: s.createdAt,
-			id:        s.id,
+			ID:        s.id,
 		}
 	}
 	return s.statuses[idx].Status

@@ -78,7 +78,9 @@ func NewFromID(id ID) (Link, error) {
 	return wrapRawLink(&RawLink{fd, ""})
 }
 
-// LoadPinnedLink loads a link that was persisted into a bpffs.
+// LoadPinnedLink loads a Link from a pin (file) on the BPF virtual filesystem.
+//
+// Requires at least Linux 5.7.
 func LoadPinnedLink(fileName string, opts *ebpf.LoadPinOptions) (Link, error) {
 	raw, err := loadPinnedRawLink(fileName, opts)
 	if err != nil {
@@ -350,12 +352,17 @@ func AttachRawLink(opts RawLinkOptions) (*RawLink, error) {
 }
 
 func loadPinnedRawLink(fileName string, opts *ebpf.LoadPinOptions) (*RawLink, error) {
-	fd, err := sys.ObjGet(&sys.ObjGetAttr{
+	fd, typ, err := sys.ObjGetTyped(&sys.ObjGetAttr{
 		Pathname:  sys.NewStringPointer(fileName),
 		FileFlags: opts.Marshal(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("load pinned link: %w", err)
+	}
+
+	if typ != sys.BPF_TYPE_LINK {
+		_ = fd.Close()
+		return nil, fmt.Errorf("%s is not a Link", fileName)
 	}
 
 	return &RawLink{fd, fileName}, nil

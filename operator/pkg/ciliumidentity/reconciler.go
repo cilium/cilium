@@ -343,11 +343,7 @@ func (r *reconciler) getRelevantLabelsForPod(pod *slim_corev1.Pod) (map[string]s
 		return nil, err
 	}
 
-	_, labelsMap, _, err := k8s.GetPodMetadata(ns, pod)
-	if err != nil {
-		return nil, err
-	}
-
+	_, labelsMap := k8s.GetPodMetadata(ns, pod)
 	return labelsMap, nil
 }
 

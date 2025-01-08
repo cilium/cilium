@@ -291,11 +291,13 @@ type JwtProvider struct {
 	// Specify the claim name you want to copy in which HTTP header. For examples, following config:
 	// The claim must be of type; string, int, double, bool. Array type claims are not supported
 	//
-	// .. code-block:: yaml
+	// .. literalinclude:: /_configs/repo/jwt_authn.yaml
 	//
-	//	claim_to_headers:
-	//	  - name: x-jwt-claim-nested-claim
-	//	    claim: claim.nested.key
+	//	:language: yaml
+	//	:lines: 44-48
+	//	:linenos:
+	//	:lineno-start: 44
+	//	:caption: :download:`jwt_authn.yaml </_configs/repo/jwt_authn.yaml>`
 	//
 	// This header is only reserved for jwt claim; any other value will be overwritten.
 	ClaimToHeaders []*JwtClaimToHeader `protobuf:"bytes,15,rep,name=claim_to_headers,json=claimToHeaders,proto3" json:"claim_to_headers,omitempty"`
@@ -1750,9 +1752,9 @@ type JwtProvider_NormalizePayload struct {
 
 	// Each claim in this list will be interpreted as a space-delimited string
 	// and converted to a list of strings based on the delimited values.
-	// Example: a token with a claim “scopes: "email profile"“ is translated
-	// to dynamic metadata  “scopes: ["email", "profile"]“ if this field is
-	// set value “["scopes"]“. This special handling of “scopes“ is
+	// Example: a token with a claim “scope: "email profile"“ is translated
+	// to dynamic metadata  “scope: ["email", "profile"]“ if this field is
+	// set value “["scope"]“. This special handling of “scope“ is
 	// recommended by `RFC8693
 	// <https://datatracker.ietf.org/doc/html/rfc8693#name-scope-scopes-claim>`_.
 	SpaceDelimitedClaims []string `protobuf:"bytes,1,rep,name=space_delimited_claims,json=spaceDelimitedClaims,proto3" json:"space_delimited_claims,omitempty"`

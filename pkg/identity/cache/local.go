@@ -6,10 +6,7 @@ package cache
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/key"
-	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -23,7 +20,6 @@ type localIdentityCache struct {
 	scope               identity.NumericIdentity
 	minID               identity.NumericIdentity
 	maxID               identity.NumericIdentity
-	events              allocator.AllocatorEventSendChan
 
 	// withheldIdentities is a set of identities that should be considered unavailable for allocation,
 	// but not yet allocated.
@@ -35,7 +31,7 @@ type localIdentityCache struct {
 	withheldIdentities map[identity.NumericIdentity]struct{}
 }
 
-func newLocalIdentityCache(scope, minID, maxID identity.NumericIdentity, events allocator.AllocatorEventSendChan) *localIdentityCache {
+func newLocalIdentityCache(scope, minID, maxID identity.NumericIdentity) *localIdentityCache {
 	return &localIdentityCache{
 		identitiesByID:      map[identity.NumericIdentity]*identity.Identity{},
 		identitiesByLabels:  map[string]*identity.Identity{},
@@ -43,7 +39,6 @@ func newLocalIdentityCache(scope, minID, maxID identity.NumericIdentity, events 
 		scope:               scope,
 		minID:               minID,
 		maxID:               maxID,
-		events:              events,
 		withheldIdentities:  map[identity.NumericIdentity]struct{}{},
 	}
 }
@@ -106,7 +101,7 @@ func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.Num
 // A possible previously used numeric identity for these labels can be passed
 // in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
 // previous numeric identity exists. 'oldNID' will be reallocated if available.
-func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.NumericIdentity, notifyOwner bool) (*identity.Identity, bool, error) {
+func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	// Not converting to string saves an allocation, as byte key lookups into
 	// string maps are optimized by the compiler, see
 	// https://github.com/golang/go/issues/3512.
@@ -135,21 +130,13 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 	l.identitiesByLabels[string(repr)] = id
 	l.identitiesByID[numericIdentity] = id
 
-	if l.events != nil && notifyOwner {
-		l.events <- allocator.AllocatorEvent{
-			Typ: allocator.AllocatorChangeUpsert,
-			ID:  idpool.ID(id.ID),
-			Key: &key.GlobalIdentity{LabelArray: id.LabelArray},
-		}
-	}
-
 	return id, true, nil
 }
 
 // release releases a local identity from the cache. true is returned when the
 // last use of the identity has been released and the identity has been
 // forgotten.
-func (l *localIdentityCache) release(id *identity.Identity, notifyOwner bool) bool {
+func (l *localIdentityCache) release(id *identity.Identity) bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -164,13 +151,6 @@ func (l *localIdentityCache) release(id *identity.Identity, notifyOwner bool) bo
 			// hitting the last use
 			delete(l.identitiesByLabels, string(id.Labels.SortedList()))
 			delete(l.identitiesByID, id.ID)
-
-			if l.events != nil && notifyOwner {
-				l.events <- allocator.AllocatorEvent{
-					Typ: allocator.AllocatorChangeDelete,
-					ID:  idpool.ID(id.ID),
-				}
-			}
 
 			return true
 		}
@@ -268,12 +248,4 @@ func (l *localIdentityCache) size() int {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 	return len(l.identitiesByID)
-}
-
-// close removes the events channel.
-func (l *localIdentityCache) close() {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-
-	l.events = nil
 }
