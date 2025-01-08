@@ -288,6 +288,16 @@ communicating via the proxy must reconnect to re-establish connections.
 
 .. _current_release_required_changes:
 
+.. _1.18_upgrade_notes:
+
+1.18 Upgrade Notes
+------------------
+
+Removed Options
+~~~~~~~~~~~~~~~
+
+* The previously deprecated high-scale mode for ipcache has been removed.
+
 .. _1.17_upgrade_notes:
 
 1.17 Upgrade Notes
