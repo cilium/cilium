@@ -9,14 +9,19 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 func TestGetMaximumAllocatableIPv4(t *testing.T) {
+	api := ec2mock.NewAPI(nil, nil, nil, nil)
+	instances, err := NewInstancesManager(hivetest.Logger(t), api)
+	require.NoError(t, err)
 	n := &Node{
 		rootLogger: hivetest.Logger(t),
+		manager:    instances,
 	}
 	n.logger.Store(n.rootLogger)
 

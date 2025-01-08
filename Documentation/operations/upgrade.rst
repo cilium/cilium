@@ -294,6 +294,7 @@ communicating via the proxy must reconnect to re-establish connections.
 ------------------
 * ``cilium-dbg bpf policy`` now prints ``ANY`` and not ``reserved:unknown`` for a bpf policy entry that allows any peer identity.
 
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
@@ -301,6 +302,10 @@ Removed Options
 * The previously deprecated hubble-relay flag ``--dial-timeout`` has been removed.
 * The previously deprecated External Workflows feature has been removed.
 * The previously deprecated ``--datapath-mode=lb-only`` for plain Docker mode has been removed.
+* The ``update-ec2-adapter-limit-via-api`` CLI flag for the operator has been removed since the operator will only and always use the 
+  EC2API to update the EC2 instance limit.
+* The ``aws-instance-limit-mapping`` CLI flag for the operator has been removed since the operator will only and always use the
+  EC2API to update the EC2 instance limit.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -329,6 +334,7 @@ Helm Options
 * The deprecated Helm option ``hubble.relay.dialTimeout`` has been removed.
 * ``k8s.apiServerURLs`` has been introduced to specify multiple Kubernetes API servers so that the agent can fail over
   to an active instance.
+* ``eni.updateEC2AdapterLimitViaAPI`` is removed since the operator will only and always use the EC2API to update the EC2 instance limit.
 
 Agent Options
 ~~~~~~~~~~~~~
