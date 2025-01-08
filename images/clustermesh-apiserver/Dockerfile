@@ -10,7 +10,7 @@ ARG BASE_IMAGE=gcr.io/distroless/static-debian11:latest@sha256:1dbe426d60caed5d1
 #    chain attacks where an attacker has write access to our 3rd party dependnecy image registries.
 # 2. These digests must be to the *overall* digest, not the digest for a specific image. This is because the images will
 #    be architecture specific, but the overall digest will contiain all of the architectures.
-ARG GOLANG_IMAGE=docker.io/library/golang:1.22.10@sha256:7761eeedd113a5751a7e1c135c89c4656a661ad73065dd09035ed3770b063c19
+ARG GOLANG_IMAGE=docker.io/library/golang:1.22.10@sha256:1a6e657ab55c424c837bd3f18289092caca0a106bcd114a8997b1d7fc81565b0
 # We don't use ETCD_IMAGE because that's used in Makefile.defs to select a ETCD image approrpate for the *host platform*
 # to run tests with.
 ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.5.17@sha256:15b1882f07aeaf357a48fbbcf35a566ae3ea110395704711488ea263fa86838d
