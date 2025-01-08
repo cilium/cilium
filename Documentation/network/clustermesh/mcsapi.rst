@@ -58,7 +58,7 @@ To rebuild the CoreDNS image you need to first clone the `CoreDNS repo`_:
    .. code-block:: shell-session
 
       git clone https://github.com/coredns/coredns.git
-      git checkout v1.11.3
+      git checkout v1.11.4
 
 
 Then you need add the multicluster plugin to the ``plugins.cfg`` file. The
