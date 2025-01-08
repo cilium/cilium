@@ -23,16 +23,6 @@ type awsFlagsHooks struct{}
 func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Viper) {
 	flags := cmd.Flags()
 
-	flags.Var(option.NewNamedMapOptions(operatorOption.AWSInstanceLimitMapping, &operatorOption.Config.AWSInstanceLimitMapping, nil),
-		operatorOption.AWSInstanceLimitMapping,
-		`Add or overwrite mappings of AWS instance limit in the form of `+
-			`{"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses `+
-			`per Interface","IPv6 Addresses per Interface"}. cli example: `+
-			`--aws-instance-limit-mapping=a1.medium=2,4,4 `+
-			`--aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 `+
-			`configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"}`)
-	option.BindEnv(vp, operatorOption.AWSInstanceLimitMapping)
-
 	flags.Bool(operatorOption.AWSReleaseExcessIPs, false, "Enable releasing excess free IP addresses from AWS ENI.")
 	option.BindEnv(vp, operatorOption.AWSReleaseExcessIPs)
 
@@ -53,9 +43,6 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 	flags.Duration(operatorOption.ENIGarbageCollectionInterval, defaults.ENIGarbageCollectionInterval,
 		"Interval for garbage collection of unattached ENIs. Set to 0 to disable")
 	option.BindEnv(vp, operatorOption.ENIGarbageCollectionInterval)
-
-	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, true, "Use the EC2 API to update the instance type to adapter limits")
-	option.BindEnv(vp, operatorOption.UpdateEC2AdapterLimitViaAPI)
 
 	flags.Bool(operatorOption.AWSUsePrimaryAddress, false, "Allows for using primary address of the ENI for allocations on the node")
 	option.BindEnv(vp, operatorOption.AWSUsePrimaryAddress)

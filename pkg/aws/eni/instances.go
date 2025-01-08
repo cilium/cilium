@@ -12,7 +12,6 @@ import (
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/aws/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -60,15 +59,24 @@ type InstancesManager struct {
 	routeTables    ipamTypes.RouteTableMap
 	securityGroups types.SecurityGroupMap
 	api            EC2API
+	limitsGetter   *limits.LimitsGetter
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger *slog.Logger, api EC2API) *InstancesManager {
-	return &InstancesManager{
+func NewInstancesManager(logger *slog.Logger, api EC2API) (*InstancesManager, error) {
+
+	m := &InstancesManager{
 		logger:    logger.With(subsysLogAttr...),
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
 	}
+
+	limitsGetter, err := limits.NewLimitsGetter(logger, api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
+	if err != nil {
+		return nil, err
+	}
+	m.limitsGetter = limitsGetter
+	return m, nil
 }
 
 // CreateNode is called on discovery of a new node and returns the ENI node
@@ -265,12 +273,6 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	m.vpcs = vpcs
 	m.securityGroups = securityGroups
 	m.routeTables = routeTables
-	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := limits.UpdateFromEC2API(ctx, m.api); err != nil {
-			m.logger.Warn("Unable to update instance type to adapter limits from EC2 API", logfields.Error, err)
-			return time.Time{}
-		}
-	}
 
 	return resyncStart
 }
