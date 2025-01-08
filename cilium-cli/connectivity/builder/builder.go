@@ -89,6 +89,20 @@ var (
 
 	//go:embed manifests/echo-ingress-from-cidr.yaml
 	echoIngressFromCIDRYAML string
+
+	//go:embed manifests/allow-all-egress-ccnp.yaml
+	allowAllEgressCCNPPolicyYAML string
+
+	//go:embed manifests/allow-all-ingress-ccnp.yaml
+	allowAllIngressCCNPPolicyYAML string
+
+	//go:embed manifests/client-egress-to-cidr-external-deny-ccnp.yaml
+	clientEgressToCIDRExternalDenyCCNPPolicyYAML string 
+
+	//go:embed manifests/client-egress-to-cidr-external-ccnp.yaml
+	clientEgressToCIDRExternalCCNPPolicyYAML string
+
+
 )
 
 var (
@@ -278,6 +292,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		bgpControlPlane{},
 		multicast{},
 		strictModeEncryption{},
+		
 	}
 	return injectTests(tests, connTests...)
 }
@@ -289,6 +304,32 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 		hostFirewallEgress{},
 		clientEgressL7TlsDenyWithoutHeaders{},
 		clientEgressL7TlsHeaders{},
+		allowAllExceptWorldCCNP{},
+		clientIngressCCNP{},
+		allIngressDenyCCNP{},
+		allEgressDenyCCNP{},
+		clusterEntityCCNP{},
+		hostEntityEgressCCNP{},
+		hostEntityIngressCCNP{},
+		echoIngressCCNP{},
+		clientIngressIcmpCCNP{},
+		clientEgressCCNP{},
+		clientEgressExpressionCCNP{},
+		clientEgressToEchoServiceAccountCCNP{},
+		toCidrExternalCCNP{},
+		echoIngressFromOtherClientDenyCCNP{},
+		clientIngressFromOtherClientIcmpDenyCCNP{},
+		clientEgressToEchoDenyCCNP{},
+		clientEgressToEchoExpressionDenyCCNP{},
+		clientEgressToEchoServiceAccountDenyCCNP{},
+		clientWithServiceAccountEgressToEchoDenyCCNP{},
+		clientEgressToCidrDenyCCNP{},
+		clientEgressToCidrDenyDefaultCCNP{},
+		clientWithServiceAccountEgressToEchoCCNP{},
+		toEntitiesWorldCCNP{},
+		clientIngressToEchoNamedPortDenyCCNP{},
+		clientEgressToEchoAllAllow{},
+		clientEgressToEchoAllDeny{},
 	}
 	return injectTests(tests, ct)
 }
@@ -321,6 +362,11 @@ func renderTemplates(clusterName string, param check.Parameters) (map[string]str
 		"clientEgressOnlyDNSPolicyYAML":                      clientEgressOnlyDNSPolicyYAML,
 		"echoIngressFromCIDRYAML":                            echoIngressFromCIDRYAML,
 		"denyCIDRPolicyYAML":                                 denyCIDRPolicyYAML,
+		"allowAllEgressCCNPPolicyYAML":					   	  allowAllEgressCCNPPolicyYAML,
+		"allowAllIngressCCNPPolicyYAML":					  allowAllIngressCCNPPolicyYAML,
+		"clientEgressToCIDRExternalDenyCCNPPolicyYAML":		  clientEgressToCIDRExternalDenyCCNPPolicyYAML,
+		"clientEgressToCIDRExternalCCNPPolicyYAML":			  clientEgressToCIDRExternalCCNPPolicyYAML,
+
 	}
 	if param.K8sLocalHostTest {
 		templates["clientEgressToCIDRCPHostPolicyYAML"] = clientEgressToCIDRCPHostPolicyYAML

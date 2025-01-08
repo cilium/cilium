@@ -1,0 +1,13 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: client-egress-to-cidr-deny-ccnp
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egressDeny:
+  - toCIDRSet:
+    - cidr: "{{.ExternalCIDR}}"
+      except:
+        - "{{.ExternalIP | ipToCIDR }}"

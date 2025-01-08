@@ -1,0 +1,13 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: echo-ingress-from-other-client-ccnp
+spec:
+  description: "Allow other client to contact echo"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        other: client

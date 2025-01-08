@@ -1,0 +1,34 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-all-except-world-ccnp
+spec:
+  endpointSelector: {}
+  egress:
+  - toEntities:
+    - host
+    - remote-node
+    - cluster
+    - init
+    - health
+    - kube-apiserver
+  - toEndpoints:
+      - {}
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+    toEntities:
+      - world
+  ingress:
+  - fromEntities:
+    - host
+    - remote-node
+    - cluster
+    - init
+    - health
+    - kube-apiserver
+  - fromEndpoints:
+    - {}

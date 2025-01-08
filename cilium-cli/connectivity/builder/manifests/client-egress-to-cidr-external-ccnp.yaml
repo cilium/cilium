@@ -1,0 +1,14 @@
+# This policy allows packets towards {{.ExternalIP}}, but not {{.ExternalOtherIP}}.
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: client-egress-to-cidr-ccnp
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toCIDRSet:
+    - cidr: "{{.ExternalCIDR}}"
+      except:
+      - "{{ .ExternalOtherIP | ipToCIDR }}"

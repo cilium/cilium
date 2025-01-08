@@ -1,0 +1,9 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-all-ingress-ccnp
+spec:
+  endpointSelector: {}
+  ingress:
+  - fromEndpoints:
+    - {}
