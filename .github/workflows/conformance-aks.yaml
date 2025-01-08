@@ -326,14 +326,14 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: cilium-sysdumps-${{ matrix.index }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: cilium-junits-${{ matrix.index }}
           path: cilium-junits/*.xml
@@ -352,7 +352,7 @@ jobs:
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.installation-and-connectivity.result == 'failure' }}
-        uses: actions/upload-artifact/merge@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact/merge@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -360,7 +360,7 @@ jobs:
           delete-merged: true
         continue-on-error: true
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact/merge@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: cilium-junits
           pattern: cilium-junits-*
