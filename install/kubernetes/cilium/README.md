@@ -871,7 +871,7 @@ contributors across the globe, there is almost always someone available to help.
 | sleepAfterInit | bool | `false` | Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node. |
 | socketLB | object | `{"enabled":false}` | Configure socket LB |
 | socketLB.enabled | bool | `false` | Enable socket LB |
-| startupProbe.failureThreshold | int | `105` | failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s) |
+| startupProbe.failureThreshold | int | `300` | failure threshold of startup probe. Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts). |
 | startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
 | svcSourceRangeCheck | bool | `true` | Enable check of service source ranges (currently, only for LoadBalancer). |
 | synchronizeK8sNodes | bool | `true` | Synchronize Kubernetes nodes to kvstore and perform CNP GC. |
