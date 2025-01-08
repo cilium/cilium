@@ -4,6 +4,7 @@
 package reconcilerv2
 
 import (
+	"cmp"
 	"slices"
 	"testing"
 
@@ -497,12 +498,6 @@ func Test_MergeRoutePolicies(t *testing.T) {
 
 func SortRouteStatementsByName(statements []*types.RoutePolicyStatement) {
 	slices.SortFunc(statements, func(i, j *types.RoutePolicyStatement) int {
-		if i.Conditions.String() < j.Conditions.String() {
-			return -1
-		} else if i.Conditions.String() > j.Conditions.String() {
-			return 1
-		} else {
-			return 0
-		}
+		return cmp.Compare(i.Conditions.String(), j.Conditions.String())
 	})
 }
