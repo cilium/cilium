@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
@@ -81,6 +82,72 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		panic(err)
 	}
 
+	instanceTypes := []ec2_types.InstanceTypeInfo{
+		{
+			InstanceType: "m5.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+		},
+		{
+			InstanceType: "m5.4xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(8),
+				Ipv4AddressesPerInterface: aws.Int32(30),
+				Ipv6AddressesPerInterface: aws.Int32(30),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+		},
+		{
+			InstanceType: "m3.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "m4.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(4),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "t2.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(3),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "c3.xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(4),
+				Ipv4AddressesPerInterface: aws.Int32(15),
+				Ipv6AddressesPerInterface: aws.Int32(15),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+		{
+			InstanceType: "m4.large",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(2),
+				Ipv4AddressesPerInterface: aws.Int32(10),
+				Ipv6AddressesPerInterface: aws.Int32(10),
+			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorXen,
+		},
+	}
+
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
 		enis:           map[string]ENIMap{},
@@ -99,6 +166,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 	api.UpdateSubnets(subnets)
 	api.UpdateSecurityGroups(securityGroups)
 	api.UpdateRouteTables(routeTables)
+	api.UpdateInstanceTypes(instanceTypes)
 	for _, v := range vpcs {
 		api.vpcs[v.ID] = v
 	}
