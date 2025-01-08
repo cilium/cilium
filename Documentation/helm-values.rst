@@ -1240,10 +1240,6 @@
      - Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead.
      - list
      - ``[]``
-   * - :spelling:ignore:`eni.updateEC2AdapterLimitViaAPI`
-     - Update ENI Adapter limits from the EC2 API
-     - bool
-     - ``true``
    * - :spelling:ignore:`envoy.affinity`
      - Affinity for cilium-envoy.
      - object

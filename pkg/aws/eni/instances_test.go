@@ -190,7 +190,8 @@ func TestGetSubnet(t *testing.T) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(api)
+	mngr, err := NewInstancesManager(api)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	require.Nil(t, mngr.GetSubnet("subnet-1"))
@@ -228,7 +229,8 @@ func TestFindSubnetByIDs(t *testing.T) {
 	api := ec2mock.NewAPI(subnets2, vpcs, securityGroups)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(api)
+	mngr, err := NewInstancesManager(api)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	iteration1(api, mngr)
@@ -267,7 +269,8 @@ func TestFindSubnetByTags(t *testing.T) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(api)
+	mngr, err := NewInstancesManager(api)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	iteration1(api, mngr)
@@ -303,7 +306,8 @@ func TestGetSecurityGroupByTags(t *testing.T) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
 	require.NotNil(t, api)
 
-	mngr := NewInstancesManager(api)
+	mngr, err := NewInstancesManager(api)
+	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
 	sgGroups := mngr.FindSecurityGroupByTags("vpc-1", map[string]string{

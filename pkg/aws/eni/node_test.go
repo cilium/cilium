@@ -8,12 +8,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
 func TestGetMaximumAllocatableIPv4(t *testing.T) {
-	n := &Node{}
+	api := ec2mock.NewAPI(nil, nil, nil)
+	instances, err := NewInstancesManager(api)
+	require.NoError(t, err)
+	n := &Node{
+		manager: instances,
+	}
 
 	// With no k8sObj defined, it should return 0
 	require.Equal(t, 0, n.GetMaximumAllocatableIPv4())
