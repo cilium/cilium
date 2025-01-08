@@ -6,8 +6,6 @@ package ciliumTest
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -273,23 +271,6 @@ var _ = BeforeAll(func() {
 	}
 })
 
-var _ = AfterSuite(func() {
-	if !helpers.IsRunningOnJenkins() {
-		GinkgoPrint("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
-		return
-	}
-	// Errors are not checked here because it should fail on BeforeAll
-	scope, _ := helpers.GetScope()
-	GinkgoPrint("cleaning up VMs started for %s tests", scope)
-	switch scope {
-	case helpers.Runtime:
-		helpers.DestroyVM(helpers.Runtime)
-	case helpers.K8s:
-		helpers.DestroyVM(helpers.K8s1VMName())
-		helpers.DestroyVM(helpers.K8s2VMName())
-	}
-})
-
 func getOrSetEnvVar(key, value string) {
 	if val := os.Getenv(key); val == "" {
 		log.Infof("environment variable %q was not set; setting to default value %q", key, value)
@@ -315,33 +296,5 @@ var _ = AfterEach(func() {
 	if err != nil {
 		log.WithError(err).Errorf("cannot create log file '%s'", commandsLogFileName)
 		return
-	}
-
-	// This piece of code is to enable zip attachments on Junit Output.
-	if TestFailed() && helpers.IsRunningOnJenkins() {
-		// ReportDirectory is already created. No check the error
-		path, _ := helpers.CreateReportDirectory()
-		zipFileName := fmt.Sprintf("%s_%s.zip", helpers.MakeUID(), GetTestName())
-		zipFilePath := filepath.Join(helpers.TestResultsPath, zipFileName)
-
-		_, err := exec.Command(
-			"/usr/bin/env", "bash", "-c",
-			fmt.Sprintf("zip -qr \"%s\" \"%s\"", zipFilePath, path)).CombinedOutput()
-		if err != nil {
-			log.WithError(err).Errorf("cannot create zip file '%s'", zipFilePath)
-		}
-
-		GinkgoPrint("[[ATTACHMENT|%s]]", zipFileName)
-	}
-
-	if !TestFailed() && helpers.IsRunningOnJenkins() {
-		// If the test success delete the monitor.log filename to not store all
-		// the data in Jenkins
-		testPath, err := helpers.CreateReportDirectory()
-		if err != nil {
-			log.WithError(err).Error("cannot retrieve test result path")
-			return
-		}
-		_ = os.Remove(filepath.Join(testPath, helpers.MonitorLogFileName))
 	}
 })
