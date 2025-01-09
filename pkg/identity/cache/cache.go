@@ -106,43 +106,67 @@ type identityWatcher struct {
 	owner IdentityAllocatorOwner
 }
 
-// collectEvent records the 'event' as an added or deleted identity,
-// and makes sure that any identity is present in only one of the sets
-// (added or deleted).
-func collectEvent(event allocator.AllocatorEvent, added, deleted identity.IdentityMap) bool {
-	id := identity.NumericIdentity(event.ID)
-	// Only create events have the key
-	if event.Typ == allocator.AllocatorChangeUpsert {
-		if gi, ok := event.Key.(*key.GlobalIdentity); ok {
-			// Un-delete the added ID if previously
-			// 'deleted' so that collected events can be
-			// processed in any order.
-			delete(deleted, id)
-			added[id] = gi.LabelArray
-			return true
-		}
-		log.Warningf("collectEvent: Ignoring unknown identity type '%s': %+v",
-			reflect.TypeOf(event.Key), event.Key)
-		return false
-	}
-	// Reverse an add when subsequently deleted
-	delete(added, id)
-	// record the id deleted even if an add was reversed, as the
-	// id may also have previously existed, in which case the
-	// result is not no-op!
-	deleted[id] = labels.LabelArray{}
-
-	return true
-}
-
 // watch starts the identity watcher
+// This should be called in a fresh goroutine
 func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
+	// The identity watcher batches update events, but only as long as no blocking is required.
+	// It also needs to break batching if a given numeric identity is deleted and re-added, since
+	// the SelectorCache does not expect identities to mutate.
+	// leftover is the add that conflicted with a delete, and thus caused the batching to be broken.
 
-	go func() {
-		for {
-			added := identity.IdentityMap{}
-			deleted := identity.IdentityMap{}
-		First:
+	var (
+		added, deleted identity.IdentityMap
+		leftover       *allocator.AllocatorEvent
+	)
+
+	// collectEvent records the 'event' as an added or deleted identity,
+	// and makes sure that any identity is present in only one of the sets
+	// (added or deleted).
+	// If a delete-then-add is detected for the same numeric identity, it processes
+	// the delete, then stashes the add in leftover. This way we never have
+	// mutated identities.
+	collectEvent := func(event allocator.AllocatorEvent) {
+		id := identity.NumericIdentity(event.ID)
+
+		// Only create events have the set of labels.
+		if event.Typ == allocator.AllocatorChangeUpsert {
+			// We cannot delete and re-add an identity, as label mutation is not allowed.
+			// Stash the event in "leftover" and stop iteration
+			if _, ok := deleted[id]; ok {
+				leftover = &event
+				return
+			}
+
+			if gi, ok := event.Key.(*key.GlobalIdentity); ok {
+				added[id] = gi.LabelArray
+			} else {
+				log.Warningf("collectEvent: Ignoring unknown identity type '%T': %+v", event.Key, event.Key)
+			}
+			return
+		}
+
+		// Reverse an add when subsequently deleted
+		delete(added, id)
+
+		// record the id deleted even if an add was reversed, as the
+		// id may also have previously existed, in which case the
+		// result is not no-op!
+		deleted[id] = labels.LabelArray{}
+	}
+
+	for {
+		added = identity.IdentityMap{}
+		deleted = identity.IdentityMap{}
+
+		// if we had to abort processing a previous event, then pick that up
+		// and proceed to flush the queue.
+		//
+		// Otherwise, wait for the first update.
+		if leftover != nil {
+			collectEvent(*leftover)
+			leftover = nil
+		} else {
+			// Do nothing until first update or delete is determined
 			for {
 				event, ok := <-events
 				// Wait for one identity add or delete or stop
@@ -150,39 +174,41 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 					// 'events' was closed
 					return
 				}
-				// Collect first added and deleted labels
-				switch event.Typ {
-				case allocator.AllocatorChangeUpsert, allocator.AllocatorChangeDelete:
-					if collectEvent(event, added, deleted) {
-						// First event collected
-						break First
-					}
+				// skip sync events; wait until first add
+				if event.Typ == allocator.AllocatorChangeSync {
+					continue
 				}
+				collectEvent(event)
+				break
 			}
+		}
 
-		More:
-			for {
-				// see if there is more, but do not wait nor stop
-				select {
-				case event, ok := <-events:
-					if !ok {
-						// 'events' was closed
-						break More
-					}
-					// Collect more added and deleted labels
-					switch event.Typ {
-					case allocator.AllocatorChangeUpsert, allocator.AllocatorChangeDelete:
-						collectEvent(event, added, deleted)
-					}
-				default:
-					// No more events available without blocking
+	More:
+		for {
+			// see if there is more, but do not wait nor stop
+			select {
+			case event, ok := <-events:
+				if !ok {
+					// 'events' was closed
 					break More
 				}
+				// skip sync events; wait until first add
+				if event.Typ == allocator.AllocatorChangeSync {
+					continue
+				}
+				// Collect more added and deleted labels
+				collectEvent(event)
+				if leftover != nil {
+					break More
+				}
+			default:
+				// No more events available without blocking
+				break More
 			}
-			// Issue collected updates
-			w.owner.UpdateIdentities(added, deleted) // disjoint sets
 		}
-	}()
+		// Issue collected updates
+		w.owner.UpdateIdentities(added, deleted) // disjoint sets
+	}
 }
 
 // isGlobalIdentityAllocatorInitialized returns true if m.IdentityAllocator is not nil.
