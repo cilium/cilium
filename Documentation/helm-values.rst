@@ -327,7 +327,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:a82265cd78234505802772fb6256bcfa8231b718d2652ad815eb479fc3cc8028","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.15","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:d02d449c3b2391c0447837db284a1a502f337f63c4596890e1975cd64419812e","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.16","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.annotations`
      - Annotations to be added to the hubble-certgen initial Job and CronJob
      - object
@@ -1055,7 +1055,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:0b379557af16b107b1e42b18ec4c62df9622d2dc3b580213fa3125912cf9088f","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.9-1734560096-c1e57e20d9a5f4e462163e5354f787bfa0d2b50f","useDigest":true}``
+     - ``{"digest":"sha256:5c6d21a908235b697e41951d7aa59cc250642b5b54827e8d13e1bdd345a139f9","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.9-1734953328-6db0e437ba7ed2169f032ceec25922dd06e0b12b","useDigest":true}``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int

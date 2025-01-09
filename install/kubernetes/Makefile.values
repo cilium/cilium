@@ -36,8 +36,8 @@ endif
 
 # renovate: datasource=docker
 export CERTGEN_REPO:=quay.io/cilium/certgen
-export CERTGEN_VERSION:=v0.1.15
-export CERTGEN_DIGEST:=sha256:a82265cd78234505802772fb6256bcfa8231b718d2652ad815eb479fc3cc8028
+export CERTGEN_VERSION:=v0.1.16
+export CERTGEN_DIGEST:=sha256:d02d449c3b2391c0447837db284a1a502f337f63c4596890e1975cd64419812e
 
 # renovate: datasource=docker
 export CILIUM_ETCD_OPERATOR_REPO:=quay.io/cilium/cilium-etcd-operator
@@ -51,8 +51,8 @@ export CILIUM_NODEINIT_DIGEST:=sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6
 
 # renovate: datasource=docker
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION:=v1.30.9-1734560096-c1e57e20d9a5f4e462163e5354f787bfa0d2b50f
-export CILIUM_ENVOY_DIGEST:=sha256:0b379557af16b107b1e42b18ec4c62df9622d2dc3b580213fa3125912cf9088f
+export CILIUM_ENVOY_VERSION:=v1.30.9-1734953328-6db0e437ba7ed2169f032ceec25922dd06e0b12b
+export CILIUM_ENVOY_DIGEST:=sha256:5c6d21a908235b697e41951d7aa59cc250642b5b54827e8d13e1bdd345a139f9
 
 # renovate: datasource=docker
 export ETCD_REPO:=quay.io/coreos/etcd
