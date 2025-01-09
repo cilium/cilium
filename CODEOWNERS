@@ -655,6 +655,7 @@ Makefile* @cilium/build
 # Misc. tests
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
+/tools/dpgen @cilium/loader
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
