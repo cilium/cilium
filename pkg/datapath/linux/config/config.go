@@ -999,8 +999,6 @@ func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e dat
 				fmt.Fprint(fw, defineIPv6("IPV6_MASQUERADE", placeholderIPv6))
 			}
 		}
-		// Dummy value to avoid being optimized when 0
-		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
 
 		// Use templating for ETH_HLEN only if there is any L2-less device
 		if !mac.HaveMACAddrs(devices) {

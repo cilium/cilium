@@ -27,8 +27,6 @@
 
 #define BACKEND_EP_ID		127
 
-#define SECCTX_FROM_IPCACHE 1
-
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *backend_mac = mac_four;
 

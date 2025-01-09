@@ -13,8 +13,6 @@
 #define ENABLE_MASQUERADE_IPV4
 #define ENCAP_IFINDEX 0
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include "bpf_host.c"
 
 #include "lib/egressgw.h"
