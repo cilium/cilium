@@ -112,8 +112,12 @@ jobs:
           else
             tag=${{ github.sha }}
           fi
-          if [[ "${{ github.event_name == 'push' }}" == "true" && "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]]; then
-            floating_tag=latest
+          if [[ "${{ github.event_name == 'push' }}" == "true" ]]; then
+            if [[ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]]; then
+              floating_tag=latest
+            else
+              floating_tag="${{ github.ref_name }}"
+            fi
             echo floating_tag=${floating_tag} >> $GITHUB_OUTPUT
           fi
           echo tag=${tag} >> $GITHUB_OUTPUT
