@@ -143,6 +143,9 @@ const (
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
 	AzureSubscriptionID = "azure-subscription-id"
 
+	// AzureTenantID is the tenant ID to use when accessing the Azure API
+	AzureTenantID = "azure-tenant-id"
+
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup = "azure-resource-group"
 
@@ -337,6 +340,9 @@ type OperatorConfig struct {
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
 	AzureSubscriptionID string
 
+	// AzureTenantID is the tenant ID to use when accessing the Azure API
+	AzureTenantID string
+
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup string
 
@@ -447,6 +453,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	// Azure options
 
 	c.AzureSubscriptionID = vp.GetString(AzureSubscriptionID)
+	c.AzureTenantID = vp.GetString(AzureTenantID)
 	c.AzureResourceGroup = vp.GetString(AzureResourceGroup)
 	c.AzureUsePrimaryAddress = vp.GetBool(AzureUsePrimaryAddress)
 	c.AzureUserAssignedIdentityID = vp.GetString(AzureUserAssignedIdentityID)
