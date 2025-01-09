@@ -5,13 +5,12 @@ package filters
 
 import (
 	"context"
-	"fmt"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
-func filterByTCPFlags(flags []*flowpb.TCPFlags) (FilterFunc, error) {
+func filterByTCPFlags(flags []*flowpb.TCPFlags) FilterFunc {
 	return func(ev *v1.Event) bool {
 		flowFlags := ev.GetFlow().GetL4().GetTCP().GetFlags()
 		if flowFlags == nil {
@@ -36,7 +35,7 @@ func filterByTCPFlags(flags []*flowpb.TCPFlags) (FilterFunc, error) {
 			return true
 		}
 		return false
-	}, nil
+	}
 }
 
 // TCPFilter implements filtering based on TCP protocol header
@@ -47,11 +46,7 @@ func (p *TCPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([
 	var fs []FilterFunc
 
 	if ff.GetTcpFlags() != nil {
-		pf, err := filterByTCPFlags(ff.GetTcpFlags())
-		if err != nil {
-			return nil, fmt.Errorf("invalid tcp flags filter: %w", err)
-		}
-		fs = append(fs, pf)
+		fs = append(fs, filterByTCPFlags(ff.GetTcpFlags()))
 	}
 
 	return fs, nil

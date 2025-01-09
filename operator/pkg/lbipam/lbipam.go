@@ -461,7 +461,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 	for allocIdx := len(sv.AllocatedIPs) - 1; allocIdx >= 0; allocIdx-- {
 		alloc := sv.AllocatedIPs[allocIdx]
 
-		releaseAllocIP := func() error {
+		releaseAllocIP := func() {
 			ipam.logger.Debug(fmt.Sprintf("removing allocation '%s' from '%s'", alloc.IP.String(), sv.Key.String()))
 			sharingGroup, _ := alloc.Origin.alloc.Get(alloc.IP)
 
@@ -478,14 +478,12 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			}
 
 			sv.AllocatedIPs = slices.Delete(sv.AllocatedIPs, allocIdx, allocIdx+1)
-
-			return nil
 		}
 
 		// If origin pool no longer exists, remove allocation
 		pool, found := ipam.pools[alloc.Origin.originPool]
 		if !found {
-			errs = errors.Join(errs, releaseAllocIP())
+			releaseAllocIP()
 			continue
 		}
 
@@ -498,7 +496,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			}
 
 			if !selector.Matches(sv.Labels) {
-				errs = errors.Join(errs, releaseAllocIP())
+				releaseAllocIP()
 				continue
 			}
 		}
@@ -506,7 +504,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		// Check if all AllocatedIPs that are part of a sharing group, if this service is still compatible with them.
 		// If this service is no longer compatible, we have to remove the IP from the sharing group and re-allocate.
 		if !ipam.checkSharingGroupCompatibility(sv) {
-			errs = errors.Join(errs, releaseAllocIP())
+			releaseAllocIP()
 			continue
 		}
 
@@ -521,7 +519,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			}
 			// If allocated IP has not been requested, remove it
 			if !found {
-				errs = errors.Join(errs, releaseAllocIP())
+				releaseAllocIP()
 				continue
 			}
 		} else {
@@ -530,13 +528,13 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			if isIPv6(alloc.IP) {
 				// Service has an IPv6 address, but its spec doesn't request it anymore, so take it away
 				if !sv.RequestedFamilies.IPv6 {
-					errs = errors.Join(errs, releaseAllocIP())
+					releaseAllocIP()
 					continue
 				}
 			} else {
 				// Service has an IPv4 address, but its spec doesn't request it anymore, so take it away
 				if !sv.RequestedFamilies.IPv4 {
-					errs = errors.Join(errs, releaseAllocIP())
+					releaseAllocIP()
 					continue
 				}
 			}

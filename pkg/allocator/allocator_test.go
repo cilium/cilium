@@ -727,8 +727,7 @@ func TestSyncLocalKeys(t *testing.T) {
 		require.Equal(t, backendID, id)
 	}
 
-	err = allocator.syncLocalKeys()
-	require.NoError(t, err)
+	allocator.syncLocalKeys()
 
 	/// Release the use one id/delete the slave key
 	key, err := backend.GetByID(context.TODO(), ids[0])
@@ -748,8 +747,7 @@ func TestSyncLocalKeys(t *testing.T) {
 	err = backend.DeleteID(context.TODO(), ids[2])
 	require.NoError(t, err)
 
-	err = allocator.syncLocalKeys()
-	require.NoError(t, err)
+	allocator.syncLocalKeys()
 
 	// Ensure all IDs are present
 	for i := idpool.ID(1); i <= numIDs; i++ {
@@ -808,8 +806,7 @@ func TestSyncLocalKeysWithIdentityAllocations(t *testing.T) {
 				wg.Done()
 				return
 			default:
-				err := allocator.syncLocalKeys()
-				require.NoError(t, err)
+				allocator.syncLocalKeys()
 			}
 		}
 	}()

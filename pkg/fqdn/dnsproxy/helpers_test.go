@@ -92,32 +92,26 @@ func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
 	rules[new(MockCachedSelector)] = regexp.MustCompile("^.*[.]cilium[.]io$")
 	rules[new(MockCachedSelector)] = regexp.MustCompile("^.*[.]cilium[.]io$")
 
-	err := pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
-	require.NoError(t, err)
+	pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
 	require.Len(t, cache, 1)
 
 	selector2 := new(MockCachedSelector)
 	rules[selector2] = regexp.MustCompile("^sub[.]cilium[.]io")
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
-	require.NoError(t, err)
+	pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
 	require.Len(t, cache, 2)
 
 	delete(rules, selector2)
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
-	require.NoError(t, err)
+	pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
 	require.Len(t, cache, 1)
 
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
-	require.NoError(t, err)
+	pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
 	require.Empty(t, cache)
 
 	delete(rules, selector2)
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
-	require.NoError(t, err)
+	pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
 	require.Len(t, cache, 1)
 
-	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
-	require.NoError(t, err)
+	pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
 	require.Empty(t, cache)
 }
 

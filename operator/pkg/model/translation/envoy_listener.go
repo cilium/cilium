@@ -221,11 +221,7 @@ func (i *cecTranslator) filterChains(name string, m *model.Model) []*envoy_confi
 	}
 	filterChains = append(filterChains, httpsFilterChains...)
 
-	tlsPassthroughFilterChains, err := tlsPassthroughFilterChains(tlsPassthroughBackendsToHostnames(m))
-	if err != nil {
-		return nil
-	}
-	filterChains = append(filterChains, tlsPassthroughFilterChains...)
+	filterChains = append(filterChains, tlsPassthroughFilterChains(tlsPassthroughBackendsToHostnames(m))...)
 
 	return filterChains
 }
@@ -391,9 +387,9 @@ func tlsSecretsToHostnames(m *model.Model) map[model.TLSSecret][]string {
 	return res
 }
 
-func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) ([]*envoy_config_listener.FilterChain, error) {
+func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) []*envoy_config_listener.FilterChain {
 	if len(ptBackendsToHostnames) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	var filterChains []*envoy_config_listener.FilterChain
@@ -420,7 +416,7 @@ func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) ([]*e
 		})
 	}
 
-	return filterChains, nil
+	return filterChains
 }
 
 func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*envoy_config_core_v3.TransportSocket, error) {
