@@ -4,7 +4,6 @@
 package labels
 
 import (
-	"fmt"
 	"sort"
 )
 
@@ -38,13 +37,10 @@ func (ls LabelArrayList) GetModel() [][]string {
 // Equals returns true if the label arrays lists have the same label arrays in the same order.
 func (ls LabelArrayList) Equals(b LabelArrayList) bool {
 	if len(ls) != len(b) {
-		fmt.Printf("LEN DIFFERS: obtained %v, expected %v\n", ls, b)
 		return false
 	}
 	for l := range ls {
 		if !ls[l].Equals(b[l]) {
-			fmt.Printf("LABEL ARRAY %d DIFFERS: obtained %v, expected %v\n",
-				l, ls[l], b[l])
 			return false
 		}
 	}
