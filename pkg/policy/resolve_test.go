@@ -136,7 +136,9 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	return rules, generateCIDRIdentities(rules)
 }
 
-type DummyOwner struct{}
+type DummyOwner struct {
+	mapStateSize int
+}
 
 func (d DummyOwner) CreateRedirects(*L4Filter) {
 }
@@ -155,6 +157,10 @@ func (d DummyOwner) GetID() uint64 {
 
 func (d DummyOwner) IsHost() bool {
 	return false
+}
+
+func (d DummyOwner) MapStateSize() int {
+	return d.mapStateSize
 }
 
 func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
@@ -183,16 +189,16 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	td := newTestData()
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+	owner := DummyOwner{}
 	b.ReportAllocs()
 	b.ResetTimer()
-	n := 0
 	for i := 0; i < b.N; i++ {
-		epPolicy := ip.DistillPolicy(DummyOwner{}, nil)
+		epPolicy := ip.DistillPolicy(owner, nil)
+		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
-		n += epPolicy.policyMapState.Len()
 	}
 	ip.Detach()
-	fmt.Printf("Number of MapState entries: %d\n", n/b.N)
+	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
