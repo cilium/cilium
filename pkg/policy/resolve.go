@@ -110,6 +110,7 @@ type PolicyOwner interface {
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
 	IsHost() bool
+	MapStateSize() int
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
@@ -166,7 +167,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[st
 		calculatedPolicy = &EndpointPolicy{
 			selectorPolicy: p,
 			VersionHandle:  version,
-			policyMapState: emptyMapState(),
+			policyMapState: newMapState(policyOwner.MapStateSize()),
 			policyMapChanges: MapChanges{
 				firstVersion: version.Version(),
 			},
