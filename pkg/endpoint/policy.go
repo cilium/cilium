@@ -47,6 +47,11 @@ var (
 	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
 )
 
+// MapStateSize returns the size of the current desired policy map
+func (e *Endpoint) MapStateSize() int {
+	return e.desiredPolicy.Len()
+}
+
 // GetNamedPort returns the port for the given name.
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	if ingress {

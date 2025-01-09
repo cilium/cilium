@@ -69,6 +69,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	ep := Endpoint{
 		SecurityIdentity: podID,
 		policyGetter:     &mockPolicyGetter{repo},
+		desiredPolicy:    policy.NewEndpointPolicy(repo),
 	}
 	ep.UpdateLogger(nil)
 

@@ -430,8 +430,12 @@ func (e *mapStateEntry) GetRuleLabels() labels.LabelArrayList {
 }
 
 func emptyMapState() mapState {
+	return newMapState(0)
+}
+
+func newMapState(size int) mapState {
 	return mapState{
-		entries: make(mapStateMap),
+		entries: make(mapStateMap, size),
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
 }

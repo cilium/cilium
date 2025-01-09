@@ -145,6 +145,12 @@ func (ei *EndpointInfo) IsHost() bool {
 	return false
 }
 
+// MapStateSize returns the size of the current desired policy map, used for preallocation of the
+// new map. Return 0 here as this is only used for testing.
+func (ei *EndpointInfo) MapStateSize() int {
+	return 0
+}
+
 type dummyPolicyStats struct {
 	waitingForPolicyRepository spanstat.SpanStat
 	policyCalculation          spanstat.SpanStat
