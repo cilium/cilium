@@ -100,11 +100,22 @@ setting.
 
     kubectl delete pods -n kube-system -l k8s-app=cilium
 
+.. note:: Configuring Cilium with label patterns via ``labels`` Helm value does
+          **not** override the default set of label patterns. That is to say,
+          you can consider this configuration to append a list of label
+          configurations to the defaults listed above.
+
+          If you wish to configure this setting in a declarative way including
+          the exact set of label prefixes to be considered for determining
+          workload security identities, you should instead configure the
+          ``label-prefix-file`` configuration flag.
+
 Existing identities will not change as a result of this new configuration. To
 apply the new label pattern setting to existing identities, restart the
-associated pods. Upon restart, new identities will be created. The old
-identities will be garbage collected by the Cilium Operator once they are no
-longer used by any Cilium endpoints.
+corresponding Cilium pod on the node where the workload is running. Upon
+restart, new identities will be created. The old identities will be garbage
+collected by the Cilium Operator once they are no longer used by any Cilium
+endpoints.
 
 When specifying multiple label patterns to evaluate, provide the list of labels
 as a space-separated string.
