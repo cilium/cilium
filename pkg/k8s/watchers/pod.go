@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -65,6 +66,14 @@ import (
 const podApiGroup = resources.K8sAPIGroupPodV1Core
 
 var ciliumEndpointSyncPodLabelsControllerGroup = controller.NewGroup("sync-pod-labels-with-cilium-endpoint")
+
+func hostPortServiceName(pod *slim_corev1.Pod, port uint16, cluster string) *loadbalancer.ServiceName {
+	return &loadbalancer.ServiceName{
+		Name:      pod.ObjectMeta.Name + "/pod-id/" + string(pod.ObjectMeta.UID) + "/host-port/" + strconv.FormatUint(uint64(port), 10),
+		Namespace: pod.ObjectMeta.Namespace,
+		Cluster:   cluster,
+	}
+}
 
 // createAllPodsController is used in the rare configurations where CiliumEndpointCRD is disabled.
 // If kvstore is enabled then we fall back to watching only local pods when kvstore connects.
@@ -751,11 +760,8 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 			ExtTrafficPolicy:    dpSvc.ExtTrafficPolicy,
 			IntTrafficPolicy:    dpSvc.IntTrafficPolicy,
 			HealthCheckNodePort: dpSvc.HealthCheckNodePort,
-			Name: loadbalancer.ServiceName{
-				Name:      fmt.Sprintf("%s/host-port/%d", newPod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
-				Namespace: newPod.ObjectMeta.Namespace,
-			},
-			LoopbackHostport: dpSvc.LoopbackHostport,
+			Name:                *hostPortServiceName(newPod, dpSvc.Frontend.L3n4Addr.Port, ""),
+			LoopbackHostport:    dpSvc.LoopbackHostport,
 		}
 
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
@@ -790,13 +796,14 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 
 	for _, dpSvc := range svcs {
 		svc, _ := k.svcManager.GetDeepCopyServiceByFrontend(dpSvc.Frontend.L3n4Addr)
+		dpSvcName := hostPortServiceName(pod, dpSvc.Frontend.L3n4Addr.Port, "")
 		// Check whether the service being deleted is in fact "owned" by the pod being deleted.
 		// We want to make sure that the pod being deleted is in fact the "current" backend that
 		// "owns" the hostPort service. Otherwise we might break hostPort connectivity for another
 		// pod which may have since claimed ownership for the same hostPort service, which was previously
 		// "owned" by the pod being deleted.
 		// See: https://github.com/cilium/cilium/issues/22460.
-		if svc != nil && !utils.DeepEqualBackends(svc.Backends, dpSvc.Backends) {
+		if svc != nil && !(svc.Name.Equal(*dpSvcName) && utils.DeepEqualBackends(svc.Backends, dpSvc.Backends)) {
 			continue
 		}
 

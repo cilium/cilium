@@ -347,6 +347,12 @@ type ServiceName struct {
 	Cluster   string
 }
 
+func (n *ServiceName) Equal(other ServiceName) bool {
+	return n.Namespace == other.Namespace &&
+		n.Name == other.Name &&
+		n.Cluster == other.Cluster
+}
+
 func (n ServiceName) String() string {
 	if n.Cluster != "" {
 		return n.Cluster + "/" + n.Namespace + "/" + n.Name
