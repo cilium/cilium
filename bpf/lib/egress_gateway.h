@@ -205,9 +205,13 @@ static __always_inline
 bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoint,
 					 __u32 *dst_sec_identity)
 {
-	if (egress_gw_reply_matches_policy(ip4)) {
-		struct remote_endpoint_info *info;
+	struct remote_endpoint_info *info;
 
+	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+	if (!info || identity_is_cluster(info->sec_identity))
+		return false;
+
+	if (egress_gw_reply_matches_policy(ip4)) {
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (!info || info->tunnel_endpoint == 0)
 			return false;
