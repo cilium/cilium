@@ -1428,6 +1428,42 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 		deletes: Keys{},
 	}, {
 		continued: false,
+		name:      "test-7a - egressDeny ports and toFQDN",
+		setup: newMapState(map[Key]MapStateEntry{
+			// egressDeny toPorts TCP/80
+			testEgressKey(0, 80, 6): denyEntry(0, csFoo),
+		}),
+		args: []args{
+			// Simulate addition of toFQDN identity
+			{cs: csFoo, adds: []int{16777218}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: false, deny: true},
+			{cs: csBar, adds: []int{16777218}, deletes: []int{}, port: 0, proto: 0, ingress: false, redirect: false, deny: false},
+		},
+		state: newMapState(map[Key]MapStateEntry{
+			testEgressKey(0, 80, 6):        denyEntry(0, csFoo),
+			testEgressKey(16777218, 0, 0):  allowEntry(0, csBar).WithDependents(testEgressKey(16777218, 80, 6)),
+			testEgressKey(16777218, 80, 6): denyEntry(0, csBar).WithOwners(testEgressKey(16777218, 0, 0)),
+		}),
+		adds: Keys{
+			testEgressKey(16777218, 0, 0):  {},
+			testEgressKey(16777218, 80, 6): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: true,
+		name:      "test-7b - clean up of synthesisized entries",
+		args: []args{
+			{cs: csBar, adds: []int{}, deletes: []int{16777218}, port: 0, proto: 0, ingress: false, redirect: false, deny: false},
+		},
+		state: newMapState(map[Key]MapStateEntry{
+			testEgressKey(0, 80, 6): denyEntry(0, csFoo),
+		}),
+		adds: Keys{},
+		deletes: Keys{
+			testEgressKey(16777218, 0, 0):  {},
+			testEgressKey(16777218, 80, 6): {},
+		},
+	}, {
+		continued: false,
 		name:      "test-n - title",
 		args:      []args{
 			//{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
