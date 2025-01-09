@@ -63,7 +63,7 @@ func filterByHTTPStatusCode(statusCodePrefixes []string) (FilterFunc, error) {
 	}, nil
 }
 
-func filterByHTTPMethods(methods []string) (FilterFunc, error) {
+func filterByHTTPMethods(methods []string) FilterFunc {
 	return func(ev *v1.Event) bool {
 		http := ev.GetFlow().GetL7().GetHttp()
 
@@ -75,7 +75,7 @@ func filterByHTTPMethods(methods []string) (FilterFunc, error) {
 		return slices.ContainsFunc(methods, func(method string) bool {
 			return strings.EqualFold(http.Method, method)
 		})
-	}, nil
+	}
 }
 
 func filterByHTTPUrls(urlRegexpStrs []string) (FilterFunc, error) {
@@ -101,7 +101,7 @@ func filterByHTTPUrls(urlRegexpStrs []string) (FilterFunc, error) {
 	}, nil
 }
 
-func filterByHTTPHeaders(headers []*flowpb.HTTPHeader) (FilterFunc, error) {
+func filterByHTTPHeaders(headers []*flowpb.HTTPHeader) FilterFunc {
 	return func(ev *v1.Event) bool {
 		http := ev.GetFlow().GetL7().GetHttp()
 
@@ -119,7 +119,7 @@ func filterByHTTPHeaders(headers []*flowpb.HTTPHeader) (FilterFunc, error) {
 		}
 
 		return false
-	}, nil
+	}
 }
 
 func filterByHTTPPaths(pathRegexpStrs []string) (FilterFunc, error) {
@@ -177,11 +177,7 @@ func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 				"the event type filter to only match 'l7' events")
 		}
 
-		methodf, err := filterByHTTPMethods(ff.GetHttpMethod())
-		if err != nil {
-			return nil, fmt.Errorf("invalid http method filter: %w", err)
-		}
-		fs = append(fs, methodf)
+		fs = append(fs, filterByHTTPMethods(ff.GetHttpMethod()))
 	}
 
 	if ff.GetHttpPath() != nil {
@@ -216,11 +212,7 @@ func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 				"the event type filter to only match 'l7' events")
 		}
 
-		headerf, err := filterByHTTPHeaders(ff.GetHttpHeader())
-		if err != nil {
-			return nil, fmt.Errorf("invalid http header filter: %w", err)
-		}
-		fs = append(fs, headerf)
+		fs = append(fs, filterByHTTPHeaders(ff.GetHttpHeader()))
 	}
 
 	return fs, nil

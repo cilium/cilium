@@ -272,10 +272,7 @@ func NewCollector(
 	}
 
 	// Build the list of node names in which the user is interested.
-	c.NodeList, err = buildNodeNameList(c.allNodes, c.Options.NodeList)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build node list: %w", err)
-	}
+	c.NodeList = buildNodeNameList(c.allNodes, c.Options.NodeList)
 	c.logDebug("Restricting bugtool and logs collection to pods in %v", c.NodeList)
 
 	if c.Options.CiliumNamespace != "" {
@@ -3008,7 +3005,7 @@ func podIsRunningAndHasContainer(pod *corev1.Pod, container string) bool {
 	return false
 }
 
-func buildNodeNameList(nodes *corev1.NodeList, filter string) ([]string, error) {
+func buildNodeNameList(nodes *corev1.NodeList, filter string) []string {
 	w := strings.Split(strings.TrimSpace(filter), ",")
 	r := make([]string, 0)
 	for _, node := range nodes.Items {
@@ -3021,7 +3018,7 @@ func buildNodeNameList(nodes *corev1.NodeList, filter string) ([]string, error) 
 			continue
 		}
 	}
-	return r, nil
+	return r
 }
 
 // AllPods converts a PodList into a slice of Pod objects.

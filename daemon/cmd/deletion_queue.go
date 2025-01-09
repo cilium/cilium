@@ -44,7 +44,6 @@ func (dq *deletionQueue) Start(cell.HookContext) error {
 		}
 
 		if err := dq.lock(d.ctx); err != nil {
-			log.WithError(err).Error("deletionQueue: lock failed")
 			return
 		}
 
@@ -72,20 +71,24 @@ func newDeletionQueue(lc cell.Lifecycle, p promise.Promise[*Daemon]) *deletionQu
 func (dq *deletionQueue) lock(ctx context.Context) error {
 	if err := os.MkdirAll(defaults.DeleteQueueDir, 0755); err != nil {
 		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueDir).Error("Failed to ensure CNI deletion queue directory exists")
-		return nil
+		// Return error to avoid attempting successive df.processQueuedDeletes accessing
+		// defaults.DeleteQueueLockfile and erroring because of the non-existent directory.
+		return err
 	}
 
+	// Don't return a non-nil error from here on so a successive call to dq.processQueuedDeletes
+	// can still continue with best effort.
 	var err error
 	dq.lf, err = lockfile.NewLockfile(defaults.DeleteQueueLockfile)
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
-	} else {
-		err = dq.lf.Lock(ctx, true)
-		if err != nil {
-			log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
-			dq.lf.Close()
-			dq.lf = nil
-		}
+		return nil
+	}
+
+	if err = dq.lf.Lock(ctx, true); err != nil {
+		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
+		dq.lf.Close()
+		dq.lf = nil
 	}
 	return nil
 }

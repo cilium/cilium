@@ -75,7 +75,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 		if port == insecureHost {
 			for _, h := range slices.Unique(portHostNameRedirect[secureHost]) {
 				if h.redirect {
-					vhs, _ := i.desiredVirtualHost(hostNamePortRoutes[h.hostname][secureHost], VirtualHostParameter{
+					vhs := i.desiredVirtualHost(hostNamePortRoutes[h.hostname][secureHost], VirtualHostParameter{
 						HostNames:     []string{h.hostname},
 						HTTPSRedirect: true,
 						ListenerPort:  m.HTTP[0].Port,
@@ -95,7 +95,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 			if !exists {
 				continue
 			}
-			vhs, _ := i.desiredVirtualHost(routes, VirtualHostParameter{
+			vhs := i.desiredVirtualHost(routes, VirtualHostParameter{
 				HostNames:     []string{h.hostname},
 				HTTPSRedirect: false,
 				ListenerPort:  m.HTTP[0].Port,

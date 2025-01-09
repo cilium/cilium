@@ -1269,9 +1269,7 @@ func (s *Service) RestoreServices() error {
 
 	var errs error
 	// Restore service cache from BPF maps
-	if err := s.restoreServicesLocked(backendsById); err != nil {
-		errs = errors.Join(errs, fmt.Errorf("error while restoring services: %w", err))
-	}
+	s.restoreServicesLocked(backendsById)
 
 	// Restore backend IDs
 	if err := s.restoreBackendsLocked(backendsById); err != nil {
@@ -1424,9 +1422,7 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 	}
 
 	// Remove obsolete backends and release their IDs
-	if err := s.deleteOrphanBackends(); err != nil {
-		log.WithError(err).Warn("Failed to remove orphan backends")
-	}
+	s.deleteOrphanBackends()
 
 	return stale, nil
 }
@@ -1839,7 +1835,7 @@ func (s *Service) restoreBackendsLocked(svcBackendsById map[lb.BackendID]struct{
 	return nil
 }
 
-func (s *Service) deleteOrphanBackends() error {
+func (s *Service) deleteOrphanBackends() {
 	orphanBackends := 0
 
 	for hash, b := range s.backendByHash {
@@ -1857,11 +1853,9 @@ func (s *Service) deleteOrphanBackends() error {
 	log.WithFields(logrus.Fields{
 		logfields.OrphanBackends: orphanBackends,
 	}).Info("Deleted orphan backends")
-
-	return nil
 }
 
-func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{}) error {
+func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{}) {
 	failed, restored := 0, 0
 
 	svcs, errors := s.lbmap.DumpServiceMaps()
@@ -1957,8 +1951,6 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 		logfields.RestoredSVCs: restored,
 		logfields.FailedSVCs:   failed,
 	}).Info("Restored services from maps")
-
-	return nil
 }
 
 func (s *Service) deleteServiceLocked(svc *svcInfo) error {

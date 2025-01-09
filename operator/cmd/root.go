@@ -575,7 +575,6 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 
 	var (
 		nodeManager allocator.NodeEventHandler
-		err         error
 		withKVStore bool
 	)
 
@@ -737,19 +736,11 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	}
 
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumNetworkPolicy {
-		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
-		if err != nil {
-			log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
-				"Cannot connect to Kubernetes apiserver ")
-		}
+		enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 	}
 
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumClusterwideNetworkPolicy {
-		err = enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
-		if err != nil {
-			log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
-				"Cannot connect to Kubernetes apiserver ")
-		}
+		enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 	}
 
 	if legacy.clientset.IsEnabled() {
