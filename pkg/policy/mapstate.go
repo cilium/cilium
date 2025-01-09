@@ -825,9 +825,9 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// identity of the iterated allow key must be added.
 				denyKeyCpy := newKey
 				denyKeyCpy.Identity = k.Identity
-				l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+				l3l4DenyEntry := NewMapStateEntry(k, newEntry.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
 				ms.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, changes)
-				newEntry.AddDependent(denyKeyCpy)
+				ms.addDependentOnEntry(k, v, denyKeyCpy, changes)
 			}
 			return true
 		})
