@@ -4,6 +4,8 @@
 package reconcilerv2
 
 import (
+	"cmp"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -483,8 +485,19 @@ func Test_MergeRoutePolicies(t *testing.T) {
 				req.NoError(err)
 			}
 
+			if tt.expected != nil {
+				req.NotNil(result)
+				SortRouteStatementsByName(result.Statements)
+				SortRouteStatementsByName(tt.expected.Statements)
+			}
+
 			req.Equal(tt.expected, result)
 		})
 	}
+}
 
+func SortRouteStatementsByName(statements []*types.RoutePolicyStatement) {
+	slices.SortFunc(statements, func(i, j *types.RoutePolicyStatement) int {
+		return cmp.Compare(i.Conditions.String(), j.Conditions.String())
+	})
 }

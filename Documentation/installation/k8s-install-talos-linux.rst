@@ -10,8 +10,10 @@
 
   - Cilium's Talos Linux support is only tested with Talos versions ``>=1.5.0``.
   - As Talos `does not allow loading Kernel modules`_ by Kubernetes workloads, ``SYS_MODULE`` needs to be dropped from the Cilium default capability list.
+  - Talos Linux's `Forwarding kube-dns to Host DNS`_ (enabled by default since Talos 1.8+) doesn't work together with Cilium's :ref:`eBPF_Host_Routing`. To make it work, you must set ``bpf.hostLegacyRouting`` to ``true`` as DNS won't work otherwise.
 
 .. _`does not allow loading Kernel modules`: https://www.talos.dev/latest/learn-more/process-capabilities/
+.. _`Forwarding kube-dns to Host DNS`: https://www.talos.dev/latest/talos-guides/network/host-dns/#forwarding-kube-dns-to-host-dns
 
 .. note::
 
@@ -25,7 +27,7 @@
     - `Kubernetes Host Scope<k8s_hostscope>` IPAM mode as Talos, by default, assigns ``PodCIDRs`` to ``v1.Node`` resources
 
 .. _`Cilium Helm chart`: https://github.com/cilium/charts
-.. _`Deploying Cilium CNI guide`: https://www.talos.dev/v1.6/kubernetes-guides/network/deploying-cilium/
+.. _`Deploying Cilium CNI guide`: https://www.talos.dev/latest/kubernetes-guides/network/deploying-cilium/
 
 **Configure Talos Linux**
 
@@ -70,7 +72,7 @@ Talos Linux node on ``localhost:7445``.
 
     helm install cilium |CHART_RELEASE| \\
       --namespace $CILIUM_NAMESPACE \\
-      --set ipam.mode=kubernetes \\
+      --set=ipam.mode=kubernetes \\
       --set=kubeProxyReplacement=true \\
       --set=securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \\
       --set=securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \\
