@@ -801,6 +801,14 @@
     },
     {
       "fileMatch": [
+        "^.github/workflows/enterprise-renovate-config-validator\\.yaml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+      ]
+    },
+    {
+      "fileMatch": [
         "^go\\.mod$"
       ],
       "matchStrings": [
