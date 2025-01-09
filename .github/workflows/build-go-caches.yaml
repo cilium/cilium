@@ -4,15 +4,15 @@ name: Build Golang caches
 on:
   push:
     branches:
-      - v1.16
+      - v1.17
 
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
     workflows:
      - "Image CI Cache Cleaner"
     branches:
-     - v1.16
-     - ft/v1.16/**
+     - v1.17
+     - ft/v1.17/**
     types:
      - completed
 
