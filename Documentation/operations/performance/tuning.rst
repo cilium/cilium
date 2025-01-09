@@ -175,6 +175,16 @@ To enable eBPF Host-Routing:
              --set bpf.masquerade=true \\
              --set kubeProxyReplacement=true
 
+**Known limitations:**
+
+eBPF host routing optimizes the host-internal packet routing, and packets no
+longer hit the netfilter tables in the host namespace. Therefore, it is incompatible
+with features relying on netfilter hooks (for example, `GKE Workload Identities`_).
+Configure ``bpf.hostLegacyRouting=true`` or leverage :ref:`local-redirect-policy`
+to work around this limitation.
+
+.. _`GKE Workload Identities`: https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity
+
 .. _ipv6_big_tcp:
 
 IPv6 BIG TCP
