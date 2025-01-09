@@ -45,7 +45,6 @@ endif
 cilium-build:
 ifndef SKIP_BUILD
 	$(MAKE) builder-image
-	echo $(MAKEFLAGS)
 	../contrib/scripts/builder.sh env MAKEFLAGS="$(filter-out --jobserver-auth=%,$(MAKEFLAGS))" make build
 else
 	echo "SKIP_BUILD set, assuming all build artifacts are already present."
