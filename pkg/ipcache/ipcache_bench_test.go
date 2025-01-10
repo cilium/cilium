@@ -56,7 +56,7 @@ func BenchmarkInjectLabels(b *testing.B) {
 	}
 	b.Logf("%d", len(prefixes))
 	b.Log(addr.String())
-	_, err := ipc.doInjectLabels(ctx, prefixes)
+	_, _, err := ipc.doInjectLabels(ctx, prefixes)
 	if err != nil {
 		b.Fatal(err)
 	}

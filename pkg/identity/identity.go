@@ -326,5 +326,5 @@ func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 
 // UpdateIdentities is an interface to be called when identities change
 type UpdateIdentities interface {
-	UpdateIdentities(added, deleted IdentityMap, wg *sync.WaitGroup)
+	UpdateIdentities(added, deleted IdentityMap, wg *sync.WaitGroup) (mutated bool)
 }
