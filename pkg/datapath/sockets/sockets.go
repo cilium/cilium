@@ -4,6 +4,7 @@
 package sockets
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -28,7 +29,7 @@ const (
 
 var (
 	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-sockets")
-	native       = nl.NativeEndian()
+	native       = binary.NativeEndian
 	networkOrder = binary.BigEndian
 )
 
@@ -125,8 +126,6 @@ func filterAndDestroyUDPSockets(family uint8, socketCB func(socket netlink.Socke
 	return nil
 }
 
-// Below handlers are adapted from netlink/socket_linux.go to avoid memory allocations.
-
 type socketRequest struct {
 	Family   uint8
 	Protocol uint8
@@ -136,95 +135,82 @@ type socketRequest struct {
 	ID       netlink.SocketID
 }
 
-type writeBuffer struct {
-	Bytes []byte
-	pos   int
-}
+func (r socketRequest) Serialize() []byte {
+	var bb bytes.Buffer
 
-func (b *writeBuffer) write(c byte) {
-	b.Bytes[b.pos] = c
-	b.pos++
-}
+	bb.Grow(sizeofSocketRequest)
 
-func (b *writeBuffer) next(n int) []byte {
-	s := b.Bytes[b.pos : b.pos+n]
-	b.pos += n
-	return s
-}
+	bb.WriteByte(r.Family)
+	bb.WriteByte(r.Protocol)
+	bb.WriteByte(r.Ext)
+	bb.WriteByte(r.pad)
+	b := bb.AvailableBuffer()
+	b = native.AppendUint32(b, r.States)
+	b = networkOrder.AppendUint16(b, r.ID.SourcePort)
+	b = networkOrder.AppendUint16(b, r.ID.DestinationPort)
+	bb.Write(b)
+	serializeAddr(&bb, r.Family, r.ID.Source)
+	serializeAddr(&bb, r.Family, r.ID.Destination)
+	b = bb.AvailableBuffer()
+	b = native.AppendUint32(b, r.ID.Interface)
+	b = native.AppendUint32(b, r.ID.Cookie[0])
+	b = native.AppendUint32(b, r.ID.Cookie[1])
+	bb.Write(b)
 
-func (r *socketRequest) Serialize() []byte {
-	b := writeBuffer{Bytes: make([]byte, sizeofSocketRequest)}
-	b.write(r.Family)
-	b.write(r.Protocol)
-	b.write(r.Ext)
-	b.write(r.pad)
-	native.PutUint32(b.next(4), r.States)
-	networkOrder.PutUint16(b.next(2), r.ID.SourcePort)
-	networkOrder.PutUint16(b.next(2), r.ID.DestinationPort)
-	if r.Family == unix.AF_INET6 {
-		copy(b.next(16), r.ID.Source)
-		copy(b.next(16), r.ID.Destination)
-	} else {
-		copy(b.next(4), r.ID.Source.To4())
-		b.next(12)
-		copy(b.next(4), r.ID.Destination.To4())
-		b.next(12)
-	}
-	native.PutUint32(b.next(4), r.ID.Interface)
-	native.PutUint32(b.next(4), r.ID.Cookie[0])
-	native.PutUint32(b.next(4), r.ID.Cookie[1])
-	return b.Bytes
+	return bb.Bytes()
 }
 
 func (r *socketRequest) Len() int { return sizeofSocketRequest }
 
-type readBuffer struct {
-	Bytes []byte
-	pos   int
-}
-
-func (b *readBuffer) Read() byte {
-	c := b.Bytes[b.pos]
-	b.pos++
-	return c
-}
-
-func (b *readBuffer) Next(n int) []byte {
-	s := b.Bytes[b.pos : b.pos+n]
-	b.pos += n
-	return s
+func serializeAddr(bb *bytes.Buffer, family uint8, addr net.IP) {
+	if addr == nil {
+		for range net.IPv6len {
+			bb.WriteByte(0)
+		}
+		return
+	}
+	if family == unix.AF_INET6 {
+		bb.Write(addr)
+	} else {
+		bb.Write(addr.To4())
+		for range net.IPv6len - net.IPv4len {
+			bb.WriteByte(0)
+		}
+	}
 }
 
 type socket netlink.Socket
 
 func (s *socket) deserialize(b []byte) error {
+	// early size check to guarantee safety of reads below
 	if len(b) < sizeofSocket {
 		return fmt.Errorf("socket data short read (%d); want %d", len(b), sizeofSocket)
 	}
-	rb := readBuffer{Bytes: b}
-	s.Family = rb.Read()
-	s.State = rb.Read()
-	s.Timer = rb.Read()
-	s.Retrans = rb.Read()
-	s.ID.SourcePort = networkOrder.Uint16(rb.Next(2))
-	s.ID.DestinationPort = networkOrder.Uint16(rb.Next(2))
+
+	bb := bytes.NewBuffer(b)
+	s.Family, _ = bb.ReadByte()
+	s.State, _ = bb.ReadByte()
+	s.Timer, _ = bb.ReadByte()
+	s.Retrans, _ = bb.ReadByte()
+	s.ID.SourcePort = networkOrder.Uint16(bb.Next(2))
+	s.ID.DestinationPort = networkOrder.Uint16(bb.Next(2))
 	if s.Family == unix.AF_INET6 {
-		s.ID.Source = net.IP(rb.Next(16))
-		s.ID.Destination = net.IP(rb.Next(16))
+		s.ID.Source = net.IP(bb.Next(net.IPv6len))
+		s.ID.Destination = net.IP(bb.Next(net.IPv6len))
 	} else {
-		s.ID.Source = net.IPv4(rb.Read(), rb.Read(), rb.Read(), rb.Read())
-		rb.Next(12)
-		s.ID.Destination = net.IPv4(rb.Read(), rb.Read(), rb.Read(), rb.Read())
-		rb.Next(12)
+		src := bb.Next(net.IPv6len)
+		s.ID.Source = net.IPv4(src[0], src[1], src[2], src[3])
+		dst := bb.Next(net.IPv6len)
+		s.ID.Destination = net.IPv4(dst[0], dst[1], dst[2], dst[3])
 	}
-	s.ID.Interface = native.Uint32(rb.Next(4))
-	s.ID.Cookie[0] = native.Uint32(rb.Next(4))
-	s.ID.Cookie[1] = native.Uint32(rb.Next(4))
-	s.Expires = native.Uint32(rb.Next(4))
-	s.RQueue = native.Uint32(rb.Next(4))
-	s.WQueue = native.Uint32(rb.Next(4))
-	s.UID = native.Uint32(rb.Next(4))
-	s.INode = native.Uint32(rb.Next(4))
+	s.ID.Interface = native.Uint32(bb.Next(4))
+	s.ID.Cookie[0] = native.Uint32(bb.Next(4))
+	s.ID.Cookie[1] = native.Uint32(bb.Next(4))
+	s.Expires = native.Uint32(bb.Next(4))
+	s.RQueue = native.Uint32(bb.Next(4))
+	s.WQueue = native.Uint32(bb.Next(4))
+	s.UID = native.Uint32(bb.Next(4))
+	s.INode = native.Uint32(bb.Next(4))
 	return nil
 }
 
