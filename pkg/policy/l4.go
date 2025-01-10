@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"unique"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/sirupsen/logrus"
@@ -397,14 +398,14 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 // ruleOrigin is an interned labels.LabelArrayList.String(), a list of rule labels tracking which
 // policy rules are the origin for this policy. This information is used when distilling a policy to
 // an EndpointPolicy, to track which policy rules were involved for a specific verdict.
-type ruleOrigin string
+type ruleOrigin unique.Handle[string]
 
 func (ro ruleOrigin) Value() string {
-	return string(ro)
+	return unique.Handle[string](ro).Value()
 }
 
 func makeRuleOrigin(lbls labels.LabelArrayList) ruleOrigin {
-	return ruleOrigin(lbls.String())
+	return ruleOrigin(unique.Make(lbls.String()))
 }
 
 func (ro *ruleOrigin) Merge(other ruleOrigin) bool {
@@ -413,7 +414,7 @@ func (ro *ruleOrigin) Merge(other ruleOrigin) bool {
 		return true
 	}
 	if other.Value() != "" {
-		*ro = ruleOrigin(labels.MergeSortedLabelArrayListStrings(ro.Value(), other.Value()))
+		*ro = ruleOrigin(unique.Make(labels.MergeSortedLabelArrayListStrings(ro.Value(), other.Value())))
 		return true
 	}
 	return false
@@ -440,16 +441,16 @@ func (o ruleOrigin) GetLabelArrayList() labels.LabelArrayList {
 }
 
 // stringLabels is an interned labels.LabelArray.String()
-type stringLabels string
+type stringLabels unique.Handle[string]
 
 var EmptyStringLabels = makeStringLabels(nil)
 
 func (sl stringLabels) Value() string {
-	return string(sl)
+	return unique.Handle[string](sl).Value()
 }
 
 func makeStringLabels(lbls labels.LabelArray) stringLabels {
-	return stringLabels(lbls.Sort().String())
+	return stringLabels(unique.Make(lbls.Sort().String()))
 }
 
 // L4Filter represents the policy (allowed remote sources / destinations of
