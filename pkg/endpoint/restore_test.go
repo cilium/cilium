@@ -77,13 +77,15 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 func TestReadEPsFromDirNames(t *testing.T) {
 	s := setupEndpointSuite(t)
 	epsWanted, _ := s.createEndpoints()
-	tmpDir, err := os.MkdirTemp("", "cilium-tests")
-	defer func() {
-		os.RemoveAll(tmpDir)
-	}()
+	tmpDir := t.TempDir()
 
 	const unsupportedTestOption = "unsupported-test-only-option-xyz"
 
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		os.Chdir(cwd)
+	}()
 	os.Chdir(tmpDir)
 	require.NoError(t, err)
 	epsNames := []string{}
@@ -151,11 +153,13 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	eps, _ := s.createEndpoints()
 	ep := eps[0]
 	require.NotNil(t, ep)
-	tmpDir, err := os.MkdirTemp("", "cilium-tests")
-	defer func() {
-		os.RemoveAll(tmpDir)
-	}()
+	tmpDir := t.TempDir()
 
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		os.Chdir(cwd)
+	}()
 	os.Chdir(tmpDir)
 	require.NoError(t, err)
 
@@ -212,11 +216,13 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	// serialize config files to disk and benchmark the restore.
 
 	epsWanted, _ := s.createEndpoints()
-	tmpDir, err := os.MkdirTemp("", "cilium-tests")
-	defer func() {
-		os.RemoveAll(tmpDir)
-	}()
+	tmpDir := b.TempDir()
 
+	cwd, err := os.Getwd()
+	require.NoError(b, err)
+	defer func() {
+		os.Chdir(cwd)
+	}()
 	os.Chdir(tmpDir)
 	require.NoError(b, err)
 	epsNames := []string{}
