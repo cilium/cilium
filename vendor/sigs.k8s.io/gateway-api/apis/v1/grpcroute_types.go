@@ -230,7 +230,7 @@ type GRPCRouteRule struct {
 	// Specifying the same filter multiple times is not supported unless explicitly
 	// indicated in the filter.
 	//
-	// If an implementation can not support a combination of filters, it must clearly
+	// If an implementation cannot support a combination of filters, it must clearly
 	// document that limitation. In cases where incompatible or unsupported
 	// filters are specified and cause the `Accepted` condition to be set to status
 	// `False`, implementations may use the `IncompatibleFilters` reason to specify

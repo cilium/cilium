@@ -58,7 +58,7 @@ const (
 	SupportGatewayHTTPListenerIsolation FeatureName = "GatewayHTTPListenerIsolation"
 
 	// SupportGatewayInfrastructureAnnotations option indicates support for
-	// spec.infrastructure.annotations and spec.infrastrucutre.labels
+	// spec.infrastructure.annotations and spec.infrastructure.labels
 	SupportGatewayInfrastructurePropagation FeatureName = "GatewayInfrastructurePropagation"
 )
 
