@@ -312,14 +312,17 @@ func (m *metadata) findAffectedChildPrefixes(parent netip.Prefix) (children []ne
 // unexpected error while processing the identity updates for those CIDRs
 // The caller should attempt to retry injecting labels for those CIDRs.
 //
+// 'mutated' is returned as 'true' if an identity's labels were changed. In this case
+// the caller must trigger forced policy regenerations on all endpoints.
+//
 // Do not call this directly; rather, use TriggerLabelInjection()
-func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, err error) {
+func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip.Prefix) (remainingPrefixes []netip.Prefix, mutated bool, err error) {
 	if ipc.IdentityAllocator == nil {
-		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
+		return modifiedPrefixes, false, ErrLocalIdentityAllocatorUninitialized
 	}
 
 	if !ipc.Configuration.CacheStatus.Synchronized() {
-		return modifiedPrefixes, errors.New("k8s cache not fully synced")
+		return modifiedPrefixes, false, errors.New("k8s cache not fully synced")
 	}
 
 	type ipcacheEntry struct {
@@ -519,7 +522,6 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 		// for reserved:host and push that to the SelectorCache
 		if entryExists && oldID.ID == identity.ReservedIdentityHost &&
 			(newID == nil || newID.ID != identity.ReservedIdentityHost) {
-
 			i := ipc.updateReservedHostLabels(prefix, nil)
 			idsToAdd[i.ID] = i.Labels.LabelArray()
 		}
@@ -530,7 +532,9 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 
 	// Recalculate policy first before upserting into the ipcache.
 	if len(idsToAdd) > 0 {
-		ipc.UpdatePolicyMaps(ctx, idsToAdd, nil)
+		if ipc.UpdatePolicyMaps(ctx, idsToAdd, nil) {
+			mutated = true
+		}
 	}
 
 	ipc.mutex.Lock()
@@ -602,18 +606,20 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 		}
 	}
 	if len(idsToDelete) > 0 {
-		ipc.UpdatePolicyMaps(ctx, nil, idsToDelete)
+		if ipc.UpdatePolicyMaps(ctx, nil, idsToDelete) {
+			mutated = true
+		}
 	}
 	for prefix, id := range entriesToDelete {
 		ipc.deleteLocked(prefix.String(), id.Source)
 	}
 
-	return remainingPrefixes, err
+	return remainingPrefixes, mutated, err
 }
 
 // UpdatePolicyMaps pushes updates for the specified identities into the policy
 // engine and ensures that they are propagated into the underlying datapaths.
-func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, deletedIdentities map[identity.NumericIdentity]labels.LabelArray) {
+func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, deletedIdentities map[identity.NumericIdentity]labels.LabelArray) (mutated bool) {
 	// GH-17962: Refactor to call (*Daemon).UpdateIdentities(), instead of
 	// re-implementing the same logic here. It will also allow removing the
 	// dependencies that are passed into this function.
@@ -627,16 +633,21 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 	// be propagated to the datapath until the UpdatePolicyMaps
 	// call below.
 	if len(deletedIdentities) != 0 {
-		ipc.PolicyHandler.UpdateIdentities(nil, deletedIdentities, &wg)
+		if ipc.PolicyHandler.UpdateIdentities(nil, deletedIdentities, &wg) {
+			mutated = true
+		}
 	}
 	if len(addedIdentities) != 0 {
-		ipc.PolicyHandler.UpdateIdentities(addedIdentities, nil, &wg)
+		if ipc.PolicyHandler.UpdateIdentities(addedIdentities, nil, &wg) {
+			mutated = true
+		}
 	}
 
 	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
 	policyImplementedWG.Wait()
 
 	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("local").Observe(time.Since(start).Seconds())
+	return mutated
 }
 
 // resolveIdentity will either return a previously-allocated identity for the
@@ -969,6 +980,8 @@ func (ipc *IPCache) handleLabelInjection(ctx context.Context) error {
 		cs = len(idsToModify)
 	}
 
+	triggerPolicyUpdates := false
+
 	// Split ipcache updates in to chunks to reduce resource spikes.
 	// InjectLabels releases all identities only at the end of processing, so
 	// it may allocate up to `chunkSize` additional identities.
@@ -981,8 +994,12 @@ func (ipc *IPCache) handleLabelInjection(ctx context.Context) error {
 
 		// If individual prefixes failed injection, doInjectLabels() the set of failed prefixes
 		// and sets err. We must ensure the failed prefixes are re-queued for injection.
-		failed, err = ipc.doInjectLabels(ctx, chunk)
+		var mutated bool
+		failed, mutated, err = ipc.doInjectLabels(ctx, chunk)
 		retry = append(retry, failed...)
+		if mutated {
+			triggerPolicyUpdates = true
+		}
 		if err != nil {
 			break
 		}
@@ -1002,6 +1019,10 @@ func (ipc *IPCache) handleLabelInjection(ctx context.Context) error {
 		// if all prefixes were successfully injected, bump the revision
 		// so that any waiters are made aware.
 		ipc.metadata.setInjectedRevision(rev)
+	}
+
+	if triggerPolicyUpdates {
+		ipc.Configuration.PolicyUpdater.TriggerPolicyUpdates("identity labels changed")
 	}
 
 	// non-nil err will re-trigger this controller
