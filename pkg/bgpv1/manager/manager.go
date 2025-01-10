@@ -816,17 +816,13 @@ func (m *BGPRouterManager) ReconcileInstances(ctx context.Context,
 		m.withdrawV2(ctx, rd)
 	}
 	if len(rd.register) > 0 {
-		if err := m.registerV2(ctx, rd); err != nil {
-			return err
-		}
+		err = errors.Join(err, m.registerV2(ctx, rd))
 	}
 	if len(rd.reconcile) > 0 {
-		if err := m.reconcileV2(ctx, rd); err != nil {
-			return err
-		}
+		err = errors.Join(err, m.reconcileV2(ctx, rd))
 	}
 
-	return nil
+	return err
 }
 
 // registerV2 instantiates and configures BGP Instance(s) as instructed by the provided
