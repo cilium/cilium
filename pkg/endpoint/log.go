@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 
 	"github.com/cilium/lumberjack/v2"
 	"github.com/sirupsen/logrus"
@@ -20,8 +19,6 @@ import (
 var (
 	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 	policyLog = logrus.New()
-
-	policyLogOnce sync.Once
 )
 
 const (
@@ -132,31 +129,30 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 	policyLogger := e.policyLogger.Load()
 	// e.Options check needed for unit testing.
 	if policyLogger == nil && e.Options != nil && e.Options.IsEnabled(option.DebugPolicy) {
-		policyLogOnce.Do(func() {
-			maxSize := 10 // 10 MB
-			if ms := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_SIZE"); ms != "" {
-				if ms, err := strconv.Atoi(ms); err == nil {
-					maxSize = ms
-				}
+		maxSize := 10 // 10 MB
+		if ms := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_SIZE"); ms != "" {
+			if ms, err := strconv.Atoi(ms); err == nil {
+				maxSize = ms
 			}
-			maxBackups := 3
-			if mb := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_BACKUPS"); mb != "" {
-				if mb, err := strconv.Atoi(mb); err == nil {
-					maxBackups = mb
-				}
+		}
+		maxBackups := 3
+		if mb := os.Getenv("CILIUM_DBG_POLICY_LOG_MAX_BACKUPS"); mb != "" {
+			if mb, err := strconv.Atoi(mb); err == nil {
+				maxBackups = mb
 			}
-			lumberjackLogger := &lumberjack.Logger{
-				Filename:   filepath.Join(option.Config.StateDir, "endpoint-policy.log"),
-				MaxSize:    maxSize,
-				MaxBackups: maxBackups,
-				MaxAge:     28, // days
-				LocalTime:  true,
-				Compress:   true,
-			}
-			policyLog.SetOutput(lumberjackLogger)
-			policyLog.SetLevel(logrus.DebugLevel)
-			policyLog.SetFormatter(logging.GetFormatter(logging.DefaultLogFormatTimestamp))
-		})
+		}
+		lumberjackLogger := &lumberjack.Logger{
+			Filename:   filepath.Join(option.Config.StateDir, "endpoint-policy.log"),
+			MaxSize:    maxSize,
+			MaxBackups: maxBackups,
+			MaxAge:     28, // days
+			LocalTime:  true,
+			Compress:   true,
+		}
+		policyLog.SetOutput(lumberjackLogger)
+		policyLog.SetLevel(logrus.DebugLevel)
+		policyLog.SetFormatter(logging.GetFormatter(logging.DefaultLogFormatTimestamp))
+
 		policyLogger = logrus.NewEntry(policyLog)
 	}
 	if policyLogger == nil || e.Options == nil {
