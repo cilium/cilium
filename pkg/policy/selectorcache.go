@@ -498,7 +498,14 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 // Caller should Wait() on the returned sync.WaitGroup before triggering any
 // policy updates. Policy updates may need Endpoint locks, so this Wait() can
 // deadlock if the caller is holding any endpoint locks.
-func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) {
+//
+// Incremental deletes of mutated identities are not sent to the users, as that could
+// lead to deletion of policy map entries while other selectors may still select the mutated
+// identity.
+// In this case the return value is 'true' and the caller should trigger policy updates on all
+// endpoints to remove the affected identity only from selectors that no longer select the mutated
+// identity.
+func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -581,8 +588,13 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 					adds = append(adds, numericID)
 					idSel.cachedSelections[numericID] = struct{}{}
 				} else if !matches && exists {
-					// identity was mutated and no longer matches
-					dels = append(dels, numericID)
+					// Identity was mutated and no longer matches, the identity
+					// is deleted from the cached selections, but is not sent to
+					// users as a deletion. Instead, we return 'mutated = true'
+					// telling the caller to trigger forced policy updates on
+					// all endpoints to recompute the policy as if the mutated
+					// identity was never selected by the affected selector.
+					mutated = true
 					delete(idSel.cachedSelections, numericID)
 				}
 			}
@@ -609,4 +621,5 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 
 		txn.Commit()
 	}
+	return mutated
 }
