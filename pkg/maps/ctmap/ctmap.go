@@ -416,25 +416,18 @@ func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(
 	return nil
 }
 
-var (
-	batchAPISupported     bool
-	batchAPISupportedOnce sync.Once
-)
-
-func isBatchAPISupported() bool {
-	batchAPISupportedOnce.Do(func() {
-		err := probes.HaveBatchAPI()
-		batchAPISupported = !errors.Is(err, probes.ErrNotSupported)
-		if !batchAPISupported {
-			log.WithError(err).Info("kernel does not support batch iteration for ctmap gc")
-		}
-	})
-	return batchAPISupported
-}
+var batchAPISupported = sync.OnceValue(func() bool {
+	err := probes.HaveBatchAPI()
+	supported := !errors.Is(err, probes.ErrNotSupported)
+	if !supported {
+		log.WithError(err).Info("kernel does not support batch iteration for ctmap gc")
+	}
+	return supported
+})
 
 func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *Map, stats *gcStats, filterCallback func(key bpf.MapKey, value bpf.MapValue)) error {
 	// Note: We can drop this once the minimum supported kernel version has batch iteration (i.e. >=5.6).
-	if !isBatchAPISupported() {
+	if !batchAPISupported() {
 		return m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
 	}
 
