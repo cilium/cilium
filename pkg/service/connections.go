@@ -80,8 +80,8 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 			return
 		} else {
 			log.WithError(err).WithField(logfields.L3n4Addr, l3n4Addr).Error(
-				"error while forcefully terminating sockets connected to" +
-					"deleted service backend. Consider restarting any application pods sending traffic" +
+				"error while forcefully terminating sockets connected to " +
+					"deleted service backend. Consider restarting any application pods sending traffic " +
 					"to the backend")
 		}
 	}
@@ -120,8 +120,8 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 				log.WithError(err).WithFields(logrus.Fields{
 					"netns":            file.Name(),
 					logfields.L3n4Addr: l3n4Addr,
-				}).Error("error while forcefully terminating sockets in netns connected to" +
-					"deleted service backend. Consider restarting any application pods sending traffic" +
+				}).Error("error while forcefully terminating sockets in netns connected to " +
+					"deleted service backend. Consider restarting any application pods sending traffic " +
 					"to the backend")
 				continue
 			}
