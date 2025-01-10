@@ -380,6 +380,22 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium status
 
+      - name: Prepare the bpftrace parameters
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        id: bpftrace-params
+        run: |
+          CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
+          if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
+          fi
+          echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
+      - name: Start unencrypted packets check for Cilium upgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+
       - name: Setup conn-disrupt-test before upgrading (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-setup
@@ -402,6 +418,17 @@ jobs:
         with:
           job-name: cilium-upgrade-${{ matrix.name }}
           full-test: 'true'
+
+      - name: Assert that no unencrypted packets are leaked during Cilium upgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/check
+
+      - name: Start unencrypted packets check for Cilium downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true"
 
       - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -433,6 +460,10 @@ jobs:
         with:
           job-name: cilium-downgrade-${{ matrix.name }}
           full-test: 'true'
+
+      - name: Assert that no unencrypted packets are leaked during Cilium downgrade
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/bpftrace/check
 
       - name: Fetch artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
