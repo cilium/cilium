@@ -388,9 +388,24 @@ func (c *Collector) AbsoluteTempPath(f string) string {
 	return path.Join(c.sysdumpDir, c.replaceTimestamp(f))
 }
 
+func (c *Collector) WithFileSink(filename string, fn func(io.Writer) error) error {
+	path := c.AbsoluteTempPath(filename)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileMode)
+	if err != nil {
+		return err
+	}
+
+	return errors.Join(
+		fn(file),
+		file.Close(),
+	)
+}
+
 // WriteYAML writes a kubernetes object to a file as YAML.
 func (c *Collector) WriteYAML(filename string, o runtime.Object) error {
-	return writeYaml(c.AbsoluteTempPath(filename), o)
+	return c.WithFileSink(filename, func(w io.Writer) error {
+		return writeYAML(o, w)
+	})
 }
 
 // WriteString writes a string to a file.
