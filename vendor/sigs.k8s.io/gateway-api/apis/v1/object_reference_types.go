@@ -156,7 +156,7 @@ type BackendObjectReference struct {
 // on the containing object.
 type ObjectReference struct {
 	// Group is the group of the referent. For example, "gateway.networking.k8s.io".
-	// When unspecified or empty string, core API group is inferred.
+	// When set to the empty string, core API group is inferred.
 	Group Group `json:"group"`
 
 	// Kind is kind of the referent. For example "ConfigMap" or "Service".

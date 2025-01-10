@@ -706,6 +706,13 @@ spec:
         - /root/Corefile
         image: coredns/coredns
         name: coredns
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
         volumeMounts:
         - mountPath: /root
           name: conf

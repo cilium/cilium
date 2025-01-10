@@ -57,10 +57,14 @@ var HTTPRouteRequestMirror = suite.ConformanceTest{
 					},
 				},
 				Backend: "infra-backend-v1",
-				MirroredTo: []http.BackendRef{{
-					Name:      "infra-backend-v2",
-					Namespace: ns,
-				}},
+				MirroredTo: []http.MirroredBackend{
+					{
+						BackendRef: http.BackendRef{
+							Name:      "infra-backend-v2",
+							Namespace: ns,
+						},
+					},
+				},
 				Namespace: ns,
 			},
 			{
@@ -84,10 +88,14 @@ var HTTPRouteRequestMirror = suite.ConformanceTest{
 				},
 				Namespace: ns,
 				Backend:   "infra-backend-v1",
-				MirroredTo: []http.BackendRef{{
-					Name:      "infra-backend-v2",
-					Namespace: ns,
-				}},
+				MirroredTo: []http.MirroredBackend{
+					{
+						BackendRef: http.BackendRef{
+							Name:      "infra-backend-v2",
+							Namespace: ns,
+						},
+					},
+				},
 			},
 		}
 		for i := range testCases {

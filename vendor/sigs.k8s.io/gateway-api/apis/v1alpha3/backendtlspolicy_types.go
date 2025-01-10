@@ -65,12 +65,22 @@ type BackendTLSPolicySpec struct {
 	// by default, but this default may change in the future to provide
 	// a more granular application of the policy.
 	//
+	// TargetRefs must be _distinct_. This means either that:
+	//
+	// * They select different targets. If this is the case, then targetRef
+	//   entries are distinct. In terms of fields, this means that the
+	//   multi-part key defined by `group`, `kind`, and `name` must
+	//   be unique across all targetRef entries in the BackendTLSPolicy.
+	// * They select different sectionNames in the same target.
+	//
 	// Support: Extended for Kubernetes Service
 	//
 	// Support: Implementation-specific for any other resource
 	//
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:XValidation:message="sectionName must be specified when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.all(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name ? ((!has(p1.sectionName) || p1.sectionName == '') == (!has(p2.sectionName) || p2.sectionName == '')) : true))"
+	// +kubebuilder:validation:XValidation:message="sectionName must be unique when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName == p2.sectionName))))"
 	TargetRefs []v1alpha2.LocalPolicyTargetReferenceWithSectionName `json:"targetRefs"`
 
 	// Validation contains backend TLS validation configuration.
@@ -102,7 +112,7 @@ type BackendTLSPolicyValidation struct {
 	//
 	// If CACertificateRefs is empty or unspecified, then WellKnownCACertificates must be
 	// specified. Only one of CACertificateRefs or WellKnownCACertificates may be specified,
-	// not both. If CACertifcateRefs is empty or unspecified, the configuration for
+	// not both. If CACertificateRefs is empty or unspecified, the configuration for
 	// WellKnownCACertificates MUST be honored instead if supported by the implementation.
 	//
 	// References to a resource in a different namespace are invalid for the
@@ -141,7 +151,7 @@ type BackendTLSPolicyValidation struct {
 	// backends:
 	//
 	// 1. Hostname MUST be used as the SNI to connect to the backend (RFC 6066).
-	// 2. If SubjectAltNames is not specified, Hostname MUST be used for
+	// 2. Hostname MUST be used for authentication and MUST match the certificate served by the matching backend, unless SubjectAltNames is specified.
 	//    authentication and MUST match the certificate served by the matching
 	//    backend.
 	//
@@ -149,10 +159,10 @@ type BackendTLSPolicyValidation struct {
 	Hostname v1.PreciseHostname `json:"hostname"`
 
 	// SubjectAltNames contains one or more Subject Alternative Names.
-	// When specified, the certificate served from the backend MUST have at least one
-	// Subject Alternate Name matching one of the specified SubjectAltNames.
+	// When specified the certificate served from the backend MUST
+	// have at least one Subject Alternate Name matching one of the specified SubjectAltNames.
 	//
-	// Support: Core
+	// Support: Extended
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=5

@@ -204,6 +204,7 @@ func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.T
 			err := c.List(ctx, gwList, client.InNamespace(ns))
 			if err != nil {
 				tlog.Errorf(t, "Error listing Gateways: %v", err)
+				return false, nil
 			}
 			for _, gw := range gwList.Items {
 				if val, ok := gw.Annotations[GatewayExcludedFromReadinessChecks]; ok && val == "true" {
@@ -233,6 +234,7 @@ func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.T
 			err = c.List(ctx, podList, client.InNamespace(ns))
 			if err != nil {
 				tlog.Errorf(t, "Error listing Pods: %v", err)
+				return false, nil
 			}
 			for _, pod := range podList.Items {
 				if !findPodConditionInList(t, pod.Status.Conditions, "Ready", "True") &&
