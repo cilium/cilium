@@ -182,8 +182,13 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 					 seclabel, false, false);
 	}
 # endif
-	fake_info.tunnel_endpoint.ip4 = tunnel->ip4;
-	fake_info.flag_has_tunnel_ep = tunnel->ip4 != 0;
+	fake_info.flag_has_tunnel_ep = true;
+	if (tunnel->family == ENDPOINT_KEY_IPV4) {
+		fake_info.tunnel_endpoint.ip4 = tunnel->ip4;
+	} else {
+		ipv6_addr_copy(&fake_info.tunnel_endpoint.ip6, &tunnel->ip6);
+		fake_info.flag_ipv6_tunnel_ep = true;
+	}
 	return __encap_and_redirect_with_nodeid(ctx, &fake_info, seclabel,
 						dstid, NOT_VTEP_DST, trace);
 }
@@ -200,8 +205,13 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	fake_info.tunnel_endpoint.ip4 = tunnel->ip4;
-	fake_info.flag_has_tunnel_ep = tunnel->ip4 != 0;
+	fake_info.flag_has_tunnel_ep = true;
+	if (tunnel->family == ENDPOINT_KEY_IPV4) {
+		fake_info.tunnel_endpoint.ip4 = tunnel->ip4;
+	} else {
+		ipv6_addr_copy(&fake_info.tunnel_endpoint.ip6, &tunnel->ip6);
+		fake_info.flag_ipv6_tunnel_ep = true;
+	}
 	return encap_and_redirect_with_nodeid(ctx, &fake_info, encrypt_key,
 					      seclabel, 0, trace);
 }
