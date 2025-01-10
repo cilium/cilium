@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -26,23 +25,11 @@ import (
 //go:embed eventSummary.html
 var eventSummaryHTML string
 
-func writeBytes(p string, b []byte) error {
-	return os.WriteFile(p, b, fileMode)
-}
-
-func writeString(p, v string) error {
-	return writeBytes(p, []byte(v))
-}
-
-func writeTable(p string, o *metav1.Table) error {
-	var b bytes.Buffer
-	if err := printers.NewTablePrinter(printers.PrintOptions{
+func writeTable(obj *metav1.Table, out io.Writer) error {
+	return printers.NewTablePrinter(printers.PrintOptions{
 		Wide:          true,
 		WithNamespace: true,
-	}).PrintObj(o, &b); err != nil {
-		return err
-	}
-	return writeString(p, b.String())
+	}).PrintObj(obj, out)
 }
 
 func writeYAML(obj runtime.Object, out io.Writer) error {
@@ -92,7 +79,7 @@ func writeYAML(obj runtime.Object, out io.Writer) error {
 }
 
 // writeEventTable writes a html summary of cluster events.
-func makeEventTable(events []corev1.Event) []byte {
+func writeEventTable(events []corev1.Event, out io.Writer) error {
 	// sort events by time
 	sort.Slice(events, func(i, j int) bool {
 		return events[i].LastTimestamp.Time.Before(events[j].LastTimestamp.Time)
@@ -130,11 +117,7 @@ func makeEventTable(events []corev1.Event) []byte {
 		},
 	}).Parse(eventSummaryHTML))
 
-	out := bytes.NewBuffer([]byte{})
-	if err := t.Execute(out, events); err != nil {
-		panic(err) // unreachable
-	}
-	return out.Bytes()
+	return t.Execute(out, events)
 }
 
 func indentAsListItem(in []byte, out io.Writer) (cnt int, err error) {
