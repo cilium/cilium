@@ -383,7 +383,7 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	}
 
 	// Deny by default if no matches are found
-	return mapStateEntry{MapStateEntry: types.DenyEntry()}, false
+	return mapStateEntry{MapStateEntry: types.DenyEntry(), derivedFromRules: NilRuleOrigin}, false
 }
 
 func (ms *mapState) Len() int {
@@ -396,6 +396,7 @@ type mapStateEntry struct {
 	MapStateEntry
 
 	// derivedFromRules tracks the policy rules this entry derives from.
+	// Must be initialized explicitly, zero-intialization does not work with unique.Handle[].
 	derivedFromRules ruleOrigin
 }
 
@@ -415,7 +416,8 @@ func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
 
 func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 	return mapStateEntry{
-		MapStateEntry: e,
+		MapStateEntry:    e,
+		derivedFromRules: NilRuleOrigin,
 	}
 }
 
