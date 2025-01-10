@@ -210,7 +210,7 @@ type HTTPRouteRule struct {
 	// they are specified.
 	//
 	// Implementations MAY choose to implement this ordering strictly, rejecting
-	// any combination or order of filters that can not be supported. If implementations
+	// any combination or order of filters that cannot be supported. If implementations
 	// choose a strict interpretation of filter ordering, they MUST clearly document
 	// that behavior.
 	//
@@ -232,7 +232,7 @@ type HTTPRouteRule struct {
 	//
 	// All filters are expected to be compatible with each other except for the
 	// URLRewrite and RequestRedirect filters, which may not be combined. If an
-	// implementation can not support other combinations of filters, they must clearly
+	// implementation cannot support other combinations of filters, they must clearly
 	// document that limitation. In cases where incompatible or unsupported
 	// filters are specified and cause the `Accepted` condition to be set to status
 	// `False`, implementations may use the `IncompatibleFilters` reason to specify
@@ -382,7 +382,7 @@ type HTTPRouteRetry struct {
 	// +optional
 	Codes []HTTPRouteRetryStatusCode `json:"codes,omitempty"`
 
-	// Attempts specifies the maxmimum number of times an individual request
+	// Attempts specifies the maximum number of times an individual request
 	// from the gateway to a backend should be retried.
 	//
 	// If the maximum number of retries has been attempted without a successful
@@ -487,7 +487,7 @@ const (
 	PathMatchExact PathMatchType = "Exact"
 
 	// Matches based on a URL path prefix split by `/`. Matching is
-	// case sensitive and done on a path element by element basis. A
+	// case-sensitive and done on a path element by element basis. A
 	// path element refers to the list of labels in the path split by
 	// the `/` separator. When specified, a trailing `/` is ignored.
 	//
@@ -596,7 +596,7 @@ type HTTPHeaderMatch struct {
 	Type *HeaderMatchType `json:"type,omitempty"`
 
 	// Name is the name of the HTTP Header to be matched. Name matching MUST be
-	// case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+	// case-insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
 	//
 	// If multiple entries specify equivalent header names, only the first
 	// entry with an equivalent name MUST be considered for a match. Subsequent
@@ -701,6 +701,9 @@ type HTTPQueryParamMatch struct {
 // +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH
 type HTTPMethod string
 
+// +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH;*
+type HTTPMethodWithWildcard string
+
 const (
 	HTTPMethodGet     HTTPMethod = "GET"
 	HTTPMethodHead    HTTPMethod = "HEAD"
@@ -787,6 +790,8 @@ type HTTPRouteMatch struct {
 // +kubebuilder:validation:XValidation:message="filter.requestRedirect must be specified for RequestRedirect filter.type",rule="!(!has(self.requestRedirect) && self.type == 'RequestRedirect')"
 // +kubebuilder:validation:XValidation:message="filter.urlRewrite must be nil if the filter.type is not URLRewrite",rule="!(has(self.urlRewrite) && self.type != 'URLRewrite')"
 // +kubebuilder:validation:XValidation:message="filter.urlRewrite must be specified for URLRewrite filter.type",rule="!(!has(self.urlRewrite) && self.type == 'URLRewrite')"
+// <gateway:experimental:validation:XValidation:message="filter.cors must be nil if the filter.type is not CORS",rule="!(has(self.cors) && self.type != 'CORS')">
+// <gateway:experimental:validation:XValidation:message="filter.cors must be specified for CORS filter.type",rule="!(!has(self.cors) && self.type == 'CORS')">
 // +kubebuilder:validation:XValidation:message="filter.extensionRef must be nil if the filter.type is not ExtensionRef",rule="!(has(self.extensionRef) && self.type != 'ExtensionRef')"
 // +kubebuilder:validation:XValidation:message="filter.extensionRef must be specified for ExtensionRef filter.type",rule="!(!has(self.extensionRef) && self.type == 'ExtensionRef')"
 type HTTPRouteFilter struct {
@@ -825,6 +830,7 @@ type HTTPRouteFilter struct {
 	//
 	// +unionDiscriminator
 	// +kubebuilder:validation:Enum=RequestHeaderModifier;ResponseHeaderModifier;RequestMirror;RequestRedirect;URLRewrite;ExtensionRef
+	// <gateway:experimental:validation:Enum=RequestHeaderModifier;ResponseHeaderModifier;RequestMirror;RequestRedirect;URLRewrite;ExtensionRef;CORS>
 	Type HTTPRouteFilterType `json:"type"`
 
 	// RequestHeaderModifier defines a schema for a filter that modifies request
@@ -855,7 +861,7 @@ type HTTPRouteFilter struct {
 	//
 	// +optional
 	//
-	// <gateway:experimental:validation:XValidation:message="Only one of percent or fraction may be specified in HTTPRequestMirrorFilter",rule="!(has(self.percent) && has(self.fraction))">
+	// +kubebuilder:validation:XValidation:message="Only one of percent or fraction may be specified in HTTPRequestMirrorFilter",rule="!(has(self.percent) && has(self.fraction))"
 	RequestMirror *HTTPRequestMirrorFilter `json:"requestMirror,omitempty"`
 
 	// RequestRedirect defines a schema for a filter that responds to the
@@ -872,6 +878,15 @@ type HTTPRouteFilter struct {
 	//
 	// +optional
 	URLRewrite *HTTPURLRewriteFilter `json:"urlRewrite,omitempty"`
+
+	// CORS defines a schema for a filter that responds to the
+	// cross-origin request based on HTTP response header.
+	//
+	// Support: Extended
+	//
+	// +optional
+	// <gateway:experimental>
+	CORS *HTTPCORSFilter `json:"cors,omitempty"`
 
 	// ExtensionRef is an optional, implementation-specific extension to the
 	// "filter" behavior.  For example, resource "myroutefilter" in group
@@ -935,6 +950,15 @@ const (
 	// Support in HTTPBackendRef: Extended
 	HTTPRouteFilterRequestMirror HTTPRouteFilterType = "RequestMirror"
 
+	// HTTPRouteFilterCORS can be used to add CORS headers to an
+	// HTTP response before it is sent to the client.
+	//
+	// Support in HTTPRouteRule: Extended
+	//
+	// Support in HTTPBackendRef: Extended
+	// <gateway:experimental>
+	HTTPRouteFilterCORS HTTPRouteFilterType = "CORS"
+
 	// HTTPRouteFilterExtensionRef should be used for configuring custom
 	// HTTP filters.
 	//
@@ -947,7 +971,7 @@ const (
 // HTTPHeader represents an HTTP Header name and value as defined by RFC 7230.
 type HTTPHeader struct {
 	// Name is the name of the HTTP Header to be matched. Name matching MUST be
-	// case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+	// case-insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
 	//
 	// If multiple entries specify equivalent header names, the first entry with
 	// an equivalent name MUST be considered for a match. Subsequent entries
@@ -1263,7 +1287,6 @@ type HTTPRequestMirrorFilter struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=100
-	// <gateway:experimental>
 	Percent *int32 `json:"percent,omitempty"`
 
 	// Fraction represents the fraction of requests that should be
@@ -1273,8 +1296,222 @@ type HTTPRequestMirrorFilter struct {
 	// is specified, 100% of requests will be mirrored.
 	//
 	// +optional
-	// <gateway:experimental>
 	Fraction *Fraction `json:"fraction,omitempty"`
+}
+
+// HTTPCORSFilter defines a filter that that configures Cross-Origin Request
+// Sharing (CORS).
+type HTTPCORSFilter struct {
+	// AllowOrigins indicates whether the response can be shared with requested
+	// resource from the given `Origin`.
+	//
+	// The `Origin` consists of a scheme and a host, with an optional port, and
+	// takes the form `<scheme>://<host>(:<port>)`.
+	//
+	// Valid values for scheme are: `http` and `https`.
+	//
+	// Valid values for port are any integer between 1 and 65535 (the list of
+	// available TCP/UDP ports). Note that, if not included, port `80` is
+	// assumed for `http` scheme origins, and port `443` is assumed for `https`
+	// origins. This may affect origin matching.
+	//
+	// The host part of the origin may contain the wildcard character `*`. These
+	// wildcard characters behave as follows:
+	//
+	// * `*` is a greedy match to the _left_, including any number of
+	//   DNS labels to the left of its position. This also means that
+	//   `*` will include any number of period `.` characters to the
+	//   left of its position.
+	// * A wildcard by itself matches all hosts.
+	//
+	// An origin value that includes _only_ the `*` character indicates requests
+	// from all `Origin`s are allowed.
+	//
+	// When the `AllowOrigins` field is configured with multiple origins, it
+	// means the server supports clients from multiple origins. If the request
+	// `Origin` matches the configured allowed origins, the gateway must return
+	// the given `Origin` and sets value of the header
+	// `Access-Control-Allow-Origin` same as the `Origin` header provided by the
+	// client.
+	//
+	// The status code of a successful response to a "preflight" request is
+	// always an OK status (i.e., 204 or 200).
+	//
+	// If the request `Origin` does not match the configured allowed origins,
+	// the gateway returns 204/200 response but doesn't set the relevant
+	// cross-origin response headers. Alternatively, the gateway responds with
+	// 403 status to the "preflight" request is denied, coupled with omitting
+	// the CORS headers. The cross-origin request fails on the client side.
+	// Therefore, the client doesn't attempt the actual cross-origin request.
+	//
+	// The `Access-Control-Allow-Origin` response header can only use `*`
+	// wildcard as value when the `AllowCredentials` field is unspecified.
+	//
+	// When the `AllowCredentials` field is specified and `AllowOrigins` field
+	// specified with the `*` wildcard, the gateway must return a single origin
+	// in the value of the `Access-Control-Allow-Origin` response header,
+	// instead of specifying the `*` wildcard. The value of the header
+	// `Access-Control-Allow-Origin` is same as the `Origin` header provided by
+	// the client.
+	//
+	// Support: Extended
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=64
+	AllowOrigins []AbsoluteURI `json:"allowOrigins,omitempty"`
+
+	// AllowCredentials indicates whether the actual cross-origin request allows
+	// to include credentials.
+	//
+	// The only valid value for the `Access-Control-Allow-Credentials` response
+	// header is true (case-sensitive).
+	//
+	// If the credentials are not allowed in cross-origin requests, the gateway
+	// will omit the header `Access-Control-Allow-Credentials` entirely rather
+	// than setting its value to false.
+	//
+	// Support: Extended
+	//
+	// +optional
+	AllowCredentials TrueField `json:"allowCredentials,omitempty"`
+
+	// AllowMethods indicates which HTTP methods are supported for accessing the
+	// requested resource.
+	//
+	// Valid values are any method defined by RFC9110, along with the special
+	// value `*`, which represents all HTTP methods are allowed.
+	//
+	// Method names are case sensitive, so these values are also case-sensitive.
+	// (See https://www.rfc-editor.org/rfc/rfc2616#section-5.1.1)
+	//
+	// Multiple method names in the value of the `Access-Control-Allow-Methods`
+	// response header are separated by a comma (",").
+	//
+	// A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
+	// (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
+	// CORS-safelisted methods are always allowed, regardless of whether they
+	// are specified in the `AllowMethods` field.
+	//
+	// When the `AllowMethods` field is configured with one or more methods, the
+	// gateway must return the `Access-Control-Allow-Methods` response header
+	// which value is present in the `AllowMethods` field.
+	//
+	// If the HTTP method of the `Access-Control-Request-Method` request header
+	// is not included in the list of methods specified by the response header
+	// `Access-Control-Allow-Methods`, it will present an error on the client
+	// side.
+	//
+	// The `Access-Control-Allow-Methods` response header can only use `*`
+	// wildcard as value when the `AllowCredentials` field is unspecified.
+	//
+	// When the `AllowCredentials` field is specified and `AllowMethods` field
+	// specified with the `*` wildcard, the gateway must specify one HTTP method
+	// in the value of the Access-Control-Allow-Methods response header. The
+	// value of the header `Access-Control-Allow-Methods` is same as the
+	// `Access-Control-Request-Method` header provided by the client. If the
+	// header `Access-Control-Request-Method` is not included in the request,
+	// the gateway will omit the `Access-Control-Allow-Methods` response header,
+	// instead of specifying the `*` wildcard. A Gateway implementation may
+	// choose to add implementation-specific default methods.
+	//
+	// Support: Extended
+	//
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=9
+	// +kubebuilder:validation:XValidation:message="AllowMethods cannot contain '*' alongside other methods",rule="!('*' in self && self.size() > 1)"
+	AllowMethods []HTTPMethodWithWildcard `json:"allowMethods,omitempty"`
+
+	// AllowHeaders indicates which HTTP request headers are supported for
+	// accessing the requested resource.
+	//
+	// Header names are not case sensitive.
+	//
+	// Multiple header names in the value of the `Access-Control-Allow-Headers`
+	// response header are separated by a comma (",").
+	//
+	// When the `AllowHeaders` field is configured with one or more headers, the
+	// gateway must return the `Access-Control-Allow-Headers` response header
+	// which value is present in the `AllowHeaders` field.
+	//
+	// If any header name in the `Access-Control-Request-Headers` request header
+	// is not included in the list of header names specified by the response
+	// header `Access-Control-Allow-Headers`, it will present an error on the
+	// client side.
+	//
+	// If any header name in the `Access-Control-Allow-Headers` response header
+	// does not recognize by the client, it will also occur an error on the
+	// client side.
+	//
+	// A wildcard indicates that the requests with all HTTP headers are allowed.
+	// The `Access-Control-Allow-Headers` response header can only use `*`
+	// wildcard as value when the `AllowCredentials` field is unspecified.
+	//
+	// When the `AllowCredentials` field is specified and `AllowHeaders` field
+	// specified with the `*` wildcard, the gateway must specify one or more
+	// HTTP headers in the value of the `Access-Control-Allow-Headers` response
+	// header. The value of the header `Access-Control-Allow-Headers` is same as
+	// the `Access-Control-Request-Headers` header provided by the client. If
+	// the header `Access-Control-Request-Headers` is not included in the
+	// request, the gateway will omit the `Access-Control-Allow-Headers`
+	// response header, instead of specifying the `*` wildcard. A Gateway
+	// implementation may choose to add implementation-specific default headers.
+	//
+	// Support: Extended
+	//
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=64
+	AllowHeaders []HTTPHeaderName `json:"allowHeaders,omitempty"`
+
+	// ExposeHeaders indicates which HTTP response headers can be exposed
+	// to client-side scripts in response to a cross-origin request.
+	//
+	// A CORS-safelisted response header is an HTTP header in a CORS response
+	// that it is considered safe to expose to the client scripts.
+	// The CORS-safelisted response headers include the following headers:
+	// `Cache-Control`
+	// `Content-Language`
+	// `Content-Length`
+	// `Content-Type`
+	// `Expires`
+	// `Last-Modified`
+	// `Pragma`
+	// (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
+	// The CORS-safelisted response headers are exposed to client by default.
+	//
+	// When an HTTP header name is specified using the `ExposeHeaders` field,
+	// this additional header will be exposed as part of the response to the
+	// client.
+	//
+	// Header names are not case sensitive.
+	//
+	// Multiple header names in the value of the `Access-Control-Expose-Headers`
+	// response header are separated by a comma (",").
+	//
+	// A wildcard indicates that the responses with all HTTP headers are exposed
+	// to clients. The `Access-Control-Expose-Headers` response header can only
+	// use `*` wildcard as value when the `AllowCredentials` field is
+	// unspecified.
+	//
+	// Support: Extended
+	//
+	// +optional
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=64
+	ExposeHeaders []HTTPHeaderName `json:"exposeHeaders,omitempty"`
+
+	// MaxAge indicates the duration (in seconds) for the client to cache the
+	// results of a "preflight" request.
+	//
+	// The information provided by the `Access-Control-Allow-Methods` and
+	// `Access-Control-Allow-Headers` response headers can be cached by the
+	// client until the time specified by `Access-Control-Max-Age` elapses.
+	//
+	// The default value of `Access-Control-Max-Age` response header is 5
+	// (seconds).
+	//
+	// +optional
+	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=1
+	MaxAge int32 `json:"maxAge,omitempty"`
 }
 
 // HTTPBackendRef defines how a HTTPRoute forwards a HTTP request.

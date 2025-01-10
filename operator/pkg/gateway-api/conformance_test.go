@@ -43,8 +43,8 @@ func TestConformance(t *testing.T) {
 	testutils.GatewayAPIConformanceTest(t)
 	var skipTests []string
 	options := conformance.DefaultOptions(t)
-	var usableNetworkAddresses []v1.GatewayAddress
-	var unusableNetworkAddresses []v1.GatewayAddress
+	var usableNetworkAddresses []v1.GatewaySpecAddress
+	var unusableNetworkAddresses []v1.GatewaySpecAddress
 	usableAddresses := os.Getenv(usableNetworkAddressesEnv)
 	if usableAddresses == "" {
 		t.Logf("Set %s to run this test", features.SupportGatewayStaticAddresses)
@@ -52,7 +52,7 @@ func TestConformance(t *testing.T) {
 	} else {
 		var addressType = v1.IPAddressType
 		for _, value := range strings.Split(usableAddresses, ",") {
-			usableNetworkAddresses = append(usableNetworkAddresses, v1.GatewayAddress{
+			usableNetworkAddresses = append(usableNetworkAddresses, v1.GatewaySpecAddress{
 				Type:  &addressType,
 				Value: value,
 			})
@@ -65,7 +65,7 @@ func TestConformance(t *testing.T) {
 	} else {
 		var addressType = v1.IPAddressType
 		for _, value := range strings.Split(unusableAddresses, ",") {
-			unusableNetworkAddresses = append(unusableNetworkAddresses, v1.GatewayAddress{
+			unusableNetworkAddresses = append(unusableNetworkAddresses, v1.GatewaySpecAddress{
 				Type:  &addressType,
 				Value: value,
 			})

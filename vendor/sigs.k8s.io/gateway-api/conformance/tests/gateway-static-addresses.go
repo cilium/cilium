@@ -160,7 +160,7 @@ func extractStatusAddresses(addresses []v1.GatewayStatusAddress) []string {
 // Private Helper Functions
 // -----------------------------------------------------------------------------
 
-func filterAddr(addrs []v1.GatewayAddress, filter v1.GatewayAddress) (newAddrs []v1.GatewayAddress) {
+func filterAddr(addrs []v1.GatewaySpecAddress, filter v1.GatewaySpecAddress) (newAddrs []v1.GatewaySpecAddress) {
 	for _, addr := range addrs {
 		if addr.Value != filter.Value {
 			newAddrs = append(newAddrs, addr)

@@ -469,7 +469,7 @@ type RouteParentStatus struct {
 	// There are a number of cases where the "Accepted" condition may not be set
 	// due to lack of controller visibility, that includes when:
 	//
-	// * The Route refers to a non-existent parent.
+	// * The Route refers to a nonexistent parent.
 	// * The Route is of a type that the controller does not support.
 	// * The Route is in a namespace the controller does not have access to.
 	//
@@ -542,7 +542,7 @@ type PreciseHostname string
 // scheme (e.g., "http" or "spiffe") and a scheme-specific-part.  URIs that
 // include an authority MUST include a fully qualified domain name or
 // IP address as the host.
-
+// <gateway:util:excludeFromCRD> The below regex is taken from the regex section in RFC 3986 with a slight modification to enforce a full URI and not relative. </gateway:util:excludeFromCRD>
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^(([^:/?#]+):)(//([^/?#]*))([^?#]*)(\?([^#]*))?(#(.*))?`
@@ -675,7 +675,7 @@ type GatewayController string
 // Invalid values include:
 //
 // * example~ - "~" is an invalid character
-// * example.com. - can not start or end with "."
+// * example.com. - cannot start or end with "."
 //
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
@@ -705,7 +705,7 @@ type AnnotationValue string
 // Invalid values include:
 //
 // * example~ - "~" is an invalid character
-// * example.com. - can not start or end with "."
+// * example.com. - cannot start or end with "."
 //
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
@@ -764,6 +764,11 @@ type HeaderName string
 // +kubebuilder:validation:Pattern=`^([0-9]{1,5}(h|m|s|ms)){1,4}$`
 type Duration string
 
+// TrueField is a boolean value that can only be set to true
+//
+// +kubebuilder:validation:Enum=true
+type TrueField bool
+
 const (
 	// A textual representation of a numeric IP address. IPv4
 	// addresses must be in dotted-decimal form. IPv6 addresses
@@ -771,7 +776,7 @@ const (
 	// (see [RFC 5952](https://tools.ietf.org/html/rfc5952)).
 	//
 	// This type is intended for specific addresses. Address ranges are not
-	// supported (e.g. you can not use a CIDR range like 127.0.0.0/24 as an
+	// supported (e.g. you cannot use a CIDR range like 127.0.0.0/24 as an
 	// IPAddress).
 	//
 	// Support: Extended
@@ -881,6 +886,8 @@ type CookieConfig struct {
 	// When set to "Session", AbsoluteTimeout indicates the
 	// absolute lifetime of the cookie tracked by the gateway and
 	// is optional.
+	//
+	// Defaults to "Session".
 	//
 	// Support: Core for "Session" type
 	//
