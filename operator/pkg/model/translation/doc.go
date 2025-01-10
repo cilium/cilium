@@ -5,7 +5,7 @@
 // Translator is the interface to take the model and generate required CiliumEnvoyConfig,
 // LoadBalancer Service, Endpoint, etc.
 //
-// Additionally, this package also contains a bare minimum constructors for common Envoy resources:
+// Additional, this package also contains a bare minimum constructors for common Envoy resources:
 // - Cluster
 // - Listener
 // - HTTP Connection Manager

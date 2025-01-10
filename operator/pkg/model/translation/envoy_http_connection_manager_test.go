@@ -11,9 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func Test_desiredHTTPConnectionManager(t *testing.T) {
-	i := &cecTranslator{}
-	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name")
+func TestNewHTTPConnectionManager(t *testing.T) {
+	res, err := NewHTTPConnectionManager("dummy-name", "dummy-route-name")
 	require.NoError(t, err)
 
 	httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}

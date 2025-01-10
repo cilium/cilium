@@ -689,11 +689,11 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			if (identity_is_remote_node(remote_ep->sec_identity))
 				return NAT_PUNT_TO_STACK;
 		}
-	}
 
-	if (local_ep) {
-		target->addr = IPV4_MASQUERADE;
-		return NAT_NEEDED;
+		if (local_ep) {
+			target->addr = IPV4_MASQUERADE;
+			return NAT_NEEDED;
+		}
 	}
 #endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
 
@@ -701,7 +701,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_header)
+snat_v4_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx, __u64 off,
+				     bool has_l4_header)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmphdr));
 	struct ipv4_ct_tuple tuple = {};
@@ -753,7 +754,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off, bool has_l4_hea
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			break;
 		default:
-			return DROP_UNKNOWN_ICMP4_CODE;
+			return DROP_UNKNOWN_ICMP_CODE;
 		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
@@ -847,21 +848,19 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		case ICMP_ECHOREPLY:
 			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
-			if (icmphdr.code > NR_ICMP_UNREACH)
-				return DROP_UNKNOWN_ICMP4_CODE;
-
-			goto nat_icmp_v4;
-		case ICMP_TIME_EXCEEDED:
 			switch (icmphdr.code) {
-			case ICMP_EXC_TTL:
-			case ICMP_EXC_FRAGTIME:
+			case ICMP_NET_UNREACH:
+			case ICMP_HOST_UNREACH:
+			case ICMP_PROT_UNREACH:
+			case ICMP_PORT_UNREACH:
+			case ICMP_FRAG_NEEDED:
 				break;
 			default:
-				return DROP_UNKNOWN_ICMP4_CODE;
+				return DROP_UNKNOWN_ICMP_CODE;
 			}
 
-nat_icmp_v4:
-			return snat_v4_nat_handle_icmp_error(ctx, off, has_l4_header);
+			return snat_v4_nat_handle_icmp_dest_unreach(ctx, off,
+								    has_l4_header);
 		default:
 			return DROP_NAT_UNSUPP_PROTO;
 		}
@@ -878,9 +877,9 @@ nat_icmp_v4:
 }
 
 static __always_inline __maybe_unused int
-snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
-				  __u64 inner_l3_off,
-				  struct ipv4_nat_entry **state)
+snat_v4_rev_nat_handle_icmp_dest_unreach(struct __ctx_buff *ctx,
+					 __u64 inner_l3_off,
+					 struct ipv4_nat_entry **state)
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct iphdr iphdr;
@@ -931,7 +930,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 		case ICMP_ECHOREPLY:
 			return NAT_PUNT_TO_STACK;
 		default:
-			return DROP_UNKNOWN_ICMP4_CODE;
+			return DROP_UNKNOWN_ICMP_CODE;
 		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
@@ -999,23 +998,22 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			break;
 		case ICMP_DEST_UNREACH:
-			if (icmphdr.code > NR_ICMP_UNREACH)
-				return NAT_PUNT_TO_STACK;
-
-			goto rev_nat_icmp_v4;
-		case ICMP_TIME_EXCEEDED:
 			switch (icmphdr.code) {
-			case ICMP_EXC_TTL:
-			case ICMP_EXC_FRAGTIME:
+			case ICMP_NET_UNREACH:
+			case ICMP_HOST_UNREACH:
+			case ICMP_PROT_UNREACH:
+			case ICMP_PORT_UNREACH:
+			case ICMP_FRAG_NEEDED:
 				break;
 			default:
 				return NAT_PUNT_TO_STACK;
 			}
 
-rev_nat_icmp_v4:
 			inner_l3_off = off + sizeof(struct icmphdr);
 
-			ret = snat_v4_rev_nat_handle_icmp_error(ctx, inner_l3_off, &state);
+			ret = snat_v4_rev_nat_handle_icmp_dest_unreach(ctx,
+								       inner_l3_off,
+								       &state);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -1519,11 +1517,11 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			if (identity_is_remote_node(remote_ep->sec_identity))
 				return NAT_PUNT_TO_STACK;
 		}
-	}
 
-	if (local_ep) {
-		ipv6_addr_copy(&target->addr, &masq_addr);
-		return NAT_NEEDED;
+		if (local_ep) {
+			ipv6_addr_copy(&target->addr, &masq_addr);
+			return NAT_NEEDED;
+		}
 	}
 #endif /* ENABLE_MASQUERADE_IPV6 && IS_BPF_HOST */
 

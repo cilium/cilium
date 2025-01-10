@@ -1153,7 +1153,8 @@ natively supports ``hostPort`` service mapping without having to use the
 Helm CNI chaining option of ``cni.chainingMode=portmap``.
 
 By specifying ``kubeProxyReplacement=true`` the native hostPort support is
-automatically enabled and therefore no further action is required.
+automatically enabled and therefore no further action is required. Otherwise
+``hostPort.enabled=true`` can be used to enable the setting.
 
 If the ``hostPort`` is specified without an additional ``hostIP``, then the
 Pod will be exposed to the outside world with the same local addresses from

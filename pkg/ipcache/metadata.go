@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -618,8 +617,6 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 	// re-implementing the same logic here. It will also allow removing the
 	// dependencies that are passed into this function.
 
-	start := time.Now()
-
 	var wg sync.WaitGroup
 	// SelectorCache.UpdateIdentities() asks for callers to avoid
 	// handing the same identity in both 'adds' and 'deletes'
@@ -635,8 +632,6 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 
 	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
 	policyImplementedWG.Wait()
-
-	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("local").Observe(time.Since(start).Seconds())
 }
 
 // resolveIdentity will either return a previously-allocated identity for the
