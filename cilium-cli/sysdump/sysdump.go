@@ -411,17 +411,24 @@ func (c *Collector) WriteYAML(filename string, o runtime.Object) error {
 
 // WriteString writes a string to a file.
 func (c *Collector) WriteString(filename string, value string) error {
-	return writeString(c.AbsoluteTempPath(filename), value)
-}
-
-// WriteBytes writes a byte array to a file.
-func (c *Collector) WriteBytes(filename string, value []byte) error {
-	return writeBytes(c.AbsoluteTempPath(filename), value)
+	return c.WithFileSink(filename, func(out io.Writer) error {
+		_, err := fmt.Fprint(out, value)
+		return err
+	})
 }
 
 // WriteTable writes a kubernetes table to a file.
 func (c *Collector) WriteTable(filename string, value *metav1.Table) error {
-	return writeTable(c.AbsoluteTempPath(filename), value)
+	return c.WithFileSink(filename, func(out io.Writer) error {
+		return writeTable(value, out)
+	})
+}
+
+// WriteEventTable writes writes a html summary of cluster events to a file.
+func (c *Collector) WriteEventTable(filename string, events []corev1.Event) error {
+	return c.WithFileSink(filename, func(out io.Writer) error {
+		return writeEventTable(events, out)
+	})
 }
 
 // Run performs the actual sysdump collection.
@@ -464,8 +471,8 @@ func (c *Collector) Run() error {
 				if err := c.WriteYAML(kubernetesEventsFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes events: %w", err)
 				}
-				if err := c.WriteBytes(kubernetesEventsTableFileName, makeEventTable(v.Items)); err != nil {
-					return fmt.Errorf("failed to write event tble: %w", err)
+				if err := c.WriteEventTable(kubernetesEventsTableFileName, v.Items); err != nil {
+					return fmt.Errorf("failed to write event table: %w", err)
 				}
 				return nil
 			},
