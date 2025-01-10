@@ -1,5 +1,42 @@
 # Changelog
 
+## v1.17.0-rc.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Use yaml format for bootstrap config (Backport PR cilium/cilium#36781, Upstream PR cilium/cilium#36820, @sayboras)
+* vendor: Bump gateway-api version to v1.2.1 (Backport PR cilium/cilium#36781, Upstream PR cilium/cilium#36773, @sayboras)
+
+**Bugfixes:**
+* envoy: Configure internal address config based on IP family (Backport PR cilium/cilium#36781, Upstream PR cilium/cilium#36733, @sayboras)
+
+**CI Changes:**
+* [v1.17] gh: replace kernel development trees with 6.12 kernel (cilium/cilium#36841, @julianwiedmann)
+* gha: Disable envoy version check in upgrade/downgrade tests (Backport PR cilium/cilium#36739, Upstream PR cilium/cilium#36734, @sayboras)
+* github: Fix branch name in build-go-caches.yaml (cilium/cilium#36906, @michi-covalent)
+
+**Misc Changes:**
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#36759, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#36724, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#36849, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.23 (v1.17) (cilium/cilium#36894, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.23.4 docker digest to 7ea4c9d (v1.17) (cilium/cilium#36848, @cilium-renovate[bot])
+* chore(deps): update helm/kind-action action to v1.12.0 (v1.17) (cilium/cilium#36837, @cilium-renovate[bot])
+* chore(deps): update kindest/node docker tag to v1.29.12 (v1.17) (cilium/cilium#36758, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#36722, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#36836, @cilium-renovate[bot])
+* doc: fix typo on kubeproxy-free (CEV -> CVE) (Backport PR cilium/cilium#36739, Upstream PR cilium/cilium#36701, @alagoutte)
+* ingress, gateway-api: Convert test fixtures to file based (Backport PR cilium/cilium#36781, Upstream PR cilium/cilium#36732, @sayboras)
+* ingress, gateway-api: Convert test fixtures to file based (Backport PR cilium/cilium#36781, Upstream PR cilium/cilium#36810, @sayboras)
+* Remove reference to DNS polling (Backport PR cilium/cilium#36739, Upstream PR cilium/cilium#36679, @JacobHenner)
+* vendor: bump ebpf-go to 0.17 (Backport PR cilium/cilium#36781, Upstream PR cilium/cilium#36723, @ti-mo)
+
+**Other Changes:**
+* [v1.17] gha: use /test to trigger tests in stable branches (cilium/cilium#36690, @giorio94)
+* install: Update image digests for v1.17.0-rc.0 (cilium/cilium#36693, @cilium-release-bot[bot])
+
 ## v1.17.0-rc.0
 
 Summary of Changes
