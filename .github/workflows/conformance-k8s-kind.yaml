@@ -208,7 +208,7 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
-          /usr/local/bin/kind export logs --name  ${{ env.cluster_name }} --loglevel=debug ./_artifacts/logs
+          /usr/local/bin/kind export logs --name  ${{ env.cluster_name }} --verbosity=3 ./_artifacts/logs
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
