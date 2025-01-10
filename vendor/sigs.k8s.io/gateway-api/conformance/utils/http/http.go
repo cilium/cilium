@@ -54,7 +54,7 @@ type ExpectedResponse struct {
 	Namespace string
 
 	// MirroredTo is the destination BackendRefs of the mirrored request.
-	MirroredTo []BackendRef
+	MirroredTo []MirroredBackend
 
 	// User Given TestCase name
 	TestCaseName string
@@ -91,6 +91,11 @@ type Response struct {
 type BackendRef struct {
 	Name      string
 	Namespace string
+}
+
+type MirroredBackend struct {
+	BackendRef
+	Percent *int32
 }
 
 // MakeRequestAndExpectEventuallyConsistentResponse makes a request with the given parameters,

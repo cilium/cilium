@@ -58,8 +58,12 @@ const (
 	SupportGatewayHTTPListenerIsolation FeatureName = "GatewayHTTPListenerIsolation"
 
 	// SupportGatewayInfrastructureAnnotations option indicates support for
-	// spec.infrastructure.annotations and spec.infrastrucutre.labels
+	// spec.infrastructure.annotations and spec.infrastructure.labels
 	SupportGatewayInfrastructurePropagation FeatureName = "GatewayInfrastructurePropagation"
+
+	//  SupportGatewayAddressEmpty option indicates support for an empty
+	//  spec.addresses.value field
+	SupportGatewayAddressEmpty FeatureName = "GatewayAddressEmpty"
 )
 
 var (
@@ -83,6 +87,12 @@ var (
 		Name:    SupportGatewayInfrastructurePropagation,
 		Channel: FeatureChannelExperimental,
 	}
+
+	// GatewayAddressEmptyFeature contains metadata for the SupportGatewayAddressEmpty feature.
+	GatewayEmptyAddressFeature = Feature{
+		Name:    SupportGatewayAddressEmpty,
+		Channel: FeatureChannelExperimental,
+	}
 )
 
 // GatewayExtendedFeatures are extra generic features that implementations may
@@ -92,4 +102,5 @@ var GatewayExtendedFeatures = sets.New(
 	GatewayStaticAddressesFeature,
 	GatewayHTTPListenerIsolationFeature,
 	GatewayInfrastructurePropagationFeature,
+	GatewayEmptyAddressFeature,
 )

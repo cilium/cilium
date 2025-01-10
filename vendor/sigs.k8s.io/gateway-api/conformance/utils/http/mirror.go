@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 )
 
-func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clientset.Interface, mirrorPods []BackendRef, path string) {
+func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clientset.Interface, mirrorPods []MirroredBackend, path string) {
 	for i, mirrorPod := range mirrorPods {
 		if mirrorPod.Name == "" {
 			tlog.Fatalf(t, "Mirrored BackendRef[%d].Name wasn't provided in the testcase, this test should only check http request mirror.", i)
@@ -42,7 +42,7 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 	wg.Add(len(mirrorPods))
 
 	for _, mirrorPod := range mirrorPods {
-		go func(mirrorPod BackendRef) {
+		go func(mirrorPod MirroredBackend) {
 			defer wg.Done()
 
 			require.Eventually(t, func() bool {
@@ -50,14 +50,14 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 
 				tlog.Log(t, "Searching for the mirrored request log")
 				tlog.Logf(t, `Reading "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
-				logs, err := kubernetes.DumpEchoLogs(mirrorPod.Namespace, mirrorPod.Name, client, clientset)
+				logs, err := kubernetes.DumpEchoLogs(mirrorPod.Namespace, mirrorPod.Name, client, clientset, time.Now())
 				if err != nil {
 					tlog.Logf(t, `Couldn't read "%s/%s" logs: %v`, mirrorPod.Namespace, mirrorPod.Name, err)
 					return false
 				}
 
 				for _, log := range logs {
-					if mirrorLogRegexp.MatchString(string(log)) {
+					if mirrorLogRegexp.MatchString(log) {
 						return true
 					}
 				}

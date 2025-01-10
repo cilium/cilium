@@ -29,7 +29,7 @@ var (
 	// tests passing without any failures, but some were skipped.
 	Partial Result = "partial"
 
-	// Failure indicates that the test run concluded in one ore more tests
+	// Failure indicates that the test run concluded in one or more tests
 	// failing to complete successfully.
 	Failure Result = "failure"
 )
