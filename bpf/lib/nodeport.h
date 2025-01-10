@@ -2436,7 +2436,6 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__u32 src_sec_identity __maybe_unused = SECLABEL;
 	bool allow_neigh_map = true;
-	bool check_revdnat = true;
 	bool has_l4_header;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -2448,24 +2447,10 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
-			check_revdnat = false;
-		else
-			return ret;
-	}
+			goto skip_revdnat;
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY)
-	/* The gateway node needs to manually steer any reply traffic
-	 * for a remote pod into the tunnel (to avoid iptables potentially
-	 * dropping or accidentally SNATing the packets).
-	 */
-	if (egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
-		trace->reason = TRACE_REASON_CT_REPLY;
-		goto redirect;
+		return ret;
 	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
-
-	if (!check_revdnat)
-		goto out;
 
 	ret = nodeport_rev_dnat_ingress_ipv4_hook(ctx, ip4, &tuple, &tunnel_endpoint,
 						  &src_sec_identity, &dst_sec_identity);
@@ -2503,7 +2488,19 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 		goto redirect;
 	}
-out:
+
+skip_revdnat:
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY)
+	/* The gateway node needs to manually steer any reply traffic
+	 * for a remote pod into the tunnel (to avoid iptables potentially
+	 * dropping or accidentally SNATing the packets).
+	 */
+	if (egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
+		trace->reason = TRACE_REASON_CT_REPLY;
+		goto redirect;
+	}
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
 	return CTX_ACT_OK;
 
 redirect:
