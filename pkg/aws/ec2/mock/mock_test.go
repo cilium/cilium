@@ -18,7 +18,7 @@ import (
 )
 
 func TestMock(t *testing.T) {
-	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
+	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}}, []*ipamTypes.RouteTable{})
 	require.NotNil(t, api)
 
 	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
@@ -84,7 +84,7 @@ func TestMock(t *testing.T) {
 }
 
 func TestSetMockError(t *testing.T) {
-	api := NewAPI([]*ipamTypes.Subnet{}, []*ipamTypes.VirtualNetwork{}, []*types.SecurityGroup{})
+	api := NewAPI([]*ipamTypes.Subnet{}, []*ipamTypes.VirtualNetwork{}, []*types.SecurityGroup{}, []*ipamTypes.RouteTable{})
 	require.NotNil(t, api)
 
 	mockError := errors.New("error")
@@ -115,7 +115,7 @@ func TestSetMockError(t *testing.T) {
 }
 
 func TestSetLimiter(t *testing.T) {
-	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
+	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}}, []*ipamTypes.RouteTable{})
 	require.NotNil(t, api)
 
 	api.SetLimiter(10.0, 2)
@@ -151,4 +151,54 @@ func TestPrefixCeil(t *testing.T) {
 	require.Equal(t, 2, ip.PrefixCeil(17, 16))
 	require.Equal(t, 2, ip.PrefixCeil(31, 16))
 	require.Equal(t, 2, ip.PrefixCeil(32, 16))
+}
+
+func TestGetRouteTables(t *testing.T) {
+	routeTables := []*ipamTypes.RouteTable{
+		{
+			ID:               "rt-1",
+			VirtualNetworkID: "vpc-1",
+			Subnets: map[string]struct{}{
+				"subnet-1": {},
+				"subnet-2": {},
+			},
+		},
+		{
+			ID:               "rt-2",
+			VirtualNetworkID: "vpc-2",
+			Subnets: map[string]struct{}{
+				"subnet-3": {},
+				"subnet-4": {},
+			},
+		},
+	}
+
+	api := NewAPI(
+		[]*ipamTypes.Subnet{},
+		[]*ipamTypes.VirtualNetwork{},
+		[]*types.SecurityGroup{},
+		routeTables,
+	)
+
+	tables, err := api.GetRouteTables(context.Background())
+	require.NoError(t, err)
+	require.Len(t, tables, 2)
+
+	rt1, exists := tables["rt-1"]
+	require.True(t, exists)
+	require.Equal(t, "rt-1", rt1.ID)
+	require.Equal(t, "vpc-1", rt1.VirtualNetworkID)
+	require.Equal(t, map[string]struct{}{
+		"subnet-1": {},
+		"subnet-2": {},
+	}, rt1.Subnets)
+
+	rt2, exists := tables["rt-2"]
+	require.True(t, exists)
+	require.Equal(t, "rt-2", rt2.ID)
+	require.Equal(t, "vpc-2", rt2.VirtualNetworkID)
+	require.Equal(t, map[string]struct{}{
+		"subnet-3": {},
+		"subnet-4": {},
+	}, rt2.Subnets)
 }
