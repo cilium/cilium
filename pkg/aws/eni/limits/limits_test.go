@@ -98,7 +98,7 @@ func TestUpdateFromEC2API(t *testing.T) {
 			},
 		},
 	}
-	api := ec2mock.NewAPI(nil, nil, nil)
+	api := ec2mock.NewAPI(nil, nil, nil, nil)
 	api.UpdateInstanceTypes(instanceTypes)
 	UpdateFromEC2API(context.Background(), api)
 
