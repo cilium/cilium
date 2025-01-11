@@ -23,7 +23,12 @@ func TestRemoteEndpointInfoFlagsStringReturnsCorrectValue(t *testing.T) {
 		{
 			name: "FlagSkipTunnel",
 			in:   FlagSkipTunnel,
-			out:  "skiptunnel",
+			out:  "skiptunnel,",
+		},
+		{
+			name: "Multiple flags",
+			in:   FlagSkipTunnel | FlagIPv6TunnelEndpoint,
+			out:  "skiptunnel,ipv6tunnel,",
 		},
 	}
 
