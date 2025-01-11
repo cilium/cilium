@@ -127,14 +127,21 @@ type RemoteEndpointInfoFlags uint8
 // The output format is the string name of each flag contained in the flag set,
 // separated by a comma. If no flags are set, then "<none>" is returned.
 func (f RemoteEndpointInfoFlags) String() string {
-	// If more flags are added in the future, then this method will need
-	// a re-work to support multiple flags.
-	// Right now, it only supports checking for FlagSkipTunnel.
-	if f&FlagSkipTunnel == FlagSkipTunnel {
-		return "skiptunnel"
+	flags := ""
+	if f&FlagSkipTunnel != 0 {
+		flags += "skiptunnel,"
+	}
+	if f&FlagHasTunnelEndpoint != 0 {
+		flags += "hastunnel,"
+	}
+	if f&FlagIPv6TunnelEndpoint != 0 {
+		flags += "ipv6tunnel,"
 	}
 
-	return "<none>"
+	if flags == "" {
+		return "<none>"
+	}
+	return flags
 }
 
 const (
