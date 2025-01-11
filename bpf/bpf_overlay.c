@@ -683,12 +683,10 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		/* If packets are decrypted the key has already been pushed into metadata. */
 		if (!decrypted) {
 			struct bpf_tunnel_key key = {};
-			__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 
-			if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0)) {
-				ret = DROP_NO_TUNNEL_KEY;
+			ret = get_tunnel_key(ctx, &key);
+			if (unlikely(ret < 0))
 				goto out;
-			}
 			cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
 			src_sec_identity = get_id_from_tunnel_id(key.tunnel_id, proto);
