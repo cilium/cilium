@@ -428,8 +428,13 @@ is selected.
 If neither ``subnet-ids`` nor ``subnet-tags`` are set, the operator consults
 ``spec.eni.node-subnet-id``, attempting to create the ENI in the same subnet as
 the primary ENI of the instance. If this is not possible (e.g. if there are not
-enough IPs in said subnet), the operator falls back to allocating the IP in the
-largest subnet matching VPC and Availability Zone.
+enough IPs in said subnet), the operator will look for the subnet in the same 
+route table with the node's subnet. If it's not possible, falls back to allocating 
+the IP in the largest subnet matching VPC and Availability Zone.
+
+After selecting the subnet, operator will check selected subnets is in the same 
+route table with the node's subnet. It will generate the warning log if there is 
+mismatch to prevent the unexpected routing behavior.
 
 After selecting the subnet, the interface index is determined. For this purpose,
 all existing ENIs are scanned and the first unused index greater than
@@ -486,6 +491,7 @@ perform ENI creation and IP allocation:
  * ``DescribeNetworkInterfaces``
  * ``DescribeSubnets``
  * ``DescribeVpcs``
+ * ``DescribeRouteTables``
  * ``DescribeSecurityGroups``
  * ``CreateNetworkInterface``
  * ``AttachNetworkInterface``

@@ -47,7 +47,7 @@ func TestStartENIGarbageCollector(t *testing.T) {
 		"cilium-managed": "true",
 	}
 
-	ec2api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
+	ec2api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, ec2api)
 
 	untaggedENIs := map[string]bool{}

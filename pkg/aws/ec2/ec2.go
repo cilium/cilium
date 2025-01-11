@@ -48,6 +48,7 @@ const (
 	DescribeSecurityGroups          = "DescribeSecurityGroups"
 	DescribeSubnets                 = "DescribeSubnets"
 	DescribeVpcs                    = "DescribeVpcs"
+	DescribeRouteTables             = "DescribeRouteTables"
 	ModifyNetworkInterface          = "ModifyNetworkInterface"
 	ModifyNetworkInterfaceAttribute = "ModifyNetworkInterfaceAttribute"
 	UnassignPrivateIpAddresses      = "UnassignPrivateIpAddresses"
@@ -62,6 +63,7 @@ type Client struct {
 	limiter             *helpers.APILimiter
 	metricsAPI          MetricsAPI
 	subnetsFilters      []ec2_types.Filter
+	routeTableFilters   []ec2_types.Filter
 	instancesFilters    []ec2_types.Filter
 	eniTagSpecification ec2_types.TagSpecification
 	usePrimary          bool
@@ -615,6 +617,55 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 	}
 
 	return subnets, nil
+}
+
+// describeRouteTables lists all route tables
+func (c *Client) describeRouteTables(ctx context.Context) ([]ec2_types.RouteTable, error) {
+	var result []ec2_types.RouteTable
+	input := &ec2.DescribeRouteTablesInput{}
+	if len(c.routeTableFilters) > 0 {
+		input.Filters = c.routeTableFilters
+	}
+	paginator := ec2.NewDescribeRouteTablesPaginator(c.ec2Client, input)
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, DescribeRouteTables)
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall(DescribeRouteTables, deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.RouteTables...)
+	}
+	return result, nil
+}
+
+// GetRouteTables returns all EC2 route tables as a RouteTableMap
+func (c *Client) GetRouteTables(ctx context.Context) (ipamTypes.RouteTableMap, error) {
+	routeTables := ipamTypes.RouteTableMap{}
+
+	routeTableList, err := c.describeRouteTables(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, rt := range routeTableList {
+		routeTable := &ipamTypes.RouteTable{
+			ID:               aws.ToString(rt.RouteTableId),
+			VirtualNetworkID: aws.ToString(rt.VpcId),
+			Subnets:          map[string]struct{}{},
+		}
+
+		for _, association := range rt.Associations {
+			if association.SubnetId != nil && association.AssociationState.State == ec2_types.RouteTableAssociationStateCodeAssociated {
+				routeTable.Subnets[aws.ToString(association.SubnetId)] = struct{}{}
+			}
+		}
+
+		routeTables[routeTable.ID] = routeTable
+	}
+
+	return routeTables, nil
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters

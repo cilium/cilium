@@ -1241,6 +1241,8 @@ const (
 
 	NumSubnets = "numSubnets"
 
+	NumRouteTables = "numRouteTables"
+
 	NeedIndex = "needIndex"
 
 	AddressLimit = "addressLimit"

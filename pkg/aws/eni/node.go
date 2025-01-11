@@ -895,6 +895,78 @@ func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (leftoverPref
 	return leftoverPrefixCapacity, effectiveLimits
 }
 
+// findSubnetInSameRouteTableWithNodeSubnet returns the subnet with the most addresses
+// that is in the same route table as the node's subnet to make sure the pod traffic
+// leaving secondary interfaces will be routed as the primary interface.
+func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	if n.k8sObj == nil {
+		return nil
+	}
+
+	n.manager.mutex.RLock()
+	defer n.manager.mutex.RUnlock()
+
+	nodeSubnetID := n.k8sObj.Spec.ENI.NodeSubnetID
+	var bestSubnet *ipamTypes.Subnet
+
+	for _, routeTable := range n.manager.routeTables {
+		if _, ok := routeTable.Subnets[nodeSubnetID]; ok && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
+			for _, subnetID := range n.k8sObj.Spec.ENI.SubnetIDs {
+				if subnetID == nodeSubnetID {
+					continue
+				}
+				if _, ok := routeTable.Subnets[subnetID]; ok {
+					subnet := n.manager.subnets[subnetID]
+					if bestSubnet == nil || subnet.AvailableAddresses > bestSubnet.AvailableAddresses {
+						bestSubnet = subnet
+					}
+				}
+			}
+		}
+	}
+
+	return bestSubnet
+}
+
+// checkSubnetInSameRouteTableWithNodeSubnet checks if the given subnet is in the same route table as the node's subnet
+// to make sure the pod traffic leaving secondary interfaces will be routed as the primary interface.
+func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subnet) bool {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	if n.k8sObj == nil {
+		return false
+	}
+
+	n.manager.mutex.RLock()
+	defer n.manager.mutex.RUnlock()
+
+	for _, routeTable := range n.manager.routeTables {
+		if _, ok := routeTable.Subnets[n.k8sObj.Spec.ENI.NodeSubnetID]; ok && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
+			if _, ok := routeTable.Subnets[subnet.ID]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (n *Node) logSubnetRouteTableMismatch(subnet *ipamTypes.Subnet, matchType string) {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	if subnet == nil {
+		return
+	}
+	n.logger.Load().Warn(
+		fmt.Sprintf("ENI NodeSubnet and %s subnet are not in the same route tables, and you might have unexpected traffic routing", matchType),
+		logfields.SubnetID, n.k8sObj.Spec.ENI.NodeSubnetID,
+		logfields.SubnetID, subnet.ID,
+	)
+}
+
 // findSuitableSubnet attempts to find a subnet to allocate an ENI in according to the following heuristic.
 //  0. In general, the subnet has to be in the same VPC and match the availability zone of the
 //     node. If there are multiple candidates, we choose the subnet with the most addresses
@@ -903,20 +975,41 @@ func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (leftoverPref
 //     precedence.
 //  2. If we have no explicit constraints, try to use the subnet the first ENI of the node was
 //     created in, to avoid putting the ENI in a surprising subnet if possible.
-//  3. If none of these work, fall back to just choosing the subnet with the most addresses
+//  3. If we can't use the subnet first ENI in, try to use the subnet in the same route table as the node's subnet.
+//  4. If none of these work, fall back to just choosing the subnet with the most addresses
 //     available.
 func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits) *ipamTypes.Subnet {
-	var subnet *ipamTypes.Subnet
 	if len(spec.SubnetIDs) > 0 {
-		return n.manager.FindSubnetByIDs(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs)
-	} else if len(spec.SubnetTags) > 0 {
-		return n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, spec.SubnetTags)
+		if subnet := n.manager.FindSubnetByIDs(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs); subnet != nil {
+			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+				n.logSubnetRouteTableMismatch(subnet, "Specified")
+			}
+			return subnet
+		}
 	}
 
-	subnet = n.manager.GetSubnet(spec.NodeSubnetID)
-	if subnet != nil && subnet.AvailableAddresses >= limits.IPv4 {
+	if len(spec.SubnetTags) > 0 {
+		if subnet := n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, spec.SubnetTags); subnet != nil {
+			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+				n.logSubnetRouteTableMismatch(subnet, "Tagged")
+			}
+			return subnet
+		}
+	}
+
+	if subnet := n.manager.GetSubnet(spec.NodeSubnetID); subnet != nil && subnet.AvailableAddresses >= limits.IPv4 {
 		return subnet
 	}
 
-	return n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, nil)
+	if subnet := n.findSubnetInSameRouteTableWithNodeSubnet(); subnet != nil {
+		return subnet
+	}
+	if subnet := n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, nil); subnet != nil {
+		if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+			n.logSubnetRouteTableMismatch(subnet, "")
+		}
+		return subnet
+	}
+
+	return nil
 }
