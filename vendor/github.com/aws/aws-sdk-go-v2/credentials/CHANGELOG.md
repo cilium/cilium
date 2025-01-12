@@ -1,3 +1,15 @@
+# v1.17.51 (2025-01-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.17.50 (2025-01-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.17.49 (2025-01-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.17.48 (2024-12-19)
 
 * **Bug Fix**: Fix improper use of printf-style functions.
