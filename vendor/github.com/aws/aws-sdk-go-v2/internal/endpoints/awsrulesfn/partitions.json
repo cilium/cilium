@@ -47,6 +47,9 @@
       "ap-southeast-5" : {
         "description" : "Asia Pacific (Malaysia)"
       },
+      "ap-southeast-7" : {
+        "description" : "Asia Pacific (Thailand)"
+      },
       "aws-global" : {
         "description" : "AWS Standard global region"
       },
