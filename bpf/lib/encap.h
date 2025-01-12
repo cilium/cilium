@@ -27,11 +27,9 @@ struct {
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
-		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
+		    __u32 seclabel, __u32 dstid, __u32 vni,
 		    enum trace_reason ct_reason, __u32 monitor, int *ifindex)
 {
-	__u32 node_id;
-
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
 	 * received.
@@ -39,9 +37,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	if (seclabel == HOST_ID)
 		seclabel = LOCAL_NODE_ID;
 
-	node_id = bpf_ntohl(tunnel_endpoint);
-
-	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
+	cilium_dbg(ctx, DBG_ENCAP, tunnel_endpoint, seclabel);
 
 #if __ctx_is == __ctx_skb
 	*ifindex = ENCAP_IFINDEX;
@@ -52,12 +48,12 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
-	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni,
+	return ctx_set_encap_info(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni,
 				  NULL, 0);
 }
 
 static __always_inline int
-__encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_unused,
+__encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip,
 				 __be32 tunnel_endpoint,
 				 __u32 seclabel, __u32 dstid, __u32 vni,
 				 const struct trace_ctx *trace)
@@ -101,20 +97,12 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  */
 static __always_inline int
 __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-			 __u8 encrypt_key __maybe_unused, __u32 seclabel,
-			 __u32 dstid, const struct trace_ctx *trace)
+			 __u8 encrypt_key, __u32 seclabel, __u32 dstid,
+			 const struct trace_ctx *trace)
 {
-	int ifindex __maybe_unused;
-	int ret __maybe_unused;
-
-#ifdef ENABLE_IPSEC
-	if (encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					 seclabel, false, false);
-#endif
-
-	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, 0, seclabel,
-					      dstid, trace);
+	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
+					      encrypt_key, seclabel, dstid,
+					      trace);
 }
 
 #if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
@@ -163,15 +151,15 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 					 seclabel, false, false);
 	}
 # endif
-	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, 0, seclabel, dstid,
-					      trace);
+	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,
+						dstid, NOT_VTEP_DST, trace);
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 }
 
 static __always_inline int
 encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
-			  __u8 encrypt_key __maybe_unused,
-			  __u32 seclabel, const struct trace_ctx *trace)
+			  __u8 encrypt_key, __u32 seclabel,
+			  const struct trace_ctx *trace)
 {
 	struct tunnel_value *tunnel;
 
@@ -179,14 +167,8 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-#ifdef ENABLE_IPSEC
-	if (encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, tunnel->ip4,
-					 seclabel, true, false);
-#endif
-
-	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, 0, seclabel, 0,
-					      trace);
+	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, encrypt_key,
+					      seclabel, 0, trace);
 }
 #endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
@@ -223,8 +205,6 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			enum trace_reason ct_reason,
 			__u32 monitor, int *ifindex)
 {
-	__u32 node_id;
-
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
 	 * received.
@@ -232,9 +212,7 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	if (seclabel == HOST_ID)
 		seclabel = LOCAL_NODE_ID;
 
-	node_id = bpf_ntohl(tunnel_endpoint);
-
-	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
+	cilium_dbg(ctx, DBG_ENCAP, tunnel_endpoint, seclabel);
 
 #if __ctx_is == __ctx_skb
 	*ifindex = ENCAP_IFINDEX;
@@ -245,7 +223,7 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
-	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni, opt,
+	return ctx_set_encap_info(ctx, src_ip, src_port, tunnel_endpoint, seclabel, vni, opt,
 				  opt_len);
 }
 

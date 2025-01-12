@@ -57,17 +57,6 @@ func (m *ExternalProcessor) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetGrpcService() == nil {
-		err := ExternalProcessorValidationError{
-			field:  "GrpcService",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetGrpcService()).(type) {
 		case interface{ ValidateAll() error }:
@@ -91,6 +80,35 @@ func (m *ExternalProcessor) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return ExternalProcessorValidationError{
 				field:  "GrpcService",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetHttpService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExternalProcessorValidationError{
+					field:  "HttpService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExternalProcessorValidationError{
+					field:  "HttpService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttpService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ExternalProcessorValidationError{
+				field:  "HttpService",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -347,6 +365,42 @@ func (m *ExternalProcessor) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for SendBodyWithoutWaitingForHeaderResponse
+
+	for idx, item := range m.GetAllowedOverrideModes() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ExternalProcessorValidationError{
+						field:  fmt.Sprintf("AllowedOverrideModes[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ExternalProcessorValidationError{
+						field:  fmt.Sprintf("AllowedOverrideModes[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ExternalProcessorValidationError{
+					field:  fmt.Sprintf("AllowedOverrideModes[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return ExternalProcessorMultiError(errors)
 	}
@@ -426,6 +480,137 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ExternalProcessorValidationError{}
+
+// Validate checks the field values on ExtProcHttpService with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ExtProcHttpService) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ExtProcHttpService with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ExtProcHttpServiceMultiError, or nil if none found.
+func (m *ExtProcHttpService) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ExtProcHttpService) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetHttpService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExtProcHttpServiceValidationError{
+					field:  "HttpService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExtProcHttpServiceValidationError{
+					field:  "HttpService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttpService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ExtProcHttpServiceValidationError{
+				field:  "HttpService",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return ExtProcHttpServiceMultiError(errors)
+	}
+
+	return nil
+}
+
+// ExtProcHttpServiceMultiError is an error wrapping multiple validation errors
+// returned by ExtProcHttpService.ValidateAll() if the designated constraints
+// aren't met.
+type ExtProcHttpServiceMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ExtProcHttpServiceMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ExtProcHttpServiceMultiError) AllErrors() []error { return m }
+
+// ExtProcHttpServiceValidationError is the validation error returned by
+// ExtProcHttpService.Validate if the designated constraints aren't met.
+type ExtProcHttpServiceValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ExtProcHttpServiceValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ExtProcHttpServiceValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ExtProcHttpServiceValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ExtProcHttpServiceValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ExtProcHttpServiceValidationError) ErrorName() string {
+	return "ExtProcHttpServiceValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ExtProcHttpServiceValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sExtProcHttpService.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ExtProcHttpServiceValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ExtProcHttpServiceValidationError{}
 
 // Validate checks the field values on MetadataOptions with the rules defined
 // in the proto definition for this message. If any rules are violated, the

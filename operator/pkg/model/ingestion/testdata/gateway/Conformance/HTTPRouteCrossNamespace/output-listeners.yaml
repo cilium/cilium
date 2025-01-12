@@ -1,0 +1,14 @@
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: web-backend
+      namespace: gateway-conformance-web-backend
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  sources:
+  - name: backend-namespaces
+    namespace: gateway-conformance-infra

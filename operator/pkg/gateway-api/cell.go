@@ -135,20 +135,31 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	cecTranslator := translation.NewCECTranslator(
-		params.GatewayApiConfig.GatewayAPISecretsNamespace,
-		params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
-		params.GatewayApiConfig.EnableGatewayAPIAppProtocol,
-		true, // hostNameSuffixMatch
-		params.OperatorConfig.ProxyIdleTimeoutSeconds,
-		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
-		translation.ParseNodeLabelSelector(params.GatewayApiConfig.GatewayAPIHostnetworkNodelabelselector),
-		params.AgentConfig.EnableIPv4,
-		params.AgentConfig.EnableIPv6,
-		params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
-	)
-
-	cecTranslator.WithUseAlpn(params.GatewayApiConfig.EnableGatewayAPIAlpn)
+	cecTranslator := translation.NewCECTranslator(translation.Config{
+		SecretsNamespace: params.GatewayApiConfig.GatewayAPISecretsNamespace,
+		HostNetworkConfig: translation.HostNetworkConfig{
+			Enabled:           params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
+			NodeLabelSelector: translation.ParseNodeLabelSelector(params.GatewayApiConfig.GatewayAPIHostnetworkNodelabelselector),
+		},
+		IPConfig: translation.IPConfig{
+			IPv4Enabled: params.AgentConfig.EnableIPv4,
+			IPv6Enabled: params.AgentConfig.EnableIPv6,
+		},
+		ListenerConfig: translation.ListenerConfig{
+			UseProxyProtocol: params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
+			UseAlpn:          params.GatewayApiConfig.EnableGatewayAPIAlpn,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: params.OperatorConfig.ProxyIdleTimeoutSeconds,
+			UseAppProtocol:     params.GatewayApiConfig.EnableGatewayAPIAppProtocol,
+		},
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: true,
+		},
+		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+			XFFNumTrustedHops: params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
+		},
+	})
 
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(
 		cecTranslator,

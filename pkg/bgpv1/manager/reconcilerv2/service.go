@@ -271,28 +271,49 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p ReconcileParams, desire
 				if !labelSelector.Matches(serviceLabelSet(svc)) {
 					continue
 				}
+
 				// LoadBalancerIP
 				lbPolicy, err := r.getLoadBalancerIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired LoadBalancerIP route policy: %w", err)
 				}
 				if lbPolicy != nil {
+					currentLbPolicy := desiredSvcRoutePolicies[lbPolicy.Name]
+					if currentLbPolicy != nil {
+						if lbPolicy, err = MergeRoutePolicies(currentLbPolicy, lbPolicy); err != nil {
+							return nil, err
+						}
+					}
 					desiredSvcRoutePolicies[lbPolicy.Name] = lbPolicy
 				}
+
 				// ExternalIP
 				extPolicy, err := r.getExternalIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired ExternalIP route policy: %w", err)
 				}
 				if extPolicy != nil {
+					currentExtPolicy := desiredSvcRoutePolicies[extPolicy.Name]
+					if currentExtPolicy != nil {
+						if extPolicy, err = MergeRoutePolicies(currentExtPolicy, extPolicy); err != nil {
+							return nil, err
+						}
+					}
 					desiredSvcRoutePolicies[extPolicy.Name] = extPolicy
 				}
+
 				// ClusterIP
 				clusterPolicy, err := r.getClusterIPRoutePolicy(p, peer, agentFamily, svc, advert, ls)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get desired ClusterIP route policy: %w", err)
 				}
 				if clusterPolicy != nil {
+					currentClusterPolicy := desiredSvcRoutePolicies[clusterPolicy.Name]
+					if currentClusterPolicy != nil {
+						if clusterPolicy, err = MergeRoutePolicies(currentClusterPolicy, clusterPolicy); err != nil {
+							return nil, err
+						}
+					}
 					desiredSvcRoutePolicies[clusterPolicy.Name] = clusterPolicy
 				}
 			}
