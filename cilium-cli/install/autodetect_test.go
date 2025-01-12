@@ -31,3 +31,20 @@ func Test_getClusterName(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "my-cluster", getClusterName(vals))
 }
+
+func Test_trimEKSClusterARN(t *testing.T) {
+	vals := ""
+	assert.Equal(t, "", trimEKSClusterARN(vals))
+
+	vals = "arn:aws:eks:eu-west-1:111111111111:cluster/my-cluster"
+	assert.Equal(t, "my-cluster", trimEKSClusterARN(vals))
+
+	vals = "cluster/my-cluster"
+	assert.Equal(t, "my-cluster", trimEKSClusterARN(vals))
+
+	vals = "arn:aws:eks:region:account-id:cluster/"
+	assert.Equal(t, "", trimEKSClusterARN(vals))
+
+	vals = "invalid-arn-format"
+	assert.Equal(t, "invalid-arn-format", trimEKSClusterARN(vals))
+}
