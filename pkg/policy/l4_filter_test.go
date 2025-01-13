@@ -44,6 +44,7 @@ type testData struct {
 	testPolicyContext *testPolicyContextType
 
 	cachedSelectorA        CachedSelector
+	cachedSelectorB        CachedSelector
 	cachedSelectorC        CachedSelector
 	cachedSelectorHost     CachedSelector
 	wildcardCachedSelector CachedSelector
@@ -67,6 +68,7 @@ func newTestData() *testData {
 	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
 
 	td.cachedSelectorA, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorA)
+	td.cachedSelectorB, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorB)
 	td.cachedSelectorC, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorC)
 	td.cachedSelectorHost, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, hostSelector)
 
@@ -79,11 +81,26 @@ func newTestData() *testData {
 	return td
 }
 
+// withIDs loads the set of IDs in to the SelectorCache. Returns
+// the same testData for easy chaining.
+func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
+	initial := identity.IdentityMap{}
+	for _, im := range initIDs {
+		for id, lbls := range im {
+			initial[id] = lbls
+		}
+	}
+	wg := &sync.WaitGroup{}
+	td.sc.UpdateIdentities(initial, nil, wg)
+	wg.Wait()
+	return td
+}
+
 // resetRepo clears only the policy repository.
 // Some tests rely on the accumulated state, but a clean repo.
 func (td *testData) resetRepo() *Repository {
-	td.repo = NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-	td.repo.selectorCache = td.sc
+
+	td.repo.ReplaceByLabels(nil, []labels.LabelArray{{}})
 	return td.repo
 }
 
