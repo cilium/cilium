@@ -5,7 +5,9 @@
 #include <bpf/api.h>
 
 #include <node_config.h>
-#include <ep_config.h>
+#include <bpf/config/global.h>
+#include <bpf/config/endpoint.h>
+#include <bpf/config/host.h>
 
 #define IS_BPF_HOST 1
 
