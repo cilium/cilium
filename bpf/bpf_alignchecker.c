@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/unspec.h>
+#include <bpf/config/global.h>
 
 #include "node_config.h"
 #include "lib/common.h"
