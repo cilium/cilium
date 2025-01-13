@@ -10,12 +10,15 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_HOST_ROUTING
+#define ENABLE_EGRESS_GATEWAY	1
+#define ENABLE_MASQUERADE_IPV4	1
 
 #define DISABLE_LOOPBACK_LB
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_IP_2		v4_ext_two
+#define CLIENT_NODE_IP		v4_node_two
 
 #define FRONTEND_IP_LOCAL	v4_svc_one
 #define FRONTEND_IP_REMOTE	v4_svc_two
@@ -31,6 +34,7 @@
 #define DEFAULT_IFACE		24
 #define BACKEND_IFACE		25
 #define SVC_EGRESS_IFACE	26
+#define ENCAP_IFINDEX		42
 
 #define BACKEND_EP_ID		127
 
@@ -152,6 +156,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 #include "bpf_host.c"
 
+#include "lib/egressgw_policy.h"
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -900,6 +905,36 @@ int nodeport_nat_fwd_reply_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_check(const struct __ctx_buff *ctx)
 {
+	return check_reply(ctx);
+}
+
+/* Test that the LB RevDNATs and RevSNATs a reply from the
+ * NAT remote backend, and sends it back to the client.
+ * Even when there's a catch-all EGW policy configured.
+ */
+PKTGEN("tc", "tc_nodeport_nat_fwd_reply2_egw")
+int nodeport_nat_fwd_reply2_egw_pktgen(struct __ctx_buff *ctx)
+{
+	return build_reply(ctx);
+}
+
+SETUP("tc", "tc_nodeport_nat_fwd_reply2_egw")
+int nodeport_nat_fwd_reply2_egw_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v4_add_entry(CLIENT_IP, 0, 112200, CLIENT_NODE_IP, 0);
+	add_egressgw_policy_entry(CLIENT_IP, v4_all, 0, LB_IP, LB_IP);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_nat_fwd_reply2_egw")
+int nodeport_nat_fwd_reply2_egw_check(const struct __ctx_buff *ctx)
+{
+	del_egressgw_policy_entry(CLIENT_IP, v4_all, 0);
+
 	return check_reply(ctx);
 }
 
