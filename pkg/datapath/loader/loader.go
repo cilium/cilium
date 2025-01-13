@@ -440,6 +440,10 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 			return err
 		}
 
+		if device == wgTypes.IfaceName {
+			consts["IS_BPF_WIREGUARD"] = 1
+		}
+
 		var netdevObj hostNetdevObjects
 		commit, err := bpf.LoadAndAssign(&netdevObj, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{

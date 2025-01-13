@@ -9,6 +9,16 @@
 
 #define IS_BPF_HOST 1
 
+#ifndef IS_BPF_WIREGUARD
+/* This is set to 1 to correctly set tracing and metrics updates only
+ * the one instance of this program used to attach cil_from_netdev
+ * to the Wireguard device when needed.
+ * Will be removed as part of https://github.com/cilium/cilium/issues/33676.
+ */
+DEFINE_BOOL(IS_BPF_WIREGUARD, false);
+#define IS_BPF_WIREGUARD fetch_bool(IS_BPF_WIREGUARD)
+#endif
+
 #define EVENT_SOURCE HOST_EP_ID
 
 /* Host endpoint ID for the template bpf_host object file. Will be replaced
@@ -1238,6 +1248,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
+	enum trace_point obs_point = IS_BPF_WIREGUARD ? TRACE_FROM_CRYPTO : TRACE_FROM_NETWORK;
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
 
@@ -1308,7 +1319,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 #endif
 
-	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
+	return do_netdev(ctx, proto, UNKNOWN_ID, obs_point, false);
 
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);

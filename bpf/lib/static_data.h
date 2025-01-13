@@ -41,6 +41,7 @@
 #define CONFIG(name) __config_##name
 
 /* Deprecated, use CONFIG instead. */
+#define fetch_bool(x) CONFIG(x)
 #define fetch_u16(x) CONFIG(x)
 #define fetch_u32(x) CONFIG(x)
 #define fetch_u64(x) CONFIG(x)
@@ -48,6 +49,9 @@
 #define fetch_mac(x) { { CONFIG(x ## _1), (__u16)CONFIG(x ## _2) } }
 
 /* Deprecated, use DECLARE_CONFIG instead. */
+#define DEFINE_BOOL(name, value) \
+	DECLARE_CONFIG(bool, name, "Constant " #name " declared using DEFINE_BOOL") \
+	ASSIGN_CONFIG(bool, name, value)
 #define DEFINE_U16(name, value) \
 	DECLARE_CONFIG(__u16, name, "Constant " #name " declared using DEFINE_U16") \
 	ASSIGN_CONFIG(__u16, name, value)

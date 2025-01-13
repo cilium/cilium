@@ -130,7 +130,7 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_FROM_PROXY:
 	case TRACE_TO_PROXY:
 		break;
-#ifdef IS_BPF_WIREGUARD
+#if defined(IS_BPF_WIREGUARD) && IS_BPF_WIREGUARD
 	case TRACE_TO_CRYPTO:
 		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 				REASON_ENCRYPTING, line, file);

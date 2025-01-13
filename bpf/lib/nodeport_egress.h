@@ -105,7 +105,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
-#elif defined(IS_BPF_WIREGUARD)
+#elif defined(IS_BPF_WIREGUARD) && IS_BPF_WIREGUARD
 	obs_point = TRACE_TO_CRYPTO;
 #else
 	obs_point = TRACE_TO_NETWORK;
@@ -240,7 +240,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
-#elif defined(IS_BPF_WIREGUARD)
+#elif defined(IS_BPF_WIREGUARD) && IS_BPF_WIREGUARD
 	obs_point = TRACE_TO_CRYPTO;
 #else
 	obs_point = TRACE_TO_NETWORK;
@@ -413,7 +413,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
-#elif defined(IS_BPF_WIREGUARD)
+#elif defined(IS_BPF_WIREGUARD) && IS_BPF_WIREGUARD
 	obs_point = TRACE_TO_CRYPTO;
 #else
 	obs_point = TRACE_TO_NETWORK;
@@ -586,7 +586,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
-#elif defined(IS_BPF_WIREGUARD)
+#elif defined(IS_BPF_WIREGUARD) && IS_BPF_WIREGUARD
 	obs_point = TRACE_TO_CRYPTO;
 #else
 	obs_point = TRACE_TO_NETWORK;
