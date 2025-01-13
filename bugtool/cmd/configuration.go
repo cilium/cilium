@@ -399,6 +399,7 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg bpf endpoint list",
 		"cilium-dbg bpf ct list global",
 		"cilium-dbg bpf nat list",
+		"cilium-dbg bpf nat retries list",
 		"cilium-dbg bpf ipmasq list",
 		"cilium-dbg bpf ipcache list",
 		"cilium-dbg bpf policy get --all --numeric",
