@@ -54,9 +54,6 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 		"Interval for garbage collection of unattached ENIs. Set to 0 to disable")
 	option.BindEnv(vp, operatorOption.ENIGarbageCollectionInterval)
 
-	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, true, "Use the EC2 API to update the instance type to adapter limits")
-	option.BindEnv(vp, operatorOption.UpdateEC2AdapterLimitViaAPI)
-
 	flags.Bool(operatorOption.AWSUsePrimaryAddress, false, "Allows for using primary address of the ENI for allocations on the node")
 	option.BindEnv(vp, operatorOption.AWSUsePrimaryAddress)
 

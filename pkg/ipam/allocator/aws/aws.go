@@ -99,11 +99,8 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 	if err := limits.UpdateFromUserDefinedMappings(operatorOption.Config.AWSInstanceLimitMapping); err != nil {
 		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
 	}
-
-	if operatorOption.Config.UpdateEC2AdapterLimitViaAPI {
-		if err := limits.UpdateFromEC2API(ctx, a.client); err != nil {
-			return fmt.Errorf("unable to update instance type to adapter limits from EC2 API: %w", err)
-		}
+	if err := limits.InitEC2APIUpdateTrigger(a.client, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount); err != nil {
+		return fmt.Errorf("failed to initialize EC2 API update trigger: %w", err)
 	}
 
 	return nil

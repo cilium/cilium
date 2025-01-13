@@ -202,7 +202,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 	require.NotNil(t, mngr)
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5a.large"), withIPAMPreAllocate(8))
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5.large"), withIPAMPreAllocate(8))
 	mngr.Upsert(cn)
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
@@ -427,7 +427,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 // TestNodeManagerReleaseAddress tests PreAllocate, MinAllocate and MaxAboveWatermark
 // when release excess IP is enabled
 //
-// - m4.large (4x ENIs, 3x15-3 IPs)
+// - m4.xlarge (4x ENIs, 3x15-3 IPs)
 // - MinAllocate 10
 // - MaxAllocate 0
 // - PreAllocate 2
