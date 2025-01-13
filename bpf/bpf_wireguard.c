@@ -8,6 +8,7 @@
 #include <bpf/api.h>
 
 #include <node_config.h>
+#include <bpf/config/global.h>
 #include <netdev_config.h>
 
 /* WORLD_IPV{4,6}_ID varies based on dualstack being enabled. Real values are
