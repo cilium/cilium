@@ -35,7 +35,6 @@ all: build
 build:
 	@$(ECHO_GINKGO)$@
 	$(GINKGO) build
-	$(QUIET)$(MAKE) -C bpf/
 
 build-darwin:
 	@$(ECHO_GINKGO)$@
@@ -75,5 +74,3 @@ k8s-kind:
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET) rm -rf $(TEST_ARTIFACTS)
-	-$(QUIET)$(MAKE) -C bpf/ clean
-
