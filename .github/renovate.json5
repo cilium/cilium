@@ -122,6 +122,8 @@
         "github.com/prometheus/", // Prometheu's official org
         "go.etcd.io/etcd/", // etcd's official org
         "golang.org/x/", // Golang official experimental org
+        "golangci/golangci-lint", // Golang CI linter
+        "protocolbuffers/protobuf", // protobuf buffers
         "google.golang.org/", // Google official repo for api/genproto/grpc/protobuf
         "k8s.io/", // Kubernetes official repo
         "quay.io/cilium/", // LVH images
