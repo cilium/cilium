@@ -126,10 +126,6 @@ const (
 	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
 	ParallelAllocWorkers = "parallel-alloc-workers"
 
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2
-	// API to fill out the instancetype to adapter limit mapping.
-	UpdateEC2AdapterLimitViaAPI = "update-ec2-adapter-limit-via-api"
-
 	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
 	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
 	EC2APIEndpoint = "ec2-api-endpoint"
@@ -320,10 +316,6 @@ type OperatorConfig struct {
 	// node
 	AWSUsePrimaryAddress bool
 
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the
-	// instancetype to adapter limit mapping.
-	UpdateEC2AdapterLimitViaAPI bool
-
 	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
 	// Defaults to 180 secs
 	ExcessIPReleaseDelay int
@@ -439,7 +431,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.AWSReleaseExcessIPs = vp.GetBool(AWSReleaseExcessIPs)
 	c.AWSEnablePrefixDelegation = vp.GetBool(AWSEnablePrefixDelegation)
 	c.AWSUsePrimaryAddress = vp.GetBool(AWSUsePrimaryAddress)
-	c.UpdateEC2AdapterLimitViaAPI = vp.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)
 	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
 	c.ENIGarbageCollectionInterval = vp.GetDuration(ENIGarbageCollectionInterval)

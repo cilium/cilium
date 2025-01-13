@@ -442,6 +442,15 @@ Hubble CLI
   reproduced with ``--node-name foo/`` (shows all flows emitted from a node in
   cluster ``foo``).
 
+.. _1.18_upgrade_notes:
+
+1.18 Upgrade Notes
+------------------
+* ``update-ec2-adapter-limit-via-api`` CLI flag for the operator and helm option ``eni.updateEC2AdapterLimitViaAPI`` have been removed 
+  because the operator will always use the API to update the EC2 adapter limit and hardcoded static mapping is removed from the codebase.
+
+
+
 Advanced
 ========
 
