@@ -27,7 +27,7 @@ jobs:
   installation-and-connectivity:
     name: "Installation and Connectivity Test"
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 120
     env:
       job_name: "Installation and Connectivity Test"
     steps:
@@ -112,6 +112,21 @@ jobs:
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --curl-parallel 3 \
             --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
+
+      - name: Run one test repeatedly
+        run: |
+          for i in {1..100}
+          do
+            kubectl -n kube-system rollout restart ds/cilium
+            cilium status --wait
+
+            echo "Running Cilium connectivity test iteration $i"
+            cilium connectivity test --test "client-egress-l7-tls-headers" -v --force-deploy
+            if [ $? -ne 0 ]; then
+              echo "Cilium connectivity test failed on iteration $i"
+              exit 1
+            fi
+          done
 
       - name: Features tested
         uses: ./.github/actions/feature-status
