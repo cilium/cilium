@@ -11,11 +11,11 @@ import (
 
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	clustermeshdbg "github.com/cilium/cilium/clustermesh-apiserver/clustermesh-dbg"
-	"github.com/cilium/cilium/clustermesh-apiserver/cmdref"
 	"github.com/cilium/cilium/clustermesh-apiserver/etcdinit"
 	"github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh"
 	kvstoremeshdbg "github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh-dbg"
 	"github.com/cilium/cilium/clustermesh-apiserver/version"
+	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/hive"
 )
 
