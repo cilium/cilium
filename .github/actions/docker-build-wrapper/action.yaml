@@ -4,33 +4,33 @@ inputs:
   provenance:
     required: false
     default: false
-    description: ""
+    description: "Generate provenance attestation for the build"
   context:
     required: false
     default: "."
-    description: ""
+    description: "Build's context"
   file:
     required: true
-    description: ""
+    description: "Path to the Dockerfile"
   push:
     required: false
     default: true
-    description: ""
+    description: "Push the build result to registry"
   platforms:
     required: true
-    description: ""
+    description: "List of target platforms for build"
   tags:
     required: true
-    description: ""
+    description: "List of tags"
   target:
     required: true
-    description: ""
+    description: "Sets the target stage to build"
   build-args:
     required: false
-    description: ""
+    description: "List of build-time variables"
 outputs:
   digest:
-    description: ""
+    description: "Image digest"
     value: ${{ steps.build.outputs.digest }}
 runs:
   using: composite
