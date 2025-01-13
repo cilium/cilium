@@ -3,6 +3,7 @@
 
 #define IS_BPF_WIREGUARD 1
 #define ENABLE_WIREGUARD
+#define THIS_INTERFACE_IFINDEX WG_IFINDEX
 
 #include "common.h"
 
