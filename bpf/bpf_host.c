@@ -1239,6 +1239,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
+	enum trace_point obs_point = TRACE_FROM_NETWORK;
 	__u32 src_id = UNKNOWN_ID;
 	__be16 proto = 0;
 
@@ -1246,6 +1247,15 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 #endif
 	int ret;
+
+#ifdef ENABLE_WIREGUARD
+	/* When attached as ingress to cilium_wg0 with host-to-host encryption and
+	 * BPF NodePort enabled, we should change the obs point to FROM_CRYPTO.
+	 * Therefore, we check THIS_INTERFACE_IFINDEX value to be set to WG_IFINDEX.
+	 */
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX)
+		obs_point = TRACE_FROM_CRYPTO;
+#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 * We will see the packet again in from-netdev@eth0.vlanXXX.
@@ -1309,7 +1319,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 #endif
 
-	return do_netdev(ctx, proto, UNKNOWN_ID, TRACE_FROM_NETWORK, false);
+	return do_netdev(ctx, proto, UNKNOWN_ID, obs_point, false);
 
 drop_err:
 	return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
