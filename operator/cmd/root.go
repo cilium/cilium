@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
@@ -302,12 +303,6 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
-			cmdRefDir := h.Viper().GetString(option.CMDRef)
-			if cmdRefDir != "" {
-				genMarkdown(cobraCmd, cmdRefDir)
-				os.Exit(0)
-			}
-
 			initEnv(h.Viper())
 
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
@@ -326,6 +321,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 	metrics.Namespace = metrics.CiliumOperatorNamespace
 
 	cmd.AddCommand(
+		cmdref.NewCmd(cmd),
 		MetricsCmd,
 		StatusCmd,
 		ciliumdbg.TroubleshootCmd,
