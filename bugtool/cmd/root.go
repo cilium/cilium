@@ -24,6 +24,7 @@ import (
 
 	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
@@ -122,6 +123,7 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&excludeObjectFiles, "exclude-object-files", false, "Exclude per-endpoint object files. Template object files will be kept")
 	BugtoolRootCmd.Flags().BoolVar(&hubbleMetrics, "hubble-metrics", true, "When set, hubble prometheus metrics")
 	BugtoolRootCmd.Flags().IntVar(&hubbleMetricsPort, "hubble-metrics-port", 9965, "Port to query for hubble metrics")
+	BugtoolRootCmd.AddCommand(cmdref.NewCmd(BugtoolRootCmd))
 }
 
 func removeIfEmpty(dir string) {
