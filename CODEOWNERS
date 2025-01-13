@@ -282,6 +282,7 @@ Makefile* @cilium/build
 /bpf/lib/ids.h @cilium/loader
 /bpf/lib/proxy.h @cilium/proxy @cilium/sig-datapath
 /bpf/include/bpf/tailcall.h @cilium/loader
+/bpf/include/bpf/config @cilium/loader
 /bugtool/ @cilium/cli
 /cilium-dbg/ @cilium/cli
 /cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli

@@ -5,6 +5,7 @@
 #include <bpf/api.h>
 
 #include <node_config.h>
+#include <bpf/config/global.h>
 #include <netdev_config.h>
 #include "lib/mcast.h"
 
