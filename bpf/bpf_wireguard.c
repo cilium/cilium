@@ -48,6 +48,10 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 out:
 #endif /* ENABLE_NODEPORT */
 
+	send_trace_notify(ctx, TRACE_TO_CRYPTO, src_sec_identity, UNKNOWN_ID,
+			  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+			  trace.reason, trace.monitor);
+
 	return TC_ACT_OK;
 }
 

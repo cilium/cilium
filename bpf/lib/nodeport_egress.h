@@ -7,6 +7,16 @@
 
 #ifdef ENABLE_NODEPORT
 
+#if defined(IS_BPF_OVERLAY)
+#define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_OVERLAY
+#elif defined(IS_BPF_WIREGUARD)
+#define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_CRYPTO
+#elif defined(IS_BPF_HOST)
+#define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_NETWORK
+#else
+#error "nodeport_egress.h only supports inclusion from bpf_host, bpf_overlay, or bpf_wireguard"
+#endif
+
 #ifdef ENABLE_IPV6
 static __always_inline bool
 nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
@@ -98,16 +108,9 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	enum trace_point obs_point;
 	union v6addr saddr = {};
 	int ret;
 	__s8 ext_err = 0;
-
-#ifdef IS_BPF_OVERLAY
-	obs_point = TRACE_TO_OVERLAY;
-#else
-	obs_point = TRACE_TO_NETWORK;
-#endif
 
 	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
@@ -122,7 +125,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 * for IPv6, and so it's not possible yet for masqueraded traffic to get
 	 * redirected to another interface
 	 */
-	send_trace_notify6(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, &saddr,
+	send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, UNKNOWN_ID, UNKNOWN_ID, &saddr,
 			   TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 			   trace.reason, trace.monitor);
 
@@ -235,14 +238,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	int ret;
-	enum trace_point obs_point;
 	__s8 ext_err = 0;
-
-#ifdef IS_BPF_OVERLAY
-	obs_point = TRACE_TO_OVERLAY;
-#else
-	obs_point = TRACE_TO_NETWORK;
-#endif
 
 	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
@@ -250,7 +246,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
+		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, UNKNOWN_ID, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				  trace.reason, trace.monitor);
 
@@ -409,16 +405,9 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	enum trace_point obs_point;
 	__be32 saddr = 0;
 	int ret;
 	__s8 ext_err = 0;
-
-#ifdef IS_BPF_OVERLAY
-	obs_point = TRACE_TO_OVERLAY;
-#else
-	obs_point = TRACE_TO_NETWORK;
-#endif
 
 	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
@@ -431,7 +420,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify4(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, saddr,
+		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, UNKNOWN_ID, UNKNOWN_ID, saddr,
 				   TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				   trace.reason, trace.monitor);
 
@@ -584,14 +573,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	int ret;
-	enum trace_point obs_point;
 	__s8 ext_err = 0;
-
-#ifdef IS_BPF_OVERLAY
-	obs_point = TRACE_TO_OVERLAY;
-#else
-	obs_point = TRACE_TO_NETWORK;
-#endif
 
 	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
@@ -599,7 +581,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID,
+		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, UNKNOWN_ID, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				  trace.reason, trace.monitor);
 
