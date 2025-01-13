@@ -140,6 +140,9 @@ type ServiceCache struct {
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
 
+	// map frontend and loadbalancer IP to service ID.
+	ipToServiceID map[string]ServiceID
+
 	selfNodeZoneLabel string
 
 	ServiceMutators []func(svc *slim_corev1.Service, svcInfo *Service)
@@ -161,6 +164,7 @@ func NewServiceCache(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.Node
 		services:              map[ServiceID]*Service{},
 		endpoints:             map[ServiceID]*EndpointSlices{},
 		externalEndpoints:     map[ServiceID]externalEndpoints{},
+		ipToServiceID:         map[string]ServiceID{},
 		Events:                events,
 		sendEvents:            events,
 		notifications:         notifications,
@@ -320,6 +324,15 @@ func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, 
 	}
 }
 
+// GetServiceIDByIP returns the ServiceID for the given IP address.
+// IP address can be either a frontend IP or a loadbalancer IP.
+func (s *ServiceCache) GetServiceIDByIP(ip net.IP) (ServiceID, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	id, ok := s.ipToServiceID[ip.String()]
+	return id, ok
+}
+
 // UpdateService parses a Kubernetes service and adds or updates it in the
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
@@ -360,6 +373,14 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 
 	s.metrics.AddService(newService)
 	s.services[svcID] = newService
+
+	for _, feIP := range newService.FrontendIPs {
+		s.ipToServiceID[feIP.String()] = svcID
+	}
+
+	for _, lbIP := range newService.LoadBalancerIPs {
+		s.ipToServiceID[lbIP.String()] = svcID
+	}
 
 	// Check if the corresponding Endpoints resource is already available
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
@@ -409,6 +430,14 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	oldService, serviceOK := s.services[svcID]
 	endpoints, _ := s.correlateEndpoints(svcID)
 	delete(s.services, svcID)
+
+	for _, feIP := range oldService.FrontendIPs {
+		delete(s.ipToServiceID, feIP.String())
+	}
+
+	for _, lbIP := range oldService.LoadBalancerIPs {
+		delete(s.ipToServiceID, lbIP.String())
+	}
 
 	if serviceOK {
 		s.metrics.DelService(oldService)
