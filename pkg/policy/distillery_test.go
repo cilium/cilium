@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	stdlog "log"
 	"maps"
 	"net/netip"
 	"strings"
@@ -18,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -2050,13 +2048,6 @@ func (ms *mapState) allowsKey(key Key) bool {
 }
 
 func TestEgressPortRangePrecedence(t *testing.T) {
-	td := newTestData()
-	identityCache := identity.IdentityMap{
-		identity.NumericIdentity(100): labelsA,
-	}
-	td.sc.UpdateIdentities(identityCache, nil, &sync.WaitGroup{})
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(100), labelsA)
-
 	type portRange struct {
 		startPort, endPort uint16
 		isAllow            bool
@@ -2135,10 +2126,9 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tr := &rule{
-				Rule: api.Rule{
-					EndpointSelector: endpointSelectorA,
-				},
+			td := newTestData().withIDs(ruleTestIDs)
+			tr := api.Rule{
+				EndpointSelector: endpointSelectorA,
 			}
 			for _, rul := range tt.rules {
 				pp := api.PortProtocol{
@@ -2147,18 +2137,18 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 					Protocol: api.ProtoTCP,
 				}
 				if rul.isAllow {
-					tr.Rule.Egress = append(tr.Rule.Egress, api.EgressRule{
+					tr.Egress = append(tr.Egress, api.EgressRule{
 						EgressCommonRule: api.EgressCommonRule{
-							ToEndpoints: []api.EndpointSelector{endpointSelectorA},
+							ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 						},
 						ToPorts: []api.PortRule{{
 							Ports: []api.PortProtocol{pp},
 						}},
 					})
 				} else {
-					tr.Rule.EgressDeny = append(tr.Rule.EgressDeny, api.EgressDenyRule{
+					tr.EgressDeny = append(tr.EgressDeny, api.EgressDenyRule{
 						EgressCommonRule: api.EgressCommonRule{
-							ToEndpoints: []api.EndpointSelector{endpointSelectorA},
+							ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 						},
 						ToPorts: []api.PortDenyRule{{
 							Ports: []api.PortProtocol{pp},
@@ -2166,41 +2156,19 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 					})
 				}
 			}
-			buffer := new(bytes.Buffer)
-			ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
-			ctxFromA.Logging = stdlog.New(buffer, "", 0)
-			defer t.Log(buffer)
+			td.repo.mustAdd(tr)
 
-			require.NoError(t, tr.Sanitize())
-			state := traceState{}
-			res, err := tr.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, NewL4PolicyMap(), nil, nil)
-			require.NoError(t, err)
-			require.NotNil(t, res)
-
-			repo := newPolicyDistillery(td.sc)
-			repo.MustAddList(api.Rules{&tr.Rule})
-			repo = repo.WithLogBuffer(buffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
-			require.NoError(t, err)
-			require.NotNil(t, mapstate)
-
+			flow := flowAToB
 			for _, rt := range tt.rangeTests {
 				for i := rt.startPort; i <= rt.endPort; i++ {
-					ctxFromA.DPorts = []*models.Port{{Port: i, Protocol: models.PortProtocolTCP}}
-					key := EgressKey().WithIdentity(identity.ID).WithTCPPort(i)
+					flow.Dport = i
+					verdict := api.Denied
 					if rt.isAllow {
-						// IngressCoversContext just checks the "From" labels of the search context.
-						require.Equalf(t, api.Allowed.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
-						require.Truef(t, mapstate.allowsKey(key), "key (%v) not allowed", key)
-					} else {
-						// IngressCoversContext just checks the "From" labels of the search context.
-						require.Equalf(t, api.Denied.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
-						require.Falsef(t, mapstate.allowsKey(key), "key (%v) allowed", key)
-
+						verdict = api.Allowed
 					}
+					checkFlow(t, td.repo, flow, verdict)
 				}
 			}
-
 		})
 	}
 }
