@@ -4,6 +4,7 @@
 package experimental
 
 import (
+	"fmt"
 	"iter"
 	"strings"
 
@@ -112,22 +113,30 @@ func (fe *Frontend) TableRow() []string {
 
 // showBackends returns the backends associated with a frontend in form
 // "1.2.3.4:80 (active), [2001::1]:443 (terminating)"
-// TODO: Skip showing the state?
 func showBackends(bes iter.Seq2[*Backend, statedb.Revision]) string {
+	const maxToShow = 5
+	count := 0
 	var b strings.Builder
 	for be := range bes {
-		b.WriteString(be.L3n4Addr.String())
-		b.WriteString(" (")
-		state, err := be.State.String()
-		if err != nil {
-			state = err.Error()
+		if count < maxToShow {
+			b.WriteString(be.L3n4Addr.String())
+			b.WriteString(" (")
+			state, err := be.State.String()
+			if err != nil {
+				state = err.Error()
+			}
+			b.WriteString(state)
+			b.WriteString(")")
+			b.WriteString(", ")
 		}
-		b.WriteString(state)
-		b.WriteString(")")
-		b.WriteString(", ")
+		count++
 	}
 	s := b.String()
 	s, _ = strings.CutSuffix(s, ", ")
+
+	if count > maxToShow {
+		s += fmt.Sprintf(" + %d more ...", count-maxToShow)
+	}
 	return s
 }
 
