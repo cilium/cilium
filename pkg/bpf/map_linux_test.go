@@ -236,11 +236,11 @@ func TestBasicManipulation(t *testing.T) {
 	}
 	assertEvent := func(i int, key, value, desiredAction, action string) {
 		e := event(i)
-		if e.cacheEntry.Key != nil {
-			require.Equal(t, key, e.cacheEntry.Key.String())
+		if e.cacheEntries[0].Key != nil {
+			require.Equal(t, key, e.cacheEntries[0].Key.String())
 		}
 		require.Equal(t, e.GetValue(), value)
-		require.Equal(t, e.cacheEntry.DesiredAction.String(), desiredAction)
+		require.Equal(t, e.cacheEntries[0].DesiredAction.String(), desiredAction)
 		require.Equal(t, e.GetAction(), action)
 	}
 
@@ -252,8 +252,8 @@ func TestBasicManipulation(t *testing.T) {
 
 	// Check events buffer
 	require.Len(t, dumpEvents(), 1)
-	require.Equal(t, "key=103", event(0).cacheEntry.Key.String())
-	require.Equal(t, "value=203", event(0).cacheEntry.Value.String())
+	require.Equal(t, "key=103", event(0).cacheEntries[0].Key.String())
+	require.Equal(t, "value=203", event(0).cacheEntries[0].Value.String())
 
 	// key    val
 	// 103    203
@@ -266,8 +266,8 @@ func TestBasicManipulation(t *testing.T) {
 
 	// Check events buffer, ensure it doesn't change.
 	require.Len(t, dumpEvents(), 1)
-	require.Equal(t, "key=103", event(0).cacheEntry.Key.String())
-	require.Equal(t, "value=203", event(0).cacheEntry.Value.String())
+	require.Equal(t, "key=103", event(0).cacheEntries[0].Key.String())
+	require.Equal(t, "value=203", event(0).cacheEntries[0].Value.String())
 
 	err = existingMap.Update(key1, value2)
 	require.NoError(t, err)
@@ -280,12 +280,12 @@ func TestBasicManipulation(t *testing.T) {
 	// Check events buffer after second Update
 	require.Len(t, dumpEvents(), 2)
 	assertEvent(0, "key=103", "value=203", "sync", "update")
-	require.Equal(t, "key=103", event(0).cacheEntry.Key.String())
-	require.Equal(t, "value=203", event(0).cacheEntry.Value.String())
-	require.Equal(t, "sync", event(0).cacheEntry.DesiredAction.String())
-	require.Equal(t, "key=103", event(1).cacheEntry.Key.String()) // we used key1 again
-	require.Equal(t, "value=204", event(1).cacheEntry.Value.String())
-	require.Equal(t, "sync", event(1).cacheEntry.DesiredAction.String())
+	require.Equal(t, "key=103", event(0).cacheEntries[0].Key.String())
+	require.Equal(t, "value=203", event(0).cacheEntries[0].Value.String())
+	require.Equal(t, "sync", event(0).cacheEntries[0].DesiredAction.String())
+	require.Equal(t, "key=103", event(1).cacheEntries[0].Key.String()) // we used key1 again
+	require.Equal(t, "value=204", event(1).cacheEntries[0].Value.String())
+	require.Equal(t, "sync", event(1).cacheEntries[0].DesiredAction.String())
 
 	err = existingMap.Update(key2, value2)
 	require.NoError(t, err)
@@ -362,10 +362,10 @@ func TestBasicManipulation(t *testing.T) {
 	require.Len(t, dumpEvents(), 9)
 	assertEvent(8, "key=104", "<nil>", "sync", "delete-all")
 
-	require.Equal(t, "key=103", event(0).cacheEntry.Key.String())
-	require.Equal(t, "value=203", event(0).cacheEntry.Value.String())
+	require.Equal(t, "key=103", event(0).cacheEntries[0].Key.String())
+	require.Equal(t, "value=203", event(0).cacheEntries[0].Value.String())
 
-	require.Equal(t, "key=103", event(1).cacheEntry.Key.String()) // we used key1 again
+	require.Equal(t, "key=103", event(1).cacheEntries[0].Key.String()) // we used key1 again
 
 	err = existingMap.Update(key2, value2)
 	require.NoError(t, err)
@@ -724,6 +724,22 @@ func TestDeleteAll(t *testing.T) {
 	dump2 := map[string][]string{}
 	err = testMap.Dump(dump2)
 	require.NoError(t, err)
+}
+
+func TestBatchUpdate(t *testing.T) {
+	if !HasBatchOperations() {
+		t.Skip()
+	}
+	testMap := setup(t)
+	keys := make([]MapKey, 0, 2)
+	values := make([]MapValue, 0, 2)
+
+	keys = append(keys, &TestKey{Key: 105}, &TestKey{Key: 106})
+	values = append(values, &TestValue{Value: 205}, &TestValue{Value: 206})
+
+	count, err := testMap.BatchUpdate(keys, values)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
 }
 
 func TestGetModel(t *testing.T) {

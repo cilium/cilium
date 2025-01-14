@@ -37,6 +37,10 @@ var (
 	// been reached.
 	ErrMaxLookup = errors.New("maximum number of lookups reached")
 
+	// ErrUnsupportedOperation is returned when the bpf operation being
+	// used is not supported by the current kernel version
+	ErrUnsupportedOperation = errors.New("unsupported operation")
+
 	bpfMapSyncControllerGroup = controller.NewGroup("bpf-map-sync")
 )
 
@@ -61,6 +65,8 @@ type cacheEntry struct {
 	DesiredAction DesiredAction
 	LastError     error
 }
+
+type cacheEntries []*cacheEntry
 
 type Map struct {
 	m *ebpf.Map
@@ -1108,6 +1114,97 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	return nil
 }
 
+// BatchUpdate updates a map with a slice of keys and values.
+// BatchUpdate can partially succeed, so both return values
+// need to be evaluated to determine the keys and values that
+// were updated, if any.
+func (m *Map) BatchUpdate(keys []MapKey, values []MapValue) (int, error) {
+	if !HasBatchOperations() {
+		return 0, fmt.Errorf("%w: batch update", ErrUnsupportedOperation)
+	}
+	var (
+		err   error
+		count int
+	)
+	keyLen, valueLen := len(keys), len(values)
+	if keyLen != valueLen {
+		return 0, fmt.Errorf("the number of keys and values must be equal; key length is %d, value length is %d", keyLen, valueLen)
+	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	defer func() {
+		var scheduleResolver bool
+		// Batch update can fail mid-update in the kernel,
+		// but have succesfully added some of the keys/entries.
+		// We need to differentiate between entries with errors
+		// and those without.
+		goodEntries := make(cacheEntries, 0, count)
+		badEntries := make(cacheEntries, 0, keyLen-count)
+		for i := 0; i < keyLen; i++ {
+			var lastErr error
+			desiredAction := OK
+			key := keys[i]
+			value := values[i]
+			// This entry (and up) was not added and has an
+			// error associated with it.
+			badEntry := i >= count
+			if badEntry {
+				lastErr = err
+				desiredAction = Insert
+			}
+			entry := &cacheEntry{
+				Key:           key,
+				Value:         value,
+				DesiredAction: desiredAction,
+				LastError:     lastErr,
+			}
+			if badEntry {
+				badEntries[i-count] = entry
+			} else {
+				goodEntries[i] = entry
+			}
+			if m.cache != nil {
+				if m.withValueCache {
+					if lastErr != nil {
+						scheduleResolver = true
+					}
+					m.cache[key.String()] = entry
+				} else if lastErr == nil {
+					m.cache[key.String()] = nil
+				}
+			}
+		}
+		if len(goodEntries) > 0 {
+			m.addBatchOpToEventsLocked(MapBatchUpdate, goodEntries)
+		}
+		if len(badEntries) > 0 {
+			m.addBatchOpToEventsLocked(MapBatchUpdate, badEntries)
+		}
+		if scheduleResolver {
+			m.scheduleErrorResolver()
+		}
+		m.updatePressureMetric()
+	}()
+
+	if err = m.open(); err != nil {
+		return 0, err
+	}
+
+	count, err = m.m.BatchUpdate(keys, values, &ebpf.BatchOptions{})
+
+	if metrics.BPFMapOps.IsEnabled() {
+		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+	}
+
+	if err != nil {
+		return count, fmt.Errorf("batch update map %s: %w", m.Name(), err)
+	}
+
+	return count, nil
+}
+
 // deleteMapEvent is run at every delete map event.
 // If cache is enabled, it will update the cache to reflect the delete.
 // As well, if event buffer is enabled, it adds a new event to the buffer.
@@ -1318,9 +1415,20 @@ func (m *Map) addToEventsLocked(action Action, entry cacheEntry) {
 		return
 	}
 	m.events.add(&Event{
-		action:     action,
-		Timestamp:  time.Now(),
-		cacheEntry: entry,
+		action:       action,
+		Timestamp:    time.Now(),
+		cacheEntries: []*cacheEntry{&entry},
+	})
+}
+
+func (m *Map) addBatchOpToEventsLocked(action Action, entries cacheEntries) {
+	if !m.eventsBufferEnabled {
+		return
+	}
+	m.events.add(&Event{
+		action:       action,
+		Timestamp:    time.Now(),
+		cacheEntries: entries,
 	})
 }
 
