@@ -180,14 +180,16 @@ func (ops *BPFOps) start(_ cell.HookContext) error {
 func svcKeyToAddr(svcKey lbmap.ServiceKey) loadbalancer.L3n4Addr {
 	feIP := svcKey.GetAddress()
 	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
-	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP /* FIXME */, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
+	proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
+	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	return *feL3n4Addr
 }
 
 func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 	beIP := beValue.GetAddress()
 	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
-	beL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP /* FIXME */, beAddrCluster, beValue.GetPort(), 0)
+	proto := loadbalancer.NewL4TypeFromNumber(beValue.GetProtocol())
+	beL3n4Addr := loadbalancer.NewL3n4Addr(proto, beAddrCluster, beValue.GetPort(), 0)
 	return *beL3n4Addr
 }
 
@@ -321,17 +323,15 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			ops.log.Warn("Prune: bad address in service key", "key", svcKey)
 			return
 		}
+		proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 		addr := loadbalancer.L3n4Addr{
 			AddrCluster: ac,
-			L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP /* FIXME */, Port: svcKey.GetPort()},
+			L4Addr:      loadbalancer.L4Addr{Protocol: proto, Port: svcKey.GetPort()},
 			Scope:       svcKey.GetScope(),
 		}
 		if _, ok := ops.backendReferences[addr]; !ok {
-			addr.L4Addr.Protocol = loadbalancer.UDP
-			if _, ok := ops.backendReferences[addr]; !ok {
-				ops.log.Debug("pruneServiceMaps: enqueing for deletion", "id", svcValue.GetRevNat(), "addr", addr)
-				toDelete = append(toDelete, svcKey.ToNetwork())
-			}
+			ops.log.Info("pruneServiceMaps: deleting", "id", svcValue.GetRevNat(), "addr", addr)
+			toDelete = append(toDelete, svcKey.ToNetwork())
 		}
 	}
 	if err := ops.LBMaps.DumpService(svcCB); err != nil {
@@ -351,16 +351,9 @@ func (ops *BPFOps) pruneBackendMaps() error {
 	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
 		beValue = beValue.ToHost()
 		addr := beValueToAddr(beValue)
-
-		// TODO TCP/UDP differentation.
-		addr.L4Addr.Protocol = loadbalancer.TCP
 		if _, ok := ops.backendStates[addr]; !ok {
-			addr.L4Addr.Protocol = loadbalancer.UDP
-			if _, ok := ops.backendStates[addr]; !ok {
-				ops.log.Debug("pruneBackendMaps: enqueing for deletion", "id", beKey.GetID(), "addr", addr)
-				toDelete = append(toDelete, beKey)
-			}
-
+			ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", addr)
+			toDelete = append(toDelete, beKey)
 		}
 	}
 	if err := ops.LBMaps.DumpBackend(beCB); err != nil {
