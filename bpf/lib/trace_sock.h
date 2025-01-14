@@ -51,7 +51,6 @@ struct ip {
 	} __packed;
 };
 
-#ifdef TRACE_SOCK_NOTIFY
 struct trace_sock_notify {
 	__u8 type;
 	__u8 xlate_point;
@@ -64,6 +63,7 @@ struct trace_sock_notify {
 	__u8 pad : 7;
 } __packed;
 
+#ifdef TRACE_SOCK_NOTIFY
 static __always_inline enum l4_protocol
 parse_protocol(__u32 l4_proto) {
 	switch (l4_proto) {
