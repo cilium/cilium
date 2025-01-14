@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
@@ -165,4 +166,31 @@ func GetMtime() (uint64, error) {
 	}
 
 	return uint64(unix.TimespecToNsec(ts)), nil
+}
+
+var (
+	batchOpsProbe sync.Once = sync.Once{}
+	hasBatchOps   error
+)
+
+func HasBatchOperations() error {
+	batchOpsProbe.Do(func() {
+		m, err := ebpf.NewMap(&ebpf.MapSpec{
+			Type:       ebpf.Hash,
+			KeySize:    4,
+			ValueSize:  4,
+			MaxEntries: 2,
+		})
+		if err != nil {
+			hasBatchOps = err
+		}
+		defer m.Close()
+		keys := []uint32{1, 2}
+		values := []uint32{3, 4}
+		_, err = m.BatchUpdate(keys, values, nil)
+		if err != nil {
+			hasBatchOps = err
+		}
+	})
+	return hasBatchOps
 }
