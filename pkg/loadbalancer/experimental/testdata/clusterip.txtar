@@ -33,7 +33,7 @@ Address               Type        ServiceName   PortName   Backends             
 
 -- backends.table --
 Address             State    Instances          Shadows        NodeName          ZoneID
-10.244.1.1:80/TCP   active   test/echo (http)   test/echo []   nodeport-worker   0
+10.244.1.1:80/TCP   active   test/echo (http)                  nodeport-worker   0
 
 -- services_empty.table --
 Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges

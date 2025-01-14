@@ -177,7 +177,9 @@ func showShadows(be *Backend) string {
 		emptyName, svcName loadbalancer.ServiceName
 	)
 	updateServices := func() {
-		services = append(services, fmt.Sprintf("%s [%s]", svcName.String(), strings.Join(instances, ", ")))
+		if len(instances) > 0 {
+			services = append(services, fmt.Sprintf("%s [%s]", svcName.String(), strings.Join(instances, ", ")))
+		}
 	}
 	for k, inst := range be.Instances.All() {
 		if k.ServiceName != svcName {
