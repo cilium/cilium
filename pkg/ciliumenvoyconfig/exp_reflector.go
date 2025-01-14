@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -68,6 +69,9 @@ func registerCECReflector(
 	tbl statedb.RWTable[*CEC],
 	frontends statedb.Table[*experimental.Frontend],
 ) error {
+	if !option.Config.EnableL7Proxy || !option.Config.EnableEnvoyConfig {
+		return nil
+	}
 	if lws.cec == nil || !ecfg.EnableExperimentalLB {
 		return nil
 	}
