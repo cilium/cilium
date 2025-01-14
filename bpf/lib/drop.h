@@ -20,7 +20,6 @@
 #include "metrics.h"
 #include "ratelimit.h"
 
-#ifdef DROP_NOTIFY
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
@@ -32,6 +31,7 @@ struct drop_notify {
 	__u32		ifindex;
 };
 
+#ifdef DROP_NOTIFY
 /*
  * We pass information in the meta area as follows:
  *

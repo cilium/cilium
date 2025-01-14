@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define DEBUG
-#define TRACE_NOTIFY
-#define DROP_NOTIFY
-#define POLICY_VERDICT_NOTIFY
-#define ENABLE_CAPTURE
-#define TRACE_SOCK_NOTIFY
-
 #include <bpf/ctx/unspec.h>
 
 #include "node_config.h"

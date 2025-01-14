@@ -138,7 +138,6 @@ struct trace_ctx {
 			 */
 };
 
-#ifdef TRACE_NOTIFY
 struct trace_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
@@ -159,6 +158,7 @@ struct trace_notify {
 	};
 };
 
+#ifdef TRACE_NOTIFY
 static __always_inline bool
 emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 {
