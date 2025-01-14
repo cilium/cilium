@@ -140,11 +140,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 					 seclabel, false, false);
 	}
 # endif
-<<<<<<< HEAD
-	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
-=======
 	return __encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, seclabel,
->>>>>>> e0dd6cdb9e (node: Use ipcache for tunneling)
 						dstid, NOT_VTEP_DST, trace);
 }
 

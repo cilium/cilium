@@ -745,15 +745,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 				continue
 			}
 
-			lbls := labels.Labels{
-				labels.IDNameCluster: labels.Label{
-					Key:    prefix.String(),
-					Value:  prefix.String(),
-					Source: labels.LabelSourceCIDR,
-				},
-			}
-
-			metadata := []ipcache.IPMetadata{lbls, ipcacheTypes.TunnelPeer{Addr: nodeIP}}
+			metadata := []ipcache.IPMetadata{ipcacheTypes.RequestedIdentity(identity.ReservedIdentityWorld), ipcacheTypes.TunnelPeer{Addr: nodeIP}}
 			if m.nodeAddressHasEncryptKey() {
 				metadata = append(metadata, ipcacheTypes.EncryptKey(n.EncryptionKey))
 			}
