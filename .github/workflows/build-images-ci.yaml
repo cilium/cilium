@@ -208,6 +208,7 @@ jobs:
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
+            CILIUM_RUNTIME_IMAGE
 
       - name: CI race detection Build ${{ matrix.name }}
         uses: docker/build-push-action@b32b51a8eda65d6793cd0494a773d4f6bcef32dc # v6.11.0
