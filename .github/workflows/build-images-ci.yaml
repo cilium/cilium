@@ -11,6 +11,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - pr/pass-args
 
 permissions:
   # To be able to access the repository with `actions/checkout`
