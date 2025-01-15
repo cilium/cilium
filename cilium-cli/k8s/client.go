@@ -350,35 +350,33 @@ func (c *Client) ListServices(ctx context.Context, namespace string, options met
 }
 
 func (c *Client) ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
-	result, err := c.execInPod(ctx, ExecParameters{
-		Namespace: namespace,
-		Pod:       pod,
-		Container: container,
-		Command:   command,
-	})
-	return result.Stdout, result.Stderr, err
+	var stdout, stderr bytes.Buffer
+	err := c.ExecInPodWithWriters(ctx, nil, namespace, pod, container, command, &stdout, &stderr)
+	return stdout, stderr, err
 }
 
 func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error) {
-	result, err := c.execInPod(ctx, ExecParameters{
-		Namespace: namespace,
-		Pod:       pod,
-		Container: container,
-		Command:   command,
-	})
-
-	if err != nil {
-		return result.Stdout, fmt.Errorf("%w: %q", err, result.Stderr.String())
-	}
-
-	if errString := result.Stderr.String(); errString != "" {
-		return result.Stdout, fmt.Errorf("command failed (pod=%s/%s, container=%s): %q", namespace, pod, container, errString)
-	}
-
-	return result.Stdout, nil
+	var stdout bytes.Buffer
+	err := c.ExecInPodWithWriters(ctx, nil, namespace, pod, container, command, &stdout, StderrAsError)
+	return stdout, err
 }
 
+// StderrAsError, when given as stderr parameter of the ExecInPodWithWriters function,
+// causes any stderr message to be returned as an error.
+var StderrAsError stderrAsError
+
+type stderrAsError struct{}
+
+func (stderrAsError) Write([]byte) (int, error) { return 0, errors.ErrUnsupported }
+
 func (c *Client) ExecInPodWithWriters(connCtx, killCmdCtx context.Context, namespace, pod, container string, command []string, stdout, stderr io.Writer) error {
+	var errbuf *bytes.Buffer
+
+	if _, ok := stderr.(stderrAsError); ok {
+		errbuf = &bytes.Buffer{}
+		stderr = errbuf
+	}
+
 	execParams := ExecParameters{
 		Namespace: namespace,
 		Pod:       pod,
@@ -388,12 +386,24 @@ func (c *Client) ExecInPodWithWriters(connCtx, killCmdCtx context.Context, names
 	if killCmdCtx != nil {
 		execParams.TTY = true
 	}
+
 	err := c.execInPodWithWriters(connCtx, killCmdCtx, execParams, stdout, stderr)
-	if err != nil {
-		return err
+
+	var errstr string
+	if errbuf != nil {
+		errstr = errbuf.String()
 	}
 
-	return nil
+	switch {
+	case err != nil && errstr == "":
+		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w", namespace, pod, container, err)
+	case err != nil && errstr != "":
+		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w: %q", namespace, pod, container, err, errstr)
+	case err == nil && errstr != "":
+		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %q", namespace, pod, container, errstr)
+	default:
+		return nil
+	}
 }
 
 func (c *Client) CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error) {
