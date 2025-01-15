@@ -2791,14 +2791,13 @@ func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, lim
 		for _, d := range allContainers {
 			d := d
 			if err := c.Pool.Submit(fmt.Sprintf("logs-%s-%s", p.Name, d.Name), func(ctx context.Context) error {
-				l, err := c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
-					corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Timestamps: true})
-				if err != nil {
+				if err := c.WithFileSink(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name), func(out io.Writer) error {
+					return c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
+						corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Timestamps: true}, out)
+				}); err != nil {
 					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 				}
-				if err := c.WriteString(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name), l); err != nil {
-					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
-				}
+
 				// Check if this container has restarted, in which case we should gather the previous one's logs too.
 				previous := false
 				for _, s := range p.Status.ContainerStatuses {
@@ -2809,12 +2808,10 @@ func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, lim
 				}
 				if previous {
 					c.logDebug("Collecting logs for restarted container %q in pod %q in namespace %q", d.Name, p.Name, p.Namespace)
-					u, err := c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
-						corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Previous: true, Timestamps: true})
-					if err != nil {
-						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
-					}
-					if err := c.WriteString(fmt.Sprintf(ciliumPreviousLogsFileName, p.Name, d.Name), u); err != nil {
+					if err := c.WithFileSink(fmt.Sprintf(ciliumPreviousLogsFileName, p.Name, d.Name), func(out io.Writer) error {
+						return c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
+							corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Previous: true, Timestamps: true}, out)
+					}); err != nil {
 						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 					}
 				}
