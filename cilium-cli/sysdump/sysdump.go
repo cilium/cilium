@@ -6,6 +6,7 @@ package sysdump
 import (
 	"archive/tar"
 	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -2484,21 +2485,18 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit("hubble-flows-"+p.Name, func(ctx context.Context) error {
-			b, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{
-				"timeout", "--signal", "SIGINT", "--preserve-status", hubbleFlowsTimeout, "bash", "-c",
-				fmt.Sprintf("hubble observe --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
+			if err := c.WithFileSink(fmt.Sprintf(hubbleFlowsFileName, p.Name), func(stdout io.Writer) error {
+				return c.WithFileSink(fmt.Sprintf(hubbleObserveFileName, p.Name), func(stderr io.Writer) error {
+					return c.Client.ExecInPodWithWriters(ctx, nil, p.Namespace, p.Name, containerName, []string{
+						"timeout", "--signal", "SIGINT", "--preserve-status", hubbleFlowsTimeout, "bash", "-c",
+						fmt.Sprintf("hubble observe --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
+					}, stdout, stderr)
+
+				})
+			}); err != nil {
+				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
 			}
-			// Dump the resulting file's contents to the temporary directory.
-			if err := c.WriteBytes(fmt.Sprintf(hubbleFlowsFileName, p.Name), b.Bytes()); err != nil {
-				return fmt.Errorf("failed to write hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
-			}
-			// Dump the stderr from the hubble observe command to the temporary directory.
-			if err := c.WriteBytes(fmt.Sprintf(hubbleObserveFileName, p.Name), e.Bytes()); err != nil {
-				return fmt.Errorf("failed to write hubble stderr for %q in namespace %q: %w", p.Name, p.Namespace, err)
-			}
+
 			c.logDebug("Finished collecting hubble flows from %s/%s", p.Namespace, p.Name)
 			return nil
 		}); err != nil {
@@ -2524,13 +2522,10 @@ func (c *Collector) submitSpireEntriesTasks(pods []*corev1.Pod) error {
 			}()
 
 			command := []string{"/opt/spire/bin/spire-server", "entry", "show", "-output", "json"}
-			o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, command)
-			if err != nil {
+			if err := c.WithFileSink(fmt.Sprintf(ciliumSPIREServerEntriesFileName, p.Name), func(out io.Writer) error {
+				return c.Client.ExecInPodWithWriters(ctx, nil, p.Namespace, p.Name, containerName, command, out, k8s.StderrAsError)
+			}); err != nil {
 				return fmt.Errorf("failed to collect 'spire-server' output for %q in namespace %q: %w", p.Name, p.Namespace, err)
-			}
-
-			if err := c.WriteBytes(fmt.Sprintf(ciliumSPIREServerEntriesFileName, p.Name), o.Bytes()); err != nil {
-				return fmt.Errorf("failed to write spireserver stdout for %q in namespace %q: %w", p.Name, p.Namespace, err)
 			}
 
 			return nil
@@ -2586,15 +2581,13 @@ func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName s
 			cniConfigFileNames := strings.Split(strings.TrimSpace(outputStr.String()), "\n")
 			for _, cniFileName := range cniConfigFileNames {
 				cniConfigPath := path.Join(c.Options.CNIConfigDirectory, cniFileName)
-				cniConfigFileContent, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
-					catCommand,
-					cniConfigPath,
-				})
-				if err != nil {
+				if err := c.WithFileSink(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), func(out io.Writer) error {
+					return c.Client.ExecInPodWithWriters(ctx, nil, p.GetNamespace(), p.GetName(), containerName, []string{
+						catCommand,
+						cniConfigPath,
+					}, out, k8s.StderrAsError)
+				}); err != nil {
 					return fmt.Errorf("failed to copy CNI config file %q from directory %q: %w", cniFileName, c.Options.CNIConfigDirectory, err)
-				}
-				if err := c.WriteBytes(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), cniConfigFileContent.Bytes()); err != nil {
-					return fmt.Errorf("failed to write CNI configuration %q for %q in namespace %q: %w", cniFileName, p.GetName(), p.Namespace, err)
 				}
 			}
 			return nil
@@ -2641,18 +2634,17 @@ func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string)
 				if err != nil {
 					return err
 				}
-				o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{
-					gopsCommand,
-					g,
-					agentPID,
-				})
-				if err != nil {
+
+				if err := c.WithFileSink(fmt.Sprintf(gopsFileName, p.Name, containerName, g), func(out io.Writer) error {
+					return c.Client.ExecInPodWithWriters(ctx, nil, p.Namespace, p.Name, containerName, []string{
+						gopsCommand,
+						g,
+						agentPID,
+					}, out, k8s.StderrAsError)
+				}); err != nil {
 					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
 				}
-				// Dump the output to the temporary directory.
-				if err := c.WriteBytes(fmt.Sprintf(gopsFileName, p.Name, containerName, g), o.Bytes()); err != nil {
-					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
-				}
+
 				return nil
 			}); err != nil {
 				return fmt.Errorf("failed to submit %s gops task for %q: %w", g, p.Name, err)
@@ -2910,15 +2902,15 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 			prefix: "state/services",
 		},
 	} {
-		stdout, stderr, err := c.Client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, []string{
-			"cilium", "kvstore", "get", "cilium/" + dump.prefix, "--recursive", "-o", "json",
-		})
-		if err != nil {
-			return fmt.Errorf("failed to collect kvstore data in %q in namespace %q: %w: %s", pod.Name, pod.Namespace, err, stderr.String())
-		}
 		filename := "kvstore-" + dump.name + ".json"
-		if err := c.WriteString(filename, stdout.String()); err != nil {
-			return fmt.Errorf("failed writing kvstore dump for prefix %q to file %q: %w", dump.prefix, filename, err)
+
+		var stderr bytes.Buffer
+		if err := c.WithFileSink(filename, func(out io.Writer) error {
+			return c.Client.ExecInPodWithWriters(ctx, nil, pod.Namespace, pod.Name, defaults.AgentContainerName, []string{
+				"cilium", "kvstore", "get", "cilium/" + dump.prefix, "--recursive", "-o", "json",
+			}, out, &stderr)
+		}); err != nil {
+			return fmt.Errorf("failed to collect kvstore data in %q in namespace %q: %w: %s", pod.Name, pod.Namespace, err, stderr.String())
 		}
 	}
 
@@ -3005,23 +2997,27 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods []*corev1.Pod) error
 
 			filename := fmt.Sprintf("%s-%s-%s-<ts>.%s", pod.Name, task.container, task.name, task.ext)
 			if err := c.Pool.Submit(filename, func(ctx context.Context) error {
-				stdout, stderr, err := c.Client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, task.container, task.cmd)
-				if err != nil {
-					stderrStr := stderr.String()
-					if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
-						// The default cobra error tends to be misleading when both the
-						// command and the flags are not found, as it reports the missing
-						// flags rather than the missing command. Hence, let's just guess
-						// and output a generic unknown command error.
-						stderrStr = "unknown command - this is expected if not supported by this Cilium version"
+				if err := c.WithFileSink(filename, func(out io.Writer) error {
+					var stderr bytes.Buffer
+
+					err := c.Client.ExecInPodWithWriters(ctx, nil, pod.Namespace, pod.Name, task.container, task.cmd, out, &stderr)
+					if err != nil {
+						stderrStr := stderr.String()
+						if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
+							// The default cobra error tends to be misleading when both the
+							// command and the flags are not found, as it reports the missing
+							// flags rather than the missing command. Hence, let's just guess
+							// and output a generic unknown command error.
+							stderrStr = "unknown command - this is expected if not supported by this Cilium version"
+						}
+
+						return fmt.Errorf("%w: %s", err, stderrStr)
 					}
 
-					return fmt.Errorf("failed to collect clustermesh %s information from %s/%s (%s): %w: %s",
-						task.name, pod.Namespace, pod.Name, task.container, err, stderrStr)
-				}
-
-				if err := c.WriteString(filename, stdout.String()); err != nil {
-					return fmt.Errorf("failed to write clustermesh %s information to file %q: %w", task.name, filename, err)
+					return nil
+				}); err != nil {
+					return fmt.Errorf("failed to collect clustermesh %s information from %s/%s (%s): %w",
+						task.name, pod.Namespace, pod.Name, task.container, err)
 				}
 
 				return nil

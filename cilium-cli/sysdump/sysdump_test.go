@@ -353,6 +353,21 @@ func (c *fakeClient) ExecInPodWithStderr(_ context.Context, namespace, pod, cont
 	return *bytes.NewBuffer(out.stdout), *bytes.NewBuffer(out.stderr), out.err
 }
 
+func (c *fakeClient) ExecInPodWithWriters(_, _ context.Context, namespace, pod, container string, command []string, stdout, stderr io.Writer) error {
+	r := execRequest{namespace, pod, container, strings.Join(command, " ")}
+	out, ok := c.execs[r]
+	if !ok {
+		panic(fmt.Sprintf("unexpected exec: %v", r))
+	}
+
+	fmt.Println("out: ", string(out.stdout))
+	fmt.Println("err: ", string(out.stderr))
+
+	stdout.Write(out.stdout)
+	stderr.Write(out.stderr)
+	return out.err
+}
+
 func (c *fakeClient) GetCiliumVersion(_ context.Context, _ *corev1.Pod) (*semver.Version, error) {
 	panic("implement me")
 }
