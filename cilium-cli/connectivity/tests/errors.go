@@ -4,6 +4,7 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"regexp"
@@ -115,11 +116,12 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 		for _, container := range info.containers {
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
 			t.NewGenericAction(n, id).Run(func(a *check.Action) {
-				logs, err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts)
+				var logs bytes.Buffer
+				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
 				if err != nil {
 					a.Fatalf("Error reading Cilium logs: %s", err)
 				}
-				n.checkErrorsInLogs(id, logs, a)
+				n.checkErrorsInLogs(id, logs.Bytes(), a)
 			})
 		}
 	}
@@ -221,9 +223,10 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) (containers []string) {
 	return containers
 }
 
-func (n *noErrorsInLogs) findUniqueFailures(logs string) map[string]int {
+func (n *noErrorsInLogs) findUniqueFailures(logs []byte) map[string]int {
 	uniqueFailures := make(map[string]int)
-	for _, msg := range strings.Split(logs, "\n") {
+	for _, chunk := range bytes.Split(logs, []byte("\n")) {
+		msg := string(chunk)
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
 			if strings.Contains(msg, fail) {
 				ok := false
@@ -243,7 +246,7 @@ func (n *noErrorsInLogs) findUniqueFailures(logs string) map[string]int {
 	return uniqueFailures
 }
 
-func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs string, a *check.Action) {
+func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action) {
 	uniqueFailures := n.findUniqueFailures(logs)
 	if len(uniqueFailures) > 0 {
 		var failures strings.Builder

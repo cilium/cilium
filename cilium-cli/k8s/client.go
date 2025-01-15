@@ -955,12 +955,12 @@ func (c *Client) ListCiliumPodIPPools(ctx context.Context, opts metav1.ListOptio
 	return c.CiliumClientset.CiliumV2alpha1().CiliumPodIPPools().List(ctx, opts)
 }
 
-func (c *Client) GetLogs(ctx context.Context, namespace, name, container string, opts corev1.PodLogOptions) (string, error) {
+func (c *Client) GetLogs(ctx context.Context, namespace, name, container string, opts corev1.PodLogOptions, out io.Writer) error {
 	opts.Container = container
 	r := c.Clientset.CoreV1().Pods(namespace).GetLogs(name, &opts)
 	var s io.ReadCloser
 	var err error
-	// rety request upon EOF to work around transient (?) failures on Azure, see
+	// retry request upon EOF to work around transient (?) failures on Azure, see
 	// https://github.com/cilium/cilium/issues/29845
 	for range getLogsRetries {
 		s, err = r.Stream(ctx)
@@ -970,14 +970,12 @@ func (c *Client) GetLogs(ctx context.Context, namespace, name, container string,
 		break
 	}
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer s.Close()
-	var b bytes.Buffer
-	if _, err = io.Copy(&b, s); err != nil {
-		return "", err
-	}
-	return b.String(), nil
+
+	_, err = io.Copy(out, s)
+	return err
 }
 
 // GetCiliumVersion returns a semver.Version representing the version of cilium
