@@ -113,6 +113,52 @@ func (td *testData) addIdentity(id *identity.Identity) {
 	wg.Wait()
 }
 
+// policyMapEquals takes a set of policies and an expected L4PolicyMap. The policies are assumed to
+// select identity A.
+//
+// The repository is cleared when called.
+func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMap, rules ...*api.Rule) {
+	t.Helper()
+	td.withIDs(ruleTestIDs)
+	for _, r := range rules {
+		if r.EndpointSelector.LabelSelector == nil {
+			r.EndpointSelector = endpointSelectorA
+		}
+		require.NoError(t, r.Sanitize())
+	}
+	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+
+	pol, err := td.repo.resolvePolicyLocked(idA)
+	require.NoError(t, err)
+	defer pol.Detach()
+
+	if expectedIn != nil {
+		require.True(t, expectedIn.TestingOnlyEquals(pol.L4Policy.Ingress.PortRules), expectedIn.TestingOnlyDiff(pol.L4Policy.Ingress.PortRules))
+	}
+
+	if expectedOut != nil {
+
+		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), expectedOut.TestingOnlyDiff(pol.L4Policy.Egress.PortRules))
+	}
+}
+
+// policyInvalid checks that the set of rules results in an error
+func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rule) {
+	t.Helper()
+	td.withIDs(ruleTestIDs)
+	for _, r := range rules {
+		if r.EndpointSelector.LabelSelector == nil {
+			r.EndpointSelector = endpointSelectorA
+		}
+		require.NoError(t, r.Sanitize())
+	}
+	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+
+	_, err := td.repo.resolvePolicyLocked(idA)
+	require.Error(t, err)
+require.ErrorContains(t, err, errStr)
+}
+
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
 	isDeny   bool
