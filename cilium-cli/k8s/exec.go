@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -15,11 +14,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/k8s/internal"
 )
-
-type ExecResult struct {
-	Stdout bytes.Buffer
-	Stderr bytes.Buffer
-}
 
 type ExecParameters struct {
 	Namespace string
@@ -69,12 +63,4 @@ func (c *Client) execInPodWithWriters(connCtx, killCmdCtx context.Context, p Exe
 		Stderr: stderr,
 		Tty:    p.TTY,
 	})
-}
-
-func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, error) {
-	result := &ExecResult{}
-	if err := c.execInPodWithWriters(ctx, nil, p, &result.Stdout, &result.Stderr); err != nil {
-		return result, fmt.Errorf("error with exec request (pod=%s/%s, container=%s): %w", p.Namespace, p.Pod, p.Container, err)
-	}
-	return result, nil
 }

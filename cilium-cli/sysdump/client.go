@@ -33,6 +33,7 @@ type KubernetesClient interface {
 	DeletePod(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	ExecInPod(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, error)
 	ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error)
+	ExecInPodWithWriters(connCtx, killCmdCtx context.Context, namespace, pod, container string, command []string, stdout, stderr io.Writer) error
 	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
 	GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
