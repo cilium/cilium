@@ -210,7 +210,7 @@ kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
 			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 			$(KIND_VALUES_FAST_FILES) \
-			--version= >/dev/null 2>&1 & \
+			--version= >/dev/null ; \
 	done
 
 .PHONY: build-cli
