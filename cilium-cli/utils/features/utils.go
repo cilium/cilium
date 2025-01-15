@@ -27,6 +27,27 @@ func (f IPFamily) String() string {
 	return "undefined"
 }
 
+// GetIPFamilies function converts string slice to IPFamily slice.
+func GetIPFamilies(families []string) []IPFamily {
+	ipFams := make([]IPFamily, 0, len(families))
+	for i := range families {
+		ipFams = append(ipFams, NewIPFamily(families[i]))
+	}
+	return ipFams
+}
+
+// NewIPFamily is a factory function that consumes string and returns IPFamily.
+func NewIPFamily(s string) IPFamily {
+	switch s {
+	case "ipv4":
+		return IPFamilyV4
+	case "ipv6":
+		return IPFamilyV6
+	default:
+		return IPFamilyAny
+	}
+}
+
 func GetIPFamily(addr string) IPFamily {
 	ip := net.ParseIP(addr)
 
