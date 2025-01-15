@@ -293,8 +293,9 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             tunnel: 'disabled'
+            lb-mode: 'dsr'
             ingress-controller: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
             ciliumendpointslice: 'true'
 
           - name: '16'
