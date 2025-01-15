@@ -5,6 +5,7 @@ package clustermesh
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -40,10 +41,10 @@ var Cell = cell.Module(
 	metrics.Metric(common.MetricsProvider(subsystem)),
 
 	cell.Config(types.DefaultQuirks),
-	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager, cfg Configuration, quirks types.QuirksConfig) error {
+	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager, log logrus.FieldLogger, quirks types.QuirksConfig) error {
 		err := info.ValidateBuggyClusterID(dcfg.IPAM, cnimgr.GetChainingMode())
 		if err != nil && quirks.AllowUnsafePolicySKBUsage {
-			cfg.Logger.WithError(err).Error("Detected clustermesh ID configuration that may cause connection impact")
+			log.WithError(err).Error("Detected clustermesh ID configuration that may cause connection impact")
 			return nil
 		}
 		return err
