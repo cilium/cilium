@@ -837,7 +837,7 @@ func (t *Test) collectSysdump() {
 }
 
 func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
-	ipFams := []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6}
+	ipFams := features.GetIPFamilies(t.ctx.Params().IPFamilies)
 
 	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
 	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
