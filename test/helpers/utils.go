@@ -28,36 +28,6 @@ import (
 
 var runningCiliumVersion string
 
-// IsRunningOnJenkins detects if the currently running Ginkgo application is
-// most likely running in a Jenkins environment. Returns true if certain
-// environment variables that are present in Jenkins jobs are set, false
-// otherwise.
-func IsRunningOnJenkins() bool {
-	result := true
-
-	env := []string{"JENKINS_HOME", "NODE_NAME"}
-
-	for _, varName := range env {
-		if val := os.Getenv(varName); val == "" {
-			result = false
-			log.Infof("build is not running on Jenkins; environment variable '%v' is not set", varName)
-		}
-	}
-	if result {
-		panic("Jenkins is no longer supported")
-	}
-	return result
-}
-
-// SetCiliumVersion sets the currently running cilium version
-// and returns a function that unsets it.
-func SetRunningCiliumVersion(v string) func() {
-	runningCiliumVersion = v
-	return func() {
-		runningCiliumVersion = ""
-	}
-}
-
 // GetRunningCiliumVersion gets the currently running cilium version.
 func GetRunningCiliumVersion() string {
 	return runningCiliumVersion

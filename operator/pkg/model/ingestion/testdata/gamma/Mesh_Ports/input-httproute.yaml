@@ -1,0 +1,22 @@
+- metadata:
+    creationTimestamp: null
+    name: mesh-ports
+    namespace: gateway-conformance-mesh
+  spec:
+    parentRefs:
+    - group: ""
+      kind: Service
+      name: echo-v1
+      port: 80
+    rules:
+    - backendRefs:
+      - name: echo-v1
+        port: 80
+      filters:
+      - responseHeaderModifier:
+          set:
+          - name: X-Header-Set
+            value: v1
+        type: ResponseHeaderModifier
+  status:
+    parents: null

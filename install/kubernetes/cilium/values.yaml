@@ -1116,8 +1116,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.2.1"
-    digest: "sha256:ab6b1928e9c5f424f6b0f51c68065b9fd85e2f8d3e5f21fbd1a3cb27e6fb9321"
+    tag: "v0.2.2"
+    digest: "sha256:e4f80054d2d503e04337ed61b64c12fa3cca5a32963ba8bd2080d20e1ccc1d8d"
     useDigest: true
     pullPolicy: "Always"
   # -- Seconds after which the completed job pod will be deleted
@@ -1838,6 +1838,8 @@ hubble:
     fileMaxSizeMb: 10
     # --- Defines max number of backup/rotated files.
     fileMaxBackups: 5
+    # --- Enable compression of rotated files.
+    fileCompress: false
     # --- Static exporter configuration.
     # Static exporter is bound to agent lifecycle.
     static:
@@ -2340,9 +2342,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.31.4-1734310891-3a8ccd54545785689e677d785b69025d1d4b33de"
+    tag: "v1.32.3-1736767219-f96a36460ae298f5d8ccb84cc5ef519fdd62b162"
     pullPolicy: "Always"
-    digest: "sha256:85adb1b3a66182de9a1d24cc5b5240a71dd742cdc846af19589227ecf0053cfe"
+    digest: "sha256:e3efa2d1e5ac62ef3dcbe17d9c0bcaa5a6ce1d4598e86f44a8f07a045c6bd08b"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []

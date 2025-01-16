@@ -32,6 +32,8 @@
     "go.sum",
     "Makefile.defs",
     "test/packet/scripts/install.sh",
+    "images/builder/install-protoc.sh",
+    "images/builder/install-protoplugins.sh",
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
     "install/kubernetes/Makefile.values",
@@ -120,6 +122,8 @@
         "github.com/prometheus/", // Prometheu's official org
         "go.etcd.io/etcd/", // etcd's official org
         "golang.org/x/", // Golang official experimental org
+        "golangci/golangci-lint", // Golang CI linter
+        "protocolbuffers/protobuf", // protobuf buffers
         "google.golang.org/", // Google official repo for api/genproto/grpc/protobuf
         "k8s.io/", // Kubernetes official repo
         "quay.io/cilium/", // LVH images
@@ -587,8 +591,21 @@
       }
     },
     {
+      "matchFiles": [
+        "images/builder/install-protoc.sh",
+        "images/builder/install-protoplugins.sh"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='RUN_AS_NONROOT=1 contrib/scripts/builder.sh go' generate-apis"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
       matchPackageNames: [
         "protocolbuffers/protobuf",
+        "protocolbuffers/protobuf-go",
         "quay.io/goswagger/swagger"
       ],
       "postUpgradeTasks": {
@@ -618,6 +635,15 @@
       "allowedVersions": "/^v1\\.31\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "v1.17",
+      ]
+    },
+    {
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
+      "allowedVersions": "/^v1\\.32\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
         "main",
       ]
     },
@@ -773,6 +799,14 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?)\\s+KIND_K8S_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+      ]
+    },
+    {
+      "fileMatch": [
+        "^.github/workflows/enterprise-renovate-config-validator\\.yaml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
       ]
     },
     {

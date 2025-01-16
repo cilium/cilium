@@ -121,7 +121,8 @@ type Test struct {
 	secrets map[string]*corev1.Secret
 
 	// CA certificates of the certificates that have to be present during the test.
-	certificateCAs map[string][]byte
+	certificateCAs  map[string][]byte
+	certificateKeys map[string][]byte
 
 	// A custom sysdump policy for the given test.
 	sysdumpPolicy SysdumpPolicy
@@ -707,6 +708,11 @@ func (t *Test) WithCertificate(name, hostname string) *Test {
 	}
 	t.certificateCAs[name] = caCert
 
+	if t.certificateKeys == nil {
+		t.certificateKeys = make(map[string][]byte)
+	}
+	t.certificateKeys[name] = caKey
+
 	return t.WithSecret(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -833,6 +839,16 @@ func (t *Test) collectSysdump() {
 func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
 	ipFams := []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6}
 
+	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
+	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
+	// and https://github.com/cilium/cilium/issues/23910).
+	if f, ok := t.Context().Feature(features.EndpointRoutes); ok &&
+		f.Enabled && t.HasNetworkPolicies() &&
+		versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) {
+
+		ipFams = []features.IPFamily{features.IPFamilyV4}
+	}
+
 	for _, ipFam := range ipFams {
 		switch ipFam {
 		case features.IPFamilyV4:
@@ -853,6 +869,20 @@ func (t *Test) CertificateCAs() map[string][]byte {
 	return t.certificateCAs
 }
 
+// CertificateKeys returns the CA keys used to sign the certificates within the test.
+func (t *Test) CertificateKeys() map[string][]byte {
+	return t.certificateKeys
+}
+
 func (t *Test) CiliumLocalRedirectPolicies() map[string]*ciliumv2.CiliumLocalRedirectPolicy {
 	return t.clrps
+}
+
+func (t *Test) HasNetworkPolicies() bool {
+	for _, obj := range t.resources {
+		if isPolicy(obj) {
+			return true
+		}
+	}
+	return false
 }

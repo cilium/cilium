@@ -17,6 +17,9 @@ const (
 	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
 	ClusterMeshHealthPort = 80
 
+	// EnableGops is the default value for option.EnableGops
+	EnableGops = true
+
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
 
@@ -369,10 +372,6 @@ const (
 	// KVstoreMaxConsecutiveQuorumErrors is the maximum number of acceptable
 	// kvstore consecutive quorum errors before the agent assumes permanent failure
 	KVstoreMaxConsecutiveQuorumErrors = 2
-
-	// KVstoreKeepAliveIntervalFactor is the factor to calculate the interval
-	// from KVstoreLeaseTTL in which KVstore lease is being renewed.
-	KVstoreKeepAliveIntervalFactor = 3
 
 	// LockLeaseTTL is the time-to-live of the lease dedicated for locks of Kvstore.
 	LockLeaseTTL = 25 * time.Second

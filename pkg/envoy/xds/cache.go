@@ -208,16 +208,19 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, 
 		Canary:  false,
 	}
 
-	// Return all resources.
+	// Return all resources of given typeURL.
 	// TODO: return nil if no changes since the last version?
 	if len(resourceNames) == 0 {
 		res.ResourceNames = make([]string, 0, len(c.resources))
 		res.Resources = make([]proto.Message, 0, len(c.resources))
-		cacheLog.Debugf("no resource names requested, returning all %d resources", len(c.resources))
 		for k, v := range c.resources {
+			if k.typeURL != typeURL {
+				continue
+			}
 			res.ResourceNames = append(res.ResourceNames, k.resourceName)
 			res.Resources = append(res.Resources, v.resource)
 		}
+		cacheLog.Debugf("no resource names requested, returning %d resources of type %s", len(res.Resources), typeURL)
 		return res, nil
 	}
 

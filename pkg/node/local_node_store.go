@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // +deepequal-gen=true
@@ -115,6 +116,7 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 			// we don't need to always check for nil values.
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
+			Source:      source.Unspec,
 		}},
 		hasValue: hasValue,
 	}

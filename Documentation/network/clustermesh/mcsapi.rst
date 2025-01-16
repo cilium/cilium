@@ -20,8 +20,8 @@ You first need to install the required MCS-API CRDs:
 
    .. code-block:: shell-session
 
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/4690877cc89bcfd9302d516ae43515f446d0aecf/config/crd/multicluster.x-k8s.io_serviceexports.yaml
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/4690877cc89bcfd9302d516ae43515f446d0aecf/config/crd/multicluster.x-k8s.io_serviceimports.yaml
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/fede3192824f8c9d44719a467528f9438ae6007b/config/crd/multicluster.x-k8s.io_serviceexports.yaml
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/fede3192824f8c9d44719a467528f9438ae6007b/config/crd/multicluster.x-k8s.io_serviceimports.yaml
 
 
 To install Cilium with MCS-API support, run:
@@ -58,7 +58,7 @@ To rebuild the CoreDNS image you need to first clone the `CoreDNS repo`_:
    .. code-block:: shell-session
 
       git clone https://github.com/coredns/coredns.git
-      git checkout v1.11.3
+      git checkout v1.11.4
 
 
 Then you need add the multicluster plugin to the ``plugins.cfg`` file. The
@@ -138,6 +138,7 @@ The ServiceImport has also a logic to merge different Service properties:
 - SessionAffinity
 - Ports (Union of the different ServiceExports)
 - Type (ClusterSetIP/Headless)
+- Annotations & Labels (via the ServiceExport ``exportedLabels`` and ``exportedAnnotations`` fields)
 
 If any conflict arises on any of these properties, the oldest ServiceExport will
 have precedence to resolve the conflict. This means that you should get a

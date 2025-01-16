@@ -4,14 +4,10 @@
 package translation
 
 import (
-	"cmp"
-	"fmt"
 	"maps"
 	goslices "slices"
 	"sort"
 
-	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
-	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -33,6 +29,50 @@ const (
 
 var _ CECTranslator = (*cecTranslator)(nil)
 
+type HostNetworkConfig struct {
+	Enabled           bool                       `json:"enabled,omitempty"`
+	NodeLabelSelector *slim_metav1.LabelSelector `json:"node_label_selector,omitempty"`
+}
+
+type IPConfig struct {
+	IPv4Enabled bool `json:"ipv4_enabled,omitempty"`
+	IPv6Enabled bool `json:"ipv6_enabled,omitempty"`
+}
+
+type ListenerConfig struct {
+	UseAlpn          bool `json:"use_alpn,omitempty"`
+	UseProxyProtocol bool `json:"use_proxy_protocol,omitempty"`
+}
+
+type ClusterConfig struct {
+	IdleTimeoutSeconds int  `json:"idle_timeout_seconds,omitempty"`
+	UseAppProtocol     bool `json:"use_app_protocol,omitempty"`
+}
+
+type RouteConfig struct {
+	// hostNameSuffixMatch is a flag to control whether the host name suffix match.
+	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
+	// as a suffix match. That means that a match for `*.example.com` would match
+	// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
+	HostNameSuffixMatch bool `json:"host_name_suffix_match,omitempty"`
+}
+
+type OriginalIPDetectionConfig struct {
+	UseRemoteAddress  bool   `json:"use_remote_address,omitempty"`
+	XFFNumTrustedHops uint32 `json:"xff_num_trusted_hops,omitempty"`
+}
+
+type Config struct {
+	SecretsNamespace string `json:"secrets_namespace,omitempty"`
+
+	HostNetworkConfig         HostNetworkConfig         `json:"host_network_config"`
+	IPConfig                  IPConfig                  `json:"ip_config"`
+	ListenerConfig            ListenerConfig            `json:"listener_config"`
+	ClusterConfig             ClusterConfig             `json:"cluster_config"`
+	RouteConfig               RouteConfig               `json:"route_config"`
+	OriginalIPDetectionConfig OriginalIPDetectionConfig `json:"original_ip_detection_config"`
+}
+
 // cecTranslator is the translator from model to CiliumEnvoyConfig
 //
 // This translator is used for shared LB mode.
@@ -40,53 +80,18 @@ var _ CECTranslator = (*cecTranslator)(nil)
 //     in-secure).
 //   - no LB service and endpoint
 type cecTranslator struct {
-	secretsNamespace string
-	useProxyProtocol bool
-	useAppProtocol   bool
-	useAlpn          bool
-
-	hostNetworkEnabled           bool
-	hostNetworkNodeLabelSelector *slim_metav1.LabelSelector
-	ipv4Enabled                  bool
-	ipv6Enabled                  bool
-
-	// hostNameSuffixMatch is a flag to control whether the host name suffix match.
-	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
-	// as a suffix match. That means that a match for `*.example.com` would match
-	// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
-	hostNameSuffixMatch bool
-
-	idleTimeoutSeconds int
-
-	xffNumTrustedHops uint32
+	Config Config
 }
 
 // NewCECTranslator returns a new translator
-func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, useAppProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
-	hostNetworkEnabled bool, hostNetworkNodeLabelSelector *slim_metav1.LabelSelector, ipv4Enabled bool, ipv6Enabled bool,
-	xffNumTrustedHops uint32,
-) CECTranslator {
+func NewCECTranslator(config Config) CECTranslator {
 	return &cecTranslator{
-		secretsNamespace:             secretsNamespace,
-		useProxyProtocol:             useProxyProtocol,
-		useAppProtocol:               useAppProtocol,
-		useAlpn:                      false,
-		hostNameSuffixMatch:          hostNameSuffixMatch,
-		idleTimeoutSeconds:           idleTimeoutSeconds,
-		xffNumTrustedHops:            xffNumTrustedHops,
-		hostNetworkEnabled:           hostNetworkEnabled,
-		hostNetworkNodeLabelSelector: hostNetworkNodeLabelSelector,
-		ipv4Enabled:                  ipv4Enabled,
-		ipv6Enabled:                  ipv6Enabled,
+		Config: config,
 	}
 }
 
-func (i *cecTranslator) WithUseAlpn(useAlpn bool) {
-	i.useAlpn = useAlpn
-}
-
 func (i *cecTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
-	cec := &ciliumv2.CiliumEnvoyConfig{
+	return &ciliumv2.CiliumEnvoyConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
@@ -94,20 +99,16 @@ func (i *cecTranslator) Translate(namespace string, name string, model *model.Mo
 				k8s.UseOriginalSourceAddressLabel: "false",
 			},
 		},
-	}
-
-	cec.Spec.BackendServices = i.getBackendServices(model)
-	cec.Spec.Services = i.getServicesWithPorts(namespace, name, model)
-	cec.Spec.Resources = i.getResources(model)
-
-	if i.hostNetworkEnabled {
-		cec.Spec.NodeSelector = i.hostNetworkNodeLabelSelector
-	}
-
-	return cec, nil
+		Spec: ciliumv2.CiliumEnvoyConfigSpec{
+			BackendServices: i.desiredBackendServices(model),
+			Services:        i.desiredServicesWithPorts(namespace, name, model),
+			Resources:       i.desiredResources(model),
+			NodeSelector:    i.desiredNodeSelector(),
+		},
+	}, nil
 }
 
-func (i *cecTranslator) getBackendServices(m *model.Model) []*ciliumv2.Service {
+func (i *cecTranslator) desiredBackendServices(m *model.Model) []*ciliumv2.Service {
 	var res []*ciliumv2.Service
 
 	for ns, v := range getNamespaceNamePortsMap(m) {
@@ -134,7 +135,7 @@ func (i *cecTranslator) getBackendServices(m *model.Model) []*ciliumv2.Service {
 	return res
 }
 
-func (i *cecTranslator) getServicesWithPorts(namespace string, name string, m *model.Model) []*ciliumv2.ServiceListener {
+func (i *cecTranslator) desiredServicesWithPorts(namespace string, name string, m *model.Model) []*ciliumv2.ServiceListener {
 	// Find all the ports used in the model and build a set of them
 	allPorts := make(map[uint16]struct{})
 
@@ -161,232 +162,22 @@ func (i *cecTranslator) getServicesWithPorts(namespace string, name string, m *m
 	}
 }
 
-func (i *cecTranslator) getResources(m *model.Model) []ciliumv2.XDSResource {
+func (i *cecTranslator) desiredResources(m *model.Model) []ciliumv2.XDSResource {
 	var res []ciliumv2.XDSResource
 
-	res = append(res, i.getListener(m)...)
-	res = append(res, i.getEnvoyHTTPRouteConfiguration(m)...)
-	res = append(res, i.getClusters(m)...)
+	res = append(res, i.desiredEnvoyListener(m)...)
+	res = append(res, i.desiredEnvoyHTTPRouteConfiguration(m)...)
+	res = append(res, i.desiredEnvoyCluster(m)...)
 
 	return res
 }
 
-func tlsSecretsToHostnames(httpListeners []model.HTTPListener) map[model.TLSSecret][]string {
-	tlsSecretsToHostnames := make(map[model.TLSSecret][]string)
-	for _, h := range httpListeners {
-		for _, s := range h.TLS {
-			tlsSecretsToHostnames[s] = append(tlsSecretsToHostnames[s], h.Hostname)
-		}
-	}
-
-	return tlsSecretsToHostnames
-}
-
-func tlsPassthroughBackendsToHostnames(tlsPassthroughListeners []model.TLSPassthroughListener) map[string][]string {
-	tlsPassthroughBackendsToHostnames := make(map[string][]string)
-	for _, h := range tlsPassthroughListeners {
-		for _, route := range h.Routes {
-			for _, backend := range route.Backends {
-				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
-				tlsPassthroughBackendsToHostnames[key] = append(tlsPassthroughBackendsToHostnames[key], route.Hostnames...)
-			}
-		}
-	}
-
-	return tlsPassthroughBackendsToHostnames
-}
-
-// getListener returns the listener for the given model.
-// - HTTP non-TLS filters
-// - HTTP TLS filters
-// - TLS passthrough filters
-func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
-	if len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 {
+func (i *cecTranslator) desiredNodeSelector() *slim_metav1.LabelSelector {
+	if !i.Config.HostNetworkConfig.Enabled {
 		return nil
 	}
 
-	mutatorFuncs := []ListenerMutator{}
-	if i.useProxyProtocol {
-		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
-	}
-
-	if i.useAlpn {
-		mutatorFuncs = append(mutatorFuncs, WithAlpn())
-	}
-
-	if i.hostNetworkEnabled {
-		mutatorFuncs = append(mutatorFuncs, WithHostNetworkPort(m, i.ipv4Enabled, i.ipv6Enabled))
-	}
-
-	if i.xffNumTrustedHops > 0 {
-		mutatorFuncs = append(mutatorFuncs, WithXffNumTrustedHops(i.xffNumTrustedHops))
-	}
-
-	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLSPassthrough), mutatorFuncs...)
-	return []ciliumv2.XDSResource{l}
-}
-
-// getRouteConfiguration returns the route configuration for the given model.
-func (i *cecTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []ciliumv2.XDSResource {
-	var res []ciliumv2.XDSResource
-
-	type hostnameRedirect struct {
-		hostname string
-		redirect bool
-	}
-
-	portHostNameRedirect := map[string][]hostnameRedirect{}
-	hostNamePortRoutes := map[string]map[string][]model.HTTPRoute{}
-
-	for _, l := range m.HTTP {
-		for _, r := range l.Routes {
-			port := insecureHost
-			if l.TLS != nil {
-				port = secureHost
-			}
-
-			if len(r.Hostnames) == 0 {
-				hnr := hostnameRedirect{
-					hostname: l.Hostname,
-					redirect: l.ForceHTTPtoHTTPSRedirect,
-				}
-				portHostNameRedirect[port] = append(portHostNameRedirect[port], hnr)
-				if _, ok := hostNamePortRoutes[l.Hostname]; !ok {
-					hostNamePortRoutes[l.Hostname] = map[string][]model.HTTPRoute{}
-				}
-				hostNamePortRoutes[l.Hostname][port] = append(hostNamePortRoutes[l.Hostname][port], r)
-				continue
-			}
-			for _, h := range r.Hostnames {
-				hnr := hostnameRedirect{
-					hostname: h,
-					redirect: l.ForceHTTPtoHTTPSRedirect,
-				}
-				portHostNameRedirect[port] = append(portHostNameRedirect[port], hnr)
-				if _, ok := hostNamePortRoutes[h]; !ok {
-					hostNamePortRoutes[h] = map[string][]model.HTTPRoute{}
-				}
-				hostNamePortRoutes[h][port] = append(hostNamePortRoutes[h][port], r)
-			}
-		}
-	}
-
-	for _, port := range []string{insecureHost, secureHost} {
-		hostNames, exists := portHostNameRedirect[port]
-		if !exists {
-			continue
-		}
-		var virtualhosts []*envoy_config_route_v3.VirtualHost
-
-		redirectedHost := map[string]struct{}{}
-		// Add HTTPs redirect virtual host for secure host
-		if port == insecureHost {
-			for _, h := range slices.Unique(portHostNameRedirect[secureHost]) {
-				if h.redirect {
-					vhs, _ := NewVirtualHostWithDefaults(hostNamePortRoutes[h.hostname][secureHost], VirtualHostParameter{
-						HostNames:           []string{h.hostname},
-						HTTPSRedirect:       true,
-						HostNameSuffixMatch: i.hostNameSuffixMatch,
-						ListenerPort:        m.HTTP[0].Port,
-					})
-					virtualhosts = append(virtualhosts, vhs)
-					redirectedHost[h.hostname] = struct{}{}
-				}
-			}
-		}
-		for _, h := range slices.Unique(hostNames) {
-			if port == insecureHost {
-				if _, ok := redirectedHost[h.hostname]; ok {
-					continue
-				}
-			}
-			routes, exists := hostNamePortRoutes[h.hostname][port]
-			if !exists {
-				continue
-			}
-			vhs, _ := NewVirtualHostWithDefaults(routes, VirtualHostParameter{
-				HostNames:           []string{h.hostname},
-				HTTPSRedirect:       false,
-				HostNameSuffixMatch: i.hostNameSuffixMatch,
-				ListenerPort:        m.HTTP[0].Port,
-			})
-			virtualhosts = append(virtualhosts, vhs)
-		}
-
-		// the route name should match the value in http connection manager
-		// otherwise the request will be dropped by envoy
-		routeName := fmt.Sprintf("listener-%s", port)
-		goslices.SortStableFunc(virtualhosts, func(a, b *envoy_config_route_v3.VirtualHost) int { return cmp.Compare(a.Name, b.Name) })
-		rc, _ := NewRouteConfiguration(routeName, virtualhosts)
-		res = append(res, rc)
-	}
-
-	return res
-}
-
-func getClusterName(ns, name, port string) string {
-	// the name is having the format of "namespace:name:port"
-	// -> slash would prevent ParseResources from rewriting with CEC namespace and name!
-	return fmt.Sprintf("%s:%s:%s", ns, name, port)
-}
-
-func getClusterServiceName(ns, name, port string) string {
-	// the name is having the format of "namespace/name:port"
-	return fmt.Sprintf("%s/%s:%s", ns, name, port)
-}
-
-func (i *cecTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
-	envoyClusters := map[string]ciliumv2.XDSResource{}
-	var sortedClusterNames []string
-
-	for ns, v := range getNamespaceNamePortsMapForHTTP(m) {
-		for name, ports := range v {
-			for _, port := range ports {
-				clusterName := getClusterName(ns, name, port)
-				clusterServiceName := getClusterServiceName(ns, name, port)
-				sortedClusterNames = append(sortedClusterNames, clusterName)
-				mutators := []ClusterMutator{
-					WithConnectionTimeout(5),
-					WithIdleTimeout(i.idleTimeoutSeconds),
-					WithClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
-					WithOutlierDetection(true),
-				}
-
-				if isGRPCService(m, ns, name, port) {
-					mutators = append(mutators, WithProtocol(HTTPVersion2))
-				} else if i.useAppProtocol {
-					appProtocol := getAppProtocol(m, ns, name, port)
-
-					switch appProtocol {
-					case AppProtocolH2C:
-						mutators = append(mutators, WithProtocol(HTTPVersion2))
-					default:
-						// When --use-app-protocol is used, envoy will set upstream protocol to HTTP/1.1
-						mutators = append(mutators, WithProtocol(HTTPVersion1))
-					}
-				}
-				envoyClusters[clusterName], _ = NewHTTPCluster(clusterName, clusterServiceName, mutators...)
-			}
-		}
-	}
-	for ns, v := range getNamespaceNamePortsMapForTLS(m) {
-		for name, ports := range v {
-			for _, port := range ports {
-				clusterName := getClusterName(ns, name, port)
-				clusterServiceName := getClusterServiceName(ns, name, port)
-				sortedClusterNames = append(sortedClusterNames, clusterName)
-				envoyClusters[clusterName], _ = NewTCPClusterWithDefaults(clusterName, clusterServiceName)
-			}
-		}
-	}
-
-	goslices.Sort(sortedClusterNames)
-	res := make([]ciliumv2.XDSResource, len(sortedClusterNames))
-	for i, name := range sortedClusterNames {
-		res[i] = envoyClusters[name]
-	}
-
-	return res
+	return i.Config.HostNetworkConfig.NodeLabelSelector
 }
 
 func isGRPCService(m *model.Model, ns string, name string, port string) bool {
@@ -458,36 +249,6 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 		}
 	}
 
-	return namespaceNamePortMap
-}
-
-// getNamespaceNamePortsMapForHTTP returns a map of namespace -> name -> ports.
-// The ports are sorted and unique.
-func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]string {
-	namespaceNamePortMap := map[string]map[string][]string{}
-	for _, l := range m.HTTP {
-		for _, r := range l.Routes {
-			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
-			for _, rm := range r.RequestMirrors {
-				if rm.Backend == nil {
-					continue
-				}
-				mergeBackendsInNamespaceNamePortMap([]model.Backend{*rm.Backend}, namespaceNamePortMap)
-			}
-		}
-	}
-	return namespaceNamePortMap
-}
-
-// getNamespaceNamePortsMapFroTLS returns a map of namespace -> name -> ports.
-// The ports are sorted and unique.
-func getNamespaceNamePortsMapForTLS(m *model.Model) map[string]map[string][]string {
-	namespaceNamePortMap := map[string]map[string][]string{}
-	for _, l := range m.TLSPassthrough {
-		for _, r := range l.Routes {
-			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
-		}
-	}
 	return namespaceNamePortMap
 }
 

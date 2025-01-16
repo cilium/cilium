@@ -231,29 +231,43 @@ func Test_translator_Translate(t *testing.T) {
 		wantErr       bool
 	}{
 		{
-			name:          "conformance/default_backend",
-			args:          args{},
+			name: "conformance/default_backend",
+			args: args{
+				ipv4Enabled: true,
+				ipv6Enabled: true,
+			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name:          "conformance/host_rules",
-			args:          args{},
+			name: "conformance/host_rules",
+			args: args{
+				ipv4Enabled: true,
+				ipv6Enabled: true,
+			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name:          "conformance/host_rules/no_force_https",
-			args:          args{},
+			name: "conformance/host_rules/no_force_https",
+			args: args{
+				ipv4Enabled: true,
+				ipv6Enabled: true,
+			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
-			name:          "conformance/path_rules",
-			args:          args{},
+			name: "conformance/path_rules",
+			args: args{
+				ipv4Enabled: true,
+				ipv6Enabled: true,
+			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
 		{
 			name: "conformance/proxy_protocol",
 			args: args{
 				useProxyProtocol: true,
+				ipv4Enabled:      true,
+				ipv6Enabled:      true,
 			},
 			wantLBSvcType: corev1.ServiceTypeLoadBalancer,
 		},
@@ -263,6 +277,7 @@ func Test_translator_Translate(t *testing.T) {
 				hostNetworkEnabled:           true,
 				hostNetworkNodeLabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}},
 				ipv4Enabled:                  true,
+				ipv6Enabled:                  true,
 			},
 			wantLBSvcType: corev1.ServiceTypeClusterIP,
 		},
@@ -272,6 +287,7 @@ func Test_translator_Translate(t *testing.T) {
 				hostNetworkEnabled:           true,
 				hostNetworkNodeLabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}},
 				ipv4Enabled:                  true,
+				ipv6Enabled:                  true,
 			},
 			wantLBSvcType: corev1.ServiceTypeNodePort,
 		},
@@ -280,7 +296,27 @@ func Test_translator_Translate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &dedicatedIngressTranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", tt.args.useProxyProtocol, false, false, 60, tt.args.hostNetworkEnabled, tt.args.hostNetworkNodeLabelSelector, tt.args.ipv4Enabled, tt.args.ipv6Enabled, 0),
+				cecTranslator: translation.NewCECTranslator(translation.Config{
+					SecretsNamespace: "cilium-secrets",
+					HostNetworkConfig: translation.HostNetworkConfig{
+						Enabled:           tt.args.hostNetworkEnabled,
+						NodeLabelSelector: tt.args.hostNetworkNodeLabelSelector,
+					},
+					IPConfig: translation.IPConfig{
+						IPv4Enabled: tt.args.ipv4Enabled,
+						IPv6Enabled: tt.args.ipv6Enabled,
+					},
+					ListenerConfig: translation.ListenerConfig{
+						UseProxyProtocol: tt.args.useProxyProtocol,
+					},
+					ClusterConfig: translation.ClusterConfig{
+						IdleTimeoutSeconds: 60,
+						UseAppProtocol:     false,
+					},
+					RouteConfig: translation.RouteConfig{
+						HostNameSuffixMatch: false,
+					},
+				}),
 				hostNetworkEnabled: tt.args.hostNetworkEnabled,
 			}
 			input := &model.Model{}

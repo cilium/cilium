@@ -6,6 +6,7 @@ package types
 import (
 	"context"
 	"net/netip"
+	"strings"
 
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 
@@ -124,6 +125,19 @@ type RoutePolicyConditions struct {
 	MatchPrefixes []*RoutePolicyPrefixMatch
 	// MatchFamilies matches ANY of the provided address families. If empty matches all address families.
 	MatchFamilies []Family
+}
+
+// String() constructs a string identifier
+func (r RoutePolicyConditions) String() string {
+	values := []string{}
+	values = append(values, r.MatchNeighbors...)
+	for _, family := range r.MatchFamilies {
+		values = append(values, family.String())
+	}
+	for _, prefix := range r.MatchPrefixes {
+		values = append(values, prefix.CIDR.String())
+	}
+	return strings.Join(values, "-")
 }
 
 // RoutePolicyAction defines the action taken on a route matched by a routing policy.

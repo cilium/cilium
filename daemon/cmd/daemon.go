@@ -136,7 +136,8 @@ type Daemon struct {
 
 	endpointManager endpointmanager.EndpointManager
 
-	endpointRestoreComplete chan struct{}
+	endpointRestoreComplete       chan struct{}
+	endpointInitialPolicyComplete chan struct{}
 
 	identityAllocator identitycell.CachingIdentityAllocator
 
@@ -410,6 +411,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// waiting when it is not yet initialized (which causes them to block forever).
 	if option.Config.RestoreState {
 		d.endpointRestoreComplete = make(chan struct{})
+		d.endpointInitialPolicyComplete = make(chan struct{})
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them

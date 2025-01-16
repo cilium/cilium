@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
@@ -101,7 +102,7 @@ var (
 		}),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
-		gops.Cell(defaults.GopsPortOperator),
+		gops.Cell(defaults.EnableGops, defaults.GopsPortOperator),
 
 		// Provides a Kubernetes client and ClientBuilderFunc that can be used by other cells to create a client.
 		client.Cell,
@@ -302,12 +303,6 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		Use:   binaryName,
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
-			cmdRefDir := h.Viper().GetString(option.CMDRef)
-			if cmdRefDir != "" {
-				genMarkdown(cobraCmd, cmdRefDir)
-				os.Exit(0)
-			}
-
 			initEnv(h.Viper())
 
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
@@ -326,6 +321,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 	metrics.Namespace = metrics.CiliumOperatorNamespace
 
 	cmd.AddCommand(
+		cmdref.NewCmd(cmd),
 		MetricsCmd,
 		StatusCmd,
 		ciliumdbg.TroubleshootCmd,
@@ -575,7 +571,6 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 
 	var (
 		nodeManager allocator.NodeEventHandler
-		err         error
 		withKVStore bool
 	)
 
@@ -737,19 +732,11 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	}
 
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumNetworkPolicy {
-		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
-		if err != nil {
-			log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
-				"Cannot connect to Kubernetes apiserver ")
-		}
+		enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 	}
 
 	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumClusterwideNetworkPolicy {
-		err = enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
-		if err != nil {
-			log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
-				"Cannot connect to Kubernetes apiserver ")
-		}
+		enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 	}
 
 	if legacy.clientset.IsEnabled() {

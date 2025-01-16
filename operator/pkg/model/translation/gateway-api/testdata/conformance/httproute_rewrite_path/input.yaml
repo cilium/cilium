@@ -9,14 +9,10 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /prefix/one
-      Regex: ""
+      prefix: /prefix/one
     rewrite:
       path:
-        Exact: ""
-        Prefix: /one
-        Regex: ""
+        prefix: /one
     timeout: {}
   - backends:
     - name: infra-backend-v1
@@ -24,14 +20,10 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /full/one
-      Regex: ""
+      prefix: /full/one
     rewrite:
       path:
-        Exact: /one
-        Prefix: ""
-        Regex: ""
+        exact: /one
     timeout: {}
   - backends:
     - name: infra-backend-v1
@@ -39,9 +31,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /full/rewrite-path-and-modify-headers
-      Regex: ""
+      prefix: /full/rewrite-path-and-modify-headers
     request_header_filter:
       headers_to_add:
       - name: X-Header-Add
@@ -55,9 +45,7 @@ http:
         value: set-overwrites-values
     rewrite:
       path:
-        Exact: /test
-        Prefix: ""
-        Regex: ""
+        exact: /test
     timeout: {}
   - backends:
     - name: infra-backend-v1
@@ -65,9 +53,7 @@ http:
       port:
         port: 8080
     path_match:
-      Exact: ""
-      Prefix: /prefix/rewrite-path-and-modify-headers
-      Regex: ""
+      prefix: /prefix/rewrite-path-and-modify-headers
     request_header_filter:
       headers_to_add:
       - name: X-Header-Add
@@ -81,9 +67,7 @@ http:
         value: set-overwrites-values
     rewrite:
       path:
-        Exact: ""
-        Prefix: /prefix
-        Regex: ""
+        prefix: /prefix
     timeout: {}
   sources:
   - group: gateway.networking.k8s.io

@@ -220,7 +220,7 @@ after deploying the policy is to disable Policy Audit Mode again:
             configmap/cilium-config patched
             $ kubectl -n $CILIUM_NAMESPACE rollout restart ds/cilium
             daemonset.apps/cilium restarted
-            $ kubectl -n kube-system rollout status ds/cilium
+            $ kubectl -n $CILIUM_NAMESPACE rollout status ds/cilium
             Waiting for daemon set "cilium" rollout to finish: 0 of 1 updated pods are available...
             daemon set "cilium" successfully rolled out
 
