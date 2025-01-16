@@ -117,7 +117,8 @@ jobs:
       - name: Run connectivity test
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
+            --log-code-owners \
+            --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
 
       - name: Features tested
         uses: ./.github/actions/feature-status
