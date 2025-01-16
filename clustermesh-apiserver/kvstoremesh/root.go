@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -20,7 +19,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kvstoremesh")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "kvstoremesh"))
 )
 
 func NewCmd(h *hive.Hive) *cobra.Command {
@@ -29,7 +28,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		Short: "Run KVStoreMesh",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := h.Run(slog.Default()); err != nil {
-				log.Fatal(err)
+				logging.Fatal(log, err.Error())
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
@@ -38,7 +37,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 			option.Config.SetupLogging(h.Viper(), "kvstoremesh")
 			option.Config.Populate(h.Viper())
 			option.LogRegisteredOptions(h.Viper(), log)
-			log.Infof("Cilium KVStoreMesh %s", version.Version)
+			log.Info("Cilium KVStoreMesh", slog.String("version", version.Version))
 		},
 	}
 
@@ -48,7 +47,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 	return rootCmd
 }
 
-func registerClusterInfoValidator(lc cell.Lifecycle, cinfo types.ClusterInfo, log logrus.FieldLogger) {
+func registerClusterInfoValidator(lc cell.Lifecycle, cinfo types.ClusterInfo, log logging.FieldLogger) {
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			if err := cinfo.InitClusterIDMax(); err != nil {

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -87,7 +89,11 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 				duration := backoff.Duration(retryAttempt)
 				retry = time.After(duration)
 				retryAttempt++
-				log.WithError(err).Warnf("Could not synchronize new frontend addresses, retrying in %s", duration)
+				log.Warn(
+					"Could not synchronize new frontend addresses, retrying...",
+					slog.Any(logfields.Error, err),
+					slog.Duration("duration", duration),
+				)
 				health.Degraded("Failed to sync NodePort frontends", err)
 			} else {
 				addrs = newAddrs

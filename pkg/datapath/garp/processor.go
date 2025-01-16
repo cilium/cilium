@@ -4,21 +4,22 @@
 package garp
 
 import (
+	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type processorParams struct {
 	cell.In
 
-	Logger          logrus.FieldLogger
+	Logger          logging.FieldLogger
 	EndpointManager endpointmanager.EndpointManager
 	GARPSender      Sender
 	Config          Config
@@ -47,7 +48,7 @@ func newGARPProcessor(p processorParams) *processor {
 type processor struct {
 	mu lock.Mutex
 
-	log        logrus.FieldLogger
+	log        logging.FieldLogger
 	garpSender Sender
 
 	endpointIPs map[uint16]netip.Addr
@@ -72,15 +73,18 @@ func (gp *processor) EndpointCreated(ep *endpoint.Endpoint) {
 
 	gp.endpointIPs[ep.ID] = newIP
 
-	log := gp.log.WithFields(logrus.Fields{
-		logfields.K8sPodName: ep.K8sPodName,
-		logfields.IPAddr:     newIP,
-	})
-
 	if err := gp.garpSender.Send(newIP); err != nil {
-		log.WithError(err).Warn("Failed to send gratuitous arp")
+		gp.log.Warn(
+			"Failed to send gratuitous arp",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.K8sPodName, ep.K8sPodName),
+			slog.Any(logfields.IPAddr, newIP))
 	} else {
-		log.Debug("pod upsert gratuitous arp sent")
+		gp.log.Debug(
+			"pod upsert gratuitous arp sent",
+			slog.Any(logfields.K8sPodName, ep.K8sPodName),
+			slog.Any(logfields.IPAddr, newIP),
+		)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
 	"net/netip"
@@ -14,7 +15,6 @@ import (
 	"sync"
 
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
 
@@ -249,7 +249,10 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 		if isRestoredIP(a) {
 			continue
 		}
-		log.WithField(logfields.IPAddr, a.IP).Debug("Removing stale router IP from cilium_host device")
+		log.Debug(
+			"Removing stale router IP from cilium_host device",
+			slog.Any(logfields.IPAddr, a.IP),
+		)
 		if e := netlink.AddrDel(l, &a); e != nil {
 			err = errors.Join(err, resiliency.Retryable(fmt.Errorf("failed to remove IP %s: %w", a.IP, e)))
 		}
@@ -270,13 +273,17 @@ func removeOldCiliumHostIPs(ctx context.Context, restoredRouterIPv4, restoredRou
 			errs = errors.Join(errs, removeOldRouterState(true, restoredRouterIPv6))
 		}
 		if resiliency.IsRetryable(errs) && !errors.As(errs, &netlink.LinkNotFoundError{}) {
-			log.WithField(logfields.Attempt, retries).WithError(errs).Warnf("Failed to remove old router IPs from cilium_host.")
+			log.Warn(
+				"Failed to remove old router IPs from cilium_host.",
+				slog.Any(logfields.Error, errs),
+				slog.Any(logfields.Attempt, retries),
+			)
 			return false, nil
 		}
 		return true, errs
 	}
 	if err := resiliency.Retry(ctx, 100*time.Millisecond, 3, gcHostIPsFn); err != nil {
-		log.WithError(err).Error("Restore of the cilium_host ips failed. Manual intervention is required to remove all other old IPs.")
+		log.Error("Restore of the cilium_host ips failed. Manual intervention is required to remove all other old IPs.", slog.Any(logfields.Error, err))
 	}
 }
 
@@ -313,7 +320,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// the feature does not influence the decision which BPF maps should be
 	// created.
 	if err := initKubeProxyReplacementOptions(params.Sysctl, params.TunnelConfig); err != nil {
-		log.WithError(err).Error("unable to initialize kube-proxy replacement options")
+		log.Error("unable to initialize kube-proxy replacement options", slog.Any(logfields.Error, err))
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
@@ -421,7 +428,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// the "old" ipcache.
 		err := d.restoreLocalIdentities()
 		if err != nil {
-			log.WithError(err).Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.")
+			log.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", slog.Any(logfields.Error, err))
 		}
 	}
 
@@ -451,7 +458,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	err = d.initMaps()
 	bootstrapStats.mapsInit.EndError(err)
 	if err != nil {
-		log.WithError(err).Error("error while opening/creating BPF maps")
+		log.Error("error while opening/creating BPF maps", slog.Any(logfields.Error, err))
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
@@ -464,7 +471,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.RestoreState && !option.Config.DryMode {
 		bootstrapStats.restore.Start()
 		if err := d.svc.RestoreServices(); err != nil {
-			log.WithError(err).Warn("Failed to restore services from BPF maps")
+			log.Warn("Failed to restore services from BPF maps", slog.Any(logfields.Error, err))
 		}
 		bootstrapStats.restore.End(true)
 	}
@@ -476,7 +483,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d.k8sWatcher.RunK8sServiceHandler()
 
 	if option.Config.DNSPolicyUnloadOnShutdown {
-		log.Debugf("Registering cleanup function to unload DNS policies due to --%s", option.DNSPolicyUnloadOnShutdown)
+		log.Debug(
+			"Registering cleanup function to unload DNS policies due to option",
+			slog.String("option", option.DNSPolicyUnloadOnShutdown),
+		)
 
 		// add to pre-cleanup funcs because this needs to run on graceful shutdown, but
 		// before the relevant subystems are being shut down.
@@ -497,7 +507,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 					return nil
 				}
 				dnsRules := portRule.Rules.DNS
-				log.Debugf("Found egress L7 DNS rules (portProtocol %#v): %#v", portProtocols[0], dnsRules)
+				log.Debug(
+					"Found egress L7 DNS rules",
+					slog.Any("portProtocol", portProtocols[0]),
+					slog.Any("dns-rules", dnsRules),
+				)
 
 				// For security reasons, the L7 DNS policy must be a
 				// wildcard in order to trigger this logic.
@@ -527,12 +541,18 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			})
 
 			if !needsPolicyRegen {
-				log.Infof("No policy recalculation needed to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
+				log.Info(
+					"No policy recalculation needed to remove DNS rules due to option",
+					slog.String("option", option.DNSPolicyUnloadOnShutdown),
+				)
 				return
 			}
 
 			// Bump revision to trigger policy recalculation
-			log.Infof("Triggering policy recalculation to remove DNS rules due to --%s", option.DNSPolicyUnloadOnShutdown)
+			log.Info(
+				"Triggering policy recalculation to remove DNS rules due to option",
+				slog.String("option", option.DNSPolicyUnloadOnShutdown),
+			)
 			policyRepo.BumpRevision()
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 				Reason:            "unloading DNS rules on graceful shutdown",
@@ -550,7 +570,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// fetch old endpoints before k8s is configured.
 	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
 	if err != nil {
-		log.WithError(err).Error("Unable to read existing endpoints")
+		log.Error("Unable to read existing endpoints", slog.Any(logfields.Error, err))
 	}
 	bootstrapStats.restore.End(true)
 
@@ -589,7 +609,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 
 		if err := agentK8s.WaitForNodeInformation(d.ctx, log, params.Resources.LocalNode, params.Resources.LocalCiliumNode); err != nil {
-			log.WithError(err).Error("unable to connect to get node spec from apiserver")
+			log.Error("unable to connect to get node spec from apiserver", slog.Any(logfields.Error, err))
 			return nil, nil, fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
@@ -607,7 +627,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	if params.WGAgent != nil && option.Config.EnableWireguard {
 		if err := params.WGAgent.Init(d.ipcache); err != nil {
-			log.WithError(err).Error("failed to initialize WireGuard agent")
+			log.Error("failed to initialize WireGuard agent", slog.Any(logfields.Error, err))
 			return nil, nil, fmt.Errorf("failed to initialize WireGuard agent: %w", err)
 		}
 
@@ -630,16 +650,19 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				option.DirectRoutingDevice)
 		}
 
-		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
+		log.Warn("failed to detect devices, disabling BPF NodePort", slog.Any(logfields.Error, err))
 		disableNodePort()
 	} else {
 		drdName = directRoutingDevice.Name
-		log.WithField(option.DirectRoutingDevice, drdName).Info("Direct routing device detected")
+		log.Info(
+			"Direct routing device detected",
+			slog.String(option.DirectRoutingDevice, drdName),
+		)
 	}
 
 	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, rxn)
 	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices, drdName); err != nil {
-		log.WithError(err).Error("failed to finalise LB initialization")
+		log.Error("failed to finalise LB initialization", slog.Any(logfields.Error, err))
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
@@ -657,7 +680,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				option.MasqueradeInterfaces, option.Devices)
 		}
 		if err != nil {
-			log.WithError(err).Error("unable to initialize BPF masquerade support")
+			log.Error("unable to initialize BPF masquerade support", slog.Any(logfields.Error, err))
 			return nil, nil, fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
 		}
 		if option.Config.EnableMasqueradeRouteSource {
@@ -665,7 +688,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			return nil, nil, fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
 		}
 	} else if option.Config.EnableIPMasqAgent {
-		log.WithError(err).Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
+		log.Error(
+			fmt.Sprintf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade),
+			slog.Any(logfields.Error, err),
+		)
 		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 		log.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
@@ -674,7 +700,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if len(nativeDevices) == 0 {
 		if option.Config.EnableHostFirewall {
 			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
-			log.WithError(err).Errorf(msg, option.Devices)
+			log.Error(
+				fmt.Sprintf(msg, option.Devices),
+				slog.Any(logfields.Error, err),
+			)
 			return nil, nil, fmt.Errorf(msg, option.Devices)
 		}
 	}
@@ -697,7 +726,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	err = clearCiliumVeths()
 	bootstrapStats.cleanup.EndError(err)
 	if err != nil {
-		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
+		log.Warn("Unable to clean stale endpoint interfaces", slog.Any(logfields.Error, err))
 	}
 
 	// Must init kvstore before starting node discovery
@@ -723,11 +752,17 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	if option.Config.JoinCluster {
 		if params.Clientset.IsEnabled() {
-			log.WithError(err).Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
+			log.Error(
+				fmt.Sprintf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName),
+				slog.Any(logfields.Error, err),
+			)
 			return nil, nil, fmt.Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 		}
 		if option.Config.KVStore == "" {
-			log.WithError(err).Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
+			log.Error(
+				fmt.Sprintf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore),
+				slog.Any(logfields.Error, err),
+			)
 			return nil, nil, fmt.Errorf("joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
 		}
 
@@ -745,7 +780,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		})
 
 		// This can override node addressing config, so do this before starting IPAM
-		log.WithField(logfields.NodeName, nodeTypes.GetName()).Debug("Calling JoinCluster()")
+		log.Debug(
+			"Calling JoinCluster()",
+			slog.String(logfields.NodeName, nodeTypes.GetName()),
+		)
 		if err := d.nodeDiscovery.JoinCluster(nodeTypes.GetName()); err != nil {
 			return nil, nil, err
 		}
@@ -777,16 +815,17 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// PodCIDR range and allocation of the health IPs.
 	if params.Clientset.IsEnabled() && option.Config.AnnotateK8sNode {
 		bootstrapStats.k8sInit.Start()
-		log.WithFields(logrus.Fields{
-			logfields.V4Prefix:       node.GetIPv4AllocRange(),
-			logfields.V6Prefix:       node.GetIPv6AllocRange(),
-			logfields.V4HealthIP:     node.GetEndpointHealthIPv4(),
-			logfields.V6HealthIP:     node.GetEndpointHealthIPv6(),
-			logfields.V4IngressIP:    node.GetIngressIPv4(),
-			logfields.V6IngressIP:    node.GetIngressIPv6(),
-			logfields.V4CiliumHostIP: node.GetInternalIPv4Router(),
-			logfields.V6CiliumHostIP: node.GetIPv6Router(),
-		}).Info("Annotating k8s node")
+		log.Info(
+			"Annotating k8s node",
+			slog.Any(logfields.V4Prefix, node.GetIPv4AllocRange()),
+			slog.Any(logfields.V6Prefix, node.GetIPv6AllocRange()),
+			slog.Any(logfields.V4HealthIP, node.GetEndpointHealthIPv4()),
+			slog.Any(logfields.V6HealthIP, node.GetEndpointHealthIPv6()),
+			slog.Any(logfields.V4IngressIP, node.GetIngressIPv4()),
+			slog.Any(logfields.V6IngressIP, node.GetIngressIPv6()),
+			slog.Any(logfields.V4CiliumHostIP, node.GetInternalIPv4Router()),
+			slog.Any(logfields.V6CiliumHostIP, node.GetIPv6Router()),
+		)
 
 		latestLocalNode, err := d.nodeLocalStore.Get(ctx)
 		if err == nil {
@@ -797,7 +836,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				params.IPsecKeyCustodian.SPI())
 		}
 		if err != nil {
-			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
+			log.Warn("Cannot annotate k8s node with CIDR range", slog.Any(logfields.Error, err))
 		}
 
 		bootstrapStats.k8sInit.End(true)
@@ -837,7 +876,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// iptables rules can be updated only after d.init() intializes the iptables above.
 	err = d.updateDNSDatapathRules(d.ctx)
 	if err != nil {
-		log.WithError(err).Error("error encountered while updating DNS datapath rules.")
+		log.Error("error encountered while updating DNS datapath rules.", slog.Any(logfields.Error, err))
 		return nil, restoredEndpoints, fmt.Errorf("error encountered while updating DNS datapath rules: %w", err)
 	}
 
@@ -867,7 +906,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d.ipcache.InitIPIdentityWatcher(d.ctx, params.StoreFactory)
 
 	if err := params.IPsecKeyCustodian.StartBackgroundJobs(params.NodeHandler); err != nil {
-		log.WithError(err).Error("Unable to start IPsec key watcher")
+		log.Error("Unable to start IPsec key watcher", slog.Any(logfields.Error, err))
 	}
 
 	return &d, restoredEndpoints, nil

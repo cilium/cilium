@@ -6,12 +6,12 @@ package reconcilerv2
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"maps"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // PathMap is a map of paths indexed by the NLRI string
@@ -33,7 +33,7 @@ type PathReference struct {
 type PathReferencesMap map[string]*PathReference
 
 type ReconcileResourceAFPathsParams struct {
-	Logger                 logrus.FieldLogger
+	Logger                 logging.FieldLogger
 	Ctx                    context.Context
 	Router                 types.Router
 	DesiredResourceAFPaths ResourceAFPathsMap
@@ -41,7 +41,7 @@ type ReconcileResourceAFPathsParams struct {
 }
 
 type ReconcileAFPathsParams struct {
-	Logger         logrus.FieldLogger
+	Logger         logging.FieldLogger
 	Ctx            context.Context
 	Router         types.Router
 	DesiredPaths   AFPathsMap
@@ -50,7 +50,7 @@ type ReconcileAFPathsParams struct {
 }
 
 type reconcilePathsParams struct {
-	Logger                logrus.FieldLogger
+	Logger                logging.FieldLogger
 	Ctx                   context.Context
 	Router                types.Router
 	CurrentAdvertisements PathMap
@@ -76,7 +76,7 @@ func ReconcileResourceAFPaths(rp ReconcileResourceAFPathsParams) (ResourceAFPath
 
 		// reconcile resource paths
 		updatedAFPaths, rErr := ReconcileAFPaths(&ReconcileAFPathsParams{
-			Logger:         rp.Logger.WithField(types.ResourceLogField, resKey),
+			Logger:         rp.Logger.With(slog.Any(types.ResourceLogField, resKey)),
 			Ctx:            rp.Ctx,
 			Router:         rp.Router,
 			DesiredPaths:   desiredAFPaths,
@@ -107,7 +107,7 @@ func ReconcileAFPaths(rp *ReconcileAFPathsParams) (AFPathsMap, error) {
 	for family, runningPaths := range runningAFPaths {
 		if _, ok := rp.DesiredPaths[family]; !ok {
 			runningAdverts, err := reconcilePaths(&reconcilePathsParams{
-				Logger:                rp.Logger.WithField(types.FamilyLogField, family),
+				Logger:                rp.Logger.With(slog.Any(types.FamilyLogField, family)),
 				Ctx:                   rp.Ctx,
 				Router:                rp.Router,
 				CurrentAdvertisements: runningPaths,
@@ -167,7 +167,7 @@ func reconcilePaths(params *reconcilePathsParams) (PathMap, error) {
 	if len(params.ToAdvertise) == 0 {
 		for advrtKey, advrt := range runningAdverts {
 			if advrt == nil {
-				l.WithField(types.PathLogField, advrtKey).Error("BUG: nil path in running advertisements map")
+				l.Error("BUG: nil path in running advertisements map", slog.Any(types.PathLogField, advrtKey))
 				continue
 			}
 			err := withdrawPath(params, advrtKey, advrt)
@@ -181,7 +181,7 @@ func reconcilePaths(params *reconcilePathsParams) (PathMap, error) {
 
 	for advrtKey, advrt := range params.ToAdvertise {
 		if advrt == nil {
-			l.WithField(types.PathLogField, advrtKey).Error("BUG: nil path in advertise advertisements map")
+			l.Error("BUG: nil path in advertise advertisements map", slog.Any(types.PathLogField, advrtKey))
 			continue
 		}
 
@@ -192,7 +192,7 @@ func reconcilePaths(params *reconcilePathsParams) (PathMap, error) {
 
 	for advrtKey, advrt := range runningAdverts {
 		if advrt == nil {
-			l.WithField(types.PathLogField, advrtKey).Error("BUG: nil path in running advertisements map")
+			l.Error("BUG: nil path in running advertisements map", slog.Any(types.PathLogField, advrtKey))
 			continue
 		}
 
@@ -236,10 +236,11 @@ func advertisePath(params *reconcilePathsParams, pathKey string, path *types.Pat
 		}
 	}
 
-	params.Logger.WithFields(logrus.Fields{
-		types.PathLogField:   path.NLRI.String(),
-		types.FamilyLogField: path.Family.String(),
-	}).Debug("Advertising path")
+	params.Logger.Debug(
+		"Advertising path",
+		slog.Any(types.PathLogField, path.NLRI),
+		slog.Any(types.FamilyLogField, path.Family),
+	)
 
 	advrtResp, err := params.Router.AdvertisePath(params.Ctx, types.PathRequest{Path: path})
 	if err != nil {
@@ -266,10 +267,11 @@ func withdrawPath(params *reconcilePathsParams, pathKey string, path *types.Path
 		}
 	}
 
-	params.Logger.WithFields(logrus.Fields{
-		types.PathLogField:   path.NLRI.String(),
-		types.FamilyLogField: path.Family.String(),
-	}).Debug("Withdrawing path")
+	params.Logger.Debug(
+		"Withdrawing path",
+		slog.Any(types.PathLogField, path.NLRI),
+		slog.Any(types.FamilyLogField, path.Family),
+	)
 
 	if err := params.Router.WithdrawPath(params.Ctx, types.PathRequest{Path: path}); err != nil {
 		return err

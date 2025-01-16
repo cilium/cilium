@@ -11,16 +11,16 @@ import (
 	"net/netip"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
-func newOps(logger logrus.FieldLogger, ipset *ipset, cfg config) *ops {
+func newOps(logger logging.FieldLogger, ipset *ipset, cfg config) *ops {
 	return &ops{
 		enabled: cfg.NodeIPSetNeeded,
 		ipset:   ipset,

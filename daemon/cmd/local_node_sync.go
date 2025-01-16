@@ -6,11 +6,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net"
-
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/identity"
@@ -25,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
+	"github.com/cilium/hive/cell"
 )
 
 type localNodeSynchronizerParams struct {
@@ -77,7 +76,7 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 
 	for ev := range ini.K8sLocalNode.Events(ctx) {
 		if ev.Kind == resource.Upsert {
-			log.WithField(logfields.Node, ev.Object).Debug("Received Node upsert event")
+			log.Debug("Received Node upsert event", slog.Any(logfields.Node, ev.Object))
 			new := parseNode(ev.Object)
 			if !ini.mutableFieldsEqual(new) {
 				store.Update(func(ln *node.LocalNode) {
@@ -228,11 +227,12 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 		return oldExists && !newExists
 	}
 
-	log.WithFields(logrus.Fields{
-		"localNodeLabels": logfields.Repr(ln.Labels),
-		"oldLabels":       logfields.Repr(ini.old.Labels),
-		"newLabels":       logfields.Repr(new.Labels),
-	}).Debug("Syncing local node with new labels")
+	log.Debug(
+		"Syncing local node with new labels",
+		slog.Any("localNodeLabels", ln.Labels),
+		slog.Any("oldLabels", ini.old.Labels),
+		slog.Any("newLabels", new.Labels),
+	)
 
 	// Create a clone, so that we don't mutate the current labels/annotations,
 	// as LocalNodeStore.Update emits a shallow copy of the whole object.
@@ -241,30 +241,38 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 	maps.Copy(ln.Labels, new.Labels)
 	ini.old.Labels = new.Labels
 
-	log.WithField(logfields.Labels, logfields.Repr(ln.Labels)).Debug("Local node labels updated")
+	log.Debug(
+		"Local node labels updated",
+		slog.Any(logfields.Labels, ln.Labels),
+	)
 
-	log.WithFields(logrus.Fields{
-		"localNodeAnnotations": logfields.Repr(ln.Annotations),
-		"oldAnnotations":       logfields.Repr(ini.old.Annotations),
-		"newAnnotations":       logfields.Repr(new.Annotations),
-	}).Debug("Syncing local node with new annotations")
+	log.Debug(
+		"Syncing local node with new annotations",
+		slog.Any("localNodeAnnotations", ln.Annotations),
+		slog.Any("oldAnnotations", ini.old.Annotations),
+		slog.Any("newAnnotations", new.Annotations),
+	)
 
 	ln.Annotations = maps.Clone(ln.Annotations)
 	maps.DeleteFunc(ln.Annotations, func(key, _ string) bool { return filter(ini.old.Annotations, new.Annotations, key) })
 	maps.Copy(ln.Annotations, new.Annotations)
 	ini.old.Annotations = new.Annotations
 
-	log.WithField(logfields.Annotations, logfields.Repr(ln.Annotations)).Debug("Local node annotations updated")
+	log.Debug(
+		"Local node annotations updated",
+		slog.Any(logfields.Annotations, ln.Annotations),
+	)
 
 	ini.old.UID = new.UID
 	ini.old.ProviderID = new.ProviderID
 	ln.UID = new.UID
 	ln.ProviderID = new.ProviderID
 
-	log.WithFields(logrus.Fields{
-		"UID":        ln.UID,
-		"ProviderID": ln.ProviderID,
-	}).Debug("Local node UID and ProviderID updated")
+	log.Debug(
+		"Local node UID and ProviderID updated",
+		slog.Any("UID", ln.UID),
+		slog.String("ProviderID", ln.ProviderID),
+	)
 }
 
 func parseNode(k8sNode *slim_corev1.Node) *node.LocalNode {

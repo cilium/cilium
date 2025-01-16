@@ -5,10 +5,10 @@ package datapath
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"path/filepath"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
@@ -158,8 +158,8 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Heal
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
-			log.Fatalf("WireGuard (--%s) cannot be used with IPsec (--%s)",
-				option.EnableWireguard, option.EnableIPSecName)
+			logging.Fatal(slog.Default(), fmt.Sprintf("WireGuard (--%s) cannot be used with IPsec (--%s)",
+				option.EnableWireguard, option.EnableIPSecName))
 		}
 
 		jobGroup := registry.NewGroup(health)
@@ -169,7 +169,7 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Heal
 		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
 		wgAgent, err = wg.NewAgent(privateKeyPath, sysctl, jobGroup, db, mtuTable)
 		if err != nil {
-			log.Fatalf("failed to initialize WireGuard: %s", err)
+			logging.Fatal(slog.Default(), fmt.Sprintf("failed to initialize WireGuard: %s", err))
 		}
 
 		lc.Append(wgAgent)

@@ -5,13 +5,13 @@ package ipam
 
 import (
 	"context"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -76,21 +76,22 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 
 	vnets, subnets, err := m.api.GetVpcsAndSubnets(ctx)
 	if err != nil {
-		log.WithError(err).Warning("Unable to synchronize Azure virtualnetworks list")
+		log.Warn("Unable to synchronize Azure virtualnetworks list", slog.Any(logfields.Error, err))
 		return time.Time{}
 	}
 
 	instances, err := m.api.GetInstances(ctx, subnets)
 	if err != nil {
-		log.WithError(err).Warning("Unable to synchronize Azure instances list")
+		log.Warn("Unable to synchronize Azure instances list", slog.Any(logfields.Error, err))
 		return time.Time{}
 	}
 
-	log.WithFields(logrus.Fields{
-		"numInstances":       instances.NumInstances(),
-		"numVirtualNetworks": len(vnets),
-		"numSubnets":         len(subnets),
-	}).Info("Synchronized Azure IPAM information")
+	log.Info(
+		"Synchronized Azure IPAM information",
+		slog.Int("numInstances", instances.NumInstances()),
+		slog.Int("numVirtualNetworks", len(vnets)),
+		slog.Int("numSubnets", len(subnets)),
+	)
 
 	m.instances = instances
 	m.vnets = vnets

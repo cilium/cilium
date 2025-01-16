@@ -5,17 +5,16 @@ package api
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/user"
 	"strconv"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "api")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "api"))
 
 // getGroupIDByName returns the group ID for the given grpName.
 func getGroupIDByName(grpName string) (int, error) {
@@ -31,10 +30,11 @@ func getGroupIDByName(grpName string) (int, error) {
 func SetDefaultPermissions(socketPath string) error {
 	gid, err := getGroupIDByName(CiliumGroupName)
 	if err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.Path: socketPath,
-			"group":        CiliumGroupName,
-		}).Debug("Group not found")
+		log.Debug("Group not found",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.Path, socketPath),
+			slog.String("group", CiliumGroupName),
+		)
 	} else {
 		if err := os.Chown(socketPath, 0, gid); err != nil {
 			return fmt.Errorf("failed while setting up %s's group ID"+

@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -45,7 +44,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh-apiserver")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "clustermesh-apiserver"))
 )
 
 func NewCmd(h *hive.Hive) *cobra.Command {
@@ -54,7 +53,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		Short: "Run ClusterMesh",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := h.Run(slog.Default()); err != nil {
-				log.Fatal(err)
+				logging.Fatal(log, err.Error())
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
@@ -63,7 +62,7 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 			option.Config.SetupLogging(h.Viper(), "clustermesh-apiserver")
 			option.Config.Populate(h.Viper())
 			option.LogRegisteredOptions(h.Viper(), log)
-			log.Infof("Cilium ClusterMesh %s", version.Version)
+			log.Info("Cilium ClusterMesh", slog.String(logfields.Version, version.Version))
 		},
 	}
 
@@ -130,9 +129,13 @@ func parseLabelArrayFromMap(base map[string]string) labels.LabelArray {
 
 func (is *identitySynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
 	identity := obj.(*ciliumv2.CiliumIdentity)
-	scopedLog := log.WithField(logfields.Identity, identity.Name)
+	logAttrs := slog.String(logfields.Identity, identity.Name)
 	if len(identity.SecurityLabels) == 0 {
-		scopedLog.WithError(errors.New("missing security labels")).Warning("Ignoring invalid identity")
+		log.Warn(
+			"Ignoring invalid identity",
+			slog.Any(logfields.Error, errors.New("missing security labels")),
+			logAttrs,
+		)
 		// Do not return an error, since it is pointless to retry.
 		// We will receive a new update event if the security labels change.
 		return nil
@@ -145,23 +148,23 @@ func (is *identitySynchronizer) upsert(ctx context.Context, _ resource.Key, obj 
 		labels = append(labels, l.FormatForKVStore()...)
 	}
 
-	scopedLog.Info("Upserting identity in etcd")
+	log.Info("Upserting identity in etcd", logAttrs)
 	kv := store.NewKVPair(identity.Name, string(labels))
 	if err := is.store.UpsertKey(ctx, kv); err != nil {
 		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-		log.WithError(err).Warning("Unable to upsert identity in etcd")
+		log.Warn("Unable to upsert identity in etcd", slog.Any(logfields.Error, err))
 	}
 
 	return nil
 }
 
 func (is *identitySynchronizer) delete(ctx context.Context, key resource.Key) error {
-	scopedLog := log.WithField(logfields.Identity, key.Name)
-	scopedLog.Info("Deleting identity from etcd")
+	logAttrs := slog.String(logfields.Identity, key.Name)
+	log.Info("Deleting identity from etcd", logAttrs)
 
 	if err := is.store.DeleteKey(ctx, store.NewKVPair(key.Name, "")); err != nil {
 		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-		scopedLog.WithError(err).Warning("Unable to delete node from etcd")
+		log.Warn("Unable to delete node from etcd", slog.Any(logfields.Error, err), logAttrs)
 	}
 
 	return nil
@@ -199,12 +202,12 @@ func (ns *nodeSynchronizer) upsert(ctx context.Context, _ resource.Key, obj runt
 	n.Cluster = ns.clusterInfo.Name
 	n.ClusterID = ns.clusterInfo.ID
 
-	scopedLog := log.WithField(logfields.Node, n.Name)
-	scopedLog.Info("Upserting node in etcd")
+	logAttr := slog.String(logfields.Node, n.Name)
+	log.Info("Upserting node in etcd", logAttr)
 
 	if err := ns.store.UpsertKey(ctx, &n); err != nil {
 		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-		log.WithError(err).Warning("Unable to upsert node in etcd")
+		log.Warn("Unable to upsert node in etcd", slog.Any(logfields.Error, err))
 	}
 
 	return nil
@@ -216,12 +219,12 @@ func (ns *nodeSynchronizer) delete(ctx context.Context, key resource.Key) error 
 		name:    key.Name,
 	}
 
-	scopedLog := log.WithFields(logrus.Fields{logfields.Node: key.Name})
-	scopedLog.Info("Deleting node from etcd")
+	logAttr := slog.String(logfields.Node, key.Name)
+	log.Info("Deleting node from etcd", logAttr)
 
 	if err := ns.store.DeleteKey(ctx, &n); err != nil {
 		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-		scopedLog.WithError(err).Warning("Unable to delete node from etcd")
+		log.Warn("Unable to delete node from etcd", slog.Any(logfields.Error, err), logAttr)
 	}
 
 	return nil
@@ -265,7 +268,7 @@ func (es *endpointSynchronizer) upsert(ctx context.Context, key resource.Key, ob
 					continue
 				}
 
-				scopedLog := log.WithFields(logrus.Fields{logfields.Endpoint: key.String(), logfields.IPAddr: ip})
+				log := log.With(slog.Any(logfields.Endpoint, key), slog.String(logfields.IPAddr, ip))
 				entry := identity.IPIdentityPair{
 					IP:           net.ParseIP(ip),
 					HostIP:       net.ParseIP(n.NodeIP),
@@ -281,10 +284,10 @@ func (es *endpointSynchronizer) upsert(ctx context.Context, key resource.Key, ob
 					entry.Key = uint8(endpoint.Encryption.Key)
 				}
 
-				scopedLog.Info("Upserting endpoint in etcd")
+				log.Info("Upserting endpoint in etcd")
 				if err := es.store.UpsertKey(ctx, &entry); err != nil {
 					// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-					scopedLog.WithError(err).Warning("Unable to upsert endpoint in etcd")
+					log.Warn("Unable to upsert endpoint in etcd", slog.Any(logfields.Error, err))
 					continue
 				}
 
@@ -314,13 +317,13 @@ func (es *endpointSynchronizer) synced(ctx context.Context) error {
 
 func (es *endpointSynchronizer) deleteEndpoints(ctx context.Context, key resource.Key, ips ipmap) {
 	for ip := range ips {
-		scopedLog := log.WithFields(logrus.Fields{logfields.Endpoint: key.String(), logfields.IPAddr: ip})
-		scopedLog.Info("Deleting endpoint from etcd")
+		log := log.With(slog.Any(logfields.Endpoint, key), slog.String(logfields.IPAddr, ip))
+		log.Info("Deleting endpoint from etcd", logAttrs)
 
 		entry := identity.IPIdentityPair{IP: net.ParseIP(ip)}
 		if err := es.store.DeleteKey(ctx, &entry); err != nil {
 			// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
-			scopedLog.WithError(err).Warning("Unable to delete endpoint from etcd")
+			log.Warn("Unable to delete endpoint from etcd", slog.Any(logfields.Error, err), logAttrs)
 		}
 	}
 }
@@ -356,10 +359,11 @@ func startServer(
 	clusterMeshEnableMCSAPI bool,
 	logger *slog.Logger,
 ) {
-	log.WithFields(logrus.Fields{
-		"cluster-name": cinfo.Name,
-		"cluster-id":   cinfo.ID,
-	}).Info("Starting clustermesh-apiserver...")
+	log.Info(
+		"Starting clustermesh-apiserver...",
+		slog.String("cluster-name", cinfo.Name),
+		slog.Uint64("cluster-id", uint64(cinfo.ID)),
+	)
 
 	config := cmtypes.CiliumClusterConfig{
 		ID: cinfo.ID,
@@ -372,7 +376,7 @@ func startServer(
 
 	_, err := cmutils.EnforceClusterConfig(context.Background(), cinfo.Name, config, backend, log)
 	if err != nil {
-		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
+		logging.Fatal(log, "Unable to set local cluster config on kvstore", slog.Any(logfields.Error, err))
 	}
 
 	ctx := context.Background()

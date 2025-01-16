@@ -12,8 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/dns"               // invoke init
@@ -28,6 +26,7 @@ import (
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/tcp"               // invoke init
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -137,7 +136,7 @@ func InitMetricsServerHandler(srv *http.Server, reg *prometheus.Registry, enable
 	srv.Handler = mux
 }
 
-func StartMetricsServer(srv *http.Server, log logrus.FieldLogger, metricsTLSConfig *certloader.WatchedServerConfig, grpcMetrics *grpc_prometheus.ServerMetrics) error {
+func StartMetricsServer(srv *http.Server, log logging.FieldLogger, metricsTLSConfig *certloader.WatchedServerConfig, grpcMetrics *grpc_prometheus.ServerMetrics) error {
 	if metricsTLSConfig != nil {
 		srv.TLSConfig = metricsTLSConfig.ServerConfig(&tls.Config{ //nolint:gosec
 			MinVersion: serveroption.MinTLSVersion,

@@ -4,10 +4,12 @@
 package endpointmanager
 
 import (
+	"log/slog"
 	"maps"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -22,7 +24,7 @@ func (p *policyMapPressure) Update(ev endpoint.PolicyMapPressureEvent) {
 	p.current[ev.EndpointID] = val
 	p.Unlock()
 
-	log.WithField(logfields.Value, val).Debug("EndpointManager policymap received event")
+	log.Debug("EndpointManager policymap received event", slog.Any(logfields.Value, val))
 
 	p.trigger.Trigger()
 }
@@ -58,7 +60,7 @@ func newPolicyMapPressure() *policyMapPressure {
 		Name:        "endpointmanager-policymap-max-size-metrics",
 	})
 	if err != nil {
-		log.WithError(err).Panic("Failed to initialize trigger for policymap pressure metric")
+		logging.Panic(log, "Failed to initialize trigger for policymap pressure metric", slog.Any(logfields.Error, err))
 	}
 
 	return p

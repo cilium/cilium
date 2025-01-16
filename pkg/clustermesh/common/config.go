@@ -6,14 +6,16 @@ package common
 import (
 	"crypto/sha256"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type Config struct {
@@ -112,10 +114,11 @@ func (cdw *configDirectoryWatcher) handle(abspath string) {
 		// If the corresponding cluster was tracked, then trigger the remove
 		// event, since the configuration file is no longer present/readable
 		if _, tracked := cdw.tracked[filename]; tracked {
-			log.WithFields(logrus.Fields{
-				fieldClusterName: filename,
-				fieldConfig:      abspath,
-			}).Debug("Removed cluster configuration")
+			log.Debug(
+				"Removed cluster configuration",
+				slog.String(fieldClusterName, filename),
+				slog.String(fieldConfig, abspath),
+			)
 
 			// The remove operation returns an error if the file does no longer exists.
 			_ = cdw.cfgWatcher.Remove(abspath)
@@ -132,8 +135,11 @@ func (cdw *configDirectoryWatcher) handle(abspath string) {
 		// This is required to correctly detect file modifications when the folder
 		// is mounted from a Kubernetes ConfigMap/Secret.
 		if err := cdw.cfgWatcher.Add(abspath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			log.WithError(err).WithField(fieldConfig, abspath).
-				Warning("Failed adding explicit path watch for config")
+			log.Warn(
+				"Failed adding explicit path watch for config",
+				slog.Any(logfields.Error, err),
+				slog.String(fieldConfig, abspath),
+			)
 		} else {
 			// There is a small chance that the file content changed in the time
 			// window from reading it at the beginning of the function to establishing
@@ -155,17 +161,21 @@ func (cdw *configDirectoryWatcher) handle(abspath string) {
 		return
 	}
 
-	log.WithFields(logrus.Fields{
-		fieldClusterName: filename,
-		fieldConfig:      abspath,
-	}).Debug("Added or updated cluster configuration")
+	log.Debug(
+		"Added or updated cluster configuration",
+		slog.String(fieldClusterName, filename),
+		slog.String(fieldConfig, abspath),
+	)
 
 	cdw.tracked[filename] = newHash
 	cdw.lifecycle.add(filename, abspath)
 }
 
 func (cdw *configDirectoryWatcher) watch() error {
-	log.WithField(fieldConfigDir, cdw.path).Debug("Starting config directory watcher")
+	log.Debug(
+		"Starting config directory watcher",
+		slog.String(fieldConfigDir, cdw.path),
+	)
 
 	files, err := os.ReadDir(cdw.path)
 	if err != nil {
@@ -187,10 +197,11 @@ func (cdw *configDirectoryWatcher) watch() error {
 
 func (cdw *configDirectoryWatcher) loop() {
 	handle := func(event fsnotify.Event) {
-		log.WithFields(logrus.Fields{
-			fieldConfigDir: cdw.path,
-			fieldEvent:     event,
-		}).Debug("Received fsnotify event")
+		log.Debug(
+			"Received fsnotify event",
+			slog.String(fieldConfigDir, cdw.path),
+			slog.Any(fieldEvent, event),
+		)
 		cdw.handle(event.Name)
 	}
 
@@ -203,12 +214,18 @@ func (cdw *configDirectoryWatcher) loop() {
 			handle(event)
 
 		case err := <-cdw.watcher.Errors:
-			log.WithError(err).WithField(fieldConfigDir, cdw.path).
-				Warning("Error encountered while watching directory with fsnotify")
+			log.Warn(
+				"Error encountered while watching directory with fsnotify",
+				slog.Any(logfields.Error, err),
+				slog.String(fieldConfigDir, cdw.path),
+			)
 
 		case err := <-cdw.cfgWatcher.Errors:
-			log.WithError(err).WithField(fieldConfigDir, cdw.path).
-				Warning("Error encountered while watching individual configuration with fsnotify")
+			log.Warn(
+				"Error encountered while watching individual configuration with fsnotify",
+				slog.Any(logfields.Error, err),
+				slog.String(fieldConfigDir, cdw.path),
+			)
 
 		case <-cdw.stop:
 			return
@@ -217,7 +234,10 @@ func (cdw *configDirectoryWatcher) loop() {
 }
 
 func (cdw *configDirectoryWatcher) close() {
-	log.WithField(fieldConfigDir, cdw.path).Debug("Stopping config directory watcher")
+	log.Debug(
+		"Stopping config directory watcher",
+		slog.String(fieldConfigDir, cdw.path),
+	)
 	close(cdw.stop)
 	cdw.watcher.Close()
 	cdw.cfgWatcher.Close()

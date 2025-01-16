@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -158,8 +159,12 @@ func (n *NameManager) GC(ctx context.Context) error {
 		// namesToClean is only used for logging after this so we can reslice it in place
 		namesToCleanSlice = namesToCleanSlice[:20]
 	}
-	log.WithField(logfields.Controller, dnsGCJobName).Infof(
-		"FQDN garbage collector work deleted %d name entries: %s", namesCount, strings.Join(namesToCleanSlice, ","))
+	log.Info(
+		"FQDN garbage collector work deleted entries",
+		slog.String(logfields.Controller, dnsGCJobName),
+		slog.Int("len-entries", namesCount),
+		slog.String("entries", strings.Join(namesToCleanSlice, ",")),
+	)
 
 	// Remove any now-stale ipcache metadata.
 	// Need to RLock here so we don't race on re-insertion.
@@ -224,11 +229,11 @@ func (n *NameManager) DeleteDNSLookups(expireLookupsBefore time.Time, matchPatte
 func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDNSInfo) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
 	if preCachePath != "" {
-		log.WithField(logfields.Path, preCachePath).Info("Reading toFQDNs pre-cache data")
+		log.Info("Reading toFQDNs pre-cache data")
 		precache, err := readPreCache(preCachePath)
 		if err != nil {
 			// FIXME: add a link to the "documented format"
-			log.WithError(err).WithField(logfields.Path, preCachePath).Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format")
+			log.Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format", slog.Any(logfields.Error, err), slog.String(logfields.Path, preCachePath))
 			// We do not stop the agent here. It is safer to continue with best effort
 			// than to enter crash backoffs when this file is broken.
 		} else {
@@ -274,8 +279,11 @@ func (n *NameManager) RestoreCache(preCachePath string, restoredEPs []EndpointDN
 		// correct identities into IPCache
 		oldSelectors, err := restoreSelectors(checkpointPath)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Path, checkpointPath).Error("Failed to restore FQDN selectors. " +
-				"Expect brief traffic disruptions for ToFQDN destinations during initial endpoint regeneration")
+			log.Error("Failed to restore FQDN selectors. "+
+				"Expect brief traffic disruptions for ToFQDN destinations during initial endpoint regeneration",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.Path, checkpointPath),
+			)
 			return
 		}
 		if len(oldSelectors) == 0 {

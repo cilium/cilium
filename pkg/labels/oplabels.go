@@ -5,8 +5,7 @@ package labels
 
 import (
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -116,14 +115,14 @@ func (o *OpLabels) AllLabels() Labels {
 	return all
 }
 
-func (o *OpLabels) ReplaceInformationLabels(sourceFilter string, l Labels, logger *logrus.Entry) bool {
+func (o *OpLabels) ReplaceInformationLabels(sourceFilter string, l Labels, logger *slog.Logger) bool {
 	changed := false
 	keepers := make(keepMarks)
 	for _, v := range l {
 		keepers.set(v.Key)
 		if o.OrchestrationInfo.upsertLabel(sourceFilter, v) {
 			changed = true
-			logger.WithField(logfields.Object, logfields.Repr(v)).Debug("Assigning information label")
+			logger.Debug("Assigning information label", slog.Any(logfields.Object, v))
 		}
 	}
 	o.OrchestrationInfo.deleteUnMarked(sourceFilter, keepers)
@@ -131,7 +130,7 @@ func (o *OpLabels) ReplaceInformationLabels(sourceFilter string, l Labels, logge
 	return changed
 }
 
-func (o *OpLabels) ReplaceIdentityLabels(sourceFilter string, l Labels, logger *logrus.Entry) bool {
+func (o *OpLabels) ReplaceIdentityLabels(sourceFilter string, l Labels, logger *slog.Logger) bool {
 	changed := false
 
 	keepers := make(keepMarks)
@@ -142,7 +141,7 @@ func (o *OpLabels) ReplaceIdentityLabels(sourceFilter string, l Labels, logger *
 		if _, found := o.Disabled[k]; found {
 			disabledKeepers.set(k)
 		} else if keepers.set(v.Key); o.OrchestrationIdentity.upsertLabel(sourceFilter, v) {
-			logger.WithField(logfields.Object, logfields.Repr(v)).Debug("Assigning security relevant label")
+			logger.Debug("Assigning security relevant label", slog.Any(logfields.Object, v))
 			changed = true
 		}
 	}

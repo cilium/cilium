@@ -6,10 +6,10 @@ package nodemap
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"unsafe"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -56,7 +56,7 @@ func newMapV2(mapName string, v1MapName string, conf Config) *nodeMapV2 {
 	v1Map := newMap(v1MapName, conf)
 
 	if err := v1Map.init(); err != nil {
-		log.WithError(err).Error("failed to init v1 node map")
+		log.Error("failed to init v1 node map", slog.Any(logfields.Error, err))
 		return nil
 	}
 
@@ -124,12 +124,18 @@ func (m *nodeMapV2) IterateWithCallback(cb NodeIterateCallbackV2) error {
 		func(k, v interface{}) {
 			key, ok := k.(*NodeKey)
 			if !ok {
-				log.WithField("key", k).Error("failed to cast key to NodeKey")
+				log.Error(
+					"failed to cast key to NodeKey",
+					slog.Any("key", k),
+				)
 				return
 			}
 			value, ok := v.(*NodeValueV2)
 			if !ok {
-				log.WithField("value", v).Error("failed to cast value to NodeValueV2")
+				log.Error(
+					"failed to cast value to NodeValueV2",
+					slog.Any("value", k),
+				)
 				return
 			}
 
@@ -206,9 +212,11 @@ func (m *nodeMapV2) migrateV1(NodeMapName string, EncryptMapName string) error {
 		m.bpfMap.Put(k, &v2)
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.SPI: SPI,
-	}).Debugf("Migrated %v V1 node map entries to V2", count)
+	log.Debug(
+		"Migrated V1 node map entries to V2",
+		slog.Uint64(logfields.SPI, uint64(SPI)),
+		slog.Int("num-entries", count),
+	)
 
 	err = nodeMap.IterateWithCallback(parse)
 	if err != nil {

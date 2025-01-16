@@ -4,22 +4,27 @@
 package utils
 
 import (
+	"log/slog"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const eniIndexTagKey = "cilium-eni-index"
 
 // GetENIIndexFromTags get ENI index from tags
-func GetENIIndexFromTags(tags map[string]string) int {
+func GetENIIndexFromTags(logger logging.FieldLogger, tags map[string]string) int {
 	v, ok := tags[eniIndexTagKey]
 	if !ok {
 		return 0
 	}
 	index, err := strconv.Atoi(v)
 	if err != nil {
-		logrus.WithError(err).Warning("Unable to retrieve index from ENI")
+		logger.Warn(
+			"Unable to retrieve index from ENI",
+			slog.Any(logfields.Error, err),
+		)
 	}
 	return index
 }

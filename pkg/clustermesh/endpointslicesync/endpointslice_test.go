@@ -5,12 +5,12 @@ package endpointslicesync
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -91,7 +91,7 @@ func getEndpointSlice(clientset k8sClient.Clientset, svcName string) (*discovery
 func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	var fakeClient *k8sClient.FakeClientset
 	var services resource.Resource[*slim_corev1.Service]
-	logger := logrus.New()
+	logger := slog.Default()
 	hive := hive.New(
 		k8sClient.FakeClientCell,
 		k8s.ResourcesCell,

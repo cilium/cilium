@@ -7,8 +7,10 @@
 package ingestion
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ingestion")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ingestion"))

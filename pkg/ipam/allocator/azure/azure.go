@@ -6,6 +6,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -20,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-azure")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ipam-allocator-azure"))
 
 // AllocatorAzure is an implementation of IPAM allocator interface for Azure
 type AllocatorAzure struct{}
@@ -52,7 +53,7 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 			return nil, fmt.Errorf("Azure subscription ID was not specified via CLI and retrieving it from the Azure IMS was not possible: %w", err)
 		}
 		subscriptionID = subID
-		log.WithField("subscriptionID", subscriptionID).Debug("Detected subscriptionID via Azure IMS")
+		log.Debug("Detected subscriptionID via Azure IMS", slog.Any("subscriptionID", subscriptionID))
 	}
 
 	resourceGroupName := operatorOption.Config.AzureResourceGroup
@@ -63,7 +64,7 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 			return nil, fmt.Errorf("Azure resource group name was not specified via CLI and retrieving it from the Azure IMS was not possible: %w", err)
 		}
 		resourceGroupName = rgName
-		log.WithField("resourceGroupName", resourceGroupName).Debug("Detected resource group name via Azure IMS")
+		log.Debug("Detected resource group name via Azure IMS", slog.Any("resourceGroupName", resourceGroupName))
 	}
 
 	if operatorOption.Config.EnableMetrics {

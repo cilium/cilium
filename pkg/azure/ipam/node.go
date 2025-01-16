@@ -6,8 +6,7 @@ package ipam
 import (
 	"context"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -55,7 +54,7 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 }
 
 // PrepareIPRelease prepares the release of IPs
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
+func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *ipam.ReleaseAction {
 	return &ipam.ReleaseAction{}
 }
 
@@ -65,7 +64,7 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 }
 
 // PrepareIPAllocation returns the number of IPs that can be allocated/created.
-func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
+func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *ipam.AllocationAction, err error) {
 	a = &ipam.AllocationAction{}
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
 	n.manager.mutex.RLock()
@@ -84,10 +83,11 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 		a.IPv4.InterfaceCandidates++
 
 		if a.InterfaceID == "" {
-			scopedLog.WithFields(logrus.Fields{
-				"id":                   iface.ID,
-				"availableOnInterface": availableOnInterface,
-			}).Debug("Interface has IPs available")
+			scopedLog.Debug(
+				"Interface has IPs available",
+				slog.String("id", iface.ID),
+				slog.Int("availableOnInterface", availableOnInterface),
+			)
 
 			preferredPoolIDs := []ipamTypes.PoolID{}
 			for _, address := range iface.Addresses {
@@ -98,10 +98,11 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 			poolID, available := n.manager.subnets.FirstSubnetWithAvailableAddresses(preferredPoolIDs)
 			if poolID != ipamTypes.PoolNotExists {
-				scopedLog.WithFields(logrus.Fields{
-					"subnetID":           poolID,
-					"availableAddresses": available,
-				}).Debug("Subnet has IPs available")
+				scopedLog.Debug(
+					"Subnet has IPs available",
+					slog.Any("subnetID", poolID),
+					slog.Int("availableAddresses", available),
+				)
 
 				a.InterfaceID = iface.ID
 				a.Interface = interfaceObj
@@ -136,13 +137,13 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 
 // CreateInterface is called to create a new interface. This operation is
 // currently not supported on Azure.
-func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
+func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *slog.Logger) (int, string, error) {
 	return 0, "", fmt.Errorf("not implemented")
 }
 
 // ResyncInterfacesAndIPs is called to retrieve interfaces and IPs known
 // to the Azure API and return them
-func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (
+func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logger) (
 	available ipamTypes.AllocationMap,
 	stats stats.InterfaceStats,
 	err error) {
@@ -163,17 +164,21 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	err = n.manager.instances.ForeachAddress(n.node.InstanceID(), func(instanceID, interfaceID, ip, poolID string, addressObj ipamTypes.Address) error {
 		address, ok := addressObj.(types.AzureAddress)
 		if !ok {
-			scopedLog.WithField("ip", ip).Warning("Not an Azure address object, ignoring IP")
+			scopedLog.Warn(
+				"Not an Azure address object, ignoring IP",
+				slog.String("ip", ip),
+			)
 			return nil
 		}
 
 		if address.State == types.StateSucceeded {
 			available[address.IP] = ipamTypes.AllocationIP{Resource: interfaceID}
 		} else {
-			scopedLog.WithFields(logrus.Fields{
-				"ip":    address.IP,
-				"state": address.State,
-			}).Warning("Ignoring potentially available IP due to non-successful state")
+			scopedLog.Warn(
+				"Ignoring potentially available IP due to non-successful state",
+				slog.String("ip", address.IP),
+				slog.String("state", address.State),
+			)
 		}
 		return nil
 	})
@@ -227,21 +232,23 @@ func (n *Node) GetUsedIPWithPrefixes() int {
 }
 
 // isAvailableInterface returns whether interface is available and the number of available IPs to allocate in interface
-func isAvailableInterface(requiredIfaceName string, iface *types.AzureInterface, scopedLog *logrus.Entry) (availableOnInterface int, available bool) {
+func isAvailableInterface(requiredIfaceName string, iface *types.AzureInterface, scopedLog *slog.Logger) (availableOnInterface int, available bool) {
 	if requiredIfaceName != "" {
 		if iface.Name != requiredIfaceName {
-			scopedLog.WithFields(logrus.Fields{
-				"ifaceName":    iface.Name,
-				"requiredName": requiredIfaceName,
-			}).Debug("Not considering interface as available since it does not match the required name")
+			scopedLog.Debug(
+				"Not considering interface as available since it does not match the required name",
+				slog.String("ifaceName", iface.Name),
+				slog.String("requiredName", requiredIfaceName),
+			)
 			return 0, false
 		}
 	}
 
-	scopedLog.WithFields(logrus.Fields{
-		"id":           iface.ID,
-		"numAddresses": len(iface.Addresses),
-	}).Debug("Considering interface as available")
+	scopedLog.Debug(
+		"Considering interface as available",
+		slog.String("id", iface.ID),
+		slog.Int("numAddresses", len(iface.Addresses)),
+	)
 
 	availableOnInterface = max(types.InterfaceAddressLimit-len(iface.Addresses), 0)
 	if availableOnInterface <= 0 {

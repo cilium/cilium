@@ -6,6 +6,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -105,7 +108,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 			})
 
 			if err != nil {
-				log.WithError(err).Fatal("Unable to setup node watcher")
+				logging.Fatal(log, "Unable to setup node watcher", slog.Any(logfields.Error, err))
 			}
 			close(connectedToKVStore)
 
@@ -209,7 +212,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 			AddFunc: func(obj interface{}) {
 				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 				if err != nil {
-					log.WithError(err).Warning("Unable to process CiliumNode Add event")
+					log.Warn("Unable to process CiliumNode Add event", slog.Any(logfields.Error, err))
 					return
 				}
 				if s.nodeManager != nil {
@@ -227,7 +230,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 						}
 						key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(newObj)
 						if err != nil {
-							log.WithError(err).Warning("Unable to process CiliumNode Update event")
+							log.Warn("Unable to process CiliumNode Update event", slog.Any(logfields.Error, err))
 							return
 						}
 						if s.nodeManager != nil {
@@ -237,16 +240,24 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup, 
 							kvStoreQueue.Add(key)
 						}
 					} else {
-						log.Warningf("Unknown CiliumNode object type %T received: %+v", newNode, newNode)
+						log.Warn(
+							"Unknown CiliumNode object type received",
+							slog.Any("type", reflect.TypeOf(newNode)),
+							slog.Any("node", newNode),
+						)
 					}
 				} else {
-					log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
+					log.Warn(
+						"Unknown CiliumNode object type received",
+						slog.Any("type", reflect.TypeOf(oldNode)),
+						slog.Any("node", oldNode),
+					)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 				if err != nil {
-					log.WithError(err).Warning("Unable to process CiliumNode Delete event")
+					log.Warn("Unable to process CiliumNode Delete event", slog.Any(logfields.Error, err))
 					return
 				}
 				if s.nodeManager != nil {
@@ -320,7 +331,7 @@ func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler, foundHa
 	return func(key string) error {
 		_, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
-			log.WithError(err).Error("Unable to process CiliumNode event")
+			log.Error("Unable to process CiliumNode event", slog.Any(logfields.Error, err))
 			return err
 		}
 		obj, exists, err := s.ciliumNodeStore.GetByKey(name)
@@ -334,7 +345,7 @@ func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler, foundHa
 			})
 		}
 		if err != nil {
-			log.WithError(err).Warning("Unable to retrieve CiliumNode from watcher store")
+			log.Warn("Unable to retrieve CiliumNode from watcher store", slog.Any(logfields.Error, err))
 			return err
 		}
 		cn, ok := obj.(*cilium_v2.CiliumNode)
@@ -373,7 +384,7 @@ func (s *ciliumNodeSynchronizer) processNextWorkItem(queue workqueue.TypedRateLi
 		// If err is nil we can forget it from the queue, if it is not nil
 		// the queue handler will retry to process this key until it succeeds.
 		if queue.NumRequeues(key) > 0 {
-			log.WithField(logfields.NodeName, key).Info("CiliumNode successfully reconciled after retries")
+			log.Info("CiliumNode successfully reconciled after retries", slog.Any(logfields.NodeName, key))
 		}
 		queue.Forget(key)
 		return true
@@ -381,9 +392,13 @@ func (s *ciliumNodeSynchronizer) processNextWorkItem(queue workqueue.TypedRateLi
 
 	const silentRetries = 5
 	if queue.NumRequeues(key) < silentRetries {
-		log.WithError(err).WithField(logfields.NodeName, key).Info("Failed reconciling CiliumNode, will retry")
+		log.Info("Failed reconciling CiliumNode, will retry", slog.Any(logfields.Error, err), slog.Any(logfields.NodeName, key))
 	} else {
-		log.WithError(err).WithField(logfields.NodeName, key).Warning("Failed reconciling CiliumNode, will retry")
+		log.Warn(
+			"Failed reconciling CiliumNode, will retry",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.NodeName, key),
+		)
 	}
 
 	queue.AddRateLimited(key)

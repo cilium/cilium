@@ -4,6 +4,7 @@
 package bpf
 
 import (
+	"log/slog"
 	"sync/atomic"
 
 	"github.com/cilium/ebpf"
@@ -13,7 +14,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bpf")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "bpf"))
 
 	preAllocateMapSetting uint32 = BPF_F_NO_PREALLOC
 )

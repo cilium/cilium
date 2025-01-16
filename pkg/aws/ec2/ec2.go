@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -53,7 +54,7 @@ const (
 	UnassignPrivateIpAddresses      = "UnassignPrivateIpAddresses"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ec2")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ec2"))
 
 // Client represents an EC2 API client
 type Client struct {
@@ -624,8 +625,11 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int32, s
 		Groups:      groups,
 	}
 	if allocatePrefixes {
-		input.Ipv4PrefixCount = aws.Int32(int32(ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)))
-		log.Debugf("Creating interface with %v prefixes", input.Ipv4PrefixCount)
+		prefixCount := ipPkg.PrefixCeil(int(toAllocate), option.ENIPDBlockSizeIPv4)
+		input.Ipv4PrefixCount = aws.Int32(int32(prefixCount))
+		log.Debug("Creating interface with prefixes",
+			slog.Int("prefix-count", prefixCount),
+		)
 	} else {
 		input.SecondaryPrivateIpAddressCount = aws.Int32(toAllocate)
 	}
@@ -787,7 +791,11 @@ func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ip
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Found %d EIPs corresponding to tags %v", len(addresses.Addresses), eipTags)
+	log.Info(
+		"Found EIPs corresponding to tags",
+		slog.Int("len-EIPs", len(addresses.Addresses)),
+		slog.Any("tags", eipTags),
+	)
 
 	for _, address := range addresses.Addresses {
 		// Only pick unassociated EIPs
@@ -804,7 +812,12 @@ func (c *Client) AssociateEIP(ctx context.Context, instanceID string, eipTags ip
 			if err != nil {
 				return "", err
 			}
-			log.Infof("Associated EIP %s with instance %s (association ID: %s)", *address.PublicIp, instanceID, *association.AssociationId)
+			log.Info(
+				"Associated EIP successfully",
+				slog.String("EIP", *address.PublicIp),
+				slog.String("instance", instanceID),
+				slog.String("association-ID", *association.AssociationId),
+			)
 			return *address.PublicIp, nil
 		}
 	}

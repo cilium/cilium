@@ -5,6 +5,7 @@ package reconciler
 
 import (
 	"context"
+	"log/slog"
 	"sort"
 
 	"github.com/cilium/hive/cell"
@@ -52,7 +53,7 @@ var ConfigReconcilers = cell.Provide(
 )
 
 // log is the logger used by the reconcilers
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "bgp-control-plane"))
 
 func GetActiveReconcilers(reconcilers []ConfigReconciler) []ConfigReconciler {
 	recMap := make(map[string]ConfigReconciler)
@@ -62,23 +63,31 @@ func GetActiveReconcilers(reconcilers []ConfigReconciler) []ConfigReconciler {
 		}
 		if existing, exists := recMap[r.Name()]; exists {
 			if existing.Priority() == r.Priority() {
-				log.Warnf("Skipping duplicate BGP v1 reconciler %s with the same priority (%d)", existing.Name(), existing.Priority())
+				log.Warn("Skipping duplicate BGP v1 reconciler with the same priority", slog.String("reconciler", existing.Name()), slog.Int("priority", existing.Priority()))
 				continue
 			}
 			if existing.Priority() < r.Priority() {
-				log.Debugf("Skipping BGP v1 reconciler %s (priority %d) as it has lower priority than the existing one (%d)",
-					r.Name(), r.Priority(), existing.Priority())
+				log.Debug(
+					"Skipping BGP v1 reconcileras it has lower priority than the existing one",
+					slog.String("reconciler", r.Name()),
+					slog.Int("priority", r.Priority()),
+					slog.Int("existing-priority", existing.Priority()),
+				)
 				continue
 			}
-			log.Debugf("Overriding existing BGP v1 reconciler %s (priority %d) with higher priority one (%d)",
-				existing.Name(), existing.Priority(), r.Priority())
+			log.Debug(
+				"Overriding existing BGP v1 reconciler with a higher priority one",
+				slog.String("reconciler", existing.Name()),
+				slog.Int("priority", existing.Priority()),
+				slog.Int("existing-priority", r.Priority()),
+			)
 		}
 		recMap[r.Name()] = r
 	}
 
 	var activeReconcilers []ConfigReconciler
 	for _, r := range recMap {
-		log.Debugf("Adding BGP v1 reconciler: %v (priority %d)", r.Name(), r.Priority())
+		log.Debug("Adding BGP v1 reconciler", slog.String("name", r.Name()), slog.Int("priority", r.Priority()))
 		activeReconcilers = append(activeReconcilers, r)
 	}
 	sort.Slice(activeReconcilers, func(i, j int) bool {

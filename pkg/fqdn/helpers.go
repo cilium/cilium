@@ -4,14 +4,15 @@
 package fqdn
 
 import (
+	"log/slog"
 	"net/netip"
 	"regexp"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -28,11 +29,12 @@ func (n *NameManager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (
 		dnsName := prepareMatchName(fqdnSelector.MatchName)
 		lookupIPs := n.cache.Lookup(dnsName)
 		if len(lookupIPs) > 0 {
-			log.WithFields(logrus.Fields{
-				"DNSName":   dnsName,
-				"IPs":       lookupIPs,
-				"matchName": fqdnSelector.MatchName,
-			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+			log.Debug(
+				"Emitting matching DNS Name -> IPs for FQDNSelector",
+				slog.String("DNSName", dnsName),
+				slog.Any("IPs", lookupIPs),
+				slog.String("matchName", fqdnSelector.MatchName),
+			)
 			namesIPMapping[dnsName] = lookupIPs
 		}
 	}
@@ -47,19 +49,20 @@ func (n *NameManager) mapSelectorsToNamesLocked(fqdnSelector api.FQDNSelector) (
 		)
 
 		if patternRE, err = re.CompileRegex(patternREStr); err != nil {
-			log.WithError(err).Error("Error compiling matchPattern")
+			log.Error("Error compiling matchPattern", slog.Any(logfields.Error, err))
 			return namesIPMapping
 		}
 		lookupIPs := n.cache.LookupByRegexp(patternRE)
 
 		for dnsName, ips := range lookupIPs {
 			if len(ips) > 0 {
-				if log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-					log.WithFields(logrus.Fields{
-						"DNSName":      dnsName,
-						"IPs":          ips,
-						"matchPattern": fqdnSelector.MatchPattern,
-					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+				if logging.CanLogAt(log, slog.LevelDebug) {
+					log.Debug(
+						"Emitting matching DNS Name -> IPs for FQDNSelector",
+						slog.String("DNSName", dnsName),
+						slog.Any("IPs", ips),
+						slog.String("matchPattern", fqdnSelector.MatchPattern),
+					)
 				}
 				namesIPMapping[dnsName] = append(namesIPMapping[dnsName], ips...)
 			}

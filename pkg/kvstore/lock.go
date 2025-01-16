@@ -6,15 +6,15 @@ package kvstore
 import (
 	"context"
 	"fmt"
-
-	"github.com/davecgh/go-spew/spew"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/google/uuid"
 )
 
 var (
@@ -70,7 +70,7 @@ func (pl *pathLocks) runGC() {
 	pl.mutex.Lock()
 	for path, owner := range pl.lockPaths {
 		if time.Since(owner.created) > staleLockTimeout {
-			log.WithField("path", path).Error("Forcefully unlocking local kvstore lock")
+			log.Error("Forcefully unlocking local kvstore lock", slog.String("path", path))
 			delete(pl.lockPaths, path)
 		}
 	}
@@ -129,12 +129,12 @@ func LockPath(ctx context.Context, backend BackendOperations, path string) (l *L
 	lock, err := backend.LockPath(ctx, path)
 	if err != nil {
 		kvstoreLocks.unlock(path, id)
-		Trace("Failed to lock", err, logrus.Fields{fieldKey: path})
+		Trace("Failed to lock", err, slog.String(fieldKey, path))
 		err = fmt.Errorf("error while locking path %s: %w", path, err)
 		return nil, err
 	}
 
-	Trace("Successful lock", err, logrus.Fields{fieldKey: path})
+	Trace("Successful lock", err, slog.String(fieldKey, path))
 	return &Lock{kvLock: lock, path: path, id: id}, err
 }
 
@@ -154,12 +154,12 @@ func (l *Lock) Unlock(ctx context.Context) error {
 	// Unlock kvstore mutex first
 	err := l.kvLock.Unlock(ctx)
 	if err != nil {
-		log.WithError(err).WithField("path", l.path).Error("Unable to unlock kvstore lock")
+		log.Error("Unable to unlock kvstore lock", slog.Any(logfields.Error, err), slog.String("path", l.path))
 	}
 
 	// unlock local lock even if kvstore cannot be unlocked
 	kvstoreLocks.unlock(l.path, l.id)
-	Trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
+	Trace("Unlocked", nil, slog.String(fieldKey, l.path))
 
 	return err
 }

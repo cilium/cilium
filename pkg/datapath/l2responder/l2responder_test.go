@@ -6,6 +6,7 @@ package l2responder
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"testing"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
@@ -63,7 +63,7 @@ func newFixture(t testing.TB) *fixture {
 	return &fixture{
 		reconciler: NewL2ResponderReconciler(params{
 			Lifecycle:           &cell.DefaultLifecycle{},
-			Logger:              logrus.New(),
+			Logger:              slog.Default(),
 			L2AnnouncementTable: tbl,
 			StateDB:             db,
 			L2ResponderMap:      m,

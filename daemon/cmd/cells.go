@@ -4,11 +4,8 @@
 package cmd
 
 import (
+	"log/slog"
 	"net/http"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
@@ -69,6 +66,8 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 )
 
 var (
@@ -326,7 +325,7 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.
 	s.ReadTimeout = apiTimeout
 	s.WriteTimeout = apiTimeout
 
-	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
+	msg := "Required API option is disabled. This may prevent Cilium from operating correctly"
 	hint := "Consider enabling this API in " + server.AdminEnableFlag
 	for _, requiredAPI := range []string{
 		"GetConfig",        // CNI: Used to detect detect IPAM mode
@@ -337,10 +336,11 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.
 		"DeleteIPAMIP",     // CNI: Release IPs for deleted Pods
 	} {
 		if _, denied := swaggerSpec.DeniedAPIs[requiredAPI]; denied {
-			log.WithFields(logrus.Fields{
-				logfields.Hint:   hint,
-				logfields.Params: requiredAPI,
-			}).Warning(msg)
+			log.Warn(
+				msg,
+				slog.Any(logfields.Hint, hint),
+				slog.Any(logfields.Params, requiredAPI),
+			)
 		}
 	}
 	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)

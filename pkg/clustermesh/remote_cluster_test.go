@@ -6,13 +6,13 @@ package clustermesh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -163,7 +163,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					StoreFactory:          store,
 					ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 					FeatureMetrics:        NewClusterMeshMetricsNoop(),
-					Logger:                logrus.New(),
+					Logger:                slog.Default(),
 				},
 				globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),
 				FeatureMetrics: NewClusterMeshMetricsNoop(),
@@ -295,7 +295,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			StoreFactory:          store,
 			ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 			FeatureMetrics:        NewClusterMeshMetricsNoop(),
-			Logger:                logrus.New(),
+			Logger:                slog.Default(),
 		},
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
 		globalServices: common.NewGlobalServiceCache(metrics.NoOpGauge),

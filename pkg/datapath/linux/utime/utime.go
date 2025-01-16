@@ -9,6 +9,8 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/sagikazarmark/slog-shim"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/maps/configmap"
@@ -79,7 +81,7 @@ func getCurrentUTimeOffset() UTime {
 	// boottime is in seconds since Unix epoch, delta is clock drift in nanoseconds
 	boottime, err := getBoottime()
 	if err != nil {
-		log.WithError(err).Errorf("Error getting boot time from %s", btimeInfoFilepath)
+		log.Error("Error getting boot time from file", slog.String("file", btimeInfoFilepath), slog.Any(logfields.Error, err))
 	}
 	return TimeToUTime(boottime)
 }

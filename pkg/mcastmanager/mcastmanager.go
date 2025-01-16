@@ -4,9 +4,8 @@
 package mcastmanager
 
 import (
+	"log/slog"
 	"net/netip"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -15,7 +14,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "mcast-manager")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "mcast-manager"))
 )
 
 // MCastManager manages IPv6 address
@@ -88,14 +87,15 @@ func (mgr *MCastManager) RemoveAddress(ipv6 netip.Addr) {
 func (mgr *MCastManager) joinGroup(ipv6 netip.Addr) {
 	maddr := multicast.Address(ipv6).SolicitedNodeMaddr()
 	if err := multicast.JoinGroup(mgr.iface, maddr); err != nil {
-		log.WithError(err).WithField("maddr", maddr).Warn("failed to join multicast group")
+		log.Warn("failed to join multicast group", slog.Any(logfields.Error, err), slog.Any("maddr", maddr))
 		return
 	}
 
-	log.WithFields(logrus.Fields{
-		"device": mgr.iface,
-		"mcast":  maddr,
-	}).Info("Joined multicast group")
+	log.Info(
+		"Joined multicast group",
+		slog.String("device", mgr.iface),
+		slog.Any("mcast", maddr),
+	)
 
 	mgr.state[maddr] = struct{}{}
 }
@@ -103,14 +103,15 @@ func (mgr *MCastManager) joinGroup(ipv6 netip.Addr) {
 func (mgr *MCastManager) leaveGroup(ipv6 netip.Addr) {
 	maddr := multicast.Address(ipv6).SolicitedNodeMaddr()
 	if err := multicast.LeaveGroup(mgr.iface, maddr); err != nil {
-		log.WithError(err).WithField("maddr", maddr).Warn("failed to leave multicast group")
+		log.Warn("failed to leave multicast group", slog.Any(logfields.Error, err), slog.Any("maddr", maddr))
 		return
 	}
 
-	log.WithFields(logrus.Fields{
-		"device": mgr.iface,
-		"mcast":  maddr,
-	}).Info("Left multicast group")
+	log.Info(
+		"Left multicast group",
+		slog.String("device", mgr.iface),
+		slog.Any("mcast", maddr),
+	)
 
 	delete(mgr.state, maddr)
 }

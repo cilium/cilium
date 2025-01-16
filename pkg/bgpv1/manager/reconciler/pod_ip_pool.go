@@ -6,12 +6,10 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
-
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -21,6 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/hive/cell"
 )
 
 const (
@@ -88,11 +88,7 @@ func (r *PodIPPoolReconciler) getMetadata(sc *instance.ServerWithConfig) PodIPPo
 // keyed by the pool name.
 func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2api.CiliumNode) map[string][]netip.Prefix {
 	var (
-		l = log.WithFields(
-			logrus.Fields{
-				"component": "PodIPPoolReconciler",
-			},
-		)
+		logAttrs = slog.String("component", "PodIPPoolReconciler")
 	)
 
 	if localNode == nil {
@@ -106,7 +102,7 @@ func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2api.CiliumNode) ma
 			if p, err := cidr.ToPrefix(); err == nil {
 				prefixes = append(prefixes, *p)
 			} else {
-				l.Errorf("invalid ipam pool cidr %v: %v", cidr, err)
+				log.Error("invalid ipam pool cidr", slog.Any(logfields.Error, err), slog.Any("cidr", cidr), logAttrs)
 			}
 		}
 		lp[pool.Pool] = prefixes

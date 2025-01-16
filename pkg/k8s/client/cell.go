@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	apiext_clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +39,7 @@ import (
 	slim_metav1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1"
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -119,16 +120,16 @@ type compositeClientset struct {
 	controller    *controller.Manager
 	slim          *SlimClientset
 	config        Config
-	log           logrus.FieldLogger
+	log           logging.FieldLogger
 	closeAllConns func()
 	restConfig    *rest.Config
 }
 
-func newClientset(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
+func newClientset(lc cell.Lifecycle, log logging.FieldLogger, cfg Config) (Clientset, error) {
 	return newClientsetForUserAgent(lc, log, cfg, "")
 }
 
-func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, name string) (Clientset, error) {
+func newClientsetForUserAgent(lc cell.Lifecycle, log logging.FieldLogger, cfg Config, name string) (Clientset, error) {
 	if !cfg.isEnabled() {
 		return &compositeClientset{disabled: true}, nil
 	}
@@ -366,7 +367,7 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 	defer timeout.Stop()
 	var err error
 	wait.Until(func() {
-		c.log.WithField("host", c.restConfig.Host).Info("Establishing connection to apiserver")
+		c.log.Info("Establishing connection to apiserver", slog.String("host", c.restConfig.Host))
 		err = isConnReady(c)
 		if err == nil {
 			close(stop)
@@ -380,7 +381,11 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 			return
 		}
 
-		c.log.WithError(err).WithField(logfields.IPAddr, c.restConfig.Host).Error("Unable to contact k8s api-server")
+		c.log.Error(
+			"Unable to contact k8s api-server",
+			slog.Any(logfields.Error, err),
+			slog.String(logfields.IPAddr, c.restConfig.Host),
+		)
 		close(stop)
 	}, 5*time.Second, stop)
 	if err == nil {
@@ -402,7 +407,7 @@ func setDialer(cfg Config, restConfig *rest.Config) func() {
 	return dialer.CloseAll
 }
 
-func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error, timeout time.Duration, closeAllConns ...func()) {
+func runHeartbeat(log logging.FieldLogger, heartBeat func(context.Context) error, timeout time.Duration, closeAllConns ...func()) {
 	expireDate := time.Now().Add(-timeout)
 	// Don't even perform a health check if we have received a successful
 	// k8s event in the last 'timeout' duration
@@ -433,7 +438,7 @@ func runHeartbeat(log logrus.FieldLogger, heartBeat func(context.Context) error,
 	select {
 	case err := <-done:
 		if err != nil {
-			log.WithError(err).Warn("Network status error received, restarting client connections")
+			log.Warn("Network status error received, restarting client connections", slog.Any(logfields.Error, err))
 			for _, fn := range closeAllConns {
 				fn()
 			}
@@ -462,7 +467,7 @@ type ClientBuilderFunc func(name string) (Clientset, error)
 // NewClientBuilder returns a function that creates a new Clientset with the given
 // name appended to the user agent, or returns an error if the Clientset cannot be
 // created.
-func NewClientBuilder(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config) ClientBuilderFunc {
+func NewClientBuilder(lc cell.Lifecycle, log logging.FieldLogger, cfg Config) ClientBuilderFunc {
 	return func(name string) (Clientset, error) {
 		c, err := newClientsetForUserAgent(lc, log, cfg, name)
 		if err != nil {

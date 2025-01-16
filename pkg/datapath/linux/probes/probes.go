@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net"
 	"os"
@@ -33,7 +34,7 @@ import (
 )
 
 var (
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
+	log          = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "probes"))
 	once         sync.Once
 	probeManager *ProbeManager
 	tpl          = template.New("headerfile")
@@ -61,7 +62,8 @@ func init() {
 	var err error
 	tpl, err = tpl.Parse(content)
 	if err != nil {
-		log.WithError(err).Fatal("could not parse headerfile template")
+		log.Error("could not parse headerfile template", slog.Any(logfields.Error, err))
+		panic("could not parse headerfile template")
 	}
 }
 
@@ -204,10 +206,12 @@ func (*ProbeManager) Probe() Features {
 		"bpftool", "-j", "feature", "probe",
 	).CombinedOutput(log, true)
 	if err != nil {
-		log.WithError(err).Fatal("could not run bpftool")
+		log.Error("could not run bpftool", slog.Any(logfields.Error, err))
+		panic("could not run bpftool")
 	}
 	if err := json.Unmarshal(out, &features); err != nil {
-		log.WithError(err).Fatal("could not parse bpftool output")
+		log.Error("could not parse bpftool output", slog.Any(logfields.Error, err))
+		panic("could not parse bpftool output")
 	}
 	return features
 }
@@ -242,7 +246,13 @@ func (p *ProbeManager) SystemConfigProbes() error {
 			if kernelOption.CanBeModule {
 				module = " or module"
 			}
-			log.Warningf("%s optional kernel parameter%s is not in kernel (needed for: %s)", param, module, kernelOption.Description)
+			log.Warn("optional kernel parameters is not in kernel",
+				slog.Group("optional-parameter",
+					slog.Any("parameter", param),
+					slog.Any("module", module),
+					slog.Any("need-for", kernelOption.Description),
+				),
+			)
 		}
 	}
 	return nil
@@ -353,7 +363,12 @@ func HaveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).WithField("programtype", pt).WithField("helper", helper).Fatal("failed to probe helper")
+		log.Error("failed to probe helper",
+			slog.Any(logfields.Error, err),
+			slog.Any("programtype", pt),
+			slog.Any("helper", helper),
+		)
+		panic("failed to probe helper")
 	}
 	return nil
 }
@@ -367,7 +382,8 @@ func HaveLargeInstructionLimit() error {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).Fatal("failed to probe large instruction limit")
+		log.Error("failed to probe large instruction limit", slog.Any(logfields.Error, err))
+		panic("failed to probe large instruction limit")
 	}
 	return nil
 }
@@ -381,7 +397,8 @@ func HaveBoundedLoops() error {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).Fatal("failed to probe bounded loops")
+		log.Error("failed to probe bounded loops", slog.Any(logfields.Error, err))
+		panic("failed to probe bounded loops")
 	}
 	return nil
 }
@@ -409,7 +426,8 @@ func HaveV2ISA() error {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).Fatal("failed to probe V2 ISA")
+		log.Error("failed to probe V2 ISA", slog.Any(logfields.Error, err))
+		panic("failed to probe V2 ISA")
 	}
 	return nil
 }
@@ -423,7 +441,8 @@ func HaveV3ISA() error {
 		return err
 	}
 	if err != nil {
-		log.WithError(err).Fatal("failed to probe V3 ISA")
+		log.Error("failed to probe V3 ISA", slog.Any(logfields.Error, err))
+		panic("failed to probe V3 ISA")
 	}
 	return nil
 }
@@ -522,7 +541,8 @@ var HaveNetkit = sync.OnceValue(func() error {
 func HaveSKBAdjustRoomL2RoomMACSupport() (err error) {
 	defer func() {
 		if err != nil && !errors.Is(err, ebpf.ErrNotSupported) {
-			log.WithError(err).Fatal("failed to probe for bpf_skb_adjust_room L2 room MAC support")
+			log.Error("failed to probe for bpf_skb_adjust_room L2 room MAC support", slog.Any(logfields.Error, err))
+			panic("failed to probe for bpf_skb_adjust_room L2 room MAC support")
 		}
 	}()
 

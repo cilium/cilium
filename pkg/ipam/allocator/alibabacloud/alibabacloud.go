@@ -6,6 +6,7 @@ package alibabacloud
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
@@ -29,7 +30,7 @@ import (
 // https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-listtagresources
 const MaxInstanceTags = 20
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-alibaba-cloud")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ipam-allocator-alibaba-cloud"))
 
 // AllocatorAlibabaCloud is an implementation of IPAM allocator interface for AlibabaCloud ENI
 type AllocatorAlibabaCloud struct {

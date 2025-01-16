@@ -5,6 +5,7 @@ package ingress
 
 import (
 	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,8 +124,10 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 		case string(corev1.ServiceTypeLoadBalancer):
 			// Do nothing as the port number is allocated by the cloud provider.
 		default:
-			log.WithField(logfields.ServiceType, service.Type).
-				Warn("only LoadBalancer and NodePort are supported. Defaulting to LoadBalancer")
+			log.Warn(
+				"only LoadBalancer and NodePort are supported. Defaulting to LoadBalancer",
+				slog.Any(logfields.ServiceType, service.Type),
+			)
 		}
 	}
 

@@ -6,6 +6,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -17,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "policy-api"))
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
@@ -169,8 +170,11 @@ func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sL
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		log.WithError(err).WithField(logfields.EndpointLabelSelector,
-			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
+		log.Error(
+			"unable to construct selector in label selector",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.EndpointLabelSelector, labelSelector),
+		)
 		return nil
 	}
 	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()

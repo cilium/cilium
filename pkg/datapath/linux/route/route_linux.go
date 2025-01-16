@@ -7,6 +7,7 @@ package route
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"sort"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -277,8 +279,9 @@ func Upsert(route Route) error {
 		if nexthopRouteCreated {
 			if err2 := deleteNexthopRoute(route, link, routerNet); err2 != nil {
 				// TODO: If this fails, we may want to add some retry logic.
-				log.WithError(err2).
-					Errorf("unable to clean up nexthop route following failure to replace route")
+				log.Error("unable to clean up nexthop route following failure to replace route",
+					slog.Any(logfields.Error, err2),
+				)
 			}
 		}
 		return err
@@ -521,7 +524,7 @@ func lookupDefaultRoute(family int) (netlink.Route, error) {
 		return netlink.Route{}, fmt.Errorf("Found multiple default routes with the same priority: %v vs %v", routes[0], routes[1])
 	}
 
-	log.Debugf("Found default route on node %v", routes[0])
+	log.Debug("Found default route on node", slog.Any("route", routes[0]))
 	return routes[0], nil
 }
 

@@ -5,10 +5,12 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	iradix "github.com/hashicorp/go-immutable-radix/v2"
 	"github.com/spf13/cobra"
 
@@ -95,7 +97,11 @@ func getLPMValue(ip net.IP, entries map[string][]string) (interface{}, bool) {
 	for cidr, identity := range entries {
 		currIP, subnet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			log.WithError(err).Warnf("unable to parse ipcache entry %q as a CIDR", cidr)
+			log.Warn(
+				"unable to parse ipcache entry as a CIDR",
+				slog.Any(logfields.Error, err),
+				slog.String("ipcache-entry", cidr),
+			)
 			continue
 		}
 

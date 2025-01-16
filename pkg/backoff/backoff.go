@@ -6,18 +6,17 @@ package backoff
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/rand/v2"
-
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/google/uuid"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "backoff")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "backoff"))
 
 // NodeManager is the interface required to implement cluster size dependent
 // intervals
@@ -159,11 +158,11 @@ func (b *Exponential) Wait(ctx context.Context) error {
 	b.attempt++
 	t := b.Duration(b.attempt)
 
-	log.WithFields(logrus.Fields{
-		"time":    t,
-		"attempt": b.attempt,
-		"name":    b.Name,
-	}).Debug("Sleeping with exponential backoff")
+	log.Debug("Sleeping with exponential backoff",
+		"time", t,
+		"attempt", b.attempt,
+		"name", b.Name,
+	)
 
 	select {
 	case <-ctx.Done():

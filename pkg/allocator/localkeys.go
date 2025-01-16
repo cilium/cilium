@@ -5,8 +5,7 @@ package allocator
 
 import (
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -52,7 +51,7 @@ func (lk *localKeys) allocate(keyString string, key AllocatorKey, val idpool.ID)
 		}
 
 		k.refcnt++
-		kvstore.Trace("Incremented local key refcnt", nil, logrus.Fields{fieldKey: keyString, fieldID: val, fieldRefCnt: k.refcnt})
+		kvstore.Trace("Incremented local key refcnt", nil, slog.Any(fieldKey, keyString), slog.Any(fieldID, val), slog.Any(fieldRefCnt, k.refcnt))
 		return k.val, firstUse, nil
 	}
 
@@ -60,7 +59,7 @@ func (lk *localKeys) allocate(keyString string, key AllocatorKey, val idpool.ID)
 	k := &localKey{key: key, val: val, refcnt: 1}
 	lk.keys[keyString] = k
 	lk.ids[val] = k
-	kvstore.Trace("New local key", nil, logrus.Fields{fieldKey: keyString, fieldID: val, fieldRefCnt: 1})
+	kvstore.Trace("New local key", nil, slog.Any(fieldKey, keyString), slog.Any(fieldID, val), slog.Any(fieldRefCnt, 1))
 	return val, firstUse, nil
 }
 
@@ -70,7 +69,7 @@ func (lk *localKeys) verify(key string) error {
 
 	if k, ok := lk.keys[key]; ok {
 		k.verified = true
-		kvstore.Trace("Local key verified", nil, logrus.Fields{fieldKey: key})
+		kvstore.Trace("Local key verified", nil, slog.Any(fieldKey, key))
 		return nil
 	}
 
@@ -114,7 +113,7 @@ func (lk *localKeys) use(key string) idpool.ID {
 		}
 
 		k.refcnt++
-		kvstore.Trace("Incremented local key refcnt", nil, logrus.Fields{fieldKey: key, fieldID: k.val, fieldRefCnt: k.refcnt})
+		kvstore.Trace("Incremented local key refcnt", nil, slog.Any(fieldKey, key), slog.Any(fieldID, k.val), slog.Any(fieldRefCnt, k.refcnt))
 		return k.val
 	}
 
@@ -129,7 +128,7 @@ func (lk *localKeys) release(key string) (lastUse bool, id idpool.ID, err error)
 	defer lk.Unlock()
 	if k, ok := lk.keys[key]; ok {
 		k.refcnt--
-		kvstore.Trace("Decremented local key refcnt", nil, logrus.Fields{fieldKey: key, fieldID: k.val, fieldRefCnt: k.refcnt})
+		kvstore.Trace("Decremented local key refcnt", nil, slog.Any(fieldKey, key), slog.Any(fieldID, k.val), slog.Any(fieldRefCnt, k.refcnt))
 		if k.refcnt == 0 {
 			delete(lk.keys, key)
 			delete(lk.ids, k.val)

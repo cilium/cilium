@@ -5,13 +5,13 @@ package store
 
 import (
 	"context"
+	"log/slog"
 	"path"
 	"sync"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -36,13 +36,13 @@ type wsmCommon struct {
 	functions map[string]WSMFunc
 
 	running atomic.Bool
-	log     *logrus.Entry
+	log     *slog.Logger
 }
 
 func newWSMCommon(clusterName string) wsmCommon {
 	return wsmCommon{
 		functions: make(map[string]WSMFunc),
-		log:       log.WithField(logfields.ClusterName, clusterName),
+		log:       log.With(slog.String(logfields.ClusterName, clusterName)),
 	}
 }
 
@@ -50,7 +50,7 @@ func newWSMCommon(clusterName string) wsmCommon {
 // It cannot be called once Run() has started.
 func (mgr *wsmCommon) Register(prefix string, function WSMFunc) {
 	if mgr.running.Load() {
-		mgr.log.Panic("Cannot call Register while the watch store manager is running")
+		logging.Panic(mgr.log, "Cannot call Register while the watch store manager is running")
 	}
 
 	mgr.functions[prefix] = function
@@ -58,24 +58,24 @@ func (mgr *wsmCommon) Register(prefix string, function WSMFunc) {
 
 func (mgr *wsmCommon) ready(ctx context.Context, prefix string) {
 	if fn := mgr.functions[prefix]; fn != nil {
-		mgr.log.WithField(logfields.Prefix, prefix).Debug("Starting function for kvstore prefix")
+		mgr.log.Debug("Starting function for kvstore prefix", slog.String(logfields.Prefix, prefix))
 		delete(mgr.functions, prefix)
 
 		mgr.wg.Add(1)
 		go func() {
 			defer mgr.wg.Done()
 			fn(ctx)
-			mgr.log.WithField(logfields.Prefix, prefix).Debug("Function terminated for kvstore prefix")
+			mgr.log.Debug("Function terminated for kvstore prefix", slog.String(logfields.Prefix, prefix))
 		}()
 	} else {
-		mgr.log.WithField(logfields.Prefix, prefix).Debug("Received sync event for unregistered prefix")
+		mgr.log.Debug("Received sync event for unregistered prefix", slog.String(logfields.Prefix, prefix))
 	}
 }
 
 func (mgr *wsmCommon) run() {
 	mgr.log.Info("Starting watch store manager")
 	if mgr.running.Swap(true) {
-		mgr.log.Panic("Cannot start the watch store manager twice")
+		logging.Panic(mgr.log, "Cannot start the watch store manager twice")
 	}
 }
 

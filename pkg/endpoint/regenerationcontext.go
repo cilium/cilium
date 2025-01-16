@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -38,7 +39,7 @@ type regenerationContext struct {
 
 func ParseExternalRegenerationMetadata(ctx context.Context, c context.CancelFunc, e *regeneration.ExternalRegenerationMetadata) *regenerationContext {
 	if e.RegenerationLevel == regeneration.Invalid {
-		log.WithField(logfields.Reason, e.Reason).Errorf("Uninitialized regeneration level")
+		log.Error("Uninitialized regeneration level", slog.String(logfields.Reason, e.Reason))
 	}
 
 	return &regenerationContext{

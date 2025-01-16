@@ -5,6 +5,7 @@ package nodemap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -15,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "NodeMap")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "NodeMap"))
 
 // Cell provides the nodemap.MapV2 which contains information about node IDs, SPIs, and their IP addresses.
 var Cell = cell.Module(

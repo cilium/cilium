@@ -7,13 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"net"
 	"os"
 	"path"
 	"regexp"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	recorderpb "github.com/cilium/cilium/api/v1/recorder"
@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-recorder")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "hubble-recorder"))
 
 var _ recorderpb.RecorderServer = (*Service)(nil)
 
@@ -328,11 +328,11 @@ func (s *Service) startRecording(
 		}
 	}()
 
-	scopedLog := log.WithFields(logrus.Fields{
-		"ruleID":   ruleID,
-		"filePath": filePath,
-	})
-	scopedLog.Debug("starting new recording")
+	logAttrs := []slog.Attr{
+		slog.Uint64("ruleID", uint64(ruleID)),
+		slog.String("filePath", filePath),
+	}
+	log.Debug("starting new recording", logAttrs)
 
 	stop := req.GetStopCondition()
 	config := sink.PcapSink{
@@ -372,10 +372,10 @@ func (s *Service) startRecording(
 	// Ensure to delete the above recorder when the sink has stopped
 	go func() {
 		<-handle.Done
-		scopedLog.Debug("stopping recording")
+		log.Debug("stopping recording", logAttrs)
 		_, err := s.recorder.DeleteRecorder(recorder.ID(ruleID))
 		if err != nil {
-			scopedLog.WithError(err).Warning("failed to delete recorder")
+			log.Warn("failed to delete recorder", slog.Any(logfields.Error, err), logAttrs)
 		}
 		s.ruleIDs.Release(idpool.ID(ruleID))
 	}()

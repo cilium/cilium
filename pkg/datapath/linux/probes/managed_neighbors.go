@@ -6,12 +6,14 @@ package probes
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 )
 
@@ -39,7 +41,8 @@ func HaveManagedNeighbors() error {
 
 		// if we encounter a different error than ErrNotSupported, terminate the agent.
 		if managedNeighborResult != nil && !errors.Is(managedNeighborResult, ErrNotSupported) {
-			log.WithError(managedNeighborResult).Fatal("failed to probe managed neighbor support")
+			log.Error("failed to probe managed neighbor support", slog.Any(logfields.Error, managedNeighborResult))
+			panic("failed to probe managed neighbor support")
 		}
 	})
 

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"testing"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -20,7 +21,6 @@ import (
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
@@ -284,8 +284,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfig(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -390,8 +389,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfigValidation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -476,8 +474,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfigNoAddress(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -601,8 +598,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfigMulti(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:                      logger,
 		portAllocator:               NewMockPortAllocator(),
@@ -795,8 +791,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfigInternalListener(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -852,8 +847,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfigMissingInternalListener(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -872,8 +866,7 @@ func TestCiliumEnvoyConfigMissingInternalListener(t *testing.T) {
 }
 
 func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -1014,8 +1007,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -1150,8 +1142,7 @@ spec:
               passThroughMode: false`
 
 func TestCiliumEnvoyConfigtHTTPHealthCheckFilter(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -1280,8 +1271,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfigCombinedValidationContext(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),
@@ -1368,8 +1358,7 @@ spec:
 `
 
 func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	parser := cecResourceParser{
 		logger:        logger,
 		portAllocator: NewMockPortAllocator(),

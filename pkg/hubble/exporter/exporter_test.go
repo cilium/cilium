@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/cilium/fake"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	timestamp "google.golang.org/protobuf/types/known/timestamppb"
 
@@ -48,7 +48,7 @@ func TestExporter(t *testing.T) {
 		{Timestamp: &timestamp.Timestamp{Seconds: 4}, Event: &observerpb.LostEvent{}},
 	}
 	buf := &bytesWriteCloser{bytes.Buffer{}}
-	log := logrus.New()
+	log := slog.Default()
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
@@ -65,7 +65,7 @@ func TestExporter(t *testing.T) {
 		assert.NoError(t, err)
 
 	}
-	//nolint: testifylint
+	// nolint: testifylint
 	assert.Equal(t, `{"flow":{"time":"1970-01-01T00:00:01Z","node_name":"my-node"},"node_name":"my-node","time":"1970-01-01T00:00:01Z"}
 {"agent_event":{},"node_name":"my-node","time":"1970-01-01T00:00:02Z"}
 {"debug_event":{},"node_name":"my-node","time":"1970-01-01T00:00:03Z"}
@@ -120,7 +120,7 @@ func TestExporterWithFilters(t *testing.T) {
 		},
 	}
 	buf := &bytesWriteCloser{bytes.Buffer{}}
-	log := logrus.New()
+	log := slog.Default()
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
@@ -171,7 +171,7 @@ func TestEventToExportEvent(t *testing.T) {
 	}()
 
 	buf := &bytesWriteCloser{bytes.Buffer{}}
-	log := logrus.New()
+	log := slog.Default()
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
@@ -254,7 +254,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 		},
 	}
 	buf := &bytesWriteCloser{bytes.Buffer{}}
-	log := logrus.New()
+	log := slog.Default()
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
@@ -279,7 +279,7 @@ func TestExporterWithFieldMask(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	//nolint: testifylint
+	// nolint: testifylint
 	assert.Equal(t, `{"flow":{"source":{"namespace":"nsA","pod_name":"podA"}}}
 {"flow":{}}
 `, buf.String())
@@ -319,7 +319,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 	var abortRequested bool
 
 	buf := &bytesWriteCloser{bytes.Buffer{}}
-	log := logrus.New()
+	log := slog.Default()
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions
@@ -367,7 +367,7 @@ func TestExporterOnExportEvent(t *testing.T) {
 	assert.Falsef(t, hookNoOpFuncCalledAfterAbort, "hook no-op func was called after abort requested by previous hook")
 
 	// ensure that aborting OnExportEvent hook processing works (debug_event should not be exported)
-	//nolint: testifylint
+	// nolint: testifylint
 	assert.Equal(t, `{"Timestamp":{"seconds":3},"Event":{}}
 {"flow":{"time":"1970-01-01T00:00:01Z","node_name":"my-node"},"node_name":"my-node","time":"1970-01-01T00:00:01Z"}
 `, buf.String())
@@ -440,7 +440,7 @@ func BenchmarkExporter(b *testing.B) {
 	}
 
 	buf := &ioWriteCloser{io.Discard}
-	log := logrus.New()
+	log := slog.Default()
 	log.SetOutput(io.Discard)
 
 	opts := DefaultOptions

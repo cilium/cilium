@@ -4,6 +4,9 @@
 package informer
 
 import (
+	"fmt"
+	"log/slog"
+
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -27,7 +30,9 @@ func CastInformerEvent[typ any](obj interface{}) *typ {
 			return k8sObj
 		}
 	}
-	log.WithField(logfields.Object, logfields.Repr(obj)).
-		Warnf("Ignoring invalid type, expected: %T", new(typ))
+	log.Warn(
+		fmt.Sprintf("Ignoring invalid type, expected: %T", new(typ)),
+		slog.Any(logfields.Object, logfields.Repr(obj)),
+	)
 	return nil
 }

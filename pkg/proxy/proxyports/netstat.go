@@ -5,6 +5,7 @@ package proxyports
 
 import (
 	"bytes"
+	"log/slog"
 	"os"
 	"regexp"
 	"strconv"
@@ -40,7 +41,7 @@ func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
 	for _, file := range procNetFiles {
 		b, err := os.ReadFile(file)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
+			log.Error("cannot read proc file", slog.Any(logfields.Error, err), slog.String(logfields.Path, file))
 			continue
 		}
 
@@ -56,7 +57,7 @@ func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
 			// The port number is in hexadecimal.
 			localPort, err := strconv.ParseUint(string(groups[1]), 16, 16)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
+				log.Error("cannot read proc file", slog.Any(logfields.Error, err), slog.String(logfields.Path, file))
 				continue
 			}
 			openLocalPorts[uint16(localPort)] = struct{}{}

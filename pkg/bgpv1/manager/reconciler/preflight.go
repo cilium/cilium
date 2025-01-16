@@ -6,13 +6,12 @@ package reconciler
 import (
 	"context"
 	"fmt"
-
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/hive/cell"
 )
 
 type PreflightReconcilerOut struct {
@@ -56,10 +55,8 @@ func (r *PreflightReconciler) Cleanup(_ *instance.ServerWithConfig) {}
 
 func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	var (
-		l = log.WithFields(
-			logrus.Fields{
-				"component": "PreflightReconciler",
-			},
+		logAttrs = slog.String(
+			"component", "PreflightReconciler",
 		)
 	)
 
@@ -69,11 +66,11 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	// This is the first time this server is being registered and BGPRouterManager
 	// set any fields needing reconciliation in this function already.
 	if p.CurrentServer.Config == nil {
-		l.Debugf("Preflight for virtual router with ASN %v not necessary, first instantiation of this BgpServer.", p.DesiredConfig.LocalASN)
+		log.Debug("Preflight for virtual router with ASN not necessary, first instantiation of this BgpServer.", slog.Int64("localASN", p.DesiredConfig.LocalASN), logAttrs)
 		return nil
 	}
 
-	l.Debugf("Begin preflight reoncilation for virtual router with ASN %v", p.DesiredConfig.LocalASN)
+	log.Debug("Begin preflight reoncilation for virtual router with ASN", slog.Int64("localASN", p.DesiredConfig.LocalASN), logAttrs)
 	bgpInfo, err := p.CurrentServer.Server.GetBGP(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve BgpServer info for virtual router with ASN %v: %w", p.DesiredConfig.LocalASN, err)
@@ -106,18 +103,38 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	var shouldRecreate bool
 	if localPort != bgpInfo.Global.ListenPort {
 		shouldRecreate = true
-		l.Infof("Virtual router with ASN %v local port has changed from %v to %v", p.DesiredConfig.LocalASN, bgpInfo.Global.ListenPort, localPort)
+		log.Info(
+			"Virtual router with ASN has changed local port",
+			slog.Int64("localASN", p.DesiredConfig.LocalASN),
+			slog.Int64("from-port", int64(bgpInfo.Global.ListenPort)),
+			slog.Int64("to-port", int64(localPort)),
+			logAttrs,
+		)
 	}
 	if routerID != bgpInfo.Global.RouterID {
 		shouldRecreate = true
-		l.Infof("Virtual router with ASN %v router ID has changed from %v to %v", p.DesiredConfig.LocalASN, bgpInfo.Global.RouterID, routerID)
+		log.Info(
+			"Virtual router with ASN has changed route ID",
+			slog.Int64("localASN", p.DesiredConfig.LocalASN),
+			slog.String("from-router-id", bgpInfo.Global.RouterID),
+			slog.String("to-router-id", routerID),
+			logAttrs,
+		)
 	}
 	if !shouldRecreate {
-		l.Debugf("No preflight reconciliation necessary for virtual router with local ASN %v", p.DesiredConfig.LocalASN)
+		log.Info(
+			"No preflight reconciliation necessary for virtual router with local ASN",
+			slog.Int64("localASN", p.DesiredConfig.LocalASN),
+			logAttrs,
+		)
 		return nil
 	}
 
-	l.Infof("Recreating virtual router with ASN %v for changes to take effect", p.DesiredConfig.LocalASN)
+	log.Info(
+		"Recreating virtual router with ASN for changes to take effect",
+		slog.Int64("localASN", p.DesiredConfig.LocalASN),
+		logAttrs,
+	)
 	globalConfig := types.ServerParameters{
 		Global: types.BGPGlobal{
 			ASN:        uint32(p.DesiredConfig.LocalASN),
@@ -135,7 +152,11 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	// create a new one via ServerWithConfig constructor
 	s, err := instance.NewServerWithConfig(ctx, log, globalConfig)
 	if err != nil {
-		l.WithError(err).Errorf("Failed to start BGP server for virtual router with local ASN %v", p.DesiredConfig.LocalASN)
+		log.Error(
+			"Failed to start BGP server for virtual router with local ASN",
+			slog.Int64("localASN", p.DesiredConfig.LocalASN),
+			logAttrs,
+		)
 		return fmt.Errorf("failed to start BGP server for virtual router with local ASN %v: %w", p.DesiredConfig.LocalASN, err)
 	}
 

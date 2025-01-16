@@ -5,8 +5,10 @@ package helpers
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/onsi/ginkgo"
 
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -50,7 +52,7 @@ func (s *SSHMeta) ContainerCreate(name, image, net, options string, cmdParams ..
 
 	cmd := fmt.Sprintf(
 		"docker run -d --name %s --net %s %s %s %s", name, net, options, image, cmdOnStart)
-	log.Debugf("spinning up container with command '%v'", cmd)
+	log.Debug("spinning up container with command", slog.String("cmd", cmd))
 	return s.ExecWithSudo(cmd)
 }
 
@@ -127,7 +129,7 @@ func (s *SSHMeta) NetworkCreateWithOptions(name string, subnet string, ipv6 bool
 		ipv6Arg, subnet, opts, name)
 	res := s.ExecWithSudo(cmd)
 	if !res.WasSuccessful() {
-		s.logger.Warningf("Unable to create docker network %s: %s", name, res.CombineOutput().String())
+		s.logger.Warn("Unable to create docker network", slog.String(logfields.Error, res.CombineOutput().String()), slog.String("name", name))
 	}
 
 	return res
@@ -192,7 +194,7 @@ func (s *SSHMeta) SampleContainersActions(mode string, networkName string, creat
 func (s *SSHMeta) GatherDockerLogs() {
 	res := s.Exec("docker ps -a --format {{.Names}}")
 	if !res.WasSuccessful() {
-		log.WithField("error", res.CombineOutput()).Errorf("cannot get docker logs")
+		log.Error("cannot get docker logs", slog.String(logfields.Error, res.CombineOutput().String()))
 		return
 	}
 	commands := map[string]string{}
@@ -205,8 +207,11 @@ func (s *SSHMeta) GatherDockerLogs() {
 
 	testPath, err := CreateReportDirectory()
 	if err != nil {
-		s.logger.WithError(err).Errorf(
-			"cannot create test results path '%s'", testPath)
+		s.logger.Error(
+			"cannot create test results path",
+			slog.Any(logfields.Error, err),
+			slog.String("path", testPath),
+		)
 		return
 	}
 	reportMap(testPath, commands, s)

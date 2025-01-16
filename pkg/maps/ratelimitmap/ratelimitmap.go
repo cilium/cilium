@@ -5,6 +5,7 @@ package ratelimitmap
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -61,7 +62,7 @@ var (
 		MaxEntries,
 		0,
 	)}
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ratelimit-map")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ratelimit-map"))
 )
 
 const (
@@ -200,7 +201,7 @@ func (rc *ratelimitMetricsMapCollector) Collect(ch chan<- prometheus.Metric) {
 		rc.droppedMap[k.Usage] = float64(val.Dropped)
 	})
 	if err != nil {
-		log.WithError(err).Warn("Failed to read ratelimit metrics from BPF map")
+		log.Warn("Failed to read ratelimit metrics from BPF map", slog.Any(logfields.Error, err))
 		// Do not update partial metrics
 		return
 	}
@@ -220,8 +221,11 @@ func (rc *ratelimitMetricsMapCollector) Describe(ch chan<- *prometheus.Desc) {
 
 func RegisterCollector() {
 	if err := metrics.Register(newRatelimitMetricsMapCollector()); err != nil {
-		log.WithError(err).Error("Failed to register ratelimit metrics map collector to Prometheus registry. " +
-			"BPF ratelimit metrics will not be collected")
+		log.Error(
+			"Failed to register ratelimit metrics map collector to Prometheus registry. "+
+				"BPF ratelimit metrics will not be collected",
+			slog.Any(logfields.Error, err),
+		)
 	}
 }
 

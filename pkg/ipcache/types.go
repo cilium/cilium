@@ -5,12 +5,11 @@ package ipcache
 
 import (
 	"bytes"
+	"log/slog"
 	"maps"
 	"slices"
 	"sort"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -95,7 +94,10 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) bool {
 		changed = m.endpointFlags != info
 		m.endpointFlags = info
 	default:
-		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.merge(): %+v", info)
+		log.Error(
+			"BUG: Invalid IPMetadata passed to ipinfo.merge()",
+			slog.Any("info", info),
+		)
 		return false
 	}
 	changed = changed || m.source != src
@@ -120,7 +122,10 @@ func (m *resourceInfo) unmerge(info IPMetadata) {
 	case ipcachetypes.EndpointFlags:
 		m.endpointFlags = ipcachetypes.EndpointFlags{}
 	default:
-		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.unmerge(): %+v", info)
+		log.Error(
+			"BUG: Invalid IPMetadata passed to ipinfo.unmerge()",
+			slog.Any("info", info),
+		)
 		return
 	}
 }
@@ -272,7 +277,7 @@ func (ri resourceInfo) shouldLogConflicts() bool {
 	return bool(ri.identityOverride) || ri.tunnelPeer.IsValid() || ri.encryptKey.IsValid() || ri.requestedIdentity.IsValid() || ri.endpointFlags.IsValid()
 }
 
-func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
+func (s prefixInfo) logConflicts(scopedLog *slog.Logger) {
 	var (
 		override           labels.Labels
 		overrideResourceID ipcachetypes.ResourceID
@@ -295,22 +300,24 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 
 		if info.identityOverride {
 			if len(override) > 0 {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.Identity:            override.String(),
-					logfields.Resource:            overrideResourceID,
-					logfields.ConflictingIdentity: info.labels.String(),
-					logfields.ConflictingResource: resourceID,
-				}).Warning("Detected conflicting identity override for prefix. " +
-					"This may cause connectivity issues for this address.")
+				scopedLog.Warn(
+					"Detected conflicting identity override for prefix. "+
+						"This may cause connectivity issues for this address.",
+					slog.Any(logfields.Identity, override),
+					slog.Any(logfields.Resource, overrideResourceID),
+					slog.Any(logfields.ConflictingIdentity, info.labels),
+					slog.Any(logfields.ConflictingResource, resourceID),
+				)
 			}
 
 			if len(info.labels) == 0 {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.Resource:    resourceID,
-					logfields.OldIdentity: s.ToLabels().String(),
-				}).Warning("Detected identity override, but no labels where specified. " +
-					"Falling back on the old non-override labels. " +
-					"This may cause connectivity issues for this address.")
+				scopedLog.Warn(
+					"Detected identity override, but no labels where specified. "+
+						"Falling back on the old non-override labels. "+
+						"This may cause connectivity issues for this address.",
+					slog.Any(logfields.Resource, resourceID),
+					slog.Any(logfields.OldIdentity, s.ToLabels()),
+				)
 			} else {
 				override = info.labels
 				overrideResourceID = resourceID
@@ -320,13 +327,14 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 		if info.tunnelPeer.IsValid() {
 			if tunnelPeer.IsValid() {
 				if option.Config.TunnelingEnabled() {
-					scopedLog.WithFields(logrus.Fields{
-						logfields.TunnelPeer:            tunnelPeer.String(),
-						logfields.Resource:              tunnelPeerResourceID,
-						logfields.ConflictingTunnelPeer: info.tunnelPeer.String(),
-						logfields.ConflictingResource:   resourceID,
-					}).Warning("Detected conflicting tunnel peer for prefix. " +
-						"This may cause connectivity issues for this address.")
+					scopedLog.Warn(
+						"Detected conflicting tunnel peer for prefix. "+
+							"This may cause connectivity issues for this address.",
+						slog.Any(logfields.TunnelPeer, tunnelPeerResourceID),
+						slog.Any(logfields.Resource, resourceID),
+						slog.Any(logfields.ConflictingTunnelPeer, info.tunnelPeer),
+						slog.Any(logfields.ConflictingResource, resourceID),
+					)
 				}
 			} else {
 				tunnelPeer = info.tunnelPeer
@@ -336,13 +344,14 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 
 		if info.encryptKey.IsValid() {
 			if encryptKey.IsValid() {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.Key:                 encryptKey.String(),
-					logfields.Resource:            encryptKeyResourceID,
-					logfields.ConflictingKey:      info.encryptKey.String(),
-					logfields.ConflictingResource: resourceID,
-				}).Warning("Detected conflicting encryption key index for prefix. " +
-					"This may cause connectivity issues for this address.")
+				scopedLog.Warn(
+					"Detected conflicting encryption key index for prefix. "+
+						"This may cause connectivity issues for this address.",
+					slog.Any(logfields.Key, encryptKey),
+					slog.Any(logfields.Resource, encryptKeyResourceID),
+					slog.Any(logfields.ConflictingKey, info.encryptKey),
+					slog.Any(logfields.ConflictingResource, resourceID),
+				)
 			} else {
 				encryptKey = info.encryptKey
 				encryptKeyResourceID = resourceID
@@ -351,13 +360,14 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 
 		if info.requestedIdentity.IsValid() {
 			if requestedID.IsValid() {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.Identity:            requestedID,
-					logfields.Resource:            requestedIDResourceID,
-					logfields.ConflictingKey:      info.requestedIdentity,
-					logfields.ConflictingResource: resourceID,
-				}).Warning("Detected conflicting requested numeric identity for prefix. " +
-					"This may cause momentary connectivity issues for this address.")
+				scopedLog.Warn(
+					"Detected conflicting requested numeric identity for prefix. "+
+						"This may cause momentary connectivity issues for this address.",
+					slog.Any(logfields.Identity, requestedID),
+					slog.Any(logfields.Resource, requestedIDResourceID),
+					slog.Any(logfields.ConflictingKey, info.requestedIdentity),
+					slog.Any(logfields.ConflictingResource, resourceID),
+				)
 			} else {
 				requestedID = info.requestedIdentity
 				requestedIDResourceID = resourceID
@@ -366,13 +376,14 @@ func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 
 		if info.endpointFlags.IsValid() {
 			if endpointFlags.IsValid() {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.EndpointFlags:            endpointFlags,
-					logfields.Resource:                 endpointFlagsResourceID,
-					logfields.ConflictingEndpointFlags: info.endpointFlags,
-					logfields.ConflictingResource:      resourceID,
-				}).Warning("Detected conflicting endpoint flags for prefix. " +
-					"This may cause connectivity issues for this address.")
+				scopedLog.Warn(
+					"Detected conflicting endpoint flags for prefix. "+
+						"This may cause connectivity issues for this address.",
+					slog.Any(logfields.EndpointFlags, endpointFlags),
+					slog.Any(logfields.Resource, endpointFlagsResourceID),
+					slog.Any(logfields.ConflictingEndpointFlags, info.endpointFlags),
+					slog.Any(logfields.ConflictingResource, resourceID),
+				)
 			} else {
 				endpointFlags = info.endpointFlags
 				endpointFlagsResourceID = resourceID

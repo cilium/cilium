@@ -6,11 +6,10 @@ package recorder
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"sort"
 	"strconv"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -19,6 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -66,7 +67,7 @@ type recQueue struct {
 
 type Recorder struct {
 	lock.RWMutex
-	logger       logrus.FieldLogger
+	logger       logging.FieldLogger
 	recByID      map[ID]*RecInfo
 	recMask      map[string]*RecMask
 	queue        recQueue
@@ -74,7 +75,7 @@ type Recorder struct {
 	orchestrator types.Orchestrator
 }
 
-func newRecorder(ctx context.Context, logger logrus.FieldLogger, orchestrator types.Orchestrator) *Recorder {
+func newRecorder(ctx context.Context, logger logging.FieldLogger, orchestrator types.Orchestrator) *Recorder {
 	return &Recorder{
 		recByID: map[ID]*RecInfo{},
 		recMask: map[string]*RecMask{},
@@ -246,8 +247,10 @@ func (r *Recorder) triggerDatapathRegenerate() error {
 	}
 	err := r.orchestrator.ReinitializeXDP(r.ctx, extraCArgs)
 	if err != nil {
-		r.logger.WithError(err).Warnf("Failed to regenerate datapath with masks: %s / %s",
-			masks4, masks6)
+		r.logger.Warn("Failed to regenerate datapath with masks",
+			slog.Any(logfields.Error, err),
+			slog.String("masks4", masks4), slog.String("masks6", masks6),
+		)
 	}
 	return err
 }
@@ -324,7 +327,7 @@ func (r *Recorder) applyDatapath(regen bool) error {
 	r.queue.del = []*RecorderTuple{}
 	r.queue.ri = nil
 	if regen {
-		r.logger.Debugf("Recorder Masks: %v", r.recMask)
+		r.logger.Debug("Recorder Masks", slog.Any("mask", r.recMask))
 		// If datapath masks did not change, then there is of course
 		// also no need to trigger a regeneration since map updates
 		// suffice (which is also much faster).

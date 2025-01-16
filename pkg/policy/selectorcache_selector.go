@@ -4,11 +4,11 @@
 package policy
 
 import (
+	"log/slog"
 	"sort"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
@@ -188,10 +188,11 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // guaranteed to receive a notification including the update.
 func (i *identitySelector) GetSelections(version *versioned.VersionHandle) identity.NumericIdentitySlice {
 	if !version.IsValid() {
-		log.WithFields(logrus.Fields{
-			logfields.Version:    version,
-			logfields.Stacktrace: hclog.Stacktrace(),
-		}).Error("GetSelections: Invalid VersionHandle finds nothing")
+		log.Error(
+			"GetSelections: Invalid VersionHandle finds nothing",
+			slog.Any(logfields.Version, version),
+			slog.Any(logfields.Stacktrace, hclog.Stacktrace()),
+		)
 		return identity.NumericIdentitySlice{}
 	}
 	return i.selections.At(version)
@@ -281,6 +282,10 @@ func (i *identitySelector) setSelections(selections identity.NumericIdentitySlic
 	}
 	if err != nil {
 		stacktrace := hclog.Stacktrace()
-		log.WithError(err).WithField(logfields.Stacktrace, stacktrace).Error("setSelections failed")
+		log.Error(
+			"setSelections failed",
+			slog.Any(logfields.Error, err),
+			slog.Any(logfields.Stacktrace, stacktrace),
+		)
 	}
 }

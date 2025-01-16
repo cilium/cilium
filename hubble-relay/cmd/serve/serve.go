@@ -6,6 +6,7 @@ package serve
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -184,7 +185,7 @@ func runServe(vp *viper.Viper) error {
 	if vp.GetBool("debug") {
 		logging.SetLogLevelToDebug()
 	}
-	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
+	logger := logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "hubble-relay"))
 
 	opts := []server.Option{
 		server.WithLocalClusterName(vp.GetString(keyClusterName)),
@@ -215,7 +216,7 @@ func runServe(vp *viper.Viper) error {
 		opts = append(opts, server.WithInsecureClient())
 	} else {
 		tlsClientConfig, err := certloader.NewWatchedClientConfig(
-			logger.WithField("config", "tls-to-hubble"),
+			logger.With(slog.String("config", "tls-to-hubble")),
 			vp.GetStringSlice(keyTLSHubbleServerCAFiles),
 			hubbleClientCertFile(vp),
 			hubbleClientKeyFile(vp),
@@ -232,7 +233,7 @@ func runServe(vp *viper.Viper) error {
 		opts = append(opts, server.WithInsecureServer())
 	} else {
 		tlsServerConfig, err := certloader.NewWatchedServerConfig(
-			logger.WithField("config", "tls-server"),
+			logger.With(slog.String("config", "tls-server")),
 			vp.GetStringSlice(keyTLSRelayClientCAFiles),
 			relayServerCertFile(vp),
 			relayServerKeyFile(vp),

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"path"
 	"slices"
@@ -34,6 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -175,10 +178,14 @@ func (m *VMManager) nodeOverrideFromCEW(n *nodeTypes.RegisterNode, cew *ciliumv2
 			if ip4 := cidr.IP.To4(); ip4 != nil {
 				nk.IPv4AllocCIDR = cidr
 			} else {
-				log.Warning("CEW: ipv4-alloc-cidr is not IPv4")
+				log.Warn("CEW: ipv4-alloc-cidr is not IPv4")
 			}
 		} else {
-			log.WithError(err).Warningf("CEW: parse error on %s", cew.Spec.IPv4AllocCIDR)
+			log.Warn(
+				"CEW: parse error on %s",
+				slog.Any(logfields.Error, err),
+				slog.String("ipv4-cidr", cew.Spec.IPv4AllocCIDR),
+			)
 		}
 	}
 	if cew.Spec.IPv6AllocCIDR != "" {
@@ -186,10 +193,14 @@ func (m *VMManager) nodeOverrideFromCEW(n *nodeTypes.RegisterNode, cew *ciliumv2
 			if ip6 := cidr.IP.To16(); ip6 != nil {
 				nk.IPv6AllocCIDR = cidr
 			} else {
-				log.Warning("CEW: ipv6-alloc-cidr is not IPv6")
+				log.Warn("CEW: ipv6-alloc-cidr is not IPv6")
 			}
 		} else {
-			log.WithError(err).Warningf("CEW: parse error on %s", cew.Spec.IPv6AllocCIDR)
+			log.Warn(
+				"CEW: parse error",
+				slog.Any(logfields.Error, err),
+				slog.String("ipv6-cidr", cew.Spec.IPv6AllocCIDR),
+			)
 		}
 	}
 	return nk
@@ -204,7 +215,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 		// Only handle registration events if CiliumExternalWorkload CRD with a matching name exists
 		cew, exists, _ := m.ciliumExternalWorkloadStore.GetByKey(resource.Key{Name: n.Name})
 		if !exists {
-			log.Warningf("CEW: CiliumExternalWorkload resource not found for: %v", n)
+			log.Warn("CEW: CiliumExternalWorkload resource not found", slog.Any("node", n))
 			return
 		}
 
@@ -212,7 +223,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 			// Phase 1: Initial registration with zero ID, return configuration
 			nk := m.nodeOverrideFromCEW(n, cew)
 
-			log.Debugf("CEW: VM Cilium Node updated: %v -> %v", n, nk)
+			log.Debug("CEW: VM Cilium Node updated", slog.Any("node", n), slog.Any("nk", nk))
 			// FIXME: GH-17909 Balance this call with a call to release the identity.
 			id := m.AllocateNodeIdentity(nk)
 			if id != nil {
@@ -224,9 +235,9 @@ func (m *VMManager) OnUpdate(k store.Key) {
 
 				// Update the registration, now with the node identity and overridden fields
 				if err := m.syncKVStoreKey(context.Background(), nk); err != nil {
-					log.WithError(err).Warning("CEW: Unable to update register node in etcd")
+					log.Warn("CEW: Unable to update register node in etcd", slog.Any(logfields.Error, err))
 				} else {
-					log.Debugf("CEW: Updated register node in etcd (nid: %d): %v", nid, nk)
+					log.Debug("CEW: Updated register node in etcd", slog.Uint64("nid", uint64(nid)), slog.Any("nk", nk))
 				}
 			}
 		} else if len(n.IPAddresses) > 0 {
@@ -237,7 +248,11 @@ func (m *VMManager) OnUpdate(k store.Key) {
 
 			id := m.LookupNodeIdentity(nk)
 			if id == nil || id.ID.Uint32() != nk.NodeIdentity {
-				log.Errorf("CEW: Invalid identity %d in %v", nk.NodeIdentity, nk)
+				log.Error(
+					"CEW: Invalid identity",
+					slog.Uint64("node-identity", uint64(nk.NodeIdentity)),
+					slog.Any("nk", nk),
+				)
 			}
 
 			// Create cluster resources for the external node
@@ -254,23 +269,32 @@ func (m *VMManager) OnUpdate(k store.Key) {
 			for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
 				if _, err := m.ciliumClient.CiliumV2().CiliumExternalWorkloads().UpdateStatus(context.TODO(), cewCopy, metav1.UpdateOptions{}); err != nil {
 					if errors.IsConflict(err) {
-						log.WithError(err).Warn("CEW: Unable to update CiliumExternalWorkload status, will retry")
+						log.Warn("CEW: Unable to update CiliumExternalWorkload status, will retry", slog.Any(logfields.Error, err))
 						continue
 					}
-					log.WithError(err).Error("CEW: Unable to update CiliumExternalWorkload status")
+					log.Error("CEW: Unable to update CiliumExternalWorkload status", slog.Any(logfields.Error, err))
 				} else {
-					log.Debugf("CEW: Successfully updated CiliumExternalWorkload status: %v", *cewCopy)
+					log.Debug(
+						"CEW: Successfully updated CiliumExternalWorkload status",
+						slog.Any("cewCopy", *cewCopy),
+					)
 					break
 				}
 			}
 		}
 	} else {
-		log.Errorf("CEW: VM Cilium Node not RegisterNode: %v", k)
+		log.Error(
+			"CEW: VM Cilium Node not RegisterNode",
+			slog.Any("node", k),
+		)
 	}
 }
 
 func (m *VMManager) OnDelete(k store.NamedKey) {
-	log.Debugf("RegisterNode deleted: %v", k.GetKeyName())
+	log.Debug(
+		"RegisterNode deleted",
+		slog.String("node-name", k.GetKeyName()),
+	)
 }
 
 func (m *VMManager) AllocateNodeIdentity(n *nodeTypes.RegisterNode) *identity.Identity {
@@ -287,12 +311,18 @@ func (m *VMManager) AllocateNodeIdentity(n *nodeTypes.RegisterNode) *identity.Id
 
 	id, allocated, err := m.identityAllocator.AllocateIdentity(ctx, vmLabels, true, identity.InvalidIdentity)
 	if err != nil {
-		log.WithError(err).Error("unable to resolve identity")
+		log.Error("unable to resolve identity", slog.Any(logfields.Error, err))
 	} else {
 		if allocated {
-			log.Debugf("allocated identity %v", id)
+			log.Debug(
+				"allocated identity",
+				slog.Any("id", id),
+			)
 		} else {
-			log.Debugf("identity %v was already allocated", id)
+			log.Debug(
+				"identity was already allocated",
+				slog.Any("id", id),
+			)
 		}
 	}
 	return id
@@ -331,12 +361,12 @@ func (m *VMManager) UpdateCiliumNodeResource(n *nodeTypes.RegisterNode, cew *cil
 		if err != nil {
 			if _, err = m.ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nr, metav1.CreateOptions{}); err != nil {
 				if errors.IsConflict(err) {
-					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
+					log.Warn("Unable to create CiliumNode resource, will retry", slog.Any(logfields.Error, err))
 					continue
 				}
-				log.WithError(err).Fatal("Unable to create CiliumNode resource")
+				logging.Fatal(log, "Unable to create CiliumNode resource", slog.Any(logfields.Error, err))
 			} else {
-				log.Infof("Successfully created CiliumNode resource: %v", *nr)
+				log.Info("Successfully created CiliumNode resource", slog.Any("node", *nr))
 				return
 			}
 		} else {
@@ -344,17 +374,17 @@ func (m *VMManager) UpdateCiliumNodeResource(n *nodeTypes.RegisterNode, cew *cil
 			nodeResource.Spec = nr.Spec
 			if _, err := m.ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
 				if errors.IsConflict(err) {
-					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
+					log.Warn("Unable to update CiliumNode resource, will retry", slog.Any(logfields.Error, err))
 					continue
 				}
-				log.WithError(err).Fatal("Unable to update CiliumNode resource")
+				logging.Fatal(log, "Unable to update CiliumNode resource", slog.Any(logfields.Error, err))
 			} else {
-				log.Infof("Successfully updated CiliumNode resource: %v", *nodeResource)
+				log.Info("Successfully updated CiliumNode resource", slog.Any("node", *nodeResource))
 				return
 			}
 		}
 	}
-	log.Fatal("Could not create or update CiliumNode resource, despite retries")
+	logging.Fatal(log, "Could not create or update CiliumNode resource, despite retries")
 }
 
 // UpdateCiliumEndpointResource updates the CiliumNode resource representing the
@@ -388,7 +418,7 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 		log.Info("Getting Node during an CEP update")
 		nr, err := m.ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.WithError(err).Warn("Unable to get CiliumNode resource, will retry")
+			log.Warn("Unable to get CiliumNode resource, will retry", slog.Any(logfields.Error, err))
 			continue
 		}
 		log.Info("Getting CEP during an initialization")
@@ -411,15 +441,25 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 			}
 			if localCEP, err = m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).Create(context.TODO(), cep, metav1.CreateOptions{}); err != nil {
 				if errors.IsConflict(err) {
-					log.WithError(err).Warn("Unable to create CiliumEndpoint resource, will retry")
+					log.Warn("Unable to create CiliumEndpoint resource, will retry", slog.Any(logfields.Error, err))
 					continue
 				}
-				log.WithError(err).Fatal("Unable to create CiliumEndpoint resource")
+				logging.Fatal(log, "Unable to create CiliumEndpoint resource", slog.Any(logfields.Error, err))
 			}
 			js, _ := json.Marshal(cep)
-			log.Infof("Successfully created CiliumEndpoint resource %s/%s: %s", namespace, name, js)
+			log.Info(
+				"Successfully created CiliumEndpoint resource",
+				slog.String("namespace", namespace),
+				slog.String("name", name),
+				slog.String("resource", string(js)),
+			)
 			js, _ = json.Marshal(localCEP)
-			log.Infof("Returned CiliumEndpoint resource %s/%s: %s", namespace, name, js)
+			log.Info(
+				"Returned CiliumEndpoint resource",
+				slog.String("namespace", namespace),
+				slog.String("name", name),
+				slog.String("resource", string(js)),
+			)
 		}
 
 		mdl := ciliumv2.EndpointStatus{
@@ -445,22 +485,22 @@ func (m *VMManager) UpdateCiliumEndpointResource(name string, id *identity.Ident
 		var createStatusPatch []byte
 		createStatusPatch, err = json.Marshal(replaceCEPStatus)
 		if err != nil {
-			log.WithError(err).Fatalf("json.Marshal(%v) failed", replaceCEPStatus)
+			logging.Fatal(log, fmt.Sprintf("json.Marshal(%v) failed", replaceCEPStatus), slog.Any(logfields.Error, err))
 		}
 		localCEP, err = m.ciliumClient.CiliumV2().CiliumEndpoints(namespace).Patch(context.TODO(), name,
 			types.JSONPatchType, createStatusPatch, metav1.PatchOptions{})
 		if err != nil {
 			if errors.IsConflict(err) {
-				log.WithError(err).Warn("Unable to update CiliumEndpoint resource, will retry")
+				log.Warn("Unable to update CiliumEndpoint resource, will retry", slog.Any(logfields.Error, err))
 				continue
 			}
-			log.WithError(err).Fatal("Unable to update CiliumEndpoint resource")
+			logging.Fatal(log, "Unable to update CiliumEndpoint resource", slog.Any(logfields.Error, err))
 		} else {
-			log.Infof("Successfully patched CiliumEndpoint resource: %v", *localCEP)
+			log.Info("Successfully patched CiliumEndpoint resource", slog.Any("cep", *localCEP))
 			return
 		}
 	}
-	log.Fatal("Could not create or update CiliumEndpoint resource, despite retries")
+	logging.Fatal(log, "Could not create or update CiliumEndpoint resource, despite retries")
 }
 
 func getEndpointIdentity(mdlIdentity *models.Identity) (identity *ciliumv2.EndpointIdentity) {
@@ -474,7 +514,7 @@ func getEndpointIdentity(mdlIdentity *models.Identity) (identity *ciliumv2.Endpo
 	identity.Labels = make([]string, len(mdlIdentity.Labels))
 	copy(identity.Labels, mdlIdentity.Labels)
 	slices.Sort(identity.Labels)
-	log.Infof("Got Endpoint Identity: %v", *identity)
+	log.Info("Got Endpoint Identity", slog.Any("identity", *identity))
 	return
 }
 

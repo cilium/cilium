@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -62,7 +64,7 @@ func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode xdp.Mode, bpffsBase string) {
 	links, err := safenetlink.LinkList()
 	if err != nil {
-		log.WithError(err).Warn("Failed to list links for XDP unload")
+		log.Warn("Failed to list links for XDP unload", slog.Any(logfields.Error, err))
 	}
 
 	for _, link := range links {
@@ -88,7 +90,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode xdp.Mode, bpffsBas
 		}
 		if !used {
 			if err := DetachXDP(link.Attrs().Name, bpffsBase, symbolFromHostNetdevXDP); err != nil {
-				log.WithError(err).Warn("Failed to detach obsolete XDP program")
+				log.Warn("Failed to detach obsolete XDP program", slog.Any(logfields.Error, err))
 			}
 		}
 	}
@@ -195,7 +197,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 	switch {
 	// Update successful, nothing left to do.
 	case err == nil:
-		log.Infof("Updated link %s for program %s", pin, progName)
+		log.Info("Updated link for program", slog.String("link", pin), slog.String("prog-name", progName))
 
 		return nil
 
@@ -207,11 +209,11 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 			return fmt.Errorf("unpinning defunct link %s: %w", pin, err)
 		}
 
-		log.Infof("Unpinned defunct link %s for program %s", pin, progName)
+		log.Info("Unpinned defunct link for program", slog.String("link", pin), slog.String("prog-name", progName))
 
 	// No existing link found, continue trying to create one.
 	case errors.Is(err, os.ErrNotExist):
-		log.Infof("No existing link found at %s for program %s", pin, progName)
+		log.Info("No existing link found for program", slog.String("link", pin), slog.String("prog-name", progName))
 
 	default:
 		return fmt.Errorf("updating link %s for program %s: %w", pin, progName, err)
@@ -233,7 +235,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 			// The program was successfully attached using bpf_link. Closing a link
 			// does not detach the program if the link is pinned.
 			if err := l.Close(); err != nil {
-				log.Warnf("Failed to close bpf_link for program %s", progName)
+				log.Warn("Failed to close bpf_link for program", slog.String("prog-name", progName))
 			}
 		}()
 
@@ -242,7 +244,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 		}
 
 		// Successfully created and pinned bpf_link.
-		log.Infof("Program %s attached using bpf_link", progName)
+		log.Info("Program attached using bpf_link", slog.String("prog-name", progName))
 
 		return nil
 	}
@@ -257,7 +259,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 		return fmt.Errorf("attaching program %s using bpf_link: %w", progName, err)
 	}
 
-	log.Debugf("Performing netlink attach for program %s", progName)
+	log.Debug("Performing netlink attach for program", slog.String("prog-name", progName))
 
 	// Omitting XDP_FLAGS_UPDATE_IF_NOEXIST equals running 'ip' with -force,
 	// and will clobber any existing XDP attachment to the interface, including
@@ -268,7 +270,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 
 	// Nothing left to do, the netlink device now holds a reference to the prog
 	// the program stays active.
-	log.Infof("Program %s was attached using netlink", progName)
+	log.Info("Program was attached using netlink", slog.String("prog-name", progName))
 
 	return nil
 }

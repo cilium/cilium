@@ -6,6 +6,7 @@ package envoy
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -19,6 +20,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -39,7 +42,7 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 
 	// TODO: https://github.com/cilium/cilium/issues/5051
 	// Implement IncrementalAggregatedResources to support Incremental xDS.
-	//envoy_service_discovery_v3.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
+	// envoy_service_discovery_v3.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_secret.RegisterSecretDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_endpoint.RegisterEndpointDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_cluster.RegisterClusterDiscoveryServiceServer(grpcServer, dsServer)
@@ -53,10 +56,10 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		if s.restorerPromise != nil {
-			log.Infof("Envoy: Waiting for endpoint restorer before serving xDS resources...")
+			log.Info("Envoy: Waiting for endpoint restorer before serving xDS resources...")
 			restorer, err := s.restorerPromise.Await(ctx)
 			if err == nil && restorer != nil {
-				log.Infof("Envoy: Waiting for endpoint restoration before serving xDS resources...")
+				log.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
 				err = restorer.WaitForInitialEnvoyPolicy(ctx)
 			}
 			if errors.Is(err, context.Canceled) {
@@ -67,9 +70,9 @@ func (s *xdsServer) startXDSGRPCServer(listener net.Listener, config map[string]
 			xdsServer.RestoreCompleted()
 		}
 
-		log.Infof("Envoy: Starting xDS gRPC server listening on %s", listener.Addr())
+		log.Info("Envoy: Starting xDS gRPC server", slog.Any("listener", listener.Addr()))
 		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
-			log.WithError(err).Fatal("Envoy: Failed to serve xDS gRPC API")
+			logging.Fatal(log, "Envoy: Failed to serve xDS gRPC API", slog.Any(logfields.Error, err))
 		}
 	}()
 
@@ -85,9 +88,9 @@ type xdsGRPCServer xds.Server
 
 // TODO: https://github.com/cilium/cilium/issues/5051
 // Implement IncrementalAggregatedResources also to support Incremental xDS.
-//func (s *xdsGRPCServer) StreamAggregatedResources(stream envoy_service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+// func (s *xdsGRPCServer) StreamAggregatedResources(stream envoy_service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 //	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, xds.AnyTypeURL)
-//}
+// }
 
 func (s *xdsGRPCServer) DeltaListeners(stream envoy_service_listener.ListenerDiscoveryService_DeltaListenersServer) error {
 	return ErrNotImplemented

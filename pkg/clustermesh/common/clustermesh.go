@@ -6,6 +6,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -147,7 +148,7 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		controllers:                    controller.NewManager(),
 		remoteConnectionControllerName: fmt.Sprintf("remote-etcd-%s", name),
 
-		logger: log.WithField(logfields.ClusterName, name),
+		logger: log.With(slog.String(logfields.ClusterName, name)),
 
 		backendFactory:     kvstore.NewClient,
 		clusterLockFactory: newClusterLock,
@@ -163,14 +164,16 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 
 func (cm *clusterMesh) add(name, path string) {
 	if name == cm.conf.ClusterInfo.Name {
-		log.WithField(fieldClusterName, name).Debug("Ignoring configuration for own cluster")
+		log.Debug("Ignoring configuration for own cluster", slog.Any(fieldClusterName, name))
 		return
 	}
 
 	if err := types.ValidateClusterName(name); err != nil {
-		log.WithField(fieldClusterName, name).
-			WithError(fmt.Errorf("invalid cluster name: %w", err)).
-			Error("Cannot connect to remote cluster")
+		log.Error(
+			"Cannot connect to remote cluster",
+			slog.Any(logfields.Error, fmt.Errorf("invalid cluster name: %w", err)),
+			slog.String(fieldClusterName, name),
+		)
 		return
 	}
 
@@ -184,7 +187,7 @@ func (cm *clusterMesh) addLocked(name, path string) {
 		// The configuration for this cluster has been recreated before the cleanup
 		// of the same cluster completed. Let's queue it for delayed processing.
 		cm.tombstones[name] = path
-		log.WithField(fieldClusterName, name).Info("Delaying configuration of remote cluster, which is still being removed")
+		log.Info("Delaying configuration of remote cluster, which is still being removed", slog.Any(fieldClusterName, name))
 		return
 	}
 
@@ -233,13 +236,13 @@ func (cm *clusterMesh) remove(name string) {
 
 		if path != removed {
 			// Let's replay the queued add event.
-			log.WithField(fieldClusterName, name).Info("Replaying delayed configuration of new remote cluster after removal")
+			log.Info("Replaying delayed configuration of new remote cluster after removal", slog.Any(fieldClusterName, name))
 			cm.addLocked(name, path)
 		}
 		cm.mutex.Unlock()
 	}()
 
-	log.WithField(fieldClusterName, name).Debug("Remote cluster configuration removed")
+	log.Debug("Remote cluster configuration removed", slog.Any(fieldClusterName, name))
 }
 
 // NumReadyClusters returns the number of remote clusters to which a connection
