@@ -85,11 +85,17 @@ func PodToPodWithEndpoints(opts ...Option) check.Scenario {
 	for _, opt := range opts {
 		opt(options)
 	}
+
+	rc := &retryCondition{}
+	for _, opt := range options.retryCondition {
+		opt(rc)
+	}
 	return &podToPodWithEndpoints{
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
 		method:            options.method,
 		path:              options.path,
+		retryCondition:    rc,
 	}
 }
 
@@ -99,6 +105,7 @@ type podToPodWithEndpoints struct {
 	destinationLabels map[string]string
 	method            string
 	path              string
+	retryCondition    *retryCondition
 }
 
 func (s *podToPodWithEndpoints) Name() string {
@@ -148,6 +155,7 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 		ep := check.HTTPEndpointWithLabels(epName, url, echo.Labels())
 
 		t.NewAction(s, epName, client, ep, ipFam).Run(func(a *check.Action) {
+			curlOpts = append(curlOpts, s.retryCondition.CurlOptions(ep, ipFam, *client, ct.Params())...)
 			a.ExecInPod(ctx, ct.CurlCommand(ep, ipFam, curlOpts...))
 
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
