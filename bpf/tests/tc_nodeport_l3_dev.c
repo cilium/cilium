@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+/* We gently borrow these tests to additionally check that, when used
+ * from the Wireguard device, we correctly update bpf metrics.
+ * This is not needed anymore and will be moved in wireguard_metrics.c
+ * once addressed https://github.com/cilium/cilium/issues/33676.
+ */
+#define IS_BPF_WIREGUARD 1
+#define ENABLE_WIREGUARD
+#define THIS_INTERFACE_IFINDEX WG_IFINDEX
+
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
@@ -137,6 +146,9 @@ int ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 	struct tcphdr *l4;
 	__u8 *payload;
 
+	struct metrics_value *entry = NULL;
+	struct metrics_key key = {};
+
 	test_init();
 
 	data = (void *)(long)ctx->data;
@@ -197,6 +209,18 @@ int ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
+
+	/* Check that the packet was recorded in the metrics. */
+	key.reason = REASON_DECRYPTING;
+	key.dir = METRIC_INGRESS;
+
+	entry = map_lookup_elem(&METRICS_MAP, &key);
+	if (!entry)
+		test_fatal("metrics entry not found")
+
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 
 	test_finish();
 }
