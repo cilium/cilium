@@ -7,11 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/lthibault/jitterbug/v2"
-	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_types "k8s.io/apimachinery/pkg/types"
@@ -27,6 +28,7 @@ import (
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
@@ -39,7 +41,7 @@ const (
 type StatusReconciler struct {
 	lock.Mutex
 
-	Logger            logrus.FieldLogger
+	Logger            logging.FieldLogger
 	ClientSet         k8s_client.Clientset
 	LocalNodeResource daemon_k8s.LocalCiliumNodeResource
 
@@ -54,7 +56,7 @@ type StatusReconcilerIn struct {
 	DaemonConfig *option.DaemonConfig
 	Job          job.Group
 	ClientSet    k8s_client.Clientset
-	Logger       logrus.FieldLogger
+	Logger       logging.FieldLogger
 	LocalNode    daemon_k8s.LocalCiliumNodeResource
 }
 
@@ -74,7 +76,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 	}
 
 	r := &StatusReconciler{
-		Logger:            in.Logger.WithField(types.ReconcilerLogField, "CRD_Status"),
+		Logger:            in.Logger.With(slog.String(types.ReconcilerLogField, "CRD_Status")),
 		LocalNodeResource: in.LocalNode,
 		ClientSet:         in.ClientSet,
 		desiredStatus:     &v2alpha1.CiliumBGPNodeStatus{},
@@ -130,7 +132,7 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 				// Error will be logged once 10 retries fails consecutively, so we do not flood the logs with errors on each retry.
 				err := r.reconcileWithRetry(ctx)
 				if err != nil {
-					r.Logger.WithError(err).Error("Failed to update CiliumBGPNodeConfig status after retries")
+					r.Logger.Error("Failed to update CiliumBGPNodeConfig status after retries", slog.Any(logfields.Error, err))
 				}
 
 			case <-ctx.Done():
@@ -167,9 +169,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params StateReconcileP
 	current := r.desiredStatus.DeepCopy()
 
 	if params.UpdatedInstance != nil {
-		r.Logger.WithFields(logrus.Fields{
-			types.InstanceLogField: params.UpdatedInstance.Config.Name,
-		}).Debug("Reconciling CRD status")
+		r.Logger.Debug("Reconciling CRD status", slog.Any(types.InstanceLogField, params.UpdatedInstance.Config.Name))
 
 		// get updated status for the instance
 		instanceStatus, err := r.getInstanceStatus(ctx, params.UpdatedInstance)
@@ -191,9 +191,10 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, params StateReconcileP
 	}
 
 	if params.DeletedInstance != "" {
-		r.Logger.WithFields(logrus.Fields{
-			types.InstanceLogField: params.DeletedInstance,
-		}).Debug("Deleting instance from CRD status")
+		r.Logger.Debug(
+			"Deleting instance from CRD status",
+			slog.String(types.InstanceLogField, params.DeletedInstance),
+		)
 
 		// remove instance from status
 		for idx, instance := range current.BGPInstances {
@@ -339,7 +340,7 @@ func (r *StatusReconciler) reconcileWithRetry(ctx context.Context) error {
 	retryFn := func(ctx context.Context) (bool, error) {
 		err := r.reconcileCRDStatus(ctx)
 		if err != nil {
-			r.Logger.WithError(err).Debug("Failed to update CiliumBGPNodeConfig status")
+			r.Logger.Debug("Failed to update CiliumBGPNodeConfig status", slog.Any(logfields.Error, err))
 			return false, nil
 		}
 		return true, nil
@@ -393,6 +394,6 @@ func (r *StatusReconciler) reconcileCRDStatus(ctx context.Context) error {
 	}
 
 	r.runningStatus = statusCpy
-	r.Logger.WithField(types.BGPNodeConfigLogField, r.nodeName).Debug("Updated resource status")
+	r.Logger.Debug("Updated resource status", slog.String(types.BGPNodeConfigLogField, r.nodeName))
 	return nil
 }

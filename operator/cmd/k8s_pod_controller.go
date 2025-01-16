@@ -6,10 +6,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -79,7 +79,7 @@ func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientse
 				for _, podItem := range watchers.UnmanagedPodStore.List() {
 					pod, ok := podItem.(*slim_corev1.Pod)
 					if !ok {
-						log.Errorf("unexpected type mapping: found %T, expected %T", pod, &slim_corev1.Pod{})
+						log.Error(fmt.Sprintf("unexpected type mapping: found %T, expected %T", pod, &slim_corev1.Pod{}))
 						continue
 					}
 					if pod.Spec.HostNetwork {
@@ -87,33 +87,52 @@ func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientse
 					}
 					cep, exists, err := watchers.HasCE(pod.Namespace, pod.Name)
 					if err != nil {
-						log.WithError(err).WithField(logfields.EndpointID, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)).
-							Errorf("Unexpected error when getting CiliumEndpoint")
+						log.Error(
+							"Unexpected error when getting CiliumEndpoint",
+							slog.Any(logfields.Error, err),
+							slog.String(logfields.EndpointID, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)),
+						)
 						continue
 					}
 					podID := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 					if exists {
-						log.WithFields(logrus.Fields{
-							logfields.K8sPodName: podID,
-							logfields.Identity:   cep.Status.ID,
-						}).Debug("Found managed pod due to presence of a CEP")
+						log.Debug(
+							"Found managed pod due to presence of a CEP",
+							slog.Any(logfields.Error, err),
+							slog.String(logfields.K8sPodName, podID),
+							slog.Int64(logfields.Identity, cep.Status.ID),
+						)
 					} else {
 						countUnmanagedPods++
-						log.WithField(logfields.K8sPodName, podID).Debugf("Found unmanaged pod")
+						log.Debug(
+							"Found unmanaged pod",
+							slog.String(logfields.K8sPodName, podID),
+						)
 
 						if startTime := pod.Status.StartTime; startTime != nil {
 							if age := time.Since((*startTime).Time); age > unmanagedPodMinimalAge {
 								if lastRestart, ok := lastPodRestart[podID]; ok {
 									if timeSinceRestart := time.Since(lastRestart); timeSinceRestart < minimalPodRestartInterval {
-										log.WithField(logfields.K8sPodName, podID).
-											Debugf("Not restarting unmanaged pod, only %s since last restart", timeSinceRestart)
+										log.Debug(
+											"Not restarting unmanaged pod. Not enough time since last restart",
+											slog.Duration("time-since-restart", timeSinceRestart),
+											slog.String(logfields.K8sPodName, podID),
+										)
 										continue
 									}
 								}
 
-								log.WithField(logfields.K8sPodName, podID).Infof("Restarting unmanaged pod, started %s ago", age)
+								log.Info(
+									"Restarting unmanaged pod",
+									slog.Duration("time-since-pod-started", age),
+									slog.String(logfields.K8sPodName, podID),
+								)
 								if err := clientset.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
-									log.WithError(err).WithField(logfields.K8sPodName, podID).Warning("Unable to restart pod")
+									log.Warn(
+										"Unable to restart pod",
+										slog.Any(logfields.Error, err),
+										slog.String(logfields.K8sPodName, podID),
+									)
 								} else {
 									lastPodRestart[podID] = time.Now()
 

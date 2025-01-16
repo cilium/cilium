@@ -8,9 +8,9 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -40,7 +40,7 @@ type DirectRoutingDeviceConfig struct {
 type DirectRoutingDeviceParams struct {
 	cell.In
 
-	Log     logrus.FieldLogger
+	Log     logging.FieldLogger
 	Config  DirectRoutingDeviceConfig
 	Node    *node.LocalNodeStore `optional:"true"`
 	DB      *statedb.DB

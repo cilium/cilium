@@ -12,16 +12,16 @@ package metrics
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-	"github.com/sirupsen/logrus"
-
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
 const (
@@ -1482,13 +1482,13 @@ func (gwt *GaugeWithThreshold) Set(value float64) {
 	if gwt.active && !overThreshold {
 		gwt.active = !Unregister(gwt.gauge)
 		if gwt.active {
-			logrus.WithField("metric", gwt.gauge.Desc().String()).Warning("Failed to unregister metric")
+			slog.Warn("Failed to unregister metric", slog.Any("metric", gwt.gauge.Desc()))
 		}
 	} else if !gwt.active && overThreshold {
 		err := Register(gwt.gauge)
 		gwt.active = err == nil
 		if err != nil {
-			logrus.WithField("metric", gwt.gauge.Desc().String()).WithError(err).Warning("Failed to register metric")
+			slog.Warn("Failed to register metric", slog.Any(logfields.Error, err), slog.Any("metric", gwt.gauge.Desc()))
 		}
 	}
 

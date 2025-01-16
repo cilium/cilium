@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -32,7 +33,7 @@ var serviceDeleteCmd = &cobra.Command{
 				}
 
 				if err := client.DeleteServiceID(svc.Status.Realized.ID); err != nil {
-					log.WithError(err).WithField(logfields.ServiceID, svc.Status.Realized.ID).Error("Cannot delete service")
+					log.Error("Cannot delete service", slog.Any(logfields.Error, err), slog.Int64(logfields.ServiceID, svc.Status.Realized.ID))
 				}
 			}
 

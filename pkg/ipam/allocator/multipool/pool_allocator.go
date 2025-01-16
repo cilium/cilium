@@ -6,12 +6,11 @@ package multipool
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net/netip"
 	"slices"
 	"sort"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
@@ -171,20 +170,22 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 				for pool, allocatedCIDRSets := range pools {
 					if isV6 {
 						if _, ok := allocatedCIDRSets.v6[prefix]; ok {
-							log.WithFields(logrus.Fields{
-								"cidr": prefix.String(),
-								"pool": pool,
-								"node": node,
-							}).Warn("CIDR from pool still in use by node")
+							log.Warn(
+								"CIDR from pool still in use by node",
+								slog.String("cidr", prefix.String()),
+								slog.String("pool", pool),
+								slog.String("node", node),
+							)
 							delete(p.nodes[node][pool].v6, prefix)
 						}
 					} else {
 						if _, ok := allocatedCIDRSets.v4[prefix]; ok {
-							log.WithFields(logrus.Fields{
-								"cidr": prefix.String(),
-								"pool": pool,
-								"node": node,
-							}).Warn("CIDR from pool still in use by node")
+							log.Warn(
+								"CIDR from pool still in use by node",
+								slog.String("cidr", prefix.String()),
+								slog.String("pool", pool),
+								slog.String("node", node),
+							)
 							delete(p.nodes[node][pool].v4, prefix)
 						}
 					}
@@ -267,10 +268,11 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 	for node, pools := range p.nodes {
 		for pool := range pools {
 			if pool == poolName {
-				log.WithFields(logrus.Fields{
-					"pool": poolName,
-					"node": node,
-				}).Warn("pool still in use by node")
+				log.Warn(
+					"pool still in use by node",
+					slog.String("pool", pool),
+					slog.String("node", node),
+				)
 				delete(p.nodes[node], poolName)
 			}
 		}
@@ -476,12 +478,13 @@ func (p *PoolAllocator) allocateCIDRs(targetNode, sourcePool string, family ipam
 		return fmt.Errorf("cannot allocate from non-existing pool: %s", sourcePool)
 	}
 
-	log.WithFields(logrus.Fields{
-		"targetNode": targetNode,
-		"sourcePool": sourcePool,
-		"family":     family,
-		"toAllocate": toAllocate,
-	}).Debug("allocating cidr")
+	log.Debug(
+		"allocating cidr",
+		slog.String("targetNode", targetNode),
+		slog.String("sourcePool", sourcePool),
+		slog.Any("family", family),
+		slog.Any("toAllocate", toAllocate),
+	)
 
 	for toAllocate.Cmp(zero) > 0 {
 		cidr, err := pool.allocCIDR(family)
@@ -502,11 +505,12 @@ func (p *PoolAllocator) occupyCIDR(targetNode, sourcePool string, cidr netip.Pre
 		return nil
 	}
 
-	log.WithFields(logrus.Fields{
-		"targetNode": targetNode,
-		"sourcePool": sourcePool,
-		"cidr":       cidr.String(),
-	}).Debug("occupying cidr")
+	log.Debug(
+		"occupying cidr",
+		slog.String("targetNode", targetNode),
+		slog.String("sourcePool", sourcePool),
+		slog.Any("cidr", cidr),
+	)
 
 	pool, ok := p.pools[sourcePool]
 	if !ok {
@@ -555,11 +559,12 @@ func (p *PoolAllocator) releaseCIDR(targetNode, sourcePool string, cidr netip.Pr
 		return nil
 	}
 
-	log.WithFields(logrus.Fields{
-		"targetNode": targetNode,
-		"sourcePool": sourcePool,
-		"cidr":       cidr.String(),
-	}).Debug("releasing cidr")
+	log.Debug(
+		"releasing cidr",
+		slog.String("targetNode", targetNode),
+		slog.String("sourcePool", sourcePool),
+		slog.Any("cidr", cidr),
+	)
 
 	pool, ok := p.pools[sourcePool]
 	if !ok {

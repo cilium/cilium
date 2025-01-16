@@ -6,6 +6,7 @@ package labelsfilter
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
@@ -18,7 +19,7 @@ import (
 )
 
 var (
-	log                    = logging.DefaultLogger.WithField(logfields.LogSubsys, "labels-filter")
+	log                    = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "labels-filter"))
 	validLabelPrefixesMU   lock.RWMutex
 	validLabelPrefixes     *labelPrefixCfg // Label prefixes used to filter from all labels
 	validNodeLabelPrefixes *labelPrefixCfg
@@ -119,7 +120,7 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 		log.Info("Parsing base label prefixes from default label list")
 		cfg = defaultLabelPrefixCfg()
 	} else {
-		log.Infof("Parsing base label prefixes from file %s", file)
+		log.Info(fmt.Sprintf("Parsing base label prefixes from file %s", file))
 		cfg, err = readLabelPrefixCfgFrom(file)
 		if err != nil {
 			return fmt.Errorf("unable to read label prefix file: %w", err)
@@ -130,7 +131,7 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 
 	//exhaustruct:ignore // Reading clean configuration, no need to initialize
 	nodeCfg = &labelPrefixCfg{}
-	log.Infof("Parsing node label prefixes from user inputs: %v", nodePrefixes)
+	log.Info(fmt.Sprintf("Parsing node label prefixes from user inputs: %v", nodePrefixes))
 	for _, label := range nodePrefixes {
 		if len(label) == 0 {
 			continue
@@ -147,7 +148,7 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 		nodeCfg.LabelPrefixes = append(nodeCfg.LabelPrefixes, p)
 	}
 
-	log.Infof("Parsing additional label prefixes from user inputs: %v", prefixes)
+	log.Info(fmt.Sprintf("Parsing additional label prefixes from user inputs: %v", prefixes))
 	for _, label := range prefixes {
 		if len(label) == 0 {
 			continue
@@ -174,8 +175,8 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 		}
 
 		if !found {
-			log.Errorf("'%s' needs to be included in the final label list for "+
-				"Cilium to work properly.", reservedLabelsPattern)
+			log.Error(fmt.Sprintf("'%s' needs to be included in the final label list for "+
+				"Cilium to work properly.", reservedLabelsPattern))
 		}
 	}
 
@@ -184,12 +185,12 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 
 	log.Info("Final label prefixes to be used for identity evaluation:")
 	for _, l := range validLabelPrefixes.LabelPrefixes {
-		log.Infof(" - %s", l)
+		log.Info(fmt.Sprintf(" - %s", l))
 	}
 
 	log.Info("Final node label prefixes to be used for identity evaluation:")
 	for _, l := range validNodeLabelPrefixes.LabelPrefixes {
-		log.Infof(" - %s", l)
+		log.Info(fmt.Sprintf(" - %s", l))
 	}
 
 	return nil

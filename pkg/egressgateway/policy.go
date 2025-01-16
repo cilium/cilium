@@ -5,9 +5,9 @@ package egressgateway
 
 import (
 	"fmt"
+	"log/slog"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -133,12 +133,13 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 		if node.IsLocal() {
 			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
 			if err != nil {
-				logger := log.WithFields(logrus.Fields{
-					logfields.CiliumEgressGatewayPolicyName: config.id,
-					logfields.Interface:                     policyGwc.iface,
-					logfields.EgressIP:                      policyGwc.egressIP,
-				})
-				logger.WithError(err).Error("Failed to derive policy gateway configuration")
+				log.Error(
+					"Failed to derive policy gateway configuration",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.CiliumEgressGatewayPolicyName, config.id),
+					slog.String(logfields.Interface, policyGwc.iface),
+					slog.Any(logfields.EgressIP, policyGwc.egressIP),
+				)
 			}
 		}
 

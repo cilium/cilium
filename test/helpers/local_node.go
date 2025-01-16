@@ -8,19 +8,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
 var (
-	//LocalExecutorLogs is a buffer where all commands sent over ssh are saved.
+	// LocalExecutorLogs is a buffer where all commands sent over ssh are saved.
 	LocalExecutorLogs = ginkgoext.NewWriter(new(Buffer))
 )
 
@@ -41,13 +40,13 @@ type Executor interface {
 	RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error
 	setBasePath()
 
-	Logger() *logrus.Entry
+	Logger() *slog.Logger
 }
 
 // LocalExecutor executes commands, implements Executor interface
 type LocalExecutor struct {
 	env      []string
-	logger   *logrus.Entry
+	logger   *slog.Logger
 	basePath string
 }
 
@@ -62,7 +61,7 @@ func (s *LocalExecutor) IsLocal() bool {
 }
 
 // Logger returns logger for executor
-func (s *LocalExecutor) Logger() *logrus.Entry {
+func (s *LocalExecutor) Logger() *slog.Logger {
 	return s.logger
 }
 

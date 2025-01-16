@@ -117,10 +117,10 @@ func setupSyslog(logOpts LogOptions, tag string, debug bool) error {
 	// Validate provided log level.
 	level, err := logrus.ParseLevel(logLevel)
 	if err != nil {
-		DefaultLogger.Fatal(err)
+		// DefaultLogger.Fatal(err)
 	}
 
-	SetLogLevel(level)
+	// SetLogLevel(level)
 
 	network := ""
 	address := ""
@@ -143,12 +143,12 @@ func setupSyslog(logOpts LogOptions, tag string, debug bool) error {
 
 	// Create syslog hook.
 	h, err := logrus_syslog.NewSyslogHook(network, address, severity|facility, tag)
-	if err != nil {
-		DefaultLogger.Fatal(err)
-	}
+	// if err != nil {
+	// 	DefaultLogger.Fatal(err)
+	// }
 	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 	logrus.AddHook(h)
-	DefaultLogger.AddHook(h)
+	// DefaultLogger.AddHook(h)
 
 	return nil
 }

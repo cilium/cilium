@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -179,7 +180,12 @@ func NewRegisterObserver(name string, updateChan chan *nodeTypes.RegisterNode) *
 
 func (o *RegisterObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*nodeTypes.RegisterNode); ok {
-		log.Debugf("noderegister update on key %s while waiting for %s: %v", n.GetKeyName(), o.name, n)
+		log.Debug(
+			"noderegister update on key while waiting for node",
+			slog.String("key", n.GetKeyName()),
+			slog.String("node-name", o.name),
+			slog.Any("node", n),
+		)
 		if n.NodeIdentity != 0 && n.GetKeyName() == o.name {
 			select {
 			case o.updates <- n:
@@ -191,7 +197,11 @@ func (o *RegisterObserver) OnUpdate(k store.Key) {
 }
 
 func (o *RegisterObserver) OnDelete(k store.NamedKey) {
-	log.Debugf("noderegister key %s deleted while registering %s", k.GetKeyName(), o.name)
+	log.Debug(
+		"noderegister key deleted while registering",
+		slog.String("key", k.GetKeyName()),
+		slog.String("name", o.name),
+	)
 }
 
 // JoinCluster registers the local node in the cluster.
@@ -220,10 +230,17 @@ func (nr *NodeRegistrar) JoinCluster(name string) (*nodeTypes.Node, error) {
 	// Drain the channel of old updates first
 	for len(registerObserver.updates) > 0 {
 		dump := <-registerObserver.updates
-		log.Debugf("bypassing stale noderegister key: %s", dump.GetKeyName())
+		log.Debug(
+			"bypassing stale noderegister key",
+			slog.String("key", dump.GetKeyName()),
+		)
 	}
 
-	log.Debugf("updating noderegister key %s with: %v", n.GetKeyName(), n)
+	log.Debug(
+		"updating noderegister key",
+		slog.String("key", n.GetKeyName()),
+		slog.Any("node", n),
+	)
 	err = registerStore.UpdateLocalKeySync(context.TODO(), n)
 	if err != nil {
 		registerStore.Release()

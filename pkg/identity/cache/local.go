@@ -5,6 +5,7 @@ package cache
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -60,10 +61,10 @@ func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.Num
 	if idCandidate.Scope() == l.scope {
 		if _, taken := l.identitiesByID[idCandidate]; !taken {
 			// let nextNumericIdentity be, allocated identities will be skipped anyway
-			log.Debugf("Reallocated restored local identity: %d", idCandidate)
+			log.Debug("Reallocated restored local identity", slog.Any(logfields.Identity, idCandidate))
 			return idCandidate, nil
 		} else {
-			log.WithField(logfields.Identity, idCandidate).Debug("Requested local identity not available to allocate")
+			log.Debug("Requested local identity not available to allocate", slog.Any(logfields.Identity, idCandidate))
 		}
 	}
 	firstID := l.nextNumericIdentity
@@ -83,7 +84,7 @@ func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.Num
 			for withheldID := range l.withheldIdentities {
 				if _, taken := l.identitiesByID[withheldID]; !taken {
 					delete(l.withheldIdentities, withheldID)
-					log.WithField(logfields.Identity, withheldID).Warn("Local identity allocator full; claiming first withheld identity. This may cause momentary policy drops")
+					log.Warn("Local identity allocator full; claiming first withheld identity. This may cause momentary policy drops", slog.Any(logfields.Identity, withheldID))
 					return withheldID, nil
 				}
 			}

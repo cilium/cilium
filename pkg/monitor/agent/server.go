@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 
@@ -16,7 +17,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor-agent")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "monitor-agent"))
 )
 
 // buildServer opens a listener socket at path. It exits with logging on all
@@ -64,7 +65,7 @@ func ServeMonitorAPI(ctx context.Context, monitor Agent, queueSize int) error {
 		monitor:  monitor,
 	}
 
-	log.Infof("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2)
+	log.Info(fmt.Sprintf("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2))
 
 	go s.connectionHandler1_2(ctx, queueSize)
 
@@ -88,7 +89,7 @@ func (s *server) connectionHandler1_2(ctx context.Context, queueSize int) {
 			}
 			return
 		case err != nil:
-			log.WithError(err).Warn("Error accepting connection")
+			log.Warn("Error accepting connection", slog.Any(logfields.Error, err))
 			continue
 		}
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"path/filepath"
@@ -45,7 +46,7 @@ import (
 var log *logrus.Logger
 
 func init() {
-	log = logrus.New()
+	log = slog.Default()
 	log.SetOutput(io.Discard)
 }
 

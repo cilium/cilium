@@ -4,6 +4,7 @@
 package maps
 
 import (
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -25,7 +26,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-maps")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "datapath-maps"))
 )
 
 // endpointManager checks against its list of the current endpoints to determine
@@ -70,7 +71,7 @@ func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 		} else {
 			err2 := ms.RemoveDatapathMapping(epID)
 			if err2 != nil {
-				log.WithError(err2).Debugf("Failed to remove ID %d from global policy map", tmp)
+				log.Debug("Failed to remove ID from global policy map", slog.Any(logfields.Error, err2), slog.Uint64("id", tmp))
 			}
 			ms.RemoveMapPath(path)
 		}
@@ -116,7 +117,7 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 // datapath.
 func (ms *MapSweeper) CollectStaleMapGarbage() {
 	if err := filepath.Walk(bpf.TCGlobalsPath(), ms.walk); err != nil {
-		log.WithError(err).Warn("Error while scanning for stale maps")
+		log.Warn("Error while scanning for stale maps", slog.Any(logfields.Error, err))
 	}
 }
 

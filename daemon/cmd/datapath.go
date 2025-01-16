@@ -8,10 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -88,14 +89,14 @@ func clearCiliumVeths() error {
 		// ill-fated consequences.
 		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") &&
 			parentVeth.Attrs().ParentIndex == v.Attrs().Index {
-			scopedlog := log.WithFields(logrus.Fields{
-				logfields.Device: v.Attrs().Name,
-			})
+			logAttrs := []slog.Attr{
+				slog.String(logfields.Device, v.Attrs().Name),
+			}
 
-			scopedlog.Debug("Deleting stale veth device")
+			log.Debug("Deleting stale veth device", logAttrs)
 			err := netlink.LinkDel(v)
 			if err != nil {
-				scopedlog.WithError(err).Warning("Unable to delete stale veth device")
+				log.Warn("Unable to delete stale veth device", slog.Any(logfields.Error, err), logAttrs)
 			}
 		}
 	}
@@ -118,9 +119,15 @@ func (e *EndpointMapManager) RemoveDatapathMapping(endpointID uint16) error {
 // RemoveMapPath removes the specified path from the filesystem.
 func (e *EndpointMapManager) RemoveMapPath(path string) {
 	if err := os.RemoveAll(path); err != nil {
-		log.WithError(err).WithField(logfields.Path, path).Warn("Error while deleting stale map file")
+		log.Warn(
+			"Error while deleting stale map file",
+			slog.String(logfields.Path, path),
+		)
 	} else {
-		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
+		log.Info(
+			"Removed stale bpf map",
+			slog.String(logfields.Path, path),
+		)
 	}
 }
 
@@ -179,7 +186,7 @@ func (d *Daemon) initMaps() error {
 
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
-		log.WithError(err).Fatal("Unable to initialize service maps")
+		logging.Fatal(log, "Unable to initialize service maps", slog.Any(logfields.Error, err))
 	}
 
 	if err := policymap.InitCallMaps(); err != nil {
@@ -323,9 +330,10 @@ func syncVTEP(context.Context) error {
 
 func setupVTEPMapping() error {
 	for i, ep := range option.Config.VtepEndpoints {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: ep,
-		}).Debug("Updating vtep map entry for VTEP")
+		log.Debug(
+			"Updating vtep map entry for VTEP",
+			slog.Any(logfields.IPAddr, ep),
+		)
 
 		err := vtep.UpdateVTEPMapping(option.Config.VtepCIDRs[i], ep, option.Config.VtepMACs[i])
 		if err != nil {
@@ -373,9 +381,10 @@ func setupRouteToVtepCidr() error {
 			if err := route.Upsert(r); err != nil {
 				return fmt.Errorf("Update VTEP CIDR route error: %w", err)
 			}
-			log.WithFields(logrus.Fields{
-				logfields.IPAddr: r.Prefix.String(),
-			}).Info("VTEP route added")
+			log.Info(
+				"VTEP route added",
+				slog.Any(logfields.IPAddr, r.Prefix),
+			)
 
 			rule := route.Rule{
 				Priority: linux_defaults.RulePriorityVtep,
@@ -405,9 +414,10 @@ func setupRouteToVtepCidr() error {
 		if err := route.Delete(r); err != nil {
 			return fmt.Errorf("Delete VTEP CIDR route error: %w", err)
 		}
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: r.Prefix.String(),
-		}).Info("VTEP route removed")
+		log.Info(
+			"VTEP route removed",
+			slog.Any(logfields.IPAddr, r.Prefix),
+		)
 
 		rule := route.Rule{
 			Priority: linux_defaults.RulePriorityVtep,

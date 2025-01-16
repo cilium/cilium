@@ -5,8 +5,7 @@ package cache
 
 import (
 	"context"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
@@ -35,10 +34,11 @@ func (n *NoopIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) 
 
 func (n *NoopIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
 	if option.Config.Debug {
-		log.WithFields(logrus.Fields{
-			logfields.IdentityLabels: lbls.String(),
-			logfields.Identity:       identity.ReservedIdentityInit,
-		}).Debug("Assigning a fixed identity that is not based on labels, because network policies are disabled")
+		log.Debug(
+			"Assigning a fixed identity that is not based on labels, because network policies are disabled",
+			slog.Any(logfields.Identity, identity.ReservedIdentityInit),
+			slog.Any(logfields.IdentityLabels, lbls),
+		)
 	}
 
 	initID := identity.LookupReservedIdentity(identity.ReservedIdentityInit)

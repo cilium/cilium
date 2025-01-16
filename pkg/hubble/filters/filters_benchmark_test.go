@@ -5,9 +5,9 @@ package filters
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,7 +21,7 @@ var (
 )
 
 func runFilterBenchmark(b *testing.B, ff *flowpb.FlowFilter, events []*v1.Event) {
-	filterFuncs, err := BuildFilter(context.Background(), ff, DefaultFilters(logrus.New()))
+	filterFuncs, err := BuildFilter(context.Background(), ff, DefaultFilters(slog.Default()))
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -96,7 +96,7 @@ func BenchmarkCELL4ProtocolPortFlowFilterNonMatching100(b *testing.B) {
 }
 
 func TestBenchmarkFiltersAreEquivalent(t *testing.T) {
-	log := logrus.New()
+	log := slog.Default()
 	basicFuncs, err := BuildFilter(context.Background(), basicL4Filter, DefaultFilters(log))
 	require.NoError(t, err)
 	celFuncs, err := BuildFilter(context.Background(), celL4Filter, DefaultFilters(log))

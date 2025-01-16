@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
+	"github.com/sagikazarmark/slog-shim"
 	"github.com/spf13/pflag"
 )
 
@@ -37,7 +39,7 @@ type parameters struct {
 	cell.In
 
 	Config        HealthAPIServerConfig
-	Logger        logrus.FieldLogger
+	Logger        logging.FieldLogger
 	EndpointFuncs []EndpointFunc
 }
 
@@ -63,7 +65,7 @@ func registerHealthAPIServer(lc cell.Lifecycle, params parameters) {
 			go func() {
 				params.Logger.Info("Started health API")
 				if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-					params.Logger.WithError(err).Fatal("Unable to start health API")
+					logging.Fatal(params.Logger, "Unable to start health API", slog.Any(logfields.Error, err))
 				}
 			}()
 			return nil

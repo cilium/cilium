@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -43,7 +44,7 @@ const (
 	interfacesListVirtualMachineScaleSetNetworkInterfaces = "Interfaces.ListVirtualMachineScaleSetNetworkInterfaces"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "azure-api")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "azure-api"))
 
 // Client represents an Azure API client
 type Client struct {

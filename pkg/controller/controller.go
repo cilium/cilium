@@ -7,15 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	stdtime "time"
 
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/hive/cell"
 )
 
 const (
@@ -186,7 +186,7 @@ type controller struct {
 	group  Group
 	name   string
 	uuid   string
-	logger *logrus.Entry
+	logger *slog.Logger
 
 	// Channels written to and/or closed by the manager
 	stop    chan struct{}
@@ -253,7 +253,7 @@ func (c *controller) runController(params ControllerParams) {
 
 		c.mutex.Lock()
 		c.lastDuration = duration
-		c.getLogger().Debug("Controller func execution time: ", c.lastDuration)
+		c.getLogger().Debug("Controller func executed", slog.Duration("duration", c.lastDuration))
 
 		if err != nil {
 			if params.Context.Err() != nil {
@@ -275,8 +275,11 @@ func (c *controller) runController(params ControllerParams) {
 				interval = time.Duration(math.MaxInt64)
 
 			} else {
-				c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
-					WithError(err).Debug("Controller run failed")
+				c.getLogger().Debug(
+					"Controller run failed",
+					slog.Int(fieldConsecutiveErrors, errorRetries),
+					slog.Any(logfields.Error, err),
+				)
 				c.recordError(err, params.Health)
 
 				if !params.NoErrorRetry {
@@ -287,10 +290,11 @@ func (c *controller) runController(params ControllerParams) {
 					}
 
 					if params.MaxRetryInterval > 0 && interval > params.MaxRetryInterval {
-						c.getLogger().WithFields(logrus.Fields{
-							"calculatedInterval": interval,
-							"maxAllowedInterval": params.MaxRetryInterval,
-						}).Debug("Cap retry interval to max allowed value")
+						c.getLogger().Debug(
+							"Cap retry interval to max allowed value",
+							slog.Duration("calculatedInterval", interval),
+							slog.Duration("maxAllowedInterval", params.MaxRetryInterval),
+						)
 						interval = params.MaxRetryInterval
 					}
 
@@ -345,20 +349,23 @@ shutdown:
 		c.mutex.Lock()
 		c.recordError(err, params.Health)
 		c.mutex.Unlock()
-		c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
-			WithError(err).Warn("Error on Controller stop")
+		c.getLogger().Warn(
+			"Error on Controller stop",
+			slog.Int(fieldConsecutiveErrors, errorRetries),
+			slog.Any(logfields.Error, err),
+		)
 	}
 
 	close(c.terminated)
 }
 
 // logger returns a logrus object with controllerName and UUID fields.
-func (c *controller) getLogger() *logrus.Entry {
+func (c *controller) getLogger() *slog.Logger {
 	if c.logger == nil {
-		c.logger = log.WithFields(logrus.Fields{
-			fieldControllerName: c.name,
-			fieldUUID:           c.uuid,
-		})
+		c.logger = log.With(
+			slog.String(fieldControllerName, c.name),
+			slog.String(fieldUUID, c.uuid),
+		)
 	}
 
 	return c.logger

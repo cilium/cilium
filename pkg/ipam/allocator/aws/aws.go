@@ -6,6 +6,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -26,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-aws")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ipam-allocator-aws"))
 
 // AllocatorAWS is an implementation of IPAM allocator interface for AWS ENI
 type AllocatorAWS struct {
@@ -54,10 +55,12 @@ func initENIGarbageCollectionTags(ctx context.Context, cfg aws.Config) (eniTags 
 	// Try to auto-detect EKS cluster name
 	clusterName, err := ec2shim.DetectEKSClusterName(ctx, cfg)
 	if err != nil {
-		log.WithError(err).Debug("Auto-detection of EKS cluster name failed")
+		log.Debug("Auto-detection of EKS cluster name failed", slog.Any(logfields.Error, err))
 	} else {
-		log.WithField(logfields.ClusterName, clusterName).
-			Info("Auto-detected EKS cluster name for ENI garbage collection")
+		log.Info(
+			"Auto-detected EKS cluster name for ENI garbage collection",
+			slog.Any(logfields.ClusterName, clusterName),
+		)
 		eniTags[defaults.ENIGarbageCollectionTagClusterName] = clusterName
 		return eniTags
 	}

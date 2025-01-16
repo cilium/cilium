@@ -8,10 +8,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-sockets")
+	log          = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "datapath-sockets"))
 	native       = binary.NativeEndian
 	networkOrder = binary.BigEndian
 )
@@ -74,13 +74,13 @@ func Destroy(filter SocketFilter) error {
 				return
 			}
 			if filter.MatchSocket(sock) {
-				log.Infof("socket %v", sock)
+				log.Info(fmt.Sprintf("socket %v", sock))
 				if err := destroySocket(sock, family, unix.IPPROTO_UDP); err != nil {
 					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
 					failed++
 					return
 				}
-				log.Debugf("Destroyed socket: %v", sock)
+				log.Debug("Destroyed socket", slog.Any("socket", sock))
 				success++
 			}
 		})
@@ -92,12 +92,13 @@ func Destroy(filter SocketFilter) error {
 		return fmt.Errorf("unsupported protocol for socket destroy: %d", protocol)
 	}
 	if success > 0 || failed > 0 || errs != nil {
-		log.WithFields(logrus.Fields{
-			"filter":  filter,
-			"success": success,
-			"failed":  failed,
-			"errors":  errs,
-		}).Info("Forcefully terminated sockets")
+		log.Info(
+			"Forcefully terminated sockets",
+			slog.Any("filter", filter),
+			slog.Int("success", success),
+			slog.Int("failed", failed),
+			slog.Any("errors", errs),
+		)
 	}
 
 	return nil

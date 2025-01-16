@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -45,7 +45,7 @@ const (
 type meshServiceInformer struct {
 	dummyInformer
 
-	logger             logrus.FieldLogger
+	logger             logging.FieldLogger
 	globalServiceCache *common.GlobalServiceCache
 	services           resource.Resource[*slim_corev1.Service]
 	serviceStore       resource.Store[*slim_corev1.Service]
@@ -96,7 +96,7 @@ func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) {
 }
 
 func newMeshServiceInformer(
-	logger logrus.FieldLogger,
+	logger logging.FieldLogger,
 	globalServiceCache *common.GlobalServiceCache,
 	services resource.Resource[*slim_corev1.Service],
 	meshNodeInformer *meshNodeInformer,

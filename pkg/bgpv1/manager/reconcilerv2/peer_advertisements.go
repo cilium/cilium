@@ -5,10 +5,10 @@ package reconcilerv2
 
 import (
 	"errors"
+	"log/slog"
 	"sort"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 type (
@@ -29,13 +30,13 @@ type (
 type PeerAdvertisementIn struct {
 	cell.In
 
-	Logger          logrus.FieldLogger
+	Logger          logging.FieldLogger
 	PeerConfigStore store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
 	AdvertStore     store.BGPCPResourceStore[*v2alpha1.CiliumBGPAdvertisement]
 }
 
 type CiliumPeerAdvertisement struct {
-	logger     logrus.FieldLogger
+	logger     logging.FieldLogger
 	peerConfig store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
 	adverts    store.BGPCPResourceStore[*v2alpha1.CiliumBGPAdvertisement]
 }
@@ -61,18 +62,18 @@ func NewCiliumPeerAdvertisement(p PeerAdvertisementIn) *CiliumPeerAdvertisement 
 // Linear scan [ Advertisements ] - O(k) ( number of advertisements - 3-4 types, which is again filtered)
 func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2alpha1.CiliumBGPNodeInstance, selectAdvertTypes ...v2alpha1.BGPAdvertisementType) (PeerAdvertisements, error) {
 	result := make(PeerAdvertisements)
-	l := p.logger.WithField(types.InstanceLogField, conf.Name)
+	l := p.logger.With(slog.String(types.InstanceLogField, conf.Name))
 	for _, peer := range conf.Peers {
-		lp := l.WithField(types.PeerLogField, peer.Name)
+		logAttr := slog.String(types.PeerLogField, peer.Name)
 
 		if peer.PeerConfigRef == nil || peer.PeerConfigRef.Name == "" {
-			lp.Debug("Peer config not specified, skipping advertisement check")
+			l.Debug("Peer config not specified, skipping advertisement check", logAttr)
 			continue
 		}
 		peerConfig, exist, err := p.peerConfig.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
 		if err != nil {
 			if errors.Is(err, store.ErrStoreUninitialized) {
-				lp.Errorf("BUG: Peer config store is not initialized")
+				l.Error("BUG: Peer config store is not initialized", logAttr)
 				// If store is not initialized, we can abort the reconcile loop and retry again.
 				// There is no need to continue with the rest of the reconcilers, since they
 				// will also fail because of store being not initialized.
@@ -81,7 +82,7 @@ func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2alpha1.Cil
 			return nil, err
 		}
 		if !exist {
-			lp.Debug("Peer config not found, skipping advertisement check")
+			l.Debug("Peer config not found, skipping advertisement check", logAttr)
 			continue
 		}
 

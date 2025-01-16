@@ -4,6 +4,7 @@
 package multicast
 
 import (
+	"log/slog"
 	"net"
 	"net/netip"
 
@@ -21,7 +22,7 @@ var (
 
 	mutex lock.Mutex
 
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "multicast")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "multicast"))
 )
 
 // Pre-Defined Multicast Addresses
@@ -63,7 +64,7 @@ func initSocket() error {
 
 	c, err := net.ListenPacket("udp6", "[::]:0")
 	if err != nil {
-		log.WithError(err).Warn("Failed to listen on socket for multicast")
+		log.Warn("Failed to listen on socket for multicast", slog.Any(logfields.Error, err))
 		return err
 	}
 

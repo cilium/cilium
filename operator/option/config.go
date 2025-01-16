@@ -4,6 +4,8 @@
 package option
 
 import (
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/spf13/viper"
@@ -15,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "option"))
 
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
@@ -480,37 +482,37 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMSubnetsTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMSubnetsTags, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", IPAMSubnetsTags, err))
 	} else {
 		c.IPAMSubnetsTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMInstanceTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMInstanceTags, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", IPAMInstanceTags, err))
 	} else {
 		c.IPAMInstanceTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, AWSInstanceLimitMapping); err != nil {
-		log.Fatalf("unable to parse %s: %s", AWSInstanceLimitMapping, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", AWSInstanceLimitMapping, err))
 	} else {
 		c.AWSInstanceLimitMapping = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, ENITags); err != nil {
-		log.Fatalf("unable to parse %s: %s", ENITags, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", ENITags, err))
 	} else {
 		c.ENITags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, ENIGarbageCollectionTags); err != nil {
-		log.Fatalf("unable to parse %s: %s", ENIGarbageCollectionTags, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", ENIGarbageCollectionTags, err))
 	} else {
 		c.ENIGarbageCollectionTags = m
 	}
 
 	if m, err := command.GetStringMapStringE(vp, IPAMAutoCreateCiliumPodIPPools); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err)
+		logging.Fatal(log, fmt.Sprintf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err))
 	} else {
 		c.IPAMAutoCreateCiliumPodIPPools = m
 	}

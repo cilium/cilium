@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cilium/endpointslice-controller/endpointslice"
-	"github.com/sirupsen/logrus"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // endpointSliceCleanupFactory returns a function used as a hook when no service are found in
@@ -54,7 +54,7 @@ func endpointSliceCleanupFactory(ctx context.Context, discoveryClient discoveryv
 }
 
 func newEndpointSliceMeshController(
-	ctx context.Context, logger logrus.FieldLogger, cfg EndpointSliceSyncConfig,
+	ctx context.Context, logger logging.FieldLogger, cfg EndpointSliceSyncConfig,
 	meshPodInformer *meshPodInformer, meshNodeInformer *meshNodeInformer,
 	clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service],
 	globalServices *common.GlobalServiceCache,

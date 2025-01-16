@@ -5,10 +5,10 @@ package endpointmanager
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -119,7 +119,7 @@ func Test_updateCEPUID(t *testing.T) {
 				node.UpdateLocalNodeInTest(func(n *node.LocalNode) {
 					n.SetNodeInternalIP(net.ParseIP(test.nodeIP))
 				})
-				err = updateCEPUID(logrus.StandardLogger().WithFields(logrus.Fields{}), test.ep, test.cep)
+				err = updateCEPUID(slog.Default(), test.ep, test.cep)
 			})
 			if test.err == nil {
 				assert.NoError(err)

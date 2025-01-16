@@ -4,8 +4,9 @@
 package watchers
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
@@ -116,14 +117,14 @@ func (k *K8sCiliumLRPWatcher) stopWatcher() {
 }
 
 func (k *K8sCiliumLRPWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.CiliumLocalRedirectName: clrp.ObjectMeta.Name,
-		logfields.K8sUID:                  clrp.ObjectMeta.UID,
-		logfields.K8sAPIVersion:           clrp.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            clrp.ObjectMeta.Namespace,
-	})
+	logAttrs := []slog.Attr{
+		slog.String(logfields.CiliumLocalRedirectName, clrp.ObjectMeta.Name),
+		slog.Any(logfields.K8sUID, clrp.ObjectMeta.UID),
+		slog.String(logfields.K8sAPIVersion, clrp.TypeMeta.APIVersion),
+		slog.String(logfields.K8sNamespace, clrp.ObjectMeta.Namespace),
+	}
 
-	scopedLog.Debug("Add CiliumLocalRedirectPolicy")
+	log.Debug("Add CiliumLocalRedirectPolicy", logAttrs)
 
 	rp, policyAddErr := redirectpolicy.Parse(clrp, true)
 	if policyAddErr == nil {
@@ -131,9 +132,9 @@ func (k *K8sCiliumLRPWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.Ciliu
 	}
 
 	if policyAddErr != nil {
-		scopedLog.WithError(policyAddErr).Warn("Failed to add CiliumLocalRedirectPolicy")
+		log.Warn("Failed to add CiliumLocalRedirectPolicy", slog.Any(logfields.Error, policyAddErr), logAttrs)
 	} else {
-		scopedLog.Info("Added CiliumLocalRedirectPolicy")
+		log.Info("Added CiliumLocalRedirectPolicy", logAttrs)
 	}
 
 	// TODO update status
@@ -142,14 +143,14 @@ func (k *K8sCiliumLRPWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.Ciliu
 }
 
 func (k *K8sCiliumLRPWatcher) deleteCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.CiliumLocalRedirectName: clrp.ObjectMeta.Name,
-		logfields.K8sUID:                  clrp.ObjectMeta.UID,
-		logfields.K8sAPIVersion:           clrp.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            clrp.ObjectMeta.Namespace,
-	})
+	logAttrs := []slog.Attr{
+		slog.String(logfields.CiliumLocalRedirectName, clrp.ObjectMeta.Name),
+		slog.Any(logfields.K8sUID, clrp.ObjectMeta.UID),
+		slog.String(logfields.K8sAPIVersion, clrp.TypeMeta.APIVersion),
+		slog.String(logfields.K8sNamespace, clrp.ObjectMeta.Namespace),
+	}
 
-	scopedLog.Debug("Delete CiliumLocalRedirectPolicy")
+	log.Debug("Delete CiliumLocalRedirectPolicy", logAttrs)
 
 	rp, policyDelErr := redirectpolicy.Parse(clrp, false)
 	if policyDelErr == nil {
@@ -157,9 +158,9 @@ func (k *K8sCiliumLRPWatcher) deleteCiliumLocalRedirectPolicy(clrp *cilium_v2.Ci
 	}
 
 	if policyDelErr != nil {
-		scopedLog.WithError(policyDelErr).Warn("Failed to delete CiliumLocalRedirectPolicy")
+		log.Warn("Failed to delete CiliumLocalRedirectPolicy", slog.Any(logfields.Error, policyDelErr), logAttrs)
 	} else {
-		scopedLog.Info("Deleted CiliumLocalRedirectPolicy")
+		log.Info("Deleted CiliumLocalRedirectPolicy")
 	}
 
 	return policyDelErr

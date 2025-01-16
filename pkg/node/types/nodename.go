@@ -4,6 +4,7 @@
 package types
 
 import (
+	"log/slog"
 	"os"
 	"sync"
 
@@ -72,9 +73,9 @@ func init() {
 		return
 	}
 	if h, err := os.Hostname(); err != nil {
-		log.WithError(err).Warn("Unable to retrieve local hostname")
+		log.Warn("Unable to retrieve local hostname", slog.Any(logfields.Error, err))
 	} else {
-		log.WithField(logfields.NodeName, h).Debug("os.Hostname() returned")
+		log.Debug("os.Hostname() returned", slog.String(logfields.NodeName, h))
 		nodeName = h
 	}
 }

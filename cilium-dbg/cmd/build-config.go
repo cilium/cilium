@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -85,12 +84,12 @@ var defaultBuildConfigCfg = buildConfigCfg{
 
 type buildConfig struct {
 	cfg        buildConfigCfg
-	log        logrus.FieldLogger
+	log        logging.FieldLogger
 	client     k8sClient.Clientset
 	shutdowner hive.Shutdowner
 }
 
-func newBuildConfig(lc cell.Lifecycle, cfg buildConfigCfg, log logrus.FieldLogger, client k8sClient.Clientset, shutdowner hive.Shutdowner) (*buildConfig, error) {
+func newBuildConfig(lc cell.Lifecycle, cfg buildConfigCfg, log logging.FieldLogger, client k8sClient.Clientset, shutdowner hive.Shutdowner) (*buildConfig, error) {
 	if cfg.Dest == "" {
 		return nil, fmt.Errorf("--dest is required")
 	}

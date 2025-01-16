@@ -5,11 +5,10 @@ package eventqueue
 
 import (
 	"fmt"
+	"log/slog"
 	"reflect"
 	"sync"
 	"sync/atomic"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -19,7 +18,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "eventqueue")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "eventqueue"))
 )
 
 // EventQueue is a structure which is utilized to handle Events in a first-in,
@@ -73,10 +72,11 @@ func NewEventQueue() *EventQueue {
 // NewEventQueueBuffered returns an EventQueue with a capacity of,
 // numBufferedEvents at a time, and all other needed fields initialized.
 func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
-	log.WithFields(logrus.Fields{
-		"name":              name,
-		"numBufferedEvents": numBufferedEvents,
-	}).Debug("creating new EventQueue")
+	log.Debug(
+		"creating new EventQueue",
+		slog.String("name", name),
+		slog.Int("numBufferedEvents", numBufferedEvents),
+	)
 	return &EventQueue{
 		name: name,
 		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.
@@ -203,12 +203,13 @@ func (ev *Event) WasCancelled() bool {
 
 func (ev *Event) printStats(q *EventQueue) {
 	if option.Config.Debug {
-		q.getLogger().WithFields(logrus.Fields{
-			"eventType":                    reflect.TypeOf(ev.Metadata).String(),
-			"eventHandlingDuration":        ev.stats.durationStat.Total(),
-			"eventEnqueueWaitTime":         ev.stats.waitEnqueue.Total(),
-			"eventConsumeOffQueueWaitTime": ev.stats.waitConsumeOffQueue.Total(),
-		}).Debug("EventQueue event processing statistics")
+		log.Debug(
+			"EventQueue event processing statistics",
+			slog.String("eventType", reflect.TypeOf(ev.Metadata).String()),
+			slog.Duration("eventHandlingDuration", ev.stats.durationStat.Total()),
+			slog.Duration("eventEnqueueWaitTime", ev.stats.waitEnqueue.Total()),
+			slog.Duration("eventConsumeOffQueueWaitTime", ev.stats.waitConsumeOffQueue.Total()),
+		)
 	}
 }
 
@@ -268,7 +269,7 @@ func (q *EventQueue) Stop() {
 	}
 
 	q.closeOnce.Do(func() {
-		q.getLogger().Debug("stopping EventQueue")
+		log.Debug("stopping EventQueue", slog.String("name", q.name))
 		// Any event that is sent to the queue at this point will be cancelled
 		// immediately in Enqueue().
 		close(q.drain)
@@ -297,13 +298,6 @@ func (q *EventQueue) WaitToBeDrained() {
 	// will so that it can be drained.
 	go q.run()
 	<-q.eventsClosed
-}
-
-func (q *EventQueue) getLogger() *logrus.Entry {
-	return log.WithFields(
-		logrus.Fields{
-			"name": q.name,
-		})
 }
 
 // EventHandler is an interface for allowing an EventQueue to handle events

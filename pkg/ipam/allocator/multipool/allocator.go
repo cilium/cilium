@@ -5,8 +5,7 @@ package multipool
 
 import (
 	"context"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -15,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-multi-pool")
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "ipam-allocator-multi-pool"))
 
 // Allocator implements allocator.AllocatorProvider
 type Allocator struct {
@@ -51,13 +50,14 @@ func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.Cilium
 		}
 	}
 
-	log.WithFields(logrus.Fields{
-		"pool-name":      pool.Name,
-		"ipv4-cidrs":     ipv4CIDRs,
-		"ipv4-mask-size": ipv4MaskSize,
-		"ipv6-cidrs":     ipv6CIDRs,
-		"ipv6-mask-size": ipv6MaskSize,
-	}).Debug("upserting pool")
+	log.Debug(
+		"upserting pool",
+		slog.String("pool-name", pool.Name),
+		slog.Any("ipv4-cidrs", ipv4CIDRs),
+		slog.Any("ipv4-mask-size", ipv4MaskSize),
+		slog.Any("ipv6-cidrs", ipv6CIDRs),
+		slog.Any("ipv6-mask-size", ipv6MaskSize),
+	)
 
 	return a.poolAlloc.UpsertPool(
 		pool.Name,
@@ -69,9 +69,10 @@ func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.Cilium
 }
 
 func (a *Allocator) DeletePool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {
-	log.WithFields(logrus.Fields{
-		"pool-name": pool.Name,
-	}).Debug("deleting pool")
+	log.Debug(
+		"deleting pool",
+		slog.String("pool-name", pool.Name),
+	)
 
 	return a.poolAlloc.DeletePool(pool.Name)
 }

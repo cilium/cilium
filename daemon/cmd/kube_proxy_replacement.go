@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 
@@ -45,10 +47,13 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
-		log.Infof("Auto-enabling %q, %q, %q, %q, %q features",
+		log.Info(fmt.Sprintf(
+			"Auto-enabling %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
 			option.EnableSocketLB, option.EnableHostPort,
-			option.EnableSessionAffinity)
+			option.EnableSessionAffinity,
+		),
+		)
 
 		option.Config.EnableHostPort = true
 		option.Config.EnableNodePort = true
@@ -135,15 +140,17 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.EnableWireguard && option.Config.EncryptNode {
-			log.WithField(logfields.Hint,
-				"Disable XDP acceleration to encrypt N/S Loadbalancer traffic.").
-				Warnf("With %s: %s and %s, %s enabled, N/S Loadbalancer traffic won't be encrypted "+
-					"when an intermediate node redirects a request to another node where a selected backend is running.",
-					option.NodePortAcceleration, option.Config.NodePortAcceleration, option.EnableWireguard, option.EncryptNode)
+			log.Warn(
+				fmt.Sprintf(
+					"With %s: %s and %s, %s enabled, N/S Loadbalancer traffic won't be encrypted "+
+						"when an intermediate node redirects a request to another node where a selected backend is running.",
+					option.NodePortAcceleration, option.Config.NodePortAcceleration, option.EnableWireguard, option.EncryptNode),
+				slog.String(logfields.Hint,
+					"Disable XDP acceleration to encrypt N/S Loadbalancer traffic."))
 		}
 
 		if !option.Config.NodePortBindProtection {
-			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
+			log.Warn("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
 		if option.Config.TunnelingEnabled() && tunnelConfig.Protocol() == tunnel.VXLAN &&
@@ -249,7 +256,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		if option.Config.EnableMKE {
 			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
 				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-				log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
+				logging.Fatal(log, fmt.Sprintf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE))
 			}
 		}
 
@@ -309,7 +316,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 
 		if option.Config.BPFSocketLBHostnsOnly {
 			option.Config.BPFSocketLBHostnsOnly = false
-			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB)
+			log.Warn(fmt.Sprintf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB))
 		}
 	}
 
@@ -359,7 +366,7 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		}
 		if msg != "" {
 			option.Config.EnableHostLegacyRouting = true
-			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
+			log.Info(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
 		}
 	}
 
@@ -391,13 +398,15 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		// routing one.
 
 		if val, err := sysctl.Read([]string{"net", "ipv4", "conf", directRoutingDevice, "rp_filter"}); err != nil {
-			log.Warnf("Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
-				directRoutingDevice, err)
+			log.Warn(fmt.Sprintf(
+				"Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
+				directRoutingDevice, err),
+			)
 		} else {
 			if val == "1" {
-				log.Warnf(`DSR might not work for requests sent to other than %s device. `+
+				log.Warn(fmt.Sprintf(`DSR might not work for requests sent to other than %s device. `+
 					`Run 'sysctl -w net.ipv4.conf.%s.rp_filter=2' (or set to '0') on each node to fix`,
-					directRoutingDevice, directRoutingDevice)
+					directRoutingDevice, directRoutingDevice))
 			}
 		}
 	}
@@ -423,7 +432,7 @@ func markHostExtension() {
 	if prefix == "" {
 		mountInfos, err := mountinfo.GetMountInfo()
 		if err != nil {
-			log.WithError(err).Fatal("Cannot retrieve mount infos for MKE")
+			logging.Fatal(log, "Cannot retrieve mount infos for MKE", slog.Any(logfields.Error, err))
 		}
 		for _, mountInfo := range mountInfos {
 			if mountInfo.FilesystemType == "cgroup" &&
@@ -431,17 +440,16 @@ func markHostExtension() {
 				// There can be multiple entries with the same mountpoint.
 				// Assert that there is no conflict.
 				if prefix != "" && prefix != mountInfo.MountPoint {
-					log.Fatalf("Multiple cgroup v1 net_cls mounts: %s, %s",
-						prefix, mountInfo.MountPoint)
+					logging.Fatal(log, fmt.Sprintf("Multiple cgroup v1 net_cls mounts: %s, %s", prefix, mountInfo.MountPoint))
 				}
 				prefix = mountInfo.MountPoint
 			}
 		}
 	}
 	if prefix == "" {
-		log.Fatal("Cannot retrieve cgroup v1 net_cls mount info for MKE")
+		logging.Fatal(log, "Cannot retrieve cgroup v1 net_cls mount info for MKE")
 	}
-	log.WithField(logfields.Path, prefix).Info("Found cgroup v1 net_cls mount on MKE")
+	log.Info("Found cgroup v1 net_cls mount on MKE", slog.Any(logfields.Path, prefix))
 	err := filepath.Walk(prefix,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -450,7 +458,7 @@ func markHostExtension() {
 			if !info.IsDir() || strings.Contains(path, "kubepods") || path == prefix {
 				return nil
 			}
-			log.WithField(logfields.Path, path).Info("Marking as MKE host extension")
+			log.Info("Marking as MKE host extension", slog.Any(logfields.Path, path))
 			f, err := os.OpenFile(path+"/net_cls.classid", os.O_RDWR, 0644)
 			if err != nil {
 				return err
@@ -471,7 +479,7 @@ func markHostExtension() {
 			return err
 		})
 	if err != nil {
-		log.WithError(err).Fatal("Cannot mark MKE-related container")
+		logging.Fatal(log, "Cannot mark MKE-related container", slog.Any(logfields.Error, err))
 	}
 }
 

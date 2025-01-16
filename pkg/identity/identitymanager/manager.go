@@ -4,7 +4,7 @@
 package identitymanager
 
 import (
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
@@ -51,9 +51,10 @@ func newIdentityManager() *IdentityManager {
 // already in the identity manager, the reference count for the identity is
 // incremented.
 func (idm *IdentityManager) Add(identity *identity.Identity) {
-	log.WithFields(logrus.Fields{
-		logfields.Identity: identity,
-	}).Debug("Adding identity to the identity manager")
+	log.Debug(
+		"Adding identity to identity manager",
+		slog.Any(logfields.Identity, identity),
+	)
 
 	idm.mutex.Lock()
 	defer idm.mutex.Unlock()
@@ -97,10 +98,11 @@ func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
 		return
 	}
 
-	log.WithFields(logrus.Fields{
-		"old": old,
-		"new": new,
-	}).Debug("removing old and adding new identity")
+	log.Debug(
+		"removing old and adding new identity",
+		slog.Any("old", old),
+		slog.Any("new", new),
+	)
 
 	idm.remove(old)
 	idm.add(new)
@@ -121,9 +123,10 @@ func (idm *IdentityManager) RemoveAll() {
 // decremented. If the identity is not in the cache, this is a no-op. If the
 // ref count becomes zero, the identity is removed from the cache.
 func (idm *IdentityManager) Remove(identity *identity.Identity) {
-	log.WithFields(logrus.Fields{
-		logfields.Identity: identity,
-	}).Debug("Removing identity from the identity manager")
+	log.Debug(
+		"Removing identity from identity manager",
+		slog.Any(logfields.Identity, identity),
+	)
 
 	idm.mutex.Lock()
 	defer idm.mutex.Unlock()
@@ -137,9 +140,10 @@ func (idm *IdentityManager) remove(identity *identity.Identity) {
 
 	idMeta, exists := idm.identities[identity.ID]
 	if !exists {
-		log.WithFields(logrus.Fields{
-			logfields.Identity: identity,
-		}).Error("removing identity not added to the identity manager!")
+		log.Error(
+			"removing identity not added to the identity manager!",
+			slog.Any(logfields.Identity, identity),
+		)
 		return
 	}
 	idMeta.refCount--

@@ -6,10 +6,10 @@ package linuxrouting
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "linux-routing")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "linux-routing"))
 )
 
 // Configure sets up the rules and routes needed when running in ENI or
@@ -44,9 +44,10 @@ var (
 // host: Whether the IP is a host IP and needs to be routed via the 'local' table
 func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) error {
 	if ip.To4() == nil {
-		log.WithFields(logrus.Fields{
-			"endpointIP": ip,
-		}).Warning("Unable to configure rules and routes because IP is not an IPv4 address")
+		log.Warn(
+			"Unable to configure rules and routes because IP is not an IPv4 address",
+			slog.Any("endpointIP", ip),
+		)
 		return errors.New("IP not compatible")
 	}
 
@@ -163,17 +164,18 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 // the IP & priority. If more than one rule matches, then deletion is skipped.
 func Delete(ip netip.Addr, compat bool) error {
 	if !ip.Is4() {
-		log.WithFields(logrus.Fields{
-			"endpointIP": ip,
-		}).Warning("Unable to delete rules because IP is not an IPv4 address")
+		log.Warn(
+			"Unable to delete rules because IP is not an IPv4 address",
+			slog.Any("endpointIP", ip),
+		)
 		return errors.New("IP not compatible")
 	}
 
 	ipWithMask := netipx.AddrIPNet(ip)
 
-	scopedLog := log.WithFields(logrus.Fields{
-		"ip": ipWithMask.String(),
-	})
+	logAttrs := []slog.Attr{
+		slog.Any("ip", ipWithMask),
+	}
 
 	// Ingress rules
 	ingress := route.Rule{
@@ -185,7 +187,7 @@ func Delete(ip netip.Addr, compat bool) error {
 		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %w", ipWithMask.String(), err)
 	}
 
-	scopedLog.WithField("rule", ingress).Debug("Deleted ingress rule")
+	log.Debug("Deleted ingress rule", slog.Any("rule", ingress), logAttrs)
 
 	priority := linux_defaults.RulePriorityEgressv2
 	if compat {
@@ -214,7 +216,7 @@ func Delete(ip netip.Addr, compat bool) error {
 			if err := deleteRule(egress); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
-			scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
+			log.Debug("Deleted egress rule", slog.Any(logfields.Rule, egress), logAttrs)
 		}
 	} else {
 		egress := route.Rule{
@@ -224,7 +226,7 @@ func Delete(ip netip.Addr, compat bool) error {
 		if err := deleteRule(egress); err != nil {
 			return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 		}
-		scopedLog.WithField(logfields.Rule, egress).Debug("Deleted egress rule")
+		log.Debug("Deleted egress rule", slog.Any(logfields.Rule, egress), logAttrs)
 	}
 
 	if option.Config.EnableUnreachableRoutes {
@@ -256,18 +258,20 @@ func deleteRule(r route.Rule) error {
 	length := len(rules)
 	switch {
 	case length > 1:
-		log.WithFields(logrus.Fields{
-			"candidates": rules,
-			"rule":       r,
-		}).Warning("Found too many rules matching, skipping deletion")
+		log.Warn(
+			"Found too many rules matching, skipping deletion",
+			slog.Any("candidates", rules),
+			slog.Any("rule", r),
+		)
 		return errors.New("unexpected number of rules found to delete")
 	case length == 1:
 		return route.DeleteRule(netlink.FAMILY_V4, r)
 	}
 
-	log.WithFields(logrus.Fields{
-		"rule": r,
-	}).Warning("No rule matching found")
+	log.Warn(
+		"No rule matching found",
+		slog.Any("rule", r),
+	)
 
 	return errors.New("no rule found to delete")
 }

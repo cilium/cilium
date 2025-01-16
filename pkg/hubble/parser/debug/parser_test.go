@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -25,7 +26,7 @@ import (
 var log *logrus.Logger
 
 func init() {
-	log = logrus.New()
+	log = slog.Default()
 	log.SetOutput(io.Discard)
 }
 

@@ -4,6 +4,8 @@
 package k8s
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -16,5 +18,5 @@ const (
 
 var (
 	// log is the k8s package logger object.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsysK8s))
 )

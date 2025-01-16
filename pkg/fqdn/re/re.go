@@ -8,6 +8,7 @@ package re
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"sync/atomic"
 
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "fqdn/re")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "fqdn/re"))
 )
 
 // CompileRegex compiles a pattern p into a regex and returns the regex object.
@@ -55,9 +56,10 @@ func InitRegexCompileLRU(size int) error {
 	if size < 0 {
 		return fmt.Errorf("failed to initialize FQDN regex compilation LRU due to invalid size %d", size)
 	} else if size == 0 {
-		log.Warnf(
+		log.Warn(fmt.Sprintf(
 			"FQDN regex compilation LRU size is unlimited, which can grow unbounded potentially consuming too much memory. Consider passing a maximum size via --%s.",
-			option.FQDNRegexCompileLRUSize)
+			option.FQDNRegexCompileLRUSize,
+		))
 	}
 	regexCompileLRU.Store(&RegexCompileLRU{
 		Mutex: &lock.Mutex{},

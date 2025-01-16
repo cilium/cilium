@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"path"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -255,24 +257,24 @@ type clusterServiceObserver struct {
 // OnUpdate is called when a service in a remote cluster is updated
 func (c *clusterServiceObserver) OnUpdate(key store.Key) {
 	if svc, ok := key.(*ValidatingClusterService); ok {
-		scopedLog := log.WithField(logfields.ServiceName, svc.String())
-		scopedLog.Debugf("Update event of cluster service %#v", svc)
+		logAttr := slog.String(logfields.ServiceName, svc.String())
+		log.Debug("Update event of cluster service", slog.Any("service", svc), logAttr)
 
 		c.merger.MergeClusterServiceUpdate(&svc.ClusterService, c.swg)
 	} else {
-		log.Warningf("Received unexpected cluster service update object %+v", key)
+		log.Warn("Received unexpected cluster service update object", slog.Any("object", key))
 	}
 }
 
 // OnDelete is called when a service in a remote cluster is deleted
 func (c *clusterServiceObserver) OnDelete(key store.NamedKey) {
 	if svc, ok := key.(*ValidatingClusterService); ok {
-		scopedLog := log.WithField(logfields.ServiceName, svc.String())
-		scopedLog.Debugf("Delete event of cluster service %#v", svc)
+		logAttr := slog.String(logfields.ServiceName, svc.String())
+		log.Debug("Delete event of cluster service", slog.Any("service", svc), logAttr)
 
 		c.merger.MergeClusterServiceDelete(&svc.ClusterService, c.swg)
 	} else {
-		log.Warningf("Received unexpected cluster service delete object %+v", key)
+		log.Warn("Received unexpected cluster service delete object", slog.Any("object", key))
 	}
 }
 
@@ -294,7 +296,7 @@ func JoinClusterServices(merger ServiceMerger, clusterName string) {
 		},
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Enumerating cluster services failed")
+		logging.Fatal(log, "Enumerating cluster services failed", slog.Any(logfields.Error, err))
 	}
 	swg.Stop()
 }

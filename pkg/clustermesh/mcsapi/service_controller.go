@@ -10,7 +10,6 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +23,7 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 const (
@@ -37,12 +37,12 @@ const (
 // the existing clustermesh features for the MCS API Support.
 type mcsAPIServiceReconciler struct {
 	client.Client
-	Logger logrus.FieldLogger
+	Logger logging.FieldLogger
 
 	clusterName string
 }
 
-func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger logrus.FieldLogger, clusterName string) *mcsAPIServiceReconciler {
+func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger logging.FieldLogger, clusterName string) *mcsAPIServiceReconciler {
 	return &mcsAPIServiceReconciler{
 		Client:      mgr.GetClient(),
 		Logger:      logger,

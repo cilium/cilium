@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"sync/atomic"
 	"testing"
@@ -314,7 +315,7 @@ func TestGetFlows(t *testing.T) {
 				DisableColors:    true,
 				DisableTimestamp: true,
 			}
-			logger := logrus.New()
+			logger := slog.Default()
 			logger.SetOutput(&buf)
 			logger.SetFormatter(formatter)
 			logger.SetLevel(logrus.DebugLevel)
@@ -937,7 +938,7 @@ func TestGetNodes(t *testing.T) {
 				DisableColors:    true,
 				DisableTimestamp: true,
 			}
-			logger := logrus.New()
+			logger := slog.Default()
 			logger.SetOutput(&buf)
 			logger.SetFormatter(formatter)
 			logger.SetLevel(logrus.DebugLevel)
@@ -1140,7 +1141,7 @@ func TestGetNamespaces(t *testing.T) {
 				DisableColors:    true,
 				DisableTimestamp: true,
 			}
-			logger := logrus.New()
+			logger := slog.Default()
 			logger.SetOutput(&buf)
 			logger.SetFormatter(formatter)
 			logger.SetLevel(logrus.DebugLevel)
@@ -1423,7 +1424,7 @@ func TestServerStatus(t *testing.T) {
 				DisableColors:    true,
 				DisableTimestamp: true,
 			}
-			logger := logrus.New()
+			logger := slog.Default()
 			logger.SetOutput(&buf)
 			logger.SetFormatter(formatter)
 			logger.SetLevel(logrus.DebugLevel)

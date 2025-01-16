@@ -7,11 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/netip"
-
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -21,6 +19,9 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/hive/cell"
 )
 
 const (
@@ -37,13 +38,13 @@ type PodIPPoolReconcilerOut struct {
 type PodIPPoolReconcilerIn struct {
 	cell.In
 
-	Logger     logrus.FieldLogger
+	Logger     logging.FieldLogger
 	PeerAdvert *CiliumPeerAdvertisement
 	PoolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
 }
 
 type PodIPPoolReconciler struct {
-	logger     logrus.FieldLogger
+	logger     logging.FieldLogger
 	peerAdvert *CiliumPeerAdvertisement
 	poolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
 	metadata   map[string]PodIPPoolReconcilerMetadata
@@ -62,7 +63,7 @@ func NewPodIPPoolReconciler(in PodIPPoolReconcilerIn) PodIPPoolReconcilerOut {
 
 	return PodIPPoolReconcilerOut{
 		Reconciler: &PodIPPoolReconciler{
-			logger:     in.Logger.WithField(types.ReconcilerLogField, "PodIPPool"),
+			logger:     in.Logger.With(slog.String(types.ReconcilerLogField, "PodIPPool")),
 			peerAdvert: in.PeerAdvert,
 			poolStore:  in.PoolStore,
 			metadata:   make(map[string]PodIPPoolReconcilerMetadata),
@@ -124,7 +125,7 @@ func (r *PodIPPoolReconciler) reconcilePaths(ctx context.Context, p ReconcilePar
 	metadata := r.getMetadata(p.BGPInstance)
 
 	metadata.PoolAFPaths, err = ReconcileResourceAFPaths(ReconcileResourceAFPathsParams{
-		Logger:                 r.logger.WithField(types.InstanceLogField, p.DesiredConfig.Name),
+		Logger:                 r.logger.With(slog.String(types.InstanceLogField, p.DesiredConfig.Name)),
 		Ctx:                    ctx,
 		Router:                 p.BGPInstance.Router,
 		DesiredResourceAFPaths: poolsAFPaths,
@@ -194,11 +195,10 @@ func (r *PodIPPoolReconciler) reconcileRoutePolicies(ctx context.Context, p Reco
 		}
 
 		updatedRPs, rErr := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{
-			Logger: r.logger.WithFields(
-				logrus.Fields{
-					types.InstanceLogField:  p.DesiredConfig.Name,
-					types.PodIPPoolLogField: poolKey,
-				}),
+			Logger: r.logger.With(
+				slog.String(types.InstanceLogField, p.DesiredConfig.Name),
+				slog.Any(types.PodIPPoolLogField, poolKey),
+			),
 			Ctx:             ctx,
 			Router:          p.BGPInstance.Router,
 			DesiredPolicies: desiredRPs,
@@ -293,7 +293,11 @@ func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2api.CiliumNode) ma
 			if p, err := cidr.ToPrefix(); err == nil {
 				prefixes = append(prefixes, *p)
 			} else {
-				r.logger.WithField(types.PrefixLogField, cidr).WithError(err).Error("invalid IPAM pool CIDR")
+				r.logger.Error(
+					"invalid IPAM pool CIDR",
+					slog.Any(logfields.Error, err),
+					slog.Any(types.PrefixLogField, cidr),
+				)
 			}
 		}
 		lp[pool.Pool] = prefixes
@@ -313,7 +317,10 @@ func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, 
 			for _, advert := range familyAdverts {
 				// sanity check advertisement type
 				if advert.AdvertisementType != v2alpha1.BGPCiliumPodIPPoolAdvert {
-					r.logger.WithField(types.AdvertTypeLogField, advert.AdvertisementType).Error("BUG: unexpected advertisement type")
+					r.logger.Error(
+						"BUG: unexpected advertisement type",
+						slog.Any(types.AdvertTypeLogField, advert.AdvertisementType),
+					)
 					continue
 				}
 

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 	"path/filepath"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
@@ -13,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/health/defaults"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -31,7 +33,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	log.Info("Launching Cilium health daemon")
 	if ch, err := health.Launch(spec, d.loader.HostDatapathInitialized()); err != nil {
-		log.WithError(err).Fatal("Failed to launch cilium-health")
+		logging.Fatal(log, "Failed to launch cilium-health", slog.Any(logfields.Error, err))
 	} else {
 		d.ciliumHealth = ch
 	}
@@ -49,9 +51,11 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 		// PIDfiles are referring to PIDs that may be reused. Clean up.
 		pidfilePath := filepath.Join(option.Config.StateDir, defaults.PidfilePath)
 		if err := pidfile.Remove(pidfilePath); err != nil {
-			log.WithField(logfields.PIDFile, pidfilePath).
-				WithError(err).
-				Warning("Failed to remove pidfile")
+			log.Warn(
+				"Failed to remove pidfile",
+				slog.Any(logfields.Error, err),
+				slog.String(logfields.PIDFile, pidfilePath),
+			)
 		}
 	}
 

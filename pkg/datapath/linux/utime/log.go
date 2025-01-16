@@ -4,11 +4,13 @@
 package utime
 
 import (
+	"log/slog"
+
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
 	subsystem = "utime"
-	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
+	log       = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsystem))
 )

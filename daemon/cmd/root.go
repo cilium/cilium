@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/cmdref"
@@ -36,11 +35,11 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 			// Validate the daemon-specific global options.
 			if err := option.Config.Validate(h.Viper()); err != nil {
-				log.Fatalf("invalid daemon configuration: %s", err)
+				logging.Fatal(log, fmt.Sprintf("invalid daemon configuration: %s", err))
 			}
 
 			if err := h.Run(logging.DefaultSlogLogger); err != nil {
-				log.Fatal(err)
+				logging.Fatal(log, fmt.Sprintf("unable to run agent: %s", err))
 			}
 		},
 	}
@@ -81,7 +80,8 @@ func setupSleepBeforeFatal(cmd *cobra.Command) {
 			time.Sleep(fatalSleep)
 			return e
 		})
-	logrus.RegisterExitHandler(func() {
-		time.Sleep(fatalSleep)
-	})
+	// FIXME @aanm
+	// logrus.RegisterExitHandler(func() {
+	// 	time.Sleep(fatalSleep)
+	// })
 }

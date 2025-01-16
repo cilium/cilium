@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"path"
 	"time"
 
@@ -29,7 +30,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "health-server")
+	log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, "health-server"))
 )
 
 // Config stores the configuration data for a cilium-health server.
@@ -81,11 +82,11 @@ func (s *Server) DumpUptime() string {
 // getNodes fetches the nodes added and removed from the last time the server
 // made a request to the daemon.
 func (s *Server) getNodes() (nodeMap, nodeMap, error) {
-	scopedLog := log
+	var logAttrs []slog.Attr
 	if s.CiliumURI != "" {
-		scopedLog = log.WithField("URI", s.CiliumURI)
+		logAttrs = append(logAttrs, slog.String("URI", s.CiliumURI))
 	}
-	scopedLog.Debug("Sending request for /cluster/nodes ...")
+	log.Debug("Sending request for /cluster/nodes ...", logAttrs)
 
 	clusterNodesParam := daemon.NewGetClusterNodesParams()
 	s.RWMutex.RLock()
@@ -96,7 +97,7 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get nodes' cluster: %w", err)
 	}
-	log.Debug("Got cilium /cluster/nodes")
+	log.Debug("Got cilium /cluster/nodes", logAttrs)
 
 	if resp == nil || resp.Payload == nil {
 		return nil, nil, fmt.Errorf("received nil health response")
@@ -453,7 +454,7 @@ func (s *Server) Shutdown() {
 // defaults unix socket.
 func (s *Server) newServer(spec *healthApi.Spec) *healthApi.Server {
 	restAPI := restapi.NewCiliumHealthAPIAPI(spec.Document)
-	restAPI.Logger = log.Printf
+	restAPI.Logger = log.Info
 
 	// Admin API
 	restAPI.GetHealthzHandler = NewGetHealthzHandler(s)

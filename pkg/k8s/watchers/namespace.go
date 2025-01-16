@@ -6,6 +6,7 @@ package watchers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -141,8 +142,11 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 		if newNS.Name == epNS {
 			err := ep.ModifyIdentityLabels(labels.LabelSourceK8s, newIdtyLabels, oldIdtyLabels)
 			if err != nil {
-				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
-					Warning("unable to update endpoint with new identity labels from namespace labels")
+				log.Warn(
+					"unable to update endpoint with new identity labels from namespace labels",
+					slog.Any(logfields.Error, err),
+					slog.Any(logfields.EndpointID, ep.ID),
+				)
 				failed = true
 			}
 		}

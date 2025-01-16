@@ -7,9 +7,9 @@ import (
 	"context"
 	goerrors "errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/blang/semver/v4"
-	"github.com/sirupsen/logrus"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -27,7 +27,7 @@ import (
 const subsysK8s = "k8s"
 
 // log is the k8s package logger object.
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+var log = logging.DefaultLogger.With(slog.String(logfields.LogSubsys, subsysK8s))
 
 // CreateUpdateCRD ensures the CRD object is installed into the K8s cluster. It
 // will create or update the CRD and its validation schema as necessary. This
@@ -39,7 +39,7 @@ func CreateUpdateCRD(
 	crdSchemaVersionLabelKey string,
 	minCRDSchemaVersion semver.Version,
 ) error {
-	scopedLog := log.WithField("name", crd.Name)
+	scopedLog := log.With(slog.String("name", crd.Name))
 
 	v1CRDClient := clientset.ApiextensionsV1()
 	clusterCRD, err := v1CRDClient.CustomResourceDefinitions().Get(
@@ -100,7 +100,7 @@ func needsUpdateV1(
 }
 
 func updateV1CRD(
-	scopedLog *logrus.Entry,
+	scopedLog *slog.Logger,
 	crd, clusterCRD *apiextensionsv1.CustomResourceDefinition,
 	client v1client.CustomResourceDefinitionsGetter,
 	poller poller,
@@ -144,14 +144,16 @@ func updateV1CRD(
 					metav1.UpdateOptions{})
 				switch {
 				case errors.IsConflict(err): // Occurs as Operators race to update CRDs.
-					scopedLog.WithError(err).
-						Debug("The CRD update was based on an older version, retrying...")
+					scopedLog.Debug(
+						"The CRD update was based on an older version, retrying...",
+						slog.Any(logfields.Error, err),
+					)
 					return false, nil
 				case err == nil:
 					return true, nil
 				}
 
-				scopedLog.WithError(err).Debug("Unable to update CRD validation")
+				scopedLog.Debug("Unable to update CRD validation", slog.Any(logfields.Error, err))
 
 				return false, err
 			}
@@ -159,7 +161,7 @@ func updateV1CRD(
 			return true, nil
 		})
 		if err != nil {
-			scopedLog.WithError(err).Error("Unable to update CRD")
+			scopedLog.Error("Unable to update CRD", slog.Any(logfields.Error, err))
 			return err
 		}
 	}
@@ -168,7 +170,7 @@ func updateV1CRD(
 }
 
 func waitForV1CRD(
-	scopedLog *logrus.Entry,
+	scopedLog *slog.Logger,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	client v1client.CustomResourceDefinitionsGetter,
 	poller poller,
@@ -185,7 +187,7 @@ func waitForV1CRD(
 			case apiextensionsv1.NamesAccepted:
 				if cond.Status == apiextensionsv1.ConditionFalse {
 					err := goerrors.New(cond.Reason)
-					scopedLog.WithError(err).Error("Name conflict for CRD")
+					scopedLog.Error("Name conflict for CRD", slog.Any(logfields.Error, err))
 					return false, err
 				}
 			}

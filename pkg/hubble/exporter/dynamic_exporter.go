@@ -6,11 +6,12 @@ package exporter
 import (
 	"context"
 	"errors"
-
-	"github.com/sirupsen/logrus"
+	"log/slog"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -21,7 +22,7 @@ var reloadInterval = 5 * time.Second
 // DynamicExporter is a wrapper of the hubble exporter that supports dynamic configuration reload
 // for a set of exporters.
 type DynamicExporter struct {
-	logger  logrus.FieldLogger
+	logger  logging.FieldLogger
 	watcher *configWatcher
 
 	// mutex protects from concurrent modification of managedExporters by config
@@ -35,7 +36,7 @@ type DynamicExporter struct {
 // The actual config watching must be started by invoking watch().
 //
 // NOTE: Stopped instances cannot be restarted and should be re-created.
-func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string) *DynamicExporter {
+func NewDynamicExporter(logger logging.FieldLogger, configFilePath string) *DynamicExporter {
 	dynamicExporter := &DynamicExporter{
 		logger:           logger,
 		managedExporters: make(map[string]*managedExporter),
@@ -143,7 +144,7 @@ func (d *DynamicExporter) newExporter(flowlog *FlowLogConfig) (*exporter, error)
 			Compress:   flowlog.FileCompress,
 		})))
 	}
-	return NewExporter(d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
+	return NewExporter(d.logger.With(slog.String("flowLogName", flowlog.Name)), exporterOpts...)
 }
 
 func (d *DynamicExporter) applyUpdatedConfig(flowlog *FlowLogConfig) bool {
@@ -154,7 +155,7 @@ func (d *DynamicExporter) applyUpdatedConfig(flowlog *FlowLogConfig) bool {
 
 	exporter, err := d.newExporter(flowlog)
 	if err != nil {
-		d.logger.Errorf("Failed to apply flowlog for name %s: %v", flowlog.Name, err)
+		d.logger.Error("Failed to apply flowlog", slog.Any(logfields.Error, err), slog.String("name", flowlog.Name))
 		return false
 	}
 
@@ -172,7 +173,7 @@ func (d *DynamicExporter) removeExporter(name string) bool {
 		return false
 	}
 	if err := m.exporter.Stop(); err != nil {
-		d.logger.Errorf("failed to stop exporter: %w", err)
+		d.logger.Error("failed to stop exporter", slog.Any(logfields.Error, err))
 	}
 	delete(d.managedExporters, name)
 	return true
