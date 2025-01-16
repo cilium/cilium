@@ -3,9 +3,10 @@
 
 #pragma once
 
-#include <bpf/api.h>
-
+#include <bpf/compiler.h>
 #include "endian.h"
+
+#define __CONFIG_SECTION ".rodata.config"
 
 /* Declare a global configuration variable that can be modified at runtime,
  * without needing to recompile the datapath. Access the variable using the
@@ -17,7 +18,12 @@
 	 * convenient to iterate through for generating config scaffolding in Go.
 	 * ebpf-go will expose these in CollectionSpec.Variables.
 	 */ \
-	__section(".rodata.config") \
+	__section(__CONFIG_SECTION) \
+	/* Config struct generation for bpf objects like bpf_lxc or bpf_host,
+	 * selects only these variables. Node configs use a different kind and
+	 * are emitted to another struct.
+	 */ \
+	__attribute__((btf_decl_tag("kind:object"))) \
 	/* Assign the config variable a BTF decl tag containing its description. This
 	 * allows including doc comments in code generated from BTF.
 	 */ \
