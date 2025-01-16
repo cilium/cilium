@@ -1,5 +1,79 @@
 # Changelog
 
+## v1.16.6
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Add feature tracking in Cilium agent as prometheus metrics (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#35852, @aanm)
+* Add feature tracking in Cilium Operator as prometheus metrics (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36077, @aanm)
+
+**Minor Changes:**
+* Batch processing of Service and EndpointSlices up to 200 milliseconds to merge repeated changes to a single Service. This significantly reduces the amount of processing Cilium performs for Services with many EndpointSlices. (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36466, @joamaki)
+* envoy: Use yaml format for bootstrap config (Backport PR cilium/cilium#36782, Upstream PR cilium/cilium#36820, @sayboras)
+* Reject CNP/CCNP with CIDR rules where CIDRGroupRef is used in combination with ExceptCIDRs (cilium/cilium#36561, @pippolo84)
+* service: Cap number of backends included in monitor message (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36394, @joamaki)
+
+**Bugfixes:**
+* cilium: LB source ranges fixes (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36517, @borkmann)
+* eni.subnetTagsFilter and eni.instanceTagsFilter are now templated to comma separated string (Backport PR cilium/cilium#36872, Upstream PR cilium/cilium#36617, @sderoe)
+* envoy: Configure internal address config based on IP family (Backport PR cilium/cilium#36782, Upstream PR cilium/cilium#36733, @sayboras)
+* Fix connectivity issue caused by stale cilium eBPF program when using --bpf-filter-priority (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36176, @tamilmani1989)
+* metrics/features: remove reporting metrics' defaults by default (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36298, @aanm)
+* pkg/redirectpolicy: Fix backend slices in processConfig (Backport PR cilium/cilium#36872, Upstream PR cilium/cilium#35496, @Sm0ckingBird)
+* ui: drop CORS headers from api response (Backport PR cilium/cilium#36872, Upstream PR cilium/cilium#35762, @geakstr)
+
+**CI Changes:**
+* [v1.16] .github: Remove CI Fuzz workflow (cilium/cilium#36641, @joestringer)
+* [v1.16] gh: e2e-upgrade: use 6.12 kernel for netkit test configs (cilium/cilium#36620, @julianwiedmann)
+* [v1.16] gha: use /test to trigger tests in stable branches (cilium/cilium#36673, @giorio94)
+* ci: fix job names for various ci workflows (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36397, @marseel)
+* Extend the check-ipsec-leak bpftrace script to capture additional details of leaked packets (Backport PR cilium/cilium#36872, Upstream PR cilium/cilium#33398, @giorio94)
+* gh: e2e-upgrade: add coverage for 6.6 kernel (Backport PR cilium/cilium#36988, Upstream PR cilium/cilium#36626, @julianwiedmann)
+* gh: e2e-upgrade: de-renovate the config example (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36463, @julianwiedmann)
+* gha: drop leftover token parameter in net-perf-gke workflow (cilium/cilium#36684, @giorio94)
+* gha: fix merging of features-related artifacts (cilium/cilium#36665, @giorio94)
+* gha: merge artifacts in net-perf-gke workflow (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36236, @giorio94)
+* gha: Use ubuntu-24.04 for integration-test (Backport PR cilium/cilium#36659, Upstream PR cilium/cilium#36628, @sayboras)
+
+**Misc Changes:**
+* .github/workflows: always install cilium-cli (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36234, @aanm)
+* .github/workflows: do not fail ginkgo if unable to fetch features (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36461, @aanm)
+* .github: fix conformance-k8s NP test (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36355, @aanm)
+* [v1.16] Use bash syntax to consume env variable (cilium/cilium#36636, @ferozsalam)
+* Add more features tracking in Cilium agent as prometheus metrics (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36078, @aanm)
+* Add policy-related features tracking in Cilium agent as prometheus metrics (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36203, @aanm)
+* Add the tls:// prefix in the Hubble TLS doc (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36410, @liyihuang)
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36612, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36762, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36950, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (patch) (cilium/cilium#36760, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#36707, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#36787, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#36949, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.23 (v1.16) (cilium/cilium#36895, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.36.1 docker digest to 7c3c3ce (v1.16) (cilium/cilium#36609, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.10 docker digest to 1a6e657 (v1.16) (cilium/cilium#36850, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.10 docker digest to 9855006 (v1.16) (cilium/cilium#36610, @cilium-renovate[bot])
+* chore(deps): update helm/kind-action action to v1.12.0 (v1.16) (cilium/cilium#36839, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#36611, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#36699, @cilium-renovate[bot])
+* doc: fix typo on kubeproxy-free (CEV -> CVE) (Backport PR cilium/cilium#36872, Upstream PR cilium/cilium#36701, @alagoutte)
+* docs: Add missing default identity label in the description of identity-relevant labels' example (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36558, @liyihuang)
+* docs: Clarify the behavior of CiliumNetworkPolicies toCIDRSet (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36549, @verysonglaa)
+* Ensure debug symbols are generated for the debug image even when stripping symbols for the release image. (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36417, @EricMountain)
+* Fix `make -C Documentation update-cmdref` when make uses `--jobserver-style=fifo`. (Backport PR cilium/cilium#36872, Upstream PR cilium/cilium#36788, @gentoo-root)
+* fix(deps): update module golang.org/x/net to v0.33.0 [security] (v1.16) (cilium/cilium#36711, @cilium-renovate[bot])
+* ingress, gateway-api: Convert test fixtures to file based (Backport PR cilium/cilium#36782, Upstream PR cilium/cilium#36732, @sayboras)
+* metrics/features: enable ClusterMesh (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36402, @aanm)
+* metrics/features: refactor metric names (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36209, @aanm)
+* Remove reference to DNS polling (Backport PR cilium/cilium#36872, Upstream PR cilium/cilium#36679, @JacobHenner)
+
+**Other Changes:**
+* [v1.16] author backport: helm: avoid setting bpf-lb-sock-terminate-pod-connections (cilium/cilium#36650, @ysksuzuki)
+* install: Update image digests for v1.16.5 (cilium/cilium#36671, @cilium-release-bot[bot])
+
 ## v1.16.5
 
 Summary of Changes
