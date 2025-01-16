@@ -22,9 +22,9 @@
 static volatile const __u8 *node_mac = mac_one;
 static volatile const __u8 *server_mac = mac_two;
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

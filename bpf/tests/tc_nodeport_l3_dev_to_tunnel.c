@@ -6,8 +6,7 @@
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
 
-#define ETH_HLEN		0
-#define SECCTX_FROM_IPCACHE	1
+#define ETH_HLEN 0
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define TUNNEL_MODE	1
@@ -31,6 +30,9 @@
 #define BACKEND_PORT		__bpf_htons(8080)
 
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
+
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 

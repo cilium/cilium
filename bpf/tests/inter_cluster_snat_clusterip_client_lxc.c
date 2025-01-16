@@ -29,9 +29,6 @@
 /* Set dummy ifindex for tunnel device */
 #define ENCAP_IFINDEX 1
 
-/* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 CLIENT_IP
-
 /* Overlapping PodCIDR is only supported for IPv4 for now */
 #define ENABLE_IPV4
 
@@ -60,6 +57,9 @@
 
 /* Include an actual datapath code */
 #include <bpf_lxc.c>
+
+/* Set the LXC source address to be the address of pod one */
+ASSIGN_CONFIG(__u32, endpoint_ipv4, CLIENT_IP)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
