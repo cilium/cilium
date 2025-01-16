@@ -5,6 +5,9 @@ package check
 
 import (
 	"context"
+	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
@@ -30,7 +33,31 @@ type ConditionalScenario interface {
 }
 
 type ScenarioBase struct {
+	filepath string
 }
 
 func NewScenarioBase() ScenarioBase {
+	return ScenarioBase{
+		filepath: getSourceFile(),
+	}
+}
+
+func (s ScenarioBase) FilePath() string {
+	return s.filepath
+}
+
+func getSourceFile() string {
+	// 2 steps up go to NewScenarioBase() => actual scenario constructor.
+	_, path, _, ok := runtime.Caller(2)
+	if ok {
+		// 'path' is an absolute path on disk. Trim back to a relative
+		// path from the root directory of the repository, calculated
+		// using this filepath's relationship with the root directory.
+		// If you move this logic, ensure that this calculation directs
+		// back up to the root of the tree where CODEOWNERS exists!
+		_, thisPath, _, _ := runtime.Caller(0)
+		repoDir, _ := filepath.Abs(filepath.Join(thisPath, "..", "..", "..", ".."))
+		return strings.TrimPrefix(path, repoDir+string(filepath.Separator))
+	}
+	return ""
 }
