@@ -408,8 +408,7 @@ skip_tunnel:
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_identity, true, false);
 
-	if (from_proxy &&
-	    (!info || !identity_is_cluster(info->sec_identity)))
+	if (from_proxy && !identity_is_cluster(info->sec_identity))
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
@@ -887,8 +886,7 @@ skip_tunnel:
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_identity, true, false);
 
-	if (from_proxy &&
-	    (!info || !identity_is_cluster(info->sec_identity)))
+	if (from_proxy && !identity_is_cluster(info->sec_identity))
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
