@@ -6,7 +6,6 @@ package loader
 import (
 	"fmt"
 	"math"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -148,7 +147,7 @@ func wrap(cfg datapath.CompileTimeConfiguration) *templateCfg {
 // ELFMapSubstitutions returns the set of map substitutions that must occur in
 // an ELF template object file to update map references for the specified
 // endpoint.
-func ELFMapSubstitutions(ep datapath.Endpoint) map[string]string {
+func ELFMapSubstitutions(ep datapath.EndpointConfiguration) map[string]string {
 	result := make(map[string]string)
 	epID := uint16(ep.GetID())
 
@@ -218,57 +217,4 @@ func sliceToU64(input []byte) uint64 {
 // sliceToBe64 converts the input slice of eight bytes to a big-endian uint64.
 func sliceToBe64(input []byte) uint64 {
 	return byteorder.HostToNetwork64(sliceToU64(input))
-}
-
-// ELFVariableSubstitutions returns the set of data substitutions that must
-// occur in an ELF template object file to update static data for the specified
-// endpoint.
-func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
-	result := make(map[string]uint64)
-
-	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
-		// Corresponds to DEFINE_IPV6() in bpf/lib/utils.h
-		result["LXC_IP_1"] = sliceToBe64(ipv6[0:8])
-		result["LXC_IP_2"] = sliceToBe64(ipv6[8:16])
-	}
-	if ipv4 := ep.IPv4Address().AsSlice(); ipv4 != nil {
-		result["LXC_IPV4"] = uint64(byteorder.NetIPv4ToHost32(net.IP(ipv4)))
-	}
-
-	mac := ep.GetNodeMAC()
-	// For L3/NOARP devices node mac is not populated.
-	if len(mac) != 0 {
-		result["THIS_INTERFACE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
-		result["THIS_INTERFACE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
-	}
-
-	if ep.IsHost() {
-		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			if option.Config.EnableIPv4 {
-				result["IPV4_MASQUERADE"] = 0
-			}
-		}
-		result["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
-	} else {
-		result["LXC_ID"] = uint64(ep.GetID())
-	}
-
-	result["interface_ifindex"] = uint64(ep.GetIfIndex())
-
-	// Contrary to IPV4_MASQUERADE, we cannot use a simple #define and
-	// avoid introducing a symbol in stubs.h for IPV6_MASQUERADE. So the
-	// symbol is present in the template object as long as IPv6 BPF
-	// masquerade is enabled, even though it is not used for host
-	// endpoints.
-	if option.Config.EnableIPv6Masquerade && option.Config.EnableBPFMasquerade {
-		result["IPV6_MASQUERADE_1"] = 0
-		result["IPV6_MASQUERADE_2"] = 0
-	}
-
-	result["ENDPOINT_NETNS_COOKIE"] = ep.GetEndpointNetNsCookie()
-
-	identity := ep.GetIdentity().Uint32()
-	result["SECLABEL"] = uint64(identity)
-	result["POLICY_VERDICT_LOG_FILTER"] = uint64(ep.GetPolicyVerdictLogFilter())
-	return result
 }
