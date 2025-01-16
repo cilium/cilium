@@ -1465,6 +1465,12 @@ to the same service endpoints; but two requests for the same service, sent from
 the same source but to different service ports may be routed to distinct service
 endpoints.
 
+Note that if the session affinity feature is used in combination with Maglev
+consistent hashing to select backends, then Maglev will not take the source
+port as input for its hashing in order to respect the user's ClientIP choice
+(see also `GH#26709 <https://github.com/cilium/cilium/issues/26709>`__ for
+further details).
+
 For users who run with kube-proxy (i.e. with Cilium's kube-proxy replacement
 disabled), the ClusterIP service loadbalancing when a request is sent from a pod
 running in a non-host network namespace is still performed at the pod network
