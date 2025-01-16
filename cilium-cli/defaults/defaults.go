@@ -174,6 +174,7 @@ var (
 		"inbound_state_invalid",  // XfrmInStateInvalid
 	}
 
+	LogCodeOwners  = false
 	LogCheckLevels = []string{
 		LogLevelError,
 		LogLevelWarning,

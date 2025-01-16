@@ -102,6 +102,7 @@ type Parameters struct {
 	ExpectedDropReasons []string
 	ExpectedXFRMErrors  []string
 
+	LogCodeOwners  bool
 	LogCheckLevels []string
 
 	FlushCT               bool
