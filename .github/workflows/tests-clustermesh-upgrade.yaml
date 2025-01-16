@@ -197,6 +197,7 @@ jobs:
           CONNECTIVITY_TEST_DEFAULTS=" \
             --hubble=false \
             --flow-validation=disabled \
+            --log-code-owners \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
             --test='check-log-errors' \
@@ -449,6 +450,7 @@ jobs:
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
+            --log-code-owners \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
             --include-conn-disrupt-test --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
@@ -599,6 +601,7 @@ jobs:
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
+            --log-code-owners \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
             --include-conn-disrupt-test --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
@@ -668,6 +671,7 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
             --hubble=false \
+            --log-code-owners \
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
@@ -680,6 +684,7 @@ jobs:
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
           cilium --context ${{ env.contextName1 }} connectivity test \
+            --log-code-owners \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
             --include-conn-disrupt-test --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \

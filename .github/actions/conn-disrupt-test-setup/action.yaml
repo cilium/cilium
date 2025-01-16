@@ -17,6 +17,7 @@ runs:
         # subsequent connectivity tests with --include-conn-disrupt-test to catch any
         # interruption in such flows.
         ${{ inputs.cilium-cli }} connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+          --log-code-owners \
           --conn-disrupt-dispatch-interval 0ms \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
           --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
