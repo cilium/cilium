@@ -63,7 +63,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 		.code           = ICMP_FRAG_NEEDED,
 		.un = {
 			.frag = {
-				.mtu = bpf_htons(THIS_MTU),
+				.mtu = bpf_htons(MTU),
 			},
 		},
 	};
