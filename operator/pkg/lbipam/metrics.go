@@ -19,38 +19,38 @@ type ipamMetrics struct {
 func newMetrics() *ipamMetrics {
 	return &ipamMetrics{
 		ConflictingPools: metric.NewGauge(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_lbipam_conflicting_pools_total",
+			ConfigName: metrics.Namespace + "_lbipam_conflicting_pools",
 			Namespace:  metrics.Namespace,
 			Subsystem:  "lbipam",
-			Name:       "conflicting_pools_total",
+			Name:       "conflicting_pools",
 			Help:       "The number of conflicting pools",
 		}),
 		AvailableIPs: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_lbipam_ips_available_total",
+			ConfigName: metrics.Namespace + "_lbipam_ips_available",
 			Namespace:  metrics.Namespace,
 			Subsystem:  "lbipam",
-			Name:       "ips_available_total",
+			Name:       "ips_available",
 			Help:       "The number of IP addresses available in a given pool",
 		}, []string{"pool"}),
 		UsedIPs: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_lbipam_ips_used_total",
+			ConfigName: metrics.Namespace + "_lbipam_ips_used",
 			Namespace:  metrics.Namespace,
 			Subsystem:  "lbipam",
-			Name:       "ips_used_total",
+			Name:       "ips_used",
 			Help:       "The number of IP addresses used in a given pool",
 		}, []string{"pool"}),
 		MatchingServices: metric.NewGauge(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_lbipam_services_matching_total",
+			ConfigName: metrics.Namespace + "_lbipam_services_matching",
 			Namespace:  metrics.Namespace,
 			Subsystem:  "lbipam",
-			Name:       "services_matching_total",
+			Name:       "services_matching",
 			Help:       "The number of services matching pools",
 		}),
 		UnsatisfiedServices: metric.NewGauge(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_lbipam_services_unsatisfied_total",
+			ConfigName: metrics.Namespace + "_lbipam_services_unsatisfied",
 			Namespace:  metrics.Namespace,
 			Subsystem:  "lbipam",
-			Name:       "services_unsatisfied_total",
+			Name:       "services_unsatisfied",
 			Help:       "The number of services which did not receive all requested IPs",
 		}),
 	}
