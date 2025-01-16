@@ -330,6 +330,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --log-code-owners \
             --test 'allow-all-except-world,encryption,packet-drops'
 
       - name: Features tested
