@@ -5,7 +5,6 @@ package v2
 
 import (
 	"fmt"
-	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -60,16 +59,6 @@ func (r *CiliumClusterwideNetworkPolicy) SetDerivedPolicyStatus(derivativePolicy
 		r.Status.DerivativePolicies = map[string]CiliumNetworkPolicyNodeStatus{}
 	}
 	r.Status.DerivativePolicies[derivativePolicyName] = status
-}
-
-// AnnotationsEquals returns true if ObjectMeta.Annotations of each
-// CiliumClusterwideNetworkPolicy are equivalent (i.e., they contain equivalent key-value
-// pairs).
-func (r *CiliumClusterwideNetworkPolicy) AnnotationsEquals(o *CiliumClusterwideNetworkPolicy) bool {
-	if o == nil {
-		return r == nil
-	}
-	return reflect.DeepEqual(r.ObjectMeta.Annotations, o.ObjectMeta.Annotations)
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
