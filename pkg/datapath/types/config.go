@@ -50,6 +50,9 @@ type LoadTimeConfiguration interface {
 	GetNodeMAC() mac.MAC
 	GetIfIndex() int
 	GetEndpointNetNsCookie() uint64
+
+	// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter for the endpoint
+	GetPolicyVerdictLogFilter() uint32
 }
 
 // CompileTimeConfiguration provides datapath implementations a clean interface
@@ -78,9 +81,6 @@ type CompileTimeConfiguration interface {
 	// per endpoint route installed in the host's routing table to point to
 	// the endpoint's interface
 	RequireEndpointRoute() bool
-
-	// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter for the endpoint
-	GetPolicyVerdictLogFilter() uint32
 
 	// IsHost returns true if the endpoint is the host endpoint.
 	IsHost() bool
