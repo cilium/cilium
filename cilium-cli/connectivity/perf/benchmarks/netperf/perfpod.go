@@ -22,11 +22,14 @@ const (
 // Network Performance
 func Netperf(n string) check.Scenario {
 	return &netPerf{
-		name: n,
+		name:         n,
+		ScenarioBase: check.NewScenarioBase(),
 	}
 }
 
 type netPerf struct {
+	check.ScenarioBase
+
 	name string
 }
 
