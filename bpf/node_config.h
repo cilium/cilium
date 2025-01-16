@@ -17,27 +17,17 @@
 
 #define CLUSTER_ID 0
 
-#ifndef THIS_INTERFACE_MAC
-DEFINE_MAC(THIS_INTERFACE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
-#define THIS_INTERFACE_MAC fetch_mac(THIS_INTERFACE_MAC)
-#endif
-
-#ifndef THIS_INTERFACE_IFINDEX
-DECLARE_CONFIG(__u32, interface_ifindex, "ifindex of the interface the bpf program is attached to")
-#define THIS_INTERFACE_IFINDEX CONFIG(interface_ifindex) /* Backwards compatibility */
-#endif
-
-#ifndef ROUTER_IP
-DEFINE_IPV6(ROUTER_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
-#endif
+/* Hack: the agent declares and assigns ROUTER_IP in the runtime-generated
+ * node_config.h, replacing this file before compilation. Declare the variables
+ * manually here, so dpgen doesn't pick it up at compile time and we don't
+ * substitute an empty default value.
+ */
+volatile const __u64 __config_ROUTER_IP_1;
+volatile const __u64 __config_ROUTER_IP_2;
 
 #define CILIUM_NET_IFINDEX 1
 #define CILIUM_HOST_IFINDEX 1
 #define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
-
-#ifndef HOST_IP
-DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x0, 0x2, 0xf, 0xff, 0xff);
-#endif
 
 #define TUNNEL_PORT 8472
 #define TUNNEL_PROTOCOL_VXLAN 1

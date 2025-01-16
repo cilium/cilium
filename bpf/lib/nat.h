@@ -23,6 +23,13 @@
 #include "stubs.h"
 #include "trace.h"
 
+DECLARE_CONFIG(__u32, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
+#define IPV4_MASQUERADE CONFIG(nat_ipv4_masquerade)
+
+DECLARE_CONFIG(__u64, nat_ipv6_masquerade_1, "First half of the masquerade address for IPv6 traffic")
+DECLARE_CONFIG(__u64, nat_ipv6_masquerade_2, "Second half of the masquerade address for IPv6 traffic")
+#define IPV6_MASQUERADE nat_ipv6_masquerade
+
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
 	NAT_DIR_INGRESS = TUPLE_F_IN,

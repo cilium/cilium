@@ -3,7 +3,6 @@
 
 #define IS_BPF_WIREGUARD 1
 #define ENABLE_WIREGUARD
-#define THIS_INTERFACE_IFINDEX WG_IFINDEX
 
 #include "common.h"
 
@@ -23,6 +22,8 @@ static volatile const __u8 *ep_mac = mac_two;
 static volatile const __u8 *node_mac = mac_one;
 
 #include "bpf_wireguard.c"
+
+ASSIGN_CONFIG(__u32, interface_ifindex, WG_IFINDEX)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
