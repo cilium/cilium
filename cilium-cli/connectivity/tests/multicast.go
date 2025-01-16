@@ -38,10 +38,13 @@ var NodeWithoutGroupMu lock.RWMutex
 var NotSubscribePodAddressMu lock.RWMutex
 
 type socatMulticast struct {
+	check.ScenarioBase
 }
 
 func SocatMulticast() check.Scenario {
-	return &socatMulticast{}
+	return &socatMulticast{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 func (s *socatMulticast) Name() string {
