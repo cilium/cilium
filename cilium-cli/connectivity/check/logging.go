@@ -78,6 +78,55 @@ func (ct *ConnectivityTest) Log(a ...interface{}) {
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
+// ownedScenario represents a piece of logic in the testsuite with a
+// corresponding filepath that indicates ownership (via CODEOWNERS).
+// It is used to inform developers who they may consult in the event that a
+// test fails without a clear indication why.
+type ownedScenario interface {
+	Name() string
+	FilePath() string
+}
+
+var defaultTestOwners ownedScenario
+
+func init() {
+	// Initialize in an init func to ensure that NewScenarioBase() can look
+	// up a couple of layers of stack to find a test file in order to
+	// determine default codeowners, in this case falling back to the
+	// owners of the overall test infrastructure.
+	//
+	// This will be used when there is a failure outside of a specific
+	// scenario provided by a test.
+	defaultTestOwners = defaultScenario{
+		ScenarioBase: NewScenarioBase(),
+	}
+}
+
+type defaultScenario struct {
+	ScenarioBase
+}
+
+func (s defaultScenario) Name() string {
+	return "cli-test-framework"
+}
+
+func (ct *ConnectivityTest) LogOwners(scenario ownedScenario) {
+	if !ct.params.LogCodeOwners {
+		return
+	}
+
+	rule, err := ct.CodeOwners.Match(scenario.FilePath())
+	if err != nil || rule == nil || rule.Owners == nil {
+		ct.Fatalf("Failed to find CODEOWNERS for test scenario. Developer BUG?"+
+			"\n\t\tname=%s path=%s err=%s", scenario.Name(), scenario.FilePath(), err)
+		return
+	}
+	ct.Log("    ⛑️ The following owners are responsible for reliability of this test: ")
+	for _, o := range rule.Owners {
+		ct.Log("        - " + o.String() + " (" + scenario.Name() + ")")
+	}
+}
+
 // Logf logs a formatted message.
 func (ct *ConnectivityTest) Logf(format string, a ...interface{}) {
 	ct.Timestamp()
