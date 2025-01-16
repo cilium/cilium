@@ -16,8 +16,7 @@
 #include <bpf/helpers_skb.h>
 #include "pktgen.h"
 
-#define ETH_HLEN		0
-#define SECCTX_FROM_IPCACHE	1
+#define ETH_HLEN 0
 #define ENABLE_HOST_ROUTING
 #define ENABLE_IPV4
 #define ENABLE_IPV6
@@ -62,6 +61,8 @@ static volatile const __u8 *ep_mac = mac_one;
 static volatile const __u8 *node_mac = mac_two;
 
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/endpoint.h"
 

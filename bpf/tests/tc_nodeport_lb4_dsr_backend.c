@@ -103,8 +103,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 	return CTX_ACT_DROP;
 }
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include "bpf_host.c"
 
 #include "lib/endpoint.h"
@@ -114,6 +112,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #define TO_NETDEV	1
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
