@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -103,7 +102,6 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 	}
 
 	args := []string{
-		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
 		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_xdp_%d", link.Attrs().Index),
 	}
@@ -113,13 +111,6 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 			fmt.Sprintf("-DTHIS_MTU=%d", link.Attrs().MTU),
 			"-DDISABLE_LOOPBACK_LB",
 		}...)
-	}
-	if option.Config.IsDualStack() {
-		args = append(args, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorldIPv4))
-		args = append(args, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorldIPv6))
-	} else {
-		args = append(args, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorld))
-		args = append(args, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorld))
 	}
 
 	return args, nil

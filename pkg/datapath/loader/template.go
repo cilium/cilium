@@ -269,8 +269,6 @@ func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = uint64(identity)
-	result["SECLABEL_IPV4"] = uint64(identity)
-	result["SECLABEL_IPV6"] = uint64(identity)
 	result["POLICY_VERDICT_LOG_FILTER"] = uint64(ep.GetPolicyVerdictLogFilter())
 	return result
 }

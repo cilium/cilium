@@ -10,6 +10,12 @@
 #include <node_config.h>
 #include <netdev_config.h>
 
+/* WORLD_IPV{4,6}_ID varies based on dualstack being enabled. Real values are
+ * written into node_config.h at runtime. */
+#define SECLABEL WORLD_ID
+#define SECLABEL_IPV4 WORLD_IPV4_ID
+#define SECLABEL_IPV6 WORLD_IPV6_ID
+
 #include "lib/trace.h"
 #include "lib/drop.h"
 #include "lib/nodeport.h"

@@ -22,14 +22,12 @@ DEFINE_U32(LXC_IPV4, 0x10203040);
  */
 DEFINE_U16(LXC_ID, 0x2A);
 #define LXC_ID fetch_u16(LXC_ID)
-#ifndef SECLABEL
+
+/* Security identity of endpoint programs are identical across v4/v6. */
 DEFINE_U32(SECLABEL, 0xfffff);
 #define SECLABEL fetch_u32(SECLABEL)
-#endif
-DEFINE_U32(SECLABEL_IPV4, 0xfffff);
-#define SECLABEL_IPV4 fetch_u32(SECLABEL_IPV4)
-DEFINE_U32(SECLABEL_IPV6, 0xfffff);
-#define SECLABEL_IPV6 fetch_u32(SECLABEL_IPV6)
+#define SECLABEL_IPV4 SECLABEL
+#define SECLABEL_IPV6 SECLABEL
 
 DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define POLICY_VERDICT_LOG_FILTER fetch_u32(POLICY_VERDICT_LOG_FILTER)
