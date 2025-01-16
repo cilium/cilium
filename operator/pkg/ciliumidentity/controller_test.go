@@ -397,15 +397,6 @@ func TestUpdateUsedCIDIsReverted(t *testing.T) {
 		t.Fatalf("timeout waiting for identities in store: %s", lastErr)
 	}
 
-	// Start listening to identities events but discard all events being replayed.
-	events := (*cidResource).Events(ctx)
-	for ev := range events {
-		ev.Done(nil)
-		if ev.Kind == resource.Sync {
-			break
-		}
-	}
-
 	// Update identity.
 	updated := toUpdate.DeepCopy()
 	updated.Labels = cid2.Labels
@@ -414,31 +405,27 @@ func TestUpdateUsedCIDIsReverted(t *testing.T) {
 		t.Fatalf("update CID: %v", err)
 	}
 
-	// Wait for update event to propagate.
-	ev := <-events
-	if ev.Kind != resource.Upsert {
-		t.Fatalf("expected upsert event, got %v", ev.Kind)
+	cid, err := fakeClient.CiliumV2().CiliumIdentities().Get(ctx, updated.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get CID: %v", err)
 	}
-	if ev.Key.Name != toUpdate.Name {
-		t.Fatalf("expected upsert event for cid %s, got %v", toUpdate.Name, ev.Key.Name)
+	if !cmp.Equal(cid.SecurityLabels, updated.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", updated.SecurityLabels, cid.SecurityLabels)
 	}
-	if !cmp.Equal(ev.Object.SecurityLabels, updated.SecurityLabels) {
-		t.Fatalf("expected labels %v, got %v", updated.SecurityLabels, ev.Object.SecurityLabels)
-	}
-	ev.Done(nil)
 
-	// Wait for reconciler to revert the change.
-	ev = <-events
-	if ev.Kind != resource.Upsert {
-		t.Fatalf("expected upsert event, got %v", ev.Kind)
-	}
-	if ev.Key.Name != toUpdate.Name {
-		t.Fatalf("expected upsert event for cid %s, got %v", toUpdate.Name, ev.Key.Name)
-	}
-	if !cmp.Equal(ev.Object.SecurityLabels, cid1.SecurityLabels) {
-		t.Fatalf("expected labels %v, got %v", cid1.SecurityLabels, ev.Object.SecurityLabels)
-	}
-	ev.Done(nil)
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		cids := store.List()
+		assert.Len(ct, cids, 1)
+		if len(cids) != 1 {
+			return
+		}
+		cid = cids[0]
+
+		if !cmp.Equal(cid.SecurityLabels, cid1.SecurityLabels) {
+			t.Fatalf("expected labels %v, got %v", cid.SecurityLabels, cid1.SecurityLabels)
+		}
+	}, WaitUntilTimeout, 100*time.Millisecond)
+
 }
 
 func TestDeleteUsedCIDIsRecreated(t *testing.T) {
