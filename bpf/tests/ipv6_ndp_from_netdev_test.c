@@ -4,10 +4,6 @@
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
-#define ROUTER_IP
-#define HOST_IP
-#undef ROUTER_IP
-#undef HOST_IP
 
 #define ENABLE_IPV4
 #define ENABLE_IPV6
@@ -146,6 +142,8 @@ int ipv6_from_netdev_ns_for_pod_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+DEFINE_IPV6(NODE_IPV6, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x0, 0x2, 0xf, 0xff, 0xff);
+
 PKTGEN("tc", "02_ipv6_from_netdev_ns_for_node_ip")
 int ipv6_from_netdev_ns_for_node_ip_pktgen(struct __ctx_buff *ctx)
 {
@@ -164,7 +162,7 @@ int ipv6_from_netdev_ns_for_node_ip_pktgen(struct __ctx_buff *ctx)
 
 	union v6addr node_ip;
 
-	BPF_V6(node_ip, HOST_IP);
+	BPF_V6(node_ip, NODE_IPV6);
 	data = pktgen__push_data(&builder, (__u8 *)&node_ip, 16);
 	if (!data)
 		return TEST_ERROR;
@@ -182,7 +180,7 @@ int ipv6_from_netdev_ns_for_node_ip_setup(struct __ctx_buff *ctx)
 {
 	union v6addr node_ip;
 
-	BPF_V6(node_ip, HOST_IP);
+	BPF_V6(node_ip, NODE_IPV6);
 	endpoint_v6_add_entry((union v6addr *)&node_ip, 0, 0, ENDPOINT_F_HOST, 0,
 			      (__u8 *)mac_three, (__u8 *)mac_two);
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
@@ -249,7 +247,7 @@ int ipv6_from_netdev_ns_for_node_ip_check(const struct __ctx_buff *ctx)
 
 	union v6addr node_ip;
 
-	BPF_V6(node_ip, HOST_IP);
+	BPF_V6(node_ip, NODE_IPV6);
 	if (memcmp(payload, (__u8 *)&node_ip, 16) != 0)
 		test_fatal("icmp6 payload target was changed");
 

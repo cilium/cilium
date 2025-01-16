@@ -4,8 +4,6 @@
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
-#define ROUTER_IP
-#undef ROUTER_IP
 
 #define NODE_ID 2333
 #define TUNNEL_ID 0x1234
