@@ -10,6 +10,12 @@
 
 #define IS_BPF_OVERLAY 1
 
+/* WORLD_IPV{4,6}_ID varies based on dualstack being enabled. Real values are
+ * written into node_config.h at runtime. */
+#define SECLABEL WORLD_ID
+#define SECLABEL_IPV4 WORLD_IPV4_ID
+#define SECLABEL_IPV6 WORLD_IPV6_ID
+
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
  * bpf_lxc object file.
  */

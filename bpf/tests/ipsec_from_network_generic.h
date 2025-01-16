@@ -14,14 +14,6 @@
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
-#define ROUTER_IP
-#define SECLABEL
-#define SECLABEL_IPV4
-#define SECLABEL_IPV6
-#undef ROUTER_IP
-#undef SECLABEL
-#undef SECLABEL_IPV4
-#undef SECLABEL_IPV6
 
 #define ctx_redirect mock_ctx_redirect
 int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
