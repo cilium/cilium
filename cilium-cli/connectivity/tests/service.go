@@ -23,6 +23,7 @@ func PodToService(opts ...Option) check.Scenario {
 		opt(options)
 	}
 	return &podToService{
+		ScenarioBase:      check.NewScenarioBase(),
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
 	}
@@ -30,6 +31,8 @@ func PodToService(opts ...Option) check.Scenario {
 
 // podToService implements a Scenario.
 type podToService struct {
+	check.ScenarioBase
+
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
 }
@@ -75,6 +78,7 @@ func PodToIngress(opts ...Option) check.Scenario {
 		opt(options)
 	}
 	return &podToIngress{
+		ScenarioBase:      check.NewScenarioBase(),
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
 	}
@@ -82,6 +86,8 @@ func PodToIngress(opts ...Option) check.Scenario {
 
 // podToIngress implements a Scenario.
 type podToIngress struct {
+	check.ScenarioBase
+
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
 }
@@ -119,11 +125,15 @@ func (s *podToIngress) Run(ctx context.Context, t *check.Test) {
 // PodToRemoteNodePort sends an HTTP request from all client Pods
 // to all echo Services' NodePorts, but only to other nodes.
 func PodToRemoteNodePort() check.Scenario {
-	return &podToRemoteNodePort{}
+	return &podToRemoteNodePort{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // podToRemoteNodePort implements a Scenario.
-type podToRemoteNodePort struct{}
+type podToRemoteNodePort struct {
+	check.ScenarioBase
+}
 
 func (s *podToRemoteNodePort) Name() string {
 	return "pod-to-remote-nodeport"
@@ -160,11 +170,15 @@ func (s *podToRemoteNodePort) Run(ctx context.Context, t *check.Test) {
 // to all echo Services' NodePorts, but only on the same node as
 // the client Pods.
 func PodToLocalNodePort() check.Scenario {
-	return &podToLocalNodePort{}
+	return &podToLocalNodePort{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // podToLocalNodePort implements a Scenario.
-type podToLocalNodePort struct{}
+type podToLocalNodePort struct {
+	check.ScenarioBase
+}
 
 func (s *podToLocalNodePort) Name() string {
 	return "pod-to-local-nodeport"
@@ -260,10 +274,14 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 // OutsideToNodePort sends an HTTP request from client pod running on a node w/o
 // Cilium to NodePort services.
 func OutsideToNodePort() check.Scenario {
-	return &outsideToNodePort{}
+	return &outsideToNodePort{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type outsideToNodePort struct{}
+type outsideToNodePort struct {
+	check.ScenarioBase
+}
 
 func (s *outsideToNodePort) Name() string {
 	return "outside-to-nodeport"
@@ -290,10 +308,14 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 // OutsideToIngressService sends an HTTP request from client pod running on a node w/o
 // Cilium to NodePort services.
 func OutsideToIngressService() check.Scenario {
-	return &outsideToIngressService{}
+	return &outsideToIngressService{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type outsideToIngressService struct{}
+type outsideToIngressService struct {
+	check.ScenarioBase
+}
 
 func (s *outsideToIngressService) Name() string {
 	return "outside-to-ingress-service"

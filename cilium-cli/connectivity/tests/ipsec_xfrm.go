@@ -31,11 +31,14 @@ type ciliumMetricsXfrmError struct {
 
 func NoIPsecXfrmErrors(expectedErrors []string) check.Scenario {
 	return &noIPsecXfrmErrors{
-		features.ComputeFailureExceptions(defaults.ExpectedXFRMErrors, expectedErrors),
+		expectedErrors: features.ComputeFailureExceptions(defaults.ExpectedXFRMErrors, expectedErrors),
+		ScenarioBase:   check.NewScenarioBase(),
 	}
 }
 
 type noIPsecXfrmErrors struct {
+	check.ScenarioBase
+
 	expectedErrors []string
 }
 
