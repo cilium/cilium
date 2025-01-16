@@ -976,61 +976,7 @@ func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOption
 
 // writeStaticData writes the endpoint-specific static data defines to the
 // specified writer. This must be kept in sync with loader.ELFSubstitutions().
-func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e datapath.EndpointConfiguration) {
-	if e.IsHost() {
-		if option.Config.EnableBPFMasquerade {
-			if option.Config.EnableIPv4Masquerade {
-				// NodePort comment above applies to IPV4_MASQUERADE too
-				placeholderIPv4 := []byte{1, 1, 1, 1}
-				fmt.Fprint(fw, defineIPv4("IPV4_MASQUERADE", placeholderIPv4))
-			}
-			if option.Config.EnableIPv6Masquerade {
-				// NodePort comment above applies to IPV6_MASQUERADE too
-				placeholderIPv6 := []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-				fmt.Fprint(fw, defineIPv6("IPV6_MASQUERADE", placeholderIPv6))
-			}
-		}
-		// Dummy value to avoid being optimized when 0
-		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
-
-		// Use templating for ETH_HLEN only if there is any L2-less device
-		if !mac.HaveMACAddrs(devices) {
-			// L2 hdr len (for L2-less devices it will be replaced with "0")
-			fmt.Fprint(fw, defineUint16("ETH_HLEN", mac.EthHdrLen))
-		}
-	} else {
-		// We want to ensure that the template BPF program always has "LXC_IP"
-		// defined and present as a symbol in the resulting object file after
-		// compilation, regardless of whether IPv6 is disabled. Because the type
-		// templateCfg hardcodes a dummy IPv6 address (and adheres to the
-		// datapath.EndpointConfiguration interface), we can rely on it always
-		// having an IPv6 addr. Endpoints however may not have IPv6 addrs if IPv6
-		// is disabled. Hence this check prevents us from omitting the "LXC_IP"
-		// symbol from the template BPF program. Without this, the following
-		// scenario is possible:
-		//   1) Enable IPv6 in cilium
-		//   2) Create an endpoint (ensure endpoint has an IPv6 addr)
-		//   3) Disable IPv6 and restart cilium
-		// This results in a template BPF object without an "LXC_IP" defined,
-		// __but__ the endpoint still has "LXC_IP" defined. This causes a later
-		// call to loader.ELFSubstitutions() to fail on missing a symbol "LXC_IP".
-		if ipv6 := e.IPv6Address(); ipv6.IsValid() {
-			fmt.Fprint(fw, defineIPv6("LXC_IP", ipv6.AsSlice()))
-		}
-
-		fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address().AsSlice()))
-		fmt.Fprint(fw, defineUint16("LXC_ID", uint16(e.GetID())))
-	}
-
-	fmt.Fprint(fw, defineMAC("THIS_INTERFACE_MAC", e.GetNodeMAC()))
-	fmt.Fprint(fw, defineUint64("ENDPOINT_NETNS_COOKIE", uint64(e.GetEndpointNetNsCookie())))
-
-	secID := e.GetIdentityLocked().Uint32()
-	fmt.Fprint(fw, defineUint32("SECLABEL", secID))
-	fmt.Fprintln(fw, "#define SECLABEL_IPV4 SECLABEL")
-	fmt.Fprintln(fw, "#define SECLABEL_IPV6 SECLABEL")
-	fmt.Fprint(fw, defineUint32("POLICY_VERDICT_LOG_FILTER", e.GetPolicyVerdictLogFilter()))
-
+func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConfiguration) {
 	epID := uint16(e.GetID())
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
 	callsMapName := callsmap.MapName
@@ -1055,7 +1001,7 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *datapath.LocalN
 	}
 
 	writeIncludes(w)
-	h.writeStaticData(deviceNames, fw, e)
+	h.writeStaticData(fw, e)
 
 	return h.writeTemplateConfig(fw, deviceNames, cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
 }
