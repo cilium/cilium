@@ -15,8 +15,6 @@
 #include "proxy.h"
 #include "proxy_hairpin.h"
 
-#define TEMPLATE_LXC_ID 0xffff
-
 #ifdef ENABLE_SIP_VERIFICATION
 static __always_inline
 int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)

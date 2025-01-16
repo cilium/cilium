@@ -111,7 +111,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	writeIncludes(w)
 
 	routerIP := cfg.CiliumInternalIPv6
-	hostIP := cfg.NodeIPv6
 
 	var ipv4NodePortAddrs, ipv6NodePortAddrs []netip.Addr
 	for _, addr := range cfg.NodeAddresses {
@@ -162,11 +161,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["IPV4_FRAG_DATAGRAMS_MAP"] = fragmap.MapName
 			cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
 		}
-	}
-
-	if option.Config.EnableIPv6 {
-		extraMacrosMap["HOST_IP"] = hostIP.String()
-		fw.WriteString(defineIPv6("HOST_IP", hostIP))
 	}
 
 	cDefinesMap["UNKNOWN_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameUnknown))
