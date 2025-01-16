@@ -65,6 +65,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-immutable-radix/v2 v2.1.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/hmarr/codeowners v1.2.1
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.2.0
