@@ -14,11 +14,15 @@ import (
 // PodToK8sLocal sends a curl from all control plane client Pods
 // to all control-plane nodes.
 func PodToK8sLocal() check.Scenario {
-	return &podToK8sLocal{}
+	return &podToK8sLocal{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
 // podToK8sLocal implements a Scenario.
-type podToK8sLocal struct{}
+type podToK8sLocal struct {
+	check.ScenarioBase
+}
 
 func (s *podToK8sLocal) Name() string {
 	return "pod-to-k8s-local"
