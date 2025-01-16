@@ -24,14 +24,14 @@ import (
 type MapEvent struct {
 
 	// Action type for event
-	// Enum: ["update","delete"]
+	// Enum: ["update","delete","batchupdate"]
 	Action string `json:"action,omitempty"`
 
 	// Desired action to be performed after this event
 	// Enum: ["ok","insert","delete"]
 	DesiredAction string `json:"desired-action,omitempty"`
 
-	// Map key on which the event occured
+	// Map key (or keys) on which the event occured
 	Key string `json:"key,omitempty"`
 
 	// Last error seen while performing desired action
@@ -41,7 +41,7 @@ type MapEvent struct {
 	// Format: date-time
 	Timestamp strfmt.DateTime `json:"timestamp,omitempty"`
 
-	// Map value on which the event occured
+	// Map value (or values) on which the event occured
 	Value string `json:"value,omitempty"`
 }
 
@@ -71,7 +71,7 @@ var mapEventTypeActionPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["update","delete"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["update","delete","batchupdate"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -86,6 +86,9 @@ const (
 
 	// MapEventActionDelete captures enum value "delete"
 	MapEventActionDelete string = "delete"
+
+	// MapEventActionBatchupdate captures enum value "batchupdate"
+	MapEventActionBatchupdate string = "batchupdate"
 )
 
 // prop value enum

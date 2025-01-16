@@ -4043,7 +4043,8 @@ func init() {
           "type": "string",
           "enum": [
             "update",
-            "delete"
+            "delete",
+            "batchupdate"
           ]
         },
         "desired-action": {
@@ -4056,7 +4057,7 @@ func init() {
           ]
         },
         "key": {
-          "description": "Map key on which the event occured",
+          "description": "Map key (or keys) on which the event occured",
           "type": "string"
         },
         "last-error": {
@@ -4069,7 +4070,7 @@ func init() {
           "format": "date-time"
         },
         "value": {
-          "description": "Map value on which the event occured",
+          "description": "Map value (or values) on which the event occured",
           "type": "string"
         }
       }
@@ -10186,7 +10187,8 @@ func init() {
           "type": "string",
           "enum": [
             "update",
-            "delete"
+            "delete",
+            "batchupdate"
           ]
         },
         "desired-action": {
@@ -10199,7 +10201,7 @@ func init() {
           ]
         },
         "key": {
-          "description": "Map key on which the event occured",
+          "description": "Map key (or keys) on which the event occured",
           "type": "string"
         },
         "last-error": {
@@ -10212,7 +10214,7 @@ func init() {
           "format": "date-time"
         },
         "value": {
-          "description": "Map value on which the event occured",
+          "description": "Map value (or values) on which the event occured",
           "type": "string"
         }
       }
