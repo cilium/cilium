@@ -714,6 +714,7 @@ lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 			     const struct ipv6_ct_tuple *tuple,
 			     const struct lb6_service *svc)
 {
+	__be16 sport = lb6_svc_is_affinity(svc) ? 0 : tuple->sport;
 	__u32 zero = 0, index = svc->rev_nat_index;
 	__u32 *backend_ids;
 	void *maglev_lut;
@@ -726,7 +727,7 @@ lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(!backend_ids))
 		return 0;
 
-	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
+	index = __hash_from_tuple_v6(tuple, sport) % LB_MAGLEV_LUT_SIZE;
 	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
 #endif  /* defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_RANDOM */
@@ -1431,6 +1432,7 @@ lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 			     const struct ipv4_ct_tuple *tuple,
 			     const struct lb4_service *svc)
 {
+	__be16 sport = lb4_svc_is_affinity(svc) ? 0 : tuple->sport;
 	__u32 zero = 0, index = svc->rev_nat_index;
 	__u32 *backend_ids;
 	void *maglev_lut;
@@ -1443,7 +1445,7 @@ lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(!backend_ids))
 		return 0;
 
-	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
+	index = __hash_from_tuple_v4(tuple, sport) % LB_MAGLEV_LUT_SIZE;
 	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
 #endif /* LB_SELECTION_PER_SERVICE || LB_SELECTION == LB_SELECTION_MAGLEV */
