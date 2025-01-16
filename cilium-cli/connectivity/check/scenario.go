@@ -14,6 +14,9 @@ type Scenario interface {
 	// Name returns the name of the Scenario.
 	Name() string
 
+	// Filepath returns the source code filename for the Scenario.
+	FilePath() string
+
 	// Run is invoked by the testing framework to execute the Scenario.
 	Run(ctx context.Context, t *Test)
 }
@@ -24,4 +27,10 @@ type Scenario interface {
 type ConditionalScenario interface {
 	Scenario
 	Requirements() []features.Requirement
+}
+
+type ScenarioBase struct {
+}
+
+func NewScenarioBase() ScenarioBase {
 }
