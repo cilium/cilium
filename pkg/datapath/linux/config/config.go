@@ -1029,8 +1029,8 @@ func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e dat
 
 	secID := e.GetIdentityLocked().Uint32()
 	fmt.Fprint(fw, defineUint32("SECLABEL", secID))
-	fmt.Fprint(fw, defineUint32("SECLABEL_IPV4", secID))
-	fmt.Fprint(fw, defineUint32("SECLABEL_IPV6", secID))
+	fmt.Fprintln(fw, "#define SECLABEL_IPV4 SECLABEL")
+	fmt.Fprintln(fw, "#define SECLABEL_IPV6 SECLABEL")
 	fmt.Fprint(fw, defineUint32("POLICY_VERDICT_LOG_FILTER", e.GetPolicyVerdictLogFilter()))
 
 	epID := uint16(e.GetID())
