@@ -41,14 +41,14 @@
 #define TUNNEL_IPV4 v4_node_two
 #define TUNNEL_IPV6 v6_node_two
 
-#include "lib/eth.h"
-static volatile const union macaddr __cilium_net_mac = CILIUM_NET_MAC;
-#define DST_MAC __cilium_net_mac.addr
-
 /*
  * Include entrypoint into host stack.
  */
 #include "bpf_host.c"
+
+#include "lib/eth.h"
+static volatile const union macaddr __cilium_net_mac = CILIUM_NET_MAC;
+#define DST_MAC __cilium_net_mac.addr
 
 /*
  * Include test helpers

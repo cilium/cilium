@@ -9,11 +9,6 @@
 /* Set THIS_INTERFACE_MAC equal to mac_two */
 #define THIS_INTERFACE_MAC { .addr = {0x13, 0x37, 0x13, 0x37, 0x13, 0x37} }
 
-#define SECCTX_FROM_IPCACHE 1
-
-/* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 (__be32)v4_pod_one
-
 /* Enable CT debug output */
 #undef QUIET_CT
 
@@ -25,6 +20,8 @@
 #define ENABLE_L2_ANNOUNCEMENTS
 
 #include <bpf_host.c>
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);

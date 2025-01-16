@@ -3,9 +3,6 @@
 
 #include "common.h"
 
-/* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 (__be32)v4_pod_one
-
 /* Enable CT debug output */
 #undef QUIET_CT
 
@@ -27,6 +24,9 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 }
 
 #include <bpf_lxc.c>
+
+/* Set the LXC source address to be the address of pod one */
+ASSIGN_CONFIG(__u32, endpoint_ipv4, v4_pod_one)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

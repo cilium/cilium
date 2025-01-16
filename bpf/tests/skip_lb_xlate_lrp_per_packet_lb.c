@@ -13,13 +13,10 @@
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
 #define HAVE_NETNS_COOKIE 1
 
-/* Set a dummy value for netns cookie*/
-#ifdef ENDPOINT_NETNS_COOKIE
-    #undef ENDPOINT_NETNS_COOKIE
-#endif
-#define ENDPOINT_NETNS_COOKIE 5000
-
 #include <bpf_lxc.c>
+
+ASSIGN_CONFIG(__u64, endpoint_netns_cookie, 5000)
+
 #include "lib/lb.h"
 #include "lib/ipcache.h"
 #include "lib/endpoint.h"

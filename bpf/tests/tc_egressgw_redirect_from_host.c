@@ -13,9 +13,9 @@
 #define ENABLE_MASQUERADE_IPV4
 #define ENCAP_IFINDEX 0
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/egressgw.h"
 #include "lib/endpoint.h"
