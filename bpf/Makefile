@@ -177,11 +177,11 @@ endif
 
 include ./Makefile.bpf
 
-.PHONY: all bpf_all build_all subdirs install clean gen_compile_commands
+.PHONY: all bpf_all build_all subdirs install clean generate gen_compile_commands
 
 all: bpf_all
 
-bpf_all: $(BPF) subdirs
+bpf_all: $(BPF) subdirs generate
 
 build_all: force
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
@@ -191,6 +191,9 @@ testdata:
 	${CLANG} ${FLAGS} --target=bpf -Wall -Werror \
 	-c ../pkg/alignchecker/testdata/bpf_foo.c \
 	-o ../pkg/alignchecker/testdata/bpf_foo.o
+
+generate: $(BPF)
+	$(GO) generate ../pkg/datapath/config
 
 $(BPF_SIMPLE): %.o: %.c
 	@$(ECHO_CC)
