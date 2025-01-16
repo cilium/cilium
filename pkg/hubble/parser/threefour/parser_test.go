@@ -76,8 +76,8 @@ var (
 			if ip == localIP {
 				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
-					PolicyMap: map[policyTypes.Key]labels.LabelArrayList{
-						remotePolicyKey: fooBarLabel,
+					PolicyMap: map[policyTypes.Key]string{
+						remotePolicyKey: fooBarLabel.String(),
 					},
 					PolicyRevision: 1,
 				}, true
@@ -453,8 +453,8 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		PodName:      "xwing",
 		PodNamespace: "default",
 		Labels:       []string{"a", "b", "c"},
-		PolicyMap: map[policyTypes.Key]labels.LabelArrayList{
-			policyKey: {policyLabel},
+		PolicyMap: map[policyTypes.Key]string{
+			policyKey: labels.LabelArrayList{policyLabel}.String(),
 		},
 		PolicyRevision: 1,
 	}
@@ -708,8 +708,8 @@ func TestDecodeTrafficDirection(t *testing.T) {
 			if ip == localIP {
 				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
-					PolicyMap: map[policyTypes.Key]labels.LabelArrayList{
-						policyKey: policyLabel,
+					PolicyMap: map[policyTypes.Key]string{
+						policyKey: policyLabel.String(),
 					},
 					PolicyRevision: 1,
 				}, true
@@ -894,10 +894,11 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	ep, ok := endpointGetter.GetEndpointInfo(localIP)
 	assert.True(t, ok)
-	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(
+	strLbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(
 		policy.KeyForDirection(directionFromProto(f.GetTrafficDirection())).
 			WithIdentity(identity.NumericIdentity(f.GetDestination().GetIdentity())))
 	assert.True(t, ok)
+	lbls := labels.LabelArrayListFromString(strLbls)
 	assert.Equal(t, lbls, policyLabel)
 	assert.Equal(t, uint64(1), rev)
 

@@ -113,7 +113,8 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 // 'key' must not have a wildcard identity or port.
 func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, bool) {
 	entry, found := p.policyMapState.lookup(key)
-	return entry.MapStateEntry, entry.GetRuleLabels(), found
+	lbls := labels.LabelArrayListFromString(entry.derivedFromRules.Value())
+	return entry.MapStateEntry, lbls, found
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
@@ -245,13 +246,13 @@ var errMissingKey = errors.New("Key not found")
 
 // GetRuleLabels returns the list of labels of the rules that contributed
 // to the entry at this key.
-// The returned LabelArrayList is shallow-copied and therefore must not be mutated.
-func (p *EndpointPolicy) GetRuleLabels(k Key) (labels.LabelArrayList, error) {
+// The returned string is the string representation of a LabelArrayList.
+func (p *EndpointPolicy) GetRuleLabels(k Key) (string, error) {
 	entry, ok := p.policyMapState.get(k)
 	if !ok {
-		return nil, errMissingKey
+		return "", errMissingKey
 	}
-	return entry.GetRuleLabels(), nil
+	return entry.derivedFromRules.Value(), nil
 }
 
 func (p *EndpointPolicy) Entries() iter.Seq2[Key, MapStateEntry] {

@@ -5,6 +5,7 @@ package labels
 
 import (
 	"bytes"
+	"iter"
 	"sort"
 	"strings"
 )
@@ -115,6 +116,27 @@ func LabelArrayListFromString(str string) (ls LabelArrayList) {
 		}
 	}
 	return ls
+}
+
+func ModelsFromLabelArrayListString(str string) iter.Seq[[]string] {
+	return func(yield func(labelArray []string) bool) {
+		// each LabelArray starts with '[' and ends with ']'
+		if len(str) > 2 && str[0] == '[' && str[len(str)-1] == ']' {
+			str = str[1 : len(str)-1] // remove first and last bracket
+			for {
+				i := strings.Index(str, "], [")
+				if i < 0 {
+					break
+				}
+				if !yield(strings.Split(str[:i], " ")) {
+					return
+				}
+				str = str[i+4:]
+			}
+			// last label array
+			yield(strings.Split(str, " "))
+		}
+	}
 }
 
 func (ls LabelArrayList) BuildBytes(buf *bytes.Buffer) {
