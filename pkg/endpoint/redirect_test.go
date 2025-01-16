@@ -335,7 +335,8 @@ func (obtained LabelArrayListMap) Equals(expected LabelArrayListMap) bool {
 func (e *Endpoint) GetDesiredPolicyRuleLabels() LabelArrayListMap {
 	desiredLabels := make(LabelArrayListMap)
 	for k := range e.desiredPolicy.Entries() {
-		desiredLabels[k], _ = e.desiredPolicy.GetRuleLabels(k)
+		strLbls, _ := e.desiredPolicy.GetRuleLabels(k)
+		desiredLabels[k] = labels.LabelArrayListFromString(strLbls)
 	}
 	return desiredLabels
 }

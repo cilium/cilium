@@ -4,6 +4,8 @@
 package correlation
 
 import (
+	"strings"
+
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -127,7 +129,7 @@ func extractFlowKey(f *flowpb.Flow) (
 	return
 }
 
-func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
+func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom string, rev uint64, ok bool) {
 	switch matchType {
 	case monitorAPI.PolicyMatchL3L4:
 		// Check for L4 policy rules.
@@ -214,21 +216,13 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 	return derivedFrom, rev, ok
 }
 
-func toProto(derivedFrom labels.LabelArrayList, rev uint64) (policies []*flowpb.Policy) {
-	for i, lbl := range derivedFrom {
-		// derivedFrom may contain a duplicate policies if the policy had
-		// multiple that contributed to the same policy map entry.
-		// We can easily detect the duplicates here, because derivedFrom is
-		// sorted.
-		if i > 0 && lbl.Equals(derivedFrom[i-1]) {
-			continue
-		}
-
+func toProto(derivedFrom string, rev uint64) (policies []*flowpb.Policy) {
+	for model := range labels.ModelsFromLabelArrayListString(derivedFrom) {
 		policy := &flowpb.Policy{
-			Labels:   lbl.GetModel(),
+			Labels:   model,
 			Revision: rev,
 		}
-		populate(policy, lbl)
+		populate(policy, model)
 		policies = append(policies, policy)
 	}
 
@@ -238,27 +232,27 @@ func toProto(derivedFrom labels.LabelArrayList, rev uint64) (policies []*flowpb.
 // populate derives and sets fields in the flow policy from the label set array.
 //
 // This function supports namespaced and cluster-scoped resources.
-func populate(f *flowpb.Policy, lbl labels.LabelArray) {
-	var kind, ns, name string
-	for _, l := range lbl {
-		if l.Source != string(source.Kubernetes) {
-			continue
-		}
-		switch l.Key {
-		case k8sConst.PolicyLabelName:
-			name = l.Value
-		case k8sConst.PolicyLabelNamespace:
-			ns = l.Value
-		case k8sConst.PolicyLabelDerivedFrom:
-			kind = l.Value
-		}
-
-		if kind != "" && name != "" && ns != "" {
-			break
+func populate(f *flowpb.Policy, model []string) {
+	for _, str := range model {
+		k8sLen := len(source.Kubernetes)
+		if len(str) > k8sLen && str[k8sLen] == ':' {
+			str = str[k8sLen+1:]
+			if i := strings.IndexByte(str, '='); i > 0 {
+				key := str[:i]
+				value := str[i+1:]
+				switch key {
+				case k8sConst.PolicyLabelName:
+					f.Name = value
+				case k8sConst.PolicyLabelNamespace:
+					f.Namespace = value
+				case k8sConst.PolicyLabelDerivedFrom:
+					f.Kind = value
+				default:
+					if f.Kind != "" && f.Name != "" && f.Namespace != "" {
+						return
+					}
+				}
+			}
 		}
 	}
-
-	f.Kind = kind
-	f.Namespace = ns
-	f.Name = name
 }
