@@ -23,11 +23,14 @@ const (
 // NetQos : Test Network QoS Enforcement
 func NetQos(n string) check.Scenario {
 	return &netQos{
-		name: n,
+		name:         n,
+		ScenarioBase: check.NewScenarioBase(),
 	}
 }
 
 type netQos struct {
+	check.ScenarioBase
+
 	lock.Mutex
 	name string
 }
