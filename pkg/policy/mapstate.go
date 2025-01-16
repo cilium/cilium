@@ -421,10 +421,6 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 	}
 }
 
-func (e *mapStateEntry) GetRuleLabels() labels.LabelArrayList {
-	return labels.LabelArrayListFromString(e.derivedFromRules.Value())
-}
-
 func emptyMapState() mapState {
 	return newMapState(0)
 }
