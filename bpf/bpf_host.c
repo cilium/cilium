@@ -13,11 +13,6 @@
 
 #define EVENT_SOURCE HOST_EP_ID
 
-/* Host endpoint ID for the template bpf_host object file. Will be replaced
- * at compile-time with the proper host endpoint ID.
- */
-#define TEMPLATE_HOST_EP_ID 0xffff
-
 /* These are configuration options which have a default value in their
  * respective header files and must thus be defined beforehand:
  */
@@ -85,10 +80,6 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 }
 
 #define SECCTX_FROM_IPCACHE_OK	2
-#ifndef SECCTX_FROM_IPCACHE
-# define SECCTX_FROM_IPCACHE	0
-#endif
-
 static __always_inline bool identity_from_ipcache_ok(void)
 {
 	return SECCTX_FROM_IPCACHE == SECCTX_FROM_IPCACHE_OK;

@@ -36,13 +36,6 @@
 #define EVENT_SOURCE 0
 #endif
 
-#ifndef THIS_MTU
-/* If not available, fall back to generically detected MTU instead of more
- * fine-grained per-device MTU.
- */
-# define THIS_MTU MTU
-#endif
-
 #ifdef PREALLOCATE_MAPS
 #define CONDITIONAL_PREALLOC 0
 #else

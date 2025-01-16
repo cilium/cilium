@@ -14,8 +14,6 @@
 #define ENCAP_IFINDEX	42
 #define IFACE_IFINDEX	44
 
-#define SECCTX_FROM_IPCACHE 1
-
 #define ctx_redirect mock_ctx_redirect
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
