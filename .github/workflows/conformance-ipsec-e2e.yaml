@@ -166,6 +166,7 @@ jobs:
                                       --sysdump-hubble-flows-count=1000000 \
                                       --sysdump-hubble-flows-timeout=5m \
                                       --flush-ct \
+                                      --log-code-owners \
                                       ${EXTRA_CLI_FLAGS[*]}"
 
           echo sha=${SHA} >> $GITHUB_OUTPUT
