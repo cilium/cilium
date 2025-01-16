@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/hmarr/codeowners"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
@@ -49,6 +50,8 @@ type ConnectivityTest struct {
 
 	// Features contains the features enabled on the running Cilium cluster
 	Features features.Set
+
+	CodeOwners codeowners.Ruleset
 
 	// ClusterName is the identifier of the local cluster.
 	ClusterName string
@@ -204,6 +207,7 @@ func NewConnectivityTest(
 	p Parameters,
 	sysdumpHooks sysdump.Hooks,
 	logger *ConcurrentLogger,
+	owners codeowners.Ruleset,
 ) (*ConnectivityTest, error) {
 	if err := p.validate(); err != nil {
 		return nil, err
@@ -240,6 +244,7 @@ func NewConnectivityTest(
 		testNames:                make(map[string]struct{}),
 		lastFlowTimestamps:       make(map[string]time.Time),
 		Features:                 features.Set{},
+		CodeOwners:               owners,
 	}
 
 	return k, nil
@@ -499,11 +504,19 @@ func (ct *ConnectivityTest) report() error {
 		ct.Failf("%d/%d tests failed (%d/%d actions), %d tests skipped, %d scenarios skipped:", nf, nt-nst, fa, na, nst, nss)
 
 		// List all failed actions by test.
+		failedActions := 0
 		for _, t := range failed {
 			ct.Logf("Test [%s]:", t.Name())
 			for _, a := range t.failedActions() {
+				failedActions++
 				ct.Log("  ❌", a)
+				ct.LogOwners(a.Scenario())
 			}
+		}
+		if len(failed) > 0 && failedActions == 0 {
+			// Test failure was triggered not by a specific action
+			// failing, but some other infrastructure code.
+			ct.LogOwners(defaultTestOwners)
 		}
 
 		return fmt.Errorf("[%s] %d tests failed", ct.params.TestNamespace, nf)
