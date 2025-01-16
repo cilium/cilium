@@ -175,7 +175,9 @@ jobs:
             EXTRA_CLI_FLAGS+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[@]}"
+          CONNECTIVITY_TEST_DEFAULTS="${EXTRA_CLI_FLAGS[@]} \
+            --log-code-owners \
+          "
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
           CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
