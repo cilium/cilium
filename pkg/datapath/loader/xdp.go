@@ -17,9 +17,10 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/mac"
+
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -102,15 +103,11 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 	}
 
 	args := []string{
-		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_xdp_%d", link.Attrs().Index),
 	}
 	args = append(args, extraCArgs...)
 	if option.Config.EnableNodePort {
-		args = append(args, []string{
-			fmt.Sprintf("-DTHIS_MTU=%d", link.Attrs().MTU),
-			"-DDISABLE_LOOPBACK_LB",
-		}...)
+		args = append(args, "-DDISABLE_LOOPBACK_LB")
 	}
 
 	return args, nil
@@ -154,11 +151,13 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev string, xdpMode xdp.Mode,
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
+	cfg := config.NewBPFXDP()
+	cfg.InterfaceIfindex = uint32(iface.Attrs().Index)
+	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
+
 	var obj xdpObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
-		Constants: map[string]uint64{
-			"interface_ifindex": uint64(iface.Attrs().Index),
-		},
+		Constants: cfg,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
