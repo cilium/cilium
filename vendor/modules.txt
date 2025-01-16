@@ -892,6 +892,9 @@ github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/json/parser
 github.com/hashicorp/hcl/json/scanner
 github.com/hashicorp/hcl/json/token
+# github.com/hmarr/codeowners v1.2.1
+## explicit; go 1.18
+github.com/hmarr/codeowners
 # github.com/inconshreveable/mousetrap v1.1.0
 ## explicit; go 1.18
 github.com/inconshreveable/mousetrap
