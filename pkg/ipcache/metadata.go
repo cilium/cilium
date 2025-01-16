@@ -663,13 +663,12 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 
 	// Ensure any prefix with a FQDN label also has the world label set
 	if lbls.HasSource(labels.LabelSourceFQDN) {
-		labels.AddWorldLabel(prefix.Addr(), lbls)
+		lbls.AddWorldLabel(prefix.Addr())
 	}
 
 	// If the prefix is associated with the host or remote-node, then
 	// force-remove the world label.
-	if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
-		lbls.Has(labels.LabelHost[labels.IDNameHost]) {
+	if lbls.HasRemoteNodeLabel() || lbls.HasHostLabel() {
 		n := lbls.Remove(labels.LabelWorld)
 		n = n.Remove(labels.LabelWorldIPv4)
 		n = n.Remove(labels.LabelWorldIPv6)
@@ -686,7 +685,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		lbls = n
 	}
 
-	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
+	if lbls.HasHostLabel() {
 		// Associate any new labels with the host identity.
 		//
 		// This case is a bit special, because other parts of Cilium
@@ -720,9 +719,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// other labels with such IPs, but this assumption will break if/when
 	// we allow more arbitrary labels to be associated with these IPs that
 	// correspond to remote nodes.
-	if !lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) &&
-		!lbls.Has(labels.LabelHealth[labels.IDNameHealth]) &&
-		!lbls.Has(labels.LabelIngress[labels.IDNameIngress]) &&
+	if !lbls.HasRemoteNodeLabel() && !lbls.HasHealthLabel() && !lbls.HasIngressLabel() &&
 		!lbls.HasSource(labels.LabelSourceFQDN) &&
 		!lbls.HasSource(labels.LabelSourceCIDR) {
 		cidrLabels := labels.GetCIDRLabels(prefix)
@@ -740,9 +737,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		}).Warning("Failed to allocate new identity for prefix's Labels.")
 		return nil, false, err
 	}
-	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) ||
-		lbls.Has(labels.LabelWorldIPv4[labels.IDNameWorldIPv4]) ||
-		lbls.Has(labels.LabelWorldIPv6[labels.IDNameWorldIPv6]) {
+	if lbls.HasWorldLabel() {
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 	return id, isNew, err
@@ -778,6 +773,15 @@ func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.La
 	return identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, newLabels)
 }
 
+// appendAPIServerLabelsForDeletion inspects labels and performs special handling for corner cases like API server entities
+// deployed external to the cluster.
+func appendAPIServerLabelsForDeletion(lbls labels.Labels, currentLabels labels.Labels) labels.Labels {
+	if currentLabels.HasKubeAPIServerLabel() && currentLabels.HasWorldLabel() && len(currentLabels) == 2 {
+		lbls.MergeLabels(labels.LabelWorld)
+	}
+	return lbls
+}
+
 // RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD
 // except for the IPs / prefixes inside the given excluded set.
 //
@@ -795,7 +799,9 @@ func (ipc *IPCache) RemoveLabelsExcluded(
 	oldSet := ipc.metadata.filterByLabels(lbls)
 	for _, ip := range oldSet {
 		if _, ok := toExclude[ip]; !ok {
-			affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(ip, rid, lbls)...)
+			prefixLabels := ipc.metadata.getLocked(ip).ToLabels()
+			lblsToRemove := appendAPIServerLabelsForDeletion(lbls, prefixLabels)
+			affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(ip, rid, lblsToRemove)...)
 		}
 	}
 	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)
