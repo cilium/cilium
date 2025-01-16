@@ -1331,6 +1331,7 @@ func TestL4RuleLabels(t *testing.T) {
 var (
 	labelsA = labels.LabelArray{
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceK8s),
 	}
 	idA               = identity.NewIdentity(1001, labelsA.Labels())
 	endpointSelectorA = api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
@@ -1338,12 +1339,14 @@ var (
 	labelsB = labels.LabelArray{
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
 		labels.NewLabel("id2", "t", labels.LabelSourceK8s),
+		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceK8s),
 	}
 	idB               = identity.NewIdentity(1002, labelsB.Labels())
 	endpointSelectorB = api.NewESFromLabels(labels.ParseSelectLabel("id1=b"))
 
 	labelsC = labels.LabelArray{
 		labels.NewLabel("id", "t", labels.LabelSourceK8s),
+		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceK8s),
 	}
 	idC               = identity.NewIdentity(1003, labelsC.Labels())
 	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=t"))
