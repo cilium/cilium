@@ -1719,12 +1719,19 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 		OnStart: func(cell.HookContext) error {
 			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, &params)
 			if err != nil {
+				cancelDaemonCtx()
+				cleaner.Clean()
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
 			daemon = d
 
 			if !option.Config.DryMode {
-				startDaemon(daemon, restoredEndpoints, cleaner, params)
+				if err := startDaemon(daemon, restoredEndpoints, cleaner, params); err != nil {
+					daemonResolver.Reject(err)
+					cancelDaemonCtx()
+					cleaner.Clean()
+					return err
+				}
 			}
 			daemonResolver.Resolve(daemon)
 			cfgResolver.Resolve(option.Config)
@@ -1732,9 +1739,6 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 		},
 		OnStop: func(cell.HookContext) error {
 			cancelDaemonCtx()
-			if daemon.statusCollector != nil {
-				daemon.statusCollector.Close()
-			}
 			cleaner.Clean()
 			wg.Wait()
 			return nil
@@ -1744,14 +1748,14 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
-func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) {
+func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
 	log.Info("Initializing daemon")
 
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
 	log.Info("Validating configured node address ranges")
 	if err := node.ValidatePostInit(); err != nil {
-		log.Fatalf("postinit failed: %s", err)
+		return fmt.Errorf("postinit failed: %w", err)
 	}
 
 	bootstrapStats.enableConntrack.Start()
@@ -1780,11 +1784,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		d.endpointManager.InitHostEndpointLabels(d.ctx)
 	} else {
 		log.Info("Creating host endpoint")
-		if err := d.endpointManager.AddHostEndpoint(
+		err := d.endpointManager.AddHostEndpoint(
 			d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator,
-			"Create host endpoint", nodeTypes.GetName(),
-		); err != nil {
-			log.Fatalf("unable to create host endpoint: %s", err)
+			"Create host endpoint", nodeTypes.GetName())
+		if err != nil {
+			return fmt.Errorf("unable to create host endpoint: %w", err)
 		}
 	}
 
@@ -1797,11 +1801,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 				log.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
 			} else {
 				log.Info("Creating ingress endpoint")
-				if err := d.endpointManager.AddIngressEndpoint(
+				err := d.endpointManager.AddIngressEndpoint(
 					d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator,
-					"Create ingress endpoint",
-				); err != nil {
-					log.Fatalf("unable to create ingress endpoint: %s", err)
+					"Create ingress endpoint")
+				if err != nil {
+					return fmt.Errorf("unable to create ingress endpoint: %w", err)
 				}
 			}
 		}
@@ -1810,7 +1814,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	if option.Config.EnableIPMasqAgent {
 		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
 		if err != nil {
-			log.Fatalf("failed to create ipmasq agent: %s", err)
+			return fmt.Errorf("failed to create ipmasq agent: %w", err)
 		}
 		ipmasqAgent.Start()
 	}
@@ -1912,6 +1916,8 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	if err != nil {
 		log.WithError(err).Error("Unable to store Viper's configuration")
 	}
+
+	return nil
 }
 
 func newRestorerPromise(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon]) promise.Promise[endpointstate.Restorer] {
