@@ -582,6 +582,9 @@ const (
 
 	// BGPRouterIDAllocationMode is default BGP router-id allocation mode
 	BGPRouterIDAllocationMode = "default"
+
+	// IPTracingOptionType is the default value for option.IPTracingOptionType
+	IPTracingOptionType = 0
 )
 
 var (
