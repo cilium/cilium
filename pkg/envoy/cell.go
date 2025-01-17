@@ -35,7 +35,7 @@ var Cell = cell.Module(
 	"envoy-proxy",
 	"Envoy proxy and control-plane",
 
-	cell.Config(envoyProxyConfig{}),
+	cell.Config(ProxyConfig{}),
 	cell.Config(secretSyncConfig{}),
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
@@ -46,7 +46,7 @@ var Cell = cell.Module(
 	cell.Invoke(registerSecretSyncer),
 )
 
-type envoyProxyConfig struct {
+type ProxyConfig struct {
 	DisableEnvoyVersionCheck          bool
 	ProxyPrometheusPort               int
 	ProxyAdminPort                    int
@@ -73,7 +73,7 @@ type envoyProxyConfig struct {
 	ProxyXffNumTrustedHopsEgress      uint32
 }
 
-func (r envoyProxyConfig) Flags(flags *pflag.FlagSet) {
+func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy version check")
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
@@ -127,7 +127,7 @@ type xdsServerParams struct {
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalEndpointStore *LocalEndpointStore
 
-	EnvoyProxyConfig envoyProxyConfig
+	EnvoyProxyConfig ProxyConfig
 
 	// Depend on access log server to enforce init order.
 	// This ensures that the access log server is ready before it gets used by the
@@ -207,7 +207,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	return xdsServer, nil
 }
 
-func newEnvoyAdminClient(envoyProxyConfig envoyProxyConfig) *EnvoyAdminClient {
+func newEnvoyAdminClient(envoyProxyConfig ProxyConfig) *EnvoyAdminClient {
 	return NewEnvoyAdminClientForSocket(GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
 }
 
@@ -216,7 +216,7 @@ type accessLogServerParams struct {
 
 	Lifecycle          cell.Lifecycle
 	LocalEndpointStore *LocalEndpointStore
-	EnvoyProxyConfig   envoyProxyConfig
+	EnvoyProxyConfig   ProxyConfig
 }
 
 func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
@@ -251,7 +251,7 @@ type versionCheckParams struct {
 	Logger           logrus.FieldLogger
 	JobRegistry      job.Registry
 	Health           cell.Health
-	EnvoyProxyConfig envoyProxyConfig
+	EnvoyProxyConfig ProxyConfig
 	EnvoyAdminClient *EnvoyAdminClient
 }
 
