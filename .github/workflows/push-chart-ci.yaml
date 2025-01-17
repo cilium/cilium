@@ -1,24 +1,16 @@
 name: Chart CI Push
 
 on:
-  # run after the image build completes
-  workflow_run:
-    workflows:
-      - Image CI Build
-      - Hot Fix Image Release Build
-    types:
-      - completed
-  # allow manually triggering it as well, for existing refs
-  workflow_dispatch:
+  workflow_call:
     inputs:
       checkout_ref:
-        description: 'Git ref to build. This needs to be a full commit SHA.'
+        description: 'Git ref to build.'
+        type: string
         required: true
-
-  # To test: uncomment this and update it to your branch name and push to the branch.
-  # push:
-  #   branches:
-  #     - ft/main/<your_branch>
+      image_tag:
+        description: 'Image tag to use for the images in the chart.'
+        type: string
+        required: true
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -27,15 +19,13 @@ permissions:
   contents: read
   # To allow retrieving information from the PR API
   pull-requests: read
-  # To be able to set commit status
-  statuses: write
 
 concurrency:
+  # We do not use ${{ github.workflow }} because when triggered via
+  # workflow_call, the value of it is the same as the calling workflow, which
+  # could result in this job cancelling it's caller if the group names conflicted
   group: |
-    ${{ github.workflow }}-${{ github.event_name }}-${{
-      (github.event_name == 'workflow_dispatch' && inputs.checkout_ref) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha)
-    }}
+    chart-ci-push-${{ github.event_name }}-${{ inputs.checkout_ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,10 +33,7 @@ jobs:
     name: Setup Charts
     runs-on: ubuntu-24.04
     outputs:
-      github-sha: ${{ steps.get-sha.outputs.sha }}
       chart-version: ${{ steps.get-version.outputs.chart_version }}
-    # we also check for push events in case someone is testing the workflow by uncommenting the push trigger above.
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
     steps:
     - name: Checkout GitHub main
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -65,32 +52,11 @@ jobs:
           exit 1
         fi
 
-    - name: Get triggering event SHA
-      id: get-sha
-      run: |
-        if [[ "${{ github.event_name }}" == "workflow_dispatch"  ]]; then
-          echo sha="${{ inputs.checkout_ref }}" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-          echo sha="${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.event_name }}" == "push" ]]; then
-          echo sha="${{ github.sha }}" >> $GITHUB_OUTPUT
-        else
-          echo "Invalid event type"
-          exit 1
-        fi
-
-    - name: Set commit status to pending
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-      with:
-        sha: ${{ steps.get-sha.outputs.sha }}
-        status: pending
-        description: Helm push in progress
-
     - name: Checkout Source Code
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         persist-credentials: false
-        ref: ${{ steps.get-sha.outputs.sha }}
+        ref: ${{ inputs.checkout_ref }}
         # required for git describe
         fetch-depth: 0
 
@@ -122,7 +88,7 @@ jobs:
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         persist-credentials: false
-        ref: ${{ needs.setup-charts.outputs.github-sha }}
+        ref: ${{ inputs.checkout_ref }}
         sparse-checkout: install/kubernetes/cilium
 
     - name: Push charts
@@ -135,11 +101,11 @@ jobs:
           {
 
             "image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci",
-            "image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
+            "image.tag": "${{ inputs.image_tag }}",
             "image.digest": "",
             "image.useDigest": false,
             "preflight.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci",
-            "preflight.image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
+            "preflight.image.tag": "${{ inputs.image_tag }}",
             "preflight.image.digest": "",
             "preflight.image.useDigest": false,
             "operator.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator",
@@ -149,13 +115,13 @@ jobs:
             "operator.image.awsDigest": "",
             "operator.image.alibabacloudDigest": "",
             "operator.image.useDigest": false,
-            "operator.image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
+            "operator.image.tag": "${{ inputs.image_tag }}",
             "hubble.relay.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci",
-            "hubble.relay.image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
+            "hubble.relay.image.tag": "${{ inputs.image_tag }}",
             "hubble.relay.image.digest": "",
             "hubble.relay.image.useDigest": false,
             "clustermesh.apiserver.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci",
-            "clustermesh.apiserver.image.tag": "${{ needs.setup-charts.outputs.github-sha }}",
+            "clustermesh.apiserver.image.tag": "${{ inputs.image_tag }}",
             "clustermesh.apiserver.image.digest": "",
             "clustermesh.apiserver.image.useDigest": false
           }
@@ -188,27 +154,3 @@ jobs:
         echo "Example commands:"
         echo helm template -n kube-system oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
         echo helm install cilium -n kube-system  oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
-
-    - name: Set commit status to success
-      if: ${{ success() }}
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-      with:
-        sha: ${{ needs.setup-charts.outputs.github-sha }}
-        status: success
-        description: Helm push successful
-
-    - name: Set commit status to failure
-      if: ${{ failure() }}
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-      with:
-        sha: ${{ needs.setup-charts.outputs.github-sha }}
-        status: failure
-        description: Helm push failed
-
-    - name: Set commit status to cancelled
-      if: ${{ cancelled() }}
-      uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-      with:
-        sha: ${{ needs.setup-charts.outputs.github-sha }}
-        status: error
-        description: Helm push cancelled

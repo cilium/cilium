@@ -17,6 +17,9 @@ jobs:
     name: Build and Push Images
     environment: release-developer-images
     runs-on: ubuntu-24.04
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+      tag: ${{ steps.tag.outputs.tag }}
     strategy:
       matrix:
         include:
@@ -73,7 +76,9 @@ jobs:
       - name: Getting image tag
         id: tag
         run: |
-          echo tag=${GITHUB_REF##*/} >> $GITHUB_OUTPUT
+          ref=${GITHUB_REF##*/}
+          echo ref=${ref} >> $GITHUB_OUTPUT
+          echo tag=${ref} >> $GITHUB_OUTPUT
 
       - name: Checking if tag already exists
         id: tag-in-repositories
@@ -164,3 +169,16 @@ jobs:
         run: |
           cd image-digest/
           find -type f | sort | xargs -d '\n' cat
+
+  push-chart:
+    name: Push dev chart
+    needs: build-and-push
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    uses: ./.github/workflows/push-chart-ci.yaml
+    with:
+      checkout_ref: ${{ needs.build-and-push.outputs.ref }}
+      image_tag: ${{ needs.build-and-push.outputs.tag }}
+    secrets: inherit
