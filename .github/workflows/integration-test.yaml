@@ -90,7 +90,7 @@ jobs:
           comment_on_pr: false
 
       - name: Setup additional repositories
-        if: ${{ matrix.arch == 'ubuntu-latest' || matrix.arch == 'ubuntu-24.04' }}
+        if: ${{ startsWith(matrix.arch, 'ubuntu-latest') || startsWith(matrix.arch, 'ubuntu-24.04') }}
         shell: bash
         run: |
           # This is required for libtinfo5
