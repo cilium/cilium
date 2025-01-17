@@ -433,7 +433,7 @@ func parseSubnet(subnet *armnetwork.Subnet) (s *ipamTypes.Subnet) {
 			// API / SDK is supposed to return a IpConfigurationsNextLink which can be used to make an additional
 			// call to get all IPConfigs. This field however seems to be missing from the API spec.
 			// Since we cannot fall back to other subnets anyway, assume all IPs are available.
-			// TODO: Update this once there's an official recommendation from Azure.
+			// TODO: Update this once azure-sdk-for-go supports ipConfigurationsNextLink
 			s.AvailableAddresses = c.AvailableIPs()
 		}
 	}
