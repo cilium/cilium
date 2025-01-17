@@ -1144,7 +1144,7 @@ func TestOverlimitPreferNewerEntries(t *testing.T) {
 }
 
 // This test tests the over limit behaviour of DNS Mapping zombies for repeated
-// lookups to the same domain (e.g. an S3 bucket). It tries to mimick the "fun"
+// lookups to the same domain (e.g. an S3 bucket). It tries to mimic the "fun"
 // interactions between the CT GC, FQDN GC and per-host IP limits. It covers a
 // case which, prior to the commit introducing this test, zombies were reaped
 // erroneously, since their "AliveAt" field was zero (and they thus sorted to

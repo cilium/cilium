@@ -31,7 +31,7 @@ const PortProtoV2 = 1 << 24
 // bit positions 0-15.
 //
 // This works because Version 1 will naturally encode
-// no values at postions 16-31 as the original Version 1
+// no values at positions 16-31 as the original Version 1
 // was a uint16. Version 2 enforces a 1 value at the 24th
 // bit position, so it will always be legible.
 type PortProto uint32
