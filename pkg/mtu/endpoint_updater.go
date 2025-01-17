@@ -178,8 +178,6 @@ func (emu *endpointUpdater) updateHostNSDevices(rx statedb.ReadTxn, routeMtus []
 		return err
 	}
 
-	var errs []error
-
 	// Update the MTU of all endpoint interfaces in the host network namespace
 	deviceIter := emu.deviceTable.All(rx)
 	for dev := range deviceIter {
@@ -197,27 +195,19 @@ func (emu *endpointUpdater) updateHostNSDevices(rx statedb.ReadTxn, routeMtus []
 
 		link, err := netlink.LinkByIndex(dev.Index)
 		if err != nil {
-			emu.logger.Error("Error getting link by index",
-				"index", dev.Index,
-				logfields.Error, err,
-			)
-			errs = append(errs, err)
+			// Ignore any errors. It is possible that the device has been removed between the time
+			// we read the device table and now.
 			continue
 		}
 
 		if err := netlink.LinkSetMTU(link, defaultRouteMTU.DeviceMTU); err != nil {
-			emu.logger.Error("Error setting MTU for link",
-				"link", link.Attrs().Name,
-				"index", link.Attrs().Index,
-				"mtu", defaultRouteMTU.DeviceMTU,
-				logfields.Error, err,
-			)
-			errs = append(errs, err)
+			// Ignore any errors. It is possible that the device has been removed between the time
+			// we got the link and now.
 			continue
 		}
 	}
 
-	return errors.Join(errs...)
+	return nil
 }
 
 // RegisterHook registers a hook to be called when updating the MTU of endpoints.
