@@ -23,4 +23,5 @@ NAT mapping tables
 * [cilium-dbg bpf](cilium-dbg_bpf.md)	 - Direct access to local BPF maps
 * [cilium-dbg bpf nat flush](cilium-dbg_bpf_nat_flush.md)	 - Flush all NAT mapping entries
 * [cilium-dbg bpf nat list](cilium-dbg_bpf_nat_list.md)	 - List all NAT mapping entries
+* [cilium-dbg bpf nat retries](cilium-dbg_bpf_nat_retries.md)	 - Histogram of retries
 

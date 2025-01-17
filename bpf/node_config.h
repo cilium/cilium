@@ -139,6 +139,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CAPTURE6_SIZE 16384
 #endif /* ENABLE_IPV6 */
 
+#ifdef ENABLE_NODEPORT
+#define SNAT_COLLISION_RETRIES 128
+#endif
+
 #define EGRESS_POLICY_MAP test_cilium_egress_gw_policy_v4
 #define SRV6_VRF_MAP4 test_cilium_srv6_vrf_v4
 #define SRV6_VRF_MAP6 test_cilium_srv6_vrf_v6

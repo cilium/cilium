@@ -631,12 +631,16 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv4 {
 			cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
 			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
+			cDefinesMap["SNAT_ALLOC_RETRIES_IPV4"] = nat.MapNameSnat4AllocRetries
 		}
 
 		if option.Config.EnableIPv6 {
 			cDefinesMap["SNAT_MAPPING_IPV6"] = nat.MapNameSnat6Global
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
+			cDefinesMap["SNAT_ALLOC_RETRIES_IPV6"] = nat.MapNameSnat6AllocRetries
 		}
+
+		cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.SnatCollisionRetries)
 
 		if option.Config.EnableBPFMasquerade {
 			if option.Config.EnableIPv4Masquerade {

@@ -54,6 +54,14 @@ type MapValue interface {
 	New() MapValue
 }
 
+// Same as MapValue, but for per-CPU maps. Implement to be able to fetch map values from all CPUs.
+type MapPerCPUValue interface {
+	MapValue
+
+	// NewSlice must return a pointer to a slice of structs that implement MapValue.
+	NewSlice() any
+}
+
 type cacheEntry struct {
 	Key   MapKey
 	Value MapValue
@@ -161,6 +169,11 @@ func (m *Map) Flags() uint32 {
 		return m.spec.Flags
 	}
 	return 0
+}
+
+func (m *Map) hasPerCPUValue() bool {
+	mt := m.Type()
+	return mt == ebpf.PerCPUHash || mt == ebpf.PerCPUArray || mt == ebpf.LRUCPUHash || mt == ebpf.PerCPUCGroupStorage
 }
 
 func (m *Map) updateMetrics() {
@@ -604,8 +617,7 @@ type DumpCallback func(key MapKey, value MapValue)
 // each map entry. With the current implementation, it is safe for callbacks to
 // retain the values received, as they are guaranteed to be new instances.
 //
-// TODO(tb): This package currently doesn't support dumping per-cpu maps, as
-// ReadValueSize is always set to the size of a single value.
+// To dump per-cpu maps, use DumpPerCPUWithCallback.
 func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	if cb == nil {
 		return errors.New("empty callback")
@@ -628,6 +640,41 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 
 		mk = m.key.New()
 		mv = m.value.New()
+	}
+
+	return i.Err()
+}
+
+// Callback called by DumpPerCPUWithCallback with the map key and the slice of
+// all values from all CPUs.
+type DumpPerCPUCallback func(key MapKey, values any)
+
+// DumpPerCPUWithCallback iterates over the Map and calls the given
+// DumpPerCPUCallback for each map entry, passing the slice with all values
+// from all CPUs. With the current implementation, it is safe for callbacks
+// to retain the values received, as they are guaranteed to be new instances.
+func (m *Map) DumpPerCPUWithCallback(cb DumpPerCPUCallback) error {
+	if cb == nil {
+		return errors.New("empty callback")
+	}
+
+	if err := m.Open(); err != nil {
+		return err
+	}
+
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	// Don't need deep copies here, only fresh pointers.
+	mk := m.key.New()
+	mv := m.value.(MapPerCPUValue).NewSlice()
+
+	i := m.m.Iterate()
+	for i.Next(mk, mv) {
+		cb(mk, mv)
+
+		mk = m.key.New()
+		mv = m.value.(MapPerCPUValue).NewSlice()
 	}
 
 	return i.Err()
@@ -1274,6 +1321,46 @@ func (m *Map) DeleteAll() error {
 	if err != nil {
 		scopedLog.WithError(err).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", mk)
 	}
+
+	return err
+}
+
+func (m *Map) ClearAll() error {
+	if m.eventsBufferEnabled || m.withValueCache {
+		return fmt.Errorf("clear map: events buffer and value cache are not supported")
+	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	defer m.updatePressureMetric()
+
+	if err := m.open(); err != nil {
+		return err
+	}
+
+	mk := m.key.New()
+	var mv any
+	if m.hasPerCPUValue() {
+		mv = m.value.(MapPerCPUValue).NewSlice()
+	} else {
+		mv = m.value.New()
+	}
+	empty := reflect.Indirect(reflect.ValueOf(mv)).Interface()
+
+	i := m.m.Iterate()
+	for i.Next(mk, mv) {
+		err := m.m.Update(mk, empty, ebpf.UpdateAny)
+
+		if metrics.BPFMapOps.IsEnabled() {
+			metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	err := i.Err()
 
 	return err
 }
