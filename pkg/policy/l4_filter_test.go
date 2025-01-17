@@ -30,7 +30,6 @@ var (
 	fooSelector            = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	bazSelector            = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
-	selFoo  = api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 	selBar2 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 )
@@ -52,6 +51,10 @@ type testData struct {
 
 	cachedSelectorBar1 CachedSelector
 	cachedSelectorBar2 CachedSelector
+
+	cachedSelectorWorld   CachedSelector
+	cachedSelectorWorldV4 CachedSelector
+	cachedSelectorWorldV6 CachedSelector
 }
 
 func newTestData() *testData {
@@ -76,6 +79,12 @@ func newTestData() *testData {
 	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, selBar1)
 	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, selBar2)
 
+	td.cachedSelectorWorld, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.EntitySelectorMapping[api.EntityWorld][0])
+
+	td.cachedSelectorWorldV4, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.EntitySelectorMapping[api.EntityWorldIPv4][0])
+
+	td.cachedSelectorWorldV6, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.EntitySelectorMapping[api.EntityWorldIPv6][0])
+
 	return td
 }
 
@@ -92,14 +101,6 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 	td.sc.UpdateIdentities(initial, nil, wg)
 	wg.Wait()
 	return td
-}
-
-// resetRepo clears only the policy repository.
-// Some tests rely on the accumulated state, but a clean repo.
-func (td *testData) resetRepo() *Repository {
-
-	td.repo.ReplaceByLabels(nil, []labels.LabelArray{{}})
-	return td.repo
 }
 
 func (td *testData) addIdentity(id *identity.Identity) {
@@ -126,6 +127,8 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	}
 	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
 
+	td.repo.mutex.RLock()
+	defer td.repo.mutex.RUnlock()
 	pol, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
 	defer pol.Detach()
