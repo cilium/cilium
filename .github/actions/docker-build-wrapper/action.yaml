@@ -1,0 +1,49 @@
+name: Docker build and push wrapper
+description: Allows attaching custom options to all docker builds
+inputs:
+  provenance:
+    required: false
+    default: false
+    description: "Generate provenance attestation for the build"
+  context:
+    required: false
+    default: "."
+    description: "Build's context"
+  file:
+    required: true
+    description: "Path to the Dockerfile"
+  push:
+    required: false
+    default: true
+    description: "Push the build result to registry"
+  platforms:
+    required: true
+    description: "List of target platforms for build"
+  tags:
+    required: true
+    description: "List of tags"
+  target:
+    required: true
+    description: "Sets the target stage to build"
+  build-args:
+    required: false
+    description: "List of build-time variables"
+outputs:
+  digest:
+    description: "Image digest"
+    value: ${{ steps.build.outputs.digest }}
+runs:
+  using: composite
+  steps:
+    - name: Build
+      id: build
+      uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355
+      with:
+        provenance: ${{ inputs.provenance }}
+        context: ${{ inputs.context }}
+        file: ${{ inputs.file }}
+        push: ${{ inputs.push }}
+        platforms: ${{ inputs.platforms }}
+        tags: ${{ inputs.tags }}
+        target: ${{ inputs.target }}
+        build-args: ${{ inputs.build-args }}
