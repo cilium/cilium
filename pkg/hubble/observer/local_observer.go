@@ -12,7 +12,9 @@ import (
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -215,6 +217,9 @@ func (s *LocalObserverServer) ServerStatus(
 	if err != nil {
 		s.log.WithError(err).Warn("Failed to get flow rate")
 	}
+	
+	md:=metadata.Pairs("cilium-version", build.ServerVersion.String())
+	grpc.SendHeader(ctx, md)
 
 	return &observerpb.ServerStatusResponse{
 		Version:   build.ServerVersion.String(),
@@ -228,11 +233,15 @@ func (s *LocalObserverServer) ServerStatus(
 
 // GetNodes implements observerpb.ObserverClient.GetNodes.
 func (s *LocalObserverServer) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) (*observerpb.GetNodesResponse, error) {
+	md:=metadata.Pairs("cilium-version", build.ServerVersion.String())
+	grpc.SendHeader(ctx, md)
 	return nil, status.Errorf(codes.Unimplemented, "GetNodes not implemented")
 }
 
 // GetNamespaces implements observerpb.ObserverClient.GetNamespaces.
 func (s *LocalObserverServer) GetNamespaces(ctx context.Context, req *observerpb.GetNamespacesRequest) (*observerpb.GetNamespacesResponse, error) {
+	md:=metadata.Pairs("cilium-version", build.ServerVersion.String())
+	grpc.SendHeader(ctx, md)
 	return &observerpb.GetNamespacesResponse{Namespaces: s.namespaceManager.GetNamespaces()}, nil
 }
 
@@ -249,6 +258,9 @@ func (s *LocalObserverServer) GetFlows(
 	// function returns.
 	ctx, cancel := context.WithCancel(server.Context())
 	defer cancel()
+
+	md:=metadata.Pairs("cilium-version", build.ServerVersion.String())
+	grpc.SendHeader(ctx, md)
 
 	for _, f := range s.opts.OnGetFlows {
 		ctx, err = f.OnGetFlows(ctx, req)
@@ -385,6 +397,9 @@ func (s *LocalObserverServer) GetAgentEvents(
 	ctx, cancel := context.WithCancel(server.Context())
 	defer cancel()
 
+	md:=metadata.Pairs("cilium-version", build.ServerVersion.String())
+	grpc.SendHeader(ctx, md)
+
 	var whitelist, blacklist filters.FilterFuncs
 
 	start := time.Now()
@@ -449,6 +464,9 @@ func (s *LocalObserverServer) GetDebugEvents(
 
 	ctx, cancel := context.WithCancel(server.Context())
 	defer cancel()
+
+	md:=metadata.Pairs("cilium-version", build.ServerVersion.String())
+	grpc.SendHeader(ctx, md)
 
 	var whitelist, blacklist filters.FilterFuncs
 
