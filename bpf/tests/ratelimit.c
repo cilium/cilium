@@ -2,7 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #include "bpf/ctx/xdp.h"
-#include "node_config.h"
+#include <bpf/config/node.h>
 #include "common.h"
 #include "lib/maps.h"
 

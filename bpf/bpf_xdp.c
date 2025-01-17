@@ -4,11 +4,18 @@
 #include <bpf/ctx/xdp.h>
 #include <bpf/api.h>
 
-#include <node_config.h>
+#include <bpf/config/global.h>
+#include <bpf/config/node.h>
 #include <netdev_config.h>
 #include <filter_config.h>
 
 #define IS_BPF_XDP 1
+
+/* WORLD_IPV{4,6}_ID varies based on dualstack being enabled. Real values are
+ * written into node_config.h at runtime. */
+#define SECLABEL WORLD_ID
+#define SECLABEL_IPV4 WORLD_IPV4_ID
+#define SECLABEL_IPV6 WORLD_IPV6_ID
 
 #define SKIP_POLICY_MAP 1
 

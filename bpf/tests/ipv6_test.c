@@ -6,7 +6,7 @@
 #include <bpf/ctx/xdp.h>
 
 #include "pktgen.h"
-#include "node_config.h"
+#include <bpf/config/node.h>
 
 #include "lib/common.h"
 #include "lib/ipv6.h"

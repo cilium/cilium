@@ -139,17 +139,14 @@ func TestWriteEndpointConfig(t *testing.T) {
 		option.Config.EnableIPv6 = oldEnableIPv6
 	}()
 
-	testRun := func(te *testutils.TestEndpoint) ([]byte, map[string]uint64) {
+	testRun := func(te *testutils.TestEndpoint) []byte {
 		cfg := &HeaderfileWriter{}
-		varSub := loader.ELFVariableSubstitutions(te)
 
 		var buf bytes.Buffer
-		cfg.writeStaticData(nil, &buf, te)
+		cfg.writeStaticData(&buf, te)
 
-		return buf.Bytes(), varSub
+		return buf.Bytes()
 	}
-
-	lxcIPs := []string{"LXC_IP_1", "LXC_IP_2"}
 
 	tests := []struct {
 		description string
@@ -212,13 +209,11 @@ func TestWriteEndpointConfig(t *testing.T) {
 		t.Logf("Testing %s", test.description)
 		test.preTestRun(&test.template, &test.endpoint)
 
-		b, vsub := testRun(&test.template)
+		b := testRun(&test.template)
 		require.Equal(t, test.templateExp, bytes.Contains(b, []byte("DEFINE_IPV6")))
-		assertKeysInsideMap(t, vsub, lxcIPs, test.templateExp)
 
-		b, vsub = testRun(&test.endpoint)
+		b = testRun(&test.endpoint)
 		require.Equal(t, test.endpointExp, bytes.Contains(b, []byte("DEFINE_IPV6")))
-		assertKeysInsideMap(t, vsub, lxcIPs, test.endpointExp)
 	}
 }
 
@@ -229,19 +224,12 @@ func TestWriteStaticData(t *testing.T) {
 	mapSub := loader.ELFMapSubstitutions(ep)
 
 	var buf bytes.Buffer
-	cfg.writeStaticData(nil, &buf, ep)
+	cfg.writeStaticData(&buf, ep)
 	b := buf.Bytes()
 
 	for _, v := range mapSub {
 		t.Logf("Ensuring config has %s", v)
 		require.True(t, bytes.Contains(b, []byte(v)))
-	}
-}
-
-func assertKeysInsideMap(t *testing.T, m map[string]uint64, keys []string, want bool) {
-	for _, v := range keys {
-		_, ok := m[v]
-		require.Equal(t, want, ok)
 	}
 }
 

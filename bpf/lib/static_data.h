@@ -3,9 +3,10 @@
 
 #pragma once
 
-#include <bpf/api.h>
-
+#include <bpf/compiler.h>
 #include "endian.h"
+
+#define __CONFIG_SECTION ".rodata.config"
 
 /* Declare a global configuration variable that can be modified at runtime,
  * without needing to recompile the datapath. Access the variable using the
@@ -17,7 +18,12 @@
 	 * convenient to iterate through for generating config scaffolding in Go.
 	 * ebpf-go will expose these in CollectionSpec.Variables.
 	 */ \
-	__section(".rodata.config") \
+	__section(__CONFIG_SECTION) \
+	/* Config struct generation for bpf objects like bpf_lxc or bpf_host,
+	 * selects only these variables. Node configs use a different kind and
+	 * are emitted to another struct.
+	 */ \
+	__attribute__((btf_decl_tag("kind:object"))) \
 	/* Assign the config variable a BTF decl tag containing its description. This
 	 * allows including doc comments in code generated from BTF.
 	 */ \
@@ -27,6 +33,20 @@
 	 * omit it from the ELF.
 	 */ \
 	volatile const type __config_##name;
+
+/* Declare a global node-level configuration variable that is emitted to a
+ * separate Go config struct embedded into all individual object configs. Access
+ * the variable using the CONFIG() macro.
+ */
+#define NODE_CONFIG(type, name, description) \
+	__section(__CONFIG_SECTION) \
+	/* Tag this variable as being a node-level variable. dpgen will emit
+	 * these to a node-specific Go struct that can be embedded into
+	 * object-level configuration structs. */ \
+	__attribute__((btf_decl_tag("kind:node"))) \
+	__attribute__((btf_decl_tag(description))) \
+	volatile const type __config_##name;
+
 
 /* Hardcode config values at compile time, e.g. from per-endpoint headers.
  * Can be used only once per config variable within a single compilation unit.
@@ -63,8 +83,7 @@
  * ends up in .rodata.config in the ELF and is also inlined by the Go loader,
  * even though it's not handled by ELF variable substitution.
  *
- * Variables relying on this are THIS_INTERFACE_MAC, LXC_IP, IPV6_MASQUERADE, ROUTER_IP
- * and HOST_IP.
+ * Variables relying on this are THIS_INTERFACE_MAC, LXC_IP, IPV6_MASQUERADE, ROUTER_IP.
  */
 #define DEFINE_IPV6(name, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16) \
 	DECLARE_CONFIG(__u64, name##_1, "First half of ipv6 address " #name) \

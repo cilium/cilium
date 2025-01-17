@@ -1,20 +1,29 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#include <linux/if_ether.h>
+
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
 
-#include <node_config.h>
-#include <ep_config.h>
+#include <bpf/config/global.h>
+#include <bpf/config/node.h>
+#include <bpf/config/endpoint.h>
 
 #define IS_BPF_HOST 1
 
 #define EVENT_SOURCE HOST_EP_ID
 
-/* Host endpoint ID for the template bpf_host object file. Will be replaced
- * at compile-time with the proper host endpoint ID.
- */
-#define TEMPLATE_HOST_EP_ID 0xffff
+DECLARE_CONFIG(__u32, host_secctx_from_ipcache, "Pull security context from IP cache")
+#define SECCTX_FROM_IPCACHE CONFIG(host_secctx_from_ipcache) /* Backwards compatibility */
+
+/* Make the ethernet header length configurable only on bpf_host since it can be
+ * attached to different kinds of interfaces, like external devices, cilium_host
+ * and cilium_net. Other programs have this value hardcoded, but here it will be
+ * left at its default 0 if attached to an L2-less external device. */
+DECLARE_CONFIG(__u8, eth_header_length, "Length of the Ethernet header on this device. May be set to zero on L2-less devices. (default __ETH_HLEN)")
+ASSIGN_CONFIG(__u8, eth_header_length, __ETH_HLEN)
+#define ETH_HLEN CONFIG(eth_header_length) /* Backwards compatibility */
 
 /* These are configuration options which have a default value in their
  * respective header files and must thus be defined beforehand:
@@ -83,10 +92,6 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 }
 
 #define SECCTX_FROM_IPCACHE_OK	2
-#ifndef SECCTX_FROM_IPCACHE
-# define SECCTX_FROM_IPCACHE	0
-#endif
-
 static __always_inline bool identity_from_ipcache_ok(void)
 {
 	return SECCTX_FROM_IPCACHE == SECCTX_FROM_IPCACHE_OK;

@@ -6,8 +6,10 @@
 #include <bpf/api.h>
 #include <linux/in.h>
 
-#include <ep_config.h>
-#include <node_config.h>
+#include <bpf/config/global.h>
+#include <bpf/config/lxc.h>
+#include <bpf/config/node.h>
+#include <bpf/config/endpoint.h>
 
 #include <linux/icmpv6.h>
 

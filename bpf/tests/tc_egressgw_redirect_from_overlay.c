@@ -5,12 +5,6 @@
 
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
-#define SECLABEL
-#define SECLABEL_IPV4
-#define SECLABEL_IPV6
-#undef SECLABEL
-#undef SECLABEL_IPV4
-#undef SECLABEL_IPV6
 
 /* Enable code paths under test */
 #define ENABLE_IPV4

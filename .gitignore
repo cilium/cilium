@@ -67,7 +67,6 @@ test/*_manifest.yaml
 test/*.xml
 test/*.json
 test/*.log
-test/bpf/_results
 test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl

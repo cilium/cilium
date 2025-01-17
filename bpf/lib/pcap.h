@@ -6,6 +6,36 @@
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
+struct capture_rule {
+	__u16 rule_id;
+	__u16 reserved;
+	__u32 cap_len;
+};
+
+/* 5-tuple wildcard key / mask. */
+struct capture4_wcard {
+	__be32 saddr;   /* masking: prefix */
+	__be32 daddr;   /* masking: prefix */
+	__be16 sport;   /* masking: 0 or 0xffff */
+	__be16 dport;   /* masking: 0 or 0xffff */
+	__u8   nexthdr; /* masking: 0 or 0xff */
+	__u8   smask;   /* prefix len: saddr */
+	__u8   dmask;   /* prefix len: daddr */
+	__u8   flags;   /* reserved: 0 */
+};
+
+/* 5-tuple wildcard key / mask. */
+struct capture6_wcard {
+	union v6addr saddr; /* masking: prefix */
+	union v6addr daddr; /* masking: prefix */
+	__be16 sport;       /* masking: 0 or 0xffff */
+	__be16 dport;       /* masking: 0 or 0xffff */
+	__u8   nexthdr;     /* masking: 0 or 0xff */
+	__u8   smask;       /* prefix len: saddr */
+	__u8   dmask;       /* prefix len: daddr */
+	__u8   flags;       /* reserved: 0 */
+};
+
 #ifdef ENABLE_CAPTURE
 #include "common.h"
 #include "time_cache.h"
@@ -113,36 +143,6 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 1);
 } cilium_capture_cache __section_maps_btf;
-
-struct capture_rule {
-	__u16 rule_id;
-	__u16 reserved;
-	__u32 cap_len;
-};
-
-/* 5-tuple wildcard key / mask. */
-struct capture4_wcard {
-	__be32 saddr;   /* masking: prefix */
-	__be32 daddr;   /* masking: prefix */
-	__be16 sport;   /* masking: 0 or 0xffff */
-	__be16 dport;   /* masking: 0 or 0xffff */
-	__u8   nexthdr; /* masking: 0 or 0xff */
-	__u8   smask;   /* prefix len: saddr */
-	__u8   dmask;   /* prefix len: daddr */
-	__u8   flags;   /* reserved: 0 */
-};
-
-/* 5-tuple wildcard key / mask. */
-struct capture6_wcard {
-	union v6addr saddr; /* masking: prefix */
-	union v6addr daddr; /* masking: prefix */
-	__be16 sport;       /* masking: 0 or 0xffff */
-	__be16 dport;       /* masking: 0 or 0xffff */
-	__u8   nexthdr;     /* masking: 0 or 0xff */
-	__u8   smask;       /* prefix len: saddr */
-	__u8   dmask;       /* prefix len: daddr */
-	__u8   flags;       /* reserved: 0 */
-};
 
 #ifdef ENABLE_IPV4
 struct {

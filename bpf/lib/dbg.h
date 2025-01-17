@@ -149,10 +149,23 @@ enum {
 #include "events.h"
 #endif
 
-#ifdef DEBUG
 #include "common.h"
 #include "utils.h"
 
+struct debug_msg {
+	NOTIFY_COMMON_HDR
+	__u32		arg1;
+	__u32		arg2;
+	__u32		arg3;
+};
+
+struct debug_capture_msg {
+	NOTIFY_CAPTURE_HDR
+	__u32		arg1;
+	__u32		arg2;
+};
+
+#ifdef DEBUG
 /* This takes both literals and modifiers, e.g.,
  * printk("hello\n");
  * printk("%d\n", ret);
@@ -173,12 +186,6 @@ enum {
 				     ##__VA_ARGS__);		\
 		})
 
-struct debug_msg {
-	NOTIFY_COMMON_HDR
-	__u32		arg1;
-	__u32		arg2;
-	__u32		arg3;
-};
 
 static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
 				       __u32 arg1, __u32 arg2)
@@ -207,11 +214,6 @@ static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
 			 &msg, sizeof(msg));
 }
 
-struct debug_capture_msg {
-	NOTIFY_CAPTURE_HDR
-	__u32		arg1;
-	__u32		arg2;
-};
 
 static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 type,
 						__u32 arg1, __u32 arg2)
