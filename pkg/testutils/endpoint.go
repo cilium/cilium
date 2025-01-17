@@ -74,6 +74,7 @@ func (e *TestEndpoint) GetNodeMAC() mac.MAC                         { return e.M
 func (e *TestEndpoint) GetIfIndex() int                             { return e.IfIndex }
 func (e *TestEndpoint) GetOptions() *option.IntOptions              { return e.Opts }
 func (e *TestEndpoint) IsHost() bool                                { return e.isHost }
+func (e *TestEndpoint) GetParentIfIndex() int                       { return 0 }
 
 func (e *TestEndpoint) IPv4Address() netip.Addr {
 	return netip.MustParseAddr("192.0.2.3")

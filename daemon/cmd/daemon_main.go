@@ -361,6 +361,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableHostLegacyRouting, defaults.EnableHostLegacyRouting, "Enable the legacy host forwarding model which does not bypass upper stack in host namespace")
 	option.BindEnv(vp, option.EnableHostLegacyRouting)
 
+	flags.Bool(option.EnableEndpointDirectRouting, defaults.EnableEndpointDirectRouting, "Enable BPF to redirect traffic directly to the parent ENI of the endpoint")
+	option.BindEnv(vp, option.EnableEndpointDirectRouting)
+
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(vp, option.EnablePolicy)
 

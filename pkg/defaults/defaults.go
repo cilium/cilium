@@ -220,6 +220,9 @@ const (
 	// EnableHostLegacyRouting is the default value for using the old routing path via stack.
 	EnableHostLegacyRouting = false
 
+	// EnableEndpointDirectRouting is the default value for utilizes BPF redirect to route traffic directly to ENI.
+	EnableEndpointDirectRouting = false
+
 	// PreAllocateMaps is the default value for BPF map preallocation
 	PreAllocateMaps = true
 

@@ -84,6 +84,9 @@ type CompileTimeConfiguration interface {
 
 	// IsHost returns true if the endpoint is the host endpoint.
 	IsHost() bool
+
+	// GetParentIfIndex returns eni index related to the endpoint.
+	GetParentIfIndex() int
 }
 
 // EndpointConfiguration provides datapath implementations a clean interface

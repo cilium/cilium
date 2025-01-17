@@ -119,6 +119,7 @@ cilium-agent [flags]
       --enable-dynamic-config                                     Enables support for dynamic agent config
       --enable-dynamic-lifecycle-manager                          Enables support for dynamic lifecycle management
       --enable-encryption-strict-mode                             Enable encryption strict mode
+      --enable-endpoint-direct-routing                            Enable BPF to redirect traffic directly to the parent ENI of the endpoint
       --enable-endpoint-health-checking                           Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-lockdown-on-policy-overflow               When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.
       --enable-endpoint-routes                                    Use per endpoint routes instead of routing via cilium_host
