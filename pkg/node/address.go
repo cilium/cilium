@@ -59,6 +59,7 @@ type addresses struct {
 
 type RouterInfo interface {
 	GetIPv4CIDRs() []net.IPNet
+	GetIPv6CIDRs() []net.IPNet
 }
 
 func makeIPv6HostIP() net.IP {

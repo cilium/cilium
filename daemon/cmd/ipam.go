@@ -204,14 +204,15 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
 		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
-		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.CIDRs,
+		routingInfo, err = linuxrouting.NewRoutingInfo(result.GatewayIP, result.GatewayIPv6, result.CIDRs,
 			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
-			option.Config.EnableIPv4Masquerade)
+			option.Config.EnableIPv4Masquerade, option.Config.EnableIPv6Masquerade)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
 		}
 		if err = routingInfo.Configure(
 			result.IP,
+			result.IPv6,
 			d.mtuConfig.GetDeviceMTU(),
 			option.Config.EgressMultiHomeIPRuleCompat,
 			true,
@@ -353,6 +354,7 @@ func (d *Daemon) allocateIngressIPs() error {
 				} else {
 					if err := ingressRouting.Configure(
 						result.IP,
+						result.IPv6,
 						d.mtuConfig.GetDeviceMTU(),
 						option.Config.EgressMultiHomeIPRuleCompat,
 						false,
@@ -558,10 +560,12 @@ func (d *Daemon) startIPAM() {
 func parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
 	return linuxrouting.NewRoutingInfo(
 		result.GatewayIP,
+		result.GatewayIPv6,
 		result.CIDRs,
 		result.PrimaryMAC,
 		result.InterfaceNumber,
 		option.Config.IPAM,
 		option.Config.EnableIPv4Masquerade,
+		option.Config.EnableIPv6Masquerade,
 	)
 }

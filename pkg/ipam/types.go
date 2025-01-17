@@ -22,6 +22,9 @@ type AllocationResult struct {
 	// IP is the allocated IP
 	IP net.IP
 
+	// IP is the allocated IP
+	IPv6 net.IP
+
 	// IPPoolName is the IPAM pool from which the above IP was allocated from
 	IPPoolName Pool
 
@@ -41,6 +44,11 @@ type AllocationResult struct {
 	// If the allocated IP is derived from a VPC, then the gateway
 	// represented the gateway of the VPC or VPC subnet.
 	GatewayIP string
+
+	// GatewayIPv6 is the IPv6 address of the gateway which must be used for this IP.
+	// If the allocated IP is derived from a VPC, then the gateway
+	// represented the gateway of the VPC or VPC subnet.
+	GatewayIPv6 string
 
 	// ExpirationUUID is the UUID of the expiration timer. This field is
 	// only set if AllocateNextWithExpiration is used.
