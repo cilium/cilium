@@ -2041,12 +2041,6 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 	}
 }
 
-// allowsKey returns returns true if 'ms' allows "traffic" with 'key'
-func (ms *mapState) allowsKey(key Key) bool {
-	entry, _ := ms.lookup(key)
-	return !entry.IsDeny()
-}
-
 func TestEgressPortRangePrecedence(t *testing.T) {
 	type portRange struct {
 		startPort, endPort uint16
