@@ -107,4 +107,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type SharedConfig struct {
 	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature and the CES Controller.
 	EnableCiliumEndpointSlice bool
+	// DisableNetworkPolicy indicates if the network policy enforcement system is
+	// disabled for K8s, Cilium and Cilium Clusterwide network policies.
+	DisableNetworkPolicy bool
 }
