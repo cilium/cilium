@@ -230,6 +230,7 @@ spec:
           {{- toYaml . | trim | nindent 10 }}
           {{- end }}
         {{- with .Values.clustermesh.apiserver.extraEnv }}
+        env:
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
         ports:
