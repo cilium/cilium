@@ -528,6 +528,8 @@ fromCIDRSet
   prefixes/CIDRs per source prefix/CIDR that are subnets of the source
   prefix/CIDR from which communication is not allowed.
 
+  ``fromCIDRSet`` may also reference prefixes/CIDRs indirectly via a :ref:`CiliumCIDRGroup`.
+
 Egress
 ~~~~~~
 
@@ -542,6 +544,8 @@ toCIDRSet
   ``endpointSelector`` are allowed to talk to, along with an optional list of
   prefixes/CIDRs per source prefix/CIDR that are subnets of the destination
   prefix/CIDR to which communication is not allowed.
+
+  ``toCIDRSet`` may also reference prefixes/CIDRs indirectly via a :ref:`CiliumCIDRGroup`.
 
 Allow to external CIDR block
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
