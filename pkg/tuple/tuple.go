@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -32,8 +31,4 @@ type TupleKey interface {
 
 	// Returns flags containing the direction of the tuple key.
 	GetFlags() uint8
-}
-
-type ipFamily interface {
-	types.IPv4 | types.IPv6
 }

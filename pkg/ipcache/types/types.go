@@ -17,13 +17,7 @@ import (
 // PolicyHandler is responsible for handling identity updates into the core
 // policy engine. See SelectorCache.UpdateIdentities() for more details.
 type PolicyHandler interface {
-	UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool)
-}
-
-// PolicyUpdater is responsible for triggering regeneration of all endpoints.
-// See pkg/policy/trigger.go for more details.
-type PolicyUpdater interface {
-	TriggerPolicyUpdates(reason string)
+	UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup)
 }
 
 // DatapathHandler is responsible for ensuring that policy updates in the

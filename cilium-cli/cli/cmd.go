@@ -39,7 +39,7 @@ func NewCiliumCommand(hooks api.Hooks) *cobra.Command {
 				return nil
 			}
 			switch cmd.Name() {
-			case "completion", "help", "summary":
+			case "completion", "help":
 				return nil
 			case "version":
 				if clientFlag, err := cmd.Flags().GetBool("client"); err == nil && clientFlag {

@@ -29,7 +29,6 @@ type ipCacheParams struct {
 	Lifecycle              cell.Lifecycle
 	CacheIdentityAllocator cache.IdentityAllocator
 	PolicyRepository       policy.PolicyRepository
-	PolicyUpdater          *policy.Updater
 	EndpointManager        endpointmanager.EndpointManager
 	CacheStatus            synced.CacheStatus
 }
@@ -44,7 +43,6 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 		Context:           ctx,
 		IdentityAllocator: params.CacheIdentityAllocator,
 		PolicyHandler:     params.PolicyRepository.GetSelectorCache(),
-		PolicyUpdater:     params.PolicyUpdater,
 		DatapathHandler:   params.EndpointManager,
 		CacheStatus:       params.CacheStatus,
 	})

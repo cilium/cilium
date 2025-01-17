@@ -106,7 +106,6 @@ type Configuration struct {
 	// Accessors to other subsystems, provided by the daemon
 	cache.IdentityAllocator
 	ipcacheTypes.PolicyHandler
-	ipcacheTypes.PolicyUpdater
 	ipcacheTypes.DatapathHandler
 	synced.CacheStatus
 }

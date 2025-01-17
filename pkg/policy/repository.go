@@ -133,7 +133,7 @@ type PolicyRepository interface {
 
 type GetPolicyStatistics interface {
 	WaitingForPolicyRepository() *spanstat.SpanStat
-	SelectorPolicyCalculation() *spanstat.SpanStat
+	PolicyCalculation() *spanstat.SpanStat
 }
 
 // Repository is a list of policy rules which in combination form the security
@@ -169,6 +169,26 @@ type Repository struct {
 	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string, string) (*cilium.HttpNetworkPolicyRules, bool)
 
 	metricsManager api.PolicyMetrics
+}
+
+// Lock acquiers the lock of the whole policy tree.
+func (p *Repository) Lock() {
+	p.mutex.Lock()
+}
+
+// Unlock releases the lock of the whole policy tree.
+func (p *Repository) Unlock() {
+	p.mutex.Unlock()
+}
+
+// RLock acquiers the read lock of the whole policy tree.
+func (p *Repository) RLock() {
+	p.mutex.RLock()
+}
+
+// RUnlock releases the read lock of the whole policy tree.
+func (p *Repository) RUnlock() {
+	p.mutex.RUnlock()
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -499,6 +519,36 @@ func (p *Repository) Iterate(f func(rule *api.Rule)) {
 	}
 }
 
+// deleteByLabelsLocked deletes all rules in the policy repository which
+// contain the specified labels. Returns the revision of the policy repository
+// after deleting the rules, as well as now many rules were deleted.
+func (p *Repository) deleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
+	deletedRules := ruleSlice{}
+
+	for key, r := range p.rules {
+		if r.Labels.Contains(lbls) {
+			deletedRules = append(deletedRules, r)
+			p.del(key)
+		}
+	}
+	l := len(deletedRules)
+
+	if l > 0 {
+		p.BumpRevision()
+	}
+
+	return deletedRules, p.GetRevision(), l
+}
+
+// deleteByLabels deletes all rules in the policy repository which contain the
+// specified labels
+func (p *Repository) deleteByLabels(lbls labels.LabelArray) (uint64, int) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	_, rev, numDeleted := p.deleteByLabelsLocked(lbls)
+	return rev, numDeleted
+}
+
 // JSONMarshalRules returns a slice of policy rules as string in JSON
 // representation
 func JSONMarshalRules(rules api.Rules) string {
@@ -507,6 +557,37 @@ func JSONMarshalRules(rules api.Rules) string {
 		return err.Error()
 	}
 	return string(b)
+}
+
+// GetRulesMatching returns whether any of the rules in a repository contain a
+// rule with labels matching the labels in the provided LabelArray.
+//
+// Must be called with p.mutex held
+func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool, egressMatch bool) {
+	ingressMatch = false
+	egressMatch = false
+	for _, r := range p.rules {
+		rulesMatch := r.getSelector().Matches(lbls)
+		if rulesMatch {
+			if len(r.Ingress) > 0 {
+				ingressMatch = true
+			}
+			if len(r.IngressDeny) > 0 {
+				ingressMatch = true
+			}
+			if len(r.Egress) > 0 {
+				egressMatch = true
+			}
+			if len(r.EgressDeny) > 0 {
+				egressMatch = true
+			}
+		}
+
+		if ingressMatch && egressMatch {
+			return
+		}
+	}
+	return
 }
 
 // GetRevision returns the revision of the policy repository
@@ -747,8 +828,8 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 // calculation.
 func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error) {
 	stats.WaitingForPolicyRepository().Start()
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 	stats.WaitingForPolicyRepository().End(true)
 
 	rev := r.GetRevision()
@@ -759,18 +840,18 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 		return nil, rev, nil
 	}
 
-	stats.SelectorPolicyCalculation().Start()
+	stats.PolicyCalculation().Start()
 	// This may call back in to the (locked) repository to generate the
 	// selector policy
 	sp, updated, err := r.policyCache.updateSelectorPolicy(id)
-	stats.SelectorPolicyCalculation().EndError(err)
+	stats.PolicyCalculation().EndError(err)
 
 	// If we hit cache, reset the statistics.
 	if !updated {
-		stats.SelectorPolicyCalculation().Reset()
+		stats.PolicyCalculation().Reset()
 	}
 
-	return sp, rev, err
+	return sp, rev, nil
 }
 
 // ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
@@ -782,8 +863,8 @@ func (p *Repository) ReplaceByResource(rules api.Rules, resource ipcachetypes.Re
 		return
 	}
 
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	affectedIDs = &set.Set[identity.NumericIdentity]{}
 	oldRules := maps.Clone(p.rulesByResource[resource]) // need to clone as `p.del()` mutates this
@@ -820,8 +901,8 @@ func (p *Repository) ReplaceByResource(rules api.Rules, resource ipcachetypes.Re
 // where the "key" is a list of labels, possibly multiple, that should be removed before
 // installing the new rules.
 func (p *Repository) ReplaceByLabels(rules api.Rules, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRuleCnt int) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	var oldRules []*rule
 	affectedIDs = &set.Set[identity.NumericIdentity]{}

@@ -271,7 +271,9 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 	l.WithField("diff", rd.String()).Debug("Reconciling new CiliumBGPPeeringPolicy")
 
 	if len(rd.register) > 0 {
-		m.register(ctx, rd)
+		if err := m.register(ctx, rd); err != nil {
+			return fmt.Errorf("encountered error adding new BGP Servers: %w", err)
+		}
 	}
 	if len(rd.withdraw) > 0 {
 		if err := m.withdraw(ctx, rd); err != nil {
@@ -279,14 +281,16 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context,
 		}
 	}
 	if len(rd.reconcile) > 0 {
-		m.reconcile(ctx, rd)
+		if err := m.reconcile(ctx, rd); err != nil {
+			return fmt.Errorf("encountered error reconciling existing BGP Servers: %w", err)
+		}
 	}
 	return nil
 }
 
 // register instantiates and configures BgpServer(s) as instructed by the provided
 // work diff.
-func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) {
+func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) error {
 	l := log.WithFields(
 		logrus.Fields{
 			"component": "manager.add",
@@ -304,6 +308,7 @@ func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) {
 			l.WithError(err).Errorf("Error while registering new BGP server for local ASN %v.", config.LocalASN)
 		}
 	}
+	return nil
 }
 
 // registerBGPServer encapsulates the logic for instantiating a
@@ -428,7 +433,7 @@ func (m *BGPRouterManager) withdrawAll(ctx context.Context, rd *reconcileDiff) e
 
 // reconcile evaluates existing BgpServer(s), making changes if necessary, as
 // instructed by the provided reoncileDiff.
-func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) {
+func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) error {
 	l := log.WithFields(
 		logrus.Fields{
 			"component": "manager.reconcile",
@@ -451,6 +456,7 @@ func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) {
 			l.WithError(err).Errorf("Encountered error reconciling virtual router with local ASN %v", newc.LocalASN)
 		}
 	}
+	return nil
 }
 
 // reconcileBGPConfig will utilize the current set of ConfigReconciler(s)
@@ -816,13 +822,17 @@ func (m *BGPRouterManager) ReconcileInstances(ctx context.Context,
 		m.withdrawV2(ctx, rd)
 	}
 	if len(rd.register) > 0 {
-		err = errors.Join(err, m.registerV2(ctx, rd))
+		if err := m.registerV2(ctx, rd); err != nil {
+			return err
+		}
 	}
 	if len(rd.reconcile) > 0 {
-		err = errors.Join(err, m.reconcileV2(ctx, rd))
+		if err := m.reconcileV2(ctx, rd); err != nil {
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
 
 // registerV2 instantiates and configures BGP Instance(s) as instructed by the provided

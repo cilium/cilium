@@ -199,8 +199,7 @@ googleanalytics_id = 'G-V9SYWYG92Y'
 html_theme = "sphinx_rtd_theme_cilium"
 
 html_context = {
-    'release': release,
-    'current_version': os.environ.get('READTHEDOCS_VERSION')
+    'release': release
 }
 
 # Set canonical URL from the Read the Docs Domain

@@ -295,7 +295,7 @@ jobs:
 
       - name: Install Cilium CLI
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
+        uses: cilium/cilium-cli@c52e8c38e6d6235bd8e6e961199a984275547d6f # v0.16.22
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -341,22 +341,6 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Prepare the bpftrace parameters
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        id: bpftrace-params
-        run: |
-          CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
-          if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
-            CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
-          fi
-          echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
-
-      - name: Start unencrypted packets check for Cilium upgrade
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/bpftrace/start
-        with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
 
       - name: Setup conn-disrupt-test before upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -395,17 +379,6 @@ jobs:
           job-name: cilium-upgrade-${{ matrix.name }}
           tests: '!seq-.*'
           extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
-
-      - name: Assert that no unencrypted packets are leaked during Cilium upgrade
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/bpftrace/check
-
-      - name: Start unencrypted packets check for Cilium downgrade
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/bpftrace/start
-        with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
 
       - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -452,10 +425,6 @@ jobs:
           tests: '!seq-.*'
           extra-connectivity-test-flags: "--test-concurrency=${{ env.test_concurrency }}"
 
-      - name: Assert that no unencrypted packets are leaked during Cilium downgrade
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: ./.github/actions/bpftrace/check
-
       - name: Features tested after downgrade
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/feature-status
@@ -480,21 +449,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: cilium-sysdumps-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: cilium-junits-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: features-tested-${{ matrix.name }}-${{ matrix.mode }}
           path: ${{ env.job_name }}*.json

@@ -32,7 +32,7 @@ func k8sEventMetric(scope, action string) {
 // clusterwide policies. Since, internally Clusterwide policies are implemented
 // using CiliumNetworkPolicy itself, the entire implementation uses the methods
 // associcated with CiliumNetworkPolicy.
-func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
+func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) error {
 	log.Info("Starting CCNP derivative handler")
 
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
@@ -104,4 +104,6 @@ func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sCli
 			},
 			RunInterval: 5 * time.Minute,
 		})
+
+	return nil
 }

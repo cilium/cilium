@@ -9,9 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	semconvNew "go.opentelemetry.io/otel/semconv/v1.26.0"
+	semconvNew "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 // splitHostPort splits a network address hostport of the form "host",
@@ -50,7 +49,7 @@ func splitHostPort(hostport string) (host string, port int) {
 	if err != nil {
 		return
 	}
-	return host, int(p) // nolint: gosec  // Byte size checked 16 above.
+	return host, int(p)
 }
 
 func requiredHTTPPort(https bool, port int) int { // nolint:revive
@@ -89,10 +88,4 @@ var methodLookup = map[string]attribute.KeyValue{
 	http.MethodPost:    semconvNew.HTTPRequestMethodPost,
 	http.MethodPut:     semconvNew.HTTPRequestMethodPut,
 	http.MethodTrace:   semconvNew.HTTPRequestMethodTrace,
-}
-
-func handleErr(err error) {
-	if err != nil {
-		otel.Handle(err)
-	}
 }

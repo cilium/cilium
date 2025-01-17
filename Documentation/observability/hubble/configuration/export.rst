@@ -73,7 +73,9 @@ Helm chart configuration options include:
 
 - ``hubble.export.fileMaxBackups``: number of rotated Hubble export files to keep. (default 5)
 
-- ``hubble.export.fileCompress``: enable compression of rotated files. (default false)
+Additionally in ``cilium-config`` ConfigMap the following property might be set
+
+- ``hubble-export-file-compress``: compress rotated Hubble export files. (default false)
 
 Performance tuning
 ==================

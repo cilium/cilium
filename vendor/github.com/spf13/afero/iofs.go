@@ -255,6 +255,7 @@ func (f fromIOFSFile) Readdir(count int) ([]os.FileInfo, error) {
 	ret := make([]os.FileInfo, len(entries))
 	for i := range entries {
 		ret[i], err = entries[i].Info()
+
 		if err != nil {
 			return nil, err
 		}

@@ -77,11 +77,11 @@ func doesServiceSyncEndpointSlice(svc *slim_corev1.Service) bool {
 	return strings.ToLower(value) == "true"
 }
 
-func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) {
+func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) error {
 	if i.handler == nil {
 		// We don't really need to return an error here as this means that the EndpointSlice controller
 		// has not started yet and the controller will resync the initial state anyway
-		return
+		return nil
 	}
 
 	if globalSvc := i.globalServiceCache.GetGlobalService(types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}); globalSvc != nil {
@@ -93,6 +93,8 @@ func (i *meshServiceInformer) refreshAllCluster(svc *slim_corev1.Service) {
 			}
 		}
 	}
+
+	return nil
 }
 
 func newMeshServiceInformer(
@@ -276,16 +278,17 @@ func (i *meshServiceInformer) Start(ctx context.Context) error {
 
 	go func() {
 		for event := range i.services.Events(ctx) {
+			var err error
 			switch event.Kind {
 			case resource.Sync:
 				i.logger.Debug("Local services are synced")
 				i.servicesSynced.Store(true)
 			case resource.Upsert:
-				i.refreshAllCluster(event.Object)
+				err = i.refreshAllCluster(event.Object)
 			case resource.Delete:
-				i.refreshAllCluster(event.Object)
+				err = i.refreshAllCluster(event.Object)
 			}
-			event.Done(nil)
+			event.Done(err)
 		}
 	}()
 	return nil

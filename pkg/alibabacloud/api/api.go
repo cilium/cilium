@@ -83,7 +83,10 @@ func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkM
 
 	for _, iface := range networkInterfaceSets {
 		ifId := iface.NetworkInterfaceId
-		_, eni := parseENI(&iface, vpcs, subnets)
+		_, eni, err := parseENI(&iface, vpcs, subnets)
+		if err != nil {
+			return nil, err
+		}
 
 		instance.Interfaces[ifId] = ipamTypes.InterfaceRevision{
 			Resource: eni,
@@ -109,7 +112,10 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 	}
 
 	for _, iface := range networkInterfaceSets {
-		id, eni := parseENI(&iface, vpcs, subnets)
+		id, eni, err := parseENI(&iface, vpcs, subnets)
+		if err != nil {
+			return nil, err
+		}
 
 		instances.Update(id, ipamTypes.InterfaceRevision{
 			Resource: eni,
@@ -625,7 +631,7 @@ func deriveStatus(err error) string {
 
 // parseENI parses a ecs.NetworkInterface as returned by the ecs service API,
 // converts it into a eniTypes.ENI object
-func parseENI(iface *ecs.NetworkInterfaceSet, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (instanceID string, eni *eniTypes.ENI) {
+func parseENI(iface *ecs.NetworkInterfaceSet, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (instanceID string, eni *eniTypes.ENI, err error) {
 	var privateIPSets []eniTypes.PrivateIPSet
 	for _, p := range iface.PrivateIpSets.PrivateIpSet {
 		privateIPSets = append(privateIPSets, eniTypes.PrivateIPSet{
@@ -661,7 +667,7 @@ func parseENI(iface *ecs.NetworkInterfaceSet, vpcs ipamTypes.VirtualNetworkMap, 
 	if ok && subnet.CIDR != nil {
 		eni.VSwitch.CIDRBlock = subnet.CIDR.String()
 	}
-	return iface.InstanceId, eni
+	return iface.InstanceId, eni, nil
 }
 
 // parseECSTags convert ECS Tags to ipam Tags

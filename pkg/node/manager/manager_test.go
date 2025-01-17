@@ -249,9 +249,7 @@ func TestNodeLifecycle(t *testing.T) {
 			Type: addressing.NodeInternalIP,
 			IP:   net.ParseIP("10.0.0.1"),
 		},
-	},
-		Source: source.Unspec,
-	}
+	}}
 	mngr.NodeUpdated(n1)
 
 	select {
@@ -270,9 +268,7 @@ func TestNodeLifecycle(t *testing.T) {
 			Type: addressing.NodeInternalIP,
 			IP:   net.ParseIP("10.0.0.2"),
 		},
-	},
-		Source: source.Unspec,
-	}
+	}}
 	mngr.NodeUpdated(n2)
 
 	select {
@@ -922,9 +918,7 @@ type testParams struct {
 
 type mockUpdater struct{}
 
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap, _ *sync.WaitGroup) (mutated bool) {
-	return false
-}
+func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap, _ *sync.WaitGroup) {}
 
 type mockTriggerer struct{}
 

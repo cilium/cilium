@@ -21,7 +21,6 @@ type labelsOption struct {
 	destinationLabels map[string]string
 	method            string
 	path              string
-	retryCondition    []RetryOption
 }
 
 func WithMethod(method string) Option {
@@ -45,12 +44,6 @@ func WithDestinationLabelsOption(destinationLabels map[string]string) Option {
 func WithPath(path string) Option {
 	return func(option *labelsOption) {
 		option.path = path
-	}
-}
-
-func WithRetryCondition(retryCondition ...RetryOption) Option {
-	return func(option *labelsOption) {
-		option.retryCondition = retryCondition
 	}
 }
 

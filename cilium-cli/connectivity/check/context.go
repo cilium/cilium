@@ -352,7 +352,9 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHoo
 		}
 	}
 	if match, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.NodeWithoutCilium)); match {
-		ct.detectPodCIDRs()
+		if err := ct.detectPodCIDRs(); err != nil {
+			return fmt.Errorf("unable to detect pod CIDRs: %w", err)
+		}
 
 		if err := ct.detectNodesWithoutCiliumIPs(); err != nil {
 			return fmt.Errorf("unable to detect nodes w/o Cilium IPs: %w", err)
@@ -604,7 +606,7 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 	return nil
 }
 
-func (ct *ConnectivityTest) detectPodCIDRs() {
+func (ct *ConnectivityTest) detectPodCIDRs() error {
 	for id, n := range ct.CiliumNodes() {
 		if _, ok := ct.nodesWithoutCilium[id.Name]; ok {
 			// Skip the nodes where Cilium is not installed.
@@ -632,6 +634,8 @@ func (ct *ConnectivityTest) detectPodCIDRs() {
 			}
 		}
 	}
+
+	return nil
 }
 
 // detectNodeCIDRs produces one or more CIDRs that cover all nodes in the cluster.

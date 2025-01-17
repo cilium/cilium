@@ -66,20 +66,22 @@ const (
 
 // Configuration is an MTU configuration as returned by NewConfiguration
 type Configuration struct {
-	authKeySize      int
-	encapEnabled     bool
-	encryptEnabled   bool
-	wireguardEnabled bool
+	authKeySize         int
+	hsIpcacheDSRenabled bool
+	encapEnabled        bool
+	encryptEnabled      bool
+	wireguardEnabled    bool
 }
 
 // NewConfiguration returns a new MTU configuration which is used to calculate
 // MTU values from a base MTU based on the config.
-func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool) Configuration {
+func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool, hsIpcacheDSRenabled bool) Configuration {
 	return Configuration{
-		authKeySize:      authKeySize,
-		encapEnabled:     encapEnabled,
-		encryptEnabled:   encryptEnabled,
-		wireguardEnabled: wireguardEnabled,
+		authKeySize:         authKeySize,
+		hsIpcacheDSRenabled: hsIpcacheDSRenabled,
+		encapEnabled:        encapEnabled,
+		encryptEnabled:      encryptEnabled,
+		wireguardEnabled:    wireguardEnabled,
 	}
 }
 
@@ -137,7 +139,12 @@ func (c *Configuration) getRouteMTU(baseMTU int) int {
 		return preEncryptMTU
 	}
 
-	tunnelMTU := baseMTU - (TunnelOverhead + encryptOverhead)
+	fullTunnelOverhead := TunnelOverhead
+	if c.hsIpcacheDSRenabled {
+		fullTunnelOverhead += DsrTunnelOverhead
+	}
+
+	tunnelMTU := baseMTU - (fullTunnelOverhead + encryptOverhead)
 	if tunnelMTU <= 0 {
 		if c.encryptEnabled {
 			return EthernetMTU - (TunnelOverhead + EncryptionIPsecOverhead)

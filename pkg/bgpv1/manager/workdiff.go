@@ -53,7 +53,9 @@ func (wd *reconcileDiff) diff(m LocalASNMap, policy *v2alpha1api.CiliumBGPPeerin
 	if err := wd.registerOrReconcileDiff(m, policy); err != nil {
 		return fmt.Errorf("encountered error creating register or reconcile diff: %w", err)
 	}
-	wd.withdrawDiff(m)
+	if err := wd.withdrawDiff(m); err != nil {
+		return fmt.Errorf("encountered error creating withdraw diff: %w", err)
+	}
 	return nil
 }
 
@@ -103,12 +105,13 @@ func (wd *reconcileDiff) registerOrReconcileDiff(m LocalASNMap, policy *v2alpha1
 
 // withdrawDiff will populate the `withdraw` field of a reconcileDiff, indicating which
 // existing BgpServers must disconnected and removed from the Manager.
-func (wd *reconcileDiff) withdrawDiff(m LocalASNMap) {
+func (wd *reconcileDiff) withdrawDiff(m LocalASNMap) error {
 	for k := range m {
 		if _, ok := wd.seen[k]; !ok {
 			wd.withdraw = append(wd.withdraw, k)
 		}
 	}
+	return nil
 }
 
 type reconcileDiffV2 struct {
@@ -137,7 +140,9 @@ func (wd *reconcileDiffV2) diff(existingInstances map[string]*instance.BGPInstan
 	if err := wd.registerOrReconcileDiff(existingInstances, desiredConfig); err != nil {
 		return fmt.Errorf("encountered error creating register or reconcile diff: %w", err)
 	}
-	wd.withdrawDiff(existingInstances)
+	if err := wd.withdrawDiff(existingInstances); err != nil {
+		return fmt.Errorf("encountered error creating withdraw diff: %w", err)
+	}
 	return nil
 }
 
@@ -218,10 +223,11 @@ func (wd *reconcileDiffV2) requiresRecreate(existing *instance.BGPInstance, desi
 
 // withdrawDiff will populate the `withdraw` field of a reconcileDiff, indicating which
 // existing BgpInstances must be disconnected and removed from the Manager.
-func (wd *reconcileDiffV2) withdrawDiff(existingInstances map[string]*instance.BGPInstance) {
+func (wd *reconcileDiffV2) withdrawDiff(existingInstances map[string]*instance.BGPInstance) error {
 	for k := range existingInstances {
 		if _, ok := wd.seen[k]; !ok {
 			wd.withdraw = append(wd.withdraw, k)
 		}
 	}
+	return nil
 }

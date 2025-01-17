@@ -408,7 +408,8 @@ skip_tunnel:
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_identity, true, false);
 
-	if (from_proxy && !identity_is_cluster(info->sec_identity))
+	if (from_proxy &&
+	    (!info || !identity_is_cluster(info->sec_identity)))
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
@@ -481,7 +482,7 @@ tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_HOST)
-int tail_handle_ipv6_from_host(struct __ctx_buff *ctx)
+int tail_handle_ipv6_from_host(struct __ctx_buff *ctx __maybe_unused)
 {
 	__u32 ipcache_srcid = 0;
 
@@ -621,7 +622,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
-			bool is_dsr = false;
+			bool __maybe_unused is_dsr = false;
 
 			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, punt_to_stack,
 					       ext_err, &is_dsr);
@@ -823,7 +824,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			return __encap_and_redirect_with_nodeid(ctx, vtep->tunnel_endpoint,
+			return __encap_and_redirect_with_nodeid(ctx, 0, vtep->tunnel_endpoint,
 								secctx, WORLD_IPV4_ID,
 								WORLD_IPV4_ID, &trace);
 		}
@@ -886,7 +887,8 @@ skip_tunnel:
 		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
 					 info->sec_identity, true, false);
 
-	if (from_proxy && !identity_is_cluster(info->sec_identity))
+	if (from_proxy &&
+	    (!info || !identity_is_cluster(info->sec_identity)))
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
 #endif /* ENABLE_IPSEC && !TUNNEL_MODE */
 
@@ -1271,6 +1273,15 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 #endif
 
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+	ret = decapsulate_overlay(ctx, &src_id);
+	if (IS_ERR(ret))
+		goto drop_err;
+
+	if (ret == CTX_ACT_REDIRECT)
+		return ret;
+#endif /* ENABLE_HIGH_SCALE_IPCACHE */
+
 	if (!validate_ethertype(ctx, &proto)) {
 #ifdef ENABLE_HOST_FIREWALL
 		ret = DROP_UNSUPPORTED_L2;
@@ -1377,7 +1388,7 @@ int cil_from_host(struct __ctx_buff *ctx)
  * managed by Cilium (e.g., eth0).
  */
 __section_entry
-int cil_to_netdev(struct __ctx_buff *ctx)
+int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 	__u32 dst_sec_identity = UNKNOWN_ID;
@@ -1387,7 +1398,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	__be16 __maybe_unused proto = 0;
-	__u32 vlan_id;
+	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
 
@@ -1763,7 +1774,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY)
 static __always_inline
 int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 {
-	struct trace_ctx trace = {
+	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
@@ -1791,7 +1802,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
 static __always_inline
 int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 {
-	struct trace_ctx trace = {
+	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
@@ -1818,7 +1829,7 @@ static __always_inline int
 /* Handles packet from a local endpoint entering the host namespace. Applies
  * ingress host policies.
  */
-to_host_from_lxc(struct __ctx_buff *ctx)
+to_host_from_lxc(struct __ctx_buff *ctx __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;

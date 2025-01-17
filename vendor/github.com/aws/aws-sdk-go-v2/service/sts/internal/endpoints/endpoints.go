@@ -176,9 +176,6 @@ var defaultPartitions = endpoints.Partitions{
 				Region: "ap-southeast-5",
 			}: endpoints.Endpoint{},
 			endpoints.EndpointKey{
-				Region: "ap-southeast-7",
-			}: endpoints.Endpoint{},
-			endpoints.EndpointKey{
 				Region: "aws-global",
 			}: endpoints.Endpoint{
 				Hostname: "sts.amazonaws.com",

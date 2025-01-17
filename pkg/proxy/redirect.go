@@ -4,7 +4,9 @@
 package proxy
 
 import (
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/revert"
@@ -14,12 +16,12 @@ import (
 // RedirectImplementation is the generic proxy redirect interface that each
 // proxy redirect type must implement
 type RedirectImplementation interface {
-	// GetRedirect returns the static config of the redirect
-	GetRedirect() *Redirect
-
-	// UpdateRules synchronously updates the rules for the given proxy redirect.
+	// UpdateRules updates the rules for the given proxy redirect.
+	// The implementation should .Add to the WaitGroup if the update is
+	// asynchronous and the update should not return until it is complete.
+	// The returned RevertFunc must be non-nil.
 	// Note: UpdateRules is not called when a redirect is created.
-	UpdateRules(rules policy.L7DataMap) (revert.RevertFunc, error)
+	UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc, error)
 
 	// Close closes and cleans up resources associated with the redirect
 	// implementation. The implementation should .Add to the WaitGroup if the
@@ -28,19 +30,40 @@ type RedirectImplementation interface {
 	Close()
 }
 
-// Redirect is the common static config for each RedirectImplementation
 type Redirect struct {
-	name         string
-	proxyPort    *proxyports.ProxyPort
-	dstPortProto restore.PortProto
-	endpointID   uint16
+	// The following fields are only written to during initialization, it
+	// is safe to read these fields without locking the mutex
+	name           string
+	listener       *proxyports.ProxyPort
+	dstPortProto   restore.PortProto
+	endpointID     uint16
+	implementation RedirectImplementation
+
+	// The following fields are updated while the redirect is alive, the
+	// mutex must be held to read and write these fields
+	mutex lock.RWMutex
+	rules policy.L7DataMap
 }
 
-func initRedirect(epID uint16, name string, listener *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) Redirect {
-	return Redirect{
+func newRedirect(epID uint16, name string, listener *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) *Redirect {
+	return &Redirect{
 		name:         name,
-		proxyPort:    listener,
+		listener:     listener,
 		dstPortProto: restore.MakeV2PortProto(port, proto),
 		endpointID:   epID,
+	}
+}
+
+// updateRules updates the rules of the redirect, Redirect.mutex must be held
+// 'implementation' is not initialized when this is called the first time.
+// TODO: Replace this with RedirectImplementation UpdateRules method!
+func (r *Redirect) updateRules(p policy.ProxyPolicy) revert.RevertFunc {
+	oldRules := r.rules
+	r.rules = p.CopyL7RulesPerEndpoint()
+	return func() error {
+		r.mutex.Lock()
+		r.rules = oldRules
+		r.mutex.Unlock()
+		return nil
 	}
 }

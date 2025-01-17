@@ -453,7 +453,6 @@ Makefile* @cilium/build
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
-/operator/doublewrite @cilium/metrics
 /operator/pkg/bgpv2 @cilium/sig-bgp
 /operator/pkg/ciliumendpointslice @cilium/sig-scalability
 /operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
@@ -485,7 +484,6 @@ Makefile* @cilium/build
 /pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
-/pkg/cmdref @cilium/cli
 /pkg/command/ @cilium/cli
 /pkg/common/ @cilium/sig-agent
 /pkg/common/ipsec/ @cilium/ipsec

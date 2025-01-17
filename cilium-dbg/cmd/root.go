@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/viper"
 
 	clientPkg "github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/components"
 )
 
@@ -53,7 +52,6 @@ func init() {
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.StringP("host", "H", "", "URI to server-side API")
 	vp.BindPFlags(flags)
-	RootCmd.AddCommand(cmdref.NewCmd(RootCmd))
 	RootCmd.AddCommand(newCmdCompletion(os.Stdout))
 	RootCmd.SetOut(os.Stdout)
 	RootCmd.SetErr(os.Stderr)

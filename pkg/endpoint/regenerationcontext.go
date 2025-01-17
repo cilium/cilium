@@ -55,7 +55,6 @@ func ParseExternalRegenerationMetadata(ctx context.Context, c context.CancelFunc
 // datapathRegenerationContext contains information related to regenerating the
 // datapath (BPF, proxy, etc.).
 type datapathRegenerationContext struct {
-	policyResult       *policyGenerateResult
 	bpfHeaderfilesHash string
 	epInfoCache        *epInfoCache
 	proxyWaitGroup     *completion.WaitGroup

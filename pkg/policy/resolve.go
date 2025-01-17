@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"runtime"
 
 	"github.com/sirupsen/logrus"
 
@@ -122,7 +121,6 @@ type PolicyOwner interface {
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
 	IsHost() bool
-	MapStateSize() int
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
@@ -179,7 +177,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[st
 		calculatedPolicy = &EndpointPolicy{
 			selectorPolicy: p,
 			VersionHandle:  version,
-			policyMapState: newMapState(policyOwner.MapStateSize()),
+			policyMapState: newMapState(),
 			policyMapChanges: MapChanges{
 				firstVersion: version.Version(),
 			},
@@ -224,8 +222,7 @@ func (p *EndpointPolicy) Detach() {
 	// in case the call was missed previouly
 	if p.Ready() == nil {
 		// succeeded, so it was missed previously
-		_, file, line, _ := runtime.Caller(1)
-		log.Warningf("Detach: EndpointPolicy was not marked as Ready (%s:%d)", file, line)
+		log.Warningf("Detach: EndpointPolicy was not marked as Ready")
 	}
 	// Also release the version handle held for incremental updates, if any.
 	// This must be done after the removeUser() call above, so that we do not get a new version
@@ -392,7 +389,12 @@ func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, *P
 	return ok
 }
 
-// ConsumeMapChanges applies accumulated MapChanges to EndpointPolicy 'p' and returns a symmary of changes.
+// ConsumeMapChanges transfers the changes from MapChanges to the caller.
+// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock.
+// Endpoints explicitly wait for a WaitGroup signaling completion of AccumulatePolicyMapChanges
+// calls before calling ConsumeMapChanges so that if we see any partial changes here, there will be
+// another call after to cover for the rest.
+// PolicyOwner (aka Endpoint) is locked during this call.
 // Caller is responsible for calling the returned 'closer' to release resources held for the new version!
 // 'closer' may not be called while selector cache is locked!
 func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState) {
@@ -429,6 +431,6 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 func NewEndpointPolicy(repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: emptyMapState(),
+		policyMapState: newMapState(),
 	}
 }

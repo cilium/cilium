@@ -75,7 +75,7 @@ endif
 ifdef RUN
     BPF_TEST_FLAGS += -run $(RUN)
 endif
-ifdef BPF_TEST_DUMP_CTX
+ifdef DUMPCTX
     BPF_TEST_FLAGS += -dump-ctx
 endif
 ifdef BPF_TEST_FILE

@@ -10,46 +10,46 @@ import (
 
 func NewMetrics() *Metrics {
 	return &Metrics{
-		IdentityCRDTotal: metric.NewGauge(metric.GaugeOpts{
+		IdentityCRDTotalCount: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "doublewrite_identity_crd_total",
+			Name:      "doublewrite_identity_crd_total_count",
 			Help:      "The total number of CRD identities (Requires the Double-Write Identity allocation mode to be enabled)",
 		}),
 
-		IdentityKVStoreTotal: metric.NewGauge(metric.GaugeOpts{
+		IdentityKVStoreTotalCount: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "doublewrite_identity_kvstore_total",
+			Name:      "doublewrite_identity_kvstore_total_count",
 			Help:      "The total number of identities in the KVStore (Requires the Double-Write Identity allocation mode to be enabled)",
 		}),
 
-		IdentityCRDOnlyTotal: metric.NewGauge(metric.GaugeOpts{
+		IdentityCRDOnlyCount: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "doublewrite_identity_crd_only_total",
+			Name:      "doublewrite_identity_crd_only_count",
 			Help:      "The number of CRD identities not present in the KVStore (Requires the Double-Write Identity allocation mode to be enabled)",
 		}),
 
-		IdentityKVStoreOnlyTotal: metric.NewGauge(metric.GaugeOpts{
+		IdentityKVStoreOnlyCount: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "doublewrite_identity_kvstore_only_total",
+			Name:      "doublewrite_identity_kvstore_only_count",
 			Help:      "The number of identities in the KVStore not present as a CRD (Requires the Double-Write Identity allocation mode to be enabled)",
 		}),
 	}
 }
 
 type Metrics struct {
-	// IdentityCRDTotal records the total number of CRD identities
+	// IdentityCRDTotalCount records the total number of CRD identities
 	// Requires the Double-Write Identity allocation mode to be enabled
-	IdentityCRDTotal metric.Gauge
+	IdentityCRDTotalCount metric.Gauge
 
-	// IdentityKVStoreTotal records the total number of identities in the KVStore
+	// IdentityKVStoreTotalCount records the total number of identities in the KVStore
 	// Requires the Double-Write Identity allocation mode to be enabled
-	IdentityKVStoreTotal metric.Gauge
+	IdentityKVStoreTotalCount metric.Gauge
 
-	// IdentityCRDOnlyTotal records the number of CRD identities not present in the KVStore
+	// IdentityCRDOnlyCount records the number of CRD identities not present in the KVStore
 	// Requires the Double-Write Identity allocation mode to be enabled
-	IdentityCRDOnlyTotal metric.Gauge
+	IdentityCRDOnlyCount metric.Gauge
 
-	// IdentityKVStoreOnlyTotal records the number of identities in the KVStore not present as a CRD
+	// IdentityKVStoreOnlyCount records the number of identities in the KVStore not present as a CRD
 	// Requires the Double-Write Identity allocation mode to be enabled
-	IdentityKVStoreOnlyTotal metric.Gauge
+	IdentityKVStoreOnlyCount metric.Gauge
 }

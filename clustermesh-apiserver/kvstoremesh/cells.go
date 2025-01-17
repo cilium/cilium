@@ -33,7 +33,7 @@ var Cell = cell.Module(
 	cell.Config(pprofConfig),
 	controller.Cell,
 
-	gops.Cell(defaults.EnableGops, defaults.GopsPortKVStoreMesh),
+	gops.Cell(defaults.GopsPortKVStoreMesh),
 	cmmetrics.Cell,
 
 	HealthAPIEndpointsCell,

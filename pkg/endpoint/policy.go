@@ -47,11 +47,6 @@ var (
 	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
 )
 
-// MapStateSize returns the size of the current desired policy map
-func (e *Endpoint) MapStateSize() int {
-	return e.desiredPolicy.Len()
-}
-
 // GetNamedPort returns the port for the given name.
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	if ingress {
@@ -127,21 +122,6 @@ type policyGenerateResult struct {
 	identityRevision int
 }
 
-// Release resources held for the new policy
-// Must be called with buildMutex held
-func (res *policyGenerateResult) release() {
-	// Detach the rejected endpoint policy.
-	// This is needed to release resources held for the EndpointPolicy
-	if res != nil && res.endpointPolicy != nil {
-		// Mark as "ready" so that Detach will not complain about it
-		res.endpointPolicy.Ready()
-		// Detach the EndpointPolicy from the SelectorPolicy it was
-		// instantiated from
-		res.endpointPolicy.Detach()
-		res.endpointPolicy = nil
-	}
-}
-
 // regeneratePolicy computes the policy for the given endpoint based off of the
 // rules in regeneration.Owner's policy repository.
 //
@@ -172,25 +152,26 @@ func (res *policyGenerateResult) release() {
 //     so ep.mutex must not be required to read this. Instead, both ep.mutex and ep.buildMutex
 //     must be held to write to this (i.e. we are deep in regeneration)
 //
-// Stores the result in 'datapathRegenCtxt.policyResult' that should be passed to setDesiredPolicy
-// after the endpoint's write lock has been acquired, returns err if recomputing policy failed.
-func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegenCtxt *datapathRegenerationContext) error {
+// Returns a result that should be passed to setDesiredPolicy after the endpoint's
+// write lock has been acquired, or err if recomputing policy failed.
+func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegenCtxt *datapathRegenerationContext) (*policyGenerateResult, error) {
 	var (
 		err error
+		ff  revert.FinalizeFunc
 		rf  revert.RevertFunc
 	)
 
 	// lock the endpoint, read our values, then unlock
 	err = e.lockAlive()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// No point in calculating policy if endpoint does not have an identity yet.
 	if e.SecurityIdentity == nil {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
 		e.unlock()
-		return nil
+		return nil, nil
 	}
 
 	// Copy out some values we care about, then unlock
@@ -220,7 +201,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	selectorPolicy, result.policyRevision, err = e.policyGetter.GetPolicyRepository().GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats)
 	if err != nil {
 		e.getLogger().WithError(err).Warning("Failed to calculate SelectorPolicy")
-		return err
+		return nil, err
 	}
 
 	// selectorPolicy is nil if skipRevision was matched.
@@ -230,21 +211,21 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 			"policyRevision.repo": result.policyRevision,
 			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
 		}).Debug("Skipping unnecessary endpoint policy recalculation")
-		datapathRegenCtxt.policyResult = result
-		return nil
+		return result, err
 	}
 
 	// Add new redirects before Consume() so that all required proxy ports are available for it.
 	var desiredRedirects map[string]uint16
 	err = e.rlockAlive()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Ingress endpoint needs no redirects
 	if !e.isProperty(PropertySkipBPFPolicy) {
 		stats.proxyConfiguration.Start()
-		desiredRedirects, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
+		desiredRedirects, ff, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyConfiguration.End(true)
+		datapathRegenCtxt.finalizeList.Append(ff)
 		datapathRegenCtxt.revertStack.Push(rf)
 
 		// Add a finalize function to clear out stale redirects. This will be called after
@@ -264,12 +245,9 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	e.runlock()
 
 	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
-	stats.endpointPolicyCalculation.Start()
 	result.endpointPolicy = selectorPolicy.DistillPolicy(e, desiredRedirects)
-	stats.endpointPolicyCalculation.End(true)
 
-	datapathRegenCtxt.policyResult = result
-	return nil
+	return result, nil
 }
 
 // setDesiredPolicy updates the endpoint with the results of a policy calculation.
@@ -287,8 +265,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 // successfully performed a full sync with the endpoints PolicyMap. Otherwise,
 // the ipcache may remove an identity from the ipcache that the bpf PolicyMap is still
 // relying on.
-func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationContext) error {
-	res := datapathRegenCtxt.policyResult
+func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult, datapathRegenCtxt *datapathRegenerationContext) error {
 	// nil result means endpoint had no identity while policy was calculated
 	if res == nil {
 		if e.SecurityIdentity != nil {
@@ -302,7 +279,14 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 	if e.identityRevision != res.identityRevision {
 		// Detach the rejected endpoint policy.
 		// This is needed to release resources held for the EndpointPolicy
-		res.release()
+		if res.endpointPolicy != nil {
+			// Mark as "ready" so that Detach will not complain about it
+			res.endpointPolicy.Ready()
+			// Detach the EndpointPolicy from the SelectorPolicy it was
+			// instantiated from
+			res.endpointPolicy.Detach()
+			res.endpointPolicy = nil
+		}
 
 		e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
 		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
@@ -312,7 +296,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 	// repository.
 	e.setNextPolicyRevision(res.policyRevision)
 
-	if res.endpointPolicy != nil && res.endpointPolicy != e.desiredPolicy {
+	if res.endpointPolicy != e.desiredPolicy {
 		if e.desiredPolicy != e.realizedPolicy {
 			// Not sure if this can happen, but Detach e.desiredPolicy before we loose
 			// the only reference to it.
@@ -664,7 +648,7 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// bump the policy revision directly (as long as we didn't miss an update somehow).
 	if !idsToRegen.Has(secID) {
 		if e.policyRevision < fromRev {
-			e.getLogger().WithField(logfields.PolicyRevision, fromRev).Warn("Endpoint missed a policy revision; triggering regeneration")
+			e.getLogger().Warn("Endpoint missed a policy revision; triggering regeneration")
 		} else {
 			e.getLogger().WithField(logfields.PolicyRevision, toRev).Debug("Policy update is a no-op, bumping policyRevision")
 			e.setPolicyRevision(toRev)
@@ -738,8 +722,8 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	// synchronously enqueued.
 	resChan, err := e.eventQueue.Enqueue(epEvent)
 	if err != nil {
-		cFunc()
 		e.getLogger().WithError(err).Error("Enqueue of EndpointRegenerationEvent failed")
+		done <- false
 		close(done)
 		return done
 	}
@@ -789,92 +773,6 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	}()
 
 	return done
-}
-
-// InitialPolicyComputedLocked marks computation of the initial Envoy policy done.
-// Endpoint lock must be held so that the channel is never closed twice.
-func (e *Endpoint) InitialPolicyComputedLocked() {
-	select {
-	case <-e.InitialEnvoyPolicyComputed:
-	default:
-		close(e.InitialEnvoyPolicyComputed)
-	}
-}
-
-// Compute initial policy for the endpoint. This computes the selector policy and Envoy policy for
-// the endpoint. This is called on the first endpoint regeneration before the build permit is
-// requested and before bpf compilation is performed. When the initial (Envoy) policy is computed,
-// we can start serving xDS resources to Envoy without waiting for all the endpoints having been
-// regenerated first.
-// Must be called with both endpoint mutex and buildMutex not held.
-// The returned 'release' function must also be called with both mutexed not held.
-func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (error, func()) {
-	stats := &regenContext.Stats
-	datapathRegenCtxt := regenContext.datapathRegenerationContext
-
-	// buildMutex needed for all policy computation functions below.
-	e.buildMutex.Lock()
-	defer e.buildMutex.Unlock()
-
-	// Compute Endpoint's policy
-	stats.policyCalculation.Start()
-	err := e.regeneratePolicy(stats, datapathRegenCtxt)
-	stats.policyCalculation.End(err == nil)
-	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			e.getLogger().WithError(err).Warning("unable to regenerate initial policy")
-		}
-		// Do not error out so that the policy regeneration is tried again.
-		return nil, func() {}
-	}
-
-	err = e.lockAlive()
-	if err != nil {
-		datapathRegenCtxt.policyResult.release()
-		return err, func() {}
-	}
-	defer e.unlock()
-
-	// 'release' is returned to the caller to be called after the policy result is not needed
-	// any more.
-	// Must be called without holding endpoint lock or the endpoint buildMutex.
-	release := func() {
-		e.buildMutex.Lock()
-		defer e.buildMutex.Unlock()
-		datapathRegenCtxt.policyResult.release()
-	}
-
-	err = e.setDesiredPolicy(datapathRegenCtxt)
-	if err != nil {
-		e.getLogger().
-			WithError(err).
-			Warning("Setting initial desired policy failed")
-		// Do not error out so that the policy regeneration is tried again.
-		return nil, release
-	}
-
-	if !e.IsProxyDisabled() {
-		e.getLogger().
-			WithField(logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle).
-			Debug("Regenerate: Initial Envoy NetworkPolicy")
-
-		stats.proxyPolicyCalculation.Start()
-		// Initial NetworkPolicy is not reverted
-		err, _ = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, nil)
-		stats.proxyPolicyCalculation.End(err == nil)
-		if err != nil {
-			e.getLogger().
-				WithError(err).
-				Warning("Initial Envoy NetworkPolicy failed")
-			// Do not error out so that the policy regeneration is tried again.
-			return nil, release
-		}
-	}
-
-	// Signal computation of the initial Envoy policy if not done yet
-	e.InitialPolicyComputedLocked()
-
-	return nil, release
 }
 
 var reasonRegenRetry = "retrying regeneration"

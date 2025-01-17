@@ -401,7 +401,9 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 			return
 		}
 
-		configureENIDevices(n.ownNode, node, n.mtuConfig, n.sysctl)
+		if err := configureENIDevices(n.ownNode, node, n.mtuConfig, n.sysctl); err != nil {
+			log.WithError(err).Errorf("Failed to update routes and rules for ENIs")
+		}
 	}
 
 	n.ownNode = node

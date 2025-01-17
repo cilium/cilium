@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: kube-system
+  name: {{ include "registry-adder.fullname" . }}
+  labels:
+{{ include "registry-adder.labels" . | indent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "registry-adder.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "registry-adder.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+      - env:
+        # STARTUP_SCRIPT is the script run on node bootstrap. Node
+        # bootstrapping can be customized in this script.
+        - name: STARTUP_SCRIPT
+          value: |
+            if [ ! -s "/etc/docker/daemon.json" ]; then
+              echo "{}" > /etc/docker/daemon.json
+            fi
+            cat /etc/docker/daemon.json | cat /etc/docker/daemon.json | jq '. + {"insecure-registries": ["{{ .Values.IP }}"]}' | cat > tmp.json
+            cat tmp.json > /etc/docker/daemon.json
+            pgrep dockerd | xargs kill -SIGHUP
+        image: docker.io/cilium/startup-script:v3
+        imagePullPolicy: IfNotPresent
+        name: registry-adder
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /etc/docker
+          name: docker-config
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: system-node-critical
+      terminationGracePeriodSeconds: 1
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /etc/docker
+          type: Directory
+        name: docker-config

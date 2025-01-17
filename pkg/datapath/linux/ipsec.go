@@ -321,7 +321,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 		statesUpdated = false
 	}
 
-	if !n.nodeConfig.EnableEncapsulation {
+	if n.nodeConfig.RoutingMode != option.RoutingModeTunnel {
 		return statesUpdated, errs
 	}
 

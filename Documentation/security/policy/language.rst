@@ -198,11 +198,6 @@ egress.
 Additional Label Requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. warning::
-
-   The ``fromRequires`` and ``toRequires`` fields are deprecated as of Cilium
-   1.17.x. They will be dropped from support in Cilium 1.18.
-
 It is often required to apply the principle of *separation of concern* when defining
 policies. For this reason, an additional construct exists which allows to establish
 base requirements for any connectivity to happen.
@@ -790,9 +785,6 @@ only be able to emit packets using TCP on ports 80-444, to any layer 3 destinati
         .. literalinclude:: ../../../examples/policies/l4/l4_port_range.json
 
 
-
-.. note:: Layer 7 rules support port ranges, except for DNS rules.
-
 Labels-dependent Layer 4 rule
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -969,7 +961,11 @@ latter rule will have no effect.
           an *HTTP 403 access denied* is sent back for HTTP requests which
           violate the policy, or a *DNS REFUSED* response for DNS requests.
 
-.. note:: Layer 7 rules support port ranges, except for DNS rules.
+.. note:: Layer 7 rules do not currently support port ranges.
+
+.. note:: There is currently a max limit of 40 ports with layer 7 policies per
+          endpoint. This might change in the future when support for ranges is
+          added.
 
 .. note:: In `HostPolicies`, i.e. policies that use :ref:`NodeSelector`,
           only DNS layer 7 rules are currently supported.
@@ -1225,8 +1221,6 @@ allowed but connections to the returned IPs are not, as there is no L3
           ``servicename.namespace.svc.cluster.local.`` must have the latter
           allowed with ``matchName`` or ``matchPattern``. See `Alpine/musl deployments and DNS Refused`_.
 
-.. note:: DNS policies do not support port ranges.
-
 .. _DNS Obtaining Data:
 
 Obtaining DNS Data for use by ``toFQDNs``
@@ -1270,9 +1264,6 @@ DNS Proxy
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/l7/dns/dns-visibility.json
-
-.. note:: DNS policies do not support port ranges.
-
 
 Alpine/musl deployments and DNS Refused
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

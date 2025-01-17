@@ -30,7 +30,7 @@ type Map interface {
 	IterateWithCallback(cb IterateCallback) error
 }
 
-func NewMap(lifecycle cell.Lifecycle) Map {
+func NewMap(lifecycle cell.Lifecycle) (Map, error) {
 	return newMap(lifecycle, DefaultMaxEntries)
 }
 
@@ -38,7 +38,7 @@ type l2ResponderMap struct {
 	*ebpf.Map
 }
 
-func newMap(lifecycle cell.Lifecycle, maxEntries int) *l2ResponderMap {
+func newMap(lifecycle cell.Lifecycle, maxEntries int) (*l2ResponderMap, error) {
 	outerMap := &l2ResponderMap{}
 
 	lifecycle.Append(cell.Hook{
@@ -69,7 +69,7 @@ func newMap(lifecycle cell.Lifecycle, maxEntries int) *l2ResponderMap {
 		},
 	})
 
-	return outerMap
+	return outerMap, nil
 }
 
 // Create creates a new entry for the given IP and IfIndex tuple.

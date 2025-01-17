@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
@@ -49,8 +48,17 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 	h.RegisterFlags(rootCmd.Flags())
 
+	cmdrefCmd := &cobra.Command{
+		Use:    "cmdref [output directory]",
+		Short:  "Generate command reference for cilium-agent to given output directory",
+		Args:   cobra.ExactArgs(1),
+		Hidden: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			genMarkdown(rootCmd, args[0])
+		},
+	}
 	rootCmd.AddCommand(
-		cmdref.NewCmd(rootCmd),
+		cmdrefCmd,
 		h.Command(),
 	)
 

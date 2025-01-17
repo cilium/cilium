@@ -75,7 +75,7 @@ level=error msg="bar"
 		},
 	} {
 		s := NoErrorsInLogs(tt.version, tt.levels).(*noErrorsInLogs)
-		fails := s.findUniqueFailures([]byte(errs))
+		fails := s.findUniqueFailures(errs)
 		assert.Len(t, fails, tt.wantLen)
 		for wantMsg, wantCount := range tt.wantLogsCount {
 			assert.Contains(t, fails, wantMsg)

@@ -4,7 +4,6 @@
 package semconv // import "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconv"
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,7 +11,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/metric"
 )
 
 type ResponseTelemetry struct {
@@ -25,11 +23,6 @@ type ResponseTelemetry struct {
 
 type HTTPServer struct {
 	duplicate bool
-
-	// Old metrics
-	requestBytesCounter  metric.Int64Counter
-	responseBytesCounter metric.Int64Counter
-	serverLatencyMeasure metric.Float64Histogram
 }
 
 // RequestTraceAttrs returns trace attributes for an HTTP request received by a
@@ -70,10 +63,15 @@ func (s HTTPServer) Route(route string) attribute.KeyValue {
 	return oldHTTPServer{}.Route(route)
 }
 
-// Status returns a span status code and message for an HTTP status code
+func NewHTTPServer() HTTPServer {
+	env := strings.ToLower(os.Getenv("OTEL_HTTP_CLIENT_COMPATIBILITY_MODE"))
+	return HTTPServer{duplicate: env == "http/dup"}
+}
+
+// ServerStatus returns a span status code and message for an HTTP status code
 // value returned by a server. Status codes in the 400-499 range are not
 // returned as errors.
-func (s HTTPServer) Status(code int) (codes.Code, string) {
+func ServerStatus(code int) (codes.Code, string) {
 	if code < 100 || code >= 600 {
 		return codes.Error, fmt.Sprintf("Invalid HTTP status code %d", code)
 	}
@@ -81,85 +79,4 @@ func (s HTTPServer) Status(code int) (codes.Code, string) {
 		return codes.Error, ""
 	}
 	return codes.Unset, ""
-}
-
-type MetricData struct {
-	ServerName           string
-	Req                  *http.Request
-	StatusCode           int
-	AdditionalAttributes []attribute.KeyValue
-
-	RequestSize  int64
-	ResponseSize int64
-	ElapsedTime  float64
-}
-
-func (s HTTPServer) RecordMetrics(ctx context.Context, md MetricData) {
-	if s.requestBytesCounter == nil || s.responseBytesCounter == nil || s.serverLatencyMeasure == nil {
-		// This will happen if an HTTPServer{} is used insted of NewHTTPServer.
-		return
-	}
-
-	attributes := oldHTTPServer{}.MetricAttributes(md.ServerName, md.Req, md.StatusCode, md.AdditionalAttributes)
-	o := metric.WithAttributeSet(attribute.NewSet(attributes...))
-	addOpts := []metric.AddOption{o} // Allocate vararg slice once.
-	s.requestBytesCounter.Add(ctx, md.RequestSize, addOpts...)
-	s.responseBytesCounter.Add(ctx, md.ResponseSize, addOpts...)
-	s.serverLatencyMeasure.Record(ctx, md.ElapsedTime, o)
-
-	// TODO: Duplicate Metrics
-}
-
-func NewHTTPServer(meter metric.Meter) HTTPServer {
-	env := strings.ToLower(os.Getenv("OTEL_SEMCONV_STABILITY_OPT_IN"))
-	duplicate := env == "http/dup"
-	server := HTTPServer{
-		duplicate: duplicate,
-	}
-	server.requestBytesCounter, server.responseBytesCounter, server.serverLatencyMeasure = oldHTTPServer{}.createMeasures(meter)
-	return server
-}
-
-type HTTPClient struct {
-	duplicate bool
-}
-
-func NewHTTPClient() HTTPClient {
-	env := strings.ToLower(os.Getenv("OTEL_SEMCONV_STABILITY_OPT_IN"))
-	return HTTPClient{duplicate: env == "http/dup"}
-}
-
-// RequestTraceAttrs returns attributes for an HTTP request made by a client.
-func (c HTTPClient) RequestTraceAttrs(req *http.Request) []attribute.KeyValue {
-	if c.duplicate {
-		return append(oldHTTPClient{}.RequestTraceAttrs(req), newHTTPClient{}.RequestTraceAttrs(req)...)
-	}
-	return oldHTTPClient{}.RequestTraceAttrs(req)
-}
-
-// ResponseTraceAttrs returns metric attributes for an HTTP request made by a client.
-func (c HTTPClient) ResponseTraceAttrs(resp *http.Response) []attribute.KeyValue {
-	if c.duplicate {
-		return append(oldHTTPClient{}.ResponseTraceAttrs(resp), newHTTPClient{}.ResponseTraceAttrs(resp)...)
-	}
-
-	return oldHTTPClient{}.ResponseTraceAttrs(resp)
-}
-
-func (c HTTPClient) Status(code int) (codes.Code, string) {
-	if code < 100 || code >= 600 {
-		return codes.Error, fmt.Sprintf("Invalid HTTP status code %d", code)
-	}
-	if code >= 400 {
-		return codes.Error, ""
-	}
-	return codes.Unset, ""
-}
-
-func (c HTTPClient) ErrorType(err error) attribute.KeyValue {
-	if c.duplicate {
-		return newHTTPClient{}.ErrorType(err)
-	}
-
-	return attribute.KeyValue{}
 }

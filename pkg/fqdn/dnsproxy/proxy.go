@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -136,9 +135,6 @@ type DNSProxy struct {
 	// Note: Simple DNS names, e.g. bar.foo.com, will treat the "." as a literal.
 	allowed perEPAllow
 
-	// Current rules enforced by 'allowed', used for reverting
-	currentRules perEPPolicy
-
 	// restored is a set of rules restored from a previous instance that can be
 	// used until 'allowed' rules for an endpoint are first initialized after
 	// a restart
@@ -176,9 +172,6 @@ type regexCache map[string]*regexCacheEntry
 
 // perEPAllow maps EndpointIDs to protocols + ports + selectors + rules
 type perEPAllow map[uint64]portProtoToSelectorAllow
-
-// perEPPolicy stores the policy rules.
-type perEPPolicy map[uint64]policy.L7DataMap
 
 // portProtoToSelectorAllow maps protocol-port numbers to selectors + rules
 type portProtoToSelectorAllow map[restore.PortProto]CachedSelectorREEntry
@@ -542,10 +535,10 @@ func (allow perEPAllow) setPortRulesForID(cache regexCache, endpointID uint64, d
 // setPortRulesForIDFromUnifiedFormat sets the matching rules for endpointID and destPort for
 // later lookups. It does not guarantee it will reuse all the provided regexes, since it will reuse
 // already existing regexes with the same pattern in case they are already in use.
-func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache regexCache, endpointID uint64, destPortProto restore.PortProto, newRules CachedSelectorREEntry) {
+func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache regexCache, endpointID uint64, destPortProto restore.PortProto, newRules CachedSelectorREEntry) error {
 	if len(newRules) == 0 {
 		allow.removeAndReleasePortRulesForID(cache, endpointID, destPortProto)
-		return
+		return nil
 	}
 	cse := make(CachedSelectorREEntry, len(newRules))
 	for selector, providedRegex := range newRules {
@@ -561,6 +554,7 @@ func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache regexCache, end
 		allow[endpointID] = epPortProtos
 	}
 	epPortProtos[destPortProto] = cse
+	return nil
 }
 
 // getPortRulesForID returns a precompiled regex representing DNS rules for the
@@ -710,7 +704,6 @@ func StartDNSProxy(
 		lookupTargetDNSServer:    lookupTargetDNSServer,
 		usedServers:              make(map[string]struct{}),
 		allowed:                  make(perEPAllow),
-		currentRules:             make(perEPPolicy),
 		restored:                 make(perEPRestored),
 		restoredEPs:              make(restoredEPs),
 		cache:                    make(regexCache),
@@ -802,28 +795,16 @@ func (p *DNSProxy) LookupEndpointByIP(ip netip.Addr) (endpoint *endpoint.Endpoin
 
 // UpdateAllowed sets newRules for endpointID and destPort. It compiles the DNS
 // rules into regexes that are then used in CheckAllowed.
-func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPortProto restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error) {
+func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPortProto restore.PortProto, newRules policy.L7DataMap) error {
 	p.Lock()
 	defer p.Unlock()
 
 	err := p.allowed.setPortRulesForID(p.cache, endpointID, destPortProto, newRules)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		// Rules were updated based on policy, remove restored rules
+		p.removeRestoredRulesLocked(endpointID)
 	}
-
-	// Rules were updated based on policy, remove restored rules
-	p.removeRestoredRulesLocked(endpointID)
-
-	// Get current rules for reverting
-	oldRules := p.currentRules[endpointID]
-	p.currentRules[endpointID] = newRules
-
-	revert := func() error {
-		p.Lock()
-		defer p.Unlock()
-		return p.allowed.setPortRulesForID(p.cache, endpointID, destPortProto, oldRules)
-	}
-	return revert, nil
+	return err
 }
 
 // UpdateAllowedFromSelectorRegexes sets newRules for endpointID and destPort.
@@ -831,10 +812,12 @@ func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPortP
 	p.Lock()
 	defer p.Unlock()
 
-	p.allowed.setPortRulesForIDFromUnifiedFormat(p.cache, endpointID, destPortProto, newRules)
-	// Rules were updated based on policy, remove restored rules
-	p.removeRestoredRulesLocked(endpointID)
-	return nil
+	err := p.allowed.setPortRulesForIDFromUnifiedFormat(p.cache, endpointID, destPortProto, newRules)
+	if err == nil {
+		// Rules were updated based on policy, remove restored rules
+		p.removeRestoredRulesLocked(endpointID)
+	}
+	return err
 }
 
 // CheckAllowed checks endpointID, destPortProto, destID, destIP, and name against the rules

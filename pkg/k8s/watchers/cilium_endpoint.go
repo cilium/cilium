@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -20,6 +21,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -210,6 +212,17 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
 	if nodeIP == nil {
 		log.WithField("nodeIP", endpoint.Networking.NodeIP).Warning("Unable to parse node IP while processing CiliumEndpoint update")
+		return
+	}
+
+	if option.Config.EnableHighScaleIPcache &&
+		!identity.IsWellKnownIdentity(id) {
+		// Well-known identities are kept in the high-scale ipcache because we
+		// need to be able to connect to the DNS pods to resolve FQDN policies.
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.Identity: id,
+		})
+		scopedLog.Debug("Endpoint is not well-known; skipping ipcache upsert")
 		return
 	}
 

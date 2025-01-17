@@ -182,6 +182,10 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, fmt.Errorf("egress gateway is not supported in %s identity allocation mode", dcfg.IdentityAllocationMode)
 	}
 
+	if dcfg.EnableHighScaleIPcache {
+		return out, errors.New("egress gateway is not supported in high scale IPcache mode")
+	}
+
 	if dcfg.EnableCiliumEndpointSlice {
 		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
 	}

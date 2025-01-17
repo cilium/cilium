@@ -17,11 +17,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
-const (
-	DefaultFileMaxSizeMB  = 10
-	DefaultFileMaxBackups = 5
-)
-
 var _ FlowLogExporter = (*exporter)(nil)
 
 // OnExportEvent is a hook that can be registered on an exporter and is invoked for each event.

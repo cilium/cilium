@@ -93,6 +93,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	// We want to subscribe before the start hook is invoked in order to not miss
 	// any events
 	ctx, cancel := context.WithCancel(context.Background())
+	svcCacheNotifications := serviceNotificationsQueue(ctx, params.ServiceCache.Notifications())
 
 	p := &policyWatcher{
 		log:                              params.Logger,
@@ -101,6 +102,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		k8sResourceSynced:                params.K8sResourceSynced,
 		k8sAPIGroups:                     params.K8sAPIGroups,
 		svcCache:                         params.ServiceCache,
+		svcCacheNotifications:            svcCacheNotifications,
 		ipCache:                          params.IPCache,
 		ciliumNetworkPolicies:            params.CiliumNetworkPolicies,
 		ciliumClusterwideNetworkPolicies: params.CiliumClusterwideNetworkPolicies,
@@ -114,11 +116,6 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		toServicesPolicies: make(map[resource.Key]struct{}),
 		cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
 		metricsManager:     params.MetricsManager,
-	}
-
-	// Service notifications are not used if CNPs/CCNPs are disabled.
-	if params.Config.EnableCiliumNetworkPolicy || params.Config.EnableCiliumClusterwideNetworkPolicy {
-		p.svcCacheNotifications = serviceNotificationsQueue(ctx, params.ServiceCache.Notifications())
 	}
 
 	params.Lifecycle.Append(cell.Hook{

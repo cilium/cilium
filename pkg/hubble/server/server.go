@@ -48,11 +48,13 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 	}
 
 	s := &Server{log: log, opts: opts}
-	s.initGRPCServer()
+	if err := s.initGRPCServer(); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
-func (s *Server) newGRPCServer() *grpc.Server {
+func (s *Server) newGRPCServer() (*grpc.Server, error) {
 	var opts []grpc.ServerOption
 	for _, interceptor := range s.opts.GRPCUnaryInterceptors {
 		opts = append(opts, grpc.UnaryInterceptor(interceptor))
@@ -68,11 +70,14 @@ func (s *Server) newGRPCServer() *grpc.Server {
 		})
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
-	return grpc.NewServer(opts...)
+	return grpc.NewServer(opts...), nil
 }
 
-func (s *Server) initGRPCServer() {
-	srv := s.newGRPCServer()
+func (s *Server) initGRPCServer() error {
+	srv, err := s.newGRPCServer()
+	if err != nil {
+		return err
+	}
 	if s.opts.HealthService != nil {
 		healthpb.RegisterHealthServer(srv, s.opts.HealthService)
 	}
@@ -90,6 +95,7 @@ func (s *Server) initGRPCServer() {
 		s.opts.GRPCMetrics.InitializeMetrics(srv)
 	}
 	s.srv = srv
+	return nil
 }
 
 // Serve starts the hubble server and accepts new connections on the configured

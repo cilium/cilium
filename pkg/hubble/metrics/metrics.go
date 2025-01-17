@@ -86,7 +86,7 @@ func initEndpointDeletionHandler() {
 			if quit {
 				return
 			}
-			api.ProcessCiliumEndpointDeletion(endpoint.(*types.CiliumEndpoint), EnabledMetrics)
+			ProcessCiliumEndpointDeletion(endpoint.(*types.CiliumEndpoint))
 			endpointDeletionHandler.queue.Done(endpoint)
 		}
 	}()

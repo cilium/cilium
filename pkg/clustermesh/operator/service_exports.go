@@ -155,6 +155,5 @@ func (r *remoteServiceExportObserver) OnUpdate(key store.Key) {
 // OnDelete is called when a service export in a remote cluster is deleted
 func (r *remoteServiceExportObserver) OnDelete(key store.NamedKey) {
 	svcExport := &(key.(*mcsapitypes.ValidatingMCSAPIServiceSpec).MCSAPIServiceSpec)
-	r.cache.OnDelete(svcExport)
 	r.onDelete(svcExport)
 }

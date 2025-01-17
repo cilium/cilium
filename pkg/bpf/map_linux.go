@@ -757,7 +757,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 
 // BatchIterator provides a typed wrapper *Map that allows for batched iteration
 // of bpf maps.
-type BatchIterator[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]] struct {
+type BatchIterator[KT, VT any] struct {
 	m    *Map
 	err  error
 	keys []KT
@@ -802,35 +802,21 @@ type BatchIterator[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]] struct {
 //
 // Following iteration, any unresolved errors encountered when iterating
 // the bpf map can be accessed via the Err() function.
-func NewBatchIterator[KT any, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](m *Map) *BatchIterator[KT, VT, KP, VP] {
-	return &BatchIterator[KT, VT, KP, VP]{
+func NewBatchIterator[KT, VT any](m *Map) *BatchIterator[KT, VT] {
+	return &BatchIterator[KT, VT]{
 		m: m,
 	}
-}
-
-// KeyPointer is a generic interface that provides the constraint that the pointer
-// of a type T is a MapKey.
-type KeyPointer[T any] interface {
-	MapKey
-	*T
-}
-
-// ValuePointer is a generic interface that provides the constraint that the pointer
-// of a type T is a MapValue.
-type ValuePointer[T any] interface {
-	MapValue
-	*T
 }
 
 // Err returns errors encountered during the previous iteration when
 // IterateAll(...) is called.
 //
 // If the iterator is reused, the error will be reset,
-func (kvs BatchIterator[KT, VT, KP, VP]) Err() error {
+func (kvs BatchIterator[KT, VT]) Err() error {
 	return kvs.err
 }
 
-func (bi BatchIterator[KT, VT, KP, VP]) maxBatchedRetries() int {
+func (bi BatchIterator[KT, VT]) maxBatchedRetries() int {
 	if bi.maxDumpRetries > 0 {
 		return int(bi.maxDumpRetries)
 	}
@@ -839,12 +825,12 @@ func (bi BatchIterator[KT, VT, KP, VP]) maxBatchedRetries() int {
 
 const defaultBatchedRetries = 3
 
-type BatchIteratorOpt[KT any, VT any, KP KeyPointer[KT], VP ValuePointer[VT]] func(*BatchIterator[KT, VT, KP, VP]) *BatchIterator[KT, VT, KP, VP]
+type BatchIteratorOpt[KT any, VT any] func(*BatchIterator[KT, VT]) *BatchIterator[KT, VT]
 
 // WithEBPFBatchOpts returns a batch iterator option that allows for overriding
 // BPF_MAP_LOOKUP_BATCH options.
-func WithEBPFBatchOpts[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](opts *ebpf.BatchOptions) BatchIteratorOpt[KT, VT, KP, VP] {
-	return func(in *BatchIterator[KT, VT, KP, VP]) *BatchIterator[KT, VT, KP, VP] {
+func WithEBPFBatchOpts[KT, VT any](opts *ebpf.BatchOptions) BatchIteratorOpt[KT, VT] {
+	return func(in *BatchIterator[KT, VT]) *BatchIterator[KT, VT] {
 		in.opts = opts
 		return in
 	}
@@ -859,8 +845,8 @@ func WithEBPFBatchOpts[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](opts 
 //
 // If this happens, BatchIterator will automatically attempt to double the batch size and
 // retry the iteration from the same place - up to a number of retries.
-func WithMaxRetries[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](retries uint32) BatchIteratorOpt[KT, VT, KP, VP] {
-	return func(in *BatchIterator[KT, VT, KP, VP]) *BatchIterator[KT, VT, KP, VP] {
+func WithMaxRetries[KT, VT any](retries uint32) BatchIteratorOpt[KT, VT] {
+	return func(in *BatchIterator[KT, VT]) *BatchIterator[KT, VT] {
 		in.maxDumpRetries = retries
 		return in
 	}
@@ -868,8 +854,8 @@ func WithMaxRetries[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](retries 
 
 // WithStartingChunkSize returns a batch iterator option that allows overriding the dynamically
 // chosen starting chunk size.
-func WithStartingChunkSize[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](size int) BatchIteratorOpt[KT, VT, KP, VP] {
-	return func(in *BatchIterator[KT, VT, KP, VP]) *BatchIterator[KT, VT, KP, VP] {
+func WithStartingChunkSize[KT, VT any](size int) BatchIteratorOpt[KT, VT] {
+	return func(in *BatchIterator[KT, VT]) *BatchIterator[KT, VT] {
 		in.chunkSize = size
 		if in.chunkSize <= 0 {
 			in.chunkSize = 8
@@ -880,7 +866,7 @@ func WithStartingChunkSize[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](s
 
 // CountAll is a helper function that returns the count of all elements in a batched
 // iterator.
-func CountAll[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]](ctx context.Context, iter *BatchIterator[KT, VT, KP, VP]) (int, error) {
+func CountAll[KT, VT any](ctx context.Context, iter *BatchIterator[KT, VT]) (int, error) {
 	c := 0
 	for range iter.IterateAll(ctx) {
 		c++
@@ -894,6 +880,14 @@ func startingChunkSize(maxEntries int) int {
 	return int(math.Pow(2, math.Ceil(nearest2)))
 }
 
+func checkBatchType[T any]() error {
+	var kv T
+	if kind := reflect.TypeOf(kv).Kind(); kind != reflect.Struct {
+		return fmt.Errorf("BatchIterator: generic type(s) must be of kind struct, got: %s", kind)
+	}
+	return nil
+}
+
 // IterateAll returns an iterate Seq2 type which can be used to iterate a map
 // using the batched API.
 // In the case of a the iteration failing due to insufficient batch buffer size,
@@ -905,12 +899,12 @@ func startingChunkSize(maxEntries int) int {
 // All other errors will result in immediate termination of iterator.
 //
 // If the iteration fails, then the Err() function will return the error that caused the failure.
-func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ...BatchIteratorOpt[KT, VT, KP, VP]) iter.Seq2[KP, VP] {
-	switch bi.m.Type() {
-	case ebpf.Hash, ebpf.LRUHash:
-		break
-	default:
-		bi.err = fmt.Errorf("unsupported map type %s, must be one either hash or lru-hash types", bi.m.Type())
+func (bi *BatchIterator[KT, VT]) IterateAll(ctx context.Context, opts ...BatchIteratorOpt[KT, VT]) iter.Seq2[KT, VT] {
+	if bi.err = checkBatchType[KT](); bi.err != nil {
+		return nil
+	}
+
+	if bi.err = checkBatchType[VT](); bi.err != nil {
 		return nil
 	}
 
@@ -930,7 +924,7 @@ func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ..
 
 	processed := 0
 	var cursor ebpf.MapBatchCursor
-	return func(yield func(KP, VP) bool) {
+	return func(yield func(KT, VT) bool) {
 		if bi.Err() != nil {
 			return
 		}
@@ -980,7 +974,7 @@ func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ..
 				// Yield all received pairs.
 				for i := range bi.batchSize {
 					processed++
-					if !yield(&bi.keys[i], &bi.vals[i]) {
+					if !yield(bi.keys[i], bi.vals[i]) {
 						break iterate
 					}
 				}

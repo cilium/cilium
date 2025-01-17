@@ -96,10 +96,9 @@ type RedirectSuiteProxy struct {
 
 // CreateOrUpdateRedirect returns the proxy port for the given L7Parser from the
 // ProxyPolicy parameter.
-func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc) {
+func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	pp := r.parserProxyPortMap[l4.GetL7Parser().String()+l4.GetListener()]
-	r.redirects[id] = pp
-	return pp, nil, nil
+	return pp, nil, func() { r.redirects[id] = pp }, nil
 }
 
 // RemoveRedirect removes a redirect from the map
@@ -302,17 +301,15 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 }
 
 func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint, cmp *completion.WaitGroup) {
-	err := ep.regeneratePolicy(s.stats, s.datapathRegenCtxt)
+	res, err := ep.regeneratePolicy(s.stats, s.datapathRegenCtxt)
 	require.NoError(t, err)
-	res := s.datapathRegenCtxt.policyResult
 
 	oldDesiredPolicy := ep.desiredPolicy
 	s.datapathRegenCtxt.revertStack.Push(func() error {
 		ep.desiredPolicy = oldDesiredPolicy
 		return nil
 	})
-	s.datapathRegenCtxt.policyResult = res
-	ep.setDesiredPolicy(s.datapathRegenCtxt)
+	ep.setDesiredPolicy(res, s.datapathRegenCtxt)
 
 	// This will also remove old redirects
 	s.datapathRegenCtxt.finalizeList.Finalize()

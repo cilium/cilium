@@ -148,7 +148,7 @@ func TestSharedIngressTranslator_getBackendServices(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &cecTranslator{}
-			res := i.desiredBackendServices(tt.args.m)
+			res := i.getBackendServices(tt.args.m)
 			require.Equal(t, tt.want, res)
 		})
 	}
@@ -249,7 +249,7 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &cecTranslator{}
-			got := i.desiredServicesWithPorts(tt.fields.namespace, tt.fields.name, tt.model)
+			got := i.getServicesWithPorts(tt.fields.namespace, tt.fields.name, tt.model)
 			require.Equal(t, tt.want, got)
 		})
 	}
@@ -257,14 +257,10 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 
 func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 	i := &cecTranslator{
-		Config: Config{
-			SecretsNamespace: "cilium-secrets",
-			ListenerConfig: ListenerConfig{
-				UseProxyProtocol: true,
-			},
-		},
+		secretsNamespace: "cilium-secrets",
+		useProxyProtocol: true,
 	}
-	res := i.desiredEnvoyListener(&model.Model{
+	res := i.getListener(&model.Model{
 		HTTP: []model.HTTPListener{
 			{
 				TLS: []model.TLSSecret{
@@ -277,7 +273,6 @@ func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 		},
 	})
 	require.Len(t, res, 1)
-
 	listener := &envoy_config_listener.Listener{}
 	err := proto.Unmarshal(res[0].GetValue(), listener)
 	require.NoError(t, err)
@@ -292,12 +287,10 @@ func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 
 func TestSharedIngressTranslator_getListener(t *testing.T) {
 	i := &cecTranslator{
-		Config: Config{
-			SecretsNamespace: "cilium-secrets",
-		},
+		secretsNamespace: "cilium-secrets",
 	}
 
-	res := i.desiredEnvoyListener(&model.Model{
+	res := i.getListener(&model.Model{
 		HTTP: []model.HTTPListener{
 			{
 				TLS: []model.TLSSecret{
@@ -408,7 +401,7 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 		i := &cecTranslator{}
 
 		t.Run(tt.name, func(t *testing.T) {
-			res := i.desiredEnvoyCluster(tt.args.m)
+			res := i.getClusters(tt.args.m)
 			require.Len(t, res, len(tt.expected))
 
 			for i := 0; i < len(tt.expected); i++ {
@@ -468,8 +461,8 @@ func TestGetEnvoyHTTPRouteConfiguration_VirtualHostSorted(t *testing.T) {
 		},
 	}
 
-	res1 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l1})
-	res2 := defT.desiredEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l2})
+	res1 := defT.getEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l1})
+	res2 := defT.getEnvoyHTTPRouteConfiguration(&model.Model{HTTP: l2})
 
 	diffOutput := cmp.Diff(res1, res2, protocmp.Transform())
 	if len(diffOutput) != 0 {
@@ -551,7 +544,7 @@ func TestSharedIngressTranslator_getEnvoyHTTPRouteConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res := defT.desiredEnvoyHTTPRouteConfiguration(tt.args.m)
+			res := defT.getEnvoyHTTPRouteConfiguration(tt.args.m)
 			require.Len(t, res, len(tt.expectedRouteConfigs), "Number of Listeners did not match")
 
 			for i, rawRoute := range res {
@@ -735,7 +728,7 @@ func TestSharedIngressTranslator_getResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &cecTranslator{}
-			got := i.desiredResources(tt.args.m)
+			got := i.getResources(tt.args.m)
 			require.Lenf(t, got, tt.expected, "expected %d resources, got %d", tt.expected, len(got))
 
 			// Log for debugging purpose

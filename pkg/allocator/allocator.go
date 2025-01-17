@@ -945,7 +945,7 @@ func (a *Allocator) DeleteAllKeys() {
 // syncLocalKeys checks the kvstore and verifies that a master key exists for
 // all locally used allocations. This will restore master keys if deleted for
 // some reason.
-func (a *Allocator) syncLocalKeys() {
+func (a *Allocator) syncLocalKeys() error {
 	// Create a local copy of all local allocations to not require to hold
 	// any locks while performing kvstore operations. Local use can
 	// disappear while we perform the sync. For master keys this is fine as
@@ -960,6 +960,8 @@ func (a *Allocator) syncLocalKeys() {
 	for id, key := range ids {
 		a.syncLocalKey(ctx, id, key)
 	}
+
+	return nil
 }
 
 func (a *Allocator) syncLocalKey(ctx context.Context, id idpool.ID, key AllocatorKey) {
@@ -1009,7 +1011,9 @@ func (a *Allocator) syncLocalKey(ctx context.Context, id idpool.ID, key Allocato
 func (a *Allocator) startLocalKeySync() {
 	go func(a *Allocator) {
 		for {
-			a.syncLocalKeys()
+			if err := a.syncLocalKeys(); err != nil {
+				log.WithError(err).Warning("Unable to run local key sync routine")
+			}
 
 			select {
 			case <-a.stopGC:

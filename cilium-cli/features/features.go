@@ -26,10 +26,6 @@ type Parameters struct {
 	WaitDuration            time.Duration
 	Output                  string
 	Outputfile              string
-	MetricsDirectory        string
-	Repo                    string
-	Commit                  string
-	GHStepSummaryAnchor     bool
 }
 
 type Feature struct {
