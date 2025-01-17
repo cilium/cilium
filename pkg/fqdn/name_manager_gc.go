@@ -155,7 +155,7 @@ func (n *NameManager) GC(ctx context.Context) error {
 	namesCount := len(namesToCleanSlice)
 	// Limit the amount of info level logging to some sane amount
 	if namesCount > 20 {
-		// namedsToClean is only used for logging after this so we can reslice it in place
+		// namesToClean is only used for logging after this so we can reslice it in place
 		namesToCleanSlice = namesToCleanSlice[:20]
 	}
 	log.WithField(logfields.Controller, dnsGCJobName).Infof(
