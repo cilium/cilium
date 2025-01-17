@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 45
     name: Build and Push Images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    outputs:
+      sha: ${{ steps.tag.outputs.sha }}
     strategy:
       matrix:
         include:
@@ -108,10 +110,15 @@ jobs:
         id: tag
         run: |
           if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
-            tag=${{ github.event.pull_request.head.sha }}
+            sha=${{ github.event.pull_request.head.sha }}
           else
-            tag=${{ github.sha }}
+            sha=${{ github.sha }}
           fi
+          echo sha=${sha} >> $GITHUB_OUTPUT
+
+          tag=${sha}
+          echo tag=${tag} >> $GITHUB_OUTPUT
+
           if [[ "${{ github.event_name == 'push' }}" == "true" ]]; then
             if [[ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]]; then
               floating_tag=latest
@@ -120,7 +127,6 @@ jobs:
             fi
             echo floating_tag=${floating_tag} >> $GITHUB_OUTPUT
           fi
-          echo tag=${tag} >> $GITHUB_OUTPUT
 
           normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${tag}"
           race_tag="${normal_tag}-race"
@@ -146,7 +152,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: ${{ steps.tag.outputs.tag }}
+          ref: ${{ steps.tag.outputs.sha }}
 
       - name: Check for disk usage
         shell: bash
@@ -326,3 +332,16 @@ jobs:
         run: |
           cd image-digest/
           find -type f | sort | xargs -d '\n' cat
+
+  push-chart:
+    name: Push dev chart
+    needs: build-and-push-prs
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    uses: ./.github/workflows/push-chart-ci.yaml
+    with:
+      checkout_ref: ${{ needs.build-and-push-prs.outputs.sha }}
+      image_tag: ${{ needs.build-and-push-prs.outputs.sha }}
+    secrets: inherit
