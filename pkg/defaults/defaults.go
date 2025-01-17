@@ -557,6 +557,10 @@ const (
 	// BPFConntrackAccounting controls whether CT accounting for packets and bytes is enabled
 	BPFConntrackAccounting = false
 
+	// BPFBatchUpdateChunkSize determines the maximum number of entries that the bpf
+	// system will pass to an individual bpf batch update command.
+	BPFBatchUpdateChunkSize = 100
+
 	// EnableEnvoyConfig is the default value for option.EnableEnvoyConfig
 	EnableEnvoyConfig = false
 
