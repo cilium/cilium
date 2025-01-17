@@ -167,7 +167,7 @@ func (d *Daemon) getEndpointsDNSInfo(endpointID string) []fqdn.EndpointDNSInfo {
 }
 
 // updateDNSDatapathRules updates the DNS proxy iptables rules. Must be
-// called after iptables has been initailized, and only after
+// called after iptables has been initialized, and only after
 // successful bootstrapFQDN().
 func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
 	if option.Config.DryMode || !option.Config.EnableL7Proxy {
