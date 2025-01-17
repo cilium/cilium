@@ -5,7 +5,15 @@ package experimental
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"maps"
+	"net"
+	"net/http"
+	"os"
+	"slices"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -24,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/maglev"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -39,6 +48,8 @@ func TestScript(t *testing.T) {
 
 	// pkg/k8s/endpoints.go uses this in ParseEndpointSlice*
 	option.Config.EnableK8sTerminatingEndpoint = true
+
+	nodeTypes.SetName("testnode")
 
 	log := hivetest.Logger(t)
 
@@ -68,6 +79,7 @@ func TestScript(t *testing.T) {
 							SockRevNatEntries:            1000,
 							LBMapEntries:                 1000,
 							NodePortAlg:                  cfg.NodePortAlg,
+							EnableHealthCheckNodePort:    cfg.EnableHealthCheckNodePort,
 							EnableK8sTerminatingEndpoint: true,
 						}
 					},
@@ -93,9 +105,71 @@ func TestScript(t *testing.T) {
 			cmds, err := h.ScriptCommands(log)
 			require.NoError(t, err, "ScriptCommands")
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
+			cmds["http/get"] = httpGetCmd
 
 			return &script.Engine{
 				Cmds: cmds,
 			}
-		}, []string{}, "testdata/*.txtar")
+		}, []string{
+			fmt.Sprintf("PORT1=%d", getRandomOpenPort(t)),
+			fmt.Sprintf("PORT2=%d", getRandomOpenPort(t)),
+		}, "testdata/*.txtar")
+}
+
+var httpGetCmd = script.Command(
+	script.CmdUsage{
+		Summary: "HTTP get the given url into the given file",
+		Args:    "url file",
+	},
+	func(s *script.State, args ...string) (script.WaitFunc, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("expected url and file")
+		}
+		resp, err := http.Get(args[0])
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		f, err := os.OpenFile(s.Path(args[1]), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+
+		fmt.Fprintf(f, "%s\n", resp.Status)
+
+		keys := slices.Collect(maps.Keys(resp.Header))
+		sort.Strings(keys)
+		for _, k := range keys {
+			h := resp.Header[k]
+			if k == "Date" {
+				h = []string{"<omitted>"}
+			}
+			fmt.Fprintf(f, "%s=%s\n", k, strings.Join(h, ", "))
+		}
+		fmt.Fprintln(f, "---")
+		_, err = io.Copy(f, resp.Body)
+		return nil, err
+	},
+)
+
+func getRandomOpenPort(t *testing.T) int {
+	for range 100 {
+		l, err := net.Listen("tcp", ":0")
+		if err != nil {
+			t.Fatalf("failed to get random open port: %v", err)
+		}
+		addr := l.Addr().(*net.TCPAddr)
+		if addr.Port < 10000 {
+			// To keep things simple for comparing, we'll only accept port numbers
+			// that are 5 chars long.
+			l.Close()
+			continue
+		}
+		defer l.Close()
+		return addr.Port
+	}
+	t.Fatalf("failed to get a random open port number that was >=10000")
+	return 0
 }
