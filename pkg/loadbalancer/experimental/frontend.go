@@ -5,7 +5,6 @@ package experimental
 
 import (
 	"iter"
-	"net/netip"
 	"strings"
 
 	"github.com/cilium/statedb"
@@ -52,11 +51,6 @@ type Frontend struct {
 
 	// Backends associated with the frontend.
 	Backends iter.Seq2[*Backend, statedb.Revision]
-
-	// nodePortAddrs are the IP addresses on which to serve NodePort and HostPort
-	// services. Not set if [Type] is not NodePort or HostPort. These are updated
-	// when the Table[NodeAddress] changes.
-	nodePortAddrs []netip.Addr
 
 	// service associated with the frontend. If service is updated
 	// this pointer to the service will update as well and the

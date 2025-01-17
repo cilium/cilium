@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"iter"
-	"net/netip"
 	"strings"
 	"text/tabwriter"
 
@@ -203,19 +202,6 @@ func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *Service, fes ...Fr
 	return nil
 }
 
-// TODO: Rework this by running a job that monitors the nodePortAddrs and updates the table when they
-// change. And keep the latest copy around to fill in to avoid allocating a new slice every time.
-// ... or alternatively make statedb's List() return a iter.Seq that can be iterated multiple times. Just
-// need to make sure it references minimal part of the radix tree to avoid holding on to too much
-// potentially stale data. Keeping [Writer] stateless would be nice.
-func (w *Writer) nodePortAddrs(txn statedb.ReadTxn) []netip.Addr {
-	return statedb.Collect(
-		statedb.Map(
-			w.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)),
-			func(addr tables.NodeAddress) netip.Addr { return addr.Addr }),
-	)
-}
-
 func (w *Writer) updateServiceReferences(txn WriteTxn, svc *Service) error {
 	for fe := range w.fes.List(txn, FrontendByServiceName(svc.Name)) {
 		fe = fe.Clone()
@@ -244,12 +230,6 @@ func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *Frontend) {
 	fe.Status = reconciler.StatusPending()
 	fe.Backends = getBackendsForFrontend(txn, w.bes, w.nodeName, fe)
 
-	if fe.Type == loadbalancer.SVCTypeNodePort ||
-		fe.Type == loadbalancer.SVCTypeHostPort {
-		// Fill in the addresses for NodePort/HostPort expansion. These are expanded by the reconciler
-		// into additional frontends.
-		fe.nodePortAddrs = w.nodePortAddrs(txn)
-	}
 }
 
 func (w *Writer) refreshFrontendsOfService(txn WriteTxn, name loadbalancer.ServiceName) error {

@@ -290,7 +290,7 @@ func FastCheckEmptyTablesAndState(db *statedb.DB, writer *Writer, bo *BPFOps) bo
 	if writer.Frontends().NumObjects(txn) > 0 || writer.Backends().NumObjects(txn) > 0 || writer.Services().NumObjects(txn) > 0 {
 		return false
 	}
-	if len(bo.backendReferences) > 0 || len(bo.backendStates) > 0 || len(bo.nodePortAddrs) > 0 || len(bo.serviceIDAlloc.entities) > 0 || len(bo.backendIDAlloc.entities) > 0 {
+	if len(bo.backendReferences) > 0 || len(bo.backendStates) > 0 || len(bo.nodePortAddrByService) > 0 || len(bo.serviceIDAlloc.entities) > 0 || len(bo.backendIDAlloc.entities) > 0 {
 		return false
 	}
 	return true
