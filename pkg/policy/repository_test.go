@@ -305,216 +305,8 @@ func BenchmarkParseLabel(b *testing.B) {
 	b.Log("found: ", cntFound)
 }
 
-func TestAllowsIngress(t *testing.T) {
-	td := newTestData()
-	repo := td.repo
-
-	fooToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-
-	repo.mutex.RLock()
-	// no rules loaded: Allows() => denied
-	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fooToBar))
-	repo.mutex.RUnlock()
-
-	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("foo")),
-					},
-				},
-			},
-		},
-		Labels: tag1,
-	}
-
-	// selector: groupA
-	// require: groupA
-	rule2 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
-					},
-				},
-			},
-		},
-		Labels: tag1,
-	}
-	rule3 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar2")),
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("foo")),
-					},
-				},
-			},
-		},
-		Labels: tag1,
-	}
-
-	_, _, err := repo.mustAdd(rule1)
-	require.NoError(t, err)
-	_, _, err = repo.mustAdd(rule2)
-	require.NoError(t, err)
-	_, _, err = repo.mustAdd(rule3)
-	require.NoError(t, err)
-
-	// foo=>bar is OK
-	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(fooToBar))
-
-	// foo=>bar2 is OK
-	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar2"),
-	}))
-
-	// foo=>bar inside groupA is OK
-	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupA"),
-		To:   labels.ParseSelectLabelArray("bar", "groupA"),
-	}))
-
-	// groupB can't talk to groupA => Denied
-	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupB"),
-		To:   labels.ParseSelectLabelArray("bar", "groupA"),
-	}))
-
-	// no restriction on groupB, unused label => OK
-	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupB"),
-		To:   labels.ParseSelectLabelArray("bar", "groupB"),
-	}))
-
-	// foo=>bar3, no rule => Denied
-	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar3"),
-	}))
-}
-
-func TestAllowsEgress(t *testing.T) {
-	td := newTestData()
-	repo := td.repo
-
-	fooToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-
-	repo.mutex.RLock()
-	// no rules loaded: Allows() => denied
-	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(fooToBar))
-	repo.mutex.RUnlock()
-
-	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
-	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
-		Egress: []api.EgressRule{
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-					},
-				},
-			},
-		},
-		Labels: tag1,
-	}
-
-	// selector: groupA
-	// require: groupA
-	rule2 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
-		Egress: []api.EgressRule{
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToRequires: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
-					},
-				},
-			},
-		},
-		Labels: tag1,
-	}
-	rule3 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
-		Egress: []api.EgressRule{
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("bar2")),
-					},
-				},
-			},
-		},
-		Labels: tag1,
-	}
-	_, _, err := repo.mustAdd(rule1)
-	require.NoError(t, err)
-	_, _, err = repo.mustAdd(rule2)
-	require.NoError(t, err)
-	_, _, err = repo.mustAdd(rule3)
-	require.NoError(t, err)
-
-	// foo=>bar is OK
-	logBuffer := new(bytes.Buffer)
-	result := repo.AllowsEgressRLocked(fooToBar.WithLogger(logBuffer))
-	if !assert.EqualValues(t, api.Allowed, result) {
-		t.Logf("%s", logBuffer.String())
-		t.Errorf("Resolved policy did not match expected: \n%s", err)
-	}
-
-	// foo=>bar2 is OK
-	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar2"),
-	}))
-
-	// foo=>bar inside groupA is OK
-	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupA"),
-		To:   labels.ParseSelectLabelArray("bar", "groupA"),
-	}))
-
-	buffer := new(bytes.Buffer)
-	// groupB can't talk to groupA => Denied
-	ctx := &SearchContext{
-		To:      labels.ParseSelectLabelArray("foo", "groupB"),
-		From:    labels.ParseSelectLabelArray("bar", "groupA"),
-		Logging: stdlog.New(buffer, "", 0),
-		Trace:   TRACE_VERBOSE,
-	}
-	verdict := repo.AllowsEgressRLocked(ctx)
-	require.Equal(t, api.Denied, verdict)
-
-	// no restriction on groupB, unused label => OK
-	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupB"),
-		To:   labels.ParseSelectLabelArray("bar", "groupB"),
-	}))
-
-	// foo=>bar3, no rule => Denied
-	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar3"),
-	}))
-}
-
 func TestWildcardL3RulesIngress(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -524,7 +316,6 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 	labelsL7 := labels.LabelArray{labels.ParseLabel("l7")}
 
 	l3Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -534,12 +325,8 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		},
 		Labels: labelsL3,
 	}
-	l3Rule.Sanitize()
-	_, _, err := repo.mustAdd(l3Rule)
-	require.NoError(t, err)
 
 	kafkaRule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -559,12 +346,8 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		},
 		Labels: labelsKafka,
 	}
-	kafkaRule.Sanitize()
-	_, _, err = repo.mustAdd(kafkaRule)
-	require.NoError(t, err)
 
 	httpRule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -584,11 +367,8 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		},
 		Labels: labelsHTTP,
 	}
-	_, _, err = repo.mustAdd(httpRule)
-	require.NoError(t, err)
 
 	l7Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -607,12 +387,9 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		},
 		Labels: labelsL7,
 	}
-	_, _, err = repo.mustAdd(l7Rule)
-	require.NoError(t, err)
 
 	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -627,12 +404,9 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		},
 		Labels: labelsICMP,
 	}
-	_, _, err = repo.mustAdd(icmpRule)
-	require.NoError(t, err)
 
 	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -648,20 +422,8 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		},
 		Labels: labelsICMPv6,
 	}
-	_, _, err = repo.mustAdd(icmpV6Rule)
-	require.NoError(t, err)
 
-	ctx := &SearchContext{
-		To: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	require.NoError(t, err)
-
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
 			Port:     0,
 			Protocol: api.ProtoAny,
@@ -742,17 +504,13 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsL7}}),
 		},
 	})
-	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
-	policy.Detach(repo.GetSelectorCache())
+
+	td.policyMapEquals(t, expected, nil, &l3Rule, &kafkaRule, &httpRule, &l7Rule, &icmpRule, &icmpV6Rule)
+
 }
 
 func TestWildcardL4RulesIngress(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
-
-	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
-	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
-	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	labelsL4Kafka := labels.LabelArray{labels.ParseLabel("L4-kafka")}
 	labelsL7Kafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -760,7 +518,6 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 	labelsL7HTTP := labels.LabelArray{labels.ParseLabel("http")}
 
 	l49092Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -775,12 +532,8 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 		},
 		Labels: labelsL4Kafka,
 	}
-	l49092Rule.Sanitize()
-	_, _, err := repo.mustAdd(l49092Rule)
-	require.NoError(t, err)
 
 	kafkaRule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -800,12 +553,8 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 		},
 		Labels: labelsL7Kafka,
 	}
-	kafkaRule.Sanitize()
-	_, _, err = repo.mustAdd(kafkaRule)
-	require.NoError(t, err)
 
 	l480Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -820,12 +569,8 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 		},
 		Labels: labelsL4HTTP,
 	}
-	l480Rule.Sanitize()
-	_, _, err = repo.mustAdd(l480Rule)
-	require.NoError(t, err)
 
 	httpRule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -845,20 +590,8 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 		},
 		Labels: labelsL7HTTP,
 	}
-	_, _, err = repo.mustAdd(httpRule)
-	require.NoError(t, err)
 
-	ctx := &SearchContext{
-		To: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	require.NoError(t, err)
-
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -900,20 +633,14 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 			}),
 		},
 	})
-	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
-	policy.Detach(repo.GetSelectorCache())
+
+	td.policyMapEquals(t, expected, nil, &l49092Rule, &kafkaRule, &l480Rule, &httpRule)
 }
 
 func TestL3DependentL4IngressFromRequires(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
-
-	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
-	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
-	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	l480Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -934,19 +661,6 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 			},
 		},
 	}
-	l480Rule.Sanitize()
-	_, _, err := repo.mustAdd(l480Rule)
-	require.NoError(t, err)
-
-	ctx := &SearchContext{
-		To: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	require.NoError(t, err)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
@@ -957,7 +671,7 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 	})
 	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
 
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -971,20 +685,14 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 			}),
 		},
 	})
-	require.Equal(t, expectedPolicy, policy)
-	policy.Detach(repo.GetSelectorCache())
+
+	td.policyMapEquals(t, expected, nil, &l480Rule)
 }
 
 func TestL3DependentL4EgressFromRequires(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
-
-	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
-	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
-	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	l480Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1008,20 +716,6 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			},
 		},
 	}
-	l480Rule.Sanitize()
-	_, _, err := repo.mustAdd(l480Rule)
-	require.NoError(t, err)
-
-	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	logBuffer := new(bytes.Buffer)
-	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.NoError(t, err)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
@@ -1040,7 +734,7 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
 	expectedCachedSelector2, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector2)
 
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
 			Port:     0,
 			Protocol: "ANY",
@@ -1064,19 +758,12 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			}),
 		},
 	})
-	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
-		t.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
-	}
-	policy.Detach(repo.GetSelectorCache())
+
+	td.policyMapEquals(t, nil, expected, &l480Rule)
 }
 
 func TestWildcardL3RulesEgress(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
-
-	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
-	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
-	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -1085,7 +772,6 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 	labelsICMPv6 := labels.LabelArray{labels.ParseLabel("icmpv6")}
 
 	l3Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1095,12 +781,8 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 		},
 		Labels: labelsL4,
 	}
-	l3Rule.Sanitize()
-	_, _, err := repo.mustAdd(l3Rule)
-	require.NoError(t, err)
 
 	dnsRule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1120,12 +802,8 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 		},
 		Labels: labelsDNS,
 	}
-	dnsRule.Sanitize()
-	_, _, err = repo.mustAdd(dnsRule)
-	require.NoError(t, err)
 
 	httpRule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1145,12 +823,9 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 		},
 		Labels: labelsHTTP,
 	}
-	_, _, err = repo.mustAdd(httpRule)
-	require.NoError(t, err)
 
 	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1165,12 +840,9 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 		},
 		Labels: labelsICMP,
 	}
-	_, _, err = repo.mustAdd(icmpRule)
-	require.NoError(t, err)
 
 	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1186,24 +858,11 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 		},
 		Labels: labelsICMPv6,
 	}
-	_, _, err = repo.mustAdd(icmpV6Rule)
-	require.NoError(t, err)
-
-	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	logBuffer := new(bytes.Buffer)
-	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.NoError(t, err)
 
 	// Traffic to bar1 should not be forwarded to the DNS or HTTP
 	// proxy at all, but if it is (e.g., for visibility, the
 	// "0/ANY" rule should allow such traffic through.
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"53/UDP": {
 			Port:     53,
 			Protocol: api.ProtoUDP,
@@ -1268,20 +927,11 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4}}),
 		},
 	})
-	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
-		t.Logf("%s", logBuffer.String())
-		t.Errorf("Resolved policy did not match expected: \n%s", err)
-	}
-	policy.Detach(repo.GetSelectorCache())
+	td.policyMapEquals(t, nil, expected, &l3Rule, &dnsRule, &httpRule, &icmpRule, &icmpV6Rule)
 }
 
 func TestWildcardL4RulesEgress(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
-
-	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
-	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
-	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	labelsL3DNS := labels.LabelArray{labels.ParseLabel("L3-dns")}
 	labelsL7DNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -1289,7 +939,6 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 	labelsL7HTTP := labels.LabelArray{labels.ParseLabel("http")}
 
 	l453Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1304,12 +953,8 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 		},
 		Labels: labelsL3DNS,
 	}
-	l453Rule.Sanitize()
-	_, _, err := repo.mustAdd(l453Rule)
-	require.NoError(t, err)
 
 	dnsRule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1329,12 +974,8 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 		},
 		Labels: labelsL7DNS,
 	}
-	dnsRule.Sanitize()
-	_, _, err = repo.mustAdd(dnsRule)
-	require.NoError(t, err)
 
 	l480Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1349,12 +990,8 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 		},
 		Labels: labelsL3HTTP,
 	}
-	l480Rule.Sanitize()
-	_, _, err = repo.mustAdd(l480Rule)
-	require.NoError(t, err)
 
 	httpRule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1374,23 +1011,10 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 		},
 		Labels: labelsL7HTTP,
 	}
-	_, _, err = repo.mustAdd(httpRule)
-	require.NoError(t, err)
-
-	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	logBuffer := new(bytes.Buffer)
-	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.NoError(t, err)
 
 	// Bar1 should not be forwarded to the proxy, but if it is (e.g., for visibility),
 	// the L3/L4 allow should pass it without an explicit L7 wildcard.
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -1432,16 +1056,12 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 			}),
 		},
 	})
-	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
-		t.Logf("%s", logBuffer.String())
-		t.Error("Resolved policy did not match expected")
-	}
-	policy.Detach(repo.GetSelectorCache())
+
+	td.policyMapEquals(t, nil, expected, &l453Rule, &dnsRule, &l480Rule, &httpRule)
 }
 
 func TestWildcardCIDRRulesEgress(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
@@ -1454,10 +1074,8 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 		cachedSelectors = append(cachedSelectors, c)
 		defer td.sc.RemoveSelector(c, dummySelectorCacheUser)
 	}
-	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 
 	l480Get := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1484,12 +1102,8 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 		},
 		Labels: labelsHTTP,
 	}
-	l480Get.Sanitize()
-	_, _, err := repo.mustAdd(l480Get)
-	require.NoError(t, err)
 
 	l3Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1499,24 +1113,10 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 		},
 		Labels: labelsL3,
 	}
-	l3Rule.Sanitize()
-	_, _, err = repo.mustAdd(l3Rule)
-	require.NoError(t, err)
-
-	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	logBuffer := new(bytes.Buffer)
-	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.NoError(t, err)
 
 	// Port 80 policy does not need the wildcard, as the "0" port policy will allow the traffic.
 	// HTTP rules can have side-effects, so they need to be retained even if shadowed by a wildcard.
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -1549,26 +1149,18 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}}),
 		},
 	})
-	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
-		t.Logf("%s", logBuffer.String())
-		t.Error("Resolved policy did not match expected")
-	}
-	policy.Detach(repo.GetSelectorCache())
+
+	td.policyMapEquals(t, nil, expected, &l480Get, &l3Rule)
 }
 
 func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
-
-	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
-	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
 	l3Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -1578,12 +1170,8 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 		},
 		Labels: labelsL3,
 	}
-	l3Rule.Sanitize()
-	_, _, err := repo.mustAdd(l3Rule)
-	require.NoError(t, err)
 
 	kafkaRule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -1603,12 +1191,8 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 		},
 		Labels: labelsKafka,
 	}
-	kafkaRule.Sanitize()
-	_, _, err = repo.mustAdd(kafkaRule)
-	require.NoError(t, err)
 
 	httpRule := api.Rule{
-		EndpointSelector: selFoo,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
@@ -1628,46 +1212,23 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 		},
 		Labels: labelsHTTP,
 	}
-	_, _, err = repo.mustAdd(httpRule)
-	require.NoError(t, err)
 
-	ctx := &SearchContext{
-		To: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	require.NoError(t, err)
-	require.Equal(t, 3, policy.Len())
-	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	require.Len(t, policy.ExactLookup("80", 0, "TCP").PerSelectorPolicies, 1)
-	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(selWorld)
-	require.NotNil(t, cachedSelectorWorld)
-
-	cachedSelectorWorldV4 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
-	require.NotNil(t, cachedSelectorWorldV4)
-
-	cachedSelectorWorldV6 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
-	require.NotNil(t, cachedSelectorWorldV6)
-
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorWorld:   nil,
-				cachedSelectorWorldV4: nil,
-				cachedSelectorWorldV6: nil,
+				td.cachedSelectorWorld:   nil,
+				td.cachedSelectorWorldV4: nil,
+				td.cachedSelectorWorldV6: nil,
 			},
 			Ingress: true,
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
-				cachedSelectorWorld:   {labelsL3},
-				cachedSelectorWorldV4: {labelsL3},
-				cachedSelectorWorldV6: {labelsL3},
+				td.cachedSelectorWorld:   {labelsL3},
+				td.cachedSelectorWorldV4: {labelsL3},
+				td.cachedSelectorWorldV6: {labelsL3},
 			}),
 		},
 		"9092/TCP": {
@@ -1704,23 +1265,17 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 		},
 	})
 
-	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
-	policy.Detach(repo.GetSelectorCache())
+	td.policyMapEquals(t, expected, nil, &l3Rule, &kafkaRule, &httpRule)
 }
 
 func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
-
-	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
-	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
 	l3Rule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1730,12 +1285,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 		},
 		Labels: labelsL3,
 	}
-	l3Rule.Sanitize()
-	_, _, err := repo.mustAdd(l3Rule)
-	require.NoError(t, err)
-
 	dnsRule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1755,12 +1305,8 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 		},
 		Labels: labelsDNS,
 	}
-	dnsRule.Sanitize()
-	_, _, err = repo.mustAdd(dnsRule)
-	require.NoError(t, err)
 
 	httpRule := api.Rule{
-		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
@@ -1780,46 +1326,23 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 		},
 		Labels: labelsHTTP,
 	}
-	_, _, err = repo.mustAdd(httpRule)
-	require.NoError(t, err)
 
-	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
-	}
-
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	policy, err := repo.ResolveL4EgressPolicy(ctx)
-	require.NoError(t, err)
-	require.Equal(t, 3, policy.Len())
-	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	require.Len(t, policy.ExactLookup("80", 0, "TCP").PerSelectorPolicies, 1)
-	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(selWorld)
-	require.NotNil(t, cachedSelectorWorld)
-
-	cachedSelectorWorldV4 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
-	require.NotNil(t, cachedSelectorWorldV4)
-
-	cachedSelectorWorldV6 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
-	require.NotNil(t, cachedSelectorWorldV6)
-
-	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorWorld:   nil,
-				cachedSelectorWorldV4: nil,
-				cachedSelectorWorldV6: nil,
+				td.cachedSelectorWorld:   nil,
+				td.cachedSelectorWorldV4: nil,
+				td.cachedSelectorWorldV6: nil,
 			},
 			Ingress: false,
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
-				cachedSelectorWorld:   {labelsL3},
-				cachedSelectorWorldV4: {labelsL3},
-				cachedSelectorWorldV6: {labelsL3},
+				td.cachedSelectorWorld:   {labelsL3},
+				td.cachedSelectorWorldV4: {labelsL3},
+				td.cachedSelectorWorldV6: {labelsL3},
 			}),
 		},
 		"53/UDP": {
@@ -1856,47 +1379,18 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 		},
 	})
 
-	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
-	policy.Detach(repo.GetSelectorCache())
+	td.policyMapEquals(t, nil, expected, &l3Rule, &dnsRule, &httpRule)
 }
 
 func TestMinikubeGettingStarted(t *testing.T) {
 	td := newTestData()
-	repo := td.repo
 
-	app2Selector := labels.ParseSelectLabelArray("id=app2")
-
-	fromApp2 := &SearchContext{
-		From:  app2Selector,
-		To:    labels.ParseSelectLabelArray("id=app1"),
-		Trace: TRACE_VERBOSE,
-	}
-
-	fromApp3 := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=app3"),
-		To:   labels.ParseSelectLabelArray("id=app1"),
-	}
-
-	repo.mutex.RLock()
-	// no rules loaded: Allows() => denied
-	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fromApp2))
-	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fromApp3))
-	repo.mutex.RUnlock()
-
-	selFromApp2 := api.NewESFromLabels(
-		labels.ParseSelectLabel("id=app2"),
-	)
-
-	selectorFromApp2 := []api.EndpointSelector{
-		selFromApp2,
-	}
-
-	_, _, err := repo.mustAdd(api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
+	rule1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: selectorFromApp2,
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -1905,15 +1399,14 @@ func TestMinikubeGettingStarted(t *testing.T) {
 				}},
 			},
 		},
-	})
-	require.NoError(t, err)
+	}
 
-	_, _, err = repo.mustAdd(api.Rule{
+	rule2 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: selectorFromApp2,
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -1927,15 +1420,14 @@ func TestMinikubeGettingStarted(t *testing.T) {
 				}},
 			},
 		},
-	})
-	require.NoError(t, err)
+	}
 
-	_, _, err = repo.mustAdd(api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
+	rule3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: selectorFromApp2,
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -1949,26 +1441,13 @@ func TestMinikubeGettingStarted(t *testing.T) {
 				}},
 			},
 		},
-	})
-	require.NoError(t, err)
+	}
 
-	repo.mutex.RLock()
-	defer repo.mutex.RUnlock()
-
-	// L4 from app2 is restricted
-	logBuffer := new(bytes.Buffer)
-	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(fromApp2.WithLogger(logBuffer))
-	require.NoError(t, err)
-
-	cachedSelectorApp2 := td.sc.FindCachedIdentitySelector(selFromApp2)
-	require.NotNil(t, cachedSelectorApp2)
-
-	expected := NewL4Policy(repo.GetRevision())
-	expected.Ingress.PortRules.Upsert("80", 0, "TCP", &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"TCP/80": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorApp2: &PerSelectorPolicy{
+			td.cachedSelectorB: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/"}, {}},
 				},
@@ -1976,24 +1455,10 @@ func TestMinikubeGettingStarted(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}}),
-	})
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorB: {nil}}),
+	}})
 
-	if !assert.EqualValues(t, expected.Ingress.PortRules, l4IngressPolicy) {
-		t.Logf("%s", logBuffer.String())
-		t.Errorf("Resolved policy did not match expected")
-	}
-	l4IngressPolicy.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	// L4 from app3 has no rules
-	expected = NewL4Policy(repo.GetRevision())
-	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
-	require.NoError(t, err)
-	require.Equal(t, 0, l4IngressPolicy.Len())
-	require.Equal(t, expected.Ingress.PortRules, l4IngressPolicy)
-	l4IngressPolicy.Detach(td.sc)
-	expected.Detach(td.sc)
+	td.policyMapEquals(t, expected, nil, &rule1, &rule2, &rule3)
 }
 
 func buildSearchCtx(from, to string, port uint16) *SearchContext {
@@ -2007,9 +1472,18 @@ func buildSearchCtx(from, to string, port uint16) *SearchContext {
 }
 
 func buildRule(from, to, port string) api.Rule {
+	sels := map[string]api.EndpointSelector{
+		"foo": endpointSelectorA,
+		"bar": endpointSelectorB,
+		"baz": endpointSelectorC,
+	}
+	if _, ok := sels[from]; !ok {
+		panic("invalid from")
+	}
+	if _, ok := sels[to]; !ok {
+		panic("invalid to")
+	}
 	reservedES := api.NewESFromLabels(labels.ParseSelectLabel("reserved:host"))
-	fromES := api.NewESFromLabels(labels.ParseSelectLabel(from))
-	toES := api.NewESFromLabels(labels.ParseSelectLabel(to))
 
 	ports := []api.PortRule{}
 	if port != "" {
@@ -2018,13 +1492,13 @@ func buildRule(from, to, port string) api.Rule {
 		}
 	}
 	return api.Rule{
-		EndpointSelector: toES,
+		EndpointSelector: sels[to],
 		Ingress: []api.IngressRule{
 			{
 				IngressCommonRule: api.IngressCommonRule{
 					FromEndpoints: []api.EndpointSelector{
 						reservedES,
-						fromES,
+						sels[from],
 					},
 				},
 				ToPorts: ports,
@@ -2079,12 +1553,14 @@ Ingress verdict: allowed
 	// bar=>foo is Denied
 	ctx = buildSearchCtx("bar", "foo", 0)
 	expectedOut = `
-Resolving ingress policy for [any:foo]
-0/1 rules selected
-Found no allow rule
-Found no deny rule
-Ingress verdict: denied
-`
+
+	   Resolving ingress policy for [any:foo]
+	   0/1 rules selected
+	   Found no allow rule
+	   Found no deny rule
+	   Ingress verdict: denied
+	   `
+
 	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// bar=>foo:80 is also Denied by the same logic
@@ -2099,40 +1575,46 @@ Ingress verdict: denied
 	// baz=>bar:80 is OK
 	ctx = buildSearchCtx("baz", "bar", 80)
 	expectedOut = `
-Resolving ingress policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-    Allows from labels {"matchLabels":{"any:foo":""}}
-      No label match for [any:baz]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-    Allows from labels {"matchLabels":{"any:baz":""}}
-      Found all required labels
-      Allows port [{80 0 ANY}]
-2/2 rules selected
-Found allow rule
-Found no deny rule
-Ingress verdict: allowed
-`
+
+	   Resolving ingress policy for [any:bar]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+	       Allows from labels {"matchLabels":{"reserved:host":""}}
+	       Allows from labels {"matchLabels":{"any:foo":""}}
+	       No label match for [any:baz]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+	       Allows from labels {"matchLabels":{"reserved:host":""}}
+	       Allows from labels {"matchLabels":{"any:baz":""}}
+	       Found all required labels
+	       Allows port [{80 0 ANY}]
+
+	   2/2 rules selected
+	   Found allow rule
+	   Found no deny rule
+	   Ingress verdict: allowed
+	   `
+
 	repo.checkTrace(t, ctx, expectedOut, api.Allowed)
 
 	// bar=>bar:80 is Denied
 	ctx = buildSearchCtx("bar", "bar", 80)
 	expectedOut = `
-Resolving ingress policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-    Allows from labels {"matchLabels":{"any:foo":""}}
-      No label match for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-    Allows from labels {"matchLabels":{"any:baz":""}}
-      No label match for [any:bar]
-2/2 rules selected
-Found no allow rule
-Found no deny rule
-Ingress verdict: denied
-`
+
+	   Resolving ingress policy for [any:bar]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+	       Allows from labels {"matchLabels":{"reserved:host":""}}
+	       Allows from labels {"matchLabels":{"any:foo":""}}
+	       No label match for [any:bar]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+	       Allows from labels {"matchLabels":{"reserved:host":""}}
+	       Allows from labels {"matchLabels":{"any:baz":""}}
+	       No label match for [any:bar]
+
+	   2/2 rules selected
+	   Found no allow rule
+	   Found no deny rule
+	   Ingress verdict: denied
+	   `
+
 	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// Test that FromRequires "baz" drops "foo" traffic
@@ -2152,47 +1634,53 @@ Ingress verdict: denied
 	// foo=>bar is now denied due to the FromRequires
 	ctx = buildSearchCtx("foo", "bar", 0)
 	expectedOut = `
-Resolving ingress policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-    Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-      No label match for [any:foo]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-    Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-      No label match for [any:foo]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-3/3 rules selected
-Found no allow rule
-Found no deny rule
-Ingress verdict: denied
-`
+
+	   Resolving ingress policy for [any:bar]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+	       Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+	       Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+	       Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+	       No label match for [any:foo]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+	       Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+	       Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+	       Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+	       No label match for [any:foo]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+
+	   3/3 rules selected
+	   Found no allow rule
+	   Found no deny rule
+	   Ingress verdict: denied
+	   `
+
 	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// baz=>bar is only denied because of the L4 policy
 	ctx = buildSearchCtx("baz", "bar", 0)
 	expectedOut = `
-Resolving ingress policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-    Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-      No label match for [any:baz]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-    Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
-      Found all required labels
-      Allows port [{80 0 ANY}]
-        No port match found
-* Rule {"matchLabels":{"any:bar":""}}: selected
-3/3 rules selected
-Found no allow rule
-Found no deny rule
-Ingress verdict: denied
-`
+
+	   Resolving ingress policy for [any:bar]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+	       Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+	       Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+	       Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+	       No label match for [any:baz]
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+	       Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+	       Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+	       Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+	       Found all required labels
+	       Allows port [{80 0 ANY}]
+	       No port match found
+	     - Rule {"matchLabels":{"any:bar":""}}: selected
+
+	   3/3 rules selected
+	   Found no allow rule
+	   Found no deny rule
+	   Ingress verdict: denied
+	   `
+
 	repo.checkTrace(t, ctx, expectedOut, api.Denied)
 
 	// Should still be allowed with the new FromRequires constraint
@@ -2201,6 +1689,7 @@ Ingress verdict: denied
 	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.mutex.RUnlock()
 	require.Equal(t, api.Allowed, verdict)
+
 }
 
 func TestIterate(t *testing.T) {
