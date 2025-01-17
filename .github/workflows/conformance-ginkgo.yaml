@@ -53,6 +53,9 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  cilium_cli_ci_version:
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -272,9 +275,9 @@ jobs:
       - name: Install cilium-cli
         uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
         with:
-          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
-          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ needs.setup-vars.outputs.SHA }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Copy cilium-cli
         shell: bash
