@@ -56,10 +56,12 @@ const (
 	echoOtherNodeDeploymentName                = "echo-other-node"
 	EchoOtherNodeDeploymentHeadlessServiceName = "echo-other-node-headless"
 	echoExternalNodeDeploymentName             = "echo-external-node"
+	echoHostNetNsDeploymentName                = "echo-host-netns"
 	corednsConfigMapName                       = "coredns-configmap"
 	corednsConfigVolumeName                    = "coredns-config-volume"
 	kindEchoName                               = "echo"
 	kindEchoExternalNodeName                   = "echo-external-node"
+	kindEchoHostNetNsName                      = "echo-host-netns"
 	kindClientName                             = "client"
 	kindPerfName                               = "perf"
 	lrpBackendDeploymentName                   = "lrp-backend"
@@ -747,6 +749,41 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoHostNetNsDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoHostNetNsDeploymentName)
+		svc := newService(echoHostNetNsDeploymentName, map[string]string{"name": echoHostNetNsDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
+		_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoHostNetNsDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying net-ns deployment...", ct.clients.src.ClusterName())
+		containerPort := 8080
+		echoHostNetNsDeployment := newDeployment(deploymentParameters{
+			Name:           echoHostNetNsDeploymentName,
+			Kind:           kindEchoHostNetNsName,
+			Port:           containerPort,
+			NamedPort:      fmt.Sprintf("http-%d", containerPort),
+			Image:          ct.params.JSONMockImage,
+			Annotations:    ct.params.DeploymentAnnotations.Match(echoHostNetNsDeploymentName),
+			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+			HostNetwork:    true,
+		})
+
+		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoHostNetNsDeploymentName), metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create service account %s: %w", echoHostNetNsDeploymentName, err)
+		}
+		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoHostNetNsDeployment, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %w", echoHostNetNsDeploymentName, err)
+		}
+	}
+
 	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), clientDeploymentName)
@@ -1337,7 +1374,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		return
 	}
 
-	srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
+	srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName, echoHostNetNsDeploymentName}
 	if ct.params.MultiCluster == "" && !ct.params.SingleNode {
 		srcList = append(srcList, client3DeploymentName)
 	}
@@ -1376,6 +1413,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.Client) error {
 	ct.Logf("🔥 [%s] Deleting connectivity check deployments...", client.ClusterName())
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, echoHostNetNsDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.DeleteOptions{})
@@ -1383,11 +1421,13 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, socatClientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, socatServerDaemonsetName, metav1.DeleteOptions{}) // Q:Daemonset in here is OK?
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, echoHostNetNsDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, clientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, client3DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoHostNetNsDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, EchoOtherNodeDeploymentHeadlessServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.DeleteOptions{})
@@ -1664,6 +1704,31 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			ct.echoServices[echoService.Name] = Service{
 				Service: echoService.DeepCopy(),
 			}
+		}
+	}
+
+	echoHostNetNsPods, err := ct.clients.dst.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "name=" + echoHostNetNsDeploymentName})
+	if err != nil {
+		return fmt.Errorf("unable to list other node pods: %w", err)
+	}
+
+	for _, pod := range echoHostNetNsPods.Items {
+		ct.echoHostNetNsPods[pod.Name] = Pod{
+			K8sClient: ct.client,
+			Pod:       pod.DeepCopy(),
+			scheme:    "http",
+			port:      8080, // listen port of the echo server inside the container
+		}
+	}
+
+	echoHostNetNsServices, err := ct.clients.dst.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoHostNetNsName})
+	if err != nil {
+		return fmt.Errorf("unable to list echo external services: %w", err)
+	}
+
+	for _, echoHostNetNsService := range echoHostNetNsServices.Items {
+		ct.echoHostNetNsServices[echoHostNetNsService.Name] = Service{
+			Service: echoHostNetNsService.DeepCopy(),
 		}
 	}
 
