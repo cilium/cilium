@@ -15,13 +15,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/api/helpers"
+	azureMetrics "github.com/cilium/cilium/pkg/azure/metrics"
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -66,7 +69,7 @@ type MetricsAPI interface {
 // net/http Client with a custom cilium user agent
 type httpClient struct{}
 
-func (t *httpClient) Do(req *http.Request) (*http.Response, error) {
+func (_ *httpClient) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", fmt.Sprintf("cilium/%s", version.Version))
 	return http.DefaultClient.Do(req)
 }
@@ -83,9 +86,12 @@ func newTokenCredential(clientOptions *azcore.ClientOptions, userAssignedIdentit
 	})
 }
 
-func newClientOptions(cloudName string) (*azcore.ClientOptions, error) {
+func newClientOptions(cloudName, subscriptionID, tenantID string, registry operatorMetrics.RegisterGatherer) (*azcore.ClientOptions, error) {
+	metricsExtractor := azureMetrics.NewMetricsExtractor(log, subscriptionID, tenantID, "Microsoft.Compute", registry)
+
 	clientOptions := &azcore.ClientOptions{
-		Transport: &httpClient{},
+		Transport:        &httpClient{},
+		PerRetryPolicies: []policy.Policy{metricsExtractor},
 	}
 
 	// See possible values here:
@@ -107,8 +113,8 @@ func newClientOptions(cloudName string) (*azcore.ClientOptions, error) {
 }
 
 // NewClient returns a new Azure client
-func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID string, metrics MetricsAPI, rateLimit float64, burst int, usePrimary bool) (*Client, error) {
-	clientOptions, err := newClientOptions(cloudName)
+func NewClient(cloudName, subscriptionID, tenantID, resourceGroup, userAssignedIdentityID string, metrics MetricsAPI, registry operatorMetrics.RegisterGatherer, rateLimit float64, burst int, usePrimary bool) (*Client, error) {
+	clientOptions, err := newClientOptions(cloudName, subscriptionID, tenantID, registry)
 	if err != nil {
 		return nil, err
 	}

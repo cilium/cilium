@@ -55,6 +55,11 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		log.WithField("subscriptionID", subscriptionID).Debug("Detected subscriptionID via Azure IMS")
 	}
 
+	tenantID := operatorOption.Config.AzureTenantID
+	if tenantID == "" {
+		log.Debug("TenantID was not specified via CLI, tenant scoped azure rate limit metrics will be unavailable")
+	}
+
 	resourceGroupName := operatorOption.Config.AzureResourceGroup
 	if resourceGroupName == "" {
 		log.Debug("ResourceGroupName was not specified via CLI, retrieving it via Azure IMS")
@@ -74,7 +79,7 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	azureClient, err := azureAPI.NewClient(azureCloudName, subscriptionID, resourceGroupName, operatorOption.Config.AzureUserAssignedIdentityID, azMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, operatorOption.Config.AzureUsePrimaryAddress)
+	azureClient, err := azureAPI.NewClient(azureCloudName, subscriptionID, tenantID, resourceGroupName, operatorOption.Config.AzureUserAssignedIdentityID, azMetrics, operatorMetrics.Registry, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, operatorOption.Config.AzureUsePrimaryAddress)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Azure client: %w", err)
 	}
