@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
@@ -71,9 +72,8 @@ var baseFrontend = Frontend{
 		ServiceName: testServiceName,
 		PortName:    "", // Ignored, backends already resolved.
 	},
-	Backends:      func(yield func(*Backend, statedb.Revision) bool) {},
-	Status:        reconciler.StatusPending(),
-	nodePortAddrs: nodePortAddrs,
+	Backends: func(yield func(*Backend, statedb.Revision) bool) {},
+	Status:   reconciler.StatusPending(),
 }
 
 var emptyInstances = func() part.Map[BackendInstanceKey, BackendInstance] {
@@ -863,6 +863,23 @@ func TestBPFOps(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.EnableExperimentalLB = true
 
+	// Insert node addrs used for NodePort/HostPort
+	db := statedb.New()
+	nodeAddrs, _ := tables.NewNodeAddressTable()
+	require.NoError(t, db.RegisterTable(nodeAddrs))
+	wtxn := db.WriteTxn(nodeAddrs)
+	for _, n := range nodePortAddrs {
+		na := tables.NodeAddress{
+			Addr:       n,
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "lol0",
+		}
+		_, _, err := nodeAddrs.Insert(wtxn, na)
+		require.NoError(t, err)
+	}
+	wtxn.Commit()
+
 	for _, testCaseSet := range testCases {
 		// Run each set with Random and Maglev load balancing algos.
 		for _, algo := range []string{option.NodePortAlgRandom, option.NodePortAlgMaglev} {
@@ -872,7 +889,19 @@ func TestBPFOps(t *testing.T) {
 				// fresh IDs.
 				external := extCfg
 				external.NodePortAlg = algo
-				ops := newBPFOps(lc, log, cfg, external, lbmaps, maglev)
+				p := bpfOpsParams{
+					Lifecycle:     lc,
+					Log:           log,
+					Cfg:           cfg,
+					ExtCfg:        external,
+					LBMaps:        lbmaps,
+					Maglev:        maglev,
+					DB:            db,
+					NodeAddresses: nodeAddrs,
+				}
+
+				ops := newBPFOps(p)
+
 				for _, testCase := range testCaseSet {
 					t.Run(fmt.Sprintf("%s/%s/ipv6:%v", testCase.name, algo, addr.IsIPv6()), func(t *testing.T) {
 						frontend := testCase.frontend
@@ -891,7 +920,7 @@ func TestBPFOps(t *testing.T) {
 						if !testCase.delete {
 							err := ops.Update(
 								context.TODO(),
-								nil, // ReadTxn (unused)
+								db.ReadTxn(),
 								&frontend,
 							)
 							require.NoError(t, err, "Update")
@@ -945,7 +974,7 @@ func TestBPFOps(t *testing.T) {
 				require.Empty(t, ops.serviceIDAlloc.entities, "Frontend ID allocations remain")
 				require.Empty(t, ops.backendStates, "Backend state remain")
 				require.Empty(t, ops.backendReferences, "Backend references remain")
-				require.Empty(t, ops.nodePortAddrs, "NodePort addrs state remain")
+				require.Empty(t, ops.nodePortAddrByService, "NodePort addrs state remain")
 			}
 		}
 	}
