@@ -51,6 +51,10 @@ type ChainingPlugin interface {
 	// Check is called on CNI CHECK. The plugin should verify (to the best of its
 	// ability) that everything is reasonably configured, else return error.
 	Check(ctx context.Context, pluginContext PluginContext, client *client.Client) error
+
+	// Status is called on CNI STATUS. The plugin should return an error
+	// with exit code 50 if the plugin is not ready to service ADD requests.
+	Status(ctx context.Context, pluginContext PluginContext, client *client.Client) error
 }
 
 // Register is called by chaining plugins to register themselves. After

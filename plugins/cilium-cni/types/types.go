@@ -113,3 +113,4 @@ const (
 	CniErrHealthzGet uint = 100
 	CniErrUnhealthy       = iota
 )
+const CniErrPluginNotAvailable uint = 50
