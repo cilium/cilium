@@ -5,6 +5,7 @@ package tuple
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -13,16 +14,40 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// TupleKey4 represents the key for IPv4 entries in the local BPF conntrack map.
+// tupleKey represents the key for {IPv4,IPv6} entries in the local BPF conntrack map.
 // Address field names are correct for return traffic, i.e., they are reversed
 // compared to the original direction traffic.
-type TupleKey4 struct {
-	DestAddr   types.IPv4      `align:"daddr"`
-	SourceAddr types.IPv4      `align:"saddr"`
+type tupleKey[AddrT ipFamily] struct {
+	DestAddr   AddrT           `align:"daddr"`
+	SourceAddr AddrT           `align:"saddr"`
 	DestPort   uint16          `align:"dport"`
 	SourcePort uint16          `align:"sport"`
 	NextHeader u8proto.U8proto `align:"nexthdr"`
 	Flags      uint8           `align:"flags"`
+}
+
+// TupleKey4 represents the key for {IPv4,IPv6} entries in the local BPF conntrack map.
+// Address field names are correct for return traffic, i.e., they are reversed
+// compared to the original direction traffic.
+type TupleKey4 tupleKey[types.IPv4]
+
+func (t *TupleKey4) GetDestAddr() netip.Addr {
+	return t.DestAddr.Addr()
+}
+
+func (t *TupleKey4) GetDestPort() uint16 {
+	return t.DestPort
+}
+
+func (t *TupleKey4) GetSourceAddr() netip.Addr {
+	return t.SourceAddr.Addr()
+}
+func (t *TupleKey4) GetSourcePort() uint16 {
+	return t.SourcePort
+}
+
+func (t *TupleKey4) GetNextHeader() u8proto.U8proto {
+	return t.NextHeader
 }
 
 // ToNetwork converts TupleKey4 ports to network byte order.

@@ -33,7 +33,7 @@ type eniDeviceConfig struct {
 type configMap map[string]eniDeviceConfig // by MAC addr
 type linkMap map[string]netlink.Link      // by MAC addr
 
-func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) error {
+func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) {
 	var (
 		existingENIByName map[string]eniTypes.ENI
 		addedENIByMac     = configMap{}
@@ -66,8 +66,6 @@ func configureENIDevices(oldNode, newNode *ciliumv2.CiliumNode, mtuConfig MtuCon
 	}
 
 	go setupENIDevices(addedENIByMac, sysctl)
-
-	return nil
 }
 
 func setupENIDevices(eniConfigByMac configMap, sysctl sysctl.Sysctl) {

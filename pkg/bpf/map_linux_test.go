@@ -908,7 +908,7 @@ func TestErrorResolver(t *testing.T) {
 			require.NoError(t, m.CreateUnpinned(), "Failed to create map")
 			require.NoError(t, m.Update(&key1, &val1), "Failed to insert element in map")
 
-			// Let's attempt to insert a second element in the map, which will fail because the map can only hold one
+			// Let's attempt to insert a second element in the map, which will fail because the map can only hold one.
 			require.Error(t, m.Update(&key2, &val2), "Map insertion should have failed")
 
 			// Let's now remove one of the two elements (the actual assertion depends on which element is to be removed)
@@ -940,16 +940,26 @@ func TestErrorResolver(t *testing.T) {
 	}
 }
 
+func TestBatchIteratorTypes(t *testing.T) {
+	m := NewMap("cilium_test",
+		ebpf.Array,
+		&TestKey{},
+		&TestValue{}, 1, 0)
+	iter := NewBatchIterator[TestKey, TestValue](m)
+	iter.IterateAll(context.TODO())
+	assert.Error(t, iter.Err())
+}
+
 func TestBatchIterator(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	runTest := func(size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestKey, TestValue]) {
+	runTest := func(mapType ebpf.MapType, size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]) {
 		m := NewMap("cilium_test",
-			ebpf.Hash,
+			mapType,
 			&TestKey{},
 			&TestValue{},
 			mapSize,
-			BPF_F_NO_PREALLOC,
+			0,
 		)
 		assert.NoError(t, m.OpenOrCreate())
 		defer assert.NoError(t, m.UnpinIfExists())
@@ -962,20 +972,19 @@ func TestBatchIterator(t *testing.T) {
 		ks := sets.New[int]()
 		vs := sets.New[int]()
 
-		iter := BatchIterator[TestKey, TestValue]{
-			m: m,
-		}
+		iter := NewBatchIterator[TestKey, TestValue](m)
 		count := 0
 		for k, v := range iter.IterateAll(context.TODO(), opts...) {
 			count++
 			ks.Insert(int(k.Key))
 			vs.Insert(int(v.Value))
 		}
-		assert.NoError(t, iter.Err())
+		require.NoError(t, iter.Err())
+		assert.Equal(t, size, count)
 
 		for i := range int(size) {
-			assert.Contains(t, ks, i)
-			assert.Contains(t, vs, i)
+			require.Contains(t, ks, i, "expect iterate to return key="+strconv.Itoa(i))
+			require.Contains(t, vs, i, "expect iterate to return val="+strconv.Itoa(i))
 		}
 		assert.Len(t, ks, int(size))
 		assert.Len(t, vs, int(size))
@@ -985,7 +994,7 @@ func TestBatchIterator(t *testing.T) {
 	for _, test := range []struct {
 		mapSize int
 		size    int
-		opts    []BatchIteratorOpt[TestKey, TestValue]
+		opts    []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]
 	}{
 		{10, 10, nil},
 		{1024, 1024, nil},
@@ -994,7 +1003,7 @@ func TestBatchIterator(t *testing.T) {
 		{
 			size:    1 << 12,
 			mapSize: 1 << 13,
-			opts: []BatchIteratorOpt[TestKey, TestValue]{
+			opts: []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]{
 				WithMaxRetries[TestKey, TestValue](13), WithStartingChunkSize[TestKey, TestValue](1)},
 		},
 		{
@@ -1008,12 +1017,15 @@ func TestBatchIterator(t *testing.T) {
 		{
 			size:    1 << 12,
 			mapSize: 1 << 12,
-			opts: []BatchIteratorOpt[TestKey, TestValue]{
+			opts: []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]{
 				WithMaxRetries[TestKey, TestValue](1), WithStartingChunkSize[TestKey, TestValue](1 << 13)},
 		},
 	} {
 		t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
-			runTest(test.size, test.mapSize, t, test.opts...)
+			runTest(ebpf.Hash, test.size, test.mapSize, t, test.opts...)
+		})
+		t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
+			runTest(ebpf.LRUHash, test.size, test.mapSize, t, test.opts...)
 		})
 	}
 }

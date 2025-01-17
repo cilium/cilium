@@ -288,6 +288,25 @@ communicating via the proxy must reconnect to re-establish connections.
 
 .. _current_release_required_changes:
 
+.. _1.18_upgrade_notes:
+
+1.18 Upgrade Notes
+------------------
+
+Removed Options
+~~~~~~~~~~~~~~~
+
+* The previously deprecated high-scale mode for ipcache has been removed.
+
+Helm Options
+~~~~~~~~~~~~
+
+* The Helm options ``hubble.export.fileMaxSizeMb``, ``hubble.export.fileMaxBackups``
+  and ``hubble.export.fileCompress`` have been deprecated in favor of their corresponding exporter
+  type options and will be removed in Cilium 1.19. More specifically, the static exporter options
+  are now located under ``hubble.export.static`` and the dynamic exporter options that generate
+  a configmap containing the exporter configuration are now under ``hubble.export.dynamic.config.content``.
+
 .. _1.17_upgrade_notes:
 
 1.17 Upgrade Notes
@@ -330,7 +349,7 @@ communicating via the proxy must reconnect to re-establish connections.
 * For IPsec, support for a single key has been removed. Per-tunnel keys will
   now be used regardless of the presence of the ``+`` sign in the secret.
 * The option to run a synchronous probe using ``cilium-health status --probe`` is no longer supported,
-  and is now a hidden option that returns the results of the most recent cached probe. It will be 
+  and is now a hidden option that returns the results of the most recent cached probe. It will be
   removed in a future release.
 * The Cilium status API now reports the KVStore subsystem with ``Disabled`` state when disabled,
   instead of ``OK`` state and ``Disabled`` message.
@@ -400,17 +419,18 @@ Added Metrics
 * ``cilium_identity_cache_timer_duration``
 * ``cilium_identity_cache_timer_trigger_latency``
 * ``cilium_identity_cache_timer_trigger_folds``
+* ``cilium_policy_incremental_update_duration``
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
 * ``cilium_cidrgroup_translation_time_stats_seconds`` has been removed, as the measured code path no longer exists.
-* ``cilium_triggers_policy_update_total`` has been removed.
-* ``cilium_triggers_policy_update_folds`` has been removed.
-* ``cilium_triggers_policy_update_call_duration`` has been removed.
+* ``cilium_triggers_policy_update_total`` has been removed, as the measured code is now called very rarely and not for network policy.
+* ``cilium_triggers_policy_update_folds`` has been removed, as the measured code is now called very rarely and not for network policy.
+* ``cilium_triggers_policy_update_call_duration`` has been removed, as the measured code is now called very rarely and not for network policy.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
-The metrics prefix of all Envoy NPDS (NetworkPolicy discovery service) metrics 
+The metrics prefix of all Envoy NPDS (NetworkPolicy discovery service) metrics
 has been renamed from ``envoy_cilium_policymap_<node-ip>_<node-id>_`` to ``envoy_cilium_npds_``.
 
 * ``envoy_cilium_policymap_<node-ip>_<node-id>_control_plane_rate_limit_enforced`` -> ``envoy_cilium_npds_control_plane_rate_limit_enforced``
@@ -424,6 +444,15 @@ has been renamed from ``envoy_cilium_policymap_<node-ip>_<node-id>_`` to ``envoy
 * ``envoy_cilium_policymap_<node-ip>_<node-id>_update_time`` -> ``envoy_cilium_npds_update_time``
 * ``envoy_cilium_policymap_<node-ip>_<node-id>_update_duration`` -> ``envoy_cilium_npds_update_duration``
 * ``envoy_cilium_policymap_<node-ip>_<node-id>_version`` -> ``envoy_cilium_npds_version``
+* ``doublewrite_identity_crd_total_count`` has been renamed to ``doublewrite_identity_crd_total``
+* ``doublewrite_identity_kvstore_total_count`` has been renamed to ``doublewrite_identity_kvstore_total``
+* ``doublewrite_identity_crd_only_count`` has been renamed to ``doublewrite_identity_crd_only_total``
+* ``doublewrite_identity_kvstore_only_count`` has been renamed to ``doublewrite_identity_kvstore_only_total``
+* ``lbipam_conflicting_pools_total`` has been renamed to ``lbipam_conflicting_pools``
+* ``lbipam_ips_available_total`` has been renamed to ``lbipam_ips_available``
+* ``lbipam_ips_used_total`` has been renamed to ``lbipam_ips_used``
+* ``lbipam_services_matching_total`` has been renamed to ``lbipam_services_matching``
+* ``lbipam_services_unsatisfied_total`` has been renamed to ``lbipam_services_unsatisfied``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~

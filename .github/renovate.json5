@@ -122,6 +122,8 @@
         "github.com/prometheus/", // Prometheu's official org
         "go.etcd.io/etcd/", // etcd's official org
         "golang.org/x/", // Golang official experimental org
+        "golangci/golangci-lint", // Golang CI linter
+        "protocolbuffers/protobuf", // protobuf buffers
         "google.golang.org/", // Google official repo for api/genproto/grpc/protobuf
         "k8s.io/", // Kubernetes official repo
         "quay.io/cilium/", // LVH images
@@ -797,6 +799,14 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?)\\s+KIND_K8S_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+      ]
+    },
+    {
+      "fileMatch": [
+        "^.github/workflows/enterprise-renovate-config-validator\\.yaml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
       ]
     },
     {

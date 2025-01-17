@@ -48,6 +48,7 @@ linters-settings:
       - '.+fqdn\.Config' # internal API
       - '.+tls\.Config' # Go TLS
       - '.+v3\.Config' # etcd
+      - '.+translation\.Config' # internal gateway-api config
   govet:
     enable:
       - nilness

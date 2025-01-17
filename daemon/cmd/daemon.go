@@ -136,7 +136,8 @@ type Daemon struct {
 
 	endpointManager endpointmanager.EndpointManager
 
-	endpointRestoreComplete chan struct{}
+	endpointRestoreComplete       chan struct{}
+	endpointInitialPolicyComplete chan struct{}
 
 	identityAllocator identitycell.CachingIdentityAllocator
 
@@ -410,6 +411,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// waiting when it is not yet initialized (which causes them to block forever).
 	if option.Config.RestoreState {
 		d.endpointRestoreComplete = make(chan struct{})
+		d.endpointInitialPolicyComplete = make(chan struct{})
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
@@ -672,11 +674,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if len(nativeDevices) == 0 {
 		if option.Config.EnableHostFirewall {
 			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
-			log.WithError(err).Errorf(msg, option.Devices)
-			return nil, nil, fmt.Errorf(msg, option.Devices)
-		}
-		if option.Config.EnableHighScaleIPcache {
-			msg := "External facing device for high-scale IPcache could not be determined. Use --%s to specify."
 			log.WithError(err).Errorf(msg, option.Devices)
 			return nil, nil, fmt.Errorf(msg, option.Devices)
 		}

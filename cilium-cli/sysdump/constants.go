@@ -87,6 +87,8 @@ const (
 	eniconfigsFileName                       = "aws-eniconfigs-<ts>.yaml"
 	ciliumHelmMetadataFileName               = "cilium-helm-metadata-<ts>.yaml"
 	ciliumHelmValuesFileName                 = "cilium-helm-values-<ts>.yaml"
+	tetragonHelmMetadataFileName             = "tetragon-helm-metadata-<ts>.yaml"
+	tetragonHelmValuesFileName               = "tetragon-helm-values-<ts>.yaml"
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
 	hubbleFlowsFileName                      = "hubble-flows-%s-<ts>.json"

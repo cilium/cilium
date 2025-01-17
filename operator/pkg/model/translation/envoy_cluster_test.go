@@ -11,8 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestWithClusterLbPolicy(t *testing.T) {
-	fn := WithClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_LEAST_REQUEST))
+func Test_withClusterLbPolicy(t *testing.T) {
+	fn := withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_LEAST_REQUEST))
 
 	t.Run("input is nil", func(t *testing.T) {
 		cluster := fn(nil)
@@ -26,16 +26,16 @@ func TestWithClusterLbPolicy(t *testing.T) {
 	})
 }
 
-func TestWithOutlierDetection(t *testing.T) {
+func Test_withOutlierDetection(t *testing.T) {
 	t.Run("input is nil", func(t *testing.T) {
-		fn := WithOutlierDetection(true)
+		fn := withOutlierDetection(true)
 		cluster := fn(nil)
 		require.Nil(t, cluster)
 	})
 
 	t.Run("input is not nil", func(t *testing.T) {
 		t.Run("enabled", func(t *testing.T) {
-			fn := WithOutlierDetection(true)
+			fn := withOutlierDetection(true)
 			cluster := &envoy_config_cluster_v3.Cluster{}
 			cluster = fn(cluster)
 			require.NotNil(t, cluster.OutlierDetection)
@@ -43,7 +43,7 @@ func TestWithOutlierDetection(t *testing.T) {
 		})
 
 		t.Run("disabled", func(t *testing.T) {
-			fn := WithOutlierDetection(false)
+			fn := withOutlierDetection(false)
 			cluster := &envoy_config_cluster_v3.Cluster{}
 			cluster = fn(cluster)
 			require.NotNil(t, cluster.OutlierDetection)
@@ -52,8 +52,8 @@ func TestWithOutlierDetection(t *testing.T) {
 	})
 }
 
-func TestWithConnectionTimeout(t *testing.T) {
-	fn := WithConnectionTimeout(10)
+func Test_withConnectionTimeout(t *testing.T) {
+	fn := withConnectionTimeout(10)
 
 	t.Run("input is nil", func(t *testing.T) {
 		cluster := fn(nil)
@@ -67,8 +67,9 @@ func TestWithConnectionTimeout(t *testing.T) {
 	})
 }
 
-func TestNewHTTPCluster(t *testing.T) {
-	res, err := NewHTTPCluster("dummy-name", "dummy-name")
+func Test_httpCluster(t *testing.T) {
+	c := &cecTranslator{}
+	res, err := c.httpCluster("dummy-name", "dummy-name", false, "")
 	require.NoError(t, err)
 
 	cluster := &envoy_config_cluster_v3.Cluster{}
@@ -81,8 +82,9 @@ func TestNewHTTPCluster(t *testing.T) {
 	}, cluster.ClusterDiscoveryType)
 }
 
-func TestNewTCPCluster(t *testing.T) {
-	res, err := NewHTTPCluster("dummy-name", "dummy-name")
+func Test_tcpCluster(t *testing.T) {
+	c := &cecTranslator{}
+	res, err := c.httpCluster("dummy-name", "dummy-name", false, "")
 	require.NoError(t, err)
 
 	cluster := &envoy_config_cluster_v3.Cluster{}

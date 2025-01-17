@@ -12,8 +12,6 @@
 #include "encrypt.h"
 #endif /* __ctx_is == __ctx_skb */
 
-#include "high_scale_ipcache.h"
-
 #ifdef HAVE_ENCAP
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -27,7 +25,7 @@ struct {
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
-		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
+		    __u32 seclabel, __u32 dstid, __u32 vni,
 		    enum trace_reason ct_reason, __u32 monitor, int *ifindex)
 {
 	/* When encapsulating, a packet originating from the local host is
@@ -53,7 +51,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 }
 
 static __always_inline int
-__encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_unused,
+__encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 				 __be32 tunnel_endpoint,
 				 __u32 seclabel, __u32 dstid, __u32 vni,
 				 const struct trace_ctx *trace)
@@ -61,7 +59,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	int ifindex;
 	int ret = 0;
 
-	ret = __encap_with_nodeid(ctx, src_ip, 0, tunnel_endpoint, seclabel, dstid,
+	ret = __encap_with_nodeid(ctx, 0, 0, tunnel_endpoint, seclabel, dstid,
 				  vni, trace->reason, trace->monitor,
 				  &ifindex);
 	if (ret != CTX_ACT_REDIRECT)
@@ -87,7 +85,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 					 seclabel, true, false);
 #endif
 
-	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel_endpoint,
+	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
 						seclabel, dstid, NOT_VTEP_DST,
 						trace);
 }
@@ -100,15 +98,12 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 			 __u8 encrypt_key, __u32 seclabel, __u32 dstid,
 			 const struct trace_ctx *trace)
 {
-	int ifindex __maybe_unused;
-	int ret __maybe_unused;
-
 	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
 					      encrypt_key, seclabel, dstid,
 					      trace);
 }
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
+#if defined(TUNNEL_MODE)
 /* encap_and_redirect_lxc adds IPSec metadata (if enabled) and returns the packet
  * so that it can be passed to the IP stack. Without IPSec the packet is
  * typically redirected to the output tunnel device and ctx will not be seen by
@@ -130,13 +125,6 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 {
 	struct tunnel_value *tunnel __maybe_unused;
 
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
-	if (needs_encapsulation(dst_ip))
-		return __encap_and_redirect_with_nodeid(ctx, src_ip, dst_ip,
-							seclabel, dstid,
-							NOT_VTEP_DST, trace);
-	return DROP_NO_TUNNEL_ENDPOINT;
-#else /* ENABLE_HIGH_SCALE_IPCACHE */
 	if (tunnel_endpoint)
 		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
 						encrypt_key, seclabel, dstid,
@@ -154,9 +142,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 					 seclabel, false, false);
 	}
 # endif
-	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,
+	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
 						dstid, NOT_VTEP_DST, trace);
-#endif /* ENABLE_HIGH_SCALE_IPCACHE */
 }
 
 static __always_inline int
@@ -173,7 +160,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, encrypt_key,
 					      seclabel, 0, trace);
 }
-#endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
+#endif /* TUNNEL_MODE */
 
 static __always_inline __be16
 tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)

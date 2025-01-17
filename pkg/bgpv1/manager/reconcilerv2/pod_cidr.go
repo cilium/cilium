@@ -120,10 +120,7 @@ func (r *PodCIDRReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 	metadata := r.getMetadata(p.BGPInstance)
 
 	// get desired paths per address family
-	desiredFamilyAdverts, err := r.getDesiredPathsPerFamily(desiredPeerAdverts, podPrefixes)
-	if err != nil {
-		return err
-	}
+	desiredFamilyAdverts := r.getDesiredPathsPerFamily(desiredPeerAdverts, podPrefixes)
 
 	// reconcile family advertisements
 	updatedAFPaths, err := ReconcileAFPaths(&ReconcileAFPathsParams{
@@ -165,7 +162,7 @@ func (r *PodCIDRReconciler) reconcileRoutePolicies(ctx context.Context, p Reconc
 // getDesiredPathsPerFamily returns a map of desired paths per address family.
 // Note: This returns prefixes per address family. Global routing table will contain prefix per family not per neighbor.
 // Per neighbor advertisement will be controlled by BGP Policy.
-func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (AFPathsMap, error) {
+func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) AFPathsMap {
 	// Calculate desired paths per address family, collapsing per-peer advertisements into per-family advertisements.
 	desiredFamilyAdverts := make(AFPathsMap)
 	for _, peerFamilyAdverts := range desiredPeerAdverts {
@@ -195,7 +192,7 @@ func (r *PodCIDRReconciler) getDesiredPathsPerFamily(desiredPeerAdverts PeerAdve
 			}
 		}
 	}
-	return desiredFamilyAdverts, nil
+	return desiredFamilyAdverts
 }
 
 func (r *PodCIDRReconciler) getDesiredRoutePolicies(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, desiredPrefixes []netip.Prefix) (RoutePolicyMap, error) {

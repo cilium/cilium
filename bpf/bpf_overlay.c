@@ -530,7 +530,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (unlikely(ret != 0))
 		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	if (info->tunnel_endpoint) {
-		ret = __encap_and_redirect_with_nodeid(ctx, UNKNOWN_ID, info->tunnel_endpoint,
+		ret = __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						       LOCAL_NODE_ID, WORLD_IPV4_ID,
 						       WORLD_IPV4_ID, &trace);
 		if (IS_ERR(ret))
@@ -596,10 +596,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
-#ifndef ENABLE_HIGH_SCALE_IPCACHE
-	/* preserve skb->cb for hs-ipcache, from-netdev is passing info */
 	bpf_clear_meta(ctx);
-#endif
 	ctx_skip_nodeport_clear(ctx);
 
 	if (!validate_ethertype(ctx, &proto)) {
@@ -640,18 +637,12 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		/* If packets are decrypted the key has already been pushed into metadata. */
 		if (!decrypted) {
 			struct bpf_tunnel_key key = {};
-
- #ifdef ENABLE_HIGH_SCALE_IPCACHE
-			/* already set by decapsulate_overlay(): */
-			key.tunnel_id = ctx_load_meta(ctx, CB_SRC_LABEL);
- #else
 			__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 
 			if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0)) {
 				ret = DROP_NO_TUNNEL_KEY;
 				goto out;
 			}
- #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 			cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
 			src_sec_identity = get_id_from_tunnel_id(key.tunnel_id, proto);
@@ -705,29 +696,6 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 	case bpf_htons(ETH_P_IP):
 #ifdef ENABLE_IPV4
-# ifdef ENABLE_HIGH_SCALE_IPCACHE
-#  if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-		if (ctx_load_meta(ctx, CB_HSIPC_ADDR_V4)) {
-			struct geneve_dsr_opt4 dsr_opt;
-			struct bpf_tunnel_key key = {};
-
-			set_geneve_dsr_opt4((__be16)ctx_load_meta(ctx, CB_HSIPC_PORT),
-					    ctx_load_meta(ctx, CB_HSIPC_ADDR_V4),
-					    &dsr_opt);
-
-			/* Needed to create the metadata_dst for storing tunnel opts: */
-			if (ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX) < 0) {
-				ret = DROP_WRITE_ERROR;
-				goto out;
-			}
-
-			if (ctx_set_tunnel_opt(ctx, &dsr_opt, sizeof(dsr_opt)) < 0) {
-				ret = DROP_WRITE_ERROR;
-				goto out;
-			}
-		}
-#  endif
-# endif
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY, &ext_err);
 #else
 		ret = DROP_UNKNOWN_L3;

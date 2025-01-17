@@ -8,55 +8,78 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
-	"os"
+	"io"
 	"sort"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/yaml"
 )
 
 //go:embed eventSummary.html
 var eventSummaryHTML string
 
-func writeBytes(p string, b []byte) error {
-	return os.WriteFile(p, b, fileMode)
-}
-
-func writeString(p, v string) error {
-	return writeBytes(p, []byte(v))
-}
-
-func writeTable(p string, o *metav1.Table) error {
-	var b bytes.Buffer
-	if err := printers.NewTablePrinter(printers.PrintOptions{
+func writeTable(obj *metav1.Table, out io.Writer) error {
+	return printers.NewTablePrinter(printers.PrintOptions{
 		Wide:          true,
 		WithNamespace: true,
-	}).PrintObj(o, &b); err != nil {
-		return err
-	}
-	return writeString(p, b.String())
+	}).PrintObj(obj, out)
 }
 
-func writeYaml(p string, o runtime.Object) error {
-	var j printers.YAMLPrinter
-	w, err := printers.NewTypeSetter(scheme.Scheme).WrapToPrinter(&j, nil)
-	if err != nil {
-		return err
+func writeYAML(obj runtime.Object, out io.Writer) error {
+	delegate := printers.ResourcePrinter(&printers.YAMLPrinter{})
+	if meta.IsListType(obj) && meta.LenList(obj) > 0 {
+		// Print lists one item at a time, to reduce the amount of memory used by the printer.
+		delegate = printers.ResourcePrinterFunc(func(obj runtime.Object, out io.Writer) error {
+			_, err := fmt.Fprintf(out, "apiVersion: %s\nitems:\n", obj.GetObjectKind().GroupVersionKind().GroupVersion())
+			if err != nil {
+				return err
+			}
+
+			if err := meta.EachListItem(obj, func(item runtime.Object) error {
+				data, err := yaml.Marshal(item)
+				if err != nil {
+					return err
+				}
+
+				_, err = indentAsListItem(data, out)
+				return err
+			}); err != nil {
+				return err
+			}
+
+			_, err = fmt.Fprintf(out, "kind: %s\n", obj.GetObjectKind().GroupVersionKind().Kind)
+			if err != nil {
+				return err
+			}
+
+			if listMeta, err := meta.ListAccessor(obj); err == nil {
+				if rv := listMeta.GetResourceVersion(); rv != "" {
+					_, err = fmt.Fprintf(out, "metadata:\n  resourceVersion: %q\n", rv)
+				} else {
+					_, err = fmt.Fprint(out, "metadata: {}\n", rv)
+				}
+
+				return err
+			}
+
+			return nil
+		})
 	}
-	var b bytes.Buffer
-	if err := w.PrintObj(o, &b); err != nil {
-		return err
-	}
-	return writeString(p, b.String())
+
+	// WrapToPrinter never returns an error, since we don't provide one.
+	printer, _ := printers.NewTypeSetter(scheme.Scheme).WrapToPrinter(delegate, nil)
+	return printer.PrintObj(obj, out)
 }
 
 // writeEventTable writes a html summary of cluster events.
-func makeEventTable(events []corev1.Event) []byte {
+func writeEventTable(events []corev1.Event, out io.Writer) error {
 	// sort events by time
 	sort.Slice(events, func(i, j int) bool {
 		return events[i].LastTimestamp.Time.Before(events[j].LastTimestamp.Time)
@@ -94,9 +117,33 @@ func makeEventTable(events []corev1.Event) []byte {
 		},
 	}).Parse(eventSummaryHTML))
 
-	out := bytes.NewBuffer([]byte{})
-	if err := t.Execute(out, events); err != nil {
-		panic(err) // unreachable
+	return t.Execute(out, events)
+}
+
+func indentAsListItem(in []byte, out io.Writer) (cnt int, err error) {
+	handle := func(n int, err error) error {
+		cnt += n
+		return err
 	}
-	return out.Bytes()
+
+	indent := []byte("- ")
+	for len(in) > 0 {
+		to := bytes.IndexAny(in, "\n")
+		if to == -1 {
+			to = len(in)
+		} else {
+			to++
+		}
+
+		if err = handle(out.Write(indent)); err != nil {
+			return cnt, err
+		}
+		if err = handle(out.Write(in[:to])); err != nil {
+			return cnt, err
+		}
+
+		in, indent = in[to:], []byte("  ")
+	}
+
+	return cnt, nil
 }

@@ -141,6 +141,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		if srccfg.Capabilities.Cached {
 			suffix = rc.name
 		}
+		suffix = path.Join(suffix, "id")
 
 		rc.identities.watcher.Watch(ctx, backend, path.Join(adapter(identityCache.IdentitiesPath), suffix))
 	})
@@ -312,10 +313,12 @@ func (o *syncer) OnSync(ctx context.Context) {
 	}
 }
 
-func newReflector(local kvstore.BackendOperations, cluster, prefix string, factory store.Factory, synced *resources) reflector {
+func newReflector(local kvstore.BackendOperations, cluster, prefix, suffix string, factory store.Factory, synced *resources) reflector {
 	prefix = kvstore.StateToCachePrefix(prefix)
+	syncStorePrefix := path.Join(prefix, cluster, suffix)
+
 	syncer := syncer{
-		SyncStore: factory.NewSyncStore(cluster, local, path.Join(prefix, cluster),
+		SyncStore: factory.NewSyncStore(cluster, local, syncStorePrefix,
 			store.WSSWithSyncedKeyOverride(prefix)),
 		syncedDone: synced.Add(),
 		isSynced:   &atomic.Bool{},

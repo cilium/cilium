@@ -74,6 +74,20 @@ func getClusterName(helmValues map[string]interface{}) string {
 	return clusterName
 }
 
+func trimEKSClusterARN(fullARN string) string {
+	const prefix = "cluster/"
+	idx := strings.LastIndex(fullARN, prefix)
+	if idx == -1 {
+		return fullARN
+	}
+	idx += len(prefix)
+	if idx < len(fullARN) {
+		return fullARN[idx:]
+	}
+
+	return ""
+}
+
 func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map[string]interface{}) error {
 	k.autodetect(ctx)
 
@@ -86,8 +100,13 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 
 	if k.params.ClusterName == "" {
 		if k.flavor.ClusterName != "" {
-			// Neither underscores nor dots are allowed as part of the cluster name.
-			name := strings.NewReplacer("_", "-", ".", "-").Replace(k.flavor.ClusterName)
+			// Neither underscores, dots nor colons are allowed as part of the cluster name.
+			name := strings.NewReplacer("_", "-", ".", "-", ":", "-").Replace(k.flavor.ClusterName)
+
+			if k.flavor.Kind == k8s.KindEKS {
+				name = trimEKSClusterARN(name)
+			}
+
 			k.Log("🔮 Auto-detected cluster name: %s", name)
 			k.params.ClusterName = name
 		}

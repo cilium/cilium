@@ -353,6 +353,11 @@ var (
 	// time taken to fully deploy an endpoint.
 	PolicyImplementationDelay = NoOpObserverVec
 
+	// PolicyIncrementalUpdateDuration is the time it takes to apply an incremental update
+	// to the policy engine. An incremental update is a newly-learned identity that can be
+	// directly added to policy maps without a full policy recalculation.
+	PolicyIncrementalUpdateDuration = NoOpObserverVec
+
 	// CIDRGroup
 
 	// CIDRGroupsReferenced is the number of CNPs and CCNPs referencing at least one CiliumCIDRGroup.
@@ -669,6 +674,7 @@ type LegacyMetrics struct {
 	PolicyChangeTotal                metric.Vec[metric.Counter]
 	PolicyEndpointStatus             metric.Vec[metric.Gauge]
 	PolicyImplementationDelay        metric.Vec[metric.Observer]
+	PolicyIncrementalUpdateDuration  metric.Vec[metric.Observer]
 	CIDRGroupsReferenced             metric.Gauge
 	Identity                         metric.Vec[metric.Gauge]
 	IdentityLabelSources             metric.Vec[metric.Gauge]
@@ -841,6 +847,15 @@ func NewLegacyMetrics() *LegacyMetrics {
 				Values: metric.NewValues(string(source.Kubernetes), string(source.CustomResource), string(source.LocalAPI)),
 			},
 		}),
+
+		PolicyIncrementalUpdateDuration: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: Namespace + "_policy_incremental_update_duration",
+
+			Namespace: Namespace,
+			Name:      "policy_incremental_update_duration",
+			Help:      "Time between learning about a new identity and it being fully added to all policies.",
+			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
+		}, []string{"scope"}),
 
 		CIDRGroupsReferenced: metric.NewGauge(metric.GaugeOpts{
 			ConfigName: Namespace + "cidrgroups_referenced",
@@ -1381,6 +1396,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	PolicyChangeTotal = lm.PolicyChangeTotal
 	PolicyEndpointStatus = lm.PolicyEndpointStatus
 	PolicyImplementationDelay = lm.PolicyImplementationDelay
+	PolicyIncrementalUpdateDuration = lm.PolicyIncrementalUpdateDuration
 	CIDRGroupsReferenced = lm.CIDRGroupsReferenced
 	Identity = lm.Identity
 	IdentityLabelSources = lm.IdentityLabelSources

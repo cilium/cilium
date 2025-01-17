@@ -21,10 +21,8 @@ var reloadInterval = 5 * time.Second
 // DynamicExporter is a wrapper of the hubble exporter that supports dynamic configuration reload
 // for a set of exporters.
 type DynamicExporter struct {
-	logger        logrus.FieldLogger
-	watcher       *configWatcher
-	maxFileSizeMB int
-	maxBackups    int
+	logger  logrus.FieldLogger
+	watcher *configWatcher
 
 	// mutex protects from concurrent modification of managedExporters by config
 	// reloader when hubble events are processed
@@ -37,12 +35,10 @@ type DynamicExporter struct {
 // The actual config watching must be started by invoking watch().
 //
 // NOTE: Stopped instances cannot be restarted and should be re-created.
-func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string, maxFileSizeMB, maxBackups int) *DynamicExporter {
+func NewDynamicExporter(logger logrus.FieldLogger, configFilePath string) *DynamicExporter {
 	dynamicExporter := &DynamicExporter{
 		logger:           logger,
 		managedExporters: make(map[string]*managedExporter),
-		maxFileSizeMB:    maxFileSizeMB,
-		maxBackups:       maxBackups,
 	}
 
 	registerMetrics(dynamicExporter)
@@ -132,13 +128,21 @@ func (d *DynamicExporter) newExporter(flowlog *FlowLogConfig) (*exporter, error)
 		WithFieldMask(flowlog.FieldMask),
 	}
 	if flowlog.FilePath != "stdout" {
+		fileMaxSizeMB := flowlog.FileMaxSizeMB
+		if fileMaxSizeMB == 0 {
+			fileMaxSizeMB = DefaultFileMaxSizeMB
+		}
+		fileMaxBackups := flowlog.FileMaxBackups
+		if fileMaxBackups == 0 {
+			fileMaxBackups = DefaultFileMaxBackups
+		}
 		exporterOpts = append(exporterOpts, WithNewWriterFunc(FileWriter(FileWriterConfig{
 			Filename:   flowlog.FilePath,
-			MaxSize:    d.maxFileSizeMB,
-			MaxBackups: d.maxBackups,
+			MaxSize:    fileMaxSizeMB,
+			MaxBackups: fileMaxBackups,
+			Compress:   flowlog.FileCompress,
 		})))
 	}
-
 	return NewExporter(d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
 }
 
