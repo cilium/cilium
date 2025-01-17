@@ -299,8 +299,8 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
         with:
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+          image-repo: "quay.io/cilium/cilium-cli-ci"
+          ci-version: "a6cc4dee4fdf6068ab9421d5e767dba52f6f2fb9"
           binary-name: cilium-cli
           binary-dir: ./
 
