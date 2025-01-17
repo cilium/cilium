@@ -119,6 +119,38 @@ func Diff[S ~[]T, T comparable](a, b S) []T {
 	return diff
 }
 
+// Intersect returns a slice of elements which is the intersection of a and b.
+// The returned slice keeps the elements in the same order found in the "a" slice.
+// Both input slices are considered as sets, that is, all elements are considered as
+// unique when computing the difference.
+func Intersect[S ~[]T, T comparable](a, b S) []T {
+	if len(a) == 0 || len(b) == 0 {
+		return nil
+	}
+
+	var intersect []T
+
+	setB := make(map[T]struct{}, len(b))
+	for _, v := range b {
+		setB[v] = struct{}{}
+	}
+
+	setA := make(map[T]struct{}, len(a))
+	for _, v := range a {
+		// v is not in b
+		if _, ok := setB[v]; !ok {
+			continue
+		}
+		// v has been already added to diff
+		if _, ok := setA[v]; ok {
+			continue
+		}
+		intersect = append(intersect, v)
+		setA[v] = struct{}{}
+	}
+	return intersect
+}
+
 // SubsetOf returns a boolean that indicates if slice a is a subset of slice b.
 // In case it is not, the returned slice contains all the unique elements that are in a but not in b.
 func SubsetOf[S ~[]T, T comparable](a, b S) (bool, []T) {
