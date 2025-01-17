@@ -1074,12 +1074,18 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			newPrefixCluster6 = cmtypes.PrefixClusterFromCIDR(newNode.IPv6AllocCIDR, n.prefixClusterMutatorFn(newNode)...)
 		}
 
+		oldIP := oldIP4
+		newIP := newIP4
+		if oldIP == nil && newIP == nil {
+			oldIP = oldIP6
+			newIP = newIP6
+		}
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
 		// map is created and the old entry is removed.
-		errs = errors.Join(errs, updateTunnelMapping(n.log, oldPrefixCluster4, newPrefixCluster4, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey))
+		errs = errors.Join(errs, updateTunnelMapping(n.log, oldPrefixCluster4, newPrefixCluster4, oldIP, newIP, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey))
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		errs = errors.Join(errs, updateTunnelMapping(n.log, oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey))
+		errs = errors.Join(errs, updateTunnelMapping(n.log, oldPrefixCluster6, newPrefixCluster6, oldIP, newIP, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey))
 
 		if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv4: %w", err))

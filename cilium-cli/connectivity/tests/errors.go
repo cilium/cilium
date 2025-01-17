@@ -62,7 +62,8 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string) check.Sc
 		hubbleQueueFull, reflectPanic, svcNotFound, unableTranslateCIDRgroups, gobgpWarnings,
 		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
-		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI}
+		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
+		ipcacheValueSizeMismatch}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -314,6 +315,8 @@ const (
 	unableReallocateIngressIP stringMatcher = "unable to re-allocate ingress IPv6"                                    // cf. https://github.com/cilium/cilium/issues/36072
 	fqdnMaxIPPerHostname      stringMatcher = "Raise tofqdns-endpoint-max-ip-per-hostname to mitigate this"           // cf. https://github.com/cilium/cilium/issues/36073
 	failedGetMetricsAPI       stringMatcher = "retrieve the complete list of server APIs: metrics.k8s.io/v1beta1"     // cf. https://github.com/cilium/cilium/issues/36085
+	// Can be removed in v1.19.
+	ipcacheValueSizeMismatch stringMatcher = "cilium_ipcache: got 24, wanted 12" // cf. https://github.com/cilium/cilium/pull/36359
 
 	// Logs messages that should not be in the cilium-envoy DS logs
 	envoyErrorMessage    = "[error]"

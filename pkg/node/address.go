@@ -295,9 +295,15 @@ func AutoComplete(directRoutingDevice string) error {
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required
 func ValidatePostInit() error {
-	if option.Config.EnableIPv4 || option.Config.TunnelingEnabled() {
+	if option.Config.EnableIPv4 {
 		if GetIPv4() == nil {
 			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
+		}
+	}
+
+	if option.Config.TunnelingEnabled() {
+		if GetIPv4() == nil && GetIPv6() == nil {
+			return fmt.Errorf("external node address could not be derived, please configure via --ipv4-node or --ipv6-node")
 		}
 	}
 

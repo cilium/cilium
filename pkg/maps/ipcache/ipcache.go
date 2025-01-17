@@ -127,14 +127,21 @@ type RemoteEndpointInfoFlags uint8
 // The output format is the string name of each flag contained in the flag set,
 // separated by a comma. If no flags are set, then "<none>" is returned.
 func (f RemoteEndpointInfoFlags) String() string {
-	// If more flags are added in the future, then this method will need
-	// a re-work to support multiple flags.
-	// Right now, it only supports checking for FlagSkipTunnel.
-	if f&FlagSkipTunnel == FlagSkipTunnel {
-		return "skiptunnel"
+	flags := ""
+	if f&FlagSkipTunnel != 0 {
+		flags += "skiptunnel,"
+	}
+	if f&FlagHasTunnelEndpoint != 0 {
+		flags += "hastunnel,"
+	}
+	if f&FlagIPv6TunnelEndpoint != 0 {
+		flags += "ipv6tunnel,"
 	}
 
-	return "<none>"
+	if flags == "" {
+		return "<none>"
+	}
+	return flags
 }
 
 const (
@@ -142,16 +149,23 @@ const (
 	// packets destined for said endpoint shall not be forwarded through
 	// a VXLAN/Geneve tunnel, regardless of Cilium's configuration.
 	FlagSkipTunnel RemoteEndpointInfoFlags = 1 << iota
+	// FlagHasTunnelEndpoint is set when the tunnel endpoint is not null. It
+	// aims to simplify the logic compared to checking the IPv6 address.
+	FlagHasTunnelEndpoint
+	// FlagIPv6TunnelEndpoint is set when the tunnel endpoint IP address
+	// is an IPv6 address.
+	FlagIPv6TunnelEndpoint
 )
 
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint32     `align:"sec_identity"`
-	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
-	_                uint16
-	Key              uint8                   `align:"key"`
-	Flags            RemoteEndpointInfoFlags `align:"flag_skip_tunnel"`
+	SecurityIdentity uint32 `align:"sec_identity"`
+	// represents both IPv6 and IPv4 (in the lowest four bytes)
+	TunnelEndpoint types.IPv6 `align:"tunnel_endpoint"`
+	_              uint16
+	Key            uint8                   `align:"key"`
+	Flags          RemoteEndpointInfoFlags `align:"flag_skip_tunnel"`
 }
 
 func (v *RemoteEndpointInfo) String() string {
@@ -160,6 +174,28 @@ func (v *RemoteEndpointInfo) String() string {
 }
 
 func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }
+
+// NewValue returns a RemoteEndpointInfo based on the provided security
+// identity, tunnel endpoint IP, IPsec key, and flags. The address family is
+// automatically detected.
+func NewValue(secID uint32, tunnelEndpoint net.IP, key uint8, flags RemoteEndpointInfoFlags) RemoteEndpointInfo {
+	result := RemoteEndpointInfo{}
+
+	result.SecurityIdentity = secID
+	if ip4 := tunnelEndpoint.To4(); ip4 != nil {
+		copy(result.TunnelEndpoint[:], ip4)
+	} else {
+		copy(result.TunnelEndpoint[:], tunnelEndpoint)
+		result.Flags |= FlagIPv6TunnelEndpoint
+	}
+	if tunnelEndpoint != nil {
+		result.Flags |= FlagHasTunnelEndpoint
+	}
+	result.Key = key
+	result.Flags |= flags
+
+	return result
+}
 
 // Map represents an IPCache BPF map.
 type Map struct {

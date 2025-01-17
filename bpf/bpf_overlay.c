@@ -500,6 +500,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
+	struct remote_endpoint_info fake_info = {0};
 	union macaddr mac = THIS_INTERFACE_MAC;
 	union macaddr smac;
 	struct trace_ctx trace = {
@@ -530,7 +531,9 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (unlikely(ret != 0))
 		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	if (info->tunnel_endpoint) {
-		ret = __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
+		fake_info.tunnel_endpoint.ip4 = info->tunnel_endpoint;
+		fake_info.flag_has_tunnel_ep = true;
+		ret = __encap_and_redirect_with_nodeid(ctx, &fake_info,
 						       LOCAL_NODE_ID, WORLD_IPV4_ID,
 						       WORLD_IPV4_ID, &trace);
 		if (IS_ERR(ret))
@@ -639,9 +642,13 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 			struct bpf_tunnel_key key = {};
 			__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 
-			if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0)) {
-				ret = DROP_NO_TUNNEL_KEY;
-				goto out;
+			ret = ctx_get_tunnel_key(ctx, &key, key_size, 0);
+			if (ret < 0) {
+				ret = ctx_get_tunnel_key(ctx, &key, key_size, BPF_F_TUNINFO_IPV6);
+				if (unlikely(ret < 0)) {
+					ret = DROP_NO_TUNNEL_KEY;
+					goto out;
+				}
 			}
 			cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
