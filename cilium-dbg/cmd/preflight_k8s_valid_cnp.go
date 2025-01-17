@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -45,11 +44,7 @@ has an exit code 1 is returned.`,
 	hive.RegisterFlags(cmd.Flags())
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
-		// The internal packages log things. Make sure they follow the setup of of
-		// the CLI tool.
-		logging.DefaultLogger.SetFormatter(log.Formatter)
-
-		if err := hive.Run(slog.Default()); err != nil {
+		if err := hive.Run(logging.DefaultSlogLogger); err != nil {
 			log.Fatal(err)
 		}
 	}
