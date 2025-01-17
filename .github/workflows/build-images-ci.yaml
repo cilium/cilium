@@ -124,6 +124,8 @@ jobs:
               floating_tag=latest
             else
               floating_tag="${{ github.ref_name }}"
+              # Remove slashes from branch names
+              floating_tag=${floating_tag##*/}
             fi
             echo floating_tag=${floating_tag} >> $GITHUB_OUTPUT
           fi
