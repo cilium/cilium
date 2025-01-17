@@ -218,6 +218,8 @@ func miscSystemCommands() []string {
 		// tc
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
+		// nft
+		"nft -n list ruleset", // dump all nft rules
 	}
 }
 
