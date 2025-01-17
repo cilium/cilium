@@ -259,6 +259,16 @@ jobs:
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
           spot: false
+          default_addons: true
+
+      - name: Create EKS nodegroups
+        uses: ./.github/actions/setup-eks-nodegroup
+        with:
+          cluster_name: ${{ env.clusterName }}
+          region: ${{ matrix.region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: ${{ matrix.version }}
+          spot: false
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
