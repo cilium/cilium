@@ -41,9 +41,12 @@ var Cell = cell.Module(
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
 
+	//
 	// Health server runs an HTTP server for each service on port [HealthCheckNodePort]
 	// (when non-zero) and responds with the number of healthy backends.
 	healthServerCell,
+
+	cell.Invoke(registerNodePortAddressReconciler),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
