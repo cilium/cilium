@@ -93,8 +93,7 @@ Install Cilium
 
           helm install cilium |CHART_RELEASE| \\
             --namespace kube-system \\
-            --set aksbyocni.enabled=true \\
-            --set nodeinit.enabled=true
+            --set aksbyocni.enabled=true
 
        .. note::
 
