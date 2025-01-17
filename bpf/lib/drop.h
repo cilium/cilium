@@ -19,6 +19,7 @@
 #include "utils.h"
 #include "metrics.h"
 #include "ratelimit.h"
+#include "trace_helpers.h"
 
 #ifdef DROP_NOTIFY
 struct drop_notify {
