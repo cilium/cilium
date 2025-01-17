@@ -13,14 +13,6 @@
 #endif /* __ctx_is == __ctx_skb */
 
 #ifdef HAVE_ENCAP
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct tunnel_key);
-	__type(value, struct tunnel_value);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-} TUNNEL_MAP __section_maps_btf;
 
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
@@ -123,26 +115,32 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 		       __u32 seclabel, __u32 dstid,
 		       const struct trace_ctx *trace)
 {
-	struct tunnel_value *tunnel __maybe_unused;
+	struct remote_endpoint_info *ep __maybe_unused;
 
 	if (tunnel_endpoint)
 		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
 						encrypt_key, seclabel, dstid,
 						trace);
 
-	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
-	if (!tunnel)
+	if (key->family == ENDPOINT_KEY_IPV4) {
+		ep = lookup_ip4_remote_endpoint(key->ip4, key->cluster_id);
+	} else {
+		ep = lookup_ip6_remote_endpoint(&key->ip6, key->cluster_id);
+	}
+	if (!ep || !ep->tunnel_endpoint)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-# ifdef ENABLE_IPSEC
-	if (tunnel->key) {
-		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
+	return DROP_NO_TUNNEL_ENDPOINT;
 
-		return set_ipsec_encrypt(ctx, min_encrypt_key, tunnel->ip4,
+# ifdef ENABLE_IPSEC
+	if (ep->key) {
+		__u8 min_encrypt_key = get_min_encrypt_key(ep->key);
+
+		return set_ipsec_encrypt(ctx, min_encrypt_key, ep->tunnel_endpoint,
 					 seclabel, false, false);
 	}
 # endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
+	return __encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, seclabel,
 						dstid, NOT_VTEP_DST, trace);
 }
 
@@ -151,13 +149,17 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 			  __u8 encrypt_key, __u32 seclabel,
 			  const struct trace_ctx *trace)
 {
-	struct tunnel_value *tunnel;
+	struct remote_endpoint_info *ep;
 
-	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
-	if (!tunnel)
-		return DROP_NO_TUNNEL_ENDPOINT;
+	if (k->family == ENDPOINT_KEY_IPV4) {
+			ep = lookup_ip4_remote_endpoint(k->ip4, k->cluster_id);
+	} else {
+			ep = lookup_ip6_remote_endpoint(&k->ip6, k->cluster_id);
+	}
+	if (!ep || !ep->tunnel_endpoint)
+			return DROP_NO_TUNNEL_ENDPOINT;
 
-	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, encrypt_key,
+	return encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint, encrypt_key,
 					      seclabel, 0, trace);
 }
 #endif /* TUNNEL_MODE */

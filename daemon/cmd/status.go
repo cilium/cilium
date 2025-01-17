@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
-	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/status"
@@ -466,10 +465,6 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			{
 				Name: "Sock reverse NAT",
 				Size: int64(option.Config.SockRevNatEntries),
-			},
-			{
-				Name: "Tunnel",
-				Size: int64(tunnelmap.MaxEntries),
 			},
 		},
 	}

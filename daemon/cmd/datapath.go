@@ -5,9 +5,7 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"strings"
 
@@ -34,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
@@ -156,19 +153,6 @@ func (d *Daemon) initMaps() error {
 
 	if err := ratelimitmap.InitMaps(); err != nil {
 		return fmt.Errorf("initializing ratelimit maps: %w", err)
-	}
-
-	if option.Config.TunnelingEnabled() {
-		if err := tunnel.TunnelMap().Recreate(); err != nil {
-			return fmt.Errorf("initializing tunnel map: %w", err)
-		}
-	} else {
-		// Make sure that the tunnel map gets unpinned when running in native
-		// routing mode, to prevent stale leftover entries when changing mode.
-		err := tunnel.TunnelMap().Unpin()
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("removing tunnel map: %w", err)
-		}
 	}
 
 	if option.Config.EnableVTEP {

@@ -595,7 +595,6 @@ var (
 		// cilium_ipcache is the likely the most useful use of this feature, but also has
 		// the highest churn.
 		"cilium_ipcache":           "enabled,1024,0",
-		"cilium_tunnel_map":        "enabled,128,0",
 		"cilium_lb_affinity_match": "enabled,128,0",
 
 		// ip4

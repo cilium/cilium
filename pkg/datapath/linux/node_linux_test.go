@@ -25,7 +25,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -34,7 +33,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
@@ -149,10 +147,6 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 		RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
 	}
 
-	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
-	err = tunnel.TunnelMap().OpenOrCreate()
-	require.NoError(tb, err)
-
 	return s
 }
 
@@ -206,8 +200,6 @@ func tearDownTest(tb testing.TB) {
 	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
-	err := tunnel.TunnelMap().Unpin()
-	require.NoError(tb, err)
 }
 
 func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
@@ -471,20 +463,12 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	require.NoError(t, err)
 
 	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
 		require.NotNil(t, foundRoute)
 	}
 
 	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
 		require.NotNil(t, foundRoute)
@@ -511,20 +495,12 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 
 	// alloc range v1 should map to underlay2
 	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP2))
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
 		require.NotNil(t, foundRoute)
 	}
 
 	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP2))
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
 		require.NotNil(t, foundRoute)
@@ -549,19 +525,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	err = linuxNodeHandler.NodeUpdate(nodev2, nodev3)
 	require.NoError(t, err)
 
-	// alloc range v1 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
 	if s.enableIPv4 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		// node routes for alloc1 ranges should be gone
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
@@ -574,11 +538,6 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	}
 
 	if s.enableIPv6 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		// node routes for alloc1 ranges should be gone
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
@@ -600,13 +559,6 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	}
 	err = linuxNodeHandler.NodeUpdate(nodev3, nodev4)
 	require.NoError(t, err)
-
-	// alloc range v2 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-	require.Error(t, err)
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
@@ -642,11 +594,6 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	require.NoError(t, err)
 
 	if s.enableIPv4 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		// node routes for alloc2 ranges should have been installed
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
 		require.NoError(t, err)
@@ -654,11 +601,6 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	}
 
 	if s.enableIPv6 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-		require.NoError(t, err)
-		require.True(t, underlayIP.Equal(externalNodeIP1))
-
 		// node routes for alloc2 ranges should have been installed
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
 		require.NoError(t, err)
@@ -668,20 +610,6 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	// delete nodev5
 	err = linuxNodeHandler.NodeDelete(nodev5)
 	require.NoError(t, err)
-
-	// alloc range v1 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
-	// alloc range v2 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
-	require.Error(t, err)
-
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
-	require.Error(t, err)
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
@@ -1250,16 +1178,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	require.NoError(t, err)
 
-	// tunnel map entries must exist
-	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-	}
-	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-	}
-
 	// Simulate agent restart with address families disables
 	nodeConfig.EnableIPv4 = false
 	nodeConfig.EnableIPv6 = false
@@ -1270,12 +1188,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	require.NoError(t, err)
 
-	// tunnel map entries should have been removed
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-	require.Error(t, err)
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-	require.Error(t, err)
-
 	// Simulate agent restart with address families enabled again
 	nodeConfig.EnableIPv4 = true
 	nodeConfig.EnableIPv6 = true
@@ -1285,16 +1197,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.
 	// Simulate initial node addition
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	require.NoError(t, err)
-
-	// tunnel map entries must exist
-	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
-		require.NoError(t, err)
-	}
-	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
-		require.NoError(t, err)
-	}
 
 	err = linuxNodeHandler.NodeDelete(nodev1)
 	require.NoError(t, err)

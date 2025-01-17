@@ -101,6 +101,8 @@ var (
 	// LabelRemoteNode is the label used for remote nodes.
 	LabelRemoteNode = Labels{IDNameRemoteNode: NewLabel(IDNameRemoteNode, "", LabelSourceReserved)}
 
+	LabelAllocCIDR = Labels{IDNameCluster: NewLabel(IDNameCluster, "", LabelSourceReserved)}
+
 	// LabelKubeAPIServer is the label used for the kube-apiserver. See comment
 	// on IDNameKubeAPIServer.
 	LabelKubeAPIServer = Labels{IDNameKubeAPIServer: NewLabel(IDNameKubeAPIServer, "", LabelSourceReserved)}
