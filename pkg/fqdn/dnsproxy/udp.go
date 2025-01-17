@@ -73,7 +73,7 @@ type sessionUDP struct {
 	oob   []byte
 }
 
-// Set the socket options needed for tranparent proxying for the listening socket
+// Set the socket options needed for transparent proxying for the listening socket
 // IP(V6)_TRANSPARENT allows socket to receive packets with any destination address/port
 // IP(V6)_RECVORIGDSTADDR tells the kernel to pass the original destination address/port on recvmsg
 // By design, a socket of a DNS Server can only receive IPv4 or IPv6 traffic.

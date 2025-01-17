@@ -83,7 +83,7 @@ const (
 	AllowLocalhostPolicy = "policy"
 
 	// AnnotateK8sNode enables annotating a kubernetes node while bootstrapping
-	// the daemon, which can also be disbled using this option.
+	// the daemon, which can also be disabled using this option.
 	AnnotateK8sNode = "annotate-k8s-node"
 
 	// ARPPingRefreshPeriod is the ARP entries refresher period

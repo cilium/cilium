@@ -196,12 +196,12 @@ func (p *Proxy) createNewRedirect(
 	// regeneration will also be reverted. Revert can happen for other reasons as well (such as
 	// bpf datapath compilation failure), and we do not want to churn proxy ports in that case.
 	// Not called for DNS redirects.
-	// This callbck is called before the finalize or revert function is called.
+	// This callback is called before the finalize or revert function is called.
 	proxyCallback := func(err error) {
 		if err == nil {
 			// Enable datapath redirection for the proxy port if proxy creation
 			// was successful, even if the overall (endpoint) regeneration
-			// fails. This way there is less churm on the procy port allocation
+			// fails. This way there is less churn on the proxy port allocation
 			// and datapath. Endpoint policy will no redirect to the new proxy
 			// implementation if regeneration fails.
 			err = p.proxyPorts.AckProxyPort(ctx, ppName, pp)
