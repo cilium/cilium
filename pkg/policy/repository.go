@@ -4,12 +4,10 @@
 package policy
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
-	"slices"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -251,135 +249,6 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 			ctx.PolicyTrace("Found no deny rule\n")
 		}
 	}
-}
-
-// ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints
-// by searching the policy repository for `PortRule` rules that are attached to
-// a `Rule` where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
-// is ignored in the search.  If multiple `PortRule` rules are found, all rules
-// are merged together. If rules contains overlapping port definitions, the first
-// rule found in the repository takes precedence.
-//
-// TODO: Coalesce l7 rules?
-//
-// Caller must release resources by calling Detach() on the returned map!
-//
-// NOTE: This is only called from unit tests, but from multiple packages.
-func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
-	policyCtx := policyContext{
-		repo: p,
-		ns:   ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
-	}
-	rules := make(ruleSlice, 0, len(p.rules))
-	for _, rule := range p.rules {
-		rules = append(rules, rule)
-	}
-	// Sort for unit tests
-	slices.SortFunc[ruleSlice](rules, func(a, b *rule) int {
-		return cmp.Compare(a.key.idx, b.key.idx)
-	})
-	result, err := rules.resolveL4IngressPolicy(&policyCtx, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-// ResolveL4EgressPolicy resolves the L4 egress policy for a set of endpoints
-// by searching the policy repository for `PortRule` rules that are attached to
-// a `Rule` where the EndpointSelector matches `ctx.From`. `ctx.To` takes no effect and
-// is ignored in the search.  If multiple `PortRule` rules are found, all rules
-// are merged together. If rules contains overlapping port definitions, the first
-// rule found in the repository takes precedence.
-//
-// Caller must release resources by calling Detach() on the returned map!
-//
-// NOTE: This is only called from unit tests, but from multiple packages.
-func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
-	policyCtx := policyContext{
-		repo: p,
-		ns:   ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
-	}
-	rules := make(ruleSlice, 0, len(p.rules))
-	for _, rule := range p.rules {
-		rules = append(rules, rule)
-	}
-	slices.SortFunc[ruleSlice](rules, func(a, b *rule) int {
-		return cmp.Compare(a.key.idx, b.key.idx)
-	})
-	result, err := rules.resolveL4EgressPolicy(&policyCtx, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-// AllowsIngressRLocked evaluates the policy repository for the provided search
-// context and returns the verdict for ingress. If no matching policy allows for
-// the  connection, the request will be denied. The policy repository mutex must
-// be held.
-//
-// NOTE: This is only called from unit tests, but from multiple packages.
-func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
-	// Lack of DPorts in the SearchContext means L3-only search
-	if len(ctx.DPorts) == 0 {
-		newCtx := *ctx
-		newCtx.DPorts = []*models.Port{{
-			Port:     0,
-			Protocol: models.PortProtocolANY,
-		}}
-		ctx = &newCtx
-	}
-
-	ctx.PolicyTrace("Tracing %s", ctx.String())
-	ingressPolicy, err := p.ResolveL4IngressPolicy(ctx)
-	if err != nil {
-		log.WithError(err).Warn("Evaluation error while resolving L4 ingress policy")
-	}
-
-	verdict := api.Denied
-	if err == nil && ingressPolicy.Len() > 0 {
-		verdict = ingressPolicy.IngressCoversContext(ctx)
-	}
-
-	ctx.PolicyTrace("Ingress verdict: %s", verdict.String())
-	ingressPolicy.Detach(p.GetSelectorCache())
-
-	return verdict
-}
-
-// AllowsEgressRLocked evaluates the policy repository for the provided search
-// context and returns the verdict. If no matching policy allows for the
-// connection, the request will be denied. The policy repository mutex must be
-// held.
-//
-// NOTE: This is only called from unit tests, but from multiple packages.
-func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
-	// Lack of DPorts in the SearchContext means L3-only search
-	if len(ctx.DPorts) == 0 {
-		newCtx := *ctx
-		newCtx.DPorts = []*models.Port{{
-			Port:     0,
-			Protocol: models.PortProtocolANY,
-		}}
-		ctx = &newCtx
-	}
-
-	ctx.PolicyTrace("Tracing %s\n", ctx.String())
-	egressPolicy, err := p.ResolveL4EgressPolicy(ctx)
-	if err != nil {
-		log.WithError(err).Warn("Evaluation error while resolving L4 egress policy")
-	}
-	verdict := api.Denied
-	if err == nil && egressPolicy.Len() > 0 {
-		verdict = egressPolicy.EgressCoversContext(ctx)
-	}
-
-	ctx.PolicyTrace("Egress verdict: %s", verdict.String())
-	egressPolicy.Detach(p.GetSelectorCache())
-	return verdict
 }
 
 func (p *Repository) Search(lbls labels.LabelArray) (api.Rules, uint64) {
