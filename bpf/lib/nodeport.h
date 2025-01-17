@@ -782,7 +782,7 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 }
 
 #ifdef ENABLE_NAT_46X64_GATEWAY
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC8215)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC6052)
 int tail_nat_ipv46(struct __ctx_buff *ctx)
 {
 	int ret, oif = 0, l3_off = ETH_HLEN;
@@ -795,7 +795,7 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	if (nat46_rfc8215(ctx, ip4, l3_off)) {
+	if (nat46_rfc6052(ctx, ip4, l3_off)) {
 		ret = DROP_NAT46;
 		goto drop_err;
 	}
@@ -813,7 +813,7 @@ drop_err:
 					  CTX_ACT_DROP, METRIC_EGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC8215)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC6052)
 int tail_nat_ipv64(struct __ctx_buff *ctx)
 {
 	int ret, oif = 0, l3_off = ETH_HLEN;
@@ -826,7 +826,7 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	if (nat64_rfc8215(ctx, ip6)) {
+	if (nat64_rfc6052(ctx, ip6)) {
 		ret = DROP_NAT64;
 		goto drop_err;
 	}
@@ -1386,12 +1386,12 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	} else {
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
-		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
+		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
 			ret = neigh_record_ip6(ctx);
 			if (ret < 0)
 				return ret;
-			if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->saddr))
-				return tail_call_internal(ctx, CILIUM_CALL_IPV64_RFC8215,
+			if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->saddr))
+				return tail_call_internal(ctx, CILIUM_CALL_IPV64_RFC6052,
 							  ext_err);
 			ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_XLATE);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
@@ -2712,7 +2712,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (ip4->daddr != IPV4_DIRECT_ROUTING)
-			return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC8215, ext_err);
+			return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC6052, ext_err);
 #endif
 		/* The packet is not destined to a service but it can be a reply
 		 * packet from a remote backend, in which case we need to perform
@@ -2763,8 +2763,8 @@ skip_service_lookup:
 						  ext_err);
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		} else if (is_svc_proto &&
-			   snat_v6_has_v4_match_rfc8215(&tuple)) {
-			ret = snat_remap_rfc8215(ctx, ip4, l3_off);
+			   snat_v6_has_v4_match_rfc6052(&tuple)) {
+			ret = snat_remap_rfc6052(ctx, ip4, l3_off);
 			if (ret)
 				return ret;
 			ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_ROUTE);

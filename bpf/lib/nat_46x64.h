@@ -27,7 +27,7 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
-static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6addr *daddr)
+static __always_inline __maybe_unused bool is_v4_in_v6_rfc6052(const union v6addr *daddr)
 {
 	union v6addr dprobe  = {
 		.addr[0] = NAT_46X64_PREFIX_0,
@@ -53,7 +53,7 @@ void build_v4_in_v6(union v6addr *daddr, __be32 v4)
 }
 
 static __always_inline __maybe_unused
-void build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
+void build_v4_in_v6_rfc6052(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
 	daddr->addr[0] = NAT_46X64_PREFIX_0;
@@ -371,20 +371,20 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 }
 
 static __always_inline int
-nat46_rfc8215(struct __ctx_buff *ctx __maybe_unused,
+nat46_rfc6052(struct __ctx_buff *ctx __maybe_unused,
 	      const struct iphdr *ip4 __maybe_unused,
 	      int l3_off __maybe_unused)
 {
 	union v6addr src6, dst6;
 
-	build_v4_in_v6_rfc8215(&src6, ip4->saddr);
-	build_v4_in_v6_rfc8215(&dst6, ip4->daddr);
+	build_v4_in_v6_rfc6052(&src6, ip4->saddr);
+	build_v4_in_v6_rfc6052(&dst6, ip4->daddr);
 
 	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);
 }
 
 static __always_inline int
-nat64_rfc8215(struct __ctx_buff *ctx __maybe_unused,
+nat64_rfc6052(struct __ctx_buff *ctx __maybe_unused,
 	      const struct ipv6hdr *ip6 __maybe_unused)
 {
 	__be32 src4, dst4;
