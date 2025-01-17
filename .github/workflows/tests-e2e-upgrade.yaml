@@ -677,6 +677,7 @@ jobs:
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
           cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --log-code-owners \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -720,6 +721,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --log-code-owners \
             --include-conn-disrupt-test \
             --test "no-interrupted-connections" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
@@ -729,6 +731,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --log-code-owners \
             --test "seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
 
@@ -736,6 +739,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --log-code-owners \
             --test-concurrency=${{ env.test_concurrency }} \
             --test "!seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
@@ -744,6 +748,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --log-code-owners \
             --include-conn-disrupt-test \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
@@ -773,6 +778,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --log-code-owners \
             --include-conn-disrupt-test \
             --test "no-interrupted-connections" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
@@ -783,6 +789,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --log-code-owners \
             --test "seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}
 
@@ -791,6 +798,7 @@ jobs:
         shell: bash
         run: |
           cilium connectivity test \
+            --log-code-owners \
             --test-concurrency=${{ env.test_concurrency }} \
             --test "!seq-.*" \
             ${{ steps.cli-flags.outputs.flags }}

@@ -31,10 +31,14 @@ import (
 // counters, and compares them against the previously stored ones. A mismatch
 // indicates that a connection was interrupted.
 func NoInterruptedConnections() check.Scenario {
-	return &noInterruptedConnections{}
+	return &noInterruptedConnections{
+		ScenarioBase: check.NewScenarioBase(),
+	}
 }
 
-type noInterruptedConnections struct{}
+type noInterruptedConnections struct {
+	check.ScenarioBase
+}
 
 func (n *noInterruptedConnections) Name() string {
 	return "no-interrupted-connections"
