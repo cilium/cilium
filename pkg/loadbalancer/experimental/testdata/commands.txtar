@@ -1,0 +1,70 @@
+# 
+# Tests for the lb/service, lb/frontend and lb/backend commands.
+#
+
+db/insert node-addresses addrv4.yaml
+
+hive start
+
+# Add service with a frontend and backend
+lb/service default/test
+lb/frontend default/test 10.0.0.1:100:TCP
+lb/frontend -type=NodePort default/test 0.0.0.0:101:UDP
+lb/backend default/test 10.0.1.1:200:TCP 10.0.1.2:201:UDP
+
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# Remove the service, and through that frontend and backend
+lb/service -delete default/test
+db/cmp backends backends_empty.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps_empty.expected lbmaps.actual
+
+# -- end of test --
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- services.table --
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+default/test api      NONE        Cluster            Cluster                              0                     false
+
+-- frontends.table --
+Address               Type         ServiceName   PortName   Status  Backends
+0.0.0.0:101/UDP       NodePort     default/test             Done    10.0.1.2:201/UDP (active)
+10.0.0.1:100/TCP      ClusterIP    default/test             Done    10.0.1.1:200/TCP (active)
+
+-- backends.table --
+Address             State    Instances            NodeName           ZoneID
+10.0.1.1:200/TCP    active   default/test                            0
+10.0.1.2:201/UDP    active   default/test                            0
+
+
+-- backends_empty.table --
+Address             State    Instances            NodeName           ZoneID
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.0.1.1:200/TCP STATE=active
+BE: ID=2 ADDR=10.0.1.2:201/UDP STATE=active
+REV: ID=1 ADDR=10.0.0.1:100
+REV: ID=2 ADDR=0.0.0.0:101
+REV: ID=3 ADDR=1.1.1.1:101
+SVC: ID=1 ADDR=10.0.0.1:100/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.0.0.1:100/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=0.0.0.0:101/UDP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=2 ADDR=0.0.0.0:101/UDP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=1.1.1.1:101/UDP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort
+SVC: ID=3 ADDR=1.1.1.1:101/UDP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+-- lbmaps_empty.expected --
+
