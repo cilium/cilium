@@ -11,7 +11,6 @@
 
 #define ENABLE_IPV4
 #define ENABLE_IPV6
-#define SECCTX_FROM_IPCACHE 1
 
 #include "bpf_host.c"
 

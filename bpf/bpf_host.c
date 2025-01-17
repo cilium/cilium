@@ -81,25 +81,13 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 
 	return CTX_ACT_OK;
 }
-
-#define SECCTX_FROM_IPCACHE_OK	2
-#ifndef SECCTX_FROM_IPCACHE
-# define SECCTX_FROM_IPCACHE	0
-#endif
-
-static __always_inline bool identity_from_ipcache_ok(void)
-{
-	return SECCTX_FROM_IPCACHE == SECCTX_FROM_IPCACHE_OK;
-}
 #endif
 
 #ifdef ENABLE_IPV6
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-		   __u32 srcid_from_ipcache, __u32 *sec_identity,
-		   const bool from_host)
+		   __u32 srcid_from_ipcache, __u32 *sec_identity)
 {
-	__u32 src_id = WORLD_IPV6_ID;
 	struct remote_endpoint_info *info = NULL;
 	union v6addr *src;
 
@@ -126,11 +114,24 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			   ((__u32 *) src)[3], srcid_from_ipcache);
 	}
 
-	if (from_host)
-		src_id = srcid_from_ipcache;
-	else if (identity_from_ipcache_ok())
-		src_id = srcid_from_ipcache;
-	return src_id;
+	return srcid_from_ipcache;
+}
+
+static __always_inline __u32
+resolve_srcid_from_netdev_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
+{
+	union v6addr *src = (union v6addr *)&ip6->saddr;
+	struct remote_endpoint_info *info;
+	__u32 src_sec_identity;
+
+	info = lookup_ip6_remote_endpoint(src, 0);
+	src_sec_identity = info && info->sec_identity ? info->sec_identity :
+							WORLD_IPV6_ID;
+
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   ((__u32 *)src)[3], src_sec_identity);
+
+	return src_sec_identity;
 }
 
 struct {
@@ -533,8 +534,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	if (src_sec_identity != HOST_ID)
 		src_sec_identity = 0;
 
-	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity,
-				   &ipcache_srcid, true);
+	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity, &ipcache_srcid);
 
 	/* to-netdev is attached to the egress path of the native device. */
 	return ipv6_host_policy_egress(ctx, srcid, ipcache_srcid, ip6, trace, ext_err);
@@ -545,10 +545,9 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
-		   __u32 srcid_from_proxy, __u32 *sec_identity,
-		   const bool from_host)
+		   __u32 srcid_from_proxy, __u32 *sec_identity)
 {
-	__u32 src_id = WORLD_IPV4_ID, srcid_from_ipcache = srcid_from_proxy;
+	__u32 srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
 
 	/* Packets from the proxy will already have a real identity. */
@@ -574,14 +573,23 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 			   ip4->saddr, srcid_from_ipcache);
 	}
 
-	if (from_host)
-		src_id = srcid_from_ipcache;
-	/* If we could not derive the secctx from the packet itself but
-	 * from the ipcache instead, then use the ipcache identity.
-	 */
-	else if (identity_from_ipcache_ok())
-		src_id = srcid_from_ipcache;
-	return src_id;
+	return srcid_from_ipcache;
+}
+
+static __always_inline __u32
+resolve_srcid_from_netdev_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
+{
+	struct remote_endpoint_info *info;
+	__u32 src_sec_identity;
+
+	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+	src_sec_identity = info && info->sec_identity ? info->sec_identity :
+							WORLD_IPV4_ID;
+
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->saddr, src_sec_identity);
+
+	return src_sec_identity;
 }
 
 struct {
@@ -996,8 +1004,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	if (src_sec_identity != HOST_ID)
 		src_sec_identity = 0;
 
-	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity,
-				    &ipcache_srcid, true);
+	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity, &ipcache_srcid);
 
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
@@ -1129,28 +1136,30 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      CTX_ACT_DROP, METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
-		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
+		if (from_host) {
+			identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid);
 
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6)
-		if (from_host) {
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
 			 * comment in ipv6_host_policy_egress() for details.
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
+		} else {
+			identity = resolve_srcid_from_netdev_ipv6(ctx, ip6);
+			ipcache_srcid = identity;
 
 # ifdef ENABLE_WIREGUARD
-		if (!from_host) {
 			next_proto = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
+			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity))
 				trace.reason = TRACE_REASON_ENCRYPTED;
-		}
 # endif /* ENABLE_WIREGUARD */
+		}
+
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
@@ -1172,28 +1181,29 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      CTX_ACT_DROP, METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid,
-					      from_host);
-		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
+		if (from_host) {
+			identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
 
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
-		if (from_host) {
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
 			 * comment in ipv4_host_policy_egress() for details.
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
+		} else {
+			identity = resolve_srcid_from_netdev_ipv4(ctx, ip4);
+			ipcache_srcid = identity;
 
 #ifdef ENABLE_WIREGUARD
-		if (!from_host) {
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
+			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity))
 				trace.reason = TRACE_REASON_ENCRYPTED;
-		}
 #endif /* ENABLE_WIREGUARD */
+		}
+
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
