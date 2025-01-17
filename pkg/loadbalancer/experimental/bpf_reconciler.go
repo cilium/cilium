@@ -13,6 +13,7 @@ import (
 	"sort"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
@@ -21,7 +22,9 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -41,6 +44,7 @@ var ReconcilerCell = cell.Module(
 	cell.Invoke(
 		// Force the registration even if none uses Reconciler[*Frontend].
 		func(reconciler.Reconciler[*Frontend]) {},
+		registerNodePortAddressReconciler,
 	),
 )
 
@@ -93,9 +97,16 @@ type BPFOps struct {
 	// This is used when updating to remove orphans.
 	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]
 
-	// nodePortAddrs are the last used NodePort addresses for a given NodePort
+	// nodePortAddrByService are the last used NodePort addresses for a given NodePort
 	// (or HostPort) service (by port).
-	nodePortAddrs map[uint16][]netip.Addr
+	nodePortAddrByService map[uint16][]netip.Addr
+
+	db                *statedb.DB
+	nodeAddrs         statedb.Table[tables.NodeAddress]
+	nodePortAddrsLock lock.RWMutex
+	nodePortAddrs     []netip.Addr
+
+	frontends statedb.RWTable[*Frontend]
 }
 
 type backendState struct {
@@ -105,23 +116,26 @@ type backendState struct {
 	id       loadbalancer.BackendID
 }
 
-func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg ExternalConfig, lbmaps LBMaps, maglev *maglev.Maglev) *BPFOps {
+func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg ExternalConfig, lbmaps LBMaps, maglev *maglev.Maglev, db *statedb.DB, nodeAddresses statedb.Table[tables.NodeAddress], frontends statedb.RWTable[*Frontend]) *BPFOps {
 	if !cfg.EnableExperimentalLB {
 		return nil
 	}
 	ops := &BPFOps{
-		cfg:                extCfg,
-		maglev:             maglev,
-		serviceIDAlloc:     newIDAllocator(firstFreeServiceID, maxSetOfServiceID),
-		restoredServiceIDs: sets.New[loadbalancer.ID](),
-		backendIDAlloc:     newIDAllocator(firstFreeBackendID, maxSetOfBackendID),
-		restoredBackendIDs: sets.New[loadbalancer.BackendID](),
-		log:                log,
-		backendStates:      map[loadbalancer.L3n4Addr]backendState{},
-		backendReferences:  map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
-		nodePortAddrs:      map[uint16][]netip.Addr{},
-		prevSourceRanges:   map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{},
-		LBMaps:             lbmaps,
+		cfg:                   extCfg,
+		maglev:                maglev,
+		serviceIDAlloc:        newIDAllocator(firstFreeServiceID, maxSetOfServiceID),
+		restoredServiceIDs:    sets.New[loadbalancer.ID](),
+		backendIDAlloc:        newIDAllocator(firstFreeBackendID, maxSetOfBackendID),
+		restoredBackendIDs:    sets.New[loadbalancer.BackendID](),
+		log:                   log,
+		backendStates:         map[loadbalancer.L3n4Addr]backendState{},
+		backendReferences:     map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
+		nodePortAddrByService: map[uint16][]netip.Addr{},
+		prevSourceRanges:      map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{},
+		LBMaps:                lbmaps,
+		db:                    db,
+		nodeAddrs:             nodeAddresses,
+		frontends:             frontends,
 	}
 	lc.Append(cell.Hook{OnStart: ops.start})
 	return ops
@@ -153,7 +167,85 @@ func (ops *BPFOps) start(_ cell.HookContext) error {
 		return fmt.Errorf("restore backend ids: %w", err)
 	}
 
+	ops.nodePortAddrs = statedb.Collect(
+		statedb.Map(
+			ops.nodeAddrs.List(ops.db.ReadTxn(), tables.NodeAddressNodePortIndex.Query(true)),
+			func(addr tables.NodeAddress) netip.Addr { return addr.Addr }),
+	)
+
 	return nil
+}
+
+func registerNodePortAddressReconciler(p nodePortAddressReconcilerParams) {
+	g := p.Jobs.NewGroup(p.Health)
+	g.Add(job.OneShot("nodeport-address-reconciler", p.Ops.nodePortAddressReconcilerLoop))
+	p.Lifecycle.Append(g)
+}
+
+type nodePortAddressReconcilerParams struct {
+	cell.In
+
+	Lifecycle cell.Lifecycle
+	Jobs      job.Registry
+	Health    cell.Health
+	Ops       *BPFOps
+}
+
+func (ops *BPFOps) nodePortAddressReconcilerLoop(ctx context.Context, health cell.Health) error {
+	const periodicSyncInterval = 15 * time.Minute
+	periodicSyncTicker := time.NewTicker(periodicSyncInterval)
+	defer periodicSyncTicker.Stop()
+
+	for {
+		iter, watch := ops.nodeAddrs.AllWatch(ops.db.ReadTxn())
+
+		// Collect all NodePort addresses
+		newAddrs := sets.New(statedb.Collect(
+			statedb.Map(
+				statedb.Filter(
+					iter,
+					func(addr tables.NodeAddress) bool { return addr.NodePort },
+				),
+				func(addr tables.NodeAddress) netip.Addr { return addr.Addr },
+			),
+		)...)
+
+		updateFrontends := false
+		ops.nodePortAddrsLock.Lock()
+		if !sets.New(ops.nodePortAddrs...).Equal(newAddrs) {
+			ops.nodePortAddrs = newAddrs.UnsortedList()
+			updateFrontends = true
+		}
+		ops.nodePortAddrsLock.Unlock()
+
+		if updateFrontends {
+
+			wtxn := ops.db.WriteTxn(ops.frontends)
+
+			for fe := range ops.frontends.All(wtxn) {
+				if fe.Type != loadbalancer.SVCTypeHostPort && fe.Type != loadbalancer.SVCTypeNodePort {
+					continue
+				}
+				fe = fe.Clone()
+				fe.setStatus(reconciler.StatusPending())
+				_, _, err := ops.frontends.Insert(wtxn, fe)
+				if err != nil {
+					// not expected
+					ops.log.Warn("Could not insert frontend", "frontend", fe, "error", err)
+				}
+				fmt.Println("!!! updated", fe)
+			}
+
+			wtxn.Commit()
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-watch:
+		case <-periodicSyncTicker.C:
+		}
+	}
 }
 
 func svcKeyToAddr(svcKey lbmap.ServiceKey) loadbalancer.L3n4Addr {
@@ -182,7 +274,7 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 	if fe.Type == loadbalancer.SVCTypeNodePort ||
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified() {
 
-		addrs, ok := ops.nodePortAddrs[fe.Address.Port]
+		addrs, ok := ops.nodePortAddrByService[fe.Address.Port]
 		if ok {
 			for _, addr := range addrs {
 				fe = fe.Clone()
@@ -192,7 +284,7 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 					return err
 				}
 			}
-			delete(ops.nodePortAddrs, fe.Address.Port)
+			delete(ops.nodePortAddrByService, fe.Address.Port)
 		} else {
 			ops.log.Warn("no nodePortAddrs", "port", fe.Address.Port)
 		}
@@ -485,8 +577,14 @@ func (ops *BPFOps) Update(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified() {
 		// For NodePort create entries for each node address.
 		// For HostPort only create them if the address was not specified (HostIP is unset).
-		old := sets.New(ops.nodePortAddrs[fe.Address.Port]...)
-		for _, addr := range fe.nodePortAddrs {
+		old := sets.New(ops.nodePortAddrByService[fe.Address.Port]...)
+
+		ops.nodePortAddrsLock.RLock()
+		nodePortAddrs := make([]netip.Addr, len(ops.nodePortAddrs))
+		copy(nodePortAddrs, ops.nodePortAddrs)
+		ops.nodePortAddrsLock.RUnlock()
+
+		for _, addr := range nodePortAddrs {
 			if fe.Address.IsIPv6() != addr.Is6() {
 				continue
 			}
@@ -511,7 +609,7 @@ func (ops *BPFOps) Update(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 				return err
 			}
 		}
-		ops.nodePortAddrs[fe.Address.Port] = fe.nodePortAddrs
+		ops.nodePortAddrByService[fe.Address.Port] = nodePortAddrs
 	}
 
 	return nil

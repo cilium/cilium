@@ -934,7 +934,7 @@ func TestBPFOps(t *testing.T) {
 				require.Empty(t, ops.serviceIDAlloc.entities, "Frontend ID allocations remain")
 				require.Empty(t, ops.backendStates, "Backend state remain")
 				require.Empty(t, ops.backendReferences, "Backend references remain")
-				require.Empty(t, ops.nodePortAddrs, "NodePort addrs state remain")
+				require.Empty(t, ops.nodePortAddrByService, "NodePort addrs state remain")
 			}
 		}
 	}
