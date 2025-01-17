@@ -88,6 +88,7 @@ devicename: test
 -- health_no_service.table --
 Module                                   Component                   Level   Message                    Error   
 loadbalancer-experimental.healthserver   job-control-loop            OK      0 health servers running   
+loadbalancer-experimental                job-node-addr-reconciler    OK      Running
 loadbalancer-experimental.reconciler     job-reconcile               OK      OK, 0 object(s)            
 loadbalancer-experimental.reconciler     job-refresh                 OK      Next refresh in 30m0s      
 loadbalancer-experimental.reflector      job-reflector               OK      Running                    
@@ -96,6 +97,7 @@ loadbalancer-experimental.reflector      job-reflector               OK      Run
 Module                                   Component                   Level   Message                    Error   
 loadbalancer-experimental.healthserver   job-control-loop            OK      1 health servers running   
 loadbalancer-experimental.healthserver   job-listener-$PORT1          OK      Running
+loadbalancer-experimental                job-node-addr-reconciler    OK      Running
 loadbalancer-experimental.reconciler     job-reconcile               OK      OK, 3 object(s)            
 loadbalancer-experimental.reconciler     job-refresh                 OK      Next refresh in 30m0s      
 loadbalancer-experimental.reflector      job-reflector               OK      Running                    
