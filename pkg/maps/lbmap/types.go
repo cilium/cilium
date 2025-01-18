@@ -87,7 +87,10 @@ type ServiceValue interface {
 	GetFlags() uint16
 
 	// Set timeout for sessionAffinity=clientIP
-	SetSessionAffinityTimeoutSec(t uint32)
+	SetSessionAffinityTimeoutSec(t uint32) error
+
+	// Get timeout for sessionAffinity=clientIP
+	GetSessionAffinityTimeoutSec() uint32
 
 	// Set proxy port for l7 loadbalancer services
 	SetL7LBProxyPort(port uint16)
@@ -108,10 +111,10 @@ type ServiceValue interface {
 	ToHost() ServiceValue
 
 	// Set LoadBalancing Algorithm for Service
-	SetLbAlg(uint8)
+	SetLbAlg(loadbalancer.SVCLoadBalancingAlgorithm)
 
 	// Get LoadBalancing Algorithm for Service
-	GetLbAlg() uint8
+	GetLbAlg() loadbalancer.SVCLoadBalancingAlgorithm
 }
 
 // BackendKey is the interface describing protocol independent backend key.
