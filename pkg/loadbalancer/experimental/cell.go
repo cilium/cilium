@@ -53,13 +53,15 @@ var TablesCell = cell.Module(
 	// module so that the tables are only modified via the Services API.
 	cell.ProvidePrivate(
 		NewServicesTable,
-		NewFrontendsTable,
 		NewBackendsTable,
 	),
 
 	cell.Provide(
 		// Provide the [Writer] API for modifying the tables.
 		NewWriter,
+
+		// TODO(brb) how to provide private only to bpfops?
+		NewFrontendsTable,
 
 		// Provide direct read-only access to the tables.
 		toReadOnlyTable[*Service],
