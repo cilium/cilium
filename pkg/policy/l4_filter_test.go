@@ -4,9 +4,7 @@
 package policy
 
 import (
-	"bytes"
 	"fmt"
-	stdlog "log"
 	"sync"
 	"testing"
 
@@ -26,13 +24,11 @@ import (
 
 var (
 	hostSelector = api.ReservedEndpointSelectors[labels.IDNameHost]
-	toFoo        = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
 	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 	fooSelector            = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	bazSelector            = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
-	selFoo  = api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 	selBar2 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 )
@@ -54,12 +50,16 @@ type testData struct {
 
 	cachedSelectorBar1 CachedSelector
 	cachedSelectorBar2 CachedSelector
+
+	cachedSelectorWorld   CachedSelector
+	cachedSelectorWorldV4 CachedSelector
+	cachedSelectorWorldV6 CachedSelector
 }
 
 func newTestData() *testData {
 	td := &testData{
 		sc:                testNewSelectorCache(nil),
-		repo:              NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(nil, &fakeCertificateManager{}, nil, nil, api.NewPolicyMetricsNoop()),
 		testPolicyContext: &testPolicyContextType{},
 	}
 	td.testPolicyContext.sc = td.sc
@@ -77,6 +77,12 @@ func newTestData() *testData {
 
 	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar1)
 	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar2)
+
+	td.cachedSelectorWorld, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, api.EntitySelectorMapping[api.EntityWorld][0])
+
+	td.cachedSelectorWorldV4, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, api.EntitySelectorMapping[api.EntityWorldIPv4][0])
+
+	td.cachedSelectorWorldV6, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, api.EntitySelectorMapping[api.EntityWorldIPv6][0])
 
 	return td
 }
@@ -96,14 +102,6 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 	return td
 }
 
-// resetRepo clears only the policy repository.
-// Some tests rely on the accumulated state, but a clean repo.
-func (td *testData) resetRepo() *Repository {
-
-	td.repo.ReplaceByLabels(nil, []labels.LabelArray{{}})
-	return td.repo
-}
-
 func (td *testData) addIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(
@@ -111,6 +109,54 @@ func (td *testData) addIdentity(id *identity.Identity) {
 			id.ID: id.LabelArray,
 		}, nil, wg)
 	wg.Wait()
+}
+
+// policyMapEquals takes a set of policies and an expected L4PolicyMap. (The assumption is that this policy)
+// selects identity A.
+//
+// The repository is cleared when called.
+func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMap, rules ...*api.Rule) {
+	t.Helper()
+	td.withIDs(ruleTestIDs)
+	for _, r := range rules {
+		if r.EndpointSelector.LabelSelector == nil {
+			r.EndpointSelector = endpointSelectorA
+		}
+		require.NoError(t, r.Sanitize())
+	}
+	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+
+	td.repo.mutex.RLock()
+	defer td.repo.mutex.RUnlock()
+	pol, err := td.repo.resolvePolicyLocked(idA)
+	require.NoError(t, err)
+	defer pol.Detach()
+
+	if expectedIn != nil {
+		require.True(t, expectedIn.TestingOnlyEquals(pol.L4Policy.Ingress.PortRules), expectedIn.TestingOnlyDiff(pol.L4Policy.Ingress.PortRules))
+	}
+
+	if expectedOut != nil {
+
+		require.True(t, expectedOut.TestingOnlyEquals(pol.L4Policy.Egress.PortRules), expectedOut.TestingOnlyDiff(pol.L4Policy.Egress.PortRules))
+	}
+}
+
+// policyInvalid checks that the set of rules results in an error
+func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rule) {
+	t.Helper()
+	td.withIDs(ruleTestIDs)
+	for _, r := range rules {
+		if r.EndpointSelector.LabelSelector == nil {
+			r.EndpointSelector = endpointSelectorA
+		}
+		require.NoError(t, r.Sanitize())
+	}
+	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+
+	_, err := td.repo.resolvePolicyLocked(idA)
+	require.Error(t, err)
+	require.ErrorContains(t, err, errStr)
 }
 
 // testPolicyContexttype is a dummy context used when evaluating rules.
@@ -194,7 +240,7 @@ func init() {
 func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	td := newTestData()
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
-	td.repo.MustAddList(api.Rules{&api.Rule{
+	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -218,31 +264,23 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 				}},
 			},
 		},
+	}
+
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		L7Parser: ParserTypeNone, Ingress: true, wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		},
 	}})
 
-	buffer := new(bytes.Buffer)
-	ctx := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctx.Logging = stdlog.New(buffer, "", 0)
-
-	l4IngressPolicy, err := td.repo.ResolveL4IngressPolicy(&ctx)
-	require.NoError(t, err)
-
-	t.Log(buffer)
-
-	filter := l4IngressPolicy.ExactLookup("80", 0, "TCP")
-	require.NotNil(t, filter)
-	require.Equal(t, uint16(80), filter.Port)
-	require.True(t, filter.Ingress)
-
-	require.True(t, filter.SelectsAllEndpoints())
-
-	require.Equal(t, ParserTypeNone, filter.L7Parser)
-	require.Len(t, filter.PerSelectorPolicies, 1)
-	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
+	td.policyMapEquals(t, expected, nil, &rule1)
 
 	// Case1B: an empty non-nil FromEndpoints does not select any identity.
-	td = newTestData()
-	td.repo.MustAddList(api.Rules{&api.Rule{
+	rule2 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -266,21 +304,10 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 				}},
 			},
 		},
-	}})
+	}
 
-	buffer = new(bytes.Buffer)
-	ctx = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctx.Logging = stdlog.New(buffer, "", 0)
-
-	l4IngressPolicy, err = td.repo.ResolveL4IngressPolicy(&ctx)
-	require.NoError(t, err)
-
-	t.Log(buffer)
-
-	filter = l4IngressPolicy.ExactLookup("80", 0, "TCP")
-	require.Nil(t, filter)
-
-	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
+	expected = NewL4PolicyMap()
+	td.policyMapEquals(t, expected, nil, &rule2)
 }
 
 // Case 2: allow all at L3 in both rules. Allow all in one L7 rule, but second
@@ -289,49 +316,36 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 // Should resolve to one rule.
 func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 	td := newTestData()
-	rule1 := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+	rule1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctx := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctx.Logging = stdlog.New(buffer, "", 0)
-
-	ingressState := traceState{}
-	res, err := rule1.resolveIngressPolicy(td.testPolicyContext, &ctx, &ingressState, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-
-	t.Log(buffer)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -351,16 +365,11 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}})
 
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, ingressState.selectedRules)
-	require.Equal(t, 1, ingressState.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
+	td.policyMapEquals(t, expected, nil, &rule1)
 
 	// Case 2B: Flip order of case 2A so that rule being merged with is different
 	// than rule being consumed.
-	td = newTestData()
-	td.repo.MustAddList(api.Rules{&api.Rule{
+	rule2 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -389,67 +398,67 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 				}},
 			},
 		},
+	}
+
+	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		wildcard: td.wildcardCachedSelector,
+		L7Parser: ParserTypeHTTP,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
+				},
+				isRedirect: true,
+			},
+		},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		},
 	}})
 
-	buffer = new(bytes.Buffer)
-	ctx = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctx.Logging = stdlog.New(buffer, "", 0)
-
-	l4IngressPolicy, err := td.repo.ResolveL4IngressPolicy(&ctx)
-	require.NoError(t, err)
-
-	t.Log(buffer)
-
-	filter := l4IngressPolicy.ExactLookup("80", 0, "TCP")
-	require.NotNil(t, filter)
-	require.Equal(t, uint16(80), filter.Port)
-	require.True(t, filter.Ingress)
-
-	require.True(t, filter.SelectsAllEndpoints())
-
-	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
-	require.Len(t, filter.PerSelectorPolicies, 1)
-	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
+	td.policyMapEquals(t, expected, nil, &rule2)
 }
 
 // Case 3: allow all at L3 in both rules. Both rules have same parser type and
 // same API resource specified at L7 for HTTP.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 	td := newTestData()
-	identicalHTTPRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	identicalHTTPRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
@@ -472,75 +481,48 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}})
 
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	state := traceState{}
-	res, err := identicalHTTPRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	state = traceState{}
-	res, err = identicalHTTPRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &identicalHTTPRule)
 }
 
 // Case 4: identical allow all at L3 with identical restrictions on Kafka.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 	td := newTestData()
 
-	identicalKafkaRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "9092", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							Kafka: []kafka.PortRule{
-								{Topic: "foo"},
-							},
-						},
-					}},
+	identicalKafkaRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "9092", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "9092", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{
+							{Topic: "foo"},
 						},
-						Rules: &api.L7Rules{
-							Kafka: []kafka.PortRule{
-								{Topic: "foo"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "9092", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{
+							{Topic: "foo"},
+						},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"9092/TCP": {
 		Port:     9092,
@@ -560,22 +542,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}})
 
-	state := traceState{}
-	res, err := identicalKafkaRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	state = traceState{}
-	res, err = identicalKafkaRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &identicalKafkaRule)
 }
 
 // Case 5: use conflicting protocols on the same port in different rules. This
@@ -584,206 +551,159 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	td := newTestData()
 
 	// Case 5A: Kafka first, HTTP second.
-	conflictingParsersRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							Kafka: []kafka.PortRule{
-								{Topic: "foo"},
-							},
-						},
-					}},
+	conflictingParsersRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{
+							{Topic: "foo"},
 						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
 
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	state := traceState{}
-	res, err := conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.Error(t, err)
-	require.Nil(t, res)
+	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingParsersRule)
 
 	// Case 5B: HTTP first, Kafka second.
-	conflictingParsersRule = &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	conflictingParsersRule = api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
-						Rules: &api.L7Rules{
-							Kafka: []kafka.PortRule{
-								{Topic: "foo"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{
+							{Topic: "foo"},
+						},
+					},
+				}},
 			},
 		},
 	}
 
-	buffer = new(bytes.Buffer)
-	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	state = traceState{}
-	res, err = conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.Error(t, err)
-	require.Nil(t, res)
+	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingParsersRule)
 
 	// Case 5B+: HTTP first, generic L7 second.
-	conflictingParsersIngressRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	conflictingParsersIngressRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
-						Rules: &api.L7Rules{
-							L7Proto: "testing",
-							L7: []api.PortRuleL7{
-								{"method": "PUT", "path": "/Foo"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						L7Proto: "testing",
+						L7: []api.PortRuleL7{
+							{"method": "PUT", "path": "/Foo"},
+						},
+					},
+				}},
 			},
 		},
 	}
 
-	buffer = new(bytes.Buffer)
-	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	err = conflictingParsersIngressRule.Sanitize()
-	require.NoError(t, err)
-
-	state = traceState{}
-	res, err = conflictingParsersIngressRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.Error(t, err)
-	require.Nil(t, res)
+	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingParsersIngressRule)
 
 	// Case 5B++: generic L7 without rules first, HTTP second.
-	conflictingParsersEgressRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							L7Proto: "testing",
-						},
-					}},
+	conflictingParsersEgressRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+					Rules: &api.L7Rules{
+						L7Proto: "testing",
+					},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
 
-	buffer = new(bytes.Buffer)
-	ctxAToC := SearchContext{From: labelsA, To: labelsC, Trace: TRACE_VERBOSE}
-	ctxAToC.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	err = conflictingParsersEgressRule.Sanitize()
-	require.NoError(t, err)
-
-	state = traceState{}
-	res, err = conflictingParsersEgressRule.resolveEgressPolicy(td.testPolicyContext, &ctxAToC, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.Error(t, err)
-	require.Nil(t, res)
+	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingParsersEgressRule)
 }
 
 // TLS policies with and without interception
@@ -791,57 +711,41 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 // TLS policy without L7 rules does not inspect L7, uses L7ParserType "tls"
 func TestMergeTLSTCPPolicy(t *testing.T) {
 	td := newTestData()
-	egressRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: fooSelector,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-					}},
+	egressRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-						TerminatingTLS: &api.TLSContext{
-							Secret: &api.Secret{
-								Name: "tls-cert",
-							},
-						},
-						OriginatingTLS: &api.TLSContext{
-							Secret: &api.Secret{
-								Name: "tls-ca-certs",
-							},
-						},
-					}},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
+					},
+					TerminatingTLS: &api.TLSContext{
+						Secret: &api.Secret{
+							Name: "tls-cert",
+						},
+					},
+					OriginatingTLS: &api.TLSContext{
+						Secret: &api.Secret{
+							Name: "tls-ca-certs",
+						},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
-	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	err := egressRule.Sanitize()
-	require.NoError(t, err)
-
-	state := traceState{}
-	res, err := egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.NotNil(t, res)
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"443/TCP": {
@@ -851,20 +755,25 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeTLS,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
-					CertificateChain: "fake public cert",
-					PrivateKey:       "fake private key",
+					FromFile:         true,
+					TrustedCA:        "fake ca tls-cert",
+					CertificateChain: "fake public key tls-cert",
+					PrivateKey:       "fake private key tls-cert",
 					Secret: types.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
 				OriginatingTLS: &TLSContext{
+					FromFile:         true,
+					TrustedCA:        "fake ca tls-ca-certs",
+					CertificateChain: "fake public key tls-ca-certs",
+					PrivateKey:       "fake private key tls-ca-certs",
 					Secret: types.NamespacedName{
 						Name: "tls-ca-certs",
 					},
-					TrustedCA: "fake CA certs",
 				},
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
@@ -874,74 +783,53 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
+			td.cachedSelectorB: {nil},
 			td.cachedSelectorC: {nil},
 		},
 	}})
 
-	require.EqualValues(t, expected, res)
-
-	l4Filter := res.ExactLookup("443", 0, "TCP")
-	require.NotNil(t, l4Filter)
-	require.Equal(t, ParserTypeTLS, l4Filter.L7Parser)
+	td.policyMapEquals(t, nil, expected, &egressRule)
 }
 
 func TestMergeTLSHTTPPolicy(t *testing.T) {
 	td := newTestData()
-	egressRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: fooSelector,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-					}},
+	egressRule := api.Rule{
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-						TerminatingTLS: &api.TLSContext{
-							Secret: &api.Secret{
-								Name: "tls-cert",
-							},
-						},
-						OriginatingTLS: &api.TLSContext{
-							Secret: &api.Secret{
-								Name: "tls-ca-certs",
-							},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{{}},
-						},
-					}},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
+					},
+					TerminatingTLS: &api.TLSContext{
+						Secret: &api.Secret{
+							Name: "tls-cert",
+						},
+					},
+					OriginatingTLS: &api.TLSContext{
+						Secret: &api.Secret{
+							Name: "tls-ca-certs",
+						},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{}},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
-	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	err := egressRule.Sanitize()
-	require.NoError(t, err)
-
-	state := traceState{}
-	res, err := egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.NotNil(t, res)
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"443/TCP": {
@@ -951,20 +839,25 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
-					CertificateChain: "fake public cert",
-					PrivateKey:       "fake private key",
+					FromFile:         true,
+					TrustedCA:        "fake ca tls-cert",
+					CertificateChain: "fake public key tls-cert",
+					PrivateKey:       "fake private key tls-cert",
 					Secret: types.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
 				OriginatingTLS: &TLSContext{
+					FromFile:         true,
+					TrustedCA:        "fake ca tls-ca-certs",
+					CertificateChain: "fake public key tls-ca-certs",
+					PrivateKey:       "fake private key tls-ca-certs",
 					Secret: types.NamespacedName{
 						Name: "tls-ca-certs",
 					},
-					TrustedCA: "fake CA certs",
 				},
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
@@ -976,89 +869,69 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
+			td.cachedSelectorB: {nil},
 			td.cachedSelectorC: {nil},
 		},
 	}})
 
-	require.EqualValues(t, expected, res)
-	l4Filter := res.ExactLookup("443", 0, "TCP")
-	require.NotNil(t, l4Filter)
-	require.Equal(t, ParserTypeHTTP, l4Filter.L7Parser)
+	td.policyMapEquals(t, nil, expected, &egressRule)
 }
 
 func TestMergeTLSSNIPolicy(t *testing.T) {
 	td := newTestData()
-	egressRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: fooSelector,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-					}},
+	egressRule := api.Rule{
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-						TerminatingTLS: &api.TLSContext{
-							Secret: &api.Secret{
-								Name: "tls-cert",
-							},
-						},
-						OriginatingTLS: &api.TLSContext{
-							Secret: &api.Secret{
-								Name: "tls-ca-certs",
-							},
-						},
-						ServerNames: []string{"www.foo.com"},
-					}},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
+					TerminatingTLS: &api.TLSContext{
+						Secret: &api.Secret{
+							Name: "tls-cert",
 						},
-						ServerNames: []string{"www.bar.com"},
-					}, {
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
+					},
+					OriginatingTLS: &api.TLSContext{
+						Secret: &api.Secret{
+							Name: "tls-ca-certs",
 						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{{}},
-						},
-					}},
+					},
+					ServerNames: []string{"www.foo.com"},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
+					},
+					ServerNames: []string{"www.bar.com"},
+				}, {
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{}},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
-	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	err := egressRule.Sanitize()
-	require.NoError(t, err)
-
-	state := traceState{}
-	res, err := egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.NotNil(t, res)
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"443/TCP": {
@@ -1068,20 +941,25 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
-					CertificateChain: "fake public cert",
-					PrivateKey:       "fake private key",
+					FromFile:         true,
+					TrustedCA:        "fake ca tls-cert",
+					CertificateChain: "fake public key tls-cert",
+					PrivateKey:       "fake private key tls-cert",
 					Secret: types.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
 				OriginatingTLS: &TLSContext{
+					FromFile:         true,
+					TrustedCA:        "fake ca tls-ca-certs",
+					CertificateChain: "fake public key tls-ca-certs",
+					PrivateKey:       "fake private key tls-ca-certs",
 					Secret: types.NamespacedName{
 						Name: "tls-ca-certs",
 					},
-					TrustedCA: "fake CA certs",
 				},
 				ServerNames:     StringSet{"www.foo.com": {}, "www.bar.com": {}},
 				EnvoyHTTPRules:  nil,
@@ -1094,127 +972,101 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
+			td.cachedSelectorB: {nil},
 			td.cachedSelectorC: {nil},
 		},
 	}})
 
-	require.EqualValues(t, expected, res)
-	require.True(t, res.TestingOnlyEquals(expected), res.TestingOnlyDiff(expected))
-
-	l4Filter := res.ExactLookup("443", 0, "TCP")
-	require.NotNil(t, l4Filter)
-	require.Equal(t, ParserTypeHTTP, l4Filter.L7Parser)
+	td.policyMapEquals(t, nil, expected, &egressRule)
 }
 
 func TestMergeListenerPolicy(t *testing.T) {
 	td := newTestData()
 
 	//
-	// no namespace in policyContext (Clusterwide policy): Can not refer to EnvoyConfig
+	// no namespace (NodeFirewall policy): Can not refer to EnvoyConfig
 	//
-	egressRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: fooSelector,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-					}},
+	egressRule := api.Rule{
+		NodeSelector: hostSelector,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-						Listener: &api.Listener{
-							EnvoyConfig: &api.EnvoyConfig{
-								Kind: "CiliumEnvoyConfig",
-								Name: "test-cec",
-							},
-							Name: "test",
-						},
-					}},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
+					},
+					Listener: &api.Listener{
+						EnvoyConfig: &api.EnvoyConfig{
+							Kind: "CiliumEnvoyConfig",
+							Name: "test-cec",
+						},
+						Name: "test",
+					},
+				}},
 			},
 		},
 	}
 
-	buffer := new(bytes.Buffer)
-	ctxFromFoo := SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
-	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
+	old := option.Config.EnableHostFirewall
+	defer func() {
+		option.Config.EnableHostFirewall = old
+	}()
+	option.Config.EnableHostFirewall = true
 
-	err := egressRule.Sanitize()
-	require.NoError(t, err)
-
-	state := traceState{}
-	res, err := egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.ErrorContains(t, err, "Listener \"test\" in CCNP can not use Kind CiliumEnvoyConfig")
-	require.Nil(t, res)
+	idHost := identity.NewIdentity(identity.ReservedIdentityHost, labels.NewFrom(labels.LabelHost))
+	td.withIDs(identity.IdentityMap{idHost.ID: idHost.LabelArray})
+	td.repo.mustAdd(egressRule)
+	_, err := td.repo.resolvePolicyLocked(idHost)
+	require.ErrorContains(t, err, `Listener "test" in CCNP can not use Kind CiliumEnvoyConfig`)
 
 	//
 	// no namespace in policyContext (Clusterwide policy): Must to ClusterwideEnvoyConfig
 	//
-	egressRule = &rule{
-		Rule: api.Rule{
-			EndpointSelector: fooSelector,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-					}},
+	egressRule = api.Rule{
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-						Listener: &api.Listener{
-							EnvoyConfig: &api.EnvoyConfig{
-								Kind: "CiliumClusterwideEnvoyConfig",
-								Name: "shared-cec",
-							},
-							Name: "test",
-						},
-					}},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
+					},
+					Listener: &api.Listener{
+						EnvoyConfig: &api.EnvoyConfig{
+							Kind: "CiliumClusterwideEnvoyConfig",
+							Name: "shared-cec",
+						},
+						Name: "test",
+					},
+				}},
 			},
 		},
 	}
 
-	buffer = new(bytes.Buffer)
-	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
-	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	err = egressRule.Sanitize()
-	require.NoError(t, err)
-
-	state = traceState{}
-	res, err = egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-
-	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
+	// Since cachedSelectorB's map entry is 'nil', it will not be redirected to the proxy.
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"443/TCP": {
 		Port:     443,
 		Protocol: api.ProtoTCP,
@@ -1222,7 +1074,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
@@ -1232,69 +1084,47 @@ func TestMergeListenerPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
+			td.cachedSelectorB: {nil},
 			td.cachedSelectorC: {nil},
 		},
 	}})
 
-	require.EqualValues(t, expected, res)
-
-	l4Filter := res.ExactLookup("443", 0, "TCP")
-	require.NotNil(t, l4Filter)
-	require.Equal(t, ParserTypeCRD, l4Filter.L7Parser)
+	td.policyMapEquals(t, nil, expected, &egressRule)
 
 	//
 	// namespace in policyContext (Namespaced policy): Can refer to EnvoyConfig
 	//
-	egressRule = &rule{
-		Rule: api.Rule{
-			EndpointSelector: fooSelector,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-					}},
+	egressRule = api.Rule{
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-						Listener: &api.Listener{
-							EnvoyConfig: &api.EnvoyConfig{
-								Kind: "CiliumEnvoyConfig",
-								Name: "test-cec",
-							},
-							Name: "test",
-						},
-					}},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
+					},
+					Listener: &api.Listener{
+						EnvoyConfig: &api.EnvoyConfig{
+							Kind: "CiliumEnvoyConfig",
+							Name: "test-cec",
+						},
+						Name: "test",
+					},
+				}},
 			},
 		},
 	}
-
-	buffer = new(bytes.Buffer)
-	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
-	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	err = egressRule.Sanitize()
-	require.NoError(t, err)
-
-	state = traceState{}
-	td.testPolicyContext.ns = "default"
-	res, err = egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.NotNil(t, res)
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"443/TCP": {
@@ -1304,7 +1134,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
@@ -1314,70 +1144,48 @@ func TestMergeListenerPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
+			td.cachedSelectorB: {nil},
 			td.cachedSelectorC: {nil},
 		},
 	}})
 
-	require.EqualValues(t, expected, res)
-
-	l4Filter = res.ExactLookup("443", 0, "TCP")
-	require.NotNil(t, l4Filter)
-	require.Equal(t, ParserTypeCRD, l4Filter.L7Parser)
+	td.policyMapEquals(t, nil, expected, &egressRule)
 
 	//
 	// namespace in policyContext (Namespaced policy): Can refer to Cluster-socoped
 	// CiliumClusterwideEnvoyConfig
 	//
-	egressRule = &rule{
-		Rule: api.Rule{
-			EndpointSelector: fooSelector,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-					}},
+	egressRule = api.Rule{
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "443", Protocol: api.ProtoTCP},
-						},
-						Listener: &api.Listener{
-							EnvoyConfig: &api.EnvoyConfig{
-								Kind: "CiliumClusterwideEnvoyConfig",
-								Name: "shared-cec",
-							},
-							Name: "test",
-						},
-					}},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "443", Protocol: api.ProtoTCP},
+					},
+					Listener: &api.Listener{
+						EnvoyConfig: &api.EnvoyConfig{
+							Kind: "CiliumClusterwideEnvoyConfig",
+							Name: "shared-cec",
+						},
+						Name: "test",
+					},
+				}},
 			},
 		},
 	}
-
-	buffer = new(bytes.Buffer)
-	ctxFromFoo = SearchContext{From: labels.ParseSelectLabelArray("foo"), Trace: TRACE_VERBOSE}
-	ctxFromFoo.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	err = egressRule.Sanitize()
-	require.NoError(t, err)
-
-	state = traceState{}
-	td.testPolicyContext.ns = "default"
-	res, err = egressRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromFoo, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.NotNil(t, res)
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"443/TCP": {
@@ -1387,7 +1195,7 @@ func TestMergeListenerPolicy(t *testing.T) {
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: nil, // no proxy redirect
+			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
@@ -1397,16 +1205,12 @@ func TestMergeListenerPolicy(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA: {nil},
+			td.cachedSelectorB: {nil},
 			td.cachedSelectorC: {nil},
 		},
 	}})
 
-	require.EqualValues(t, expected, res)
-
-	l4Filter = res.ExactLookup("443", 0, "TCP")
-	require.NotNil(t, l4Filter)
-	require.Equal(t, ParserTypeCRD, l4Filter.L7Parser)
+	td.policyMapEquals(t, nil, expected, &egressRule)
 }
 
 // Case 6: allow all at L3/L7 in one rule, and select an endpoint and allow all on L7
@@ -1415,38 +1219,31 @@ func TestMergeListenerPolicy(t *testing.T) {
 func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 	td := newTestData()
 	// Case 6A: Specify WildcardEndpointSelector explicitly.
-	shadowRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+	shadowRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -1455,66 +1252,44 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA:        nil,
+			td.cachedSelectorB:        nil,
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
+			td.cachedSelectorB:        {nil},
 			td.wildcardCachedSelector: {nil},
 		},
 	}})
 
-	state := traceState{}
-	res, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.Equal(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &shadowRule)
 
 	// Case 6B: Reverse the ordering of the rules. Result should be the same.
-	shadowRule = &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+	shadowRule = api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer = new(bytes.Buffer)
-	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -1524,31 +1299,16 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
-			td.cachedSelectorA:        nil,
+			td.cachedSelectorB:        nil,
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			td.cachedSelectorA:        {nil},
+			td.cachedSelectorB:        {nil},
 			td.wildcardCachedSelector: {nil},
 		},
 	}})
 
-	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.Equal(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &shadowRule)
 }
 
 // Case 7: allow all at L3/L7 in one rule, and in another rule, select an endpoint
@@ -1560,43 +1320,36 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 	// rule which selects all endpoints and allows all on L7. Net result sets
 	// parser type to whatever is in first rule, but without the restriction
 	// on L7.
-	shadowRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	shadowRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorA},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -1620,63 +1373,41 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		},
 	}})
 
-	state := traceState{}
-	res, err := shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &shadowRule)
 
 	// Case 7B: selects all endpoints and allows all on L7, then selects specific
 	// endpoint with L7 restrictions rule. Net result sets  parser type to whatever
 	// is in first rule, but without the restriction on L7.
-	shadowRule = &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+	shadowRule = api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorA},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer = new(bytes.Buffer)
-	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -1700,22 +1431,7 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		},
 	}})
 
-	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &shadowRule)
 }
 
 // Case 8: allow all at L3 and restricts on L7 in one rule, and in another rule,
@@ -1728,48 +1444,41 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 	// rule which selects all endpoints and restricts on the same resource on L7.
 	// PerSelectorPolicies contains entries for both endpoints selected in each rule
 	// on L7 restriction.
-	case8Rule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	case8Rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorA},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -1798,68 +1507,47 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		},
 	}})
 
-	state := traceState{}
-	res, err := case8Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &case8Rule)
 
 	// Case 8B: first insert rule which selects all endpoints and restricts on
 	// the same resource on L7. Then, insert rule which  selects specific endpoint
 	// with L7 restrictions rule. PerSelectorPolicies contains entries for both
 	// endpoints selected in each rule on L7 restriction.
-	case8Rule = &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	case8Rule = api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorA},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer = new(bytes.Buffer)
-	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
 
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -1888,23 +1576,7 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		},
 	}})
 
-	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &case8Rule)
 }
 
 // Case 9: allow all at L3 and restricts on L7 in one rule, and in another rule,
@@ -1913,164 +1585,123 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 	td := newTestData()
 	// Case 9A: Kafka first, then HTTP.
-	conflictingL7Rule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							Kafka: []kafka.PortRule{
-								{Topic: "foo"},
-							},
-						},
-					}},
+	conflictingL7Rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{
+							{Topic: "foo"},
 						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
 
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	state := traceState{}
-	res, err := conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.Error(t, err)
-	require.Nil(t, res)
-
-	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingL7Rule)
 
 	// Case 9B: HTTP first, then Kafka.
-	conflictingL7Rule = &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	conflictingL7Rule = api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
-						Rules: &api.L7Rules{
-							Kafka: []kafka.PortRule{
-								{Topic: "foo"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorA},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []kafka.PortRule{
+							{Topic: "foo"},
+						},
+					},
+				}},
 			},
 		},
 	}
 
-	buffer = new(bytes.Buffer)
-	ctxToA = SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.Error(t, err)
-	require.Nil(t, res)
-
-	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingL7Rule)
 }
 
 // Case 10: restrict same path / method on L7 in both rules,
 // but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 	td := newTestData()
-	selectDifferentEndpointsRestrictL7 := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	selectDifferentEndpointsRestrictL7 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorA},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+					},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -2099,64 +1730,37 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 		},
 	}})
 
-	state := traceState{}
-	res, err := selectDifferentEndpointsRestrictL7.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	buffer = new(bytes.Buffer)
-	ctxToC := SearchContext{To: labelsC, Trace: TRACE_VERBOSE}
-	ctxToC.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	state = traceState{}
-	res, err = selectDifferentEndpointsRestrictL7.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &selectDifferentEndpointsRestrictL7)
 }
 
 // Case 11: allow all on L7 in both rules, but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 	td := newTestData()
-	selectDifferentEndpointsAllowAllL7 := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorA},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+	selectDifferentEndpointsAllowAllL7 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorA},
 				},
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+				}},
+			},
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorC},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -2175,27 +1779,7 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 		},
 	}})
 
-	state := traceState{}
-	res, err := selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.Equal(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	buffer = new(bytes.Buffer)
-	ctxToC := SearchContext{To: labelsC, Trace: TRACE_VERBOSE}
-	ctxToC.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	state = traceState{}
-	res, err = selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &selectDifferentEndpointsAllowAllL7)
 }
 
 // Case 12: allow all at L3 in one rule with restrictions at L7. Determine that
@@ -2212,32 +1796,26 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 	option.Config.AllowLocalhost = option.AllowLocalhostAlways
 	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
 
-	rule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-						Rules: &api.L7Rules{
-							HTTP: []api.PortRuleHTTP{
-								{Method: "GET", Path: "/"},
-							},
-						},
-					}},
+	rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
-	ctxToA.Logging = stdlog.New(buffer, "", 0)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
@@ -2258,50 +1836,21 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}})
 
-	state := traceState{}
-	res, err := rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.EqualValues(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
-
-	// Endpoints not selected by the rule should not match the rule.
-	buffer = new(bytes.Buffer)
-	ctxToC := SearchContext{To: labelsC, Trace: TRACE_VERBOSE}
-	ctxToC.Logging = stdlog.New(buffer, "", 0)
-
-	state = traceState{}
-	res, err = rule.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
-	t.Log(buffer)
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 0, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	td.policyMapEquals(t, expected, nil, &rule)
 }
 
 func TestEntitiesL3(t *testing.T) {
 	td := newTestData()
-	allowWorldRule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEntities: api.EntitySlice{api.EntityAll},
-					},
+	allowWorldRule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEntities: api.EntitySlice{api.EntityAll},
 				},
 			},
 		},
 	}
-
-	buffer := new(bytes.Buffer)
-	ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
-	ctxFromA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"0/ANY": {
 		Port:     0,
@@ -2316,49 +1865,28 @@ func TestEntitiesL3(t *testing.T) {
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
 	}})
 
-	state := traceState{}
-	res, err := allowWorldRule.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, NewL4PolicyMap(), nil, nil)
-
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	require.Equal(t, expected, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 1, state.matchedRules)
-	res.Detach(td.sc)
-	expected.Detach(td.sc)
+	td.policyMapEquals(t, nil, expected, &allowWorldRule)
 }
 
 // Case 13: deny all at L3 in case of an empty non-nil toEndpoints slice.
 func TestEgressEmptyToEndpoints(t *testing.T) {
 	td := newTestData()
-	rule := &rule{
-		Rule: api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEndpoints: []api.EndpointSelector{},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
+	rule := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{},
 				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
 			},
 		},
 	}
 
-	buffer := new(bytes.Buffer)
-	ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
-	ctxFromA.Logging = stdlog.New(buffer, "", 0)
-	t.Log(buffer)
-
-	state := traceState{}
-	res, err := rule.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, NewL4PolicyMap(), nil, nil)
-
-	require.NoError(t, err)
-	require.Nil(t, res)
-	require.Equal(t, 1, state.selectedRules)
-	require.Equal(t, 0, state.matchedRules)
+	expected := NewL4PolicyMap()
+	td.policyMapEquals(t, nil, expected, &rule)
 }
