@@ -1801,11 +1801,11 @@ int snat_v6_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 static __always_inline int
-snat_remap_rfc8215(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
+snat_remap_rfc6052(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
 {
 	union v6addr src6, dst6;
 
-	build_v4_in_v6_rfc8215(&src6, ip4->saddr);
+	build_v4_in_v6_rfc6052(&src6, ip4->saddr);
 	build_v4_in_v6(&dst6, ip4->daddr);
 	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);
 }
@@ -1824,12 +1824,12 @@ __snat_v6_has_v4_complete(struct ipv6_ct_tuple *tuple6,
 }
 
 static __always_inline bool
-snat_v6_has_v4_match_rfc8215(const struct ipv4_ct_tuple *tuple4)
+snat_v6_has_v4_match_rfc6052(const struct ipv4_ct_tuple *tuple4)
 {
 	struct ipv6_ct_tuple tuple6;
 
 	memset(&tuple6, 0, sizeof(tuple6));
-	build_v4_in_v6_rfc8215(&tuple6.saddr, tuple4->saddr);
+	build_v4_in_v6_rfc6052(&tuple6.saddr, tuple4->saddr);
 	return __snat_v6_has_v4_complete(&tuple6, tuple4);
 }
 

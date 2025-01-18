@@ -2661,7 +2661,7 @@
      - object
      - ``{"enabled":false}``
    * - :spelling:ignore:`nat46x64Gateway.enabled`
-     - Enable RFC8215-prefixed translation
+     - Enable RFC6052-prefixed translation
      - bool
      - ``false``
    * - :spelling:ignore:`nodeIPAM.enabled`
