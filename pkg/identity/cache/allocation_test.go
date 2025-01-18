@@ -126,6 +126,9 @@ type dummyOwner struct {
 	updated chan identity.NumericIdentity
 	mutex   lock.Mutex
 	cache   identity.IdentityMap
+
+	mutationErr error
+	updatecount int
 }
 
 func newDummyOwner() *dummyOwner {
@@ -137,8 +140,12 @@ func newDummyOwner() *dummyOwner {
 
 func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 	d.mutex.Lock()
+	d.updatecount++
 	log.Debugf("Dummy UpdateIdentities(added: %v, deleted: %v)", added, deleted)
 	for id, lbls := range added {
+		if _, existing := d.cache[id]; existing {
+			d.mutationErr = fmt.Errorf("mutation detected for id %d", id)
+		}
 		d.cache[id] = lbls
 		d.updated <- id
 	}
@@ -184,19 +191,14 @@ func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 }
 
 func TestEventWatcherBatching(t *testing.T) {
-	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
-	testEventWatcherBatching(t)
-}
-
-func testEventWatcherBatching(t *testing.T) {
 	owner := newDummyOwner()
 	events := make(allocator.AllocatorEventChan, 1024)
 	watcher := identityWatcher{
 		owner: owner,
 	}
+	defer close(events)
 
-	watcher.watch(events)
+	go watcher.watch(events)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
 	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
@@ -240,6 +242,50 @@ func testEventWatcherBatching(t *testing.T) {
 		}
 	}
 	require.NotEqual(t, 0, owner.WaitUntilID(2057))
+	require.NoError(t, owner.mutationErr)
+}
+
+// tests that a stream of updates will never result in a mutation, even when
+// add(id), delete(id), add(id) is seen in short succession
+func TestEventWatcherNoMutation(t *testing.T) {
+	owner := newDummyOwner()
+	events := make(allocator.AllocatorEventChan, 1024)
+	watcher := identityWatcher{
+		owner: owner,
+	}
+
+	lbls := labels.NewLabelsFromSortedList("id=foo")
+	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+
+	// add id 1024
+	events <- allocator.AllocatorEvent{
+		Typ: allocator.AllocatorChangeUpsert,
+		ID:  1024,
+		Key: key,
+	}
+	// del id 1024
+	events <- allocator.AllocatorEvent{
+		Typ: allocator.AllocatorChangeDelete,
+		ID:  1024,
+	}
+	// add id 1025
+	events <- allocator.AllocatorEvent{
+		Typ: allocator.AllocatorChangeUpsert,
+		ID:  1025,
+		Key: key,
+	}
+	// add id 1024 again
+	events <- allocator.AllocatorEvent{
+		Typ: allocator.AllocatorChangeUpsert,
+		ID:  1024,
+		Key: key,
+	}
+	close(events)
+	watcher.watch(events)
+
+	require.NoError(t, owner.mutationErr)
+	require.Equal(t, 2, owner.updatecount)
+	require.Len(t, owner.cache, 2)
 }
 
 func TestGetIdentityCache(t *testing.T) {

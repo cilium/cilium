@@ -194,7 +194,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	// and start a new watch.
 	if m.events == nil {
 		m.events = make(allocator.AllocatorEventChan, eventsQueueSize)
-		m.watcher.watch(m.events)
+		go m.watcher.watch(m.events)
 	}
 
 	// Asynchronously set up the global identity allocator since it connects
@@ -345,7 +345,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner, config AllocatorC
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
 	}
-	m.watcher.watch(m.events)
+	go m.watcher.watch(m.events)
 
 	// Local identity cache can be created synchronously since it doesn't
 	// rely upon any external resources (e.g., external kvstore).
