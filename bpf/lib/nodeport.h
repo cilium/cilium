@@ -865,6 +865,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct ipv6hdr *ip6;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
+	__u32 src_sec_identity __maybe_unused;
 	__be16 src_port __maybe_unused = 0;
 	bool allow_neigh_map = true;
 	int ifindex = 0;
@@ -924,8 +925,29 @@ out:
 encap_redirect:
 	src_port = tunnel_gen_src_port_v6(&tuple);
 
+#ifdef IS_BPF_XDP
+	src_sec_identity = WORLD_ID;
+#endif
+
+#ifdef IS_BPF_HOST
+	src_sec_identity = SECLABEL;
+#endif
+
+#ifdef IS_BPF_OVERLAY
+	src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+#endif
+
+#ifdef IS_BPF_WIREGUARD
+	src_sec_identity = WORLD_ID;
+#endif
+
+#ifdef IS_BPF_LXC
+	src_sec_identity = SECLABEL;
+#endif
+
 	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
-					tunnel_endpoint, SECLABEL, dst_sec_identity,
+					tunnel_endpoint, src_sec_identity,
+					dst_sec_identity,
 					trace->reason, trace->monitor, &ifindex);
 	if (IS_ERR(ret))
 		return ret;
@@ -2104,10 +2126,30 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	struct iphdr *ip4;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
-	__u32 src_sec_identity __maybe_unused = SECLABEL;
+	__u32 src_sec_identity __maybe_unused;
 	bool allow_neigh_map = true;
 	bool has_l4_header;
 	__u32 *vrf_id __maybe_unused = NULL;
+
+#ifdef IS_BPF_XDP
+	src_sec_identity = WORLD_ID;
+#endif
+
+#ifdef IS_BPF_HOST
+	src_sec_identity = SECLABEL;
+#endif
+
+#ifdef IS_BPF_OVERLAY
+	src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+#endif
+
+#ifdef IS_BPF_WIREGUARD
+	src_sec_identity = WORLD_ID;
+#endif
+
+#ifdef IS_BPF_LXC
+	src_sec_identity = SECLABEL;
+#endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;

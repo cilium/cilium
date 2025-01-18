@@ -265,7 +265,6 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 
 	// gather compile options for bpf_overlay.c
 	opts := []string{
-		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
 		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 	}
@@ -303,7 +302,6 @@ func reinitializeWireguard(ctx context.Context) (err error) {
 	}
 
 	opts := []string{
-		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
 		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
 	}
