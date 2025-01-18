@@ -198,17 +198,17 @@ func expectedIPsecKeyCount(ciliumPods int, fs features.Set, perNodeKey bool) int
 	if !perNodeKey {
 		return 1
 	}
-	// IPsec key states for `local_cilium_internal_ip` and `remote_node_ip`
-	xfrmStates := 2
-	if fs[features.CiliumIPAMMode].Mode == "eni" || fs[features.CiliumIPAMMode].Mode == "azure" {
-		xfrmStates++
-	}
+	// Two keys per node, per direction, per IP family.
+	// So a two-nodes IPv4-only cluster will have four keys.
+	expectedKeys := ciliumPods * 2
 	if fs[features.IPv6].Enabled {
-		// multiply by 2 because of dual state: IPv4 & IPv6
-		xfrmStates *= 2
+		expectedKeys *= 2
 	}
-	// subtract 1 to count remote nodes only
-	return (ciliumPods - 1) * xfrmStates
+	// If tunnel mode is enabled, we have 4 more IPv4 keys for the overlay.
+	if fs[features.Tunnel].Enabled {
+		expectedKeys += 4
+	}
+	return expectedKeys
 }
 
 func printPerNodeStatus(nodeMap map[string]models.EncryptionStatus, ikProps ipsecKeyProps, format string) error {

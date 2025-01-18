@@ -487,7 +487,7 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 			ciliumPods: 10,
 			fs:         features.Set{},
 			perNodeKey: true,
-			expected:   18,
+			expected:   20,
 		},
 		{
 			ciliumPods: 10,
@@ -495,32 +495,24 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 				features.IPv6: features.Status{Enabled: true},
 			},
 			perNodeKey: true,
-			expected:   36,
+			expected:   40,
 		},
 		{
 			ciliumPods: 10,
 			fs: features.Set{
-				features.CiliumIPAMMode: features.Status{Mode: "eni"},
+				features.Tunnel: features.Status{Enabled: true},
 			},
 			perNodeKey: true,
-			expected:   27,
+			expected:   24,
 		},
 		{
 			ciliumPods: 10,
 			fs: features.Set{
-				features.IPv6:           features.Status{Enabled: true},
-				features.CiliumIPAMMode: features.Status{Mode: "azure"},
+				features.IPv6:   features.Status{Enabled: true},
+				features.Tunnel: features.Status{Enabled: true},
 			},
 			perNodeKey: true,
-			expected:   54,
-		},
-		{
-			ciliumPods: 20,
-			fs: features.Set{
-				features.CiliumIPAMMode: features.Status{Mode: "eni"},
-			},
-			perNodeKey: true,
-			expected:   57,
+			expected:   44,
 		},
 	}
 
