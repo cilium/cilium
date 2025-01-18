@@ -550,12 +550,11 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
-			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
-					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor);
-			/* Stack will do a socket match and deliver locally. */
-			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
+			/* Ensure that port is 0 for the redirect.
+			 * Stack will do a socket match and deliver locally.
+			 */
+			proxy_port = 0;
+			goto redirect_to_proxy;
 		}
 		/* proxy_port remains 0 in this case */
 
@@ -635,13 +634,8 @@ ct_recreate6:
 	/* L7 LB does L7 policy enforcement, so we only redirect packets
 	 * NOT from L7 LB.
 	 */
-	if (!from_l7lb && proxy_port > 0) {
-		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor);
-		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
-	}
+	if (!from_l7lb && proxy_port > 0)
+		goto redirect_to_proxy;
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
@@ -791,6 +785,12 @@ encrypt_to_stack:
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 
 	return CTX_ACT_OK;
+
+redirect_to_proxy:
+	send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
+			  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+			  trace.reason, trace.monitor);
+	return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC_CONT)
@@ -1004,12 +1004,12 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
-			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
-					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor);
-			/* Stack will do a socket match and deliver locally. */
-			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
+			/* Ensure that port is 0 for the redirect.
+			 * Stack will do a socket match and deliver locally.
+			 */
+			proxy_port = 0;
+			goto redirect_to_proxy;
+
 		}
 		/* proxy_port remains 0 in this case */
 
@@ -1070,6 +1070,8 @@ ct_recreate4:
 
 	case CT_RELATED:
 	case CT_REPLY:
+		hairpin_flow = ct_state->loopback;
+
 #ifdef ENABLE_NODEPORT
 		/* This handles reply traffic for the case where the nodeport EP
 		 * is local to the node. We'll do the tail call to perform
@@ -1113,18 +1115,11 @@ ct_recreate4:
 	}
 #endif /* ENABLE_SRV6 */
 
-	hairpin_flow |= ct_state->loopback;
-
 	/* L7 LB does L7 policy enforcement, so we only redirect packets
 	 * NOT from L7 LB.
 	 */
-	if (!from_l7lb && proxy_port > 0) {
-		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor);
-		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
-	}
+	if (!from_l7lb && proxy_port > 0)
+		goto redirect_to_proxy;
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
@@ -1343,6 +1338,12 @@ encrypt_to_stack:
 			  TRACE_IFINDEX_UNKNOWN, trace.reason, trace.monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
+
+redirect_to_proxy:
+	send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
+			  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+			  trace.reason, trace.monitor);
+	return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC_CONT)
@@ -1705,6 +1706,10 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 			ctx_change_type(ctx, PACKET_HOST);
 
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
+
+		/* Store meta: essential for proxy ingress, see bpf_host.c */
+		ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
+
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
@@ -1726,9 +1731,6 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 
 	if (IS_ERR(ret))
 		goto drop_err;
-
-	/* Store meta: essential for proxy ingress, see bpf_host.c */
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	/* Make sure we skip the tail call when the packet is being redirected
@@ -1944,9 +1946,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 		 * matched.
 		 *
 		 * If ip4.saddr is IPV4_LOOPBACK, this is almost certainly a loopback
-		 * connection. Populate
-		 * - .loopback, so that policy enforcement is bypassed, and
-		 * - .rev_nat_index, so that replies can be RevNATed.
+		 * connection. Populate .loopback, so that policy enforcement is bypassed.
 		 */
 		if (ret == CT_NEW && ip4->saddr == IPV4_LOOPBACK &&
 		    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
@@ -2057,6 +2057,10 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 			ctx_change_type(ctx, PACKET_HOST);
 
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
+
+		/* Store meta: essential for proxy ingress, see bpf_host.c */
+		ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
+
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
@@ -2085,9 +2089,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	if (IS_ERR(ret))
 		goto drop_err;
-
-	/* Store meta: essential for proxy ingress, see bpf_host.c */
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	/* Make sure we skip the tail call when the packet is being redirected
