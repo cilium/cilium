@@ -428,6 +428,20 @@ func HaveV3ISA() error {
 	return nil
 }
 
+// HaveV4ISA is a wrapper around features.HaveV4ISA() to check if the kernel
+// supports the V4 ISA.
+// On unexpected probe results this function will terminate with log.Fatal().
+func HaveV4ISA() error {
+	err := features.HaveV4ISA()
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		log.WithError(err).Fatal("failed to probe V4 ISA")
+	}
+	return nil
+}
+
 // HaveTCX returns nil if the running kernel supports attaching bpf programs to
 // tcx hooks.
 var HaveTCX = sync.OnceValue(func() error {
