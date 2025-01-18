@@ -251,14 +251,7 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 		t.Debug("Encapsulation before WG encryption")
 	}
 
-	e, ok := t.Context().Feature(features.EncryptionPod)
-	isIPSec := ok && e.Enabled && e.Mode == "ipsec"
-
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
-		if isIPSec && ipFam == features.IPFamilyV6 {
-			t.Debugf("Inactive IPv6 test with IPSec, see https://github.com/cilium/cilium/issues/35485")
-			return
-		}
 		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, &serverHost, requestHTTP, ipFam, assertNoLeaks, true, wgEncap)
 	})
 }
