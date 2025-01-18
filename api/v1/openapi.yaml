@@ -3520,10 +3520,10 @@ definitions:
         type: string
         format: date-time
       key:
-        description: Map key on which the event occured
+        description: Map key (or keys) on which the event occured
         type: string
       value:
-        description: Map value on which the event occured
+        description: Map value (or values) on which the event occured
         type: string
       action:
         description: Action type for event
@@ -3531,6 +3531,7 @@ definitions:
         enum:
         - update
         - delete
+        - batchupdate
       desired-action:
         description: Desired action to be performed after this event
         type: string

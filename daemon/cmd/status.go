@@ -471,6 +471,10 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Name: "Tunnel",
 				Size: int64(tunnelmap.MaxEntries),
 			},
+			{
+				Name: "Batch Update Chunk Size",
+				Size: int64(option.Config.BPFBatchUpdateChunkSize),
+			},
 		},
 	}
 }
