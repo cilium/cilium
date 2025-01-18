@@ -49,6 +49,7 @@ func TestScript(t *testing.T) {
 			client.FakeClientCell,
 			daemonk8s.ResourcesCell,
 			cell.Config(cecConfig{}),
+			cell.Config(envoy.ProxyConfig{}),
 			experimental.Cell,
 			maglev.Cell,
 			cell.Provide(

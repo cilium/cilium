@@ -69,14 +69,15 @@ type parserParams struct {
 	PortAllocator  PortAllocator
 	LocalNodeStore *node.LocalNodeStore
 
-	CecConfig cecConfig
+	CecConfig   cecConfig
+	EnvoyConfig envoy.ProxyConfig
 }
 
 func newCECResourceParser(params parserParams) *cecResourceParser {
 	parser := &cecResourceParser{
 		logger:                      params.Logger,
 		portAllocator:               params.PortAllocator,
-		defaultMaxConcurrentRetries: params.CecConfig.ProxyMaxConcurrentRetries,
+		defaultMaxConcurrentRetries: params.EnvoyConfig.ProxyMaxConcurrentRetries,
 	}
 
 	// Retrieve Ingress IPs from local Node.
