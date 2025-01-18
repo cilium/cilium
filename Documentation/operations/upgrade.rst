@@ -470,6 +470,11 @@ Hubble CLI
   reproduced with ``--node-name foo/`` (shows all flows emitted from a node in
   cluster ``foo``).
 
+
+1.18 Upgrade Notes
+------------------
+* ``cilium-dbg bpf policy`` will parse the cilium internal identity ``1`` correctly from ``reserved:unknown`` to ``ANY``
+
 Advanced
 ========
 
