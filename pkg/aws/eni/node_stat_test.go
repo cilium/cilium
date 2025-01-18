@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/cilium/pkg/aws/ec2/mock"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -16,9 +17,10 @@ import (
 )
 
 func TestENIIPAMCapacityAccounting(t *testing.T) {
+	mockEC2API := mock.NewAPI(nil, nil, nil)
 	assert := assert.New(t)
 	instanceID := "i-000"
-	cn := newCiliumNode("node1", withInstanceType("m5a.large"),
+	cn := newCiliumNode("node1", withInstanceType("m5.large"),
 		func(cn *v2.CiliumNode) {
 			cn.Spec.InstanceID = instanceID
 		},
@@ -36,6 +38,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		k8sObj: cn,
 		manager: &InstancesManager{
 			instances: im,
+			api:       mockEC2API,
 		},
 		enis: map[string]eniTypes.ENI{"eni-a": {}},
 	}
@@ -46,7 +49,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 
 	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log)
 	assert.NoError(err)
-	// m5a.large = 10 IPs per ENI, 3 ENIs.
+	// m5.large = 10 IPs per ENI, 3 ENIs.
 	// Accounting for primary ENI IPs, we should be able to allocate (10-1)*3=27 IPs.
 	assert.Equal(27, stats.NodeCapacity)
 
@@ -59,10 +62,10 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	assert.Equal(30, stats.NodeCapacity)
 
 	ipamNode.prefixDelegation = true
-	// Note: m5a.large is a nitro instance, so it supports prefix delegation.
+	// Note: m5.large is a nitro instance, so it supports prefix delegation.
 	_, stats, err = n.ResyncInterfacesAndIPs(context.Background(), log)
 	assert.NoError(err)
-	// m5a.large = 10 IPs per ENI, 3 ENIs.
+	// m5.large = 10 IPs per ENI, 3 ENIs.
 	// Accounting for primary ENI IPs, we should be able to allocate (10-1)*3=27 IPs.
 	//
 	// In this case, we have prefix delegation enabled.
