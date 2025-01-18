@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/kubectl/pkg/util/podutils"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
@@ -73,6 +74,8 @@ type Options struct {
 	CiliumSPIREServerLabelSelector string
 	// The labels used to target Cilium SPIRE agent pods.
 	CiliumSPIREAgentLabelSelector string
+	// Whether to collect logs from cilium-agent pods that are crashing.
+	CollectLogsFromNotReadyAgents bool
 	// Whether to enable debug logging.
 	Debug bool
 	// Whether to enable scraping profiling data.
@@ -167,6 +170,9 @@ type Collector struct {
 	NodeList []string
 	// CiliumPods is a list of Cilium agent pods running on nodes in NodeList.
 	CiliumPods []*corev1.Pod
+	// CiliumNotReadyPods is a list of additional Cilium agent pods to collect logs from
+	// regardless of node filter.
+	CiliumNotReadyPods []*corev1.Pod
 	// CiliumOperatorPods is the list of Cilium operator pods.
 	CiliumOperatorPods []*corev1.Pod
 	// CiliumConfigMap is a pointer to cilium-config ConfigMap.
@@ -294,6 +300,23 @@ func NewCollector(
 			return nil, fmt.Errorf("failed to get Cilium pods: %w", err)
 		}
 		c.CiliumPods = FilterPods(ciliumPods, c.NodeList)
+		if c.Options.CollectLogsFromNotReadyAgents {
+			crashedPods := filterCrashedPods(ciliumPods, 5)
+			notReady := filterRunningNotReadyPods(ciliumPods, 5)
+			restartedPods := filterRestartedContainersPods(ciliumPods, 5)
+			allPods := slices.Concat(crashedPods, notReady, restartedPods)
+
+			for _, pod := range allPods {
+				if !slices.ContainsFunc(c.CiliumNotReadyPods, func(p *corev1.Pod) bool {
+					return p.Name == pod.Name
+				}) {
+					c.CiliumNotReadyPods = append(c.CiliumNotReadyPods, pod)
+				}
+			}
+			if len(c.CiliumNotReadyPods) > 0 {
+				c.logWarn("Collecting additional logs from %d not ready/crashing/restarted Cilium agent pods", len(c.CiliumNotReadyPods))
+			}
+		}
 
 		c.CiliumConfigMap, err = c.Client.GetConfigMap(context.Background(), c.Options.CiliumNamespace, ciliumConfigMapName, metav1.GetOptions{})
 		if err != nil {
@@ -621,7 +644,7 @@ func (c *Collector) Run() error {
 					if err != nil {
 						return fmt.Errorf("failed to get logs from Hubble certgen pods")
 					}
-					if err := c.SubmitLogsTasks(filterCrashedPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					if err := c.SubmitLogsTasks(filterCrashedPods(p, 0), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 						return fmt.Errorf("failed to collect logs from Hubble certgen pods")
 					}
 				}
@@ -1278,6 +1301,17 @@ func (c *Collector) Run() error {
 			Task: func(_ context.Context) error {
 				if err := c.SubmitLogsTasks(c.CiliumPods, c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting logs from crashing Cilium pods",
+			Quick:           false,
+			Task: func(_ context.Context) error {
+				if err := c.SubmitLogsTasks(c.CiliumNotReadyPods, c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from not ready Cilium pods")
 				}
 				return nil
 			},
@@ -3078,31 +3112,64 @@ func buildNodeNameList(nodes *corev1.NodeList, filter string) []string {
 
 // AllPods converts a PodList into a slice of Pod objects.
 func AllPods(l *corev1.PodList) []*corev1.Pod {
-	return filterPods(l, func(*corev1.Pod) bool { return true })
+	return filterPods(l, func(*corev1.Pod) bool { return true }, 0)
 }
 
 // FilterPods filters a list of pods by node names.
 func FilterPods(l *corev1.PodList, n []string) []*corev1.Pod {
-	return filterPods(l, func(po *corev1.Pod) bool { return slices.Contains(n, po.Spec.NodeName) })
+	return filterPods(l, func(po *corev1.Pod) bool { return slices.Contains(n, po.Spec.NodeName) }, 0)
 }
 
-func filterCrashedPods(l *corev1.PodList) []*corev1.Pod {
+func filterCrashedPods(l *corev1.PodList, limit int) []*corev1.Pod {
 	return filterPods(l, func(po *corev1.Pod) bool {
+		for _, containerStatus := range po.Status.InitContainerStatuses {
+			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+				return true
+			}
+		}
 		for _, containerStatus := range po.Status.ContainerStatuses {
 			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
 				return true
 			}
 		}
 		return false
-	})
+	}, limit)
 }
 
-func filterPods(l *corev1.PodList, filter func(po *corev1.Pod) bool) []*corev1.Pod {
+func filterRunningNotReadyPods(l *corev1.PodList, limit int) []*corev1.Pod {
+	return filterPods(l, func(po *corev1.Pod) bool {
+		if po.Status.Phase != corev1.PodRunning {
+			return false
+		}
+		return !podutils.IsPodReady(po)
+	}, limit)
+}
+
+func filterRestartedContainersPods(l *corev1.PodList, limit int) []*corev1.Pod {
+	return filterPods(l, func(po *corev1.Pod) bool {
+		for _, containerStatus := range po.Status.InitContainerStatuses {
+			if containerStatus.RestartCount > 0 {
+				return true
+			}
+		}
+		for _, containerStatus := range po.Status.ContainerStatuses {
+			if containerStatus.RestartCount > 0 {
+				return true
+			}
+		}
+		return false
+	}, limit)
+}
+
+func filterPods(l *corev1.PodList, filter func(po *corev1.Pod) bool, limit int) []*corev1.Pod {
 	r := make([]*corev1.Pod, 0)
 	for _, p := range l.Items {
 		p := p
 		if filter(&p) {
 			r = append(r, &p)
+			if limit > 0 && len(r) >= limit {
+				break
+			}
 		}
 	}
 	return r
@@ -3236,6 +3303,9 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 	cmd.Flags().StringVar(&options.CiliumSPIREServerLabelSelector,
 		optionPrefix+"cilium-spire-server-selector", DefaultCiliumSpireServerLabelSelector,
 		"The labels used to target Cilium spire-server pods")
+	cmd.Flags().BoolVar(&options.CollectLogsFromNotReadyAgents,
+		optionPrefix+"collect-logs-from-not-ready-agents", DefaultCollectLogsFromNotReadyAgents,
+		"Whether to collect logs from not ready Cilium agent pods")
 	cmd.Flags().BoolVar(&options.Debug,
 		optionPrefix+"debug", DefaultDebug,
 		"Whether to enable debug logging")
