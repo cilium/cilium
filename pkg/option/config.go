@@ -1155,6 +1155,9 @@ const (
 	// EnableEndpointLockdownOnPolicyOverflow enables endpoint lockdown when an endpoint's
 	// policy map overflows.
 	EnableEndpointLockdownOnPolicyOverflow = "enable-endpoint-lockdown-on-policy-overflow"
+
+	// IPTracingOptionType specifies what IPv4 option type should be used to extract trace information from a packet
+	IPTracingOptionType = "ip-tracing-option-type"
 )
 
 // Default string arguments
@@ -2258,6 +2261,9 @@ type DaemonConfig struct {
 	// EnableEndpointLockdownOnPolicyOverflow enables endpoint lockdown when an endpoint's
 	// policy map overflows.
 	EnableEndpointLockdownOnPolicyOverflow bool
+
+	// IPTracingOptionType determines whether to enable IP tracing, and if enabled what option type to use.
+	IPTracingOptionType uint
 }
 
 var (
@@ -2322,6 +2328,8 @@ var (
 		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 
 		EnableSourceIPVerification: defaults.EnableSourceIPVerification,
+
+		IPTracingOptionType: defaults.IPTracingOptionType,
 	}
 )
 
@@ -2967,6 +2975,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
 	c.LBSourceRangeAllTypes = vp.GetBool(LBSourceRangeAllTypes)
 	c.BootIDFile = vp.GetString(BootIDFilename)
+	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {

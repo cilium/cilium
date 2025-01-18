@@ -40,7 +40,7 @@ func TestDecodeTraceNotifyV0(t *testing.T) {
 	require.NoError(t, err)
 
 	output := TraceNotify{}
-	err = DecodeTraceNotify(buf.Bytes(), &output)
+	err = output.decodeTraceNotifyVersion0(buf.Bytes())
 	require.NoError(t, err)
 	require.Equal(t, input.Type, output.Type)
 	require.Equal(t, input.ObsPoint, output.ObsPoint)
@@ -90,6 +90,61 @@ func TestDecodeTraceNotifyV1(t *testing.T) {
 	err := binary.Write(buf, byteorder.Native, in)
 	require.NoError(t, err)
 
+	out := TraceNotifyV1{}
+	err = out.decodeTraceNotifyVersion1(buf.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, in.Type, out.Type)
+	require.Equal(t, in.ObsPoint, out.ObsPoint)
+	require.Equal(t, in.Source, out.Source)
+	require.Equal(t, in.Hash, out.Hash)
+	require.Equal(t, in.OrigLen, out.OrigLen)
+	require.Equal(t, in.CapLen, out.CapLen)
+	require.Equal(t, in.Version, out.Version)
+	require.Equal(t, in.SrcLabel, out.SrcLabel)
+	require.Equal(t, in.DstLabel, out.DstLabel)
+	require.Equal(t, in.DstID, out.DstID)
+	require.Equal(t, in.Reason, out.Reason)
+	require.Equal(t, in.Flags, out.Flags)
+	require.Equal(t, in.Ifindex, out.Ifindex)
+	require.Equal(t, in.OrigIP, out.OrigIP)
+}
+
+func TestDecodeTraceNotifyV2(t *testing.T) {
+	// This check on the struct length constant is there to ensure that this
+	// test is updated when the struct changes.
+	require.Equal(t, 56, traceNotifyV2Len)
+
+	in := TraceNotifyV2{
+		TraceNotifyV1: TraceNotifyV1{
+			TraceNotifyV0: TraceNotifyV0{
+				Type:     0x00,
+				ObsPoint: 0x02,
+				Source:   0x03_04,
+				Hash:     0x05_06_07_08,
+				OrigLen:  0x09_0a_0b_0c,
+				CapLen:   0x0d_0e,
+				Version:  TraceNotifyVersion2,
+				SrcLabel: identity.NumericIdentity(0x_11_12_13_14),
+				DstLabel: identity.NumericIdentity(0x_15_16_17_18),
+				DstID:    0x19_1a,
+				Reason:   0x1b,
+				Flags:    0x1c,
+				Ifindex:  0x1d_1e_1f_20,
+			},
+			OrigIP: types.IPv6{
+				0x21, 0x22,
+				0x23, 0x24,
+				0x25, 0x26,
+				0x27, 0x28,
+				0x29, 0x2a,
+			},
+		},
+		IPTraceID: 0x2b_2c_2d_2e_2f_30_31_32,
+	}
+	buf := bytes.NewBuffer(nil)
+	err := binary.Write(buf, byteorder.Native, in)
+	require.NoError(t, err)
+
 	out := TraceNotify{}
 	err = DecodeTraceNotify(buf.Bytes(), &out)
 	require.NoError(t, err)
@@ -107,6 +162,7 @@ func TestDecodeTraceNotifyV1(t *testing.T) {
 	require.Equal(t, in.Flags, out.Flags)
 	require.Equal(t, in.Ifindex, out.Ifindex)
 	require.Equal(t, in.OrigIP, out.OrigIP)
+	require.Equal(t, in.IPTraceID, out.IPTraceID)
 }
 
 func TestDecodeTraceNotifyErrors(t *testing.T) {
