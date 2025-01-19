@@ -58557,6 +58557,11 @@ func awsEc2query_serializeOpDocumentCreateClientVpnEndpointInput(v *CreateClient
 		objectKey.String(*v.Description)
 	}
 
+	if v.DisconnectOnSessionTimeout != nil {
+		objectKey := object.Key("DisconnectOnSessionTimeout")
+		objectKey.Boolean(*v.DisconnectOnSessionTimeout)
+	}
+
 	if v.DnsServers != nil {
 		objectKey := object.FlatKey("DnsServers")
 		if err := awsEc2query_serializeDocumentValueStringList(v.DnsServers, objectKey); err != nil {
@@ -72562,6 +72567,11 @@ func awsEc2query_serializeOpDocumentModifyClientVpnEndpointInput(v *ModifyClient
 	if v.Description != nil {
 		objectKey := object.Key("Description")
 		objectKey.String(*v.Description)
+	}
+
+	if v.DisconnectOnSessionTimeout != nil {
+		objectKey := object.Key("DisconnectOnSessionTimeout")
+		objectKey.Boolean(*v.DisconnectOnSessionTimeout)
 	}
 
 	if v.DnsServers != nil {

@@ -340,6 +340,9 @@ func conversionTaskCancelledStateRetryable(ctx context.Context, input *DescribeC
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -567,6 +570,9 @@ func conversionTaskCompletedStateRetryable(ctx context.Context, input *DescribeC
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -752,6 +758,9 @@ func conversionTaskDeletedStateRetryable(ctx context.Context, input *DescribeCon
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

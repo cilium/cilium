@@ -396,6 +396,9 @@ func vpcAvailableStateRetryable(ctx context.Context, input *DescribeVpcsInput, o
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -573,6 +576,9 @@ func vpcExistsStateRetryable(ctx context.Context, input *DescribeVpcsInput, outp
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

@@ -71960,6 +71960,22 @@ func awsEc2query_deserializeDocumentClientVpnEndpoint(v **types.ClientVpnEndpoin
 				sv.Description = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("disconnectOnSessionTimeout", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv, err := strconv.ParseBool(string(val))
+				if err != nil {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
+				}
+				sv.DisconnectOnSessionTimeout = ptr.Bool(xtv)
+			}
+
 		case strings.EqualFold("dnsName", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {

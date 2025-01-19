@@ -75,7 +75,7 @@ type CreateNetworkInterfaceInput struct {
 	// with the ENI becomes the primary IPv6 address.
 	EnablePrimaryIpv6 *bool
 
-	// The IDs of one or more security groups.
+	// The IDs of the security groups.
 	Groups []string
 
 	// The type of network interface. The default is interface .

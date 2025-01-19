@@ -363,6 +363,9 @@ func passwordDataAvailableStateRetryable(ctx context.Context, input *GetPassword
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

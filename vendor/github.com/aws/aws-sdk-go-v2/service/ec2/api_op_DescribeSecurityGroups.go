@@ -452,6 +452,9 @@ func securityGroupExistsStateRetryable(ctx context.Context, input *DescribeSecur
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

@@ -379,6 +379,9 @@ func keyPairExistsStateRetryable(ctx context.Context, input *DescribeKeyPairsInp
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

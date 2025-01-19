@@ -448,6 +448,9 @@ func natGatewayAvailableStateRetryable(ctx context.Context, input *DescribeNatGa
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -643,6 +646,9 @@ func natGatewayDeletedStateRetryable(ctx context.Context, input *DescribeNatGate
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

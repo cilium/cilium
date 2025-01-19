@@ -83,6 +83,12 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 
 	// Sets the AccountIDEndpointMode if present in env var or shared config profile
 	resolveAccountIDEndpointMode,
+
+	// Sets the RequestChecksumCalculation if present in env var or shared config profile
+	resolveRequestChecksumCalculation,
+
+	// Sets the ResponseChecksumValidation if present in env var or shared config profile
+	resolveResponseChecksumValidation,
 }
 
 // A Config represents a generic configuration value or set of values. This type
