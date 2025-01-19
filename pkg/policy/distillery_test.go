@@ -1371,11 +1371,11 @@ var (
 
 	AllowEntry    = types.AllowEntry()
 	DenyEntry     = types.DenyEntry()
-	mapEntryDeny  = NewMapStateEntry(DenyEntry, labels.LabelArrayList{nil})
-	mapEntryAllow = NewMapStateEntry(AllowEntry, labels.LabelArrayList{nil})
+	mapEntryDeny  = NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
+	mapEntryAllow = NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
-	mapEntryWorldDenyWithLabels = NewMapStateEntry(DenyEntry, worldLabelArrayList)
+	mapEntryWorldDenyWithLabels = NewMapStateEntry(DenyEntry).withLabels(worldLabelArrayList)
 
 	worldIPIdentity = localIdentity(16324)
 	worldIPCIDR     = api.CIDR("192.0.2.3/32")

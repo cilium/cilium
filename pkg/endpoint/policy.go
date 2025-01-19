@@ -1094,7 +1094,7 @@ func (e *Endpoint) UpdateBandwidthPolicy(bwm dptypes.BandwidthManager, bandwidth
 // This function explicitly exported to be accessed by code outside of the
 // Cilium source code tree and for testing.
 func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
-	derivedFrom labels.LabelArrayList,
+	derivedFrom string,
 	revision uint64,
 	ok bool,
 ) {

@@ -4,6 +4,7 @@
 package labels
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 )
@@ -197,17 +198,48 @@ func (ls LabelArray) GetModel() []string {
 	return res
 }
 
-func (ls LabelArray) String() string {
-	var sb strings.Builder
+func LabelArrayFromString(str string) LabelArray {
+	// each LabelArray starts with '[' and ends with ']'
+	if len(str) > 2 && str[0] == '[' && str[len(str)-1] == ']' {
+		str = str[1 : len(str)-1] // remove brackets
+		labels := strings.Split(str, " ")
+		la := make(LabelArray, 0, len(labels))
+		for j := range labels {
+			la = append(la, ParseLabel(labels[j]))
+		}
+		if len(la) > 0 {
+			return la
+		}
+	}
+	return nil
+}
+
+func (ls LabelArray) BuildString(sb *strings.Builder) {
 	sb.WriteString("[")
 	for l := range ls {
 		if l > 0 {
 			sb.WriteString(" ")
 		}
-		sb.WriteString(ls[l].String())
+		ls[l].BuildString(sb)
 	}
 	sb.WriteString("]")
+}
+
+func (ls LabelArray) String() string {
+	var sb strings.Builder
+	ls.BuildString(&sb)
 	return sb.String()
+}
+
+func (ls LabelArray) BuildBytes(buf *bytes.Buffer) {
+	buf.WriteString("[")
+	for l := range ls {
+		if l > 0 {
+			buf.WriteString(" ")
+		}
+		ls[l].BuildBytes(buf)
+	}
+	buf.WriteString("]")
 }
 
 // StringMap converts LabelArray into map[string]string
