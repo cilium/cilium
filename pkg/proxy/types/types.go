@@ -8,7 +8,7 @@ const (
 	ProxyTypeAny ProxyType = ""
 	// ProxyTypeHTTP specifies the Envoy HTTP proxy type
 	ProxyTypeHTTP ProxyType = "http"
-	// ProxyTypeDNS specifies the staticly configured DNS proxy type
+	// ProxyTypeDNS specifies the statically configured DNS proxy type
 	ProxyTypeDNS ProxyType = "dns"
 	// ProxyTypeCRD specifies a proxy configured via CiliumEnvoyConfig CRD
 	ProxyTypeCRD ProxyType = "crd"

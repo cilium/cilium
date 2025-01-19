@@ -107,7 +107,7 @@ var LogTags logTags
 
 type logTags struct{}
 
-// Verdict attachs verdict information to the log record
+// Verdict attach verdict information to the log record
 func (logTags) Verdict(v accesslog.FlowVerdict, info string) LogTag {
 	return func(lr *LogRecord) {
 		lr.Verdict = v
@@ -281,7 +281,7 @@ func SetMetadata(md []string) {
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP address.
 type EndpointInfoRegistry interface {
 	// FillEndpointInfo resolves the labels of the specified identity if known locally.
-	// ID and Labels should be provieded in 'info' if known.
+	// ID and Labels should be provided in 'info' if known.
 	// If 'id' is passed as zero, will locate the EP by 'addr', and also fill info.ID, if found.
 	// Fills in the following info member fields:
 	//  - info.IPv4           (if 'ip' is IPv4)
