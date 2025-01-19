@@ -438,6 +438,9 @@ func subnetAvailableStateRetryable(ctx context.Context, input *DescribeSubnetsIn
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

@@ -438,6 +438,9 @@ func volumeAvailableStateRetryable(ctx context.Context, input *DescribeVolumesIn
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -633,6 +636,9 @@ func volumeDeletedStateRetryable(ctx context.Context, input *DescribeVolumesInpu
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -836,6 +842,9 @@ func volumeInUseStateRetryable(ctx context.Context, input *DescribeVolumesInput,
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

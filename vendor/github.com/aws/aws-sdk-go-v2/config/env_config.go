@@ -83,6 +83,9 @@ const (
 
 	awsAccountIDEnv             = "AWS_ACCOUNT_ID"
 	awsAccountIDEndpointModeEnv = "AWS_ACCOUNT_ID_ENDPOINT_MODE"
+
+	awsRequestChecksumCalculation = "AWS_REQUEST_CHECKSUM_CALCULATION"
+	awsResponseChecksumValidation = "AWS_RESPONSE_CHECKSUM_VALIDATION"
 )
 
 var (
@@ -296,6 +299,12 @@ type EnvConfig struct {
 
 	// Indicates whether account ID will be required/ignored in endpoint2.0 routing
 	AccountIDEndpointMode aws.AccountIDEndpointMode
+
+	// Indicates whether request checksum should be calculated
+	RequestChecksumCalculation aws.RequestChecksumCalculation
+
+	// Indicates whether response checksum should be validated
+	ResponseChecksumValidation aws.ResponseChecksumValidation
 }
 
 // loadEnvConfig reads configuration values from the OS's environment variables.
@@ -400,6 +409,13 @@ func NewEnvConfig() (EnvConfig, error) {
 		return cfg, err
 	}
 
+	if err := setRequestChecksumCalculationFromEnvVal(&cfg.RequestChecksumCalculation, []string{awsRequestChecksumCalculation}); err != nil {
+		return cfg, err
+	}
+	if err := setResponseChecksumValidationFromEnvVal(&cfg.ResponseChecksumValidation, []string{awsResponseChecksumValidation}); err != nil {
+		return cfg, err
+	}
+
 	return cfg, nil
 }
 
@@ -430,6 +446,14 @@ func (c EnvConfig) getRequestMinCompressSizeBytes(context.Context) (int64, bool,
 
 func (c EnvConfig) getAccountIDEndpointMode(context.Context) (aws.AccountIDEndpointMode, bool, error) {
 	return c.AccountIDEndpointMode, len(c.AccountIDEndpointMode) > 0, nil
+}
+
+func (c EnvConfig) getRequestChecksumCalculation(context.Context) (aws.RequestChecksumCalculation, bool, error) {
+	return c.RequestChecksumCalculation, c.RequestChecksumCalculation > 0, nil
+}
+
+func (c EnvConfig) getResponseChecksumValidation(context.Context) (aws.ResponseChecksumValidation, bool, error) {
+	return c.ResponseChecksumValidation, c.ResponseChecksumValidation > 0, nil
 }
 
 // GetRetryMaxAttempts returns the value of AWS_MAX_ATTEMPTS if was specified,
@@ -524,6 +548,45 @@ func setAIDEndPointModeFromEnvVal(m *aws.AccountIDEndpointMode, keys []string) e
 			return fmt.Errorf("invalid value for environment variable, %s=%s, must be preferred/required/disabled", k, value)
 		}
 		break
+	}
+	return nil
+}
+
+func setRequestChecksumCalculationFromEnvVal(m *aws.RequestChecksumCalculation, keys []string) error {
+	for _, k := range keys {
+		value := os.Getenv(k)
+		if len(value) == 0 {
+			continue
+		}
+
+		switch strings.ToLower(value) {
+		case checksumWhenSupported:
+			*m = aws.RequestChecksumCalculationWhenSupported
+		case checksumWhenRequired:
+			*m = aws.RequestChecksumCalculationWhenRequired
+		default:
+			return fmt.Errorf("invalid value for environment variable, %s=%s, must be when_supported/when_required", k, value)
+		}
+	}
+	return nil
+}
+
+func setResponseChecksumValidationFromEnvVal(m *aws.ResponseChecksumValidation, keys []string) error {
+	for _, k := range keys {
+		value := os.Getenv(k)
+		if len(value) == 0 {
+			continue
+		}
+
+		switch strings.ToLower(value) {
+		case checksumWhenSupported:
+			*m = aws.ResponseChecksumValidationWhenSupported
+		case checksumWhenRequired:
+			*m = aws.ResponseChecksumValidationWhenRequired
+		default:
+			return fmt.Errorf("invalid value for environment variable, %s=%s, must be when_supported/when_required", k, value)
+		}
+
 	}
 	return nil
 }
