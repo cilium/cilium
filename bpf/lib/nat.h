@@ -475,17 +475,21 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 }
 
 static __always_inline bool
-snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
-		     const struct ipv4_ct_tuple *tuple)
+snat_v4_nat_can_skip(const struct ipv4_nat_target *target __maybe_unused,
+		     const struct ipv4_ct_tuple *tuple __maybe_unused)
 {
-	__u16 sport = bpf_ntohs(tuple->sport);
+	__u16 sport __maybe_unused = bpf_ntohs(tuple->sport);
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target->egress_gateway)
 		return false;
 #endif
 
+#ifndef ENABLE_IPTABLES_MASQUERADE_IPV4
 	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
+#else
+    return true;
+#endif
 }
 
 static __always_inline bool
@@ -1382,12 +1386,16 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off, int l4
 }
 
 static __always_inline bool
-snat_v6_nat_can_skip(const struct ipv6_nat_target *target,
-		     const struct ipv6_ct_tuple *tuple)
+snat_v6_nat_can_skip(const struct ipv6_nat_target *target __maybe_unused,
+		     const struct ipv6_ct_tuple *tuple __maybe_unused)
 {
-	__u16 sport = bpf_ntohs(tuple->sport);
+	__u16 sport __maybe_unused = bpf_ntohs(tuple->sport);
 
+#ifndef ENABLE_IPTABLES_MASQUERADE_IPV6
 	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
+#else
+	return true;
+#endif
 }
 
 static __always_inline bool

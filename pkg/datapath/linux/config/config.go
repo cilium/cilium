@@ -681,6 +681,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", excludeCIDR.Mask))
 				}
 			}
+		} else {
+			if option.Config.EnableIPv4Masquerade {
+				cDefinesMap["ENABLE_IPTABLES_MASQUERADE_IPV4"] = "1"
+			}
+			if option.Config.EnableIPv6Masquerade {
+				cDefinesMap["ENABLE_IPTABLES_MASQUERADE_IPV6"] = "1"
+			}
 		}
 
 		ctmap.WriteBPFMacros(fw, nil)
