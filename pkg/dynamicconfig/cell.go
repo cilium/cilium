@@ -48,7 +48,7 @@ var Cell = cell.Module(
 )
 
 var defaultConfig = Config{
-	EnableDynamicConfig:    false,
+	EnableDynamicConfig:    true,
 	ConfigSources:          `[{"kind":"config-map","namespace":"kube-system","name":"cilium-config"}]`, // See pkg/option/resolver.go for the JSON definition
 	ConfigSourcesOverrides: `{"allowConfigKeys":null,"denyConfigKeys":null}`,
 }
