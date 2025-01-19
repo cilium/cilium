@@ -4,6 +4,7 @@
 package watchers
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -253,12 +254,18 @@ func (k *K8sPodWatcher) podsInit(asyncControllers *sync.WaitGroup) {
 	}
 
 	// We will watch for pods on the entire cluster to keep existing
-	// functionality untouched. If we are running with CiliumEndpoint CRD
-	// enabled then it means that we can simply watch for pods that are created
-	// for this node. Similarly, we don't need to watch for all pods when the
-	// support for running the Cilium KVstore in pod network is disabled, as in
+	// functionality untouched.
+	// We can simply watch for pods that are created for this node in
+	// the following cases:
+	// 1. If we are running with CiliumEndpoint CRD enabled
+	// 2. When the support for running the Cilium KVstore in pod network is disabled, as in
 	// that case we just rely on the KVStore data from the beginning.
-	if !option.Config.DisableCiliumEndpointCRD || option.Config.KVstoreEnabledWithoutPodNetworkSupport() {
+	// 3. If CiliumEndpoint CRD is disabled and network policies are disabled
+	if cmp.Or(
+		!option.Config.DisableCiliumEndpointCRD,
+		option.Config.KVstoreEnabledWithoutPodNetworkSupport(),
+		!option.NetworkPolicyEnabled(option.Config),
+	) {
 		watchNodePods()
 		return
 	}
