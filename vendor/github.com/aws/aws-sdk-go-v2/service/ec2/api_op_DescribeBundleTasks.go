@@ -389,6 +389,9 @@ func bundleTaskCompleteStateRetryable(ctx context.Context, input *DescribeBundle
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

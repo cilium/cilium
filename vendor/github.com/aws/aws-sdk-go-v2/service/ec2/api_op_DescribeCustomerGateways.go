@@ -416,6 +416,9 @@ func customerGatewayAvailableStateRetryable(ctx context.Context, input *Describe
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

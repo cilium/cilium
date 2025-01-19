@@ -532,6 +532,9 @@ func imageAvailableStateRetryable(ctx context.Context, input *DescribeImagesInpu
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -720,6 +723,9 @@ func imageExistsStateRetryable(ctx context.Context, input *DescribeImagesInput, 
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
