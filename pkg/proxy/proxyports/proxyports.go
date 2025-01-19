@@ -310,6 +310,19 @@ func (p *ProxyPorts) AckProxyPortWithReference(ctx context.Context, name string)
 func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+
+	if !pp.acknowledged {
+		scopedLog := log.WithField(fieldProxyRedirectID, name)
+
+		// check if the proxy port is listening
+		openLocalPorts := OpenLocalPorts()
+		if _, isListening := openLocalPorts[pp.ProxyPort]; !isListening {
+			scopedLog.Warningf("Proxy port not listening (%d)", pp.ProxyPort)
+		} else {
+			scopedLog.Debugf("Proxy port appears to be listening (%d)", pp.ProxyPort)
+		}
+	}
+
 	return p.ackProxyPort(ctx, name, pp)
 }
 
