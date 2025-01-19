@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 // initialGCInterval sets the time after which the agent will begin to warn
@@ -192,7 +193,7 @@ func (gc *GC) Enable() {
 					e.MarkCTGCTime(gcStart, time.Now().Add(interval))
 				}
 			}
-
+			metrics.ConntrackGCInterval.WithLabelValues("dynamic-interval").Observe(interval.Seconds())
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
