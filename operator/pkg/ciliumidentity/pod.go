@@ -7,12 +7,22 @@ import (
 	"context"
 	"sync"
 
+	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func podResourceKey(podName, podNamespace string) resource.Key {
 	return resource.Key{Name: podName, Namespace: podNamespace}
+}
+
+func isManagedByCilium(pod *v1.Pod) (bool, error) {
+	_, exists, err := watchers.HasCE(pod.Namespace, pod.Name)
+	if err != nil {
+		return false, err
+	}
+	return !pod.Spec.HostNetwork && exists, nil
 }
 
 type PodItem struct {
@@ -39,9 +49,19 @@ func (c *Controller) processPodEvents(ctx context.Context, wg *sync.WaitGroup) e
 		}
 
 		if event.Kind == resource.Upsert || event.Kind == resource.Delete {
-			c.logger.Debug("Got Pod event", logfields.Type, event.Kind, logfields.K8sPodName, event.Key.String())
-			c.enqueueReconciliation(PodItem{podResourceKey(event.Object.Name, event.Object.Namespace)}, 0)
+			// Skip CID creation for pods not managed by Cilium.
+			isManaged, err := isManagedByCilium(event.Object)
+			if err != nil {
+				c.logger.Error("Unexpected error when getting CiliumEndpoint", logfields.Error, err)
+				event.Done(err)
+				continue
+			}
+			if isManaged {
+				c.logger.Debug("Got Pod event", logfields.Type, event.Kind, logfields.K8sPodName, event.Key.String())
+				c.enqueueReconciliation(PodItem{podResourceKey(event.Object.Name, event.Object.Namespace)}, 0)
+			}
 		}
+
 		event.Done(nil)
 	}
 	return nil
