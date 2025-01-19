@@ -24,7 +24,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.23.4
+  go_version: 1.23.5
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 505.0.0
 
