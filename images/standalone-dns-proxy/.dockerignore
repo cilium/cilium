@@ -1,0 +1,17 @@
+@@ -0,0 +1,16 @@
+*
+
+# must-have toplevel files
+!/Makefile*
+!/go.sum
+!/go.mod
+!/VERSION
+
+# directories
+!/.git
+!/api
+!/daemon
+!/standalone-dns-proxy
+!/pkg
+!/tools
+!/vendor
