@@ -196,6 +196,9 @@ clusters.
      cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh=false
      cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh=false
 
+.. note::
+   KVStoreMesh can be configured to run either with internal (the default) and external kvstore. With internal kvstore, etcd and apiserver are part of ``clustermesh-apiserver`` deployment. With external kvstore, ``clustermesh-apiserver`` contains just ``kvstoremesh`` container which than connects to etcd endpoints specified by ``etcd.endpoints`` chart parameter. Kvstoremesh mode itself is controlled by ``clustermesh.apiserver.kvstoremesh.kvstoreMode`` chart parameter.
+
 .. important::
 
    In some cases, the service type cannot be automatically detected and you need to specify it manually. This
