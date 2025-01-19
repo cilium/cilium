@@ -23,7 +23,7 @@ import (
 //     same Region as the volume.
 //
 //   - If the source volume is in a Local Zone, you can create the snapshot in the
-//     same Local Zone or in parent Amazon Web Services Region.
+//     same Local Zone or in its parent Amazon Web Services Region.
 //
 //   - If the source volume is on an Outpost, you can create the snapshot on the
 //     same Outpost or in its parent Amazon Web Services Region.
@@ -47,7 +47,7 @@ import (
 // Snapshots that are taken from encrypted volumes are automatically encrypted.
 // Volumes that are created from encrypted snapshots are also automatically
 // encrypted. Your encrypted volumes and any associated snapshots always remain
-// protected. For more information, [Amazon EBS encryption]in the Amazon EBS User Guide.
+// protected. For more information, see [Amazon EBS encryption]in the Amazon EBS User Guide.
 //
 // [Amazon EBS encryption]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
 func (c *Client) CreateSnapshot(ctx context.Context, params *CreateSnapshotInput, optFns ...func(*Options)) (*CreateSnapshotOutput, error) {

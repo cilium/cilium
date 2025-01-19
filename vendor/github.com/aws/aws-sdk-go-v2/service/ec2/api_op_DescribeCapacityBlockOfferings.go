@@ -15,6 +15,14 @@ import (
 // Describes Capacity Block offerings available for purchase in the Amazon Web
 // Services Region that you're currently using. With Capacity Blocks, you purchase
 // a specific instance type for a period of time.
+//
+// To search for an available Capacity Block offering, you specify a reservation
+// duration and instance count. You must select one of the following options.
+//
+//   - For reservation durations 1-day increments up 14 days and 7-day increments
+//     up to 182 days total
+//
+//   - For instance count 1, 2, 4, 8, 16, 32, or 64 instances
 func (c *Client) DescribeCapacityBlockOfferings(ctx context.Context, params *DescribeCapacityBlockOfferingsInput, optFns ...func(*Options)) (*DescribeCapacityBlockOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeCapacityBlockOfferingsInput{}

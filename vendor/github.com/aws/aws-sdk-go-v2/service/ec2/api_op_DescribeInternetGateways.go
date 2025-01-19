@@ -390,6 +390,9 @@ func internetGatewayExistsStateRetryable(ctx context.Context, input *DescribeInt
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

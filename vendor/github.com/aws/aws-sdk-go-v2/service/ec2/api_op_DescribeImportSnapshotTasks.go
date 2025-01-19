@@ -331,7 +331,11 @@ func snapshotImportedStateRetryable(ctx context.Context, input *DescribeImportSn
 		var v2 []string
 		for _, v := range v1 {
 			v3 := v.SnapshotTaskDetail
-			v4 := v3.Status
+			var v4 *string
+			if v3 != nil {
+				v5 := v3.Status
+				v4 = v5
+			}
 			if v4 != nil {
 				v2 = append(v2, *v4)
 			}
@@ -355,7 +359,11 @@ func snapshotImportedStateRetryable(ctx context.Context, input *DescribeImportSn
 		var v2 []string
 		for _, v := range v1 {
 			v3 := v.SnapshotTaskDetail
-			v4 := v3.Status
+			var v4 *string
+			if v3 != nil {
+				v5 := v3.Status
+				v4 = v5
+			}
 			if v4 != nil {
 				v2 = append(v2, *v4)
 			}
@@ -374,6 +382,9 @@ func snapshotImportedStateRetryable(ctx context.Context, input *DescribeImportSn
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

@@ -429,6 +429,9 @@ func storeImageTaskCompleteStateRetryable(ctx context.Context, input *DescribeSt
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
