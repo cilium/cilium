@@ -141,15 +141,15 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.23.4
 
-      - name: Set clang directory
-        id: set_clang_dir
-        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
-
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
-        with:
-          version: "18.1.8"
-          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+        env:
+          version: 19
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ env.version }}
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ env.version }} 100
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ env.version }} 100
 
       - name: Prepare environment
         timeout-minutes: 15

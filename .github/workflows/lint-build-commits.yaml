@@ -171,11 +171,14 @@ jobs:
           sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
-        if: steps.test-tree.outputs.src == 'true'
-        uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
-        with:
-          version: "18.1.8"
-          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+        env:
+          version: 19
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ env.version }}
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ env.version }} 100
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ env.version }} 100
 
       - name: Install ginkgo
         if: steps.test-tree.outputs.src == 'true'
