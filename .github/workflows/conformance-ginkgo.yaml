@@ -132,7 +132,7 @@ jobs:
         uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.4
+          go-version: 1.23.5
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -342,7 +342,7 @@ jobs:
         uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.4
+          go-version: 1.23.5
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
