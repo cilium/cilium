@@ -72,6 +72,7 @@ func (client *Client) ModifyDiskSpecWithCallback(request *ModifyDiskSpecRequest,
 type ModifyDiskSpecRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId           requests.Integer                        `position:"Query" name:"ResourceOwnerId"`
+	DestinationZoneId         string                                  `position:"Query" name:"DestinationZoneId"`
 	DiskCategory              string                                  `position:"Query" name:"DiskCategory"`
 	DiskId                    string                                  `position:"Query" name:"DiskId"`
 	DryRun                    requests.Boolean                        `position:"Query" name:"DryRun"`

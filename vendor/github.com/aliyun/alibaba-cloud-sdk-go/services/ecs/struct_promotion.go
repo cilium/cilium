@@ -17,7 +17,9 @@ package ecs
 
 // Promotion is a nested struct in ecs response
 type Promotion struct {
-	Name        string                 `json:"Name" xml:"Name"`
-	DiscountOff float64                `json:"DiscountOff" xml:"DiscountOff"`
-	RuleIds     RuleIdsInDescribePrice `json:"RuleIds" xml:"RuleIds"`
+	Name        string                                     `json:"Name" xml:"Name"`
+	RemainQuota float64                                    `json:"RemainQuota" xml:"RemainQuota"`
+	DiscountOff float64                                    `json:"DiscountOff" xml:"DiscountOff"`
+	Type        string                                     `json:"Type" xml:"Type"`
+	RuleIds     RuleIdsInDescribeInstanceModificationPrice `json:"RuleIds" xml:"RuleIds"`
 }

@@ -17,6 +17,6 @@ package ecs
 
 // Attribute is a nested struct in ecs response
 type Attribute struct {
-	Code  string `json:"Code" xml:"Code"`
 	Value string `json:"Value" xml:"Value"`
+	Code  string `json:"Code" xml:"Code"`
 }

@@ -34,7 +34,10 @@ type ImagePipelineSet struct {
 	RepairMode              string                       `json:"RepairMode" xml:"RepairMode"`
 	TestContent             string                       `json:"TestContent" xml:"TestContent"`
 	ImageFamily             string                       `json:"ImageFamily" xml:"ImageFamily"`
+	NvmeSupport             string                       `json:"NvmeSupport" xml:"NvmeSupport"`
 	ToRegionIds             ToRegionIds                  `json:"ToRegionIds" xml:"ToRegionIds"`
 	AddAccounts             AddAccounts                  `json:"AddAccounts" xml:"AddAccounts"`
+	ImportImageOptions      ImportImageOptions           `json:"ImportImageOptions" xml:"ImportImageOptions"`
+	AdvancedOptions         AdvancedOptions              `json:"AdvancedOptions" xml:"AdvancedOptions"`
 	Tags                    TagsInDescribeImagePipelines `json:"Tags" xml:"Tags"`
 }
