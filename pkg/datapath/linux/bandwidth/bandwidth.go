@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
+	"github.com/cilium/cilium/pkg/maps/ibwmap"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -77,6 +78,8 @@ func (m *manager) defines() (defines.Map, error) {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
 		cDefinesMap["THROTTLE_MAP"] = bwmap.MapName
 		cDefinesMap["THROTTLE_MAP_SIZE"] = fmt.Sprintf("%d", bwmap.MapSize)
+		cDefinesMap["INGRESS_THROTTLE_MAP"] = ibwmap.MapName
+		cDefinesMap["INGRESS_THROTTLE_MAP_SIZE"] = fmt.Sprintf("%d", ibwmap.MapSize)
 	}
 
 	return cDefinesMap, nil
@@ -113,6 +116,28 @@ func (m *manager) DeleteBandwidthLimit(epID uint16) {
 		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(epID))
 		if found {
 			m.params.EdtTable.Delete(txn, obj)
+		}
+		txn.Commit()
+	}
+}
+
+func (m *manager) UpdateIngressBandwidthLimit(epID uint16, bytesPerSecond uint64) {
+	if m.enabled {
+		txn := m.params.DB.WriteTxn(m.params.IngressThrottleTable)
+		m.params.IngressThrottleTable.Insert(
+			txn,
+			ibwmap.NewIngressThrottle(epID, bytesPerSecond),
+		)
+		txn.Commit()
+	}
+}
+
+func (m *manager) DeleteIngressBandwidthLimit(epID uint16) {
+	if m.enabled {
+		txn := m.params.DB.WriteTxn(m.params.IngressThrottleTable)
+		obj, _, found := m.params.IngressThrottleTable.Get(txn, ibwmap.ThrottleIDIndex.Query(epID))
+		if found {
+			m.params.IngressThrottleTable.Delete(txn, obj)
 		}
 		txn.Commit()
 	}

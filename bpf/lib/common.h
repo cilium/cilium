@@ -355,6 +355,17 @@ struct edt_info {
 	__u64		pad[3];
 };
 
+struct throttle_id {
+	__u64		id;
+};
+
+struct throttle_info {
+	__u64		bps;
+	__u64		t_last;
+	__u64		tokens;
+	__u64		pad[4];
+};
+
 struct remote_endpoint_info {
 	__u32		sec_identity;
 	__u32		tunnel_endpoint;

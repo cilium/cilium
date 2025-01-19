@@ -182,6 +182,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define LB6_SKIP_MAP test_cilium_skip_lb6
 #define THROTTLE_MAP test_cilium_throttle
 #define THROTTLE_MAP_SIZE 65536
+#define INGRESS_THROTTLE_MAP_SIZE 65536
 #define ENABLE_ARP_RESPONDER
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define VTEP_MAP_SIZE 8

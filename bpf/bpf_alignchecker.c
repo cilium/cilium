@@ -70,6 +70,8 @@ add_type(struct lb4_src_range_key);
 add_type(struct lb6_src_range_key);
 add_type(struct edt_id);
 add_type(struct edt_info);
+add_type(struct throttle_id);
+add_type(struct throttle_info);
 add_type(struct egress_gw_policy_key);
 add_type(struct egress_gw_policy_entry);
 add_type(struct vtep_key);

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
+	ibwmap "github.com/cilium/cilium/pkg/maps/ibwmap"
 )
 
 var bpfBandwidthListCmd = &cobra.Command{
@@ -39,11 +40,27 @@ var bpfBandwidthListCmd = &cobra.Command{
 			return
 		}
 
-		listBandwidth(bpfBandwidthList)
+		listBandwidth(bpfBandwidthList, "EGRESS")
+
+		bpfBandwidthList = make(map[string][]string)
+		if err := ibwmap.ThrottleMap().Dump(bpfBandwidthList); err != nil {
+			fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
+			os.Exit(1)
+		}
+
+		if command.OutputOption() {
+			if err := command.PrintOutput(bpfBandwidthList); err != nil {
+				fmt.Fprintf(os.Stderr, "error getting output of map in %s: %s\n", command.OutputOptionString(), err)
+				os.Exit(1)
+			}
+			return
+		}
+
+		listBandwidth(bpfBandwidthList, "INGRESS")
 	},
 }
 
-func listBandwidth(bpfBandwidthList map[string][]string) {
+func listBandwidth(bpfBandwidthList map[string][]string, direction string) {
 	if len(bpfBandwidthList) == 0 {
 		fmt.Fprintf(os.Stderr, "No entries found.\n")
 		return
@@ -51,11 +68,11 @@ func listBandwidth(bpfBandwidthList map[string][]string) {
 
 	const (
 		labelsIDTitle   = "IDENTITY"
-		labelsBandwidth = "EGRESS BANDWIDTH (BitsPerSec)"
+		labelsBandwidth = "BANDWIDTH (BitsPerSec)"
 	)
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\n", labelsIDTitle, labelsBandwidth)
+	fmt.Fprintf(w, "%s\t%s\n", labelsIDTitle, direction+" "+labelsBandwidth)
 
 	const numColumns = 2
 	rows := [][numColumns]string{}

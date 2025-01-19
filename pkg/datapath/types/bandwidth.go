@@ -34,4 +34,7 @@ type BandwidthManager interface {
 
 	UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64, prio uint32)
 	DeleteBandwidthLimit(endpointID uint16)
+
+	UpdateIngressBandwidthLimit(endpointID uint16, bytesPerSecond uint64)
+	DeleteIngressBandwidthLimit(endpointID uint16)
 }

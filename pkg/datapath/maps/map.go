@@ -188,7 +188,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if !ms.bwManager.Enabled() {
-		maps = append(maps, "cilium_throttle")
+		maps = append(maps, "cilium_throttle", "cilium_ingress_throttle")
 	}
 
 	if !option.Config.EnableHealthDatapath {

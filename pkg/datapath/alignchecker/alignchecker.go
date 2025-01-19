@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
+	"github.com/cilium/cilium/pkg/maps/ibwmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -111,6 +112,8 @@ func init() {
 		"lb6_src_range_key":       {lbmap.SourceRangeKey6{}},
 		"edt_id":                  {bwmap.EdtId{}},
 		"edt_info":                {bwmap.EdtInfo{}},
+		"throttle_id":             {ibwmap.ThrottleID{}},
+		"throttle_info":           {ibwmap.ThrottleInfo{}},
 		"egress_gw_policy_key":    {egressmap.EgressPolicyKey4{}},
 		"egress_gw_policy_entry":  {egressmap.EgressPolicyVal4{}},
 		"srv6_vrf_key4":           {srv6map.VRFKey4{}},

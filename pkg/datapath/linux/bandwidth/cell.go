@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
+	"github.com/cilium/cilium/pkg/maps/ibwmap"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -98,12 +99,13 @@ func (*manager) Stop(cell.HookContext) error {
 type bandwidthManagerParams struct {
 	cell.In
 
-	Log          *slog.Logger
-	Config       types.BandwidthConfig
-	DaemonConfig *option.DaemonConfig
-	Sysctl       sysctl.Sysctl
-	DB           *statedb.DB
-	EdtTable     statedb.RWTable[bwmap.Edt]
+	Log                  *slog.Logger
+	Config               types.BandwidthConfig
+	DaemonConfig         *option.DaemonConfig
+	Sysctl               sysctl.Sysctl
+	DB                   *statedb.DB
+	EdtTable             statedb.RWTable[bwmap.Edt]
+	IngressThrottleTable statedb.RWTable[ibwmap.Throttle]
 }
 
 func deviceToBandwidthQDisc(device *tables.Device, deleted bool) (*tables.BandwidthQDisc, statedb.DeriveResult) {

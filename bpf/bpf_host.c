@@ -54,6 +54,7 @@
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"
 #include "lib/vxlan.h"
+#include "lib/tb.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
  #define host_wg_encrypt_hook(ctx, proto) wg_maybe_redirect_to_encrypt(ctx, proto)
@@ -354,6 +355,9 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			}
 		}
 #endif
+		ret = accept(ctx, ep->lxc_id);
+		if (IS_ERR(ret))
+			return ret;
 		return ipv6_local_delivery(ctx, l3_off, secctx, magic, ep,
 					   METRIC_INGRESS, from_host, false);
 	}
@@ -796,7 +800,9 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			}
 		}
 #endif
-
+		ret = accept(ctx, ep->lxc_id);
+		if (IS_ERR(ret))
+			return ret;
 		return ipv4_local_delivery(ctx, l3_off, secctx, magic, ip4, ep,
 					   METRIC_INGRESS, from_host, false, 0);
 	}

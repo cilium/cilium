@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/ibwmap"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -60,6 +61,9 @@ var Cell = cell.Module(
 	// Bandwidth (cilium_throttle) map contains the per-endpoint bandwidth limits.
 	// Provides RWTable[bwmap.Edt] for configuring the limits.
 	bwmap.Cell,
+
+	// Provides access to ingress throttle maps.
+	ibwmap.Cell,
 
 	// Provides access to ActiveConnectionTracking map.
 	act.Cell,
