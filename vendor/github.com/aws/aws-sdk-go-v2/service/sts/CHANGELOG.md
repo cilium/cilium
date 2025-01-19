@@ -1,3 +1,15 @@
+# v1.33.9 (2025-01-17)
+
+* **Bug Fix**: Fix bug where credentials weren't refreshed during retry loop.
+
+# v1.33.8 (2025-01-15)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.33.7 (2025-01-14)
+
+* No change notes available for this release.
+
 # v1.33.6 (2025-01-10)
 
 * **Documentation**: Fixed typos in the descriptions.
