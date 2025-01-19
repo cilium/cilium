@@ -1,5 +1,19 @@
 # Release History
 
+## 1.8.1 (2025-01-15)
+
+### Bugs Fixed
+* User credential types inconsistently log access token scopes
+* `DefaultAzureCredential` skips managed identity in Azure Container Instances
+* Credentials having optional tenant IDs such as `AzureCLICredential` and
+  `InteractiveBrowserCredential` require setting `AdditionallyAllowedTenants`
+  when used with some clients
+
+### Other Changes
+* `ChainedTokenCredential` and `DefaultAzureCredential` continue to their next
+  credential after `ManagedIdentityCredential` receives an unexpected response
+  from IMDS, indicating the response is from something else such as a proxy
+
 ## 1.8.0 (2024-10-08)
 
 ### Other Changes
