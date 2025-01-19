@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -23,7 +24,10 @@ const (
 	statusMetricName  = "cilium_node_health_connectivity_status"
 )
 
+var now = time.Now()
+
 var sampleSingleClusterConnectivity = &healthReport{
+	startTime: now,
 	nodes: []*healthModels.NodeStatus{
 		{
 			HealthEndpoint: &healthModels.EndpointStatus{
@@ -76,6 +80,7 @@ var sampleSingleClusterConnectivity = &healthReport{
 }
 
 var sampleClustermeshConnectivity = &healthReport{
+	startTime: now,
 	nodes: []*healthModels.NodeStatus{
 		{
 			HealthEndpoint: &healthModels.EndpointStatus{
@@ -175,6 +180,7 @@ var sampleClustermeshConnectivity = &healthReport{
 }
 
 var sampleSingleClusterConnectivityBroken = &healthReport{
+	startTime: now,
 	nodes: []*healthModels.NodeStatus{
 		{
 			HealthEndpoint: &healthModels.EndpointStatus{
@@ -222,6 +228,59 @@ var sampleSingleClusterConnectivityBroken = &healthReport{
 				},
 			},
 			Name: "kind-worker",
+		},
+	},
+}
+
+var sampleClustermeshConnectivityPrev = &healthReport{
+	startTime: now,
+	nodes: []*healthModels.NodeStatus{
+		{
+			HealthEndpoint: &healthModels.EndpointStatus{
+				PrimaryAddress: &healthModels.PathStatus{
+					HTTP: &healthModels.ConnectivityStatus{
+						Latency: 3121005,
+					},
+					Icmp: &healthModels.ConnectivityStatus{
+						Latency: 772600,
+					},
+					IP: "10.244.3.219",
+				},
+				SecondaryAddresses: []*healthModels.PathStatus{
+					{
+						HTTP: &healthModels.ConnectivityStatus{
+							Latency: 3121015,
+						},
+						Icmp: &healthModels.ConnectivityStatus{
+							Latency: 772601,
+						},
+						IP: "10.244.3.220",
+					},
+				},
+			},
+			Host: &healthModels.HostStatus{
+				PrimaryAddress: &healthModels.PathStatus{
+					HTTP: &healthModels.ConnectivityStatus{
+						Latency: 165362,
+					},
+					Icmp: &healthModels.ConnectivityStatus{
+						Latency: 7041793,
+					},
+					IP: "172.18.0.1",
+				},
+				SecondaryAddresses: []*healthModels.PathStatus{
+					{
+						HTTP: &healthModels.ConnectivityStatus{
+							Latency: 312105,
+						},
+						Icmp: &healthModels.ConnectivityStatus{
+							Latency: 7726063,
+						},
+						IP: "172.18.0.2",
+					},
+				},
+			},
+			Name: "kind-cilium-mesh-1/kind-cilium-mesh-1-worker",
 		},
 	},
 }
@@ -316,6 +375,37 @@ cilium_node_health_connectivity_status{source_cluster="default",source_node_name
 cilium_node_health_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unknown",type="node"} 0
 cilium_node_health_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unreachable",type="endpoint"} 1
 cilium_node_health_connectivity_status{source_cluster="default",source_node_name="kind-worker",status="unreachable",type="node"} 1
+`,
+}
+
+var expectedClustermeshPrevMetric = map[string]string{
+	"cilium_node_health_connectivity_latency_seconds": `# HELP cilium_node_health_connectivity_latency_seconds The histogram for last observed latency between the current Cilium agent and other Cilium nodes in seconds
+# TYPE cilium_node_health_connectivity_latency_seconds histogram
+cilium_node_health_connectivity_latency_seconds_sum{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 0.003121005
+cilium_node_health_connectivity_latency_seconds_count{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 1
+cilium_node_health_connectivity_latency_seconds_sum{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 0.000165362
+cilium_node_health_connectivity_latency_seconds_count{address_type="primary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 1
+cilium_node_health_connectivity_latency_seconds_sum{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 0.0007726
+cilium_node_health_connectivity_latency_seconds_count{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 1
+cilium_node_health_connectivity_latency_seconds_sum{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 0.007041793
+cilium_node_health_connectivity_latency_seconds_count{address_type="primary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 1
+cilium_node_health_connectivity_latency_seconds_sum{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 0.003121015
+cilium_node_health_connectivity_latency_seconds_count{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 1
+cilium_node_health_connectivity_latency_seconds_sum{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 0.000312105
+cilium_node_health_connectivity_latency_seconds_count{address_type="secondary",protocol="http",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 1
+cilium_node_health_connectivity_latency_seconds_sum{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 0.000772601
+cilium_node_health_connectivity_latency_seconds_count{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="endpoint"} 1
+cilium_node_health_connectivity_latency_seconds_sum{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 0.007726063
+cilium_node_health_connectivity_latency_seconds_count{address_type="secondary",protocol="icmp",source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",type="node"} 1
+`,
+	"cilium_node_health_connectivity_status": `# HELP cilium_node_health_connectivity_status The number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
+# TYPE cilium_node_health_connectivity_status gauge
+cilium_node_health_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="reachable",type="endpoint"} 2
+cilium_node_health_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="reachable",type="node"} 2
+cilium_node_health_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="unknown",type="endpoint"} 0
+cilium_node_health_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="unknown",type="node"} 0
+cilium_node_health_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="unreachable",type="endpoint"} 0
+cilium_node_health_connectivity_status{source_cluster="kind-cilium-mesh-1",source_node_name="kind-cilium-mesh-1-worker",status="unreachable",type="node"} 0
 `,
 }
 
@@ -432,10 +522,96 @@ func Test_server_collectNodeConnectivityMetrics(t *testing.T) {
 			tt.metric().SetEnabled(true)
 			collector := tt.metric().(prometheus.Collector)
 			s := &Server{
-				connectivity: tt.connectivity,
+				connectivity: nil,
 				localStatus:  tt.localStatus,
+				nodesSeen:    make(map[string]struct{}),
 			}
-			s.collectNodeConnectivityMetrics()
+			s.collectNodeConnectivityMetrics(tt.connectivity)
+
+			// perform static checks such as prometheus naming convention, number of labels matching, etc
+			lintProblems, err := testutil.CollectAndLint(collector)
+			require.NoError(t, err)
+			require.Empty(t, lintProblems)
+
+			// check the number of metrics
+			count := testutil.CollectAndCount(collector)
+			require.Equal(t, tt.expectedCount, count)
+
+			// compare the metric output
+			metricName := "none"
+			if strings.Contains(tt.name, latencyMetricName) {
+				metricName = latencyMetricName
+			} else if strings.Contains(tt.name, "cilium_node_health_connectivity_status") {
+				metricName = statusMetricName
+			}
+			bytearr, err := testutil.CollectAndFormat(collector, expfmt.TypeTextPlain, metricName)
+			require.NoError(t, err)
+			scanner := bufio.NewScanner(strings.NewReader(string(bytearr)))
+			var actualOutput strings.Builder
+			// omit histogram buckets from comparison testing
+			for scanner.Scan() {
+				line := scanner.Text()
+				if !strings.Contains(line, "bucket") {
+					actualOutput.WriteString(line + "\n")
+				}
+			}
+			require.Equal(t, tt.expectedMetric, actualOutput.String())
+		})
+	}
+}
+
+func Test_server_collectNodeConnectivityMetricsUpdate(t *testing.T) {
+	tests := []struct {
+		name           string
+		localStatus    *healthModels.SelfStatus
+		connectivity   *healthReport
+		metric         func() metric.WithMetadata
+		expectedMetric string
+		expectedCount  int
+	}{
+		{
+			name: "cluster mesh prev for cilium_node_health_connectivity_latency_seconds",
+			localStatus: &healthModels.SelfStatus{
+				Name: "kind-cilium-mesh-1/kind-cilium-mesh-1-worker",
+			},
+			connectivity:   sampleClustermeshConnectivityPrev,
+			metric:         func() metric.WithMetadata { return metrics.NodeHealthConnectivityLatency },
+			expectedCount:  8,
+			expectedMetric: expectedClustermeshPrevMetric["cilium_node_health_connectivity_latency_seconds"],
+		},
+		{
+			name: "cluster mesh for cilium_node_health_connectivity_latency_seconds",
+			localStatus: &healthModels.SelfStatus{
+				Name: "kind-cilium-mesh-1/kind-cilium-mesh-1-worker",
+			},
+			connectivity:   sampleClustermeshConnectivity,
+			metric:         func() metric.WithMetadata { return metrics.NodeHealthConnectivityLatency },
+			expectedCount:  8,
+			expectedMetric: expectedClustermeshMetric["cilium_node_health_connectivity_latency_seconds"],
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics.NewLegacyMetrics()
+			tt.metric().SetEnabled(true)
+			collector := tt.metric().(prometheus.Collector)
+			var prevConn *healthReport
+			if i != 0 {
+				prevConn = tests[i-1].connectivity
+			}
+			s := &Server{
+				connectivity: nil,
+				localStatus:  tt.localStatus,
+				nodesSeen:    make(map[string]struct{}),
+			}
+			// Set pre-existing state
+			if prevConn != nil {
+				s.collectNodeConnectivityMetrics(s.connectivity)
+				s.connectivity = prevConn
+			}
+			// Function to test
+			s.collectNodeConnectivityMetrics(tt.connectivity)
 
 			// perform static checks such as prometheus naming convention, number of labels matching, etc
 			lintProblems, err := testutil.CollectAndLint(collector)

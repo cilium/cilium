@@ -316,8 +316,9 @@ func Test_server_collectNodeConnectivityMetricsOld(t *testing.T) {
 			s := &Server{
 				connectivity: tt.connectivity,
 				localStatus:  tt.localStatus,
+				nodesSeen:    make(map[string]struct{}),
 			}
-			s.collectNodeConnectivityMetrics()
+			s.collectNodeConnectivityMetrics(tt.connectivity)
 
 			// perform static checks such as prometheus naming convention, number of labels matching, etc
 			lintProblems, err := testutil.CollectAndLint(collector)

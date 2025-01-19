@@ -582,6 +582,9 @@ const (
 
 	// BGPRouterIDAllocationMode is default BGP router-id allocation mode
 	BGPRouterIDAllocationMode = "default"
+
+	// ConnectivityProbeFrequencyRatio is the default connectivity probe frequency
+	ConnectivityProbeFrequencyRatio = 0.5
 )
 
 var (

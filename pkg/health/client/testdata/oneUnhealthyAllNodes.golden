@@ -1,4 +1,4 @@
-Cluster health:	3/4 reachable	(2023-04-01T12:00:00Z)
+Cluster health:	3/4 reachable	(2023-04-01T12:00:00Z)	(Probe interval: 8m5s)
 Name	IP	Node	Endpoints
   node0	192.168.1.0	1/1	1/1
   node1	192.168.1.1	1/1	1/1
