@@ -276,6 +276,7 @@ func Test_getService(t *testing.T) {
 		labels                map[string]string
 		annotations           map[string]string
 		externalTrafficPolicy string
+		ipFamilyPolicy        string
 	}
 	tests := []struct {
 		name string
@@ -294,6 +295,7 @@ func Test_getService(t *testing.T) {
 				},
 				allPorts:              []uint32{80},
 				externalTrafficPolicy: "Cluster",
+				ipFamilyPolicy:        "SingleStack",
 			},
 			want: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -323,6 +325,7 @@ func Test_getService(t *testing.T) {
 					},
 					Type:                  corev1.ServiceTypeLoadBalancer,
 					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyCluster,
+					IPFamilyPolicy:        ptr.To(corev1.IPFamilyPolicySingleStack),
 				},
 			},
 		},
@@ -338,6 +341,7 @@ func Test_getService(t *testing.T) {
 				},
 				allPorts:              []uint32{80},
 				externalTrafficPolicy: "Local",
+				ipFamilyPolicy:        "SingleStack",
 			},
 			want: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -367,13 +371,106 @@ func Test_getService(t *testing.T) {
 					},
 					Type:                  corev1.ServiceTypeLoadBalancer,
 					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
+					IPFamilyPolicy:        ptr.To(corev1.IPFamilyPolicySingleStack),
+				},
+			},
+		},
+		{
+			name: "ipFamilyPolicy set to RequireDualStack",
+			args: args{
+				resource: &model.FullyQualifiedResource{
+					Name:      "test-externaltrafficpolicy-local",
+					Namespace: "default",
+					Version:   "v1",
+					Kind:      "Gateway",
+					UID:       "41b82697-2d8d-4776-81b6-44d0bbac7faa",
+				},
+				allPorts:              []uint32{80},
+				externalTrafficPolicy: "Local",
+				ipFamilyPolicy:        "RequireDualStack",
+			},
+			want: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cilium-gateway-test-externaltrafficpolicy-local",
+					Namespace: "default",
+					Labels: map[string]string{
+						owningGatewayLabel:                       "test-externaltrafficpolicy-local",
+						"gateway.networking.k8s.io/gateway-name": "test-externaltrafficpolicy-local",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1beta1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       "test-externaltrafficpolicy-local",
+							UID:        types.UID("41b82697-2d8d-4776-81b6-44d0bbac7faa"),
+							Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:     fmt.Sprintf("port-%d", 80),
+							Port:     80,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
+					IPFamilyPolicy:        ptr.To(corev1.IPFamilyPolicyRequireDualStack),
+				},
+			},
+		},
+		{
+			name: "ipFamilyPolicy set to PreferDualStack",
+			args: args{
+				resource: &model.FullyQualifiedResource{
+					Name:      "test-externaltrafficpolicy-local",
+					Namespace: "default",
+					Version:   "v1",
+					Kind:      "Gateway",
+					UID:       "41b82697-2d8d-4776-81b6-44d0bbac7faa",
+				},
+				allPorts:              []uint32{80},
+				externalTrafficPolicy: "Local",
+				ipFamilyPolicy:        "PreferDualStack",
+			},
+			want: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cilium-gateway-test-externaltrafficpolicy-local",
+					Namespace: "default",
+					Labels: map[string]string{
+						owningGatewayLabel:                       "test-externaltrafficpolicy-local",
+						"gateway.networking.k8s.io/gateway-name": "test-externaltrafficpolicy-local",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1beta1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       "test-externaltrafficpolicy-local",
+							UID:        types.UID("41b82697-2d8d-4776-81b6-44d0bbac7faa"),
+							Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:     fmt.Sprintf("port-%d", 80),
+							Port:     80,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
+					IPFamilyPolicy:        ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations, tt.args.externalTrafficPolicy)
+			got := getService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations, tt.args.externalTrafficPolicy, tt.args.ipFamilyPolicy)
 			assert.Equalf(t, tt.want, got, "getService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
 		})

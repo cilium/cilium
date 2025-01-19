@@ -282,6 +282,7 @@ data:
   enable-gateway-api-alpn: {{ .Values.gatewayAPI.enableAlpn | quote }}
   gateway-api-xff-num-trusted-hops: {{ .Values.gatewayAPI.xffNumTrustedHops | quote }}
   gateway-api-service-externaltrafficpolicy: {{ .Values.gatewayAPI.externalTrafficPolicy | quote }}
+  gateway-api-service-ipfamilypolicy: {{ .Values.gatewayAPI.ipFamilyPolicy | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}

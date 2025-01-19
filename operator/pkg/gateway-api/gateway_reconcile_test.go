@@ -317,7 +317,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 			IdleTimeoutSeconds: 60,
 		},
 	})
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, false, string(corev1.ServiceExternalTrafficPolicyCluster))
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, false, string(corev1.ServiceExternalTrafficPolicyCluster), string(corev1.IPFamilyPolicySingleStack))
 
 	r := &gatewayReconciler{
 		Client:     c,
