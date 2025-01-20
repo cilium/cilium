@@ -55,6 +55,7 @@ import (
 	"k8s.io/client-go/rest"
 	cachetools "k8s.io/client-go/tools/cache"
 	watchtools "k8s.io/client-go/tools/watch"
+	"k8s.io/client-go/util/retry"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
@@ -85,23 +86,22 @@ type Client struct {
 	kubeClient *kubernetes.Clientset
 }
 
-var addToScheme sync.Once
+func init() {
+	// Add CRDs to the scheme. They are missing by default.
+	if err := apiextv1.AddToScheme(scheme.Scheme); err != nil {
+		// This should never happen.
+		panic(err)
+	}
+	if err := apiextv1beta1.AddToScheme(scheme.Scheme); err != nil {
+		panic(err)
+	}
+}
 
 // New creates a new Client.
 func New(getter genericclioptions.RESTClientGetter) *Client {
 	if getter == nil {
 		getter = genericclioptions.NewConfigFlags(true)
 	}
-	// Add CRDs to the scheme. They are missing by default.
-	addToScheme.Do(func() {
-		if err := apiextv1.AddToScheme(scheme.Scheme); err != nil {
-			// This should never happen.
-			panic(err)
-		}
-		if err := apiextv1beta1.AddToScheme(scheme.Scheme); err != nil {
-			panic(err)
-		}
-	})
 	return &Client{
 		Factory: cmdutil.NewFactory(getter),
 		Log:     nopLogger,
@@ -435,7 +435,7 @@ func (c *Client) Update(original, target ResourceList, force bool) (*Result, err
 	case err != nil:
 		return res, err
 	case len(updateErrors) != 0:
-		return res, errors.Errorf(strings.Join(updateErrors, " && "))
+		return res, errors.New(strings.Join(updateErrors, " && "))
 	}
 
 	for _, info := range original.Difference(target) {
@@ -596,17 +596,25 @@ func batchPerform(infos ResourceList, fn func(*resource.Info) error, errs chan<-
 }
 
 func createResource(info *resource.Info) error {
-	obj, err := resource.NewHelper(info.Client, info.Mapping).WithFieldManager(getManagedFieldsManager()).Create(info.Namespace, true, info.Object)
-	if err != nil {
-		return err
-	}
-	return info.Refresh(obj, true)
+	return retry.RetryOnConflict(
+		retry.DefaultRetry,
+		func() error {
+			obj, err := resource.NewHelper(info.Client, info.Mapping).WithFieldManager(getManagedFieldsManager()).Create(info.Namespace, true, info.Object)
+			if err != nil {
+				return err
+			}
+			return info.Refresh(obj, true)
+		})
 }
 
 func deleteResource(info *resource.Info, policy metav1.DeletionPropagation) error {
-	opts := &metav1.DeleteOptions{PropagationPolicy: &policy}
-	_, err := resource.NewHelper(info.Client, info.Mapping).WithFieldManager(getManagedFieldsManager()).DeleteWithOptions(info.Namespace, info.Name, opts)
-	return err
+	return retry.RetryOnConflict(
+		retry.DefaultRetry,
+		func() error {
+			opts := &metav1.DeleteOptions{PropagationPolicy: &policy}
+			_, err := resource.NewHelper(info.Client, info.Mapping).WithFieldManager(getManagedFieldsManager()).DeleteWithOptions(info.Namespace, info.Name, opts)
+			return err
+		})
 }
 
 func createPatch(target *resource.Info, current runtime.Object) ([]byte, types.PatchType, error) {

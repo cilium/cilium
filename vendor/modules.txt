@@ -30,7 +30,7 @@ github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime
 github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming
 github.com/Azure/azure-sdk-for-go/sdk/azcore/to
 github.com/Azure/azure-sdk-for-go/sdk/azcore/tracing
-# github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.0
+# github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.1
 ## explicit; go 1.18
 github.com/Azure/azure-sdk-for-go/sdk/azidentity
 github.com/Azure/azure-sdk-for-go/sdk/azidentity/internal
@@ -53,7 +53,7 @@ github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6
 ## explicit; go 1.16
 github.com/Azure/go-ansiterm
 github.com/Azure/go-ansiterm/winterm
-# github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2
+# github.com/AzureAD/microsoft-authentication-library-for-go v1.3.2
 ## explicit; go 1.18
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/cache
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/confidential
@@ -76,8 +76,8 @@ github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/options
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/shared
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/internal/version
 github.com/AzureAD/microsoft-authentication-library-for-go/apps/public
-# github.com/BurntSushi/toml v1.3.2
-## explicit; go 1.16
+# github.com/BurntSushi/toml v1.4.0
+## explicit; go 1.18
 github.com/BurntSushi/toml
 github.com/BurntSushi/toml/internal
 # github.com/MakeNowJust/heredoc v1.0.0
@@ -105,7 +105,7 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/alecthomas/participle/v2 v2.1.0
 ## explicit; go 1.18
 github.com/alecthomas/participle/v2/lexer
-# github.com/aliyun/alibaba-cloud-sdk-go v1.63.79
+# github.com/aliyun/alibaba-cloud-sdk-go v1.63.84
 ## explicit; go 1.13
 github.com/aliyun/alibaba-cloud-sdk-go/sdk
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth
@@ -639,7 +639,7 @@ github.com/cncf/xds/go/xds/annotations/v3
 github.com/cncf/xds/go/xds/core/v3
 github.com/cncf/xds/go/xds/type/matcher/v3
 github.com/cncf/xds/go/xds/type/v3
-# github.com/containerd/containerd v1.7.23
+# github.com/containerd/containerd v1.7.24
 ## explicit; go 1.21
 github.com/containerd/containerd/archive/compression
 github.com/containerd/containerd/content
@@ -691,8 +691,8 @@ github.com/coreos/go-systemd/v22/journal
 # github.com/cpuguy83/go-md2man/v2 v2.0.4
 ## explicit; go 1.11
 github.com/cpuguy83/go-md2man/v2/md2man
-# github.com/cyphar/filepath-securejoin v0.3.4
-## explicit; go 1.21
+# github.com/cyphar/filepath-securejoin v0.3.6
+## explicit; go 1.18
 github.com/cyphar/filepath-securejoin
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
@@ -721,7 +721,7 @@ github.com/docker/distribution/registry/client/auth/challenge
 github.com/docker/distribution/registry/client/transport
 github.com/docker/distribution/registry/storage/cache
 github.com/docker/distribution/registry/storage/cache/memory
-# github.com/docker/docker v27.4.1+incompatible
+# github.com/docker/docker v27.5.0+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -1338,7 +1338,7 @@ github.com/prometheus/client_golang/prometheus/testutil/promlint/validations
 # github.com/prometheus/client_model v0.6.1
 ## explicit; go 1.19
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.61.0
+# github.com/prometheus/common v0.62.0
 ## explicit; go 1.21
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
@@ -1350,7 +1350,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/rivo/uniseg v0.4.4
 ## explicit; go 1.18
 github.com/rivo/uniseg
-# github.com/rubenv/sql-migrate v1.7.0
+# github.com/rubenv/sql-migrate v1.7.1
 ## explicit; go 1.21
 github.com/rubenv/sql-migrate
 github.com/rubenv/sql-migrate/sqlparse
@@ -1454,7 +1454,7 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
-# github.com/vishvananda/netlink v1.3.1-0.20250110035100-391c8505129e
+# github.com/vishvananda/netlink v1.3.1-0.20250116195641-68cf136ebe02
 ## explicit; go 1.12
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
@@ -1805,10 +1805,10 @@ gomodules.xyz/jsonpatch/v2
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250106144421-5f5ef82da422
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f
 ## explicit; go 1.22
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.69.2
+# google.golang.org/grpc v1.69.4
 ## explicit; go 1.22
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -1874,7 +1874,7 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.36.2
+# google.golang.org/protobuf v1.36.3
 ## explicit; go 1.21
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
@@ -1941,8 +1941,8 @@ gopkg.in/yaml.v2
 gopkg.in/yaml.v3
 # gotest.tools/v3 v3.5.0
 ## explicit; go 1.17
-# helm.sh/helm/v3 v3.16.4
-## explicit; go 1.22.0
+# helm.sh/helm/v3 v3.17.0
+## explicit; go 1.23.0
 helm.sh/helm/v3/internal/fileutil
 helm.sh/helm/v3/internal/resolver
 helm.sh/helm/v3/internal/sympath
@@ -2496,6 +2496,7 @@ k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/util/homedir
 k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
+k8s.io/client-go/util/retry
 k8s.io/client-go/util/watchlist
 k8s.io/client-go/util/workqueue
 # k8s.io/code-generator v0.32.1
@@ -2544,7 +2545,7 @@ k8s.io/component-base/metrics/legacyregistry
 k8s.io/component-base/metrics/prometheus/feature
 k8s.io/component-base/metrics/prometheusextension
 k8s.io/component-base/version
-# k8s.io/endpointslice v0.32.0
+# k8s.io/endpointslice v0.32.1
 ## explicit; go 1.23.0
 k8s.io/endpointslice/metrics
 k8s.io/endpointslice/util

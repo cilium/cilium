@@ -17,6 +17,6 @@ package ecs
 
 // PriceWarning is a nested struct in ecs response
 type PriceWarning struct {
-	Msg  string `json:"Msg" xml:"Msg"`
 	Code string `json:"Code" xml:"Code"`
+	Msg  string `json:"Msg" xml:"Msg"`
 }
