@@ -7,8 +7,6 @@ import (
 	"cmp"
 	_ "embed"
 	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
 	"html/template"
 	"io"
@@ -25,6 +23,7 @@ import (
 	"github.com/cilium/hive/script"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -44,7 +43,12 @@ func metricsCommand(r *Registry, dc *sampler) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "List registered metrics",
-			Args:    "[-o=file] [-format={table,yaml,json}] [-s] [-e] [match regex]",
+			Args:    "[match regex]",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("out", "o", "", "Output file")
+				fs.BoolP("sampled", "s", false, "Show sampled metrics")
+				fs.StringP("format", "f", "table", "Output format, one of: table, json or yaml")
+			},
 			RegexpArgs: func(rawArgs ...string) []int {
 				for i, arg := range rawArgs {
 					if !strings.HasPrefix(arg, "-") {
@@ -57,10 +61,9 @@ func metricsCommand(r *Registry, dc *sampler) script.Cmd {
 				return nil
 			},
 			Detail: []string{
-				"To write the metrics to a file: 'metrics -o=/path/to/file'",
+				"To write the metrics to a file: 'metrics --out=/path/to/file'",
 				"To show metrics matching a regex: 'metrics foo.*'",
-				"To show only the enabled metrics: 'metrics -e'",
-				"To show samples from last 60 minutes: 'metrics -s'",
+				"To show samples from last 60 minutes: 'metrics --sampled'",
 				"",
 				"The metric samples can be plotted with 'metrics/plot' command.",
 				"",
@@ -76,19 +79,18 @@ func metricsCommand(r *Registry, dc *sampler) script.Cmd {
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			flags := flag.NewFlagSet("metrics", flag.ContinueOnError)
-			flags.SetOutput(s.LogWriter())
-			file := flags.String("o", "", "Output file")
-			samples := flags.Bool("s", false, "Show sampled metrics")
-			format := flags.String("format", "table", "Output format, one of: table, json or yaml")
-			if err := flags.Parse(args); err != nil {
-				if errors.Is(err, flag.ErrHelp) {
-					return nil, nil
-				}
+			file, err := s.Flags.GetString("out")
+			if err != nil {
 				return nil, err
 			}
-			args = flags.Args()
-
+			sampled, err := s.Flags.GetBool("sampled")
+			if err != nil {
+				return nil, err
+			}
+			format, err := s.Flags.GetString("format")
+			if err != nil {
+				return nil, err
+			}
 			var re *regexp.Regexp
 			if len(args) > 0 {
 				var err error
@@ -99,8 +101,8 @@ func metricsCommand(r *Registry, dc *sampler) script.Cmd {
 			}
 
 			var w io.Writer
-			if *file != "" {
-				f, err := os.OpenFile(s.Path(*file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+			if file != "" {
+				f, err := os.OpenFile(s.Path(file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 				if err != nil {
 					return nil, err
 				}
@@ -110,11 +112,11 @@ func metricsCommand(r *Registry, dc *sampler) script.Cmd {
 				w = s.LogWriter()
 			}
 
-			if *samples {
-				return nil, writeMetricsFromSamples(w, *format, re, dc)
+			if sampled {
+				return nil, writeMetricsFromSamples(w, format, re, dc)
 			}
 
-			return nil, writeMetricsFromRegistry(w, *format, re, r.inner)
+			return nil, writeMetricsFromRegistry(w, format, re, r.inner)
 		},
 	)
 }
@@ -125,7 +127,11 @@ func plotCommand(dc *sampler) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Plot sampled metrics as a line graph",
-			Args:    "[-o=file] [-rate] [match regex]",
+			Args:    "[match regex]",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("out", "o", "", "Output file")
+				fs.Bool("rate", false, "Plot the rate of change")
+			},
 			RegexpArgs: func(rawArgs ...string) []int {
 				for i, arg := range rawArgs {
 					if !strings.HasPrefix(arg, "-") {
@@ -157,18 +163,16 @@ func plotCommand(dc *sampler) script.Cmd {
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			flags := flag.NewFlagSet("metrics/plot", flag.ContinueOnError)
-			flags.SetOutput(s.LogWriter())
-			file := flags.String("o", "", "Output file")
-			rate := flags.Bool("rate", false, "Plot the rate of change")
-			if err := flags.Parse(args); err != nil {
-				if errors.Is(err, flag.ErrHelp) {
-					return nil, nil
-				}
+			s.Logf("args: %v\n", args)
+
+			file, err := s.Flags.GetString("out")
+			if err != nil {
 				return nil, err
 			}
-			args = flags.Args()
-
+			rate, err := s.Flags.GetBool("rate")
+			if err != nil {
+				return nil, err
+			}
 			var re *regexp.Regexp
 			if len(args) > 0 {
 				var err error
@@ -179,8 +183,8 @@ func plotCommand(dc *sampler) script.Cmd {
 			}
 
 			var w io.Writer
-			if *file != "" {
-				f, err := os.OpenFile(s.Path(*file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+			if file != "" {
+				f, err := os.OpenFile(s.Path(file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 				if err != nil {
 					return nil, err
 				}
@@ -221,13 +225,13 @@ func plotCommand(dc *sampler) script.Cmd {
 
 			switch ds := ds.(type) {
 			case *gaugeOrCounterSamples:
-				PlotSamples(w, *rate, ds.getName(), ds.getLabels(), samplingTimeSpan, ds.samples.grab(), ds.bits)
+				PlotSamples(w, rate, ds.getName(), ds.getLabels(), samplingTimeSpan, ds.samples.grab(), ds.bits)
 			case *histogramSamples:
-				PlotSamples(w, *rate, ds.getName()+" (p50)", ds.getLabels(), samplingTimeSpan, ds.p50.grab(), ds.bits)
+				PlotSamples(w, rate, ds.getName()+" (p50)", ds.getLabels(), samplingTimeSpan, ds.p50.grab(), ds.bits)
 				fmt.Fprintln(w)
-				PlotSamples(w, *rate, ds.getName()+" (p90)", ds.getLabels(), samplingTimeSpan, ds.p90.grab(), ds.bits)
+				PlotSamples(w, rate, ds.getName()+" (p90)", ds.getLabels(), samplingTimeSpan, ds.p90.grab(), ds.bits)
 				fmt.Fprintln(w)
-				PlotSamples(w, *rate, ds.getName()+" (p99)", ds.getLabels(), samplingTimeSpan, ds.p99.grab(), ds.bits)
+				PlotSamples(w, rate, ds.getName()+" (p99)", ds.getLabels(), samplingTimeSpan, ds.p99.grab(), ds.bits)
 			}
 
 			return nil, nil
@@ -242,23 +246,20 @@ func htmlCommand(dc *sampler) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Produce a HTML file from the sampled metrics",
-			Args:    "[-o=file]",
-			Detail:  []string{},
+			Args:    "",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP("out", "o", "", "Output file")
+			},
+			Detail: []string{},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			flags := flag.NewFlagSet("metrics/html", flag.ContinueOnError)
-			flags.SetOutput(s.LogWriter())
-			file := flags.String("o", "", "Output file")
-			if err := flags.Parse(args); err != nil {
-				if errors.Is(err, flag.ErrHelp) {
-					return nil, nil
-				}
+			file, err := s.Flags.GetString("out")
+			if err != nil {
 				return nil, err
 			}
-
 			var w io.Writer
-			if *file != "" {
-				f, err := os.OpenFile(s.Path(*file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+			if file != "" {
+				f, err := os.OpenFile(s.Path(file), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 				if err != nil {
 					return nil, err
 				}
