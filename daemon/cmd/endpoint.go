@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
@@ -511,18 +510,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		// get its actual identity.
 		identityLbls = labels.Labels{
 			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-		}
-	}
-
-	// Static pods (mirror pods) might be configured before the apiserver
-	// is available or has received the notification that includes the
-	// static pod's labels. In this case, start a controller to attempt to
-	// resolve the labels.
-	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
-		// If there are labels, but no pod namespace, then it's
-		// likely that there are no k8s labels at all. Resolve.
-		if _, k8sLabelsConfigured := identityLbls[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
-			ep.RunMetadataResolver(false, false, apiLabels, d.bwManager, d.fetchK8sMetadataForEndpoint)
 		}
 	}
 
