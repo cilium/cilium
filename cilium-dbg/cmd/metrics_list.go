@@ -23,7 +23,7 @@ var MetricsListCmd = &cobra.Command{
 		if command.OutputOption() {
 			format = strings.ToLower(command.OutputOptionString())
 		}
-		shellExchange(os.Stdout, "metrics -format=%s '%s'", format, matchPattern)
+		shellExchange(os.Stdout, "metrics --format=%s '%s'", format, matchPattern)
 	},
 }
 
