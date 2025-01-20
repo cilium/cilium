@@ -13,11 +13,10 @@ set -e
 set -o pipefail
 
 for mod in \
-	github.com/Azure/azure-sdk-for-go \
-	github.com/Azure/go-autorest/autorest \
-	github.com/Azure/go-autorest/autorest/adal \
-	github.com/Azure/go-autorest/autorest/azure/auth \
-	github.com/Azure/go-autorest/autorest/to \
+	github.com/Azure/azure-sdk-for-go/sdk/azcore \
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity \
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6 \
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 \
 	github.com/aliyun/alibaba-cloud-sdk-go \
 	github.com/aws/aws-sdk-go-v2 \
 	github.com/aws/aws-sdk-go-v2/config \
