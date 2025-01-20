@@ -23,6 +23,7 @@ var Cell = cell.Module("metrics", "Metrics",
 		// phase are emitted as metrics.
 		FlushLoggingMetrics()
 	}),
+	cell.Config(defaultSamplerConfig),
 	cell.Provide(
 		metricsCommands,
 		newSampler,
