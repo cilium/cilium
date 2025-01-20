@@ -937,8 +937,8 @@ certgen:
   image:
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.1.16"
-    digest: "sha256:d02d449c3b2391c0447837db284a1a502f337f63c4596890e1975cd64419812e"
+    tag: "v0.1.17"
+    digest: "sha256:6c114865c59148199416316901eb7b48ba0d9e04df43da8759ce5bc5571ba95b"
     useDigest: true
     pullPolicy: "IfNotPresent"
   # -- Seconds after which the completed job pod will be deleted
