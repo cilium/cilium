@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"log/slog"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -383,7 +384,7 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		require.Empty(t, statedb.Collect(iter))
 
 		// No backends remain for the service.
-		require.Empty(t, fe.Backends)
+		require.Empty(t, statedb.Collect(fe.Backends))
 
 		wtxn.Abort()
 	}
@@ -574,8 +575,8 @@ func TestSetBackends(t *testing.T) {
 							ptr := be.GetInstance(name)
 							require.Nil(t, ptr) // ...or not be associated with the service.
 						}
-						for _, b := range fe.Backends {
-							require.NotEqual(t, addr, b.L3n4Addr)
+						for be := range fe.Backends {
+							require.NotEqual(t, addr, be.L3n4Addr)
 						}
 					} else {
 						be, _, found := p.Writer.Backends().Get(txn, BackendByAddress(addr))
@@ -583,8 +584,8 @@ func TestSetBackends(t *testing.T) {
 						ptr := be.GetInstance(name)
 						require.NotNil(t, ptr)
 						foundInFrontend := false
-						for _, b := range fe.Backends {
-							foundInFrontend = foundInFrontend || b.Backend.L3n4Addr == addr
+						for be := range fe.Backends {
+							foundInFrontend = foundInFrontend || be.L3n4Addr == addr
 						}
 						require.True(t, foundInFrontend)
 					}
@@ -712,7 +713,7 @@ func TestWithConflictingSources(t *testing.T) {
 				if weight == nil {
 					_, _, found := p.Writer.Backends().Get(txn, BackendByServiceName(name))
 					require.False(t, found)
-					require.Empty(t, fe.Backends)
+					require.Empty(t, statedb.Collect(fe.Backends))
 				} else {
 					backends := p.Writer.Backends().List(txn, BackendByServiceName(name))
 					count := 0
@@ -722,8 +723,9 @@ func TestWithConflictingSources(t *testing.T) {
 						backendFromTable = b
 					}
 					require.Equal(t, 1, count)
-					require.Len(t, fe.Backends, 1)
-					for desc, b := range map[string]*Backend{"from table": backendFromTable, "from Frontend": fe.Backends[0].Backend} {
+					actual := slices.Collect(statedb.ToSeq(fe.Backends))
+					require.Len(t, actual, 1)
+					for desc, b := range map[string]*Backend{"from table": backendFromTable, "from Frontend": actual[0]} {
 						bi := b.GetInstance(name)
 						require.NotNil(t, bi, desc)
 						require.Equal(t, int(*weight), int(bi.Weight), "backend %s", desc)
