@@ -65,6 +65,9 @@ type managedIdentityClient struct {
 	id        ManagedIDKind
 	msiType   msiType
 	probeIMDS bool
+	// chained indicates whether the client is part of a credential chain. If true, the client will return
+	// a credentialUnavailableError instead of an AuthenticationFailedError for an unexpected IMDS response.
+	chained bool
 }
 
 // arcKeyDirectory returns the directory expected to contain Azure Arc keys
@@ -144,7 +147,7 @@ func newManagedIdentityClient(options *ManagedIdentityCredentialOptions) (*manag
 		if _, ok := os.LookupEnv(identityHeader); ok {
 			if _, ok := os.LookupEnv(identityServerThumbprint); ok {
 				if options.ID != nil {
-					return nil, errors.New("the Service Fabric API doesn't support specifying a user-assigned managed identity at runtime")
+					return nil, errors.New("the Service Fabric API doesn't support specifying a user-assigned identity at runtime. The identity is determined by cluster resource configuration. See https://aka.ms/servicefabricmi")
 				}
 				env = "Service Fabric"
 				c.endpoint = endpoint
@@ -215,6 +218,7 @@ func (c *managedIdentityClient) authenticate(ctx context.Context, id ManagedIDKi
 	// no need to synchronize around this value because it's true only when DefaultAzureCredential constructed the client,
 	// and in that case ChainedTokenCredential.GetToken synchronizes goroutines that would execute this block
 	if c.probeIMDS {
+		// send a malformed request (no Metadata header) to IMDS to determine whether the endpoint is available
 		cx, cancel := context.WithTimeout(ctx, imdsProbeTimeout)
 		defer cancel()
 		cx = policy.WithRetryOptions(cx, policy.RetryOptions{MaxRetries: -1})
@@ -222,24 +226,14 @@ func (c *managedIdentityClient) authenticate(ctx context.Context, id ManagedIDKi
 		if err != nil {
 			return azcore.AccessToken{}, fmt.Errorf("failed to create IMDS probe request: %s", err)
 		}
-		res, err := c.azClient.Pipeline().Do(req)
-		if err != nil {
+		if _, err = c.azClient.Pipeline().Do(req); err != nil {
 			msg := err.Error()
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				msg = "managed identity timed out. See https://aka.ms/azsdk/go/identity/troubleshoot#dac for more information"
 			}
 			return azcore.AccessToken{}, newCredentialUnavailableError(credNameManagedIdentity, msg)
 		}
-		// because IMDS always responds with JSON, assume a non-JSON response is from something else, such
-		// as a proxy, and return credentialUnavailableError so DefaultAzureCredential continues iterating
-		b, err := azruntime.Payload(res)
-		if err != nil {
-			return azcore.AccessToken{}, newCredentialUnavailableError(credNameManagedIdentity, fmt.Sprintf("failed to read IMDS probe response: %s", err))
-		}
-		if !json.Valid(b) {
-			return azcore.AccessToken{}, newCredentialUnavailableError(credNameManagedIdentity, "unexpected response to IMDS probe")
-		}
-		// send normal token requests from now on because IMDS responded
+		// send normal token requests from now on because something responded
 		c.probeIMDS = false
 	}
 
@@ -254,13 +248,21 @@ func (c *managedIdentityClient) authenticate(ctx context.Context, id ManagedIDKi
 	}
 
 	if azruntime.HasStatusCode(resp, http.StatusOK, http.StatusCreated) {
-		return c.createAccessToken(resp)
+		tk, err := c.createAccessToken(resp)
+		if err != nil && c.chained && c.msiType == msiTypeIMDS {
+			// failure to unmarshal a 2xx implies the response is from something other than IMDS such as a proxy listening at
+			// the same address. Return a credentialUnavailableError so credential chains continue to their next credential
+			err = newCredentialUnavailableError(credNameManagedIdentity, err.Error())
+		}
+		return tk, err
 	}
 
 	if c.msiType == msiTypeIMDS {
 		switch resp.StatusCode {
 		case http.StatusBadRequest:
 			if id != nil {
+				// return authenticationFailedError, halting any encompassing credential chain,
+				// because the explicit user-assigned identity implies the developer expected this to work
 				return azcore.AccessToken{}, newAuthenticationFailedError(credNameManagedIdentity, "the requested identity isn't assigned to this resource", resp)
 			}
 			msg := "failed to authenticate a system assigned identity"
@@ -276,6 +278,13 @@ func (c *managedIdentityClient) authenticate(ctx context.Context, id ManagedIDKi
 				return azcore.AccessToken{}, newCredentialUnavailableError(credNameManagedIdentity, fmt.Sprintf("unexpected response %q", string(body)))
 			}
 		}
+		if c.chained {
+			// the response may be from something other than IMDS, for example a proxy returning
+			// 404. Return credentialUnavailableError so credential chains continue to their
+			// next credential, include the response in the error message to help debugging
+			err = newAuthenticationFailedError(credNameManagedIdentity, "", resp)
+			return azcore.AccessToken{}, newCredentialUnavailableError(credNameManagedIdentity, err.Error())
+		}
 	}
 
 	return azcore.AccessToken{}, newAuthenticationFailedError(credNameManagedIdentity, "", resp)
@@ -290,7 +299,7 @@ func (c *managedIdentityClient) createAccessToken(res *http.Response) (azcore.Ac
 		ExpiresOn    interface{}   `json:"expires_on,omitempty"` // the value returned in this field varies between a number and a date string
 	}{}
 	if err := azruntime.UnmarshalAsJSON(res, &value); err != nil {
-		return azcore.AccessToken{}, fmt.Errorf("internal AccessToken: %v", err)
+		return azcore.AccessToken{}, newAuthenticationFailedError(credNameManagedIdentity, "Unexpected response content", res)
 	}
 	if value.ExpiresIn != "" {
 		expiresIn, err := json.Number(value.ExpiresIn).Int64()

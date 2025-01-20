@@ -17,11 +17,11 @@ package ecs
 
 // Coupon is a nested struct in ecs response
 type Coupon struct {
-	IsSelected  bool                   `json:"IsSelected" xml:"IsSelected"`
-	CouponNo    string                 `json:"CouponNo" xml:"CouponNo"`
-	Description string                 `json:"Description" xml:"Description"`
-	Name        string                 `json:"Name" xml:"Name"`
-	DiscountOff float64                `json:"DiscountOff" xml:"DiscountOff"`
-	OptionCode  string                 `json:"OptionCode" xml:"OptionCode"`
-	RuleIds     RuleIdsInDescribePrice `json:"RuleIds" xml:"RuleIds"`
+	Name        string                                     `json:"Name" xml:"Name"`
+	CouponNo    string                                     `json:"CouponNo" xml:"CouponNo"`
+	OptionCode  string                                     `json:"OptionCode" xml:"OptionCode"`
+	IsSelected  bool                                       `json:"IsSelected" xml:"IsSelected"`
+	DiscountOff float64                                    `json:"DiscountOff" xml:"DiscountOff"`
+	Description string                                     `json:"Description" xml:"Description"`
+	RuleIds     RuleIdsInDescribeInstanceModificationPrice `json:"RuleIds" xml:"RuleIds"`
 }

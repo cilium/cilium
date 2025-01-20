@@ -19,5 +19,7 @@ package ecs
 type EnhancedNetwork struct {
 	EnableSriov         bool `json:"EnableSriov" xml:"EnableSriov"`
 	SriovSupport        bool `json:"SriovSupport" xml:"SriovSupport"`
+	RssSupport          bool `json:"RssSupport" xml:"RssSupport"`
 	VfQueueNumberPerEni int  `json:"VfQueueNumberPerEni" xml:"VfQueueNumberPerEni"`
+	EnableRss           bool `json:"EnableRss" xml:"EnableRss"`
 }
