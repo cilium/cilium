@@ -257,11 +257,6 @@ struct {
 } VTEP_MAP __section_maps_btf;
 #endif /* ENABLE_VTEP */
 
-struct world_cidrs_key4 {
-	struct bpf_lpm_trie_key lpm_key;
-	__u32 ip;
-} __packed;
-
 #ifndef SKIP_CALLS_MAP
 static __always_inline __must_check int
 tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
