@@ -76,6 +76,8 @@ type Server struct {
 	// lastStreamID is the identifier of the last processed stream.
 	// It is incremented atomically when starting the handling of a new stream.
 	lastStreamID atomic.Uint64
+
+	metrics Metrics
 }
 
 // ResourceTypeConfiguration is the configuration of the XDS server for a
@@ -93,7 +95,8 @@ type ResourceTypeConfiguration struct {
 // sources.
 // types maps each supported resource type URL to its corresponding resource
 // source and ACK observer.
-func NewServer(resourceTypes map[string]*ResourceTypeConfiguration, restorerPromise promise.Promise[endpointstate.Restorer]) *Server {
+func NewServer(resourceTypes map[string]*ResourceTypeConfiguration, restorerPromise promise.Promise[endpointstate.Restorer],
+	metrics Metrics) *Server {
 	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
@@ -111,7 +114,7 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration, restorerProm
 
 	// TODO: Unregister the watchers when stopping the server.
 
-	return &Server{watchers: watchers, ackObservers: ackObservers}
+	return &Server{watchers: watchers, ackObservers: ackObservers, metrics: metrics}
 }
 
 func (s *Server) RestoreCompleted() {
@@ -360,6 +363,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					requestLog.Info("ACK received but no observers are waiting for ACKs")
 				}
 				if versionInfo < nonce {
+					s.metrics.IncreaseNACK(typeURL)
 					// versions after VersionInfo, upto and including ResponseNonce are NACKed
 					requestLog.WithField(logfields.XDSDetail, detail).Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
 					// Watcher will behave as if the sent version was acked.

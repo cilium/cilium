@@ -214,6 +214,7 @@ type xdsServerConfig struct {
 	useSDS                        bool
 	proxyXffNumTrustedHopsIngress uint32
 	proxyXffNumTrustedHopsEgress  uint32
+	metrics                       xds.Metrics
 }
 
 // newXDSServer creates a new xDS GRPC server.
@@ -248,42 +249,42 @@ func (s *xdsServer) start() error {
 
 func (s *xdsServer) initializeXdsConfigs() {
 	ldsCache := xds.NewCache()
-	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache)
+	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache, s.config.metrics)
 	ldsConfig := &xds.ResourceTypeConfiguration{
 		Source:      ldsCache,
 		AckObserver: ldsMutator,
 	}
 
 	rdsCache := xds.NewCache()
-	rdsMutator := xds.NewAckingResourceMutatorWrapper(rdsCache)
+	rdsMutator := xds.NewAckingResourceMutatorWrapper(rdsCache, s.config.metrics)
 	rdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      rdsCache,
 		AckObserver: rdsMutator,
 	}
 
 	cdsCache := xds.NewCache()
-	cdsMutator := xds.NewAckingResourceMutatorWrapper(cdsCache)
+	cdsMutator := xds.NewAckingResourceMutatorWrapper(cdsCache, s.config.metrics)
 	cdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      cdsCache,
 		AckObserver: cdsMutator,
 	}
 
 	edsCache := xds.NewCache()
-	edsMutator := xds.NewAckingResourceMutatorWrapper(edsCache)
+	edsMutator := xds.NewAckingResourceMutatorWrapper(edsCache, s.config.metrics)
 	edsConfig := &xds.ResourceTypeConfiguration{
 		Source:      edsCache,
 		AckObserver: edsMutator,
 	}
 
 	sdsCache := xds.NewCache()
-	sdsMutator := xds.NewAckingResourceMutatorWrapper(sdsCache)
+	sdsMutator := xds.NewAckingResourceMutatorWrapper(sdsCache, s.config.metrics)
 	sdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      sdsCache,
 		AckObserver: sdsMutator,
 	}
 
 	npdsCache := xds.NewCache()
-	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache)
+	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache, s.config.metrics)
 	npdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      npdsCache,
 		AckObserver: npdsMutator,

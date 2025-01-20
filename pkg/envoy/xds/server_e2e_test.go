@@ -76,6 +76,7 @@ func responseCheck(response *envoy_service_discovery.DiscoveryResponse,
 
 func TestRequestAllResources(t *testing.T) {
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
 
 	var err error
 	var req *envoy_service_discovery.DiscoveryRequest
@@ -87,13 +88,13 @@ func TestRequestAllResources(t *testing.T) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache)
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -120,6 +121,8 @@ func TestRequestAllResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -142,12 +145,16 @@ func TestRequestAllResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
 	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
 	require.Equal(t, uint64(3), v)
 	require.True(t, mod)
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -165,6 +172,8 @@ func TestRequestAllResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -187,6 +196,8 @@ func TestRequestAllResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -200,6 +211,7 @@ func TestRequestAllResources(t *testing.T) {
 
 func TestAck(t *testing.T) {
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
 
 	var err error
 	var req *envoy_service_discovery.DiscoveryRequest
@@ -210,13 +222,13 @@ func TestAck(t *testing.T) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache)
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -320,6 +332,7 @@ func TestAck(t *testing.T) {
 
 func TestRequestSomeResources(t *testing.T) {
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
 
 	var err error
 	var req *envoy_service_discovery.DiscoveryRequest
@@ -331,13 +344,13 @@ func TestRequestSomeResources(t *testing.T) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache)
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -364,6 +377,8 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -386,6 +401,8 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", nil, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Create version 3 with resource 0 and 1.
 	// This time, update the cache before sending the request.
@@ -409,6 +426,8 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[1]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -431,6 +450,8 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1], resources[2]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -467,6 +488,8 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "6", []proto.Message{resources[2]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Resource 1 has been deleted; Resource 2 exists. Confirm using Lookup().
 	rsrc, err := cache.Lookup(typeURL, resources[1].Name)
@@ -477,6 +500,8 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rsrc)
 	require.EqualValues(t, resources[2], rsrc.(*envoy_config_route.RouteConfiguration))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -490,6 +515,7 @@ func TestRequestSomeResources(t *testing.T) {
 
 func TestUpdateRequestResources(t *testing.T) {
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
 
 	var err error
 	var req *envoy_service_discovery.DiscoveryRequest
@@ -501,13 +527,13 @@ func TestUpdateRequestResources(t *testing.T) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache)
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -542,6 +568,8 @@ func TestUpdateRequestResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[1]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resource 1.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -577,6 +605,8 @@ func TestUpdateRequestResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[1], resources[2]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -590,6 +620,7 @@ func TestUpdateRequestResources(t *testing.T) {
 
 func TestRequestStaleNonce(t *testing.T) {
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
 
 	var err error
 	var req *envoy_service_discovery.DiscoveryRequest
@@ -601,13 +632,13 @@ func TestRequestStaleNonce(t *testing.T) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache)
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -634,6 +665,8 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -656,6 +689,8 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
@@ -682,6 +717,8 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -704,6 +741,8 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -717,6 +756,7 @@ func TestRequestStaleNonce(t *testing.T) {
 
 func TestNAck(t *testing.T) {
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
 
 	var err error
 	var req *envoy_service_discovery.DiscoveryRequest
@@ -727,13 +767,13 @@ func TestNAck(t *testing.T) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache)
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -760,6 +800,8 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -783,6 +825,8 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// NACK the received version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -816,6 +860,8 @@ func TestNAck(t *testing.T) {
 
 	require.Condition(t, isNotCompletedComparison(comp1))
 	require.Condition(t, isNotCompletedComparison(comp2))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 2, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -830,6 +876,8 @@ func TestNAck(t *testing.T) {
 
 	require.Condition(t, isNotCompletedComparison(comp1))
 	require.Condition(t, completedComparison(comp2))
+	require.Equal(t, 1, metrics.nack[typeURL])
+	require.Equal(t, 2, metrics.ack[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -843,6 +891,7 @@ func TestNAck(t *testing.T) {
 
 func TestNAckFromTheStart(t *testing.T) {
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
 
 	var err error
 	var req *envoy_service_discovery.DiscoveryRequest
@@ -853,13 +902,13 @@ func TestNAckFromTheStart(t *testing.T) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache)
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -886,6 +935,8 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Create version 2 with resource 0.
 	callback1, comp1 := newCompCallback()
@@ -908,6 +959,8 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 1, metrics.ack[typeURL])
 
 	// NACK the received version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -943,6 +996,8 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.NotEqual(t, "", resp.Nonce)
 
 	require.Condition(t, isNotCompletedComparison(comp2))
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 3, metrics.ack[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -957,6 +1012,8 @@ func TestNAckFromTheStart(t *testing.T) {
 
 	// Version 3 was ACKed by the last request.
 	require.Condition(t, completedComparison(comp2))
+	require.Equal(t, 1, metrics.nack[typeURL])
+	require.Equal(t, 3, metrics.ack[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -970,6 +1027,7 @@ func TestNAckFromTheStart(t *testing.T) {
 
 func TestRequestHighVersionFromTheStart(t *testing.T) {
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	metrics := newMockMetrics()
 
 	var err error
 	var req *envoy_service_discovery.DiscoveryRequest
@@ -980,13 +1038,13 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache)
+	mutator := NewAckingResourceMutatorWrapper(cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
 	defer stream.Close()
 
-	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil)
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
 	streamDone := make(chan struct{})
 
@@ -1020,6 +1078,8 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	require.NoError(t, err)
 	require.Condition(t, responseCheck(resp, "65", []proto.Message{resources[0]}, false, typeURL))
 	require.NotEqual(t, "", resp.Nonce)
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
 
 	// Close the stream.
 	closeStream()
