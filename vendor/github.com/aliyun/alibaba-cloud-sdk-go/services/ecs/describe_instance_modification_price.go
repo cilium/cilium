@@ -71,14 +71,15 @@ func (client *Client) DescribeInstanceModificationPriceWithCallback(request *Des
 // DescribeInstanceModificationPriceRequest is the request struct for api DescribeInstanceModificationPrice
 type DescribeInstanceModificationPriceRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer                             `position:"Query" name:"ResourceOwnerId"`
-	SystemDiskCategory   string                                       `position:"Query" name:"SystemDisk.Category"`
-	InstanceType         string                                       `position:"Query" name:"InstanceType"`
-	ResourceOwnerAccount string                                       `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string                                       `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer                             `position:"Query" name:"OwnerId"`
-	DataDisk             *[]DescribeInstanceModificationPriceDataDisk `position:"Query" name:"DataDisk"  type:"Repeated"`
-	InstanceId           string                                       `position:"Query" name:"InstanceId"`
+	ResourceOwnerId      requests.Integer                                  `position:"Query" name:"ResourceOwnerId"`
+	SystemDiskCategory   string                                            `position:"Query" name:"SystemDisk.Category"`
+	InstanceType         string                                            `position:"Query" name:"InstanceType"`
+	ResourceOwnerAccount string                                            `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                                            `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer                                  `position:"Query" name:"OwnerId"`
+	DataDisk             *[]DescribeInstanceModificationPriceDataDisk      `position:"Query" name:"DataDisk"  type:"Repeated"`
+	PromotionOptions     DescribeInstanceModificationPricePromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	InstanceId           string                                            `position:"Query" name:"InstanceId"`
 }
 
 // DescribeInstanceModificationPriceDataDisk is a repeated param struct in DescribeInstanceModificationPriceRequest
@@ -86,6 +87,11 @@ type DescribeInstanceModificationPriceDataDisk struct {
 	PerformanceLevel string `name:"PerformanceLevel"`
 	Size             string `name:"Size"`
 	Category         string `name:"Category"`
+}
+
+// DescribeInstanceModificationPricePromotionOptions is a repeated param struct in DescribeInstanceModificationPriceRequest
+type DescribeInstanceModificationPricePromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
 }
 
 // DescribeInstanceModificationPriceResponse is the response struct for api DescribeInstanceModificationPrice

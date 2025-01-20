@@ -76,6 +76,7 @@ type DescribeInstanceTypesRequest struct {
 	MaximumCpuCoreCount                requests.Integer `position:"Query" name:"MaximumCpuCoreCount"`
 	MaximumGPUAmount                   requests.Integer `position:"Query" name:"MaximumGPUAmount"`
 	LocalStorageCategory               string           `position:"Query" name:"LocalStorageCategory"`
+	SupportHotModify                   requests.Boolean `position:"Query" name:"SupportHotModify"`
 	MaximumMemorySize                  requests.Float   `position:"Query" name:"MaximumMemorySize"`
 	InstanceCategory                   string           `position:"Query" name:"InstanceCategory"`
 	MinimumInstancePpsTx               requests.Integer `position:"Query" name:"MinimumInstancePpsTx"`
