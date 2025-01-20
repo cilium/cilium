@@ -741,8 +741,6 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 			}
 
 			regenMetadata := &regeneration.ExternalRegenerationMetadata{
-				// TODO (ianvernon) - is there a way we can plumb a parent
-				// context to a controller (e.g., endpoint.aliveCtx)?
 				ParentContext: ctx,
 				Reason:        reasonRegenRetry,
 				// Completely rewrite the endpoint - we don't know the nature
