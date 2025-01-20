@@ -18,7 +18,6 @@ cilium-operator-aws [flags]
       --aws-use-primary-address                              Allows for using primary address of the ENI for allocations on the node
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
-      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("identity") or batched on a "First Come, First Served" basis ("fcfs") (default "identity")
       --cilium-endpoint-gc-interval duration                 GC interval for cilium endpoints (default 5m0s)
       --cilium-pod-labels string                             Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
       --cilium-pod-namespace string                          Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace

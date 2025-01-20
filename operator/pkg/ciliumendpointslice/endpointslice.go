@@ -5,7 +5,6 @@ package ciliumendpointslice
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -34,12 +33,6 @@ const (
 	// dropped out of the queue.
 	maxRetries = 15
 
-	// deprecatedIdentityMode is the old name of `identity` mode. It is kept for backwards
-	// compatibility but will be removed in the future.
-	deprecatedIdentityMode = "cesSliceModeIdentity"
-	// deprecatedFcfsMode is the old name of `fcfs` mode. It is kept for backwards
-	// compatibility but will be removed in the future.
-	deprecatedFcfsMode = "cesSliceModeFCFS"
 	// CEPs are batched into a CES, based on its Identity
 	identityMode = "identity"
 	// CEPs are inserted into the largest, non-empty CiliumEndpointSlice
@@ -156,22 +149,7 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	c.context, c.contextCancel = context.WithCancel(context.Background())
 	defer utilruntime.HandleCrash()
 
-	switch c.slicingMode {
-	case identityMode, deprecatedIdentityMode:
-		if c.slicingMode == deprecatedIdentityMode {
-			c.logger.Warn(fmt.Sprintf("%v is deprecated and has been renamed. Please use %v instead", deprecatedIdentityMode, identityMode))
-		}
-		c.manager = newCESManagerIdentity(c.maxCEPsInCES, c.logger)
-
-	case fcfsMode, deprecatedFcfsMode:
-		if c.slicingMode == deprecatedFcfsMode {
-			c.logger.Warn(fmt.Sprintf("%v is deprecated and has been renamed. Please use %v instead", deprecatedFcfsMode, fcfsMode))
-		}
-		c.manager = newCESManagerFcfs(c.maxCEPsInCES, c.logger)
-
-	default:
-		return fmt.Errorf("Invalid slicing mode: %s", c.slicingMode)
-	}
+	c.manager = newCESManager(c.maxCEPsInCES, c.logger)
 
 	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
 
