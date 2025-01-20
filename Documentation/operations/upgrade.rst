@@ -452,6 +452,11 @@ has been renamed from ``envoy_cilium_policymap_<node-ip>_<node-id>_`` to ``envoy
 * ``lbipam_services_matching_total`` has been renamed to ``lbipam_services_matching``
 * ``lbipam_services_unsatisfied_total`` has been renamed to ``lbipam_services_unsatisfied``
 
+* ``doublewrite_identity_crd_total_count`` has been renamed to ``doublewrite_crd_identities``
+* ``doublewrite_identity_kvstore_total_count`` has been renamed to ``doublewrite_kvstore_identities``
+* ``doublewrite_identity_crd_only_count`` has been renamed to ``doublewrite_crd_only_identities``
+* ``doublewrite_identity_kvstore_only_count`` has been renamed to ``doublewrite_kvstore_only_identities``
+
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 * ``cilium_node_connectivity_status`` is now deprecated. Please use ``cilium_node_health_connectivity_status`` instead.
