@@ -957,7 +957,7 @@ func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ..
 				// If we receive ENOSPC failures, we will try to recover by growing the batch buffer
 				// size (up to some max number of retries - default: 3) and retrying the iteration.
 				//
-				// [1] https://elixir.bootlin.com/linux/latest/source/kernel/bpf/hashtab.c#L1776
+				// [1] https://elixir.bootlin.com/linux/v6.12.6/source/kernel/bpf/hashtab.c#L1807-L1809
 				//
 				// Note: If this failure happens during the bpf syscall, it is expected that the underlying
 				// cursor will not have been swapped - meaning that we can retry the iteration at the same cursor.
