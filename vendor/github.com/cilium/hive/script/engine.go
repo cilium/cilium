@@ -320,7 +320,8 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 				regexpArgs = usage.RegexpArgs(rawArgs...)
 			}
 		}
-		cmd.args = expandArgs(s, cmd.rawArgs, regexpArgs)
+		cmd.origArgs = expandArgs(s, cmd.rawArgs, regexpArgs)
+		cmd.args = cmd.origArgs
 
 		// Run the command.
 		err = e.runCommand(s, cmd, impl)
@@ -411,6 +412,7 @@ func (e *Engine) ExecuteLine(s *State, line string, log io.Writer) (err error) {
 		}
 	}
 	cmd.args = expandArgs(s, cmd.rawArgs, regexpArgs)
+	cmd.origArgs = cmd.args
 
 	// Run the command.
 	err = e.runCommand(s, cmd, impl)
@@ -436,6 +438,7 @@ type command struct {
 	conds      []condition // all must be satisfied
 	name       string      // the name of the command; must be non-empty
 	rawArgs    [][]argFragment
+	origArgs   []string // original arguments before pflag parsing
 	args       []string // shell-expanded arguments following name
 	background bool     // command should run in background (ends with a trailing &)
 }
@@ -695,7 +698,7 @@ func (e *Engine) runCommand(s *State, cmd *command, impl Cmd) error {
 	if usage.Flags != nil {
 		usage.Flags(fs)
 	}
-	if err := fs.Parse(cmd.args); err != nil {
+	if err := fs.Parse(cmd.origArgs); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
 			out := new(strings.Builder)
 			err = e.ListCmds(out, true, "^"+cmd.name+"$")
