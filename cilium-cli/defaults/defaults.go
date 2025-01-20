@@ -78,7 +78,7 @@ const (
 	// renovate: datasource=docker
 	ConnectivityTestFRRImage = "quay.io/frrouting/frr:10.2.1@sha256:c8543d3e0a1348cc0f2b19154fd8b0300e237773dbec65d9d6d6570c1d088deb"
 	// renovate: datasource=docker
-	ConnectivityTestSocatImage = "docker.io/alpine/socat:1.8.0.0@sha256:a6be4c0262b339c53ddad723cdd178a1a13271e1137c65e27f90a08c16de02b8"
+	ConnectivityTestSocatImage = "docker.io/alpine/socat:1.8.0.1@sha256:d95d6a210a87164533d444e8d7ebd586231b3387a27ee7c0732ade3d6c3b0f4d"
 
 	ConfigMapName = "cilium-config"
 
