@@ -17,11 +17,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -34,6 +36,8 @@ import (
 var Cell = cell.Module(
 	"envoy-proxy",
 	"Envoy proxy and control-plane",
+
+	metrics.Metric(xds.NewXDSMetric),
 
 	cell.Config(ProxyConfig{}),
 	cell.Config(secretSyncConfig{}),
@@ -139,6 +143,7 @@ type xdsServerParams struct {
 	ArtifactCopier *ArtifactCopier
 
 	SecretManager certificatemanager.SecretManager
+	Metrics       *xds.XDSMetrics
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
@@ -163,6 +168,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			useSDS:                        params.SecretManager.PolicySecretSyncEnabled(),
 			proxyXffNumTrustedHopsIngress: params.EnvoyProxyConfig.ProxyXffNumTrustedHopsIngress,
 			proxyXffNumTrustedHopsEgress:  params.EnvoyProxyConfig.ProxyXffNumTrustedHopsEgress,
+			metrics:                       params.Metrics,
 		},
 		params.SecretManager)
 
