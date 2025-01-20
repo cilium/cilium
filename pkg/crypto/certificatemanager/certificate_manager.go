@@ -33,6 +33,7 @@ type CertificateManager interface {
 type SecretManager interface {
 	GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error)
 	PolicySecretSyncEnabled() bool
+	SecretsOnlyFromSecretsNamespace() bool
 	GetSecretSyncNamespace() string
 }
 
@@ -47,34 +48,39 @@ type managerConfig struct {
 
 	EnablePolicySecretsSync bool
 	PolicySecretsNamespace  string
+
+	PolicySecretsOnlyFromSecretsNamespace bool
 }
 
 func (mc managerConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("certificates-directory", mc.CertificatesDirectory, "Root directory to find certificates specified in L7 TLS policy enforcement")
 	flags.Bool("enable-policy-secrets-sync", mc.EnablePolicySecretsSync, "Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy")
+	flags.Bool("policy-secrets-only-from-secrets-namespace", mc.PolicySecretsOnlyFromSecretsNamespace, "Configures the agent to only read policy Secrets from the policy-secrets-namespace")
 	flags.String("policy-secrets-namespace", mc.PolicySecretsNamespace, "PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP")
 }
 
 // Manager will manage the way certificates are retrieved based in the given
 // k8sClient and rootPath.
 type manager struct {
-	rootPath            string
-	k8sClient           k8sClient.Clientset
-	secretSyncNamespace string
-	secretSyncEnabled   bool
-	Logger              logrus.FieldLogger
+	rootPath                       string
+	k8sClient                      k8sClient.Clientset
+	secretSyncNamespace            string
+	secretSyncEnabled              bool
+	secretsFromSecretSyncNamespace bool
+	Logger                         logrus.FieldLogger
 }
 
 // NewManager returns a new manager.
 func NewManager(cfg managerConfig, clientset k8sClient.Clientset, logger logrus.FieldLogger) (CertificateManager, SecretManager) {
 	m := &manager{
-		rootPath:          cfg.CertificatesDirectory,
-		k8sClient:         clientset,
-		Logger:            logger,
-		secretSyncEnabled: cfg.EnablePolicySecretsSync,
+		rootPath:                       cfg.CertificatesDirectory,
+		k8sClient:                      clientset,
+		Logger:                         logger,
+		secretSyncEnabled:              cfg.EnablePolicySecretsSync,
+		secretsFromSecretSyncNamespace: cfg.PolicySecretsOnlyFromSecretsNamespace,
 	}
 
-	if cfg.EnablePolicySecretsSync {
+	if cfg.PolicySecretsOnlyFromSecretsNamespace {
 		m.secretSyncNamespace = cfg.PolicySecretsNamespace
 	}
 
@@ -93,6 +99,10 @@ func (m *manager) GetSecretSyncNamespace() string {
 
 func (m *manager) PolicySecretSyncEnabled() bool {
 	return m.secretSyncEnabled
+}
+
+func (m *manager) SecretsOnlyFromSecretsNamespace() bool {
+	return m.secretsFromSecretSyncNamespace
 }
 
 // getSecrets returns either local or k8s secrets, giving precedence for local secrets if configured.
@@ -137,23 +147,25 @@ func (m *manager) getSecrets(ctx context.Context, secret *api.Secret, ns string)
 		return nsName, secrets, true, nil
 	}
 
-	// If there's no secret synchronization namespace configured, then we need to read values
+	if m.secretSyncEnabled && m.secretSyncNamespace != "" {
+		// If we get here, then the secret is _not_ being read from the filesystem,
+		// and secret sync is enabled, so we are sending via SDS,
+		// and then we don't want to inspect the Secret at all, because
+		// that will require the agent to have more access than it needs. So we return an empty `secrets` map.
+		// TODO(youngnick): Deprecate and remove reading from file for secrets.
+		emptySecrets := make(map[string][]byte)
+		return nsName, emptySecrets, false, nil
+	}
+
+	// If secret synchronization is disabled, then we need to read values
 	// directly from Kubernetes. Not a good idea, for security or performance reasons, but included
 	// for backwards compatibility.
 	// TODO(youngnick): Once we are comfortable with SDS stability, remove this and pass the
 	// reference to the original secret instead. (This will require changes to the secretsync
 	// package so that it can register specific secrets from anywhere.)
-	if m.secretSyncNamespace == "" {
-		secrets, err := m.k8sClient.GetSecrets(ctx, ns, secret.Name)
-		return nsName, secrets, true, err
-	}
 
-	// If the secret is _not_ being read from the filesystem, then we don't want to inspect it at all, because
-	// that will require the agent to have more access than it needs. So we return an empty `secrets` map.
-	// The plan here is to deprecate reading from file entirely, at which all this code will be removed.
-	// TODO(youngnick): Deprecate and remove reading from file for secrets.
-	emptySecrets := make(map[string][]byte)
-	return nsName, emptySecrets, false, nil
+	secrets, err := m.k8sClient.GetSecrets(ctx, ns, secret.Name)
+	return nsName, secrets, true, err
 }
 
 const (
