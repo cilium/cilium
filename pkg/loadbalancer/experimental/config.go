@@ -28,7 +28,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 }
 
 var DefaultConfig = Config{
-	EnableExperimentalLB: false,
+	EnableExperimentalLB: true,
 	RetryBackoffMin:      50 * time.Millisecond,
 	RetryBackoffMax:      time.Minute,
 }
