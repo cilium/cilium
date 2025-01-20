@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,7 @@ func TestPlotSamples(t *testing.T) {
 		sb.mark(true)
 	}
 	var buf bytes.Buffer
-	PlotSamples(&buf, false, "foo", "", samplingTimeSpan, samples[:], sb)
+	PlotSamples(&buf, false, "foo", "", 2*time.Hour, 5*time.Minute, samples[:], sb)
 
 	expected := `                                            foo
           ╭────────────────────────────────────────────────────────────────────╮
@@ -59,13 +60,15 @@ func TestPlotSamples(t *testing.T) {
 
 func TestPlotSamplesEdgeCases(t *testing.T) {
 	var (
-		samples [numSamples]float32
-		sb      SampleBitmap
-		buf     bytes.Buffer
+		samples          [numSamples]float32
+		sb               SampleBitmap
+		buf              bytes.Buffer
+		samplingTimeSpan = 2 * time.Hour
+		samplingInterval = 5 * time.Minute
 	)
 
 	// Plot without any samples (nothing marked)
-	PlotSamples(&buf, false, "foo", "some-label", samplingTimeSpan, samples[:], sb)
+	PlotSamples(&buf, false, "foo", "some-label", samplingTimeSpan, samplingInterval, samples[:], sb)
 
 	expected := `                                            foo
                                       [ some-label ]
@@ -88,7 +91,7 @@ func TestPlotSamplesEdgeCases(t *testing.T) {
 		samples[i] = 0.0
 		sb.mark(true)
 	}
-	PlotSamples(&buf, false, "foo", "some-label", samplingTimeSpan, samples[:], sb)
+	PlotSamples(&buf, false, "foo", "some-label", samplingTimeSpan, samplingInterval, samples[:], sb)
 
 	expected = `                                            foo
                                       [ some-label ]
@@ -111,7 +114,7 @@ func TestPlotSamplesEdgeCases(t *testing.T) {
 		samples[i] = 0.00001 // 10us
 	}
 	samples[0] = -0.000001 // -1us
-	PlotSamples(&buf, false, "foo_seconds", "some-label", samplingTimeSpan, samples[:], sb)
+	PlotSamples(&buf, false, "foo_seconds", "some-label", samplingTimeSpan, samplingInterval, samples[:], sb)
 
 	expected = `                                        foo_seconds
                                       [ some-label ]

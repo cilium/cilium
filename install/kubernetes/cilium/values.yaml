@@ -40,6 +40,14 @@ debug:
   # - datapath
   # - policy
   verbose: ~
+  # -- Set the agent-internal metrics sampling frequency. This sets the
+  # frequency of the internal sampling of the agent metrics. These are
+  # available via the "cilium-dbg shell -- metrics -s" command and are
+  # part of the metrics HTML page included in the sysdump.
+  # @schema
+  # type: [null, string]
+  # @schema
+  metricsSamplingInterval: "5m"
 rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true

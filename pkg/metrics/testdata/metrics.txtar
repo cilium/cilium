@@ -37,7 +37,7 @@ Metric           Labels   Value
 test_A                    1.000000
 test_C_seconds   lbl=a    10ms / 800ms / 980ms
 -- sampled --
-Metric           Labels   5min                   30min          60min          120min
+Metric           Labels   5m                     30m            60m            120m
 test_A                    1                      0              0              0
 test_B                    2                      0              0              0
 test_C_seconds   lbl=a    10ms / 800ms / 980ms   0s / 0s / 0s   0s / 0s / 0s   0s / 0s / 0s

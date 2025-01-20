@@ -1596,6 +1596,12 @@
         "enabled": {
           "type": "boolean"
         },
+        "metricsSamplingInterval": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "verbose": {
           "type": [
             "null",
