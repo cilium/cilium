@@ -157,13 +157,13 @@ func (cs *cesSubscriber) deleteCEPfromCES(CEPName, CESName string, c *types.Cili
 		log.WithFields(logrus.Fields{
 			"CESName": CESName,
 			"CEPName": CEPName,
-		}).Info("CEP deleted, calling endpointDeleted")
+		}).Debug("CEP deleted, calling endpointDeleted")
 		cs.epWatcher.endpointDeleted(c)
 	} else {
 		log.WithFields(logrus.Fields{
 			"CESName": CESName,
 			"CEPName": CEPName,
-		}).Info("CEP deleted, other CEP exists, calling endpointUpdated")
+		}).Debug("CEP deleted, other CEP exists, calling endpointUpdated")
 		cs.epWatcher.endpointUpdated(c, cep)
 	}
 }
