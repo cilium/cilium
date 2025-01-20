@@ -92,7 +92,15 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 		eniCreationTags = ec2shim.MergeTags(eniCreationTags, a.eniGCTags)
 	}
 
-	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
+	optionsFunc := func(options *ec2.Options) {}
+	if ec2APIEndpoint := operatorOption.Config.EC2APIEndpoint; len(ec2APIEndpoint) > 0 {
+		log.Debugf("Using custom API endpoint %s for service %s", ec2APIEndpoint, ec2.ServiceID)
+		optionsFunc = func(options *ec2.Options) {
+			options.BaseEndpoint = aws.String("https://" + ec2APIEndpoint)
+		}
+	}
+
+	a.client = ec2shim.NewClient(ec2.NewFromConfig(cfg, optionsFunc), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
 		operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
 		operatorOption.Config.AWSUsePrimaryAddress)
 

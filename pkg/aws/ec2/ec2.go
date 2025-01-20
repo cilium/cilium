@@ -16,7 +16,6 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
-	"github.com/cilium/cilium/pkg/aws/endpoints"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -91,7 +90,7 @@ func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, bur
 	}
 }
 
-// NewConfig returns a new aws.Config configured with the correct region + endpoint resolver
+// NewConfig returns a new aws.Config configured with the correct region
 func NewConfig(ctx context.Context) (aws.Config, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -105,7 +104,6 @@ func NewConfig(ctx context.Context) (aws.Config, error) {
 	}
 
 	cfg.Region = instance.Region
-	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
 
 	return cfg, nil
 }
