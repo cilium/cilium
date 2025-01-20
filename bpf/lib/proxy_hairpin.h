@@ -13,7 +13,7 @@
 #include "csum.h"
 #include "l4.h"
 
-#if defined(CILIUM_HOST_MAC) && defined(HOST_IFINDEX)
+#if defined(CILIUM_HOST_MAC) && defined(CILIUM_NET_IFINDEX)
 
 /** Redirect to the proxy by hairpinning the packet out the incoming
  *  interface.
@@ -57,7 +57,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * ctx_redirect_to_proxy_first().
 	 */
 
-	return ctx_redirect(ctx, HOST_IFINDEX, 0);
+	return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
 }
 
 #ifdef ENABLE_IPV4
@@ -77,4 +77,4 @@ ctx_redirect_to_proxy_hairpin_ipv6(struct __ctx_buff *ctx, __be16 proxy_port)
 }
 #endif
 
-#endif /* CILIUM_HOST_MAC && HOST_IFINDEX */
+#endif /* CILIUM_HOST_MAC && CILIUM_NET_IFINDEX */
