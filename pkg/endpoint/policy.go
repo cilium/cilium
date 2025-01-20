@@ -762,6 +762,7 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 			}
 			return fmt.Errorf("regeneration recovery failed")
 		},
+		RunInterval:            1 * time.Second,
 		ErrorRetryBaseDuration: 2 * time.Second,
 		Context:                e.aliveCtx,
 	})
