@@ -189,8 +189,7 @@ jobs:
           rm -f prometheus-${PROM_VERSION}.linux-amd64.tar.gz
           sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
           cat metrics-agent.prom | promtool check metrics
-          # Uncomment this line once https://github.com/cilium/cilium/issues/36581 is fixed
-          #cat metrics-operator.prom | promtool check metrics
+          cat metrics-operator.prom | promtool check metrics
 
       - name: Check prometheus feature metrics documentation
         if: ${{ success() }}
