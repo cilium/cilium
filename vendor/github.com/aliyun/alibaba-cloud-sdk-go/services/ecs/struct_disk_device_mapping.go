@@ -17,13 +17,17 @@ package ecs
 
 // DiskDeviceMapping is a nested struct in ecs response
 type DiskDeviceMapping struct {
-	Progress        string `json:"Progress" xml:"Progress"`
+	OSSBucket       string `json:"OSSBucket" xml:"OSSBucket"`
+	OSSObject       string `json:"OSSObject" xml:"OSSObject"`
 	Format          string `json:"Format" xml:"Format"`
 	Device          string `json:"Device" xml:"Device"`
+	ImportOSSObject string `json:"ImportOSSObject" xml:"ImportOSSObject"`
+	Encrypted       bool   `json:"Encrypted" xml:"Encrypted"`
+	Progress        string `json:"Progress" xml:"Progress"`
+	DiskImageSize   int    `json:"DiskImageSize" xml:"DiskImageSize"`
 	Size            string `json:"Size" xml:"Size"`
 	RemainTime      int    `json:"RemainTime" xml:"RemainTime"`
 	SnapshotId      string `json:"SnapshotId" xml:"SnapshotId"`
-	ImportOSSObject string `json:"ImportOSSObject" xml:"ImportOSSObject"`
 	ImportOSSBucket string `json:"ImportOSSBucket" xml:"ImportOSSBucket"`
 	Type            string `json:"Type" xml:"Type"`
 }

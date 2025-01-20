@@ -75,6 +75,7 @@ type StartImagePipelineExecutionRequest struct {
 	ResourceOwnerId      requests.Integer                          `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string                                    `position:"Query" name:"ClientToken"`
 	TemplateTag          *[]StartImagePipelineExecutionTemplateTag `position:"Query" name:"TemplateTag"  type:"Repeated"`
+	Tag                  *[]StartImagePipelineExecutionTag         `position:"Query" name:"Tag"  type:"Repeated"`
 	ResourceOwnerAccount string                                    `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                                    `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer                          `position:"Query" name:"OwnerId"`
@@ -82,6 +83,12 @@ type StartImagePipelineExecutionRequest struct {
 
 // StartImagePipelineExecutionTemplateTag is a repeated param struct in StartImagePipelineExecutionRequest
 type StartImagePipelineExecutionTemplateTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
+}
+
+// StartImagePipelineExecutionTag is a repeated param struct in StartImagePipelineExecutionRequest
+type StartImagePipelineExecutionTag struct {
 	Key   string `name:"Key"`
 	Value string `name:"Value"`
 }

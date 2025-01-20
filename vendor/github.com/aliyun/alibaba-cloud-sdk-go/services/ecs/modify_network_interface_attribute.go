@@ -101,6 +101,7 @@ type ModifyNetworkInterfaceAttributeNetworkInterfaceTrafficConfig struct {
 // ModifyNetworkInterfaceAttributeEnhancedNetwork is a repeated param struct in ModifyNetworkInterfaceAttributeRequest
 type ModifyNetworkInterfaceAttributeEnhancedNetwork struct {
 	EnableSriov string `name:"EnableSriov"`
+	EnableRss   string `name:"EnableRss"`
 }
 
 // ModifyNetworkInterfaceAttributeConnectionTrackingConfiguration is a repeated param struct in ModifyNetworkInterfaceAttributeRequest
