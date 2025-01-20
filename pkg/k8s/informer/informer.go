@@ -13,6 +13,7 @@ import (
 	utilRuntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
@@ -114,6 +115,9 @@ func NewInformerWithStore(
 				} else {
 					obj = d.Object
 				}
+
+				// Deduplicate the strings in the object metadata to reduce memory consumption.
+				resources.DedupMetadata(obj)
 
 				// In CI we detect if the objects were modified and panic
 				// this is a no-op in production environments.
