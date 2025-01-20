@@ -1112,8 +1112,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.2.2"
-    digest: "sha256:e4f80054d2d503e04337ed61b64c12fa3cca5a32963ba8bd2080d20e1ccc1d8d"
+    tag: "v0.2.3"
+    digest: "sha256:cb3b1480f404489cbf0dbb9ac4576f44392532800180a4d6260ab430b4cbaedc"
     useDigest: true
     pullPolicy: "Always"
   # -- Seconds after which the completed job pod will be deleted
@@ -2351,9 +2351,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.32.3-1736767219-f96a36460ae298f5d8ccb84cc5ef519fdd62b162"
+    tag: "v1.32.3-1737358012-5f42e7a45f496cb51aa56c316b6e8ace7a5918d6"
     pullPolicy: "Always"
-    digest: "sha256:e3efa2d1e5ac62ef3dcbe17d9c0bcaa5a6ce1d4598e86f44a8f07a045c6bd08b"
+    digest: "sha256:de98287dcc2f57afe976d16bcbdc477aaad17d3c7827fc7fb55abff953a5f7cb"
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []
@@ -3629,7 +3629,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:2919d0172f7524b2d8df9e50066a682669e6d170ac0f6a49676d54358fe970b5"
+          digest: "sha256:a5d0ce49aa801d475da48f8cb163c354ab95cab073cd3c138bd458fc8257fbf1"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration
