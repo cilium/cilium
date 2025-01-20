@@ -852,13 +852,13 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 					obj = d.Object
 				}
 
+				// Deduplicate the strings in the object metadata to reduce memory consumption.
+				dedupMetadata(obj)
+
 				// In CI we detect if the objects were modified and panic
 				// (e.g. when KUBE_CACHE_MUTATION_DETECTOR is set)
 				// this is a no-op in production environments.
 				cacheMutationDetector.AddObject(obj)
-
-				// Deduplicate the strings in the object metadata to reduce memory consumption.
-				dedupMetadata(obj)
 
 				key := NewKey(obj)
 
