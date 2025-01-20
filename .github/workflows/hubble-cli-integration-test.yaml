@@ -173,14 +173,10 @@ jobs:
           set -ex
           ./hubble/hubble --version
 
-          kubectl -n kube-system port-forward service/hubble-relay 4245:80 &
+          cilium hubble port-forward&
           echo "wait until the port-forward is running"
-          until [ $(pgrep --count --full "kubectl.*port-forward.*service\/hubble-relay.*4245:80") -eq 1 ]; do
-            sleep 1
-          done
-
-          # give relay a little bit more time to actually connect to agent before running commands.
-          sleep 5
+          sleep 10s
+          nc -nvz 127.0.0.1 4245
 
           ./hubble/hubble status
 
