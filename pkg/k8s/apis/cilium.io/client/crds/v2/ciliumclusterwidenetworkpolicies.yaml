@@ -1112,14 +1112,13 @@ spec:
                       description: |-
                         ToServices is a list of services to which the endpoint subject
                         to the rule is allowed to initiate connections.
-                        Currently Cilium only supports toServices for K8s services without
-                        selectors.
-
-                        Example:
-                        Any endpoint with the label "app=backend-app" is allowed to
-                        initiate connections to all cidrs backing the "external-service" service
+                        Currently Cilium only supports toServices for K8s services.
                       items:
-                        description: Service wraps around selectors for services
+                        description: |-
+                          Service selects policy targets that are bundled as part of a
+                          logical load-balanced service.
+
+                          Currently only Kubernetes-based Services are supported.
                         properties:
                           k8sService:
                             description: K8sService selects service by name and namespace
@@ -1735,14 +1734,13 @@ spec:
                       description: |-
                         ToServices is a list of services to which the endpoint subject
                         to the rule is allowed to initiate connections.
-                        Currently Cilium only supports toServices for K8s services without
-                        selectors.
-
-                        Example:
-                        Any endpoint with the label "app=backend-app" is allowed to
-                        initiate connections to all cidrs backing the "external-service" service
+                        Currently Cilium only supports toServices for K8s services.
                       items:
-                        description: Service wraps around selectors for services
+                        description: |-
+                          Service selects policy targets that are bundled as part of a
+                          logical load-balanced service.
+
+                          Currently only Kubernetes-based Services are supported.
                         properties:
                           k8sService:
                             description: K8sService selects service by name and namespace
@@ -4573,14 +4571,13 @@ spec:
                         description: |-
                           ToServices is a list of services to which the endpoint subject
                           to the rule is allowed to initiate connections.
-                          Currently Cilium only supports toServices for K8s services without
-                          selectors.
-
-                          Example:
-                          Any endpoint with the label "app=backend-app" is allowed to
-                          initiate connections to all cidrs backing the "external-service" service
+                          Currently Cilium only supports toServices for K8s services.
                         items:
-                          description: Service wraps around selectors for services
+                          description: |-
+                            Service selects policy targets that are bundled as part of a
+                            logical load-balanced service.
+
+                            Currently only Kubernetes-based Services are supported.
                           properties:
                             k8sService:
                               description: K8sService selects service by name and
@@ -5197,14 +5194,13 @@ spec:
                         description: |-
                           ToServices is a list of services to which the endpoint subject
                           to the rule is allowed to initiate connections.
-                          Currently Cilium only supports toServices for K8s services without
-                          selectors.
-
-                          Example:
-                          Any endpoint with the label "app=backend-app" is allowed to
-                          initiate connections to all cidrs backing the "external-service" service
+                          Currently Cilium only supports toServices for K8s services.
                         items:
-                          description: Service wraps around selectors for services
+                          description: |-
+                            Service selects policy targets that are bundled as part of a
+                            logical load-balanced service.
+
+                            Currently only Kubernetes-based Services are supported.
                           properties:
                             k8sService:
                               description: K8sService selects service by name and
