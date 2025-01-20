@@ -742,8 +742,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if err != nil {
 		return fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
 	}
-	cDefinesMap["HOST_IFINDEX_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
-	cDefinesMap["CILIUM_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
+	cDefinesMap["CILIUM_HOST_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
+	cDefinesMap["CILIUM_HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
 
 	ephemeralMin, err := getEphemeralPortRangeMin(h.sysctl)
 	if err != nil {
