@@ -995,9 +995,16 @@ func TestBatchIterator(t *testing.T) {
 		mapSize int
 		size    int
 		opts    []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]
+		// LRU hash maps aren't totally safe to test like this, even if you're
+		// within the max map size number of elements, in practice the kernel
+		// will occasionally do a LRU eviction causing failures.
+		// Setting the max size appears to make this safe enough (test up to a
+		// test million runs) that we can run a subset of tests on LRU.
+		unsafeLRU bool
 	}{
-		{10, 10, nil},
-		{1024, 1024, nil},
+		{10, 10, nil, true},
+		{1024, 1024, nil, true},
+		{1048576, 1024, nil, false}, // Max map size much larger means no chance of LRU eviction.
 		// Setup iteration that starts with batch size of 1, this is bound to fail at some point
 		// so this will test if the chunk size growth retry loop works correctly.
 		{
@@ -1005,27 +1012,27 @@ func TestBatchIterator(t *testing.T) {
 			mapSize: 1 << 13,
 			opts: []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]{
 				WithMaxRetries[TestKey, TestValue](13), WithStartingChunkSize[TestKey, TestValue](1)},
+			unsafeLRU: true,
 		},
 		{
 			size:    1,
 			mapSize: 1 << 12,
 		},
 		{
-			size:    1 << 8,
-			mapSize: 1 << 8,
-		},
-		{
 			size:    1 << 12,
 			mapSize: 1 << 12,
 			opts: []BatchIteratorOpt[TestKey, TestValue, *TestKey, *TestValue]{
 				WithMaxRetries[TestKey, TestValue](1), WithStartingChunkSize[TestKey, TestValue](1 << 13)},
+			unsafeLRU: true,
 		},
 	} {
 		t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
 			runTest(ebpf.Hash, test.size, test.mapSize, t, test.opts...)
 		})
-		t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
-			runTest(ebpf.LRUHash, test.size, test.mapSize, t, test.opts...)
-		})
+		if !test.unsafeLRU {
+			t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
+				runTest(ebpf.LRUHash, test.size, test.mapSize, t, test.opts...)
+			})
+		}
 	}
 }
