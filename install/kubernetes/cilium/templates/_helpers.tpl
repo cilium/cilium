@@ -178,3 +178,35 @@ Return user specify envoy.enabled or default value based on the upgradeCompatibi
     {{- end }}
   {{- end }}
 {{- end }}
+
+{{/*
+Return user specify tls.readSecretsOnlyFromSecretsNamespace and take into account tls.secretsBackend
+*/}}
+{{- define "readSecretsOnlyFromSecretsNamespace" }}
+  {{- if (not (kindIs "invalid" .Values.tls.readSecretsOnlyFromSecretsNamespace)) }}
+    {{- .Values.tls.readSecretsOnlyFromSecretsNamespace }}
+  {{- else if (not (kindIs "invalid" .Values.tls.secretsBackend)) }}
+    {{- if eq .Values.tls.secretsBackend "local" }}
+      {{- true }}
+    {{- else }}
+      {{ false }}
+    {{- end }}
+  {{- else }}
+    {{- true }}
+  {{- end }}
+{{- end }}
+
+{{/*
+Return user specify tls.secretSync.enabled or default value based on the upgradeCompatibility
+*/}}
+{{- define "secretSyncEnabled" }}
+  {{- if (not (kindIs "invalid" .Values.tls.secretSync.enabled)) }}
+    {{- .Values.tls.secretSync.enabled }}
+  {{- else }}
+    {{- if semverCompare ">=1.17" (default "1.17" .Values.upgradeCompatibility) }}
+      {{- true }}
+    {{- else }}
+      {{- false }}
+    {{- end }}
+  {{- end }}
+{{- end }}

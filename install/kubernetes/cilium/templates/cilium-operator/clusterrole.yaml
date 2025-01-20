@@ -1,3 +1,4 @@
+{{- $secretSyncEnabled := eq (include "secretSyncEnabled" .) "true" -}}
 {{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -90,7 +91,7 @@ rules:
   resources:
   # to check apiserver connectivity
   - namespaces
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled .Values.bgpControlPlane.enabled .Values.tls.secretSync.enabled }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled .Values.bgpControlPlane.enabled $secretSyncEnabled }}
   - secrets
 {{- end }}
   verbs:

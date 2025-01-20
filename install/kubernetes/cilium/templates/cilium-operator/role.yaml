@@ -1,3 +1,5 @@
+{{- $secretSyncEnabled := eq (include "secretSyncEnabled" .) "true" -}}
+
 {{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.sync .Values.ingressController.secretsNamespace.name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -51,13 +53,13 @@ rules:
   - patch
 {{- end }}
 
-{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.tls.secretSync.enabled .Values.tls.secretSync.secretsNamespace.name ( eq "k8s" .Values.tls.secretsBackend )}}
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create $secretSyncEnabled .Values.tls.secretsNamespace.name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: cilium-operator-tlsinterception-secrets
-  namespace: {{ .Values.tls.secretSync.secretsNamespace.name | quote }}
+  namespace: {{ .Values.tls.secretsNamespace.name | quote }}
   {{- with .Values.operator.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
