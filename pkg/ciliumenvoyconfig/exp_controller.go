@@ -331,8 +331,7 @@ func backendsToLoadAssignments(
 				continue
 			}
 		}
-		for _, beWithRev := range fe.Backends {
-			be := beWithRev.Backend
+		for be := range fe.Backends {
 			if be.State != loadbalancer.BackendStateActive {
 				continue
 			}
