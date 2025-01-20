@@ -5420,27 +5420,39 @@
           },
           "type": "object"
         },
+        "readSecretsOnlyFromSecretsNamespace": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
         "secretSync": {
           "properties": {
             "enabled": {
-              "type": "boolean"
-            },
-            "secretsNamespace": {
-              "properties": {
-                "create": {
-                  "type": "boolean"
-                },
-                "name": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
+              "type": [
+                "null",
+                "boolean"
+              ]
             }
           },
           "type": "object"
         },
         "secretsBackend": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "secretsNamespace": {
+          "properties": {
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"

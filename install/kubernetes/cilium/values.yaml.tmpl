@@ -2600,23 +2600,42 @@ svcSourceRangeCheck: true
 synchronizeK8sNodes: true
 # -- Configure TLS configuration in the agent.
 tls:
+  # @schema
+  # type: [null, string]
+  # @schema
   # -- This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies
   # (namely the secrets referenced by terminatingTLS and originatingTLS).
+  # This value is DEPRECATED and will be removed in a future version.
+  # Use `tls.readSecretsOnlyFromSecretsNamespace` instead.
   # Possible values:
   #   - local
   #   - k8s
-  secretsBackend: local
+  secretsBackend: ~
+  # @schema
+  # type: [null, boolean]
+  # @schema  
+  # -- Configure if the Cilium Agent will only look in `tls.secretsNamespace` for
+  #    CiliumNetworkPolicy relevant Secrets.
+  #    If false, the Cilium Agent will be granted READ (GET/LIST/WATCH) access
+  #    to _all_ secrets in the entire cluster. This is not recommended and is
+  #    included for backwards compatibility.
+  #    This value obsoletes `tls.secretsBackend`, with `true` == `local` in the old
+  #    setting, and `false` == `k8s`.
+  readSecretsOnlyFromSecretsNamespace: ~
+  # -- Configures where secrets used in CiliumNetworkPolicies will be looked for
+  secretsNamespace:
+    # -- Create secrets namespace for TLS Interception secrets.
+    create: true
+    # -- Name of TLS Interception secret namespace.
+    name: cilium-secrets
   # -- Configures settings for synchronization of TLS Interception Secrets
   secretSync:
+    # @schema
+    # type: [null, boolean]
+    # @schema
     # -- Enable synchronization of Secrets for TLS Interception. If disabled and
     # tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
-    enabled: true
-    # -- This configures secret synchronization for secrets used in CiliumNetworkPolicies
-    secretsNamespace:
-      # -- Create secrets namespace for TLS Interception secrets.
-      create: true
-      # -- Name of TLS Interception secret namespace.
-      name: cilium-secrets
+    enabled: ~
   # -- Base64 encoded PEM values for the CA certificate and private key.
   # This can be used as common CA to generate certificates used by hubble and clustermesh components.
   # It is neither required nor used when cert-manager is used to generate the certificates.

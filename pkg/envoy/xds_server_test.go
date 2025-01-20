@@ -533,6 +533,10 @@ func (m mockSecretManagerInlineSecrets) PolicySecretSyncEnabled() bool {
 	return false
 }
 
+func (m mockSecretManagerInlineSecrets) SecretsOnlyFromSecretsNamespace() bool {
+	return false
+}
+
 func (m mockSecretManagerInlineSecrets) GetSecretSyncNamespace() string {
 	// unimplemented
 	return ""
@@ -545,6 +549,10 @@ func (m mockSecretManagerSDSSecrets) GetSecretString(_ context.Context, secret *
 }
 
 func (m mockSecretManagerSDSSecrets) PolicySecretSyncEnabled() bool {
+	return true
+}
+
+func (m mockSecretManagerSDSSecrets) SecretsOnlyFromSecretsNamespace() bool {
 	return true
 }
 
@@ -607,47 +615,47 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 
 func TestGetPortNetworkPolicyRule(t *testing.T) {
 	version := versioned.Latest()
-	obtained, canShortCircuit := getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12, false, "")
+	obtained, canShortCircuit := getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch, false, "")
+	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
 	require.False(t, canShortCircuit)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1, false, "")
+	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
 	require.True(t, canShortCircuit)
 }
 
 func TestGetDirectionNetworkPolicy(t *testing.T) {
 	// L4+L7
-	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true, false, "ingress", "")
+	obtained := getDirectionNetworkPolicy(ep, L4PolicyMap1, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies12Wildcard, obtained)
 
 	// L4+L7 with header mods
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, false, "ingress", "")
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap1HeaderMatch, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies122HeaderMatchWildcard, obtained)
 
 	// L4+L7
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true, false, "ingress", "")
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap2, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies1Wildcard, obtained)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true, false, "ingress", "")
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap4, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesWildcard, obtained)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, false, "ingress", "")
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesWildcard, obtained)
 
 	// L4-only with SNI
-	obtained = getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, false, "ingress", "")
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesSNI, obtained)
 }
 
 func TestGetNetworkPolicy(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1, true, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -659,7 +667,7 @@ func TestGetNetworkPolicy(t *testing.T) {
 }
 
 func TestGetNetworkPolicyWildcard(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy2, true, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -671,7 +679,7 @@ func TestGetNetworkPolicyWildcard(t *testing.T) {
 }
 
 func TestGetNetworkPolicyDeny(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -683,7 +691,7 @@ func TestGetNetworkPolicyDeny(t *testing.T) {
 }
 
 func TestGetNetworkPolicyWildcardDeny(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -695,7 +703,7 @@ func TestGetNetworkPolicyWildcardDeny(t *testing.T) {
 }
 
 func TestGetNetworkPolicyNil(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, nil, true, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, nil, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -707,7 +715,7 @@ func TestGetNetworkPolicyNil(t *testing.T) {
 }
 
 func TestGetNetworkPolicyIngressNotEnforced(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy2, false, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy2, false, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -719,7 +727,7 @@ func TestGetNetworkPolicyIngressNotEnforced(t *testing.T) {
 }
 
 func TestGetNetworkPolicyEgressNotEnforced(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, false, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4Policy1RequiresV2, true, false, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -783,7 +791,7 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 }
 
 func TestGetNetworkPolicyL7(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyL7, true, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyL7, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -842,7 +850,7 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 }
 
 func TestGetNetworkPolicyKafka(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyKafka, true, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyKafka, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
 		EndpointId:             uint64(ep.GetID()),
@@ -916,7 +924,7 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 }
 
 func TestGetNetworkPolicyMySQL(t *testing.T) {
-	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyMySQL, true, true, false, "")
+	obtained := getNetworkPolicy(ep, []string{IPv4Addr}, L4PolicyMySQL, true, true, false, false, "")
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:           []string{IPv4Addr},
 		EndpointId:            uint64(ep.GetID()),
@@ -1177,6 +1185,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 	type args struct {
 		inputPolicy            *policy.L4Policy
 		useFullTLSContext      bool
+		useSDS                 bool
 		policySecretsNamespace string
 	}
 
@@ -1191,6 +1200,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressFullValues,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgress,
@@ -1201,7 +1211,19 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressFullValues,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
+			},
+			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSyncUseFullContext,
+			wantIngress: nil,
+		},
+		{
+			name: "Egress Originating TLS Fully Populated, UseFullTLSContext, no sync, secretsNamespace",
+			args: args{
+				inputPolicy:            L4PolicyTLSEgressFullValues,
+				useFullTLSContext:      true,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSyncUseFullContext,
 			wantIngress: nil,
@@ -1211,7 +1233,19 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressFullValues,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
+			},
+			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
+			wantIngress: nil,
+		},
+		{
+			name: "Egress Originating TLS Fully Populated, no sync, secretsNamespace",
+			args: args{
+				inputPolicy:            L4PolicyTLSEgressFullValues,
+				useFullTLSContext:      false,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
 			wantIngress: nil,
@@ -1221,6 +1255,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressOnlyTrustedCA,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgress,
@@ -1231,6 +1266,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressOnlyTrustedCA,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
@@ -1241,7 +1277,30 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressOnlyTrustedCA,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
+			},
+			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
+			wantIngress: nil,
+		},
+		{
+			name: "Egress Originating TLS Only TrustedCA, UseFullTLSContext, no sync, secretsNamespace",
+			args: args{
+				inputPolicy:            L4PolicyTLSEgressOnlyTrustedCA,
+				useFullTLSContext:      true,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
+			},
+			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
+			wantIngress: nil,
+		},
+		{
+			name: "Egress Originating TLS Only TrustedCA, no sync, secretsNamespace",
+			args: args{
+				inputPolicy:            L4PolicyTLSEgressOnlyTrustedCA,
+				useFullTLSContext:      false,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
 			wantIngress: nil,
@@ -1251,6 +1310,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressFullValuesFromFile,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
@@ -1261,6 +1321,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressFullValuesFromFile,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSyncUseFullContext,
@@ -1271,6 +1332,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressFullValuesFromFile,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
@@ -1281,6 +1343,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressOnlyTrustedCAFromFile,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
@@ -1291,6 +1354,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressOnlyTrustedCAFromFile,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
@@ -1301,6 +1365,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSEgressOnlyTrustedCAFromFile,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  ExpectedPerPortPoliciesTLSEgressNoSync,
@@ -1311,6 +1376,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressFullValues,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  nil,
@@ -1321,6 +1387,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressFullValues,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  nil,
@@ -1331,7 +1398,30 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressFullValues,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
+			},
+			wantEgress:  nil,
+			wantIngress: ExpectedPerPortPoliciesTLSIngressNoSync,
+		},
+		{
+			name: "Ingress Terminating TLS Fully Populated, UseFullTLSContext, no sync, secretsNamespace",
+			args: args{
+				inputPolicy:            L4PolicyTLSIngressFullValues,
+				useFullTLSContext:      true,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
+			},
+			wantEgress:  nil,
+			wantIngress: ExpectedPerPortPoliciesTLSIngressNoSyncUseFullContext,
+		},
+		{
+			name: "Ingress Terminating TLS Fully Populated, no sync, secretsNamespace",
+			args: args{
+				inputPolicy:            L4PolicyTLSIngressFullValues,
+				useFullTLSContext:      false,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  nil,
 			wantIngress: ExpectedPerPortPoliciesTLSIngressNoSync,
@@ -1341,6 +1431,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressOnlyTerminationDetails,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  nil,
@@ -1351,6 +1442,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressOnlyTerminationDetails,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  nil,
@@ -1361,7 +1453,30 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressOnlyTerminationDetails,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
+			},
+			wantEgress:  nil,
+			wantIngress: ExpectedPerPortPoliciesTLSIngressNoSync,
+		},
+		{
+			name: "Ingress Terminating TLS Only Termination details, UseFullTLSContext, no sync, secretsNamespace",
+			args: args{
+				inputPolicy:            L4PolicyTLSIngressOnlyTerminationDetails,
+				useFullTLSContext:      true,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
+			},
+			wantEgress:  nil,
+			wantIngress: ExpectedPerPortPoliciesTLSIngressNoSync,
+		},
+		{
+			name: "Ingress Terminating TLS Only Termination details, no sync, secretsNamespace",
+			args: args{
+				inputPolicy:            L4PolicyTLSIngressOnlyTerminationDetails,
+				useFullTLSContext:      false,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  nil,
 			wantIngress: ExpectedPerPortPoliciesTLSIngressNoSync,
@@ -1371,6 +1486,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressFullValuesFromFile,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  nil,
@@ -1381,6 +1497,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressFullValuesFromFile,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  nil,
@@ -1391,6 +1508,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressFullValuesFromFile,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  nil,
@@ -1401,6 +1519,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressOnlyTerminationDetailsFromFile,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  nil,
@@ -1411,6 +1530,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressOnlyTerminationDetailsFromFile,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  nil,
@@ -1421,20 +1541,33 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSIngressOnlyTerminationDetailsFromFile,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  nil,
 			wantIngress: ExpectedPerPortPoliciesTLSIngressNoSync,
 		},
 		{
-			name: "Both directions, full details",
+			name: "Both directions, full details, with sync",
 			args: args{
 				inputPolicy:            L4PolicyTLSFullContext,
 				useFullTLSContext:      false,
+				useSDS:                 true,
 				policySecretsNamespace: "cilium-secrets",
 			},
 			wantEgress:  nil,
 			wantIngress: ExpectedPerPortPoliciesBothWaysTLSSDS,
+		},
+		{
+			name: "Both directions, full details, no sync",
+			args: args{
+				inputPolicy:            L4PolicyTLSFullContext,
+				useFullTLSContext:      false,
+				useSDS:                 false,
+				policySecretsNamespace: "cilium-secrets",
+			},
+			wantEgress:  nil,
+			wantIngress: ExpectedPerPortPoliciesTLSNotFullContext,
 		},
 		// These next two tests check what happens when no sync is enabled, and useFullTLSContext is either true or false
 		// (i.e., don't implement buggy behaviour).
@@ -1450,6 +1583,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSFullContext,
 				useFullTLSContext:      false,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  nil,
@@ -1460,6 +1594,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 			args: args{
 				inputPolicy:            L4PolicyTLSFullContext,
 				useFullTLSContext:      true,
+				useSDS:                 false,
 				policySecretsNamespace: "",
 			},
 			wantEgress:  nil,
@@ -1469,7 +1604,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obtained := getNetworkPolicy(ep, []string{IPv4Addr}, tt.args.inputPolicy, true, true, tt.args.useFullTLSContext, tt.args.policySecretsNamespace)
+			obtained := getNetworkPolicy(ep, []string{IPv4Addr}, tt.args.inputPolicy, true, true, tt.args.useFullTLSContext, tt.args.useSDS, tt.args.policySecretsNamespace)
 			expected := &cilium.NetworkPolicy{
 				EndpointIps:            []string{IPv4Addr},
 				EndpointId:             uint64(ep.GetID()),
