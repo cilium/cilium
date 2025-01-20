@@ -17,19 +17,19 @@ metrics -s -o=actual ^test
 cmp sampled actual
 
 # Show in json format
-metrics -o=actual -format=json ^test
+metrics -o=actual --format=json ^test
 cmp all.json actual
 
 # Show in yaml format
-metrics -o=actual -format=yaml ^test
+metrics -o=actual --format=yaml ^test
 cmp all.yaml actual
 
-# Show samples in json format
-metrics -s -o=actual -format=json ^test
+# Show samples in json format. Test long-form args.
+metrics --sampled --out=actual --format=json ^test
 cmp sampled.json actual
 
 # Show samples in yaml format
-metrics -s -o=actual -format=yaml ^test
+metrics -s -o=actual --format=yaml ^test
 cmp sampled.yaml actual
 
 -- all --
