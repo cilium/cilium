@@ -160,6 +160,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			httpRetryTimeout:              int(params.EnvoyProxyConfig.HTTPRetryTimeout),
 			httpNormalizePath:             params.EnvoyProxyConfig.HTTPNormalizePath,
 			useFullTLSContext:             params.EnvoyProxyConfig.UseFullTLSContext,
+			useSDS:                        params.SecretManager.PolicySecretSyncEnabled(),
 			proxyXffNumTrustedHopsIngress: params.EnvoyProxyConfig.ProxyXffNumTrustedHopsIngress,
 			proxyXffNumTrustedHopsEgress:  params.EnvoyProxyConfig.ProxyXffNumTrustedHopsEgress,
 		},
@@ -343,7 +344,7 @@ func registerSecretSyncer(params syncerParams) error {
 		params.Config.EnvoySecretsNamespace:           func() bool { return option.Config.EnableEnvoyConfig },
 		params.Config.IngressSecretsNamespace:         func() bool { return params.Config.EnableIngressController },
 		params.Config.GatewayAPISecretsNamespace:      func() bool { return params.Config.EnableGatewayAPI },
-		params.SecretManager.GetSecretSyncNamespace(): func() bool { return params.SecretManager.PolicySecretSyncEnabled() },
+		params.SecretManager.GetSecretSyncNamespace(): func() bool { return params.SecretManager.SecretsOnlyFromSecretsNamespace() },
 	} {
 		if len(namespace) > 0 && cond() {
 			namespaces[namespace] = struct{}{}
