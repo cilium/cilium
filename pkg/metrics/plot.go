@@ -17,7 +17,7 @@ import (
 )
 
 // PlotSamples plots the given samples as a line graph using the unicode braille characters.
-func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan time.Duration, samples []float32, sb SampleBitmap) {
+func PlotSamples(w io.Writer, rate bool, name, labels string, timeSpan, samplingInterval time.Duration, samples []float32, sb SampleBitmap) {
 	// Do not let panics propagate from here. Log the sample input that caused the panic.
 	defer func() {
 		if err := recover(); err != nil {

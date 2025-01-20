@@ -1016,6 +1016,10 @@
      - Enable debug logging
      - bool
      - ``false``
+   * - :spelling:ignore:`debug.metricsSamplingInterval`
+     - Set the agent-internal metrics sampling frequency. This sets the frequency of the internal sampling of the agent metrics. These are available via the "cilium-dbg shell -- metrics -s" command and are part of the metrics HTML page included in the sysdump. @schema type: [null, string] @schema
+     - string
+     - ``"5m"``
    * - :spelling:ignore:`debug.verbose`
      - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy
      - string
