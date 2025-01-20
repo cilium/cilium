@@ -276,16 +276,31 @@ accessible from endpoints that have both labels ``env=prod`` and
 Services based
 --------------
 
-Traffic from pods to services running in your cluster can be allowed via
-``toServices`` statements in Egress rules. Currently Kubernetes
-`Services <https://kubernetes.io/docs/concepts/services-networking/service>`_
-are supported when defined by their name and namespace or label selector.
-For services backed by pods, use `Endpoints Based` rules on the backend pod
-labels.
+Traffic from endpoints to services running in your cluster can be allowed via
+``toServices`` statements in Egress rules. Policies can reference
+`Kubernetes Services <https://kubernetes.io/docs/concepts/services-networking/service>`_
+by name or label selector.
+
+This feature uses the discovered services' `label selector <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors>`_
+as an :ref:`endpoint selector <endpoints based>` within the policy.
+
+.. note::
+
+   `Services without selectors <https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors>`_
+   are handled differently. The IPs in the service's EndpointSlices are, converted to
+   :ref:`CIDR <cidr based>` selectors. CIDR selectors cannot select pods,
+   and that limitation applies here as well.
+
+   The special Kubernetes Service ``default/kubernetes`` does not use a label
+   selector. It is **not recommended** to grant access to the Kubernetes API server
+   with a ``toServices``-based policy. Use instead the
+   `kube-apiserver entity <kube_apiserver_entity>`.
+
 
 This example shows how to allow all endpoints with the label ``id=app2``
 to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
-namespace ``default``.
+namespace ``default`` as well as all services with label ``env=staging`` in
+namespace ``another-namespace``.
 
 .. only:: html
 
@@ -301,23 +316,6 @@ namespace ``default``.
 
         .. literalinclude:: ../../../examples/policies/l3/service/service.json
 
-This example shows how to allow all endpoints with the label ``id=app2``
-to talk to all endpoints of all kubernetes services which
-have ``serviceName:myservice`` set as the label.
-
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../../examples/policies/l3/service/service-labels.json
 
 .. _Entities based:
 
@@ -378,6 +376,8 @@ all
    the original source IP. You may be able to use a broader ``fromEntities: cluster`` rule
    instead. Restricting *egress traffic* via ``toEntities: kube-apiserver`` however is expected
    to work on these Kubernetes distributions.
+
+.. _kube_apiserver_entity:
 
 Access to/from kube-apiserver
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
