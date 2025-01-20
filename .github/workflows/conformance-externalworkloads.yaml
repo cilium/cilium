@@ -64,7 +64,7 @@ env:
   vmStartupScript: .github/gcp-vm-startup.sh
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 505.0.0
+  gcloud_version: 506.0.0
 
 jobs:
   echo-inputs:
