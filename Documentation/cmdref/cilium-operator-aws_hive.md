@@ -13,7 +13,6 @@ cilium-operator-aws hive [flags]
 ```
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
-      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("identity") or batched on a "First Come, First Served" basis ("fcfs") (default "identity")
       --cluster-id uint32                                    Unique identifier of the cluster
       --cluster-name string                                  Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)

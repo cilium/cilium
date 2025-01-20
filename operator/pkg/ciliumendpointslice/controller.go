@@ -63,7 +63,6 @@ type Controller struct {
 	// cilium endpoint changes and enqueues/dequeues the cilium endpoint changes in CES.
 	// It maintains the desired state of the CESs in dataStore
 	manager      operations
-	slicingMode  string
 	maxCEPsInCES int
 
 	// workqueue is used to sync CESs with the api-server. this will rate-limit the
@@ -121,7 +120,6 @@ func registerController(p params) error {
 		ciliumEndpointSlice: p.CiliumEndpointSlice,
 		ciliumNodes:         p.CiliumNodes,
 		namespace:           p.Namespace,
-		slicingMode:         p.Cfg.CESSlicingMode,
 		maxCEPsInCES:        p.Cfg.CESMaxCEPsInCES,
 		rateLimit:           rateLimitConfig,
 		enqueuedAt:          make(map[CESKey]time.Time),
