@@ -6,6 +6,7 @@ package experimental
 import (
 	"context"
 	"fmt"
+	"iter"
 	"net/netip"
 	"slices"
 	"strings"
@@ -70,6 +71,7 @@ var baseFrontend = Frontend{
 		ServiceName: testServiceName,
 		PortName:    "", // Ignored, backends already resolved.
 	},
+	Backends:      func(yield func(*Backend, statedb.Revision) bool) {},
 	Status:        reconciler.StatusPending(),
 	nodePortAddrs: nodePortAddrs,
 }
@@ -95,6 +97,15 @@ var baseBackend = Backend{
 
 var nextBackendRevision = statedb.Revision(1)
 
+func concatBe(bes iter.Seq2[*Backend, statedb.Revision], be *Backend, rev statedb.Revision) iter.Seq2[*Backend, statedb.Revision] {
+	return func(yield func(*Backend, statedb.Revision) bool) {
+		if !yield(be, rev) {
+			return
+		}
+		bes(yield)
+	}
+}
+
 // newTestCase creates a testCase from a function that manipulates the base service and frontends.
 func newTestCase(name string, mod func(*Service, *Frontend) (delete bool, bes []Backend), maps []MapDump, maglev []MapDump) testCase {
 	svc := baseService
@@ -102,7 +113,7 @@ func newTestCase(name string, mod func(*Service, *Frontend) (delete bool, bes []
 	delete, bes := mod(&svc, &fe)
 	fe.service = &svc
 	for _, be := range bes {
-		fe.Backends = append(fe.Backends, BackendWithRevision{Backend: &be, Revision: nextBackendRevision})
+		fe.Backends = concatBe(fe.Backends, &be, nextBackendRevision)
 		nextBackendRevision++
 	}
 	return testCase{

@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/maglev"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -39,6 +40,9 @@ func TestScript(t *testing.T) {
 
 	// pkg/k8s/endpoints.go uses this in ParseEndpointSlice*
 	option.Config.EnableK8sTerminatingEndpoint = true
+
+	// Set the node name
+	nodeTypes.SetName("testnode")
 
 	log := hivetest.Logger(t)
 

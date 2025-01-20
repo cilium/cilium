@@ -6,6 +6,7 @@ package experimental
 import (
 	"fmt"
 	"io"
+	"iter"
 	"net/netip"
 	"strings"
 	"text/tabwriter"
@@ -18,11 +19,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 )
 
 // Writer provides validated write access to the service load-balancing state.
 type Writer struct {
+	nodeName  string
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
 	svcs      statedb.RWTable[*Service]
@@ -57,6 +60,7 @@ func NewWriter(p writerParams) (*Writer, error) {
 		return nil, nil
 	}
 	w := &Writer{
+		nodeName:         nodeTypes.GetName(),
 		db:               p.DB,
 		bes:              p.Backends,
 		fes:              p.Frontends,
@@ -238,7 +242,7 @@ func (w *Writer) newFrontend(txn statedb.ReadTxn, params FrontendParams, svc *Se
 
 func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *Frontend) {
 	fe.Status = reconciler.StatusPending()
-	fe.Backends = getBackendsForFrontend(txn, w.bes, fe)
+	fe.Backends = getBackendsForFrontend(txn, w.bes, w.nodeName, fe)
 
 	if fe.Type == loadbalancer.SVCTypeNodePort ||
 		fe.Type == loadbalancer.SVCTypeHostPort {
@@ -259,26 +263,34 @@ func (w *Writer) refreshFrontendsOfService(txn WriteTxn, name loadbalancer.Servi
 	return nil
 }
 
-func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], fe *Frontend) []BackendWithRevision {
-	out := []BackendWithRevision{}
-	for be, rev := range tbl.List(txn, BackendByServiceName(fe.ServiceName)) {
-		if be.L3n4Addr.IsIPv6() != fe.Address.IsIPv6() {
-			continue
-		}
-		if fe.PortName != "" {
-			// A backend with specific port name requested. Look up what this backend
-			// is called for this service.
-			instance := be.GetInstance(fe.ServiceName)
-			if instance == nil {
+func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], nodeName string, fe *Frontend) iter.Seq2[*Backend, statedb.Revision] {
+	onlyLocal := shouldUseLocalBackends(fe)
+	isIPv6 := fe.Address.IsIPv6()
+
+	return func(yield func(*Backend, statedb.Revision) bool) {
+		for be, rev := range tbl.List(txn, BackendByServiceName(fe.ServiceName)) {
+			if be.L3n4Addr.IsIPv6() != isIPv6 {
 				continue
 			}
-			if string(fe.PortName) != instance.PortName {
+			if onlyLocal && len(be.NodeName) != 0 && be.NodeName != nodeName {
 				continue
 			}
+			if fe.PortName != "" {
+				// A backend with specific port name requested. Look up what this backend
+				// is called for this service.
+				instance := be.GetInstance(fe.ServiceName)
+				if instance == nil {
+					continue
+				}
+				if string(fe.PortName) != instance.PortName {
+					continue
+				}
+			}
+			if !yield(be, rev) {
+				return
+			}
 		}
-		out = append(out, BackendWithRevision{be, rev})
 	}
-	return out
 }
 
 func (w *Writer) DeleteServiceAndFrontends(txn WriteTxn, name loadbalancer.ServiceName) error {
@@ -581,4 +593,44 @@ func (w *Writer) DebugDump(txn statedb.ReadTxn, to io.Writer) {
 	}
 
 	tw.Flush()
+}
+
+func isExtLocal(fe *Frontend) bool {
+	switch fe.Type {
+	case loadbalancer.SVCTypeNodePort, loadbalancer.SVCTypeLoadBalancer, loadbalancer.SVCTypeExternalIPs:
+		return fe.service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal
+	default:
+		return false
+	}
+}
+
+func isIntLocal(fe *Frontend) bool {
+	/* FIXME if !option.Config.EnableInternalTrafficPolicy {
+		return false
+	}*/
+	switch fe.Type {
+	case loadbalancer.SVCTypeClusterIP, loadbalancer.SVCTypeNodePort, loadbalancer.SVCTypeLoadBalancer, loadbalancer.SVCTypeExternalIPs:
+		return fe.service.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal
+	default:
+		return false
+	}
+}
+
+func shouldUseLocalBackends(fe *Frontend) bool {
+	// When both traffic policies are Local, there is only the external scope, which
+	// should contain node-local backends only. Checking isExtLocal is still enough.
+	switch fe.Address.Scope {
+	case loadbalancer.ScopeExternal:
+		if fe.Type == loadbalancer.SVCTypeClusterIP {
+			// ClusterIP doesn't support externalTrafficPolicy and has only the
+			// external scope, which contains only node-local backends when
+			// internalTrafficPolicy=Local.
+			return isIntLocal(fe)
+		}
+		return isExtLocal(fe)
+	case loadbalancer.ScopeInternal:
+		return isIntLocal(fe)
+	default:
+		return false
+	}
 }

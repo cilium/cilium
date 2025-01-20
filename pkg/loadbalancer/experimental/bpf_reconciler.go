@@ -964,7 +964,11 @@ func (ops *BPFOps) computeMaglevTable(svc *Service, bes []BackendWithRevision) (
 //
 // Backends are sorted to deterministically to keep the order stable in BPF maps
 // when updating.
-func sortedBackends(bes []BackendWithRevision) []BackendWithRevision {
+func sortedBackends(beIter iter.Seq2[*Backend, statedb.Revision]) []BackendWithRevision {
+	bes := []BackendWithRevision{}
+	for be, rev := range beIter {
+		bes = append(bes, BackendWithRevision{be, rev})
+	}
 	sort.Slice(bes, func(i, j int) bool {
 		a, b := bes[i], bes[j]
 		switch {
