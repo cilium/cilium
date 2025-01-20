@@ -437,9 +437,10 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 				if fe.Status.Kind != "Done" {
 					err = errors.Join(err, fmt.Errorf("Incorrect status for frontend #%06d, got %v, want %v", i, fe.Status.Kind, "Done"))
 				}
+				backends := slices.Collect(statedb.ToSeq(fe.Backends))
 				for wantAddr := range epSlices[i].Backends { // There is only one element in this map.
-					if fe.Backends[0].AddrCluster != wantAddr {
-						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, fe.Backends[0].AddrCluster, wantAddr))
+					if backends[0].AddrCluster != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, backends[0].AddrCluster, wantAddr))
 					}
 				}
 

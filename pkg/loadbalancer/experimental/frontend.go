@@ -4,6 +4,7 @@
 package experimental
 
 import (
+	"iter"
 	"net/netip"
 	"strings"
 
@@ -50,7 +51,7 @@ type Frontend struct {
 	Status reconciler.Status
 
 	// Backends associated with the frontend.
-	Backends []BackendWithRevision
+	Backends iter.Seq2[*Backend, statedb.Revision]
 
 	// nodePortAddrs are the IP addresses on which to serve NodePort and HostPort
 	// services. Not set if [Type] is not NodePort or HostPort. These are updated
@@ -118,9 +119,9 @@ func (fe *Frontend) TableRow() []string {
 // showBackends returns the backends associated with a frontend in form
 // "1.2.3.4:80 (active), [2001::1]:443 (terminating)"
 // TODO: Skip showing the state?
-func showBackends(bes []BackendWithRevision) string {
+func showBackends(bes iter.Seq2[*Backend, statedb.Revision]) string {
 	var b strings.Builder
-	for i, be := range bes {
+	for be := range bes {
 		b.WriteString(be.L3n4Addr.String())
 		b.WriteString(" (")
 		state, err := be.State.String()
@@ -129,11 +130,11 @@ func showBackends(bes []BackendWithRevision) string {
 		}
 		b.WriteString(state)
 		b.WriteString(")")
-		if i != len(bes)-1 {
-			b.WriteString(", ")
-		}
+		b.WriteString(", ")
 	}
-	return b.String()
+	s := b.String()
+	s, _ = strings.CutSuffix(s, ", ")
+	return s
 }
 
 var (
