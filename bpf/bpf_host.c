@@ -1752,7 +1752,7 @@ out:
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_IFINDEX, trace.reason, trace.monitor);
+				  CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -1780,7 +1780,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_IFINDEX, trace.reason, trace.monitor);
+				  CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -1808,7 +1808,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN,
-				  CILIUM_IFINDEX, trace.reason, trace.monitor);
+				  CILIUM_HOST_IFINDEX, trace.reason, trace.monitor);
 
 	return ret;
 }

@@ -13,7 +13,7 @@
 #include "csum.h"
 #include "l4.h"
 
-#if defined(HOST_IFINDEX_MAC) && defined(HOST_IFINDEX)
+#if defined(CILIUM_HOST_MAC) && defined(HOST_IFINDEX)
 
 /** Redirect to the proxy by hairpinning the packet out the incoming
  *  interface.
@@ -27,7 +27,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 			      __be16 proxy_port)
 {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
-	union macaddr host_mac = HOST_IFINDEX_MAC;
+	union macaddr host_mac = CILIUM_HOST_MAC;
 	union macaddr router_mac = THIS_INTERFACE_MAC;
 #endif
 	int ret = 0;
@@ -77,4 +77,4 @@ ctx_redirect_to_proxy_hairpin_ipv6(struct __ctx_buff *ctx, __be16 proxy_port)
 }
 #endif
 
-#endif /* HOST_IFINDEX_MAC && HOST_IFINDEX */
+#endif /* CILIUM_HOST_MAC && HOST_IFINDEX */

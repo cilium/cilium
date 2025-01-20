@@ -160,7 +160,7 @@ not_esp:
 	 */
 #ifdef HOST_IFINDEX
 	if (1) {
-		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union macaddr host_mac = CILIUM_HOST_MAC;
 		union macaddr router_mac = THIS_INTERFACE_MAC;
 
 		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
@@ -197,7 +197,7 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 {
 #ifdef HOST_IFINDEX
 	if (1) {
-		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union macaddr host_mac = CILIUM_HOST_MAC;
 		union macaddr router_mac = THIS_INTERFACE_MAC;
 		int ret;
 

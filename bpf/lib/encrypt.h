@@ -201,7 +201,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 #ifdef ENABLE_ENDPOINT_ROUTES
 	return CTX_ACT_OK;
 #else
-	return ctx_redirect(ctx, CILIUM_IFINDEX, 0);
+	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, 0);
 #endif /* ENABLE_ENDPOINT_ROUTES */
 }
 
