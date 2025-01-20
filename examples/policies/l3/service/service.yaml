@@ -8,6 +8,13 @@ spec:
       id: app2
   egress:
   - toServices:
+    # Services may be referenced by namespace + name
     - k8sService:
         serviceName: myservice
         namespace: default
+    # Services may be referenced by namespace + label selector
+    - k8sServiceSelector:
+        selector:
+          matchLabels:
+            env: staging
+        namespace: another-namespace

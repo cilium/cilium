@@ -13,7 +13,17 @@
                 "serviceName": "myservice",
                 "namespace": "default"
               }
-            }
+            },
+            {
+              "k8sServiceSelector": {
+                  "selector": {
+                      "matchLabels": {
+                          "env": "staging"
+                      },
+                      "namespace": "another-namespace"
+                  }
+              }
+          }
           ]
         }
       ]
