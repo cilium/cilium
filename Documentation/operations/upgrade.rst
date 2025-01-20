@@ -327,6 +327,11 @@ Removed Metrics
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
+* ``doublewrite_identity_crd_total_count`` has been renamed to ``doublewrite_crd_identities``
+* ``doublewrite_identity_kvstore_total_count`` has been renamed to ``doublewrite_kvstore_identities``
+* ``doublewrite_identity_crd_only_count`` has been renamed to ``doublewrite_crd_only_identities``
+* ``doublewrite_identity_kvstore_only_count`` has been renamed to ``doublewrite_kvstore_only_identities``
+
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
