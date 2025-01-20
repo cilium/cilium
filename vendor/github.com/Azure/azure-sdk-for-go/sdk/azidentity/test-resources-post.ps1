@@ -7,6 +7,10 @@ param (
   [hashtable] $AdditionalParameters = @{},
   [hashtable] $DeploymentOutputs,
 
+  [Parameter(Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string] $SubscriptionId,
+
   [Parameter(ParameterSetName = 'Provisioner', Mandatory = $true)]
   [ValidateNotNullOrEmpty()]
   [string] $TenantId,
@@ -14,6 +18,10 @@ param (
   [Parameter()]
   [ValidatePattern('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')]
   [string] $TestApplicationId,
+
+  [Parameter(Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string] $Environment,
 
   # Captures any arguments from eng/New-TestResources.ps1 not declared here (no parameter errors).
   [Parameter(ValueFromRemainingArguments = $true)]
@@ -28,8 +36,9 @@ if ($CI) {
     Write-Host "Skipping post-provisioning script because resources weren't deployed"
     return
   }
-  az login --federated-token $env:OIDC_TOKEN --service-principal -t $TenantId -u $TestApplicationId
-  az account set --subscription $DeploymentOutputs['AZIDENTITY_SUBSCRIPTION_ID']
+  az cloud set -n $Environment
+  az login --federated-token $env:ARM_OIDC_TOKEN --service-principal -t $TenantId -u $TestApplicationId
+  az account set --subscription $SubscriptionId
 }
 
 Write-Host "Building container"
@@ -62,6 +71,9 @@ $aciName = "azidentity-test"
 az container create -g $rg -n $aciName --image $image `
   --acr-identity $($DeploymentOutputs['AZIDENTITY_USER_ASSIGNED_IDENTITY']) `
   --assign-identity [system] $($DeploymentOutputs['AZIDENTITY_USER_ASSIGNED_IDENTITY']) `
+  --cpu 1 `
+  --memory 1.0 `
+  --os-type Linux `
   --role "Storage Blob Data Reader" `
   --scope $($DeploymentOutputs['AZIDENTITY_STORAGE_ID']) `
   -e AZIDENTITY_STORAGE_NAME=$($DeploymentOutputs['AZIDENTITY_STORAGE_NAME']) `

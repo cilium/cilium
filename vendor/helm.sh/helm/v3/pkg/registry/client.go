@@ -18,10 +18,12 @@ package registry // import "helm.sh/helm/v3/pkg/registry"
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -50,15 +52,24 @@ an underscore (_) in chart version tags when pushing to a registry and back to
 a plus (+) when pulling from a registry.`
 
 type (
+	// RemoteClient shadows the ORAS remote.Client interface
+	// (hiding the ORAS type from Helm client visibility)
+	// https://pkg.go.dev/oras.land/oras-go/pkg/registry/remote#Client
+	RemoteClient interface {
+		Do(req *http.Request) (*http.Response, error)
+	}
+
 	// Client works with OCI-compliant registries
 	Client struct {
 		debug       bool
 		enableCache bool
 		// path to repository config file e.g. ~/.docker/config.json
 		credentialsFile    string
+		username           string
+		password           string
 		out                io.Writer
 		authorizer         auth.Client
-		registryAuthorizer *registryauth.Client
+		registryAuthorizer RemoteClient
 		resolver           func(ref registry.Reference) (remotes.Resolver, error)
 		httpClient         *http.Client
 		plainHTTP          bool
@@ -105,6 +116,19 @@ func NewClient(options ...ClientOption) (*Client, error) {
 		if client.plainHTTP {
 			opts = append(opts, auth.WithResolverPlainHTTP())
 		}
+
+		// if username and password are set, use them for authentication
+		// by adding the basic auth Authorization header to the resolver
+		if client.username != "" && client.password != "" {
+			concat := client.username + ":" + client.password
+			encodedAuth := base64.StdEncoding.EncodeToString([]byte(concat))
+			opts = append(opts, auth.WithResolverHeaders(
+				http.Header{
+					"Authorization": []string{"Basic " + encodedAuth},
+				},
+			))
+		}
+
 		resolver, err := client.authorizer.ResolverWithOpts(opts...)
 		if err != nil {
 			return nil, err
@@ -125,6 +149,13 @@ func NewClient(options ...ClientOption) (*Client, error) {
 			},
 			Cache: cache,
 			Credential: func(_ context.Context, reg string) (registryauth.Credential, error) {
+				if client.username != "" && client.password != "" {
+					return registryauth.Credential{
+						Username: client.username,
+						Password: client.password,
+					}, nil
+				}
+
 				dockerClient, ok := client.authorizer.(*dockerauth.Client)
 				if !ok {
 					return registryauth.EmptyCredential, errors.New("unable to obtain docker client")
@@ -168,10 +199,38 @@ func ClientOptEnableCache(enableCache bool) ClientOption {
 	}
 }
 
+// ClientOptBasicAuth returns a function that sets the username and password setting on client options set
+func ClientOptBasicAuth(username, password string) ClientOption {
+	return func(client *Client) {
+		client.username = username
+		client.password = password
+	}
+}
+
 // ClientOptWriter returns a function that sets the writer setting on client options set
 func ClientOptWriter(out io.Writer) ClientOption {
 	return func(client *Client) {
 		client.out = out
+	}
+}
+
+// ClientOptAuthorizer returns a function that sets the authorizer setting on a client options set. This
+// can be used to override the default authorization mechanism.
+//
+// Depending on the use-case you may need to set both ClientOptAuthorizer and ClientOptRegistryAuthorizer.
+func ClientOptAuthorizer(authorizer auth.Client) ClientOption {
+	return func(client *Client) {
+		client.authorizer = authorizer
+	}
+}
+
+// ClientOptRegistryAuthorizer returns a function that sets the registry authorizer setting on a client options set. This
+// can be used to override the default authorization mechanism.
+//
+// Depending on the use-case you may need to set both ClientOptAuthorizer and ClientOptRegistryAuthorizer.
+func ClientOptRegistryAuthorizer(registryAuthorizer RemoteClient) ClientOption {
+	return func(client *Client) {
+		client.registryAuthorizer = registryAuthorizer
 	}
 }
 
@@ -319,7 +378,7 @@ type (
 
 // Pull downloads a chart from a registry
 func (c *Client) Pull(ref string, options ...PullOption) (*PullResult, error) {
-	parsedRef, err := parseReference(ref)
+	parsedRef, err := newReference(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +410,7 @@ func (c *Client) Pull(ref string, options ...PullOption) (*PullResult, error) {
 	}
 
 	var descriptors, layers []ocispec.Descriptor
-	remotesResolver, err := c.resolver(parsedRef)
+	remotesResolver, err := c.resolver(parsedRef.orasReference)
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +594,7 @@ type (
 
 // Push uploads a chart to a registry.
 func (c *Client) Push(data []byte, ref string, options ...PushOption) (*PushResult, error) {
-	parsedRef, err := parseReference(ref)
+	parsedRef, err := newReference(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -594,12 +653,12 @@ func (c *Client) Push(data []byte, ref string, options ...PushOption) (*PushResu
 		return nil, err
 	}
 
-	remotesResolver, err := c.resolver(parsedRef)
+	remotesResolver, err := c.resolver(parsedRef.orasReference)
 	if err != nil {
 		return nil, err
 	}
 	registryStore := content.Registry{Resolver: remotesResolver}
-	_, err = oras.Copy(ctx(c.out, c.debug), memoryStore, parsedRef.String(), registryStore, "",
+	_, err = oras.Copy(ctx(c.out, c.debug), memoryStore, parsedRef.orasReference.String(), registryStore, "",
 		oras.WithNameValidation(nil))
 	if err != nil {
 		return nil, err
@@ -630,7 +689,7 @@ func (c *Client) Push(data []byte, ref string, options ...PushOption) (*PushResu
 	}
 	fmt.Fprintf(c.out, "Pushed: %s\n", result.Ref)
 	fmt.Fprintf(c.out, "Digest: %s\n", result.Manifest.Digest)
-	if strings.Contains(parsedRef.Reference, "_") {
+	if strings.Contains(parsedRef.orasReference.Reference, "_") {
 		fmt.Fprintf(c.out, "%s contains an underscore.\n", result.Ref)
 		fmt.Fprint(c.out, registryUnderscoreMessage+"\n")
 	}
@@ -700,4 +759,90 @@ func (c *Client) Tags(ref string) ([]string, error) {
 
 	return tags, nil
 
+}
+
+// Resolve a reference to a descriptor.
+func (c *Client) Resolve(ref string) (*ocispec.Descriptor, error) {
+	ctx := context.Background()
+	parsedRef, err := newReference(ref)
+	if err != nil {
+		return nil, err
+	}
+	if parsedRef.Registry == "" {
+		return nil, nil
+	}
+
+	remotesResolver, err := c.resolver(parsedRef.orasReference)
+	if err != nil {
+		return nil, err
+	}
+
+	_, desc, err := remotesResolver.Resolve(ctx, ref)
+	return &desc, err
+}
+
+// ValidateReference for path and version
+func (c *Client) ValidateReference(ref, version string, u *url.URL) (*url.URL, error) {
+	var tag string
+
+	registryReference, err := newReference(u.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	if version == "" {
+		// Use OCI URI tag as default
+		version = registryReference.Tag
+	} else {
+		if registryReference.Tag != "" && registryReference.Tag != version {
+			return nil, errors.Errorf("chart reference and version mismatch: %s is not %s", version, registryReference.Tag)
+		}
+	}
+
+	if registryReference.Digest != "" {
+		if registryReference.Tag == "" {
+			// Install by digest only
+			return u, nil
+		}
+
+		// Validate the tag if it was specified
+		path := registryReference.Registry + "/" + registryReference.Repository + ":" + registryReference.Tag
+		desc, err := c.Resolve(path)
+		if err != nil {
+			// The resource does not have to be tagged when digest is specified
+			return u, nil
+		}
+		if desc != nil && desc.Digest.String() != registryReference.Digest {
+			return nil, errors.Errorf("chart reference digest mismatch: %s is not %s", desc.Digest.String(), registryReference.Digest)
+		}
+		return u, nil
+	}
+
+	// Evaluate whether an explicit version has been provided. Otherwise, determine version to use
+	_, errSemVer := semver.NewVersion(version)
+	if errSemVer == nil {
+		tag = version
+	} else {
+		// Retrieve list of repository tags
+		tags, err := c.Tags(strings.TrimPrefix(ref, fmt.Sprintf("%s://", OCIScheme)))
+		if err != nil {
+			return nil, err
+		}
+		if len(tags) == 0 {
+			return nil, errors.Errorf("Unable to locate any tags in provided repository: %s", ref)
+		}
+
+		// Determine if version provided
+		// If empty, try to get the highest available tag
+		// If exact version, try to find it
+		// If semver constraint string, try to find a match
+		tag, err = GetTagMatchingVersionOrConstraint(tags, version)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	u.Path = fmt.Sprintf("%s/%s:%s", registryReference.Registry, registryReference.Repository, tag)
+
+	return u, err
 }

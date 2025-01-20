@@ -119,6 +119,7 @@ type CreateNetworkInterfaceNetworkInterfaceTrafficConfig struct {
 // CreateNetworkInterfaceEnhancedNetwork is a repeated param struct in CreateNetworkInterfaceRequest
 type CreateNetworkInterfaceEnhancedNetwork struct {
 	EnableSriov string `name:"EnableSriov"`
+	EnableRss   string `name:"EnableRss"`
 }
 
 // CreateNetworkInterfaceTag is a repeated param struct in CreateNetworkInterfaceRequest

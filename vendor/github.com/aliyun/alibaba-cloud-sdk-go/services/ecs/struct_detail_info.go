@@ -17,14 +17,14 @@ package ecs
 
 // DetailInfo is a nested struct in ecs response
 type DetailInfo struct {
-	Resource              string                  `json:"Resource" xml:"Resource"`
-	OriginalPrice         float64                 `json:"OriginalPrice" xml:"OriginalPrice"`
-	DiscountPrice         float64                 `json:"DiscountPrice" xml:"DiscountPrice"`
-	TradePrice            float64                 `json:"TradePrice" xml:"TradePrice"`
-	StandardPrice         float64                 `json:"StandardPrice" xml:"StandardPrice"`
-	StandardDiscountPrice float64                 `json:"StandardDiscountPrice" xml:"StandardDiscountPrice"`
-	IsContractPromotion   bool                    `json:"IsContractPromotion" xml:"IsContractPromotion"`
-	DepreciateInfo        DepreciateInfo          `json:"DepreciateInfo" xml:"DepreciateInfo"`
-	SubRules              SubRulesInDescribePrice `json:"SubRules" xml:"SubRules"`
-	Attributes            Attributes              `json:"Attributes" xml:"Attributes"`
+	DiscountPrice         float64                                       `json:"DiscountPrice" xml:"DiscountPrice"`
+	TradePrice            float64                                       `json:"TradePrice" xml:"TradePrice"`
+	OriginalPrice         float64                                       `json:"OriginalPrice" xml:"OriginalPrice"`
+	StandardPrice         float64                                       `json:"StandardPrice" xml:"StandardPrice"`
+	StandardDiscountPrice float64                                       `json:"StandardDiscountPrice" xml:"StandardDiscountPrice"`
+	IsContractPromotion   bool                                          `json:"IsContractPromotion" xml:"IsContractPromotion"`
+	Resource              string                                        `json:"Resource" xml:"Resource"`
+	DepreciateInfo        DepreciateInfo                                `json:"DepreciateInfo" xml:"DepreciateInfo"`
+	Attributes            AttributesInDescribeInstanceModificationPrice `json:"Attributes" xml:"Attributes"`
+	SubRules              SubRulesInDescribeInstanceModificationPrice   `json:"SubRules" xml:"SubRules"`
 }

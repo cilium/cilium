@@ -115,7 +115,7 @@ func (c *confidentialClient) GetToken(ctx context.Context, tro policy.TokenReque
 			err = newAuthenticationFailedErrorFromMSAL(c.name, err)
 		}
 	} else {
-		msg := fmt.Sprintf("%s.GetToken() acquired a token for scope %q", c.name, strings.Join(ar.GrantedScopes, ", "))
+		msg := fmt.Sprintf(scopeLogFmt, c.name, strings.Join(ar.GrantedScopes, ", "))
 		log.Write(EventAuthentication, msg)
 	}
 	return azcore.AccessToken{Token: ar.AccessToken, ExpiresOn: ar.ExpiresOn.UTC()}, err

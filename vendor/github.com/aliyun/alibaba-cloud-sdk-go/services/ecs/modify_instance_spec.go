@@ -102,6 +102,7 @@ type ModifyInstanceSpecDisk struct {
 type ModifyInstanceSpecResponse struct {
 	*responses.BaseResponse
 	RequestId string `json:"RequestId" xml:"RequestId"`
+	TaskId    string `json:"TaskId" xml:"TaskId"`
 }
 
 // CreateModifyInstanceSpecRequest creates a request to invoke ModifyInstanceSpec API

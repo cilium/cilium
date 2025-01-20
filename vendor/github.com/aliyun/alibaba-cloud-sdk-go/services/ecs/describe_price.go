@@ -125,6 +125,7 @@ type DescribePricePromotionOptions struct {
 
 // DescribePriceDataDisk is a repeated param struct in DescribePriceRequest
 type DescribePriceDataDisk struct {
+	ProvisionedIops  string `name:"ProvisionedIops"`
 	Size             string `name:"Size"`
 	PerformanceLevel string `name:"PerformanceLevel"`
 	Category         string `name:"Category"`
