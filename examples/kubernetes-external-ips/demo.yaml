@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: docker.io/cilium/demo-httpd:latest
+          image: quay.io/cilium/demo-httpd:1.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
