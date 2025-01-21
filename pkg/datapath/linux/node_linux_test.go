@@ -100,7 +100,7 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	rlimit.RemoveMemlock()
-	mtuConfig := mtu.NewConfiguration(0, false, false, false)
+	mtuConfig := mtu.NewConfiguration(0, false, false, false, false)
 	s.mtuCalc = mtuConfig.Calculate(1500)
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
