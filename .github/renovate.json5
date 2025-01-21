@@ -637,9 +637,13 @@
     },
     {
       "matchPackageNames": [
-        "github.com/aws/aws-sdk-go-v2/service/ec2",
         "github.com/aliyun/alibaba-cloud-sdk-go",
+        "github.com/aws/smithy-go",
         "renovatebot/github-action"
+      ],
+      "matchDepPatterns": [
+        "github.com/Azure/azure-sdk-for-go/sdk/*",
+        "github.com/aws/aws-sdk-go-v2*"
       ],
       "schedule": ["on the 1st day instance on sunday"]
     },
