@@ -417,12 +417,7 @@ func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(
 }
 
 var batchAPISupported = sync.OnceValue(func() bool {
-	err := probes.HaveBatchAPI()
-	supported := !errors.Is(err, probes.ErrNotSupported)
-	if !supported {
-		log.WithError(err).Info("kernel does not support batch iteration for ctmap gc")
-	}
-	return supported
+	return !errors.Is(probes.HaveBatchAPI(), probes.ErrNotSupported)
 })
 
 func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *Map, stats *gcStats, filterCallback func(key bpf.MapKey, value bpf.MapValue)) error {
