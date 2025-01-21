@@ -62,7 +62,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string) check.Sc
 		hubbleQueueFull, reflectPanic, svcNotFound, unableTranslateCIDRgroups, gobgpWarnings,
 		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
-		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI}
+		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI, envoyTLSWarning}
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -328,4 +328,6 @@ var (
 	knownIssueWireguardCollision = regexMatcher{regexp.MustCompile("Cannot forward proxied DNS lookup.*:51871.*bind: address already in use")} // from: https://github.com/cilium/cilium/issues/30901
 	// Cf. https://github.com/cilium/cilium/issues/35803
 	endpointMapDeleteFailed = regexMatcher{regexp.MustCompile(`Ignoring error while deleting endpoint.*from map cilium_\w+: delete: key does not exist`)}
+	// envoyTLSWarning is the legitimate warning log for negative TLS SNI test case
+	envoyTLSWarning = regexMatcher{regexp.MustCompile("cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*cilium.io.*and raw socket is not allowed")}
 )
