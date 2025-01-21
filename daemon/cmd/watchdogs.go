@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -63,7 +62,7 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 	// The watchdog works only for tc BPF, but not when the L4LB has
 	// XDP acceleration enabled. While we could enable it for tc BPF
 	// mode, lets keep same behavior on both settings.
-	if option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
+	if option.Config.LoadBalancerOnly {
 		return
 	}
 	var (
