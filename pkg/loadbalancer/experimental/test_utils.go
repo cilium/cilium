@@ -159,7 +159,7 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(net.IP, uint
 			return fmt.Sprintf("BEID=%s", sanitizeID(svcValue.GetBackendID(), sanitizeIDs))
 		}
 		if loadbalancer.ServiceFlags(svcValue.GetFlags()).IsL7LB() {
-			return fmt.Sprintf("L7Proxy=%d", svcValue.GetBackendID())
+			return fmt.Sprintf("L7Proxy=%d", svcValue.GetL7LBProxyPort())
 		}
 		return fmt.Sprintf("LBALG=%s AFFTimeout=%d",
 			loadbalancer.SVCLoadBalancingAlgorithm(svcValue.GetLbAlg()).String(),
