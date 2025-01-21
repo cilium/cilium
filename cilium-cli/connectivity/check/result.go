@@ -74,6 +74,8 @@ const (
 
 	ExitCurlHTTPError ExitCode = 22
 	ExitCurlTimeout   ExitCode = 28
+
+	ExitCurlSSLError ExitCode = 35
 )
 
 var (
@@ -118,6 +120,14 @@ var (
 		Drop:           false,
 		DropReasonFunc: defaultDropReason,
 		ExitCode:       ExitCurlHTTPError,
+	}
+
+	// ResultCurlSSLError expects a failed command with SSL error, but no dropped flow or DNS proxy.
+	ResultCurlSSLError = Result{
+		L7Proxy:        true,
+		Drop:           false,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitCurlSSLError,
 	}
 
 	// ResultDrop expects a dropped flow and a failed command.
