@@ -67,3 +67,50 @@ func TestLbAlgAndSessionAffinityTimeout(t *testing.T) {
 
 	}
 }
+
+func TestL7LBProxyPort(t *testing.T) {
+	var (
+		port1 uint16 = 123
+		port2 uint16 = 456
+	)
+	type testCase struct {
+		desc string
+		svc  ServiceValue
+	}
+	testCases := []testCase{
+		{"v4", &Service4Value{}},
+		{"v6", &Service6Value{}},
+	}
+	type testScenario struct {
+		desc   string
+		action func(*testing.T, ServiceValue)
+	}
+	testScenarios := []testScenario{
+		{
+			"GetL7LBProxyPort",
+			func(t *testing.T, svc ServiceValue) {
+				svc.SetL7LBProxyPort(port1) // This is to verify that earlier writes are not visible if overridden later.
+				svc.SetL7LBProxyPort(port2)
+				require.Equal(t, port2, svc.GetL7LBProxyPort())
+			},
+		},
+		{
+			"Ignore algorithm and affinity timeout",
+			func(t *testing.T, svc ServiceValue) {
+				svc.SetLbAlg(loadbalancer.SVCLoadBalancingAlgorithmMaglev)
+				svc.SetSessionAffinityTimeoutSec(10) // These are to verify that usages of other cases of the union are overwritten when L7 Proxy port is set.
+				svc.SetL7LBProxyPort(port1)
+				require.Equal(t, port1, svc.GetL7LBProxyPort())
+			},
+		},
+	}
+	for _, tc := range testCases {
+		for _, ts := range testScenarios {
+			t.Run(tc.desc+"/"+ts.desc, func(t *testing.T) {
+				svc := tc.svc.New().(ServiceValue)
+				ts.action(t, svc)
+			})
+		}
+
+	}
+}

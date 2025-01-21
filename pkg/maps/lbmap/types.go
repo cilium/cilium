@@ -95,6 +95,9 @@ type ServiceValue interface {
 	// Set proxy port for l7 loadbalancer services
 	SetL7LBProxyPort(port uint16)
 
+	// Get proxy port for l7 loadbalancer services
+	GetL7LBProxyPort() uint16
+
 	// Set backend identifier
 	SetBackendID(id loadbalancer.BackendID)
 
