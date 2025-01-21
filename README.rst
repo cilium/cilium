@@ -254,7 +254,7 @@ Special Interest Groups (SIG)
 -----------------------------
 
 See `Special Interest groups
-<https://docs.cilium.io/en/stable/community/community/#special-interest-groups>`_ for a list of all SIGs and their meeting times.
+<https://github.com/cilium/community/blob/main/sigs.yaml>`_ for a list of all SIGs and their meeting times.
 
 Developer meetings
 ------------------
