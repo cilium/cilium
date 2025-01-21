@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,9 +52,10 @@ func NewCRDBackend(c CRDBackendConfiguration) (allocator.Backend, error) {
 }
 
 type CRDBackendConfiguration struct {
-	Store   cache.Indexer
-	Client  clientset.Interface
-	KeyFunc func(map[string]string) allocator.AllocatorKey
+	Store    cache.Indexer
+	StoreSet *atomic.Bool
+	Client   clientset.Interface
+	KeyFunc  func(map[string]string) allocator.AllocatorKey
 }
 
 type crdBackend struct {
@@ -235,7 +237,7 @@ func (c *crdLock) Comparator() interface{} {
 // In the case of duplicate entries, return an identity entry
 // from a sorted list.
 func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *v2.CiliumIdentity {
-	if c.Store == nil {
+	if !c.StoreSet.Load() {
 		return nil
 	}
 
@@ -295,7 +297,7 @@ func (c *crdBackend) GetIfLocked(ctx context.Context, key allocator.AllocatorKey
 // getById fetches the identities from the local store. Returns a nil `err` and
 // false `exists` if an Identity is not found for the given `id`.
 func (c *crdBackend) getById(ctx context.Context, id idpool.ID) (idty *v2.CiliumIdentity, exists bool, err error) {
-	if c.Store == nil {
+	if !c.StoreSet.Load() {
 		return nil, false, fmt.Errorf("store is not available yet")
 	}
 
@@ -355,7 +357,7 @@ func getIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorK
 }
 
 func (c *crdBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, err error) {
-	if c.Store == nil {
+	if !c.StoreSet.Load() {
 		return nil, fmt.Errorf("store is not available yet")
 	}
 
@@ -420,6 +422,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 
 	go func() {
 		if ok := cache.WaitForCacheSync(ctx.Done(), identityInformer.HasSynced); ok {
+			c.StoreSet.Store(true)
 			handler.OnListDone()
 		}
 	}()

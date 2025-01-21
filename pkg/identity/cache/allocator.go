@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/cilium/stream"
 	"github.com/google/renameio/v2"
@@ -225,9 +226,10 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		case option.IdentityAllocationModeCRD:
 			log.Debug("Identity allocation backed by CRD")
 			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
-				Store:   nil,
-				Client:  client,
-				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
+				Store:    nil,
+				StoreSet: &atomic.Bool{},
+				Client:   client,
+				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize Kubernetes CRD backend for identity allocation")
@@ -241,9 +243,10 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 			log.Debugf("Double-Write Identity allocation mode (CRD and KVStore) with reads from KVStore = %t", readFromKVStore)
 			backend, err = doublewrite.NewDoubleWriteBackend(doublewrite.DoubleWriteBackendConfiguration{
 				CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{
-					Store:   nil,
-					Client:  client,
-					KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
+					Store:    nil,
+					StoreSet: &atomic.Bool{},
+					Client:   client,
+					KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
 				},
 				KVStoreBackendConfiguration: kvstoreallocator.KVStoreBackendConfiguration{
 					BasePath: m.identitiesPath,
