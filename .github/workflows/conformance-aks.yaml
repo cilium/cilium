@@ -275,7 +275,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait --wait-duration=10m
+          cilium status --wait --interactive=false --wait-duration=10m
 
       - name: Make JUnit report directory
         run: |
@@ -313,7 +313,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait --wait-duration=10m
+          cilium status --wait --interactive=false --wait-duration=10m
 
       - name: Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})
         run: |
