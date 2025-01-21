@@ -37,3 +37,8 @@
 
 #define max_t(t, x, y)			\
 	__max(t, t, x, y)
+
+/* For use with compile-time constants that don't
+ * have side effects on repeated evaluation.
+ */
+#define SIMPLE_MIN(x, y) ((x) < (y) ? (x) : (y))
