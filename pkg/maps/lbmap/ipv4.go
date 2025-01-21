@@ -352,6 +352,10 @@ func (s *Service4Value) SetL7LBProxyPort(port uint16) {
 	s.BackendID = uint32(byteorder.HostToNetwork16(port))
 }
 
+func (s *Service4Value) GetL7LBProxyPort() uint16 {
+	return byteorder.HostToNetwork16(uint16(s.BackendID))
+}
+
 func (s *Service4Value) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)
 }
