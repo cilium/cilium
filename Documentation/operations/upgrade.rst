@@ -292,7 +292,7 @@ communicating via the proxy must reconnect to re-establish connections.
 
 1.18 Upgrade Notes
 ------------------
-* ``cilium-dbg bpf policy`` will parse the cilium internal identity ``1`` correctly from ``reserved:unknown`` to ``ANY``.
+* ``cilium-dbg bpf policy`` now prints ``ANY`` and not ``reserved:unknown`` for a bpf policy entry that allows any peer identity.
 
 Removed Options
 ~~~~~~~~~~~~~~~
