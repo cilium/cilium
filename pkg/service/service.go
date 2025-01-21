@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
-	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -863,7 +862,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	}
 
 	// Update managed neighbor entries of the LB
-	if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly {
+	if option.Config.LoadBalancerOnly {
 		s.upsertBackendNeighbors(newBackends, obsoleteBackends)
 	}
 
@@ -1923,9 +1922,7 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 		// the changed M param.
 		ipv6 := newSVC.frontend.IsIPv6() || (svc.NatPolicy == lb.SVCNatPolicyNat46)
 		recreated := s.lbmap.IsMaglevLookupTableRecreated(ipv6)
-		if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly &&
-			newSVC.useMaglev() && recreated {
-
+		if option.Config.LoadBalancerOnly && newSVC.useMaglev() && recreated {
 			backends := make(map[string]*lb.Backend, len(newSVC.backends))
 			for _, b := range newSVC.backends {
 				// DumpServiceMaps() can return services with some empty (nil) backends.
@@ -1997,7 +1994,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 
 	// Delete managed neighbor entries of the LB
-	if option.Config.DatapathMode == datapathOpt.DatapathModeLBOnly {
+	if option.Config.LoadBalancerOnly {
 		s.deleteBackendNeighbors(obsoleteBackends)
 	}
 

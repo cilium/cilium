@@ -280,6 +280,9 @@ const (
 	// level annotation for configuring bpf loadbalancing algorithm.
 	LoadBalancerAlgorithmAnnotation = "bpf-lb-algorithm-annotation"
 
+	// LoadBalancerOnly is legacy knob for --datapath-mode=lb-only.
+	LoadBalancerOnly = "bpf-lb-only"
+
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
 
@@ -1907,6 +1910,9 @@ type DaemonConfig struct {
 	// LoadBalancerProtocolDifferentiation enables support for service protocol differentiation (TCP, UDP, SCTP)
 	LoadBalancerProtocolDifferentiation bool
 
+	// LoadBalancerOnly is legacy knob for --datapath-mode=lb-only.
+	LoadBalancerOnly bool
+
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
 	EnablePMTUDiscovery bool
@@ -3324,9 +3330,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 
 	c.LoadBalancerProtocolDifferentiation = vp.GetBool(LoadBalancerProtocolDifferentiation)
-
+	c.LoadBalancerOnly = vp.GetBool(LoadBalancerOnly)
 	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
-
 	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
 }
 
