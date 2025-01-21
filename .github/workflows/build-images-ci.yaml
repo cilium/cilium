@@ -208,7 +208,6 @@ jobs:
           target: release
           build-args: |
             BASE_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
-            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
@@ -224,7 +223,6 @@ jobs:
           target: release
           build-args: |
             BASE_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
-            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
@@ -241,7 +239,6 @@ jobs:
           target: release
           build-args: |
             BASE_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
-            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
