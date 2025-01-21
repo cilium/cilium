@@ -128,7 +128,7 @@ jobs:
             --set=tls.secretSync.enabled=false
 
           kubectl -n kube-system rollout restart ds/cilium deployment/cilium-operator
-          cilium status --wait --wait-duration=10m
+          cilium status --wait --interactive=false --wait-duration=10m
           kubectl -n kube-system get pods
 
       - name: Run L7 related connectivity test
