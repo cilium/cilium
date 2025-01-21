@@ -342,6 +342,11 @@ Users (Alphabetically)
       L: https://gdatasoftware.com
       Q: @farodin91
 
+    * N: Guidewire Software, Inc.
+      D: Guidewire Software, Inc. is using Cilium for the Guidewire Cloud Platform.
+      U: CNI, network policy, and network visibility
+      L: https://www.guidewire.com
+
     * N: IDNIC | Kadabra
       D: IDNIC is the National Internet Registry administering IP addresses for INDONESIA, uses Cilium to powered Kadabra project runing services across multi data centers.
       U: Networking, Network Policies, kube-proxy Replacement, Service Load Balancing and Cluster Mesh
