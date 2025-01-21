@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -567,7 +566,6 @@ func TestRestoreServices(t *testing.T) {
 
 	// Restart service, but keep the lbmap to restore services from
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
-	option.Config.DatapathMode = datapathOpt.DatapathModeLBOnly
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 
 	ctx, cancel := context.WithCancel(context.Background())

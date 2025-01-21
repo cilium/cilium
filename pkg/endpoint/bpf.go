@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
@@ -402,8 +401,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// reverted, and execute it in case of regeneration success.
 	defer func() {
 		// Ignore finalizing of proxy state in dry mode.
-		if !e.isProperty(PropertyFakeEndpoint) &&
-			option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		if !e.isProperty(PropertyFakeEndpoint) && !option.Config.LoadBalancerOnly {
 			e.finalizeProxyState(regenContext, reterr)
 		}
 	}()
@@ -416,7 +414,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// support local Pods on the worker node, hence endpoint BPF regeneration
 	// is skipped everywhere.
 	if e.isProperty(PropertyFakeEndpoint) ||
-		(option.Config.DatapathMode == datapathOption.DatapathModeLBOnly && !datapathRegenCtxt.epInfoCache.IsHost()) {
+		(option.Config.LoadBalancerOnly && !datapathRegenCtxt.epInfoCache.IsHost()) {
 		return e.nextPolicyRevision, nil
 	}
 
@@ -632,7 +630,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	if !e.ctCleaned {
 		go func() {
 			if !e.isProperty(PropertyFakeEndpoint) &&
-				option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+				!option.Config.LoadBalancerOnly {
 				ipv4 := option.Config.EnableIPv4
 				ipv6 := option.Config.EnableIPv6
 				exists := ctmap.Exists(nil, ipv4, ipv6)
