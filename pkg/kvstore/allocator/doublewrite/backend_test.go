@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,9 +38,10 @@ func setup(tb testing.TB) (string, *k8sClient.FakeClientset, allocator.Backend) 
 	backend, err := NewDoubleWriteBackend(
 		DoubleWriteBackendConfiguration{
 			CRDBackendConfiguration: identitybackend.CRDBackendConfiguration{
-				Store:   nil,
-				Client:  kubeClient,
-				KeyFunc: (&key.GlobalIdentity{}).PutKeyFromMap,
+				Store:    nil,
+				StoreSet: &atomic.Bool{},
+				Client:   kubeClient,
+				KeyFunc:  (&key.GlobalIdentity{}).PutKeyFromMap,
 			},
 			KVStoreBackendConfiguration: kvstoreallocator.KVStoreBackendConfiguration{
 				BasePath: kvstorePrefix,
