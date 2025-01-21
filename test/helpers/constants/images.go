@@ -10,7 +10,7 @@ const (
 	NetperfImage = "quay.io/cilium/net-test:v1.0.0"
 
 	// HttpdImage is the image used for starting an HTTP server.
-	HttpdImage = "docker.io/cilium/demo-httpd:1.0"
+	HttpdImage = "quay.io/cilium/demo-httpd:1.0"
 
 	// DNSSECContainerImage is the image used for starting a DNSSec client.
 	DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.2"
