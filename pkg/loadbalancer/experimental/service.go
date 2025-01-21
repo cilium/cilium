@@ -168,8 +168,12 @@ func (svc *Service) TableRow() []string {
 		strconv.FormatUint(uint64(svc.HealthCheckNodePort), 10),
 		showBool(svc.LoopbackHostPort),
 		showSourceRanges(svc.SourceRanges),
-		svc.Annotations[annotation.ServiceLoadBalancingAlgorithm],
+		svc.GetLBAlgorithmAnnotation(),
 	}
+}
+
+func (svc *Service) GetLBAlgorithmAnnotation() string {
+	return svc.Annotations[annotation.ServiceLoadBalancingAlgorithm]
 }
 
 var (

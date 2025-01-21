@@ -756,7 +756,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 }
 
 func (ops *BPFOps) lbAlgorithm(fe *Frontend) loadbalancer.SVCLoadBalancingAlgorithm {
-	defaultAlgorithm := ops.cfg.NodePortAlg
+	defaultAlgorithm := loadbalancer.ToSVCLoadBalancingAlgorithm(ops.cfg.NodePortAlg)
 	if ops.cfg.LoadBalancerAlgorithmAnnotation {
 		alg, err := k8s.GetAnnotationServiceLoadBalancingAlgorithm(fe.service.Annotations, defaultAlgorithm)
 		if err != nil {
@@ -765,7 +765,7 @@ func (ops *BPFOps) lbAlgorithm(fe *Frontend) loadbalancer.SVCLoadBalancingAlgori
 			return alg
 		}
 	}
-	return loadbalancer.ToSVCLoadBalancingAlgorithm(defaultAlgorithm)
+	return defaultAlgorithm
 }
 
 func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue) error {
