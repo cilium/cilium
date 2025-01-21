@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/envoy"
@@ -278,8 +279,8 @@ func TestRestoredPort(t *testing.T) {
 	require.Zero(t, pp.nRedirects)
 
 	// wait for port reuse wait to pass
-	time.Sleep(time.Millisecond)
-	require.Zero(t, pp.ProxyPort)
+	// waiting time is set up to 1s (instead of exactly 1ms) to avoid potential flake in CI
+	require.Eventually(t, func() bool { return assert.Zero(t, pp.ProxyPort) }, time.Second, time.Millisecond)
 	require.False(t, pp.configured)
 	require.False(t, pp.acknowledged)
 
