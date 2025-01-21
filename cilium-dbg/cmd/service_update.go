@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -204,10 +203,6 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 		if resp.Status == nil {
 			Fatalf("Unable to retrieve cilium configuration: empty response")
-		}
-
-		if resp.Status.DatapathMode != datapathOption.DatapathModeLBOnly {
-			Fatalf("Backend weights are supported currently only in lb-only mode")
 		}
 		if len(backendWeights) != len(backends) {
 			Fatalf("Mismatch between number of backend weights and number of backends")
