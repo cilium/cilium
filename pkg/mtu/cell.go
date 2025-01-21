@@ -90,11 +90,13 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	lc.Append(group)
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			vxlanOverIPv6 := !option.Config.EnableIPv4 && option.Config.RoutingMode == option.RoutingModeTunnel
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
 				option.Config.EnableIPSec,
 				p.TunnelConfig.ShouldAdaptMTU(),
 				option.Config.EnableWireguard,
+				vxlanOverIPv6,
 			)
 
 			configuredMTU := option.Config.MTU

@@ -17,16 +17,18 @@ const (
 	// as the MTU for container devices when running direct routing mode.
 	EthernetMTU = 1500
 
-	// TunnelOverhead is an approximation for bytes used for tunnel
+	// TunnelOverheadIPv{4,6} is an approximation for bytes used for tunnel
 	// encapsulation. It accounts for:
+	//                       IPv4  IPv6
 	//    (Outer ethernet is not accounted against MTU size)
-	//    Outer IPv4 header:  20B
-	//    Outer UDP header:    8B
-	//    Outer VXLAN header:  8B
-	//    Original Ethernet:  14B
-	//                        ---
-	//    Total extra bytes:  50B
-	TunnelOverhead = 50
+	//    Outer IPv4 header:  20B  40B
+	//    Outer UDP header:    8B   8B
+	//    Outer VXLAN header:  8B   8B
+	//    Original Ethernet:  14B  14B
+	//                        ---  ---
+	//    Total extra bytes:  50B  70B
+	TunnelOverheadIPv4 = 50
+	TunnelOverheadIPv6 = 70
 
 	// DsrTunnelOverhead is about the GENEVE DSR option that gets inserted
 	// by the LB, when addressing a Service in hs-ipcache mode
@@ -70,16 +72,22 @@ type Configuration struct {
 	encapEnabled     bool
 	encryptEnabled   bool
 	wireguardEnabled bool
+	tunnelOverhead   int
 }
 
 // NewConfiguration returns a new MTU configuration which is used to calculate
 // MTU values from a base MTU based on the config.
-func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool) Configuration {
+func NewConfiguration(authKeySize int, encryptEnabled, encapEnabled, wireguardEnabled, vxlanOverIPv6 bool) Configuration {
+	tunnelOverhead := TunnelOverheadIPv4
+	if vxlanOverIPv6 {
+		tunnelOverhead = TunnelOverheadIPv6
+	}
 	return Configuration{
 		authKeySize:      authKeySize,
 		encapEnabled:     encapEnabled,
 		encryptEnabled:   encryptEnabled,
 		wireguardEnabled: wireguardEnabled,
+		tunnelOverhead:   tunnelOverhead,
 	}
 }
 
@@ -96,9 +104,9 @@ func (c Configuration) Calculate(baseMTU int) RouteMTU {
 // case accounts for the tunnel overhead.
 func (c *Configuration) getRoutePostEncryptMTU(baseMTU int) int {
 	if c.encapEnabled {
-		postEncryptMTU := baseMTU - TunnelOverhead
+		postEncryptMTU := baseMTU - c.tunnelOverhead
 		if postEncryptMTU == 0 {
-			return EthernetMTU - TunnelOverhead
+			return EthernetMTU - c.tunnelOverhead
 		}
 		return postEncryptMTU
 
@@ -112,7 +120,7 @@ func (c *Configuration) getRoutePostEncryptMTU(baseMTU int) int {
 func (c *Configuration) getRouteMTU(baseMTU int) int {
 	if c.wireguardEnabled {
 		if c.encapEnabled {
-			return c.getDeviceMTU(baseMTU) - (WireguardOverhead + TunnelOverhead)
+			return c.getDeviceMTU(baseMTU) - (WireguardOverhead + c.tunnelOverhead)
 		}
 		return c.getDeviceMTU(baseMTU) - WireguardOverhead
 	}
@@ -137,12 +145,12 @@ func (c *Configuration) getRouteMTU(baseMTU int) int {
 		return preEncryptMTU
 	}
 
-	tunnelMTU := baseMTU - (TunnelOverhead + encryptOverhead)
+	tunnelMTU := baseMTU - (c.tunnelOverhead + encryptOverhead)
 	if tunnelMTU <= 0 {
 		if c.encryptEnabled {
-			return EthernetMTU - (TunnelOverhead + EncryptionIPsecOverhead)
+			return EthernetMTU - (c.tunnelOverhead + EncryptionIPsecOverhead)
 		}
-		return EthernetMTU - TunnelOverhead
+		return EthernetMTU - c.tunnelOverhead
 	}
 
 	return tunnelMTU
