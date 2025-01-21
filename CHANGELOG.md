@@ -10,7 +10,6 @@ Summary of Changes
 * Add feature tracking in Cilium Operator as prometheus metrics (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36077, @aanm)
 
 **Minor Changes:**
-* Batch processing of Service and EndpointSlices up to 200 milliseconds to merge repeated changes to a single Service. This significantly reduces the amount of processing Cilium performs for Services with many EndpointSlices. (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36466, @joamaki)
 * envoy: Use yaml format for bootstrap config (Backport PR cilium/cilium#36782, Upstream PR cilium/cilium#36820, @sayboras)
 * Reject CNP/CCNP with CIDR rules where CIDRGroupRef is used in combination with ExceptCIDRs (cilium/cilium#36561, @pippolo84)
 * service: Cap number of backends included in monitor message (Backport PR cilium/cilium#36635, Upstream PR cilium/cilium#36394, @joamaki)
@@ -48,14 +47,17 @@ Summary of Changes
 * chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36612, @cilium-renovate[bot])
 * chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36762, @cilium-renovate[bot])
 * chore(deps): update all github action dependencies (v1.16) (cilium/cilium#36950, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#37099, @cilium-renovate[bot])
 * chore(deps): update all github action dependencies (v1.16) (patch) (cilium/cilium#36760, @cilium-renovate[bot])
 * chore(deps): update all-dependencies (v1.16) (cilium/cilium#36707, @cilium-renovate[bot])
 * chore(deps): update all-dependencies (v1.16) (cilium/cilium#36787, @cilium-renovate[bot])
 * chore(deps): update all-dependencies (v1.16) (cilium/cilium#36949, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#37033, @cilium-renovate[bot])
 * chore(deps): update dependency cilium/cilium-cli to v0.16.23 (v1.16) (cilium/cilium#36895, @cilium-renovate[bot])
 * chore(deps): update docker.io/library/busybox:1.36.1 docker digest to 7c3c3ce (v1.16) (cilium/cilium#36609, @cilium-renovate[bot])
 * chore(deps): update docker.io/library/golang:1.22.10 docker digest to 1a6e657 (v1.16) (cilium/cilium#36850, @cilium-renovate[bot])
 * chore(deps): update docker.io/library/golang:1.22.10 docker digest to 9855006 (v1.16) (cilium/cilium#36610, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.11 (v1.16) (cilium/cilium#37045, @cilium-renovate[bot])
 * chore(deps): update helm/kind-action action to v1.12.0 (v1.16) (cilium/cilium#36839, @cilium-renovate[bot])
 * chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#36611, @cilium-renovate[bot])
 * chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#36699, @cilium-renovate[bot])
@@ -68,6 +70,7 @@ Summary of Changes
 * ingress, gateway-api: Convert test fixtures to file based (Backport PR cilium/cilium#36782, Upstream PR cilium/cilium#36732, @sayboras)
 * metrics/features: enable ClusterMesh (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36402, @aanm)
 * metrics/features: refactor metric names (Backport PR cilium/cilium#36263, Upstream PR cilium/cilium#36209, @aanm)
+* Prepare for release v1.16.6 (cilium/cilium#36989, @cilium-release-bot[bot])
 * Remove reference to DNS polling (Backport PR cilium/cilium#36872, Upstream PR cilium/cilium#36679, @JacobHenner)
 
 **Other Changes:**
