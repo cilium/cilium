@@ -571,7 +571,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 	}
 	svcMap := hashSVCMap(svcs)
 
-	if oldSvc != nil {
+	if oldSvc != nil && oldSvc != svc {
 		// If we have oldService then we need to detect which frontends
 		// are no longer in the updated service and delete them in the datapath.
 		oldSVCs, err := k.datapathSVCs(oldSvc, endpoints)
