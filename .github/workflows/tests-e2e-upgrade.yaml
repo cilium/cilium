@@ -689,7 +689,7 @@ jobs:
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
-          cilium status --wait --wait-duration=10m
+          cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
@@ -764,7 +764,7 @@ jobs:
             ${{ steps.cilium-stable-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
-          cilium status --wait --wait-duration=10m
+          cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
