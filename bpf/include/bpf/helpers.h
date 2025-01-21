@@ -111,3 +111,5 @@ static inline int try_set_retval(int retval __maybe_unused)
 	return 0;
 #endif
 }
+
+static long BPF_FUNC(loop, __u32 nr_loops, void *callback_fn, void *callback_ctx, __u64 flags);

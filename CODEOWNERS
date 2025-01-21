@@ -343,6 +343,7 @@ Makefile* @cilium/build
 /contrib/ @cilium/contributing
 /contrib/containerlab/ @cilium/sig-bgp
 /contrib/coccinelle/ @cilium/sig-datapath
+/contrib/scripts/portgen.py @cilium/sig-datapath
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
