@@ -12,7 +12,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -202,9 +201,6 @@ type params struct {
 
 func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
-		if daemonCfg.DatapathMode == datapathOption.DatapathModeLBOnly {
-			return errors.New("BIG TCP is supported only in veth & netkit datapath mode")
-		}
 		if daemonCfg.TunnelingEnabled() {
 			return errors.New("BIG TCP is not supported in tunneling mode")
 		}

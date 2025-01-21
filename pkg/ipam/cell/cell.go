@@ -9,7 +9,6 @@ import (
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -71,7 +70,7 @@ type ipamAPIHandlerOut struct {
 }
 
 func newIPAMAPIHandler(params ipamAPIHandlerParams) ipamAPIHandlerOut {
-	if option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
+	if option.Config.LoadBalancerOnly {
 		return ipamAPIHandlerOut{}
 	}
 

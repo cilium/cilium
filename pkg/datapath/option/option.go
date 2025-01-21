@@ -19,6 +19,7 @@ const (
 	// L2 mode.
 	DatapathModeNetkitL2 = "netkit-l2"
 
-	// DatapathModeLBOnly specifies lb-only datapath mode.
+	// DatapathModeLBOnly specifies lb-only datapath mode. This is a hidden
+	// legacy option and got migrated into LoadBalancerOnly flag.
 	DatapathModeLBOnly = "lb-only"
 )

@@ -164,7 +164,6 @@ var (
 		datapathOption.DatapathModeVeth,
 		datapathOption.DatapathModeNetkit,
 		datapathOption.DatapathModeNetkitL2,
-		datapathOption.DatapathModeLBOnly,
 	}
 
 	defaultCIDRPolicies = []string{

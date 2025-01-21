@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -167,8 +166,8 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
-			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-				return fmt.Errorf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
+			if !option.Config.LoadBalancerOnly {
+				return fmt.Errorf("DSR dispatch mode %s only supported for --%s=true", option.Config.LoadBalancerDSRDispatch, option.LoadBalancerOnly)
 			}
 			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
 				return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
@@ -176,7 +175,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		}
 
 		option.Config.EnableHealthDatapath =
-			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
+			option.Config.LoadBalancerOnly &&
 				(option.Config.NodePortMode == option.NodePortModeDSR ||
 					option.Config.LoadBalancerModeAnnotation) &&
 				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
@@ -365,8 +364,7 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 	}
 
 	option.Config.NodePortNat46X64 = option.Config.IsDualStack() &&
-		option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
-		option.Config.NodePortMode == option.NodePortModeSNAT
+		option.Config.LoadBalancerOnly && option.Config.NodePortMode == option.NodePortModeSNAT
 
 	// In the case where the fib lookup does not return the outgoing ifindex
 	// the datapath needs to store it in our CT map, and the map's field is
