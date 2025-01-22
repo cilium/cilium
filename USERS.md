@@ -752,6 +752,11 @@ Users (Alphabetically)
       L: https://sighup.io, https://github.com/sighupio/fury-kubernetes-networking
       Q: @jnardiello @nutellino
 
+    * N: SINAD
+      D: SINAD uses Cilium and integrates Tetragon (Which is amazing) to their application EzyKube 
+      U: CNI, Networking, Node2Node & Pod2Pod Encryption, Kube-Proxy Replacement, eBPF, security
+      L: https://sinad.io 
+
     * N: SmileDirectClub
       D: SmileDirectClub is using Cilium in manufacturing clusters (self-hosted on vSphere and AWS EC2)
       U: CNI
