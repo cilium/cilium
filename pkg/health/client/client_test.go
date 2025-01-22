@@ -343,12 +343,14 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 				PrimaryAddress: &models.PathStatus{
 					IP: fmt.Sprintf("192.168.1.%d", i),
 					HTTP: &models.ConnectivityStatus{
-						Status:  "",
-						Latency: 10000000,
+						Status:     "",
+						Latency:    10000000,
+						LastProbed: "2023-04-01T12:30:00Z",
 					},
 					Icmp: &models.ConnectivityStatus{
-						Status:  "",
-						Latency: 10000000,
+						Status:     "",
+						Latency:    10000000,
+						LastProbed: "2023-04-01T12:35:00Z",
 					},
 				},
 			},
@@ -356,12 +358,14 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 				PrimaryAddress: &models.PathStatus{
 					IP: fmt.Sprintf("192.168.1.%d", i),
 					HTTP: &models.ConnectivityStatus{
-						Status:  "",
-						Latency: 10000000,
+						Status:     "",
+						Latency:    10000000,
+						LastProbed: "2023-04-01T12:40:00Z",
 					},
 					Icmp: &models.ConnectivityStatus{
-						Status:  "",
-						Latency: 10000000,
+						Status:     "",
+						Latency:    10000000,
+						LastProbed: "2023-04-01T12:45:00Z",
 					},
 				},
 			},
@@ -375,10 +379,12 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 				PrimaryAddress: &models.PathStatus{
 					IP: fmt.Sprintf("192.168.1.%d", i),
 					HTTP: &models.ConnectivityStatus{
-						Status: "failed",
+						Status:     "failed",
+						LastProbed: "2023-04-01T12:30:00Z",
 					},
 					Icmp: &models.ConnectivityStatus{
-						Status: "failed",
+						Status:     "failed",
+						LastProbed: "2023-04-01T12:35:00Z",
 					},
 				},
 			},
@@ -386,10 +392,12 @@ func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
 				PrimaryAddress: &models.PathStatus{
 					IP: fmt.Sprintf("192.168.1.%d", i),
 					HTTP: &models.ConnectivityStatus{
-						Status: "failed",
+						Status:     "failed",
+						LastProbed: "2023-04-01T12:40:00Z",
 					},
 					Icmp: &models.ConnectivityStatus{
-						Status: "failed",
+						Status:     "failed",
+						LastProbed: "2023-04-01T12:45:00Z",
 					},
 				},
 			},

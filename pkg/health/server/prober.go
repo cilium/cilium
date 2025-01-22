@@ -317,6 +317,7 @@ func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connec
 			scopedLog.Debug("Ping failed")
 			result.Status = "Connection timed out"
 		}
+		result.LastProbed = time.Now().Format(time.RFC3339)
 	}
 	pinger.SetPrivileged(true)
 	err = pinger.RunWithContext(ctx)
@@ -364,6 +365,7 @@ func httpProbe(node string, ip string, ctx context.Context, resChan chan<- conne
 		}
 		result.Status = err.Error()
 	}
+	result.LastProbed = time.Now().Format(time.RFC3339)
 
 	resChan <- connectivityResult{ip: ip, status: result}
 }
