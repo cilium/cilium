@@ -3041,7 +3041,6 @@ func parseMacvlanData(link Link, data []syscall.NetlinkRouteAttr) {
 	}
 }
 
-// copied from pkg/net_linux.go
 func linkFlags(rawFlags uint32) net.Flags {
 	var f net.Flags
 	if rawFlags&unix.IFF_UP != 0 {
@@ -3058,6 +3057,9 @@ func linkFlags(rawFlags uint32) net.Flags {
 	}
 	if rawFlags&unix.IFF_MULTICAST != 0 {
 		f |= net.FlagMulticast
+	}
+	if rawFlags&unix.IFF_RUNNING != 0 {
+		f |= net.FlagRunning
 	}
 	return f
 }

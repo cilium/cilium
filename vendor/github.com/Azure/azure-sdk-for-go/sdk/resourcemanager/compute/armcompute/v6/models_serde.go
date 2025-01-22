@@ -2020,6 +2020,7 @@ func (c *CloudServiceVaultAndSecretReference) UnmarshalJSON(data []byte) error {
 func (c CloudServiceVaultCertificate) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
 	populate(objectMap, "certificateUrl", c.CertificateURL)
+	populate(objectMap, "isBootstrapCertificate", c.IsBootstrapCertificate)
 	return json.Marshal(objectMap)
 }
 
@@ -2034,6 +2035,9 @@ func (c *CloudServiceVaultCertificate) UnmarshalJSON(data []byte) error {
 		switch key {
 		case "certificateUrl":
 			err = unpopulate(val, "CertificateURL", &c.CertificateURL)
+			delete(rawMsg, key)
+		case "isBootstrapCertificate":
+			err = unpopulate(val, "IsBootstrapCertificate", &c.IsBootstrapCertificate)
 			delete(rawMsg, key)
 		}
 		if err != nil {

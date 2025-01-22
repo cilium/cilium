@@ -1,5 +1,11 @@
 # Release History
 
+## 6.3.0 (2025-01-24)
+### Features Added
+
+- New field `IsBootstrapCertificate` in struct `CloudServiceVaultCertificate`
+
+
 ## 6.2.0 (2024-12-27)
 ### Features Added
 
