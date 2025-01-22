@@ -46,7 +46,7 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		keys := emptyMapState()
 		key := Key{}
-		entry := NewMapStateEntry(types.AllowEntry(), nil)
+		entry := NewMapStateEntry(types.AllowEntry())
 		ff := fuzz.NewConsumer(data)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
@@ -84,7 +84,7 @@ func FuzzAccumulateMapChange(f *testing.F) {
 			proxyPort = 1
 		}
 		key := KeyForDirection(dir).WithPortProto(proto, port)
-		value := newMapStateEntry(nil, proxyPort, 0, deny, NoAuthRequirement)
+		value := newMapStateEntry(singleRuleOrigin(EmptyStringLabels), proxyPort, 0, deny, NoAuthRequirement)
 		policyMaps := MapChanges{}
 		policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		policyMaps.SyncMapChanges(versioned.LatestTx)

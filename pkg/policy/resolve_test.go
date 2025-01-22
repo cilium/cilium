@@ -296,7 +296,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 								isRedirect:      true,
 							},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
 				}),
 					features: redirectRules,
@@ -409,7 +409,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 							},
 							cachedSelectorHost: nil,
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
 				}),
 					features: redirectRules,
@@ -509,7 +509,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: nil,
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}}),
 					},
 				})},
 				Egress: newL4DirectionPolicy(),
@@ -675,12 +675,12 @@ func TestMapStateWithIngress(t *testing.T) {
 								CanShortCircuit: true,
 							},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 							cachedSelectorWorld:   {ruleLabel},
 							cachedSelectorWorldV4: {ruleLabel},
 							cachedSelectorWorldV6: {ruleLabel},
 							cachedSelectorTest:    {ruleLabel},
-						},
+						}),
 					},
 				}),
 					features: authRules,
@@ -846,7 +846,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					EgressPolicyEnabled:  true,
 				},
 				PolicyMapState: emptyMapState().withState(mapStateMap{
-					IngressKey(): NewMapStateEntry(DenyEntry, nil),
+					IngressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
 			args: args{
@@ -863,7 +863,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					EgressPolicyEnabled:  true,
 				},
 				PolicyMapState: emptyMapState().withState(mapStateMap{
-					IngressKey(): NewMapStateEntry(DenyEntry, nil),
+					IngressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
 			args: args{
@@ -880,7 +880,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					EgressPolicyEnabled:  true,
 				},
 				PolicyMapState: emptyMapState().withState(mapStateMap{
-					EgressKey(): NewMapStateEntry(DenyEntry, nil),
+					EgressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
 			args: args{
@@ -897,7 +897,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					EgressPolicyEnabled:  false,
 				},
 				PolicyMapState: emptyMapState().withState(mapStateMap{
-					EgressKey(): NewMapStateEntry(DenyEntry, nil),
+					EgressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
 			args: args{

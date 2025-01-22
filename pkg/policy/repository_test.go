@@ -670,7 +670,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				td.cachedSelectorBar1: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3}}),
 		},
 		"8/ICMP": {
 			Port:     8,
@@ -680,7 +680,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				td.cachedSelectorBar2: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}}),
 		},
 		"128/ICMPV6": {
 			Port:     128,
@@ -690,7 +690,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				td.cachedSelectorBar2: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}}),
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -706,7 +706,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -722,7 +722,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 		"9090/TCP": {
 			Port:     9090,
@@ -739,7 +739,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsL7}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsL7}}),
 		},
 	})
 	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
@@ -874,10 +874,10 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				td.cachedSelectorBar1: {labelsL4HTTP},
 				td.cachedSelectorBar2: {labelsL7HTTP},
-			},
+			}),
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -894,10 +894,10 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				td.cachedSelectorBar1: {labelsL4Kafka},
 				td.cachedSelectorBar2: {labelsL7Kafka},
-			},
+			}),
 		},
 	})
 	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
@@ -955,7 +955,7 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
+	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
 
 	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
@@ -966,9 +966,9 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 				expectedCachedSelector: nil,
 			},
 			Ingress: true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				expectedCachedSelector: {nil},
-			},
+			}),
 		},
 	})
 	require.Equal(t, expectedPolicy, policy)
@@ -1037,8 +1037,8 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
-	expectedCachedSelector2, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector2)
+	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
+	expectedCachedSelector2, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector2)
 
 	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
@@ -1048,9 +1048,9 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector2: nil,
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				expectedCachedSelector2: {nil},
-			},
+			}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1059,9 +1059,9 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector: nil,
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				expectedCachedSelector: {nil},
-			},
+			}),
 		},
 	})
 	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
@@ -1218,7 +1218,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1234,7 +1234,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 		"8/ICMP": {
 			Port:     8,
@@ -1244,7 +1244,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				td.cachedSelectorBar2: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}}),
 		},
 		"128/ICMPV6": {
 			Port:     128,
@@ -1254,7 +1254,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				td.cachedSelectorBar2: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}}),
 		},
 		"0/ANY": {
 			Port:     0,
@@ -1265,7 +1265,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				td.cachedSelectorBar1: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4}}),
 		},
 	})
 	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
@@ -1406,10 +1406,10 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				td.cachedSelectorBar1: {labelsL3HTTP},
 				td.cachedSelectorBar2: {labelsL7HTTP},
-			},
+			}),
 		},
 		"53/UDP": {
 			Port:     53,
@@ -1426,10 +1426,10 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				td.cachedSelectorBar1: {labelsL3DNS},
 				td.cachedSelectorBar2: {labelsL7DNS},
-			},
+			}),
 		},
 	})
 	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
@@ -1450,7 +1450,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 	cidrSelectors := cidrSlice.GetAsEndpointSelectors()
 	var cachedSelectors CachedSelectorSlice
 	for i := range cidrSelectors {
-		c, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, cidrSelectors[i])
+		c, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, cidrSelectors[i])
 		cachedSelectors = append(cachedSelectors, c)
 		defer td.sc.RemoveSelector(c, dummySelectorCacheUser)
 	}
@@ -1535,7 +1535,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsHTTP}}),
 		},
 		"0/ANY": {
 			Port:     0,
@@ -1546,7 +1546,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: nil,
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}}),
 		},
 	})
 	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
@@ -1664,11 +1664,11 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 				cachedSelectorWorldV6: nil,
 			},
 			Ingress: true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				cachedSelectorWorld:   {labelsL3},
 				cachedSelectorWorldV4: {labelsL3},
 				cachedSelectorWorldV6: {labelsL3},
-			},
+			}),
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -1684,7 +1684,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1700,7 +1700,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 	})
 
@@ -1816,11 +1816,11 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 				cachedSelectorWorldV6: nil,
 			},
 			Ingress: false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				cachedSelectorWorld:   {labelsL3},
 				cachedSelectorWorldV4: {labelsL3},
 				cachedSelectorWorldV6: {labelsL3},
-			},
+			}),
 		},
 		"53/UDP": {
 			Port:     53,
@@ -1836,7 +1836,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1852,7 +1852,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 	})
 
@@ -1976,7 +1976,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}}),
 	})
 
 	if !assert.EqualValues(t, expected.Ingress.PortRules, l4IngressPolicy) {

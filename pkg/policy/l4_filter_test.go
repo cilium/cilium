@@ -65,18 +65,18 @@ func newTestData() *testData {
 	td.testPolicyContext.sc = td.sc
 	td.repo.selectorCache = td.sc
 
-	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
+	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
 
-	td.cachedSelectorA, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorA)
-	td.cachedSelectorB, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorB)
-	td.cachedSelectorC, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorC)
-	td.cachedSelectorHost, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, hostSelector)
+	td.cachedSelectorA, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, endpointSelectorA)
+	td.cachedSelectorB, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, endpointSelectorB)
+	td.cachedSelectorC, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, endpointSelectorC)
+	td.cachedSelectorHost, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, hostSelector)
 
-	td.cachedFooSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, fooSelector)
-	td.cachedBazSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, bazSelector)
+	td.cachedFooSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, fooSelector)
+	td.cachedBazSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, bazSelector)
 
-	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar1)
-	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar2)
+	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, selBar1)
+	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, selBar2)
 
 	return td
 }
@@ -348,7 +348,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
 	require.EqualValues(t, expected, res)
@@ -469,7 +469,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
 	buffer := new(bytes.Buffer)
@@ -557,7 +557,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
 	state := traceState{}
@@ -873,10 +873,10 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	require.EqualValues(t, expected, res)
@@ -975,10 +975,10 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	require.EqualValues(t, expected, res)
@@ -1093,10 +1093,10 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	require.EqualValues(t, expected, res)
@@ -1231,10 +1231,10 @@ func TestMergeListenerPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	require.EqualValues(t, expected, res)
@@ -1313,10 +1313,10 @@ func TestMergeListenerPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	require.EqualValues(t, expected, res)
@@ -1396,10 +1396,10 @@ func TestMergeListenerPolicy(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	require.EqualValues(t, expected, res)
@@ -1459,10 +1459,10 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -1527,10 +1527,10 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 			td.cachedSelectorA:        nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state = traceState{}
@@ -1614,10 +1614,10 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -1694,10 +1694,10 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.wildcardCachedSelector: {nil},
 			td.cachedSelectorA:        {nil},
-		},
+		}),
 	}})
 
 	state = traceState{}
@@ -1792,10 +1792,10 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -1882,10 +1882,10 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state = traceState{}
@@ -2093,10 +2093,10 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -2169,10 +2169,10 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 			td.cachedSelectorC: nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -2255,7 +2255,7 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 			td.cachedSelectorHost: nil, // no proxy redirect
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
 	state := traceState{}
@@ -2313,7 +2313,7 @@ func TestEntitiesL3(t *testing.T) {
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress:    false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
 	state := traceState{}
