@@ -164,6 +164,15 @@ func (w *Writer) UpsertFrontend(txn WriteTxn, params FrontendParams) (old *Front
 	return old, err
 }
 
+func (w *Writer) DeleteFrontend(txn WriteTxn, addr loadbalancer.L3n4Addr) (old *Frontend, err error) {
+	fe, _, found := w.fes.Get(txn, FrontendByAddress(addr))
+	if found {
+		_, _, err = w.fes.Delete(txn, fe)
+		return fe, err
+	}
+	return nil, nil
+}
+
 // UpsertServiceAndFrontends upserts the service and updates the set of associated frontends.
 // Any frontends that do not exist in the new set are deleted.
 func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *Service, fes ...FrontendParams) error {
@@ -490,11 +499,16 @@ func (w *Writer) DeleteBackendsBySource(txn WriteTxn, src source.Source) error {
 	names := sets.New[loadbalancer.ServiceName]()
 	for be := range w.bes.All(txn) {
 		orphaned := false
+		modified := false
 		for k, inst := range be.Instances.All() {
 			if inst.Source == src {
 				names.Insert(k.ServiceName)
 				be, orphaned = be.releasePerSource(k.ServiceName, src)
+				modified = true
 			}
+		}
+		if !modified {
+			continue
 		}
 		var err error
 		if orphaned {

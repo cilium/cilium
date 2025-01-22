@@ -40,6 +40,12 @@ var Cell = cell.Module(
 
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
+
+	// The local synchronizer provides a facility for configuring the load-balancing
+	// state from a local file, supporting standalone load-balancing operations without Kubernetes.
+	// The state is defined by [structs.LoadBalancingState] and loaded from the file specified
+	// with --lb-local-sync-file. The source is set to [source.LocalAPI].
+	localSyncCell,
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the

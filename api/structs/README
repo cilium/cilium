@@ -1,0 +1,9 @@
+The api/structs package defines the Go structs for interoperability between
+cilium-dbg, cilium-cli and the cilium-agent. These structs are serialized to either
+JSON or YAML and consumed and produced by Cilium Shell commands.
+
+Since cilium-cli may depend on these structs and the version of cilium-cli
+and the cilium-agent may be older, these structs must thus be kept backwards compatible
+(field types must not change).
+
+These structs are a lightweight alternative to the Swagger-based api/v1/openapi.yaml.

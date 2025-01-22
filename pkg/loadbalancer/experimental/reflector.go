@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
@@ -49,6 +50,7 @@ var ReflectorCell = cell.Module(
 type reflectorParams struct {
 	cell.In
 
+	Clientset         client.Clientset
 	Log               *slog.Logger
 	Lifecycle         cell.Lifecycle
 	JobGroup          job.Group
@@ -60,7 +62,7 @@ type reflectorParams struct {
 }
 
 func registerK8sReflector(p reflectorParams) {
-	if !p.Writer.IsEnabled() {
+	if !p.Writer.IsEnabled() || !p.Clientset.IsEnabled() {
 		return
 	}
 	initComplete := p.Writer.RegisterInitializer("k8s")
