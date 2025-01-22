@@ -6,17 +6,17 @@ require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.1
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6 v6.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6 v6.3.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6 v6.2.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.84
 	github.com/aws/aws-sdk-go-v2 v1.33.0
 	github.com/aws/aws-sdk-go-v2/config v1.29.1
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.24
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.200.0
-	github.com/aws/smithy-go v1.22.1
+	github.com/aws/smithy-go v1.22.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/charts v0.0.0-20250110220142-9bf6739d212c
+	github.com/cilium/charts v0.0.0-20250122005123-9aa3c2db578d
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
@@ -34,7 +34,7 @@ require (
 	github.com/containernetworking/cni v1.2.3
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/docker v27.5.0+incompatible
+	github.com/docker/docker v27.5.1+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/fatih/color v1.18.0
@@ -77,7 +77,7 @@ require (
 	github.com/osrg/gobgp/v3 v3.33.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
-	github.com/prometheus-community/pro-bing v0.5.0
+	github.com/prometheus-community/pro-bing v0.6.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.62.0
@@ -95,7 +95,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
-	github.com/vishvananda/netlink v1.3.1-0.20250116195641-68cf136ebe02
+	github.com/vishvananda/netlink v1.3.1-0.20250121061148-364253875734
 	github.com/vishvananda/netns v0.0.5
 	go.etcd.io/etcd/api/v3 v3.5.17
 	go.etcd.io/etcd/client/pkg/v3 v3.5.17
@@ -115,7 +115,7 @@ require (
 	golang.org/x/time v0.9.0
 	golang.org/x/tools v0.29.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250122153221-138b5a5a4fd4
 	google.golang.org/grpc v1.69.4
 	google.golang.org/protobuf v1.36.3
 	gopkg.in/ini.v1 v1.67.0

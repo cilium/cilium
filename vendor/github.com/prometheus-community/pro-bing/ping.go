@@ -979,6 +979,13 @@ func (p *Pinger) listen() (packetConn, error) {
 		p.Stop()
 		return nil, err
 	}
+
+	if p.Privileged() {
+		if err := conn.InstallICMPIDFilter(p.id); err != nil {
+			p.logger.Warnf("error installing icmp filter, %v", err)
+		}
+	}
+
 	return conn, nil
 }
 
