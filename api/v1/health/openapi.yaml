@@ -188,3 +188,6 @@ definitions:
       status:
         type: string
         description: Human readable status/error/warning message
+      lastProbed:
+        description: Timestamp of last probe completion
+        type: string

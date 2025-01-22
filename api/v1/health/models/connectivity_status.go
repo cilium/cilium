@@ -20,6 +20,9 @@ import (
 // swagger:model ConnectivityStatus
 type ConnectivityStatus struct {
 
+	// Timestamp of last probe completion
+	LastProbed string `json:"lastProbed,omitempty"`
+
 	// Round trip time to node in nanoseconds
 	Latency int64 `json:"latency,omitempty"`
 
