@@ -1,0 +1,38 @@
+services:
+  - namespace: test
+    name: svc1
+    frontends:
+      - address:
+          ip: 10.0.0.1
+          port: 80
+        type: LoadBalancer
+    backends:
+      - address:
+          ip: 10.1.0.1
+          port: 80
+        state: active
+        weight: 100
+  - namespace: test
+    name: svc2
+    frontends:
+      - address:
+          ip: 10.0.0.2
+          port: 80
+        type: LoadBalancer
+    backends:
+      - address:
+          ip: 10.1.0.2
+          port: 80
+        state: active
+        weight: 100
+      - address:
+          ip: 10.1.0.3
+          port: 80
+        state: active
+        weight: 50
+      - address:
+          ip: 10.1.0.4
+          port: 80
+        state: maintenance
+        weight: 10
+
