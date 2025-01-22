@@ -63,7 +63,7 @@ func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) Ca
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
-	cached, added := csu.sc.AddIdentitySelector(csu, nil, sel)
+	cached, added := csu.sc.AddIdentitySelector(csu, EmptyStringLabels, sel)
 	require.NotNil(csu.t, cached)
 
 	_, exists := csu.selections[cached]
@@ -81,7 +81,7 @@ func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSele
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
-	cached, added := csu.sc.AddFQDNSelector(csu, nil, sel)
+	cached, added := csu.sc.AddFQDNSelector(csu, EmptyStringLabels, sel)
 	require.NotNil(csu.t, cached)
 
 	_, exists := csu.selections[cached]

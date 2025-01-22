@@ -87,7 +87,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
 	require.EqualValues(t, expected, l4IngressDenyPolicy)
@@ -196,10 +196,10 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -265,10 +265,10 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state = traceState{}
@@ -338,10 +338,10 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 			td.cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -420,10 +420,10 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -491,10 +491,10 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state = traceState{}
@@ -578,10 +578,10 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state := traceState{}
@@ -659,10 +659,10 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorA:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	state = traceState{}

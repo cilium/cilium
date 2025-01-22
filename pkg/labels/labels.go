@@ -411,6 +411,26 @@ func (l *Label) String() string {
 	return l.Source + ":" + l.Key
 }
 
+func (l *Label) BuildString(sb *strings.Builder) {
+	sb.WriteString(l.Source)
+	sb.WriteString(":")
+	sb.WriteString(l.Key)
+	if len(l.Value) != 0 {
+		sb.WriteString("=")
+		sb.WriteString(l.Value)
+	}
+}
+
+func (l *Label) BuildBytes(buf *bytes.Buffer) {
+	buf.WriteString(l.Source)
+	buf.WriteString(":")
+	buf.WriteString(l.Key)
+	if len(l.Value) != 0 {
+		buf.WriteString("=")
+		buf.WriteString(l.Value)
+	}
+}
+
 // IsValid returns true if Key != "".
 func (l *Label) IsValid() bool {
 	return l.Key != ""

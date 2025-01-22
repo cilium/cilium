@@ -18,7 +18,7 @@ import (
 )
 
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
-	e.derivedFromRules = lbls
+	e.derivedFromRules = makeRuleOrigin(lbls)
 	return e
 }
 
@@ -94,8 +94,8 @@ func (e mapStateEntry) withProxyPortPriority(proxyPort uint16, priority uint8) m
 }
 
 func TestMapState_insertWithChanges(t *testing.T) {
-	allowEntry := NewMapStateEntry(AllowEntry, nil)
-	denyEntry := NewMapStateEntry(DenyEntry, nil)
+	allowEntry := NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
+	denyEntry := NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
 
 	type args struct {
 		key   Key
@@ -758,7 +758,7 @@ func TestMapState_insertWithChanges(t *testing.T) {
 			return true
 		})
 
-		entry := NewMapStateEntry(tt.args.entry, nil)
+		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil})
 		ms.insertWithChanges(tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
@@ -805,15 +805,15 @@ func TcpEgressKey(id identity.NumericIdentity) Key {
 }
 
 func allowEntry() mapStateEntry {
-	return NewMapStateEntry(AllowEntry, nil)
+	return NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntry(proxyPort uint16) mapStateEntry {
-	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort), nil)
+	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort)).withLabels(labels.LabelArrayList{nil})
 }
 
 func denyEntry() mapStateEntry {
-	return NewMapStateEntry(DenyEntry, nil)
+	return NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
 }
 
 func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
@@ -1137,7 +1137,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			if x.redirect {
 				proxyPort = 1
 			}
-			value := newMapStateEntry(nil, proxyPort, 0, x.deny, NoAuthRequirement)
+			value := newMapStateEntry(NilRuleOrigin, proxyPort, 0, x.deny, NoAuthRequirement)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
@@ -1449,7 +1449,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.redirect {
 				proxyPort = 1
 			}
-			value := newMapStateEntry(nil, proxyPort, 0, x.deny, x.authReq)
+			value := newMapStateEntry(NilRuleOrigin, proxyPort, 0, x.deny, x.authReq)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(versioned.LatestTx)
@@ -1652,7 +1652,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 			aKeys = append(aKeys, IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort))
 		}
-		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement), nil)
+		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement))
 		var bKeys []Key
 		for _, idB := range tt.bIdentities {
 			if tt.outcome&worldIPl3only > 0 && idB == worldIPIdentity &&
@@ -1673,7 +1673,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 			bKeys = append(bKeys, IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
-		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement), nil)
+		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement))
 		expectedKeys := emptyMapState()
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
@@ -1707,17 +1707,17 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		}
 		if tt.outcome&insertDenyWorld > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2)
-			denyEntry := NewMapStateEntry(DenyEntry, nil)
+			denyEntry := NewMapStateEntry(DenyEntry)
 			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		if tt.outcome&insertDenyWorldTCP > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2).WithTCPPort(0)
-			denyEntry := NewMapStateEntry(DenyEntry, nil)
+			denyEntry := NewMapStateEntry(DenyEntry)
 			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		if tt.outcome&insertDenyWorldHTTP > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2).WithTCPPort(80)
-			denyEntry := NewMapStateEntry(DenyEntry, nil)
+			denyEntry := NewMapStateEntry(DenyEntry)
 			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		outcomeKeys := emptyMapState()
@@ -1766,12 +1766,12 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		for _, idA := range tt.aIdentities {
 			aKeys = append(aKeys, IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort))
 		}
-		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement), nil)
+		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement))
 		var bKeys []Key
 		for _, idB := range tt.bIdentities {
 			bKeys = append(bKeys, EgressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
-		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement), nil)
+		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement))
 		expectedKeys := emptyMapState()
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
