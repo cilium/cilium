@@ -660,18 +660,17 @@ func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFu
 								dyingGasp := ""
 								if terminated.Message != "" {
 									lastLog = strings.TrimSpace(terminated.Message)
-								} else {
-									agentLogsOnce.Do(func() { // in a sync.Once so we don't waste time retrieving lots of logs
-										var getPrevious bool
-										if containerStatus.RestartCount > 0 {
-											getPrevious = true
-										}
-										logs, err := k.client.CiliumLogs(ctx, pod.Namespace, pod.Name, terminated.FinishedAt.Time.Add(-2*time.Minute), getPrevious)
-										if err == nil && logs != "" {
-											dyingGasp = strings.TrimSpace(logs)
-										}
-									})
 								}
+								agentLogsOnce.Do(func() { // in a sync.Once so we don't waste time retrieving lots of logs
+									var getPrevious bool
+									if containerStatus.RestartCount > 0 {
+										getPrevious = true
+									}
+									logs, err := k.client.CiliumLogs(ctx, pod.Namespace, pod.Name, terminated.FinishedAt.Time.Add(-2*time.Minute), getPrevious)
+									if err == nil && logs != "" {
+										dyingGasp = strings.TrimSpace(logs)
+									}
+								})
 
 								// output the last few log lines if available
 								if dyingGasp != "" {
