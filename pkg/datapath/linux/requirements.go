@@ -56,6 +56,10 @@ func CheckRequirements(log *slog.Logger) error {
 			return errors.New("Require support for large programs (Linux 5.2.0 or newer)")
 		}
 
+		if probes.HaveSKBAdjustRoomL2RoomMACSupport() != nil {
+			return errors.New("Require support for bpf_skb_adjust_room with BPF_ADJ_ROOM_MAC mode (Linux 5.2 or newer)")
+		}
+
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			// TODO(vincentmli): revisit log when GH#14314 has been resolved
 			// Warn missing required kernel config option
