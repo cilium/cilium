@@ -71,13 +71,13 @@ func TestL4Policy(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Ingress.PortRules.Upsert("8080", 0, "TCP", &L4Filter{
 		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 
 	expected.Egress.PortRules.Upsert("3000", 0, "TCP", &L4Filter{
@@ -86,7 +86,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "UDP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
@@ -94,7 +94,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "SCTP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
@@ -102,7 +102,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 
 	pol1, err := td.repo.resolvePolicyLocked(idA)
@@ -166,7 +166,7 @@ func TestL4Policy(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "TCP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
@@ -174,7 +174,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "UDP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
@@ -182,7 +182,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "SCTP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
@@ -190,7 +190,7 @@ func TestL4Policy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	pol2, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -236,10 +236,10 @@ func TestMergeL4PolicyIngress(t *testing.T) {
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, PerSelectorPolicies: mergedES, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedFooSelector: {nil},
 			td.cachedBazSelector: {nil},
-		},
+		}),
 	}})
 
 	pol, err := td.repo.resolvePolicyLocked(idA)
@@ -287,10 +287,10 @@ func TestMergeL4PolicyEgress(t *testing.T) {
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, PerSelectorPolicies: mergedES, Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorB: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}})
 
 	pol, err := td.repo.resolvePolicyLocked(idA)
@@ -365,10 +365,10 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorB:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	sp, err := td.repo.resolvePolicyLocked(idA)
@@ -426,10 +426,10 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorB:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	td.resetRepo()
@@ -509,10 +509,10 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorB:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	sp, err = td.repo.resolvePolicyLocked(idA)
@@ -584,10 +584,10 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.wildcardCachedSelector: {nil},
 			td.cachedSelectorB:        {nil},
-		},
+		}),
 	}})
 
 	sp, err := td.repo.resolvePolicyLocked(idA)
@@ -657,10 +657,10 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorB:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	sp, err = td.repo.resolvePolicyLocked(idA)
@@ -730,10 +730,10 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorB:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}})
 
 	sp, err = td.repo.resolvePolicyLocked(idA)
@@ -939,7 +939,7 @@ func TestICMPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
 	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"ICMP/9": {
@@ -951,7 +951,7 @@ func TestICMPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
 	pol, err := td.repo.resolvePolicyLocked(idA)
@@ -993,7 +993,7 @@ func TestICMPPolicy(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: nil,
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 		},
 		"TCP/80": {
 			Port:     80,
@@ -1004,7 +1004,7 @@ func TestICMPPolicy(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: nil,
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 		},
 	})
 
@@ -1041,7 +1041,7 @@ func TestICMPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 	pol, err = td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -1247,7 +1247,8 @@ func TestL3RuleLabels(t *testing.T) {
 					for cidr, rule := range exp {
 						matches := false
 						for _, origin := range filter.RuleOrigin {
-							if origin.Equals(rule) {
+							lbls := origin.GetLabelArrayList()
+							if lbls.Equals(rule) {
 								matches = true
 								break
 							}
@@ -1370,7 +1371,8 @@ func TestL4RuleLabels(t *testing.T) {
 				out := finalPolicy.L4Policy.Ingress.PortRules.ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
 				require.NotNil(t, out, test.description)
 				require.Len(t, out.RuleOrigin, 1, test.description)
-				require.EqualValues(t, test.expectedIngressLabels[portProto], out.RuleOrigin[out.wildcard], test.description)
+				lbls := out.RuleOrigin[out.wildcard].GetLabelArrayList()
+				require.EqualValues(t, test.expectedIngressLabels[portProto], lbls, test.description)
 			}
 
 			require.Equal(t, len(test.expectedEgressLabels), finalPolicy.L4Policy.Egress.PortRules.Len(), test.description)
@@ -1378,9 +1380,9 @@ func TestL4RuleLabels(t *testing.T) {
 				portProtoSlice := strings.Split(portProto, "/")
 				out := finalPolicy.L4Policy.Egress.PortRules.ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
 				require.NotNil(t, out, test.description)
-
 				require.Len(t, out.RuleOrigin, 1, test.description)
-				require.EqualValues(t, test.expectedEgressLabels[portProto], out.RuleOrigin[out.wildcard], test.description)
+				lbls := out.RuleOrigin[out.wildcard].GetLabelArrayList()
+				require.EqualValues(t, test.expectedEgressLabels[portProto], lbls, test.description)
 			}
 		})
 	}
@@ -1905,10 +1907,10 @@ func TestL4WildcardMerge(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorC:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}
 	pol1, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -1939,7 +1941,7 @@ func TestL4WildcardMerge(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorC: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorC: {nil}}),
 	}
 
 	filterL7 := l4IngressPolicy.ExactLookup("7000", 0, "TCP")
@@ -2208,10 +2210,10 @@ func TestL3L4L7Merge(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorC:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}
 	require.True(t, expected.Equals(filter))
 
@@ -2272,10 +2274,10 @@ func TestL3L4L7Merge(t *testing.T) {
 			},
 		},
 		Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorC:        {nil},
 			td.wildcardCachedSelector: {nil},
-		},
+		}),
 	}
 
 	require.True(t, expected.Equals(filter))
@@ -2466,10 +2468,10 @@ func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
 			},
 		},
 		Ingress: false,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 			td.cachedSelectorB: {nil},
 			td.cachedSelectorC: {nil},
-		},
+		}),
 	}
 
 	pol, err := td.repo.resolvePolicyLocked(idA)

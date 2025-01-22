@@ -113,7 +113,7 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 // 'key' must not have a wildcard identity or port.
 func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, labels.LabelArrayList, bool) {
 	entry, found := p.policyMapState.lookup(key)
-	return entry.MapStateEntry, entry.derivedFromRules, found
+	return entry.MapStateEntry, entry.GetRuleLabels(), found
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.

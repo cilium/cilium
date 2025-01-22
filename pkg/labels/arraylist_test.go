@@ -253,8 +253,15 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 
 		a = tc.a.DeepCopy().Sort()
 		b = tc.b.DeepCopy().Sort()
+		as := a.String()
+		bs := b.String()
+
 		a.MergeSorted(b)
 		require.EqualValues(t, tc.expected, a, tc.name+" MergeSorted")
 		require.EqualValues(t, a.Sort(), a, tc.name+" MergeSorted returned unsorted result")
+
+		as = MergeSortedLabelArrayListStrings(as, bs)
+		require.EqualValues(t, tc.expected.String(), as, tc.name+" MergeSortedLabelArrayListStrings")
+		require.EqualValues(t, a.Sort().String(), as, tc.name+" MergeSortedLabelArrayListStrings returned unsorted result")
 	}
 }

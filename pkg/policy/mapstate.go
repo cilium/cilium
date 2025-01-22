@@ -4,9 +4,7 @@
 package policy
 
 import (
-	"fmt"
 	"iter"
-	"slices"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/sirupsen/logrus"
@@ -398,35 +396,31 @@ type mapStateEntry struct {
 	MapStateEntry
 
 	// derivedFromRules tracks the policy rules this entry derives from.
-	// In sorted order.
-	derivedFromRules labels.LabelArrayList
+	derivedFromRules ruleOrigin
 }
 
-// newMapStateEntry creates a map state entry. If redirect is true, the
-// caller is expected to replace the ProxyPort field before it is added to
-// the actual BPF map.
-// 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
-// will become sticky and cannot be completely removed via incremental updates. Even in this case
-// the entry may be overridden or removed by a deny entry.
-func newMapStateEntry(derivedFrom labels.LabelArrayList, proxyPort uint16, priority uint8, deny bool, authReq AuthRequirement) mapStateEntry {
-	return NewMapStateEntry(types.NewMapStateEntry(deny, proxyPort, priority, authReq), derivedFrom)
+// newMapStateEntry creates a map state entry.
+func newMapStateEntry(derivedFrom ruleOrigin, proxyPort uint16, priority uint8, deny bool, authReq AuthRequirement) mapStateEntry {
+	return mapStateEntry{
+		MapStateEntry:    types.NewMapStateEntry(deny, proxyPort, priority, authReq),
+		derivedFromRules: derivedFrom,
+	}
 }
 
 // newAllowEntryWithLabels creates an allow entry with the specified labels.
 // Used for adding allow-all entries when policy enforcement is not wanted.
 func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
-	return newMapStateEntry(labels.LabelArrayList{lbls}, 0, 0, false, NoAuthRequirement)
+	return newMapStateEntry(singleRuleOrigin(makeStringLabels(lbls)), 0, 0, false, NoAuthRequirement)
 }
 
-func NewMapStateEntry(e MapStateEntry, derivedFrom labels.LabelArrayList) mapStateEntry {
+func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 	return mapStateEntry{
-		MapStateEntry:    e,
-		derivedFromRules: derivedFrom,
+		MapStateEntry: e,
 	}
 }
 
 func (e *mapStateEntry) GetRuleLabels() labels.LabelArrayList {
-	return e.derivedFromRules
+	return labels.LabelArrayListFromString(e.derivedFromRules.Value())
 }
 
 func emptyMapState() mapState {
@@ -591,13 +585,12 @@ func (e *mapStateEntry) Equal(o *mapStateEntry) bool {
 		return e == o
 	}
 
-	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules.DeepEqual(&o.derivedFromRules)
+	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules == o.derivedFromRules
 }
 
 // String returns a string representation of the MapStateEntry
 func (e mapStateEntry) String() string {
-	return e.MapStateEntry.String() +
-		",derivedFromRules=" + fmt.Sprintf("%v", e.derivedFromRules)
+	return e.MapStateEntry.String() + ",derivedFromRules=" + e.derivedFromRules.Value()
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
@@ -619,8 +612,8 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 		datapathEqual = oldEntry.MapStateEntry == entry.MapStateEntry
 
 		oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
-		if len(entry.derivedFromRules) > 0 {
-			oldEntry.derivedFromRules.MergeSorted(entry.derivedFromRules)
+		if entry.derivedFromRules.Value() != "" {
+			oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
 		}
 
 		ms.updateExisting(key, oldEntry)
@@ -831,9 +824,6 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry mapStateEntry) b
 		// Only insert the old entry if the entry was not first added on this round of
 		// changes.
 		if _, added := changes.Adds[key]; !added {
-			// Clone to keep this entry separate from the one that may remain in 'keys'
-			entry.derivedFromRules = slices.Clone(entry.derivedFromRules)
-
 			changes.old[key] = entry
 			return true
 		}

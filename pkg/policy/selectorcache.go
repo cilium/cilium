@@ -322,7 +322,7 @@ type identityNotifier interface {
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
 // an identical EndpointSelector has already been cached, the corresponding
 // types.CachedSelector is returned, otherwise one is created and added to the cache.
-func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.LabelArray, fqdnSelec api.FQDNSelector) (cachedSelector types.CachedSelector, added bool) {
+func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls stringLabels, fqdnSelec api.FQDNSelector) (cachedSelector types.CachedSelector, added bool) {
 	key := fqdnSelec.String()
 
 	sc.mutex.Lock()
@@ -345,7 +345,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 }
 
 // must hold lock for writing
-func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls labels.LabelArray, key string, source selectorSource) (types.CachedSelector, bool) {
+func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls stringLabels, key string, source selectorSource) (types.CachedSelector, bool) {
 	idSel := &identitySelector{
 		key:              key,
 		users:            make(map[CachedSelectionUser]struct{}),
@@ -393,7 +393,7 @@ func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelecto
 // selector cache. If an identical EndpointSelector has already been
 // cached, the corresponding types.CachedSelector is returned, otherwise one
 // is created and added to the cache.
-func (sc *SelectorCache) AddIdentitySelector(user types.CachedSelectionUser, lbls labels.LabelArray, selector api.EndpointSelector) (cachedSelector types.CachedSelector, added bool) {
+func (sc *SelectorCache) AddIdentitySelector(user types.CachedSelectionUser, lbls stringLabels, selector api.EndpointSelector) (cachedSelector types.CachedSelector, added bool) {
 	// The key returned here may be different for equivalent
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking

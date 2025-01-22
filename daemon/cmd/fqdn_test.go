@@ -106,7 +106,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	dscu := &testpolicy.DummySelectorCacheUser{}
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
 	for _, sel := range selectorsToAdd {
-		ds.d.policy.GetSelectorCache().AddFQDNSelector(dscu, nil, sel)
+		ds.d.policy.GetSelectorCache().AddFQDNSelector(dscu, policy.EmptyStringLabels, sel)
 	}
 
 	const nEndpoints int = 1024
