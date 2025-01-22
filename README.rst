@@ -325,10 +325,6 @@ Adopters
 A list of adopters of the Cilium project who are deploying it in production, and of their use cases,
 can be found in file `USERS.md <https://github.com/cilium/cilium/blob/main/USERS.md>`__.
 
-Roadmap
--------
-Cilium maintains a `public roadmap <https://docs.cilium.io/en/latest/community/roadmap/>`__. It gives a high-level view of the main priorities for the project, the maturity of different features and projects, and how to influence the project direction.
-
 License
 =======
 
