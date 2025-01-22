@@ -86,3 +86,11 @@ func (c *icmpv4Conn) SetBroadcastFlag() error {
 func (c *icmpV6Conn) SetBroadcastFlag() error {
 	return nil
 }
+
+func (c *icmpv4Conn) InstallICMPIDFilter(id int) error {
+	return nil
+}
+
+func (c *icmpV6Conn) InstallICMPIDFilter(id int) error {
+	return nil
+}

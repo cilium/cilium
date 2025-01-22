@@ -854,6 +854,10 @@ type CloudServiceVaultAndSecretReference struct {
 type CloudServiceVaultCertificate struct {
 	// This is the URL of a certificate that has been uploaded to Key Vault as a secret.
 	CertificateURL *string
+
+	// Flag indicating if the certificate provided is a bootstrap certificate to be used by the Key Vault Extension to fetch the
+	// remaining certificates.
+	IsBootstrapCertificate *bool
 }
 
 // CloudServiceVaultSecretGroup - Describes a set of certificates which are all in the same Key Vault.
