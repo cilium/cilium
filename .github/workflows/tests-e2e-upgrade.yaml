@@ -305,7 +305,7 @@ jobs:
             kpr: 'true'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
-            tunnel: 'vxlan'
+            tunnel: 'geneve'
             lb-mode: 'snat'
             encryption: 'wireguard'
             encryption-node: 'false'
