@@ -1324,6 +1324,12 @@ func TestDaemonConfig_StoreInFile(t *testing.T) {
 	assert.ErrorContains(t, err, "Config differs:", "Should return a validation error")
 	Config.DryMode = false
 
+	// minor change
+	Config.EncryptInterface = append(Config.EncryptInterface, "yolo")
+	err = Config.ValidateUnchanged()
+	assert.NoError(t, err)
+	Config.EncryptInterface = nil
+
 	// IntOptions changes are ignored
 	Config.Opts.SetBool("unit-test-key-only", false)
 	err = Config.ValidateUnchanged()
