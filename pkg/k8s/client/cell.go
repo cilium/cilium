@@ -467,8 +467,16 @@ var FakeClientCell = cell.Module(
 	"k8s-fake-client",
 	"Fake Kubernetes client",
 
+	cell.Config(defaultSharedConfig),
+
 	cell.Provide(
-		NewFakeClientset,
+		func(cfg SharedConfig) (*FakeClientset, Clientset) {
+			fc, _ := NewFakeClientset()
+			if !cfg.EnableK8s {
+				fc.Disable()
+			}
+			return fc, fc
+		},
 		func(fc *FakeClientset) hive.ScriptCmdOut {
 			return hive.NewScriptCmd("k8s", FakeClientCommand(fc))
 		},
@@ -510,7 +518,7 @@ func (c *FakeClientset) Discovery() discovery.DiscoveryInterface {
 }
 
 func (c *FakeClientset) IsEnabled() bool {
-	return !c.disabled
+	return c != nil && !c.disabled
 }
 
 func (c *FakeClientset) Disable() {
