@@ -8,6 +8,7 @@ on:
     paths:
       - '.github/workflows/tests-cifuzz.yaml'
       - '**/fuzz_test.go'
+      - 'test/fuzzing/*'
 permissions: read-all
 jobs:
   Fuzzing:
