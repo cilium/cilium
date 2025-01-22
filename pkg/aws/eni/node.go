@@ -9,7 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -782,13 +782,13 @@ func (n *Node) IsPrefixDelegated() bool {
 // are included in the count returned.
 func (n *Node) GetUsedIPWithPrefixes() int {
 	var usedIps int
-	eniPrefixes := make(map[string][]*net.IPNet)
+	eniPrefixes := make(map[string][]netip.Prefix)
 
 	// Populate ENI -> Prefix mapping
 	for eniName, eni := range n.k8sObj.Status.ENI.ENIs {
-		var prefixes []*net.IPNet
+		var prefixes []netip.Prefix
 		for _, pfx := range eni.Prefixes {
-			_, ipNet, err := net.ParseCIDR(pfx)
+			ipNet, err := netip.ParsePrefix(pfx)
 			if err != nil {
 				continue
 			}
@@ -796,7 +796,7 @@ func (n *Node) GetUsedIPWithPrefixes() int {
 		}
 		eniPrefixes[eniName] = prefixes
 	}
-	usedPfx := make(map[string]bool)
+	usedPfx := make(map[netip.Prefix]bool)
 	for ip, resource := range n.k8sObj.Status.IPAM.Used {
 		// Fetch prefixes on this IP's ENI
 		prefixNetworks, exists := eniPrefixes[resource.Resource]
@@ -804,12 +804,16 @@ func (n *Node) GetUsedIPWithPrefixes() int {
 			continue
 		}
 		var prefixBased bool
-		var pfx string
+		var pfx netip.Prefix
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			continue
+		}
 		// Check if the IP is from any of the prefixes attached to this ENI
 		for _, ipNet := range prefixNetworks {
-			if ipNet.Contains(net.ParseIP(ip)) {
+			if ipNet.Contains(addr) {
 				prefixBased = true
-				pfx = ipNet.String()
+				pfx = ipNet
 				break
 			}
 		}
