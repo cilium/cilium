@@ -219,6 +219,9 @@ type Endpoint struct {
 	// bps is the egress rate of the endpoint
 	bps uint64
 
+	// ingressBps is the ingress rate of the endpoint
+	ingressBps uint64
+
 	// mac is the MAC address of the endpoint
 	// Constant after endpoint creation / restoration.
 	mac mac.MAC // Container MAC address.
@@ -1786,6 +1789,7 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	}())
 	e.UpdateBandwidthPolicy(bwm,
 		pod.Annotations[bandwidth.EgressBandwidth],
+		pod.Annotations[bandwidth.IngressBandwidth],
 		pod.Annotations[bandwidth.Priority],
 	)
 
