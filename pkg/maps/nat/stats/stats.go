@@ -129,7 +129,7 @@ func newStats(params params) (*Stats, error) {
 	}
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+			ctx, cancel := context.WithTimeout(hc, time.Second*120)
 			defer cancel()
 			nmap4, err := params.NatMap4.Await(ctx)
 			if err != nil {
@@ -153,7 +153,7 @@ func newStats(params params) (*Stats, error) {
 			params.Jobs.Add(job.Timer("nat-stats", m.countNat, params.Config.NATMapStatInterval,
 				job.WithTrigger(tr)))
 			tr.Trigger() // trigger initial count right away
-			return params.Jobs.Start(hc)
+			return nil
 		},
 	})
 	return m, nil
