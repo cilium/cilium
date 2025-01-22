@@ -67,16 +67,16 @@ func NewEdtTable() (statedb.RWTable[Edt], error) {
 }
 
 func (e Edt) BinaryKey() encoding.BinaryMarshaler {
-	k := EdtId{uint64(e.EndpointID)}
+	k := EdtId{Id: uint32(e.EndpointID)}
 	return bpf.StructBinaryMarshaler{Target: &k}
 }
 
 func (e Edt) BinaryValue() encoding.BinaryMarshaler {
 	v := EdtInfo{
-		Bps:             e.BytesPerSecond,
-		TimeLast:        0, // Used on the BPF-side
-		TimeHorizonDrop: e.TimeHorizonDrop,
-		Prio:            e.Prio,
+		Bps:                     e.BytesPerSecond,
+		TimeLast:                0, // Used on the BPF-side
+		TimeHorizonDropOrTokens: e.TimeHorizonDrop,
+		Prio:                    e.Prio,
 	}
 	return bpf.StructBinaryMarshaler{Target: &v}
 }

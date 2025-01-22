@@ -12,6 +12,7 @@
 #include "l4.h"
 #include "icmp6.h"
 #include "csum.h"
+#include "token_bucket.h"
 
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
@@ -74,6 +75,17 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	 */
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
+
+	if (direction == METRIC_INGRESS && !from_host) {
+		/*
+		 * Traffic from nodes, local endpoints, or hairpin connections is ignored
+		 */
+		int ret;
+
+		ret = accept(ctx, ep->lxc_id);
+		if (IS_ERR(ret))
+			return ret;
+	}
 
 /*
  * When BPF host routing is enabled we need to check policies at source, as in
