@@ -23,6 +23,7 @@ type packetConn interface {
 	SetBroadcastFlag() error
 	SetIfIndex(ifIndex int)
 	SetTrafficClass(uint8) error
+	InstallICMPIDFilter(id int) error
 }
 
 type icmpConn struct {
