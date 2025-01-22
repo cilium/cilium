@@ -342,6 +342,7 @@ cilium-agent [flags]
       --policy-cidr-match-mode strings                            The entities that can be selected by CIDR policy. Supported values: 'nodes'
       --policy-queue-size uint                                    Size of queue for policy-related events (default 100)
       --policy-secrets-namespace string                           PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
+      --policy-secrets-only-from-secrets-namespace                Configures the agent to only read policy Secrets from the policy-secrets-namespace
       --pprof                                                     Enable serving pprof debugging API
       --pprof-address string                                      Address that pprof listens on (default "localhost")
       --pprof-port uint16                                         Port that pprof listens on (default 6060)
