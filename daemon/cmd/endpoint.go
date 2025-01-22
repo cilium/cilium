@@ -488,11 +488,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			ep.SetK8sMetadata(k8sMetadata.ContainerPorts)
 			identityLbls.MergeLabels(k8sMetadata.IdentityLabels)
 			infoLabels.MergeLabels(k8sMetadata.InfoLabels)
-			if _, ok := pod.Annotations[bandwidth.IngressBandwidth]; ok {
+			if _, ok := pod.Annotations[bandwidth.IngressBandwidth]; ok && !d.bwManager.Enabled() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
 					logfields.Annotations: logfields.Repr(pod.Annotations),
-				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
+				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
 					bandwidth.IngressBandwidth)
 			}
 			if _, ok := pod.Annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
