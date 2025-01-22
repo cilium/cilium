@@ -9,7 +9,10 @@ import (
 	"reflect"
 	"syscall"
 
+	"golang.org/x/net/bpf"
 	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 )
 
 // Returns the length of an ICMP message.
@@ -135,6 +138,41 @@ func (c *icmpV6Conn) SetBroadcastFlag() error {
 		"setsockopt",
 		syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1),
 	)
+}
+
+// InstallICMPIDFilter attaches a BPF program to the connection to filter ICMP packets id.
+func (c *icmpv4Conn) InstallICMPIDFilter(id int) error {
+	filter, err := bpf.Assemble([]bpf.Instruction{
+		bpf.LoadMemShift{Off: 0},          // Skip IP header
+		bpf.LoadIndirect{Off: 4, Size: 2}, // Load ICMP echo ident
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: uint32(id), SkipTrue: 0, SkipFalse: 1},                     // Jump on ICMP Echo Request (ID check)
+		bpf.RetConstant{Val: ^uint32(0)},                                                                // If our ID, accept the packet
+		bpf.LoadIndirect{Off: 0, Size: 1},                                                               // Load ICMP type
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: uint32(ipv4.ICMPTypeEchoReply), SkipTrue: 1, SkipFalse: 0}, // Check if ICMP Echo Reply
+		bpf.RetConstant{Val: 0xFFFFFFF},                                                                 // Accept packet if it's not Echo Reply
+		bpf.RetConstant{Val: 0},                                                                         // Reject Echo packet with wrong identifier
+	})
+	if err != nil {
+		return err
+	}
+	return c.c.IPv4PacketConn().SetBPF(filter)
+}
+
+// InstallICMPIDFilter attaches a BPF program to the connection to filter ICMPv6 packets id.
+func (c *icmpV6Conn) InstallICMPIDFilter(id int) error {
+	filter, err := bpf.Assemble([]bpf.Instruction{
+		bpf.LoadAbsolute{Off: 4, Size: 2},                                                               // Load ICMP echo identifier
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: uint32(id), SkipTrue: 0, SkipFalse: 1},                     // Check if it matches our identifier
+		bpf.RetConstant{Val: ^uint32(0)},                                                                // Accept if true
+		bpf.LoadAbsolute{Off: 0, Size: 1},                                                               // Load ICMP type
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: uint32(ipv6.ICMPTypeEchoReply), SkipTrue: 1, SkipFalse: 0}, // Check if it is an ICMP6 echo reply
+		bpf.RetConstant{Val: ^uint32(0)},                                                                // Accept if false
+		bpf.RetConstant{Val: 0},                                                                         // Reject if echo with wrong identifier
+	})
+	if err != nil {
+		return err
+	}
+	return c.c.IPv6PacketConn().SetBPF(filter)
 }
 
 // getFD gets the system file descriptor for an icmp.PacketConn
