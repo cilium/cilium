@@ -262,7 +262,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
 				}),
 					features: denyRules,
@@ -357,7 +357,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
 				}),
 					features: denyRules,
@@ -452,7 +452,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}}),
 					},
 				}),
 					features: denyRules,
@@ -611,12 +611,12 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 							cachedSelectorWorldV6: &PerSelectorPolicy{IsDeny: true},
 							cachedSelectorTest:    &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 							cachedSelectorWorld:   {ruleLabel},
 							cachedSelectorWorldV4: {ruleLabel},
 							cachedSelectorWorldV6: {ruleLabel},
 							cachedSelectorTest:    {ruleLabel},
-						},
+						}),
 					},
 				}),
 					features: denyRules,

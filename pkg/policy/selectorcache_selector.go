@@ -63,7 +63,7 @@ type identitySelector struct {
 	selections       versioned.Value[identity.NumericIdentitySlice]
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
-	metadataLbls     labels.LabelArray
+	metadataLbls     stringLabels
 }
 
 func (i *identitySelector) MaySelectPeers() bool {
@@ -198,7 +198,7 @@ func (i *identitySelector) GetSelections(version *versioned.VersionHandle) ident
 }
 
 func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
-	return i.metadataLbls
+	return labels.LabelArrayFromString(string(i.metadataLbls.Value()))
 }
 
 // Selects return 'true' if the CachedSelector selects the given

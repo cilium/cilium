@@ -464,7 +464,7 @@ func (p *Repository) newRule(apiRule api.Rule, key ruleKey) *rule {
 		Rule: apiRule,
 		key:  key,
 	}
-	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, r.Labels, *r.getSelector())
+	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), *r.getSelector())
 	return r
 }
 

@@ -333,7 +333,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 // forwarded to the proxy for endpoints matching those labels, but the proxy
 // will allow all such traffic.
 func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, auth *api.Authentication, hostWildcardL7 []string,
-	r api.Ports, p api.PortProtocol, proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+	r api.Ports, p api.PortProtocol, proto api.L4Proto, ruleLabels stringLabels, resMap L4PolicyMap) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4IngressFilter(policyCtx, endpoints, auth, hostWildcardL7, r, p, proto, ruleLabels)
 	if err != nil {
@@ -400,7 +400,7 @@ func rulePortsCoverSearchContext(ports []api.PortProtocol, ctx *SearchContext) b
 	return false
 }
 
-func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Authentication, toPorts, icmp api.PortsIterator, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Authentication, toPorts, icmp api.PortsIterator, ruleLabels stringLabels, resMap L4PolicyMap) (int, error) {
 	found := 0
 
 	// short-circuit if no endpoint is selected
@@ -578,7 +578,7 @@ func (r *rule) resolveIngressPolicy(
 	}
 	for _, ingressRule := range r.Ingress {
 		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirements)
-		cnt, err := mergeIngress(policyCtx, ctx, fromEndpoints, ingressRule.Authentication, ingressRule.ToPorts, ingressRule.ICMPs, r.Rule.Labels.DeepCopy(), result)
+		cnt, err := mergeIngress(policyCtx, ctx, fromEndpoints, ingressRule.Authentication, ingressRule.ToPorts, ingressRule.ICMPs, makeStringLabels(r.Rule.Labels), result)
 		if err != nil {
 			return nil, err
 		}
@@ -593,7 +593,7 @@ func (r *rule) resolveIngressPolicy(
 	}()
 	for _, ingressRule := range r.IngressDeny {
 		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirementsDeny)
-		cnt, err := mergeIngress(policyCtx, ctx, fromEndpoints, nil, ingressRule.ToPorts, ingressRule.ICMPs, r.Rule.Labels.DeepCopy(), result)
+		cnt, err := mergeIngress(policyCtx, ctx, fromEndpoints, nil, ingressRule.ToPorts, ingressRule.ICMPs, makeStringLabels(r.Rule.Labels), result)
 		if err != nil {
 			return nil, err
 		}
@@ -643,7 +643,7 @@ func (r *rule) getSubjects() []identity.NumericIdentity {
 
 // ****************** EGRESS POLICY ******************
 
-func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, toPorts, icmp api.PortsIterator, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
+func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, auth *api.Authentication, toPorts, icmp api.PortsIterator, ruleLabels stringLabels, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
 	found := 0
 
 	// short-circuit if no endpoint is selected
@@ -768,7 +768,7 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
 func mergeEgressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, auth *api.Authentication, r api.Ports, p api.PortProtocol,
-	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
+	proto api.L4Proto, ruleLabels stringLabels, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4EgressFilter(policyCtx, endpoints, auth, r, p, proto, ruleLabels, fqdns)
 	if err != nil {
@@ -806,7 +806,7 @@ func (r *rule) resolveEgressPolicy(
 	}
 	for _, egressRule := range r.Egress {
 		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirements)
-		cnt, err := mergeEgress(policyCtx, ctx, toEndpoints, egressRule.Authentication, egressRule.ToPorts, egressRule.ICMPs, r.Rule.Labels.DeepCopy(), result, egressRule.ToFQDNs)
+		cnt, err := mergeEgress(policyCtx, ctx, toEndpoints, egressRule.Authentication, egressRule.ToPorts, egressRule.ICMPs, makeStringLabels(r.Rule.Labels), result, egressRule.ToFQDNs)
 		if err != nil {
 			return nil, err
 		}
@@ -821,7 +821,7 @@ func (r *rule) resolveEgressPolicy(
 	}()
 	for _, egressRule := range r.EgressDeny {
 		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirementsDeny)
-		cnt, err := mergeEgress(policyCtx, ctx, toEndpoints, nil, egressRule.ToPorts, egressRule.ICMPs, r.Rule.Labels.DeepCopy(), result, nil)
+		cnt, err := mergeEgress(policyCtx, ctx, toEndpoints, nil, egressRule.ToPorts, egressRule.ICMPs, makeStringLabels(r.Rule.Labels), result, nil)
 		if err != nil {
 			return nil, err
 		}
