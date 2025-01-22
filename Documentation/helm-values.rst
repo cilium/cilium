@@ -3295,7 +3295,7 @@
    * - :spelling:ignore:`tls`
      - Configure TLS configuration in the agent.
      - object
-     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false},"secretSync":{"enabled":true,"secretsNamespace":{"create":true,"name":"cilium-secrets"}},"secretsBackend":"local"}``
+     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false},"readSecretsOnlyFromSecretsNamespace":null,"secretSync":{"enabled":null},"secretsBackend":null,"secretsNamespace":{"create":true,"name":"cilium-secrets"}}``
    * - :spelling:ignore:`tls.ca`
      - Base64 encoded PEM values for the CA certificate and private key. This can be used as common CA to generate certificates used by hubble and clustermesh components. It is neither required nor used when cert-manager is used to generate the certificates.
      - object
@@ -3332,30 +3332,34 @@
      - Use a Secret instead of a ConfigMap.
      - bool
      - ``false``
+   * - :spelling:ignore:`tls.readSecretsOnlyFromSecretsNamespace`
+     - Configure if the Cilium Agent will only look in ``tls.secretsNamespace`` for    CiliumNetworkPolicy relevant Secrets.    If false, the Cilium Agent will be granted READ (GET/LIST/WATCH) access    to *all* secrets in the entire cluster. This is not recommended and is    included for backwards compatibility.    This value obsoletes ``tls.secretsBackend``\ , with ``true`` == ``local`` in the old    setting, and ``false`` == ``k8s``.
+     - string
+     - ``nil``
    * - :spelling:ignore:`tls.secretSync`
      - Configures settings for synchronization of TLS Interception Secrets
      - object
-     - ``{"enabled":true,"secretsNamespace":{"create":true,"name":"cilium-secrets"}}``
+     - ``{"enabled":null}``
    * - :spelling:ignore:`tls.secretSync.enabled`
      - Enable synchronization of Secrets for TLS Interception. If disabled and tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
-     - bool
-     - ``true``
-   * - :spelling:ignore:`tls.secretSync.secretsNamespace`
-     - This configures secret synchronization for secrets used in CiliumNetworkPolicies
+     - string
+     - ``nil``
+   * - :spelling:ignore:`tls.secretsBackend`
+     - This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies (namely the secrets referenced by terminatingTLS and originatingTLS). This value is DEPRECATED and will be removed in a future version. Use ``tls.readSecretsOnlyFromSecretsNamespace`` instead. Possible values:   - local   - k8s
+     - string
+     - ``nil``
+   * - :spelling:ignore:`tls.secretsNamespace`
+     - Configures where secrets used in CiliumNetworkPolicies will be looked for
      - object
      - ``{"create":true,"name":"cilium-secrets"}``
-   * - :spelling:ignore:`tls.secretSync.secretsNamespace.create`
+   * - :spelling:ignore:`tls.secretsNamespace.create`
      - Create secrets namespace for TLS Interception secrets.
      - bool
      - ``true``
-   * - :spelling:ignore:`tls.secretSync.secretsNamespace.name`
+   * - :spelling:ignore:`tls.secretsNamespace.name`
      - Name of TLS Interception secret namespace.
      - string
      - ``"cilium-secrets"``
-   * - :spelling:ignore:`tls.secretsBackend`
-     - This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies (namely the secrets referenced by terminatingTLS and originatingTLS). Possible values:   - local   - k8s
-     - string
-     - ``"local"``
    * - :spelling:ignore:`tolerations`
      - Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
