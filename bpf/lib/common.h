@@ -343,14 +343,22 @@ struct endpoint_info {
 	__u32		pad[2];
 };
 
+#define DIRECTION_EGRESS 0
+#define DIRECTION_INGRESS 1
+
 struct edt_id {
-	__u64		id;
+	__u32		id;
+	__u8		direction;
+	__u8		pad[3];
 };
 
 struct edt_info {
 	__u64		bps;
 	__u64		t_last;
-	__u64		t_horizon_drop;
+	union {
+		__u64	t_horizon_drop;
+		__u64	tokens;
+	};
 	__u32		prio;
 	__u32		pad_32;
 	__u64		pad[3];
