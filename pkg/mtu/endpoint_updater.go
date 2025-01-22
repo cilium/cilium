@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
@@ -41,15 +42,14 @@ import (
 type endpointUpdaterParams struct {
 	cell.In
 
-	Lifecycle   cell.Lifecycle
-	Health      cell.Health
-	JobRegistry job.Registry
-	DB          *statedb.DB
-	MTUTable    statedb.Table[RouteMTU]
-	DeviceTable statedb.Table[*tables.Device]
-	Logger      *slog.Logger
-	MTUConfig   Config
-	CNI         cni.CNIConfigManager
+	JobGroup     job.Group
+	DB           *statedb.DB
+	MTUTable     statedb.Table[RouteMTU]
+	DeviceTable  statedb.Table[*tables.Device]
+	Logger       *slog.Logger
+	MTUConfig    Config
+	CNI          cni.CNIConfigManager
+	DaemonConfig *option.DaemonConfig
 }
 
 type EndpointMTUUpdater interface {
@@ -61,6 +61,11 @@ type EndpointMTUUpdater interface {
 type EndpointMTUUpdateHook func(routeMTUs []RouteMTU) error
 
 func newEndpointUpdater(p endpointUpdaterParams) EndpointMTUUpdater {
+	// In lb-only mode there are no endpoints to update.
+	if p.DaemonConfig.DatapathMode == datapathOption.DatapathModeLBOnly {
+		return nil
+	}
+
 	endpointUpdater := endpointUpdater{
 		logger:      p.Logger,
 		db:          p.DB,
@@ -84,9 +89,7 @@ func newEndpointUpdater(p endpointUpdaterParams) EndpointMTUUpdater {
 
 	// If we are not in chaining mode, or if we are in chaining mode and the CNI config requests us to manage route MTU
 	// Start the endpoint updater
-	jobGroup := p.JobRegistry.NewGroup(p.Health)
-	jobGroup.Add(job.OneShot("endpoint-mtu-updater", endpointUpdater.Updater))
-	p.Lifecycle.Append(jobGroup)
+	p.JobGroup.Add(job.OneShot("endpoint-mtu-updater", endpointUpdater.Updater))
 
 	return &endpointUpdater
 }

@@ -62,8 +62,7 @@ type mtuParams struct {
 	DB              *statedb.DB
 	MTUTable        statedb.RWTable[RouteMTU]
 	Devices         statedb.Table[*tables.Device]
-	JobRegistry     job.Registry
-	Health          cell.Health
+	JobGroup        job.Group
 	Log             *slog.Logger
 	DaemonConfig    *option.DaemonConfig
 	LocalCiliumNode k8s.LocalCiliumNodeResource
@@ -86,8 +85,6 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 
 func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	c := &Configuration{}
-	group := p.JobRegistry.NewGroup(p.Health)
-	lc.Append(group)
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			*c = NewConfiguration(
@@ -110,9 +107,9 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 					localNodeInit: make(chan struct{}),
 				}
 
-				group.Add(job.OneShot("mtu-updater", mgr.Updater))
+				p.JobGroup.Add(job.OneShot("mtu-updater", mgr.Updater))
 				if mgr.needLocalCiliumNode() {
-					group.Add(job.Observer("local-cilium-node-observer", mgr.observeLocalCiliumNode, p.LocalCiliumNode))
+					p.JobGroup.Add(job.Observer("local-cilium-node-observer", mgr.observeLocalCiliumNode, p.LocalCiliumNode))
 				}
 			} else {
 				p.Log.Info("Using configured MTU", "mtu", configuredMTU)
