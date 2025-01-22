@@ -163,7 +163,7 @@ func newStats(params params) (*Stats, error) {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+			ctx, cancel := context.WithTimeout(hc, time.Second*120)
 			defer cancel()
 			nmap4, err := params.NatMap4.Await(ctx)
 			if err != nil {
@@ -193,7 +193,7 @@ func newStats(params params) (*Stats, error) {
 				<-time.After(5 * time.Second)
 				tr.Trigger()
 			}()
-			return params.Jobs.Start(hc)
+			return nil
 		},
 		OnStop: func(hc cell.HookContext) error {
 			m.complete4(nil)
