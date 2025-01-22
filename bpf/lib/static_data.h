@@ -47,29 +47,11 @@
 #define CONFIG(name) __config_##name
 
 /* Deprecated, use CONFIG instead. */
-#define fetch_u16(x) CONFIG(x)
-#define fetch_u32(x) CONFIG(x)
-#define fetch_u64(x) CONFIG(x)
 #define fetch_ipv6(x) CONFIG(x ## _1), CONFIG(x ## _2)
 #define fetch_mac(x) { { CONFIG(x ## _1), (__u16)CONFIG(x ## _2) } }
 
-/* Deprecated, use DECLARE_CONFIG instead. */
-#define DEFINE_U16(name, value) \
-	DECLARE_CONFIG(__u16, name, "Constant " #name " declared using DEFINE_U16") \
-	ASSIGN_CONFIG(__u16, name, value)
-#define DEFINE_U32(name, value) \
-	DECLARE_CONFIG(__u32, name, "Constant " #name " declared using DEFINE_U32") \
-	ASSIGN_CONFIG(__u32, name, value)
-#define DEFINE_U64(name, value) \
-	DECLARE_CONFIG(__u64, name, "Constant " #name " declared using DEFINE_U64") \
-	ASSIGN_CONFIG(__u64, name, value)
-
-/* DEFINE_IPV6 and DEFINE_MAC are used to assign values to global constants from
- * C headers generated at runtime before the datapath is compiled. This data
- * ends up in .rodata.config in the ELF and is also inlined by the Go loader,
- * even though it's not handled by ELF variable substitution.
- *
- * Variables relying on this are THIS_INTERFACE_MAC, LXC_IP, IPV6_MASQUERADE, ROUTER_IP.
+/* DEFINE_IPV6 is used to assign values to global constants from
+ * C headers generated at runtime before the datapath is compiled.
  */
 #define DEFINE_IPV6(name, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16) \
 	DECLARE_CONFIG(__u64, name##_1, "First half of ipv6 address " #name) \
@@ -84,11 +66,3 @@
 			(__u64)(__u8)(a11) << 40 | (__u64)(__u8)(a12) << 32 | \
 			(__u64)(__u8)(a13) << 24 | (__u64)(__u8)(a14) << 16 | \
 			(__u64)(__u8)(a15) << 8  | (__u64)(__u8)(a16)));
-
-#define DEFINE_MAC(name, a1, a2, a3, a4, a5, a6) \
-	DECLARE_CONFIG(__u32, name##_1, "First 32 bits of mac address " #name) \
-	DECLARE_CONFIG(__u32, name##_2, "Remaining 16 bits of mac address " #name) \
-	ASSIGN_CONFIG(__u32, name##_1, \
-			(__u32)(__u8)(a1) << 24 | (__u32)(__u8)(a2) << 16 | \
-			(__u32)(__u8)(a3) << 8  | (__u32)(__u8)(a4)) \
-	ASSIGN_CONFIG(__u32, name##_2, (__u32)(__u8)(a5) << 8  | (__u32)(__u8)(a6))
