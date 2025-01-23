@@ -337,6 +337,24 @@ communicating via the proxy must reconnect to re-establish connections.
 * Support for ``metallb-bgp``, deprecated since 1.14, has been removed.
 * Layer 7 policy support for Cassandra and Memcached have been deprecated and
   their getting started guides have been removed.
+* TLS Visibility can now pass secrets to Envoy via SDS instead of inline via NPDS. This comes with
+  some configuration changes:
+
+  * The Helm value ``tls.secretsBackend``, which could be set to ``local`` or ``k8s`` (which would
+    grant the Agent read access to all Secrets in the cluster so it could send Secrets inline) has
+    been deprecated and replaced with ``tls.readSecretsOnlyFromSecretsNamespace``, which defaults to
+    ``true`` (the agent can only read TLS Visibility Secrets from the namespace configured in the 
+    new ``tls.secretsNamespace`` setting) or ``false`` (the agent can read TLS Visibility Secrets
+    from anywhere in the cluster, equivalent to ``tls.secretsBackend: k8s``)
+  * A new Helm value ``tls.secretSync`` has been added, which controls if TLS Visibility Secrets
+    will be synchronized to the configured secrets namespace (``tls.secretsNamespace.name``) by
+    the Cilium Operator, **and** if SDS will be used. SDS usage requires that secret synchronization
+    be enabled.
+  * The defaults for **new** clusters enable SDS via ``tls.readSecretsOnlyFromSecretsNamespace: true``
+    and ``tls.secretSync.enabled: true``
+  * The defaults for **upgraded** clusters (where ``upgradeCompatibility`` is ``v1.16``) do not enable 
+    SDS. They are: ``tls.readSecretsOnlyFromSecretsNamespace: true`` and ``tls.secretSync.enabled: false``
+
 
 Removed Options
 ~~~~~~~~~~~~~~~
