@@ -819,6 +819,17 @@ Name                                         Labels  Default    Description
 ``doublewrite_kvstore_only_identities``              Enabled    The number of identities in the KVStore not present as a CRD
 ============================================ ======= ========== ============================================================
 
+.. _identity_management_metrics:
+
+Identity Management Mode
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+=========================================== =========================== =====================================================================================
+Name                                        Labels                      Description
+=========================================== =========================== =====================================================================================
+``cid_controller_work_queue_event_count``   ``resource``, ``outcome``   Counts processed events by CID controller work queues
+``cid_controller_work_queue_latency``       ``resource``, ``phase``     Duration of CID controller work queues enqueuing and processing latencies in seconds
+=========================================== =========================== =====================================================================================
 
 Hubble
 ------
