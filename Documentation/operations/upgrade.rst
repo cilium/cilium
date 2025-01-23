@@ -316,6 +316,11 @@ Helm Options
   are now located under ``hubble.export.static`` and the dynamic exporter options that generate
   a configmap containing the exporter configuration are now under ``hubble.export.dynamic.config.content``.
 * The Helm option ``ciliumEndpointSlice.sliceMode`` has been removed. The slice mode defaults to first-come-first-serve mode.
+* The Helm chart now defaults to enabling exponential backoff for client-go by setting the environment variables
+  ``KUBE_CLIENT_BACKOFF_BASE`` and ``KUBE_CLIENT_BACKOFF_DURATION`` on the Cilium daemonset.
+  These can be customized using helm values ``k8sClientExponentialBackoff.backoffBaseSeconds`` and
+  ``k8sClientExponentialBackoff.backoffMaxDurationSeconds``. Users who were already setting these
+  using ``extraEnv`` should either remove them from ``extraEnv`` or set ``k8sClientExponentialBackoff.enabled=false``.
 
 Agent Options
 ~~~~~~~~~~~~~
