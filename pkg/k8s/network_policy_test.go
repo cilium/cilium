@@ -1874,7 +1874,7 @@ func (s *K8sSuite) TestIPBlockToCIDRRule(c *C) {
 		c.Assert(cidrRule.Generated, Equals, false)
 		c.Assert(cidrRule.Cidr, Equals, api.CIDR(block.CIDR))
 
-		if block.Except == nil || len(block.Except) == 0 {
+		if len(block.Except) == 0 {
 			c.Assert(cidrRule.ExceptCIDRs, IsNil)
 		} else {
 			c.Assert(cidrRule.ExceptCIDRs, checker.DeepEquals, exceptCIDRs)
