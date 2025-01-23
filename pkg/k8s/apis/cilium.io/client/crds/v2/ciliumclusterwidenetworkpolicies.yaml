@@ -49,6 +49,23 @@ spec:
           metadata:
             type: object
           spec:
+            anyOf:
+            - properties:
+                ingress: {}
+              required:
+              - ingress
+            - properties:
+                ingressDeny: {}
+              required:
+              - ingressDeny
+            - properties:
+                egress: {}
+              required:
+              - egress
+            - properties:
+                egressDeny: {}
+              required:
+              - egressDeny
             description: Spec is the desired Cilium specific rule specification.
             oneOf:
             - properties:
@@ -3481,6 +3498,23 @@ spec:
           specs:
             description: Specs is a list of desired Cilium specific rule specification.
             items:
+              anyOf:
+              - properties:
+                  ingress: {}
+                required:
+                - ingress
+              - properties:
+                  ingressDeny: {}
+                required:
+                - ingressDeny
+              - properties:
+                  egress: {}
+                required:
+                - egress
+              - properties:
+                  egressDeny: {}
+                required:
+                - egressDeny
               description: |-
                 Rule is a policy rule which must be applied to all endpoints which match the
                 labels contained in the endpointSelector
