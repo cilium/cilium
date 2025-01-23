@@ -93,8 +93,8 @@ func writeFlagPreamble(wr io.Writer, binary, flag string) {
 }
 
 func writeTitle(wr io.Writer, title string) {
-	fmt.Fprintf(wr, "\n"+title+"\n")
-	fmt.Fprintf(wr, strings.Map(func(r rune) rune {
+	fmt.Fprintf(wr, "\n%s\n", title)
+	fmt.Fprint(wr, strings.Map(func(r rune) rune {
 		return '='
 	}, title)+"\n\n")
 }
