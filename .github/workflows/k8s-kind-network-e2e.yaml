@@ -227,6 +227,11 @@ jobs:
           title: "Summary of all features tested"
           json-filename: "${{ env.job_name }} ${{ matrix.ipFamily }}"
 
+      - name: Gather metrics
+        uses: ./.github/actions/gather-metrics
+        with:
+          job: "${{ env.job_name }}-${{ matrix.ipFamily }}"
+
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
