@@ -6,6 +6,8 @@ package experimental
 import (
 	"context"
 	"maps"
+	"path"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -83,6 +85,13 @@ func TestScript(t *testing.T) {
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
 			flags.Set("bpf-lb-maglev-table-size", "1021")
+
+			// Expand $WORK in args. Used by testdata/sync.txtar.
+			// FIXME: Figure out a better way to do this!
+			tempDir := path.Join(path.Dir(t.TempDir()), "001")
+			for i := range args {
+				args[i] = strings.ReplaceAll(args[i], "$WORK", tempDir)
+			}
 
 			// Parse the shebang arguments in the script.
 			require.NoError(t, flags.Parse(args), "flags.Parse")

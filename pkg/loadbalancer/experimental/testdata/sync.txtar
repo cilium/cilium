@@ -1,0 +1,165 @@
+#! --enable-experimental-lb --lb-local-sync-file=$WORK/state.yaml --node-port-algorithm=maglev --enable-k8s=false
+
+hive start
+
+# Start with empty state. Tables should be empty.
+db/cmp services services_empty.table
+
+# Create one service with a frontend and backend. The expected way the local
+# synchronizer is to be used is to atomically rename(2) over the old file, which
+# guarantees that we don't see incomplete contents.
+cp state1.yaml state1.yaml.orig
+mv state1.yaml state.yaml
+
+db/cmp services services1.table
+db/cmp backends backends1.table
+db/cmp frontends frontends1.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps1.expected lbmaps.actual
+
+# Add another service
+mv state2.yaml state.yaml
+
+db/cmp services services2.table
+db/cmp backends backends2.table
+db/cmp frontends frontends2.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps2.expected lbmaps.actual
+
+# Go back to previous configuration
+mv state1.yaml.orig state.yaml
+db/cmp services services1.table
+db/cmp backends backends1.table
+db/cmp frontends frontends1.table
+
+# Check the BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps1.expected lbmaps.actual
+
+# Clear out the state with an empty file
+mv state_empty.yaml state.yaml
+db/cmp services services_empty.table
+
+# Check that BPF maps are empty
+lb/maps-dump lbmaps.actual
+* cmp lbmaps_empty.expected lbmaps.actual
+
+### 
+
+-- state.yaml --
+-- state_empty.yaml --
+-- state1.yaml --
+services:
+  - namespace: test
+    name: svc1
+    frontends:
+      - address:
+          ip: 10.0.0.1
+          port: 80
+        type: LoadBalancer
+    backends:
+      - address:
+          ip: 10.1.0.1
+          port: 80
+        state: active
+        weight: 100
+
+-- state2.yaml --
+services:
+  - namespace: test
+    name: svc1
+    frontends:
+      - address:
+          ip: 10.0.0.1
+          port: 80
+        type: LoadBalancer
+    backends:
+      - address:
+          ip: 10.1.0.1
+          port: 80
+        state: active
+        weight: 100
+  - namespace: test
+    name: svc2
+    frontends:
+      - address:
+          ip: 10.0.0.2
+          port: 80
+        type: LoadBalancer
+    backends:
+      - address:
+          ip: 10.1.0.2
+          port: 80
+        state: active
+        weight: 100
+      - address:
+          ip: 10.1.0.3
+          port: 80
+        state: active
+        weight: 50
+      - address:
+          ip: 10.1.0.4
+          port: 80
+        state: maintenance
+        weight: 10
+
+-- services_empty.table --
+Name
+
+-- services1.table --
+Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   HealthCheckNodePort   
+test/svc1   api      NONE        Cluster            Cluster            0                     
+
+-- frontends1.table --
+Address           Type         ServiceName   Backends                   Status  Error
+10.0.0.1:80/TCP   LoadBalancer test/svc1     10.1.0.1:80/TCP (active)   Done    
+
+-- backends1.table --
+Address           State    Instances   
+10.1.0.1:80/TCP   active   test/svc1
+
+
+-- services2.table --
+Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   HealthCheckNodePort   
+test/svc1   api      NONE        Cluster            Cluster            0                     
+test/svc2   api      NONE        Cluster            Cluster            0                     
+
+-- frontends2.table --
+Address           Type         ServiceName  Status  Error  Backends
+10.0.0.1:80/TCP   LoadBalancer test/svc1    Done           10.1.0.1:80/TCP (active)
+10.0.0.2:80/TCP   LoadBalancer test/svc2    Done           10.1.0.2:80/TCP (active), 10.1.0.3:80/TCP (active), 10.1.0.4:80/TCP (maintenance)
+
+-- backends2.table --
+Address           State       Instances
+10.1.0.1:80/TCP   active      test/svc1
+10.1.0.2:80/TCP   active      test/svc2
+10.1.0.3:80/TCP   active      test/svc2
+10.1.0.4:80/TCP   maintenance test/svc2
+
+-- lbmaps_empty.expected --
+
+-- lbmaps1.expected --
+BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active
+MAGLEV: ID=1 INNER=[1(1021)]
+REV: ID=1 ADDR=10.0.0.1:80
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+-- lbmaps2.expected --
+BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active
+BE: ID=3 ADDR=10.1.0.3:80/TCP STATE=active
+BE: ID=4 ADDR=10.1.0.4:80/TCP STATE=maintenance
+MAGLEV: ID=1 INNER=[1(1021)]
+MAGLEV: ID=2 INNER=[2(681), 3(340)]
+REV: ID=1 ADDR=10.0.0.1:80
+REV: ID=2 ADDR=10.0.0.2:80
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=0 BEID=0 COUNT=2 QCOUNT=1 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=3 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
