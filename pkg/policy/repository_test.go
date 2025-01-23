@@ -272,17 +272,20 @@ func TestAddSearchDelete(t *testing.T) {
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
 		Labels:           lbls1,
+		Egress:           []api.EgressRule{{}},
 	}
 	rule1.Sanitize()
 	rule2 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Labels:           lbls1,
+		Egress:           []api.EgressRule{{}},
 	}
 	rule2.Sanitize()
 	lbls2 := labels.LabelArray{labels.ParseSelectLabel("tag3")}
 	rule3 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Labels:           lbls2,
+		Egress:           []api.EgressRule{{}},
 	}
 	rule3.Sanitize()
 
