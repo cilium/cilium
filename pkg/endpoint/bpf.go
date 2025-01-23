@@ -401,7 +401,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// reverted, and execute it in case of regeneration success.
 	defer func() {
 		// Ignore finalizing of proxy state in dry mode.
-		if !e.isProperty(PropertyFakeEndpoint) && !option.Config.LoadBalancerOnly {
+		if !e.isProperty(PropertyFakeEndpoint) {
 			e.finalizeProxyState(regenContext, reterr)
 		}
 	}()
@@ -413,8 +413,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// No need to compile BPF in dry mode. Also, in lb-only mode we do not
 	// support local Pods on the worker node, hence endpoint BPF regeneration
 	// is skipped everywhere.
-	if e.isProperty(PropertyFakeEndpoint) ||
-		(option.Config.LoadBalancerOnly && !datapathRegenCtxt.epInfoCache.IsHost()) {
+	if e.isProperty(PropertyFakeEndpoint) {
 		return e.nextPolicyRevision, nil
 	}
 
@@ -629,8 +628,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// pre-existing connections using that IP are now invalid.
 	if !e.ctCleaned {
 		go func() {
-			if !e.isProperty(PropertyFakeEndpoint) &&
-				!option.Config.LoadBalancerOnly {
+			if !e.isProperty(PropertyFakeEndpoint) {
 				ipv4 := option.Config.EnableIPv4
 				ipv6 := option.Config.EnableIPv6
 				exists := ctmap.Exists(nil, ipv4, ipv6)
