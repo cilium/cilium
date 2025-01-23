@@ -31,6 +31,8 @@ func getSamplePolicy(name, ns string) *cilium_v2.CiliumNetworkPolicy {
 				},
 			},
 		},
+		Ingress: []api.IngressRule{{}},
+		Egress:  []api.EgressRule{{}},
 	}
 	return cnp
 }
