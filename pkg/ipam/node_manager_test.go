@@ -21,7 +21,6 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/testutils"
 	testipam "github.com/cilium/cilium/pkg/testutils/ipam"
 )
@@ -135,7 +134,7 @@ func (n *nodeOperationsMock) AllocateStaticIP(ctx context.Context, staticIPTags 
 
 func (n *nodeOperationsMock) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ReleaseAction {
 	n.mutex.RLock()
-	excessIPs = math.IntMin(excessIPs, len(n.allocatedIPs))
+	excessIPs = min(excessIPs, len(n.allocatedIPs))
 	r := &ReleaseAction{PoolID: testPoolID}
 	for i := 1; i <= excessIPs; i++ {
 		// Release from the end of slice to avoid releasing used IPs

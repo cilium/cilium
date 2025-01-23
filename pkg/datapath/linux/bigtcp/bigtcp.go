@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -176,7 +175,7 @@ func haveIPv6MaxSize() bool {
 }
 
 func probeTSOMaxSize(log *slog.Logger, devices []string) int {
-	maxSize := math.IntMin(bigTCPGSOMaxSize, bigTCPGROMaxSize)
+	maxSize := min(bigTCPGSOMaxSize, bigTCPGROMaxSize)
 	for _, device := range devices {
 		link, err := safenetlink.LinkByName(device)
 		if err == nil {
