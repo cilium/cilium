@@ -1922,7 +1922,7 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 		// the changed M param.
 		ipv6 := newSVC.frontend.IsIPv6() || (svc.NatPolicy == lb.SVCNatPolicyNat46)
 		recreated := s.lbmap.IsMaglevLookupTableRecreated(ipv6)
-		if option.Config.LoadBalancerOnly && newSVC.useMaglev() && recreated {
+		if newSVC.useMaglev() && recreated {
 			backends := make(map[string]*lb.Backend, len(newSVC.backends))
 			for _, b := range newSVC.backends {
 				// DumpServiceMaps() can return services with some empty (nil) backends.

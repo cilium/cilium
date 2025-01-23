@@ -90,7 +90,15 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 }
 
 func (m *LBMockMap) upsertMaglevLookupTable(svcID uint16, backends map[string]*lb.Backend, ipv6 bool) error {
-	m.DummyMaglevTable[svcID] = len(backends)
+	// Dummy table does not support weights, only store
+	// active counter right now.
+	active := 0
+	for _, b := range backends {
+		if b.State == lb.BackendStateActive {
+			active++
+		}
+	}
+	m.DummyMaglevTable[svcID] = active
 	return nil
 }
 
