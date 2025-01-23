@@ -121,15 +121,18 @@ jobs:
           echo "Generated matrix:"
           cat /tmp/matrix.json
 
-      # We use latest eksctl just to fetch recent supported versions.
-      # We don't use that eksctl to create cluster.
-      # Eksctl has hardcoded list of supported versions in the binary.
-      # This is hack until https://github.com/aws/containers-roadmap/issues/982 is resolved.
-      - name: Install eksctl CLI
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: us-west-1
+
+      - name: Run aws configure
         run: |
-          curl -LO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
-          rm eksctl_$(uname -s)_amd64.tar.gz
+          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
+          aws configure set default.region ${{ env.AWS_REGION }}
 
       - name: Filter Matrix
         id: set-matrix
@@ -137,7 +140,7 @@ jobs:
           cp /tmp/matrix.json /tmp/result.json
           jq -c '.include[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
-            eksctl version -o json | jq -r '.EKSServerSupportedVersions[]' > /tmp/output
+            aws eks describe-cluster-versions | jq -r '.clusterVersions[].clusterVersion' > /tmp/output
             if grep -q -F $VERSION /tmp/output; then
               echo "Version $VERSION is supported"
             else
