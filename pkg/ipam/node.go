@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -339,7 +338,7 @@ func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAllo
 	neededIPs = preAllocate - (availableIPs - usedIPs)
 
 	if minAllocate > 0 {
-		neededIPs = math.IntMax(neededIPs, minAllocate-availableIPs)
+		neededIPs = max(neededIPs, minAllocate-availableIPs)
 	}
 
 	// If maxAllocate is set (> 0) and neededIPs is higher than the
@@ -922,7 +921,7 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 
 	// Assign needed addresses
 	if a.allocation.IPv4.AvailableForAllocation > 0 {
-		a.allocation.IPv4.AvailableForAllocation = math.IntMin(a.allocation.IPv4.AvailableForAllocation, a.allocation.IPv4.MaxIPsToAllocate)
+		a.allocation.IPv4.AvailableForAllocation = min(a.allocation.IPv4.AvailableForAllocation, a.allocation.IPv4.MaxIPsToAllocate)
 
 		start := time.Now()
 		err := n.ops.AllocateIPs(ctx, a.allocation)
