@@ -281,6 +281,7 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		Name:                name,
 		Source:              source.Kubernetes,
 		Labels:              labels.Map2Labels(svc.Labels, string(source.Kubernetes)),
+		Selector:            svc.Spec.Selector,
 		Annotations:         svc.Annotations,
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
 	}

@@ -46,6 +46,10 @@ var Cell = cell.Module(
 	healthServerCell,
 
 	cell.Invoke(registerNodePortAddressReconciler),
+
+	// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
+	// implementation is enabled.
+	cell.DecorateAll(decorateAdapters),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
