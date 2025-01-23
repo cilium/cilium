@@ -1365,8 +1365,8 @@ func TestL3RuleLabels(t *testing.T) {
 		"rule0": {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Labels:           ruleLabels["rule0"],
-			Ingress:          []api.IngressRule{},
-			Egress:           []api.EgressRule{},
+			Ingress:          []api.IngressRule{{}},
+			Egress:           []api.EgressRule{{}},
 		},
 		"rule1": {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -1499,8 +1499,8 @@ func TestL4RuleLabels(t *testing.T) {
 		"rule0": {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Labels:           ruleLabels["rule0"],
-			Ingress:          []api.IngressRule{},
-			Egress:           []api.EgressRule{},
+			Ingress:          []api.IngressRule{{}},
+			Egress:           []api.EgressRule{{}},
 		},
 
 		"rule1": {
