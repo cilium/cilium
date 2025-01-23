@@ -258,7 +258,7 @@ func (r *cecManager) getEndpoint(serviceName string, serviceNamespace string) (*
 	iter := store.IterKeys()
 	for iter.Next() {
 		e, _, _ := store.GetByKey(iter.Key())
-		if e.EndpointSliceID.ServiceID.Name == serviceName &&
+		if e != nil && e.EndpointSliceID.ServiceID.Name == serviceName &&
 			e.EndpointSliceID.ServiceID.Namespace == serviceNamespace {
 			return e, nil
 		}
