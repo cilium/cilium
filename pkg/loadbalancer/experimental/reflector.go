@@ -64,7 +64,7 @@ type reflectorParams struct {
 }
 
 func registerK8sReflector(p reflectorParams) {
-	if !p.Writer.IsEnabled() {
+	if !p.Writer.IsEnabled() || p.ServicesResource == nil {
 		return
 	}
 	initComplete := p.Writer.RegisterInitializer("k8s")

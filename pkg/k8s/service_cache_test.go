@@ -20,6 +20,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -31,6 +32,85 @@ import (
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 )
+
+// looseMatch returns true if the provided frontend is found in the
+// FrontendList. If the frontend has a protocol value set, it only matches a
+// k8s service with a matching protocol. If no protocol is set, any k8s service
+// matching frontend IP and port is considered a match, regardless of protocol.
+func (l FrontendList) looseMatch(frontend loadbalancer.L3n4Addr) (exists bool) {
+	switch frontend.Protocol {
+	case loadbalancer.NONE:
+		for _, protocol := range loadbalancer.AllProtocols {
+			frontend.Protocol = protocol
+			_, exists = l[frontend.StringWithProtocol()]
+			if exists {
+				return
+			}
+		}
+
+	// If the protocol is set, perform an exact match
+	default:
+		_, exists = l[frontend.StringWithProtocol()]
+	}
+	return
+}
+
+// uniqueServiceFrontends returns all externally scoped services known to
+// the service cache as a map, indexed by the string representation of a
+// loadbalancer.L3n4Addr. This helper is only used in unit tests.
+func (s *ServiceCacheImpl) uniqueServiceFrontends() FrontendList {
+	uniqueFrontends := FrontendList{}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for _, svc := range s.services {
+		for _, feIP := range svc.FrontendIPs {
+			for _, p := range svc.Ports {
+				address := loadbalancer.L3n4Addr{
+					AddrCluster: cmtypes.MustAddrClusterFromIP(feIP),
+					L4Addr:      *p,
+					Scope:       loadbalancer.ScopeExternal,
+				}
+				uniqueFrontends[address.StringWithProtocol()] = struct{}{}
+			}
+		}
+
+		for _, nodePortFEs := range svc.NodePorts {
+			for _, fe := range nodePortFEs {
+				if fe.Scope == loadbalancer.ScopeExternal {
+					uniqueFrontends[fe.StringWithProtocol()] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return uniqueFrontends
+}
+
+// getServiceIP returns a random L3n4Addr that is backing the given Service ID.
+// The returned IP is with external scope since its string representation might
+// be used for net Dialer.
+// Used in tests.
+func (s *ServiceCacheImpl) getServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	svc := s.services[svcID]
+	if svc == nil || len(svc.FrontendIPs) == 0 || len(svc.Ports) == 0 {
+		return nil
+	}
+
+	feIP := ip.GetIPFromListByFamily(svc.FrontendIPs, option.Config.EnableIPv4)
+	if feIP == nil {
+		return nil
+	}
+
+	for _, port := range svc.Ports {
+		return loadbalancer.NewL3n4Addr(port.Protocol, cmtypes.MustAddrClusterFromIP(feIP), port.Port,
+			loadbalancer.ScopeExternal)
+	}
+	return nil
+}
 
 func newDB(t testing.TB) (*statedb.DB, statedb.RWTable[datapathTables.NodeAddress]) {
 	db := statedb.New()
@@ -106,7 +186,7 @@ func TestGetUniqueServiceFrontends(t *testing.T) {
 		},
 	}
 
-	frontends := cache.UniqueServiceFrontends()
+	frontends := cache.uniqueServiceFrontends()
 	require.EqualValues(t, FrontendList{
 		"1.1.1.1:10/TCP": {},
 		"1.1.1.1:20/TCP": {},
@@ -121,25 +201,25 @@ func TestGetUniqueServiceFrontends(t *testing.T) {
 		addrCluster1 := cmtypes.MustParseAddrCluster("1.1.1.1")
 		addrCluster2 := cmtypes.MustParseAddrCluster("2.2.2.2")
 		frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 10, scope)
-		require.Equal(t, exact_match_ok, frontends.LooseMatch(*frontend))
+		require.Equal(t, exact_match_ok, frontends.looseMatch(*frontend))
 		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 20, scope)
-		require.Equal(t, exact_match_ok, frontends.LooseMatch(*frontend))
+		require.Equal(t, exact_match_ok, frontends.looseMatch(*frontend))
 		frontend = loadbalancer.NewL3n4Addr(loadbalancer.UDP, addrCluster2, 20, scope)
-		require.Equal(t, exact_match_ok, frontends.LooseMatch(*frontend))
+		require.Equal(t, exact_match_ok, frontends.looseMatch(*frontend))
 
 		// Validate protocol mismatch on exact match
 		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, 20, scope)
-		require.False(t, frontends.LooseMatch(*frontend))
+		require.False(t, frontends.looseMatch(*frontend))
 
 		// Validate protocol wildcard matching
 		// These should match only for external scope
 		wild_match_ok := scope == loadbalancer.ScopeExternal
 		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, addrCluster2, 20, scope)
-		require.Equal(t, wild_match_ok, frontends.LooseMatch(*frontend))
+		require.Equal(t, wild_match_ok, frontends.looseMatch(*frontend))
 		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, addrCluster1, 10, scope)
-		require.Equal(t, wild_match_ok, frontends.LooseMatch(*frontend))
+		require.Equal(t, wild_match_ok, frontends.looseMatch(*frontend))
 		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, addrCluster1, 20, scope)
-		require.Equal(t, wild_match_ok, frontends.LooseMatch(*frontend))
+		require.Equal(t, wild_match_ok, frontends.looseMatch(*frontend))
 	}
 }
 func TestServiceCacheEndpoints(t *testing.T) {
@@ -162,10 +242,10 @@ func TestServiceCacheEndpoints(t *testing.T) {
 		},
 	})
 
-	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+	updateEndpoints := func(svcCache *ServiceCacheImpl, swgEps *lock.StoppableWaitGroup) {
 		svcCache.UpdateEndpoints(endpoints, swgEps)
 	}
-	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+	deleteEndpoints := func(svcCache *ServiceCacheImpl, swgEps *lock.StoppableWaitGroup) {
 		svcCache.DeleteEndpoints(endpoints.EndpointSliceID, swgEps)
 	}
 
@@ -198,10 +278,10 @@ func TestServiceCacheEndpointSlice(t *testing.T) {
 		},
 	})
 
-	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+	updateEndpoints := func(svcCache *ServiceCacheImpl, swgEps *lock.StoppableWaitGroup) {
 		svcCache.UpdateEndpoints(endpoints, swgEps)
 	}
-	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+	deleteEndpoints := func(svcCache *ServiceCacheImpl, swgEps *lock.StoppableWaitGroup) {
 		svcCache.DeleteEndpoints(endpoints.EndpointSliceID, swgEps)
 	}
 
@@ -209,7 +289,7 @@ func TestServiceCacheEndpointSlice(t *testing.T) {
 }
 
 func testServiceCache(t *testing.T,
-	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup)) {
+	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCacheImpl, swgEps *lock.StoppableWaitGroup)) {
 
 	db, nodeAddrs := newDB(t)
 	svcCache := NewServiceCache(db, nodeAddrs, NewSVCMetricsNoop())
@@ -237,7 +317,7 @@ func testServiceCache(t *testing.T,
 	time.Sleep(100 * time.Millisecond)
 
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received before endpoints have been imported")
 	default:
 	}
@@ -248,7 +328,7 @@ func testServiceCache(t *testing.T,
 	// The service should be ready as both service and endpoints have been
 	// imported
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -263,7 +343,7 @@ func testServiceCache(t *testing.T,
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	time.Sleep(100 * time.Millisecond)
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received for unchanged service object")
 	default:
 	}
@@ -275,7 +355,7 @@ func testServiceCache(t *testing.T,
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -290,7 +370,7 @@ func testServiceCache(t *testing.T,
 	// Reinserting the service should re-match with the still existing endpoints
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -305,7 +385,7 @@ func testServiceCache(t *testing.T,
 	// Deleting the endpoints will result in a service update event
 	deleteEndpointsCB(svcCache, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -331,7 +411,7 @@ func testServiceCache(t *testing.T,
 	// Reinserting the endpoints should re-match with the still existing service
 	updateEndpointsCB(svcCache, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -345,7 +425,7 @@ func testServiceCache(t *testing.T,
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -357,7 +437,7 @@ func testServiceCache(t *testing.T,
 	deleteEndpointsCB(svcCache, swgEps)
 	time.Sleep(100 * time.Millisecond)
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service delete event received")
 	default:
 	}
@@ -449,7 +529,7 @@ func TestForEachService(t *testing.T) {
 
 	svcID1, eps1 := svcCache.UpdateEndpoints(k8sEndpoints1, swg)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID1, event.ID)
@@ -460,7 +540,7 @@ func TestForEachService(t *testing.T) {
 	svcID2, eps2 := svcCache.UpdateEndpoints(k8sEndpoints2, swg)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		println("waiting for events2")
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID2, event.ID)
@@ -468,14 +548,14 @@ func TestForEachService(t *testing.T) {
 		return true
 	}, 2*time.Second))
 
-	services := map[ServiceID]*Endpoints{}
-	svcCache.ForEachService(func(svcID ServiceID, svc *Service, eps *EndpointSlices) bool {
-		services[svcID] = eps.GetEndpoints()
+	services := map[ServiceID]*MinimalEndpoints{}
+	svcCache.ForEachService(func(svcID ServiceID, svc *MinimalService, eps *MinimalEndpoints) bool {
+		services[svcID] = eps
 		return true
 	})
-	require.Equal(t, map[ServiceID]*Endpoints{
-		svcID1: eps1,
-		svcID2: eps2,
+	require.Equal(t, map[ServiceID]*MinimalEndpoints{
+		svcID1: newMinimalEndpoints(eps1),
+		svcID2: newMinimalEndpoints(eps2),
 	}, services)
 }
 
@@ -562,7 +642,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// The service should be ready as both service and endpoints have been
 	// imported
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -589,7 +669,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received")
 	default:
 	}
@@ -615,7 +695,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// Adding non-shared remote endpoints will not trigger a service update, regardless of whether
 	// IncludeExternal is set (i.e., the service is marked as a global one in the remote cluster).
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -651,7 +731,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// Adding non-shared remote endpoints will not trigger a service update, regardless of whether
 	// IncludeExternal is set (i.e., the service is marked as a global one in the remote cluster).
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -691,7 +771,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// Adding shared remote endpoints will trigger a service update, in case IncludeExternal
 	// is set (i.e., the service is marked as a global one in the remote cluster).
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -732,7 +812,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received")
 	default:
 	}
@@ -762,7 +842,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID2, event.ID)
@@ -788,7 +868,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// Adding another cluster to the first service will trigger an event
 	svcCache.MergeExternalServiceUpdate(cluster2svc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.EqualValues(t, &Backend{
@@ -802,7 +882,7 @@ func TestExternalServiceMerging(t *testing.T) {
 
 	svcCache.MergeExternalServiceDelete(cluster2svc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Nil(t, event.Endpoints.Backends[cmtypes.MustParseAddrCluster("4.4.4.4")])
@@ -812,7 +892,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// Deletion of the service frontend will trigger the delete notification
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -822,7 +902,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	// When re-adding the service, the remote endpoints of cluster1 must still be present
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -835,7 +915,7 @@ func TestExternalServiceMerging(t *testing.T) {
 	}, 2*time.Second))
 
 	k8sSvcID, _ := ParseService(k8sSvc, nil)
-	addresses := svcCache.GetServiceIP(k8sSvcID)
+	addresses := svcCache.getServiceIP(k8sSvcID)
 	require.EqualValues(t, loadbalancer.NewL3n4Addr(loadbalancer.TCP, cmtypes.MustParseAddrCluster("127.0.0.1"), 80, loadbalancer.ScopeExternal), addresses)
 
 	swgSvcs.Stop()
@@ -885,7 +965,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 	require.False(t, ok)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, id1, event.ID)
@@ -905,7 +985,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 	require.False(t, ok)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, id1, event.ID)
@@ -923,7 +1003,7 @@ func TestExternalServiceDeletion(t *testing.T) {
 	require.False(t, ok)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, id2, event.ID)
@@ -979,7 +1059,7 @@ func TestClusterServiceMerging(t *testing.T) {
 	// Adding a service will trigger the corresponding update containing all ready backends,
 	// regardless of whether it is marked as global or shared (since the cluster name matches).
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1037,7 +1117,7 @@ func TestNonSharedService(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received")
 	default:
 	}
@@ -1151,7 +1231,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received before endpoints have been imported")
 	default:
 	}
@@ -1164,7 +1244,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// The service should be ready as both service and endpoints have been
 	// imported for k8sEndpointSlice1
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1174,7 +1254,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// The service should be ready as both service and endpoints have been
 	// imported for k8sEndpointSlice2
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1182,7 +1262,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	}, 2*time.Second))
 
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received when endpoints not selected by a service have been imported")
 	default:
 	}
@@ -1194,7 +1274,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	time.Sleep(100 * time.Millisecond)
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received for unchanged service object")
 	default:
 	}
@@ -1202,7 +1282,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1212,7 +1292,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// Reinserting the service should re-match with the still existing endpoints
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1222,7 +1302,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// Deleting the k8sEndpointSlice2 will result in a service update event
 	svcCache.DeleteEndpoints(k8sEndpointSlice2.EndpointSliceID, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1235,7 +1315,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 
 	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1249,7 +1329,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// Reinserting the endpoints should re-match with the still existing service
 	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1263,7 +1343,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1275,7 +1355,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	time.Sleep(100 * time.Millisecond)
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service delete event received")
 	default:
 	}
@@ -1370,7 +1450,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received before endpoints have been imported")
 	default:
 	}
@@ -1382,7 +1462,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// The service should be ready as both service and endpoints have been
 	// imported for k8sEndpointSlice1
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1392,7 +1472,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// The service should be ready as both service and endpoints have been
 	// imported for k8sEndpointSlice2
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1400,7 +1480,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	}, 2*time.Second))
 
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received when endpoints not selected by a service have been imported")
 	default:
 	}
@@ -1412,7 +1492,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	time.Sleep(100 * time.Millisecond)
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service event received for unchanged service object")
 	default:
 	}
@@ -1420,7 +1500,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1430,7 +1510,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// Reinserting the service should re-match with the still existing endpoints
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1440,7 +1520,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// Deleting the k8sEndpointSlice2 will result in a service update event
 	svcCache.DeleteEndpoints(k8sEndpointSlice2.EndpointSliceID, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1453,7 +1533,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 
 	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1467,7 +1547,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// Reinserting the endpoints should re-match with the still existing service
 	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1481,7 +1561,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc, swgSvcs)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.events
 		defer event.SWGDone()
 		require.Equal(t, DeleteService, event.Action)
 		require.Equal(t, svcID, event.ID)
@@ -1493,7 +1573,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	time.Sleep(100 * time.Millisecond)
 	select {
-	case <-svcCache.Events:
+	case <-svcCache.events:
 		t.Error("Unexpected service delete event received")
 	default:
 	}
@@ -1572,7 +1652,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 	require.Equal(t, svcID1, svcID0)
 	require.Len(t, eps.Backends, 1)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.Events()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID0, event.ID)
 		require.Len(t, event.Endpoints.Backends, 1)
@@ -1585,7 +1665,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 	// generate the service update with both endpoints selected
 	store.Update(func(ln *node.LocalNode) { ln.Labels = nil })
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.Events()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID0, event.ID)
 		require.Len(t, event.Endpoints.Backends, 2)
@@ -1595,7 +1675,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 	// Set the node's zone to test-zone-1 to select the first endpoint
 	store.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{v1.LabelTopologyZone: "test-zone-1"} })
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.Events()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID0, event.ID)
 		require.Len(t, event.Endpoints.Backends, 1)
@@ -1608,7 +1688,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 	k8sSvc.ObjectMeta.Annotations = nil
 	svcID0 = svcCache.UpdateService(k8sSvc, swg)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.Events()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID0, event.ID)
 		require.Len(t, event.Endpoints.Backends, 1)
@@ -1622,7 +1702,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 	}
 	svcID1, _ = svcCache.UpdateEndpoints(k8sEndpointSlice, swg)
 	require.NoError(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
+		event := <-svcCache.Events()
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID1, event.ID)
 		require.Len(t, event.Endpoints.Backends, 2)
