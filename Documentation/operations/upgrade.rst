@@ -298,6 +298,10 @@ Removed Options
 ~~~~~~~~~~~~~~~
 
 * The previously deprecated high-scale mode for ipcache has been removed.
+* The previously deprecated flags related to CiliumEndpointSlices have been removed:
+  ``ces-write-qps-limit``, ``ces-write-qps-burst``, ``ces-enable-dynamic-rate-limit``,
+  ``ces-dynamic-rate-limit-nodes``, ``ces-dynamic-rate-limit-qps-limit``,
+  ``ces-dynamic-rate-limit-qps-burst``
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
