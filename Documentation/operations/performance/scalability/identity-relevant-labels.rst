@@ -92,13 +92,14 @@ with ``example.com``, whereas ``.*example\.com`` will match labels that contain
 the pattern matching too broadly and therefore including or excluding too many
 labels.
 
-The label patterns are using regular expressions. Therefore, using  ``kind$`` 
+The label patterns are using regular expressions. Therefore, using  ``kind$``
 or ``^kind$`` can exactly match the label key ``kind``, not just the prefix.
 
 Upon defining a custom list of label patterns in the ConfigMap, Cilium adds the
 provided list of label patterns to the default list of label patterns. After
-saving the ConfigMap, restart the Cilium Agents to pickup the new label pattern
-setting.
+saving the ConfigMap, if the Operator is managing identities (:ref:`IdentityManagementMode`),
+restart both the Cilium Operators and Agents to pickup the new label pattern setting. If the Agent
+is managing identities, restart the Cilium Agents to pickup the new label pattern.
 
 .. code-block:: shell-session
 
@@ -160,7 +161,7 @@ for Cilium identities:
 - name-defined
 
 Because we have ``$`` in label key ``kind$`` and ``other$``. Only label keys using
-exactly ``kind`` and ``other`` will be evaluated for Cilium. 
+exactly ``kind`` and ``other`` will be evaluated for Cilium.
 
 When a single inclusive label is added to the filter, all labels not defined
 in the default list will be excluded. For example, pods running with the
