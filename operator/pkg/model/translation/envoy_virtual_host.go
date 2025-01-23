@@ -20,7 +20,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
-	"github.com/cilium/cilium/pkg/math"
 )
 
 const (
@@ -70,8 +69,8 @@ func (s SortableRoute) Less(i, j int) bool {
 	}
 
 	// There are two types of prefix match, so get whichever one is bigger
-	prefixMatch1 := math.IntMax(len(s[i].Match.GetPathSeparatedPrefix()), len(s[i].Match.GetPrefix()))
-	prefixMatch2 := math.IntMax(len(s[j].Match.GetPathSeparatedPrefix()), len(s[j].Match.GetPrefix()))
+	prefixMatch1 := max(len(s[i].Match.GetPathSeparatedPrefix()), len(s[i].Match.GetPrefix()))
+	prefixMatch2 := max(len(s[j].Match.GetPathSeparatedPrefix()), len(s[j].Match.GetPrefix()))
 	headerMatch1 := len(s[i].Match.GetHeaders())
 	headerMatch2 := len(s[j].Match.GetHeaders())
 	queryMatch1 := len(s[i].Match.GetQueryParameters())

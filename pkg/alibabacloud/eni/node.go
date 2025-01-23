@@ -19,7 +19,6 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/math"
 )
 
 // The following error constants represent the error conditions for
@@ -105,8 +104,8 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	n.mutex.RUnlock()
 
 	// Must allocate secondary ENI IPs as needed, up to ENI instance limit
-	toAllocate := math.IntMin(allocation.IPv4.MaxIPsToAllocate, l.IPv4)
-	toAllocate = math.IntMin(maxENIIPCreate, toAllocate) // in first alloc no more than 10
+	toAllocate := min(allocation.IPv4.MaxIPsToAllocate, l.IPv4)
+	toAllocate = min(maxENIIPCreate, toAllocate) // in first alloc no more than 10
 	// Validate whether request has already been fulfilled in the meantime
 	if toAllocate == 0 {
 		return 0, "", nil
@@ -225,7 +224,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			}
 			stats.NodeCapacity -= primaryAllocated
 
-			availableOnENI := math.IntMax(limits.IPv4-len(e.PrivateIPSets), 0)
+			availableOnENI := max(limits.IPv4-len(e.PrivateIPSets), 0)
 			if availableOnENI > 0 {
 				stats.RemainingAvailableInterfaceCount++
 			}
@@ -270,7 +269,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 		}).Debug("Considering ENI for allocation")
 
 		// limit
-		availableOnENI := math.IntMax(l.IPv4-len(e.PrivateIPSets), 0)
+		availableOnENI := max(l.IPv4-len(e.PrivateIPSets), 0)
 		if availableOnENI <= 0 {
 			continue
 		} else {
@@ -291,7 +290,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 
 				a.InterfaceID = key
 				a.PoolID = ipamTypes.PoolID(subnet.ID)
-				a.IPv4.AvailableForAllocation = math.IntMin(subnet.AvailableAddresses, availableOnENI)
+				a.IPv4.AvailableForAllocation = min(subnet.AvailableAddresses, availableOnENI)
 			}
 		}
 	}
@@ -352,7 +351,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 			"excessIPs":      excessIPs,
 			"freeOnENICount": freeOnENICount,
 		}).Debug("ENI has unused IPs that can be released")
-		maxReleaseOnENI := math.IntMin(freeOnENICount, excessIPs)
+		maxReleaseOnENI := min(freeOnENICount, excessIPs)
 
 		r.InterfaceID = key
 		r.PoolID = ipamTypes.PoolID(e.VPC.VPCID)
