@@ -38,6 +38,19 @@ func (cfg samplerConfig) Flags(flags *pflag.FlagSet) {
 	flags.Duration("metrics-sampling-interval", defaultSamplingInterval, "Set the internal metrics sampling interval")
 }
 
+// samplingExcludedPrefixes are the prefixes of metrics that we don't care about sampling as they're
+// either uninteresting or static over the runtime.
+var samplingExcludedPrefixes = []string{
+	"cilium_event_ts",
+	"cilium_feature_",
+}
+
+func excludedFromSampling(metricName string) bool {
+	return slices.ContainsFunc(samplingExcludedPrefixes, func(prefix string) bool {
+		return strings.HasPrefix(metricName, prefix)
+	})
+}
+
 // sampler periodically samples all metrics (enabled or not).
 // The sampled metrics can be inspected with the 'metrics' command.
 // 'metrics -s' lists all metrics with samples from the past 2 hours,
@@ -329,18 +342,33 @@ func (dc *sampler) collect(health cell.Health) {
 
 	numSampled := 0
 
+	// The *Desc's we're sampling. Used to quickly decide whether or not
+	// to sample a metric without calling 'Write'.
+	shouldSampleDesc := map[*prometheus.Desc]bool{}
+
 	for metric := range metricChan {
-		var msg dto.Metric
 		desc := metric.Desc()
+		included, known := shouldSampleDesc[desc]
+		if known && !included {
+			continue
+		}
+		var msg dto.Metric
 		if err := metric.Write(&msg); err != nil {
 			continue
 		}
 		key := newMetricKey(desc, msg.Label)
+		name := key.fqName()
+		if !known {
+			included = !excludedFromSampling(name)
+			shouldSampleDesc[desc] = included
+			if !included {
+				continue
+			}
+		}
 
 		if msg.Histogram != nil {
 			var histogram *histogramSamples
 			if samples, ok := dc.metrics[key]; !ok {
-				name := key.fqName()
 				histogram = &histogramSamples{
 					baseSamples: baseSamples{name: name, labels: concatLabels(msg.Label)},
 					isSeconds:   strings.Contains(name, "seconds"),
