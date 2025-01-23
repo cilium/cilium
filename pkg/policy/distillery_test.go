@@ -1213,7 +1213,7 @@ func Test_MergeRules(t *testing.T) {
 			// ignore it and test only for the MapState that we are expecting
 			// to be plumbed into the datapath.
 			for k, v := range mapstate {
-				if v.DerivedFromRules == nil || len(v.DerivedFromRules) == 0 {
+				if len(v.DerivedFromRules) == 0 {
 					continue
 				}
 				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
