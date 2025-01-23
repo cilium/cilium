@@ -43,7 +43,6 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -81,11 +80,9 @@ var Cell = cell.Module(
 
 	cell.Provide(func(expConfig experimental.Config, maglev *maglev.Maglev) types.LBMap {
 		if expConfig.EnableExperimentalLB {
-			// The experimental control-plane is enabled. Use a fake LBMap
-			// to effectively disable the other code paths writing to LBMaps.
-			return mockmaps.NewLBMockMap()
+			// The experimental control-plane comes with its own LBMap implementation.
+			return nil
 		}
-
 		return lbmap.New(maglev)
 	}),
 

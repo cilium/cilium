@@ -144,7 +144,7 @@ type Daemon struct {
 	ipcache *ipcache.IPCache
 
 	k8sWatcher  *watchers.K8sWatcher
-	k8sSvcCache *k8s.ServiceCache
+	k8sSvcCache k8s.ServiceCache
 
 	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
 	endpointMetadataFetcher endpointMetadataFetcher
