@@ -307,6 +307,8 @@ metadata:
   name: cnp-test-1
 spec:
   endpointSelector: {}
+  ingress: 
+    - {}
 `),
 			clusterwide: false,
 			err:         ErrTopLevelDescriptionFound,
@@ -320,6 +322,8 @@ metadata:
   name: cnp-test-1
 spec:
   endpointSelector: {}
+  ingress: 
+    - {}
 `),
 			clusterwide: false,
 			err:         nil,
@@ -334,6 +338,8 @@ metadata:
   name: ccnp-test-1
 spec:
   nodeSelector: {}
+  ingress: 
+    - {}
 `),
 			clusterwide: true,
 			err:         ErrTopLevelDescriptionFound,
@@ -347,6 +353,8 @@ metadata:
   name: ccnp-test-1
 spec:
   nodeSelector: {}
+  ingress: 
+    - {}
 `),
 			clusterwide: true,
 			err:         nil,
@@ -362,6 +370,8 @@ metadata:
   name: ccnp-test-1
 spec:
   endpointSelector: {}
+  ingress: 
+    - {}
   bar: baz
 `),
 			clusterwide: false,
@@ -379,6 +389,8 @@ metadata:
   name: ccnp-test-1
 spec:
   nodeSelector: {}
+  ingress: 
+    - {}
   bar: baz
 `),
 			clusterwide: true,
