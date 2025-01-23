@@ -499,7 +499,8 @@ Makefile* @cilium/build
 /pkg/container/set/ @cilium/sig-policy
 /pkg/controller @cilium/sig-agent
 /pkg/counter @cilium/sig-datapath
-/pkg/crypto/ @cilium/sig-hubble @cilium/sig-policy
+/pkg/crypto/certificatemanager @cilium/envoy @cilium/sig-servicemesh
+/pkg/crypto/certloader @cilium/sig-hubble
 /pkg/datapath/ @cilium/sig-datapath
 /pkg/datapath/fake/ipsec.go @cilium/ipsec
 /pkg/datapath/linux/config/ @cilium/loader
