@@ -167,6 +167,9 @@ var (
 		// read-only stores.
 		agentK8s.ResourcesCell,
 
+		// StateDB tables for Kubernetes objects.
+		agentK8s.TablesCell,
+
 		// Shared synchronization structures for waiting on K8s resources to
 		// be synced
 		k8sSynced.Cell,
