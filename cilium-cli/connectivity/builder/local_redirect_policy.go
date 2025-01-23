@@ -22,8 +22,11 @@ var (
 type localRedirectPolicy struct{}
 
 func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]string) {
-	lrpFrontendIP := "169.254.169.254"
-	lrpFrontendIPSkipRedirect := "169.254.169.255"
+	lrpFrontendIPV4 := "169.254.169.254"
+	lrpFrontendIPV6 := "fd00::169:254:169:254"
+	lrpFrontendIPSkipRedirectV4 := "169.254.169.255"
+	lrpFrontendIPSkipRedirectV6 := "fd00::169:254:169:255"
+
 	newTest("local-redirect-policy", ct).
 		WithCondition(func() bool {
 			if versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
@@ -35,15 +38,27 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 		}).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
-			Name:                    "lrp-address-matcher",
-			FrontendIP:              lrpFrontendIP,
+			Name:                    "lrp-address-matcher-v4",
+			FrontendIP:              lrpFrontendIPV4,
+			SkipRedirectFromBackend: false,
+		}).
+		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
+			Policy:                  localRedirectPolicyYAML,
+			Name:                    "lrp-address-matcher-v6",
+			FrontendIP:              lrpFrontendIPV6,
 			SkipRedirectFromBackend: false,
 		}).
 		WithCiliumPolicy(localRedirectPolicyFrontendDenyYAML).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
-			Name:                    "lrp-address-matcher-skip-redirect-from-backend",
-			FrontendIP:              lrpFrontendIPSkipRedirect,
+			Name:                    "lrp-address-matcher-skip-redirect-from-backend-v4",
+			FrontendIP:              lrpFrontendIPSkipRedirectV4,
+			SkipRedirectFromBackend: true,
+		}).
+		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
+			Policy:                  localRedirectPolicyYAML,
+			Name:                    "lrp-address-matcher-skip-redirect-from-backend-v6",
+			FrontendIP:              lrpFrontendIPSkipRedirectV6,
 			SkipRedirectFromBackend: true,
 		}).
 		WithFeatureRequirements(features.RequireEnabled(features.LocalRedirectPolicy)).
@@ -53,9 +68,13 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Scenario().Name() == "lrp-skip-redirect-from-backend" {
-				if a.Source().HasLabel("lrp", "backend") &&
-					a.Destination().Address(features.IPFamilyV4) == lrpFrontendIPSkipRedirect {
-					return check.ResultPolicyDenyEgressDrop, check.ResultNone
+				if a.Source().HasLabel("lrp", "backend") {
+					if a.Destination().Address(features.IPFamilyV4) == lrpFrontendIPSkipRedirectV4 {
+						return check.ResultPolicyDenyEgressDrop, check.ResultNone
+					}
+					if a.Destination().Address(features.IPFamilyV6) == lrpFrontendIPSkipRedirectV6 {
+						return check.ResultPolicyDenyEgressDrop, check.ResultNone
+					}
 				}
 				return check.ResultOK, check.ResultNone
 			}
