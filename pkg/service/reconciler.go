@@ -21,6 +21,9 @@ import (
 // registerServiceReconciler registers a background job to synchronize NodePort frontends
 // with the new set of node addresses assigned for NodePort use.
 func registerServiceReconciler(p serviceReconcilerParams) {
+	if p.ServiceManager == nil {
+		return
+	}
 	sr := serviceReconciler(p)
 	g := p.Jobs.NewGroup(p.Health)
 	g.Add(job.OneShot("service-reconciler", sr.reconcileLoop))
