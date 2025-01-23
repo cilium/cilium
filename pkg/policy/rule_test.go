@@ -1156,8 +1156,8 @@ func TestL3RuleLabels(t *testing.T) {
 		"rule0": {
 			EndpointSelector: endpointSelectorA,
 			Labels:           ruleLabels["rule0"],
-			Ingress:          []api.IngressRule{},
-			Egress:           []api.EgressRule{},
+			Ingress:          []api.IngressRule{{}},
+			Egress:           []api.EgressRule{{}},
 		},
 		"rule1": {
 			EndpointSelector: endpointSelectorA,
@@ -1282,8 +1282,8 @@ func TestL4RuleLabels(t *testing.T) {
 		"rule0": {
 			EndpointSelector: endpointSelectorA,
 			Labels:           ruleLabels["rule0"],
-			Ingress:          []api.IngressRule{},
-			Egress:           []api.EgressRule{},
+			Ingress:          []api.IngressRule{{}},
+			Egress:           []api.EgressRule{{}},
 		},
 
 		"rule1": {
