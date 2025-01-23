@@ -492,7 +492,9 @@ The following sizes for ``M`` are supported as ``maglev.tableSize`` Helm option:
 
 For example, a ``maglev.tableSize`` of ``16381`` is suitable for a maximum of ``~160`` backends
 per service. If a higher number of backends are provisioned under this setting, then the
-difference in reassignments on backend changes will increase.
+difference in reassignments on backend changes will increase. Note that changing the table
+size (``M``) triggers a recalculation of the lookup table and can temporarily lead to inconsistent
+backend selection for new traffic until all nodes have converged and completed their agent restart.
 
 The ``maglev.hashSeed`` option is recommended to be set in order for Cilium to not rely on the
 fixed built-in seed. The seed is a base64-encoded 12 byte-random number, and can be
