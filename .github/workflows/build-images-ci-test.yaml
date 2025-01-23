@@ -33,6 +33,9 @@ jobs:
           - name: hubble-relay
             dockerfile: ./images/hubble-relay/Dockerfile
             platforms: linux/amd64,linux/arm64
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
     steps:
       - name: Checkout default branch (trusted)
