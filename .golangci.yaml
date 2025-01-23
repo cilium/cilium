@@ -93,6 +93,10 @@ linters-settings:
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
+    - linters: [govet]
+      text: "non-constant format string"
+    - linters: [staticcheck]
+      text: "SA1006" # printf-style function with dynamic format string and no further arguments should use print-style function instead
     - linters: [staticcheck]
       text: "SA1019"                  # this is rule for deprecated method
     - linters: [staticcheck]
