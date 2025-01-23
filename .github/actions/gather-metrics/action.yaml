@@ -1,0 +1,26 @@
+name: Gather metrics
+description: Gathers cilium-agent metrics on success and uploads them
+
+inputs:
+  job:
+    required: true
+    description: "Job name"
+
+runs:
+  using: composite
+  steps:
+    - name: Gather metrics
+      if: ${{ success() && steps.install-cilium.outcome != 'skipped' }}
+      run: |
+        for pod in $(kubectl get -n kube-system pods -l k8s-app=cilium -o name); do
+          out="metrics-${{ inputs.job }}-${pod#pod/}.html"
+          kubectl exec -n kube-system $pod -- cilium-dbg shell -- metrics/html > "$out"
+        done
+      shell: bash {0}
+
+    - name: Upload metrics
+      if: ${{ success() && steps.install-cilium.outcome != 'skipped' }}
+      uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+      with:
+        name: metrics
+        path: metrics-*.html
