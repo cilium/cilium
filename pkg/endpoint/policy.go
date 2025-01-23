@@ -534,7 +534,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 
 	// Start periodic background full reconciliation of the policy map.
 	// Does nothing if it has already been started.
-	if !e.isProperty(PropertyFakeEndpoint) && !option.Config.LoadBalancerOnly {
+	if !e.isProperty(PropertyFakeEndpoint) {
 		e.startSyncPolicyMapController()
 	}
 
