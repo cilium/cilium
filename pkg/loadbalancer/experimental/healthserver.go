@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
+	"os"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -72,10 +74,28 @@ func registerHealthServer(params healthServerParams) {
 	params.Jobs.Add(job.OneShot("control-loop", s.controlLoop))
 }
 
+func chooseHealthServerLoopbackAddress() netip.Addr {
+	// Choose a loopback IP address that's tied to the process ID.
+	// This makes it possible to stress test the health server in parallel
+	// as each process gets its own address. In production the agent runs
+	// in its own PID namespace and this always returns 127.1.0.1.
+	pid := os.Getpid()
+	return netip.AddrFrom4(
+		[4]byte{
+			127,
+			1 | byte(pid>>16&0xff),
+			byte(pid >> 8 & 0xff),
+			1 | byte(pid&0xff),
+		},
+	)
+}
+
 var (
 	// healthServerAddr is the IP address on which the health HTTP servers
-	// listen on.
-	healthServerAddr = cmtypes.MustParseAddrCluster("127.0.0.88")
+	// listen on. We use the process ID as the seed for choosing the address
+	// to allow parallel testing. In production use it's deterministically
+	// 127.1.0.1.
+	healthServerAddr = cmtypes.AddrClusterFrom(chooseHealthServerLoopbackAddress(), 0)
 )
 
 func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) error {
@@ -215,6 +235,7 @@ func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer 
 			fmt.Sprintf("listener-%d", port),
 			func(ctx context.Context, health cell.Health) error {
 				if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+					fmt.Printf(">>> ListenAndServe: %s\n", err)
 					return err
 				}
 				return nil
