@@ -19,8 +19,6 @@
 
 #define NODE_IP			v4_node_one
 
-#define SECCTX_FROM_IPCACHE 1
-
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *server_mac = mac_two;
 

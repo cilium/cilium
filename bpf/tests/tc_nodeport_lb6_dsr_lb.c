@@ -52,8 +52,6 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	return BPF_FIB_LKUP_RET_SUCCESS;
 }
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include <bpf_host.c>
 
 #include "lib/ipcache.h"

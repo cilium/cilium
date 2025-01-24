@@ -12,7 +12,6 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_IPSEC
-#define SECCTX_FROM_IPCACHE 1
 
 #define ENCAP_IFINDEX 4
 #define skb_set_tunnel_key mock_skb_set_tunnel_key
