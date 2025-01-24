@@ -788,6 +788,23 @@ func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFu
 		status.CollectionError(err)
 	}
 
+	err = k.podStatus(ctx, status, defaults.OperatorDeploymentName, defaults.OperatorPodSelector, func(_ context.Context, status *Status, name string, pod *corev1.Pod) {
+		if pod.Status.Phase == corev1.PodRunning {
+			// extract container status
+			var containerStatus *corev1.ContainerStatus
+			for i, cStatus := range pod.Status.ContainerStatuses {
+				if cStatus.Name == defaults.OperatorContainerName {
+					containerStatus = &pod.Status.ContainerStatuses[i]
+					break
+				}
+			}
+			tasks = append(tasks, k.logComponentTask(status, pod.Namespace, defaults.OperatorDeploymentName, pod.Name, defaults.OperatorContainerName, containerStatus))
+		}
+	})
+	if err != nil {
+		status.CollectionError(err)
+	}
+
 	wc := k.params.WorkerCount
 	if wc < 1 {
 		wc = DefaultWorkerCount
