@@ -247,8 +247,12 @@ func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], no
 	onlyLocal := shouldUseLocalBackends(fe)
 	isIPv6 := fe.Address.IsIPv6()
 
+	// Get the iterator for the backends first since we cannot capture [txn] and
+	// use it after it has been committed. We can however use the iterators safely
+	// and pass it to other goroutines.
+	bes := tbl.List(txn, BackendByServiceName(fe.ServiceName))
 	return func(yield func(*Backend, statedb.Revision) bool) {
-		for be, rev := range tbl.List(txn, BackendByServiceName(fe.ServiceName)) {
+		for be, rev := range bes {
 			if be.L3n4Addr.IsIPv6() != isIPv6 {
 				continue
 			}
