@@ -60,6 +60,10 @@ type K8sStatusParameters struct {
 	// Interactive specifies whether the summary output refreshes after each
 	// retry when --wait flag is specified.
 	Interactive bool
+
+	// Verbose increases the verbosity of certain output, such as Cilium
+	// error logs on failure.
+	Verbose bool
 }
 
 type K8sStatusCollector struct {
@@ -447,7 +451,7 @@ func (k *K8sStatusCollector) logComponentTask(status *Status, namespace, deploym
 						if errLogCollection != nil {
 							status.CollectionError(fmt.Errorf("failed to gather logs from %s:%s:%s: %w", namespace, podName, containerName, err))
 						} else if logs != "" {
-							lastLog := k.processLogs(strings.TrimSpace(logs))
+							lastLog := k.processLogs(logs)
 							err = fmt.Errorf("container %s %s:\n%s", containerName, desc, lastLog)
 						}
 					}
@@ -467,12 +471,51 @@ func (k *K8sStatusCollector) logComponentTask(status *Status, namespace, deploym
 }
 
 func (k *K8sStatusCollector) processLogs(logs string) string {
-	lines := strings.Split(dyingGasp, "\n")
-	lastLog = ""
-	for i := 0; i < min(len(lines), 50); i+
-		lastLog += fmt.Sprintf("\n%s", lines[i])
+	logs = strings.TrimSpace(logs)
+	if k.params.Verbose {
+		return logs
 	}
-	return lastLog
+
+	// If the log is small, just print the whole thing.
+	context := 5 // lines
+	lines := strings.Split(logs, "\n")
+	if len(lines) <= context*2 {
+		return logs
+	}
+
+	// There's a few critical things in most logs:
+	// - A few of the oldest lines from initial startup
+	// - A few of the newest lines with the final error
+	// - Anything marked with warning level or higher severity
+	truncated := false
+	result := lines[:context]
+	for i := context; i < len(lines); i++ {
+		// Always keep the end of the log
+		if i >= len(lines)-context {
+			result = append(result, lines[i])
+			continue
+		}
+
+		// Keep serious-looking logs
+		switch {
+		case strings.Contains(lines[i], "level=warn"):
+			result = append(result, lines[i])
+			truncated = false
+		case strings.Contains(lines[i], "level=err"):
+			result = append(result, lines[i])
+			truncated = false
+		case strings.Contains(lines[i], "level=fatal"):
+			result = append(result, lines[i])
+			truncated = false
+		default:
+			if !truncated {
+				result = append(result, "<...>")
+				truncated = true
+			}
+		}
+	}
+
+	return strings.Join(result, "\n")
 }
 
 func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFunc) *Status {
