@@ -203,6 +203,7 @@ jobs:
           tags: ${{ steps.tag.outputs.normal_tag }}
           target: release
           build-args: |
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
@@ -217,7 +218,8 @@ jobs:
           tags: ${{ steps.tag.outputs.race_tag }}
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:1ff0369ec230bfa756d75471ad2ba152d7da4b60@sha256:d8fc077a4fc17175b96090754b8d313774d47a010ce228d76586ba746f6b2a09
+            BASE_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
@@ -233,6 +235,7 @@ jobs:
           tags: ${{ steps.tag.outputs.unstripped_tag }}
           target: release
           build-args: |
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
