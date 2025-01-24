@@ -7095,7 +7095,7 @@ type InstanceBlockDeviceMappingSpecification struct {
 	// launched.
 	Ebs *EbsInstanceBlockDeviceSpecification
 
-	// Suppresses the specified device included in the block device mapping.
+	// suppress the specified device included in the block device mapping.
 	NoDevice *string
 
 	// The virtual device name.
@@ -7843,9 +7843,12 @@ type InstanceNetworkInterfaceSpecification struct {
 	// [RunInstances]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html
 	PrivateIpAddresses []PrivateIpAddressSpecification
 
-	// The number of secondary private IPv4 addresses. You can’t specify this
-	// parameter and also specify a secondary private IP address using the
-	// PrivateIpAddress parameter.
+	// The number of secondary private IPv4 addresses. You can't specify this option
+	// and specify more than one private IP address using the private IP addresses
+	// option. You cannot specify this option if you're launching more than one
+	// instance in a [RunInstances]request.
+	//
+	// [RunInstances]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances.html
 	SecondaryPrivateIpAddressCount *int32
 
 	// The ID of the subnet associated with the network interface. Applies only if
@@ -8006,11 +8009,9 @@ type InstanceRequirements struct {
 
 	// The accelerator types that must be on the instance type.
 	//
-	//   - For instance types with FPGA accelerators, specify fpga .
-	//
 	//   - For instance types with GPU accelerators, specify gpu .
 	//
-	//   - For instance types with Inference accelerators, specify inference .
+	//   - For instance types with FPGA accelerators, specify fpga .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -8377,11 +8378,9 @@ type InstanceRequirementsRequest struct {
 
 	// The accelerator types that must be on the instance type.
 	//
-	//   - For instance types with FPGA accelerators, specify fpga .
+	//   - To include instance types with GPU hardware, specify gpu .
 	//
-	//   - For instance types with GPU accelerators, specify gpu .
-	//
-	//   - For instance types with Inference accelerators, specify inference .
+	//   - To include instance types with FPGA hardware, specify fpga .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -10195,7 +10194,7 @@ type Ipv6PrefixSpecification struct {
 	noSmithyDocumentSerde
 }
 
-// Describes the IPv6 prefix option for a network interface.
+// Describes the IPv4 prefix option for a network interface.
 type Ipv6PrefixSpecificationRequest struct {
 
 	// The IPv6 prefix.
