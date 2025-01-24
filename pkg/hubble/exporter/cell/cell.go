@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 )
 
@@ -32,9 +33,9 @@ type config struct {
 	// ExportFileCompress specifies whether rotated files are compressed.
 	ExportFileCompress bool `mapstructure:"hubble-export-file-compress"`
 	// ExportAllowlist specifies allow list filter use by exporter.
-	ExportAllowlist []*flowpb.FlowFilter `mapstructure:"hubble-export-allowlist"`
+	ExportAllowlist string `mapstructure:"hubble-export-allowlist"`
 	// ExportDenylist specifies deny list filter use by exporter.
-	ExportDenylist []*flowpb.FlowFilter `mapstructure:"hubble-export-denylist"`
+	ExportDenylist string `mapstructure:"hubble-export-denylist"`
 	// ExportFieldmask specifies list of fields to log in exporter.
 	ExportFieldmask []string `mapstructure:"hubble-export-fieldmask"`
 }
@@ -45,8 +46,8 @@ var DefaultConfig = config{
 	ExportFileMaxSizeMB:    10,
 	ExportFileMaxBackups:   5,
 	ExportFileCompress:     false,
-	ExportAllowlist:        []*flowpb.FlowFilter{},
-	ExportDenylist:         []*flowpb.FlowFilter{},
+	ExportAllowlist:        "",
+	ExportDenylist:         "",
 	ExportFieldmask:        []string{},
 }
 
@@ -56,8 +57,8 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Int("hubble-export-file-max-size-mb", def.ExportFileMaxSizeMB, "Size in MB at which to rotate Hubble export file.")
 	flags.Int("hubble-export-file-max-backups", def.ExportFileMaxBackups, "Number of rotated Hubble export files to keep.")
 	flags.Bool("hubble-export-file-compress", def.ExportFileCompress, "Compress rotated Hubble export files.")
-	flags.StringSlice("hubble-export-allowlist", []string{}, "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
-	flags.StringSlice("hubble-export-denylist", []string{}, "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
+	flags.String("hubble-export-allowlist", "", "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
+	flags.String("hubble-export-denylist", "", "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
 	flags.StringSlice("hubble-export-fieldmask", def.ExportFieldmask, "Specify list of fields to use for field mask in Hubble exporter.")
 }
 
@@ -104,9 +105,18 @@ func NewHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 		return hubbleExportersOut{}, nil
 	}
 
+	allowList, err := hubble.ParseFlowFilters(params.Config.ExportAllowlist)
+	if err != nil {
+		return hubbleExportersOut{}, fmt.Errorf("failed to parse allowlist: %w", err)
+	}
+	denyList, err := hubble.ParseFlowFilters(params.Config.ExportDenylist)
+	if err != nil {
+		return hubbleExportersOut{}, fmt.Errorf("failed to parse denylist: %w", err)
+	}
+
 	exporterOpts := []exporter.Option{
-		exporter.WithAllowList(params.Logger, params.Config.ExportAllowlist),
-		exporter.WithDenyList(params.Logger, params.Config.ExportDenylist),
+		exporter.WithAllowList(params.Logger, allowList),
+		exporter.WithDenyList(params.Logger, denyList),
 		exporter.WithFieldMask(params.Config.ExportFieldmask),
 	}
 	if params.Config.ExportFilePath != "stdout" {
