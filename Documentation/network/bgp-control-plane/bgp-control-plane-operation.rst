@@ -170,7 +170,7 @@ Service's ``externalTrafficPolicy`` is set to ``Local``, it is inevitable that
 all ongoing connections with the endpoints on the failed node, and connections
 forwarded to a different node than before, will be reset.
 
-.. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/switches-interface-resilient-hashing.html
+.. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/resillient-hashing-lag-ecmp.html
 
 Node Down
 ---------
