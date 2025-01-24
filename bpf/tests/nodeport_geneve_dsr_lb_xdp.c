@@ -36,7 +36,7 @@
 #define IPV4_DIRECT_ROUTING	LB_IP
 #define BACKEND_NODE_IP		v4_node_two
 
-#define DIRECT_ROUTING_IFINDEX	25
+#define DIRECT_ROUTING_DEV_IFINDEX	25
 
 #define BACKEND_IP_LOCAL	v4_pod_one
 #define BACKEND_IP_REMOTE	v4_pod_two
@@ -58,7 +58,7 @@ static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
 		  __u32 flags __maybe_unused)
 {
-	if (ifindex != DIRECT_ROUTING_IFINDEX)
+	if (ifindex != DIRECT_ROUTING_DEV_IFINDEX)
 		return CTX_ACT_DROP;
 
 	return CTX_ACT_REDIRECT;
@@ -70,7 +70,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	if (fail_fib)
 		return BPF_FIB_LKUP_RET_NO_NEIGH;
 
-	params->ifindex = DIRECT_ROUTING_IFINDEX;
+	params->ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 
 	if (params->ipv4_dst == BACKEND_NODE_IP) {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
