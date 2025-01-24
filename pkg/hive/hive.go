@@ -16,11 +16,9 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
-	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -113,20 +111,6 @@ var decodeHooks = cell.DecodeHooks{
 			return data, nil
 		}
 		return cidr.ParseCIDR(s)
-	},
-	// Decode JSON encoded *flowpb.FlowFilter fields
-	func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		if from.Kind() != reflect.Slice {
-			return data, nil
-		}
-		xs, ok := data.([]string)
-		if !ok {
-			return data, nil
-		}
-		if to != reflect.TypeOf(([]*flowpb.FlowFilter)(nil)) {
-			return data, nil
-		}
-		return hubble.ParseFlowFilters(xs...)
 	},
 }
 
