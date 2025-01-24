@@ -261,7 +261,8 @@ type AllocationType string
 
 // Enum values for AllocationType
 const (
-	AllocationTypeUsed AllocationType = "used"
+	AllocationTypeUsed   AllocationType = "used"
+	AllocationTypeFuture AllocationType = "future"
 )
 
 // Values returns all known values for AllocationType. Note that this can be
@@ -271,6 +272,7 @@ const (
 func (AllocationType) Values() []AllocationType {
 	return []AllocationType{
 		"used",
+		"future",
 	}
 }
 
