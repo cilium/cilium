@@ -22,6 +22,20 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 	// unencrypted packets shall, or shall not, be observed based on the feature set.
 	newTest("pod-to-pod-encryption", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithCondition(func() bool {
+
+			// for wireguard, we can run the podToPodEncryptionV2 tests if we
+			// are on a post v1.18 cluster
+			encryptionPod, ok := ct.Feature(features.EncryptionPod)
+			if !ok {
+				return false
+			}
+			if encryptionPod.Mode == "wireguard" && versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
+				return false
+			}
+
+			return true
+		}).
 		WithScenarios(
 			tests.PodToPodEncryption(features.RequireEnabled(features.EncryptionPod)),
 		)
@@ -29,6 +43,16 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 	newTest("pod-to-pod-with-l7-policy-encryption", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithCondition(func() bool {
+			// for wireguard, we can run the podToPodEncryptionV2 tests if we
+			// are on a post v1.18 cluster
+			encryptionPod, ok := ct.Feature(features.EncryptionPod)
+			if !ok {
+				return false
+			}
+			if encryptionPod.Mode == "wireguard" && versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
+				return false
+			}
+
 			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec")); ok {
 				// Introduced in v1.17.0, backported to v1.15.11 and v1.16.4.
 				if !versioncheck.MustCompile(">=1.15.11 <1.16.0 || >=1.16.4")(ct.CiliumVersion) {
