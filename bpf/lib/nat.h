@@ -695,22 +695,29 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 #endif
 
+	/* Masquerading for pod-to-remote-node traffic depends on the
+	 * datapath configuration (native vs overlay routing):
+	 */
 	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
-	if (remote_ep) {
-		/* In the tunnel mode, a packet from a local ep
-		 * to a remote node is not encap'd, and is sent
-		 * via a native dev. Therefore, such packet has
-		 * to be MASQ'd. Otherwise, it might be dropped
+	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
+		/* Don't masquerade in native-routing mode: */
+		if (!is_defined(TUNNEL_MODE))
+			return NAT_PUNT_TO_STACK;
+
+		/* In overlay routing mode, pod-to-remote-node traffic
+		 * typically doesn't get transported via the overlay
+		 * network (https://github.com/cilium/cilium/issues/12624).
+		 *
+		 * Therefore such packet has to be masqueraded.
+		 * Otherwise it might be dropped
 		 * either by underlying network (e.g. AWS drops
 		 * packets by default from unknown subnets) or
 		 * by the remote node if its native dev's
 		 * rp_filter=1.
 		 */
 
-		if (!is_defined(TUNNEL_MODE) || remote_ep->flag_skip_tunnel) {
-			if (identity_is_remote_node(remote_ep->sec_identity))
-				return NAT_PUNT_TO_STACK;
-		}
+		if (remote_ep->flag_skip_tunnel)
+			return NAT_PUNT_TO_STACK;
 	}
 
 	if (local_ep) {
@@ -1551,11 +1558,12 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #endif
 
 	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
-	if (remote_ep) {
-		if (!is_defined(TUNNEL_MODE) || remote_ep->flag_skip_tunnel) {
-			if (identity_is_remote_node(remote_ep->sec_identity))
-				return NAT_PUNT_TO_STACK;
-		}
+	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
+		if (!is_defined(TUNNEL_MODE))
+			return NAT_PUNT_TO_STACK;
+
+		if (remote_ep->flag_skip_tunnel)
+			return NAT_PUNT_TO_STACK;
 	}
 
 	if (local_ep) {
