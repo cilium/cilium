@@ -129,7 +129,6 @@ endif
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
 integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 	@$(ECHO_CHECK) running integration tests...
 	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
@@ -513,10 +512,12 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 force :;
 
 BPF_TEST_FILE ?= ""
+BPF_TEST_DUMP_CTX ?= ""
+BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
 	DOCKER_ARGS=--privileged contrib/scripts/builder.sh \
-		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "run" "BPF_TEST_FILE=$(BPF_TEST_FILE)"
+		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "run" "BPF_TEST_FILE=$(BPF_TEST_FILE)" "BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" "V=$(BPF_TEST_VERBOSE)"
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
 	DOCKER_ARGS=-it contrib/scripts/builder.sh bash

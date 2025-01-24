@@ -35,7 +35,7 @@ var Cell = cell.Module(
 	"envoy-proxy",
 	"Envoy proxy and control-plane",
 
-	cell.Config(envoyProxyConfig{}),
+	cell.Config(ProxyConfig{}),
 	cell.Config(secretSyncConfig{}),
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
@@ -46,11 +46,12 @@ var Cell = cell.Module(
 	cell.Invoke(registerSecretSyncer),
 )
 
-type envoyProxyConfig struct {
+type ProxyConfig struct {
 	DisableEnvoyVersionCheck          bool
 	ProxyPrometheusPort               int
 	ProxyAdminPort                    int
 	EnvoyLog                          string
+	EnvoyAccessLogBufferSize          uint
 	EnvoyDefaultLogLevel              string
 	EnvoyBaseID                       uint64
 	EnvoyKeepCapNetbindservice        bool
@@ -72,10 +73,11 @@ type envoyProxyConfig struct {
 	ProxyXffNumTrustedHopsEgress      uint32
 }
 
-func (r envoyProxyConfig) Flags(flags *pflag.FlagSet) {
+func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy version check")
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
+	flags.Uint("envoy-access-log-buffer-size", 4096, "Envoy access log buffer size in bytes")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String("envoy-default-log-level", "", "Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.")
 	flags.Uint64("envoy-base-id", 0, "Envoy base ID")
@@ -125,7 +127,7 @@ type xdsServerParams struct {
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalEndpointStore *LocalEndpointStore
 
-	EnvoyProxyConfig envoyProxyConfig
+	EnvoyProxyConfig ProxyConfig
 
 	// Depend on access log server to enforce init order.
 	// This ensures that the access log server is ready before it gets used by the
@@ -158,6 +160,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			httpRetryTimeout:              int(params.EnvoyProxyConfig.HTTPRetryTimeout),
 			httpNormalizePath:             params.EnvoyProxyConfig.HTTPNormalizePath,
 			useFullTLSContext:             params.EnvoyProxyConfig.UseFullTLSContext,
+			useSDS:                        params.SecretManager.PolicySecretSyncEnabled(),
 			proxyXffNumTrustedHopsIngress: params.EnvoyProxyConfig.ProxyXffNumTrustedHopsIngress,
 			proxyXffNumTrustedHopsEgress:  params.EnvoyProxyConfig.ProxyXffNumTrustedHopsEgress,
 		},
@@ -205,7 +208,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	return xdsServer, nil
 }
 
-func newEnvoyAdminClient(envoyProxyConfig envoyProxyConfig) *EnvoyAdminClient {
+func newEnvoyAdminClient(envoyProxyConfig ProxyConfig) *EnvoyAdminClient {
 	return NewEnvoyAdminClientForSocket(GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
 }
 
@@ -214,7 +217,7 @@ type accessLogServerParams struct {
 
 	Lifecycle          cell.Lifecycle
 	LocalEndpointStore *LocalEndpointStore
-	EnvoyProxyConfig   envoyProxyConfig
+	EnvoyProxyConfig   ProxyConfig
 }
 
 func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
@@ -223,7 +226,7 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 		return nil
 	}
 
-	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.EnvoyProxyConfig.ProxyGID, params.LocalEndpointStore)
+	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.EnvoyProxyConfig.ProxyGID, params.LocalEndpointStore, params.EnvoyProxyConfig.EnvoyAccessLogBufferSize)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
@@ -249,7 +252,7 @@ type versionCheckParams struct {
 	Logger           logrus.FieldLogger
 	JobRegistry      job.Registry
 	Health           cell.Health
-	EnvoyProxyConfig envoyProxyConfig
+	EnvoyProxyConfig ProxyConfig
 	EnvoyAdminClient *EnvoyAdminClient
 }
 
@@ -341,7 +344,7 @@ func registerSecretSyncer(params syncerParams) error {
 		params.Config.EnvoySecretsNamespace:           func() bool { return option.Config.EnableEnvoyConfig },
 		params.Config.IngressSecretsNamespace:         func() bool { return params.Config.EnableIngressController },
 		params.Config.GatewayAPISecretsNamespace:      func() bool { return params.Config.EnableGatewayAPI },
-		params.SecretManager.GetSecretSyncNamespace(): func() bool { return params.SecretManager.PolicySecretSyncEnabled() },
+		params.SecretManager.GetSecretSyncNamespace(): func() bool { return params.SecretManager.SecretsOnlyFromSecretsNamespace() },
 	} {
 		if len(namespace) > 0 && cond() {
 			namespaces[namespace] = struct{}{}

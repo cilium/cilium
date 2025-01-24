@@ -16,6 +16,7 @@
 #include "mono.h"
 #include "config.h"
 #include "tunnel.h"
+#include "notify.h"
 
 #include "source_info.h"
 
@@ -90,8 +91,8 @@ enum {
 #define CILIUM_CALL_IPV4_FROM_LXC		7
 #define CILIUM_CALL_IPV4_FROM_NETDEV		CILIUM_CALL_IPV4_FROM_LXC
 #define CILIUM_CALL_IPV4_FROM_OVERLAY		CILIUM_CALL_IPV4_FROM_LXC
-#define CILIUM_CALL_IPV46_RFC8215		8
-#define CILIUM_CALL_IPV64_RFC8215		9
+#define CILIUM_CALL_IPV46_RFC6052		8
+#define CILIUM_CALL_IPV64_RFC6052		9
 #define CILIUM_CALL_IPV6_FROM_LXC		10
 #define CILIUM_CALL_IPV6_FROM_NETDEV		CILIUM_CALL_IPV6_FROM_LXC
 #define CILIUM_CALL_IPV6_FROM_OVERLAY		CILIUM_CALL_IPV6_FROM_LXC
@@ -541,47 +542,6 @@ enum {
 	CAPTURE_EGRESS = 2,
 };
 
-enum {
-	CILIUM_NOTIFY_UNSPEC,
-	CILIUM_NOTIFY_DROP,
-	CILIUM_NOTIFY_DBG_MSG,
-	CILIUM_NOTIFY_DBG_CAPTURE,
-	CILIUM_NOTIFY_TRACE,
-	CILIUM_NOTIFY_POLICY_VERDICT,
-	CILIUM_NOTIFY_CAPTURE,
-	CILIUM_NOTIFY_TRACE_SOCK,
-};
-
-#define NOTIFY_COMMON_HDR \
-	__u8		type;		\
-	__u8		subtype;	\
-	__u16		source;		\
-	__u32		hash;
-
-#define NOTIFY_CAPTURE_HDR \
-	NOTIFY_COMMON_HDR						\
-	__u32		len_orig;	/* Length of original packet */	\
-	__u16		len_cap;	/* Length of captured bytes */	\
-	__u16		version;	/* Capture header version */
-
-#define __notify_common_hdr(t, s)	\
-	.type		= (t),		\
-	.subtype	= (s),		\
-	.source		= EVENT_SOURCE,	\
-	.hash		= get_hash(ctx)   /* Avoids hash recalculation, assumes hash has been already calculated */
-
-#define __notify_pktcap_hdr(o, c, v)	\
-	.len_orig	= (o),		\
-	.len_cap	= (c),		\
-	.version	= (v)
-
-/* Base capture notifications version.
- * Must be incremented when the format of NOTIFY_CAPTURE_HDR changes.
- *
- * Individual notify messages may evolve independently, specifying their own versions.
- */
-#define NOTIFY_CAPTURE_VER 1
-
 #ifndef TRACE_PAYLOAD_LEN
 #define TRACE_PAYLOAD_LEN 128ULL
 #endif
@@ -851,14 +811,11 @@ enum {
 #define	CB_IPCACHE_SRC_LABEL	CB_1		/* Alias, non-overlapping */
 #define	CB_SRV6_SID_2		CB_1		/* Alias, non-overlapping */
 #define	CB_CLUSTER_ID_EGRESS	CB_1		/* Alias, non-overlapping */
-#define	CB_HSIPC_ADDR_V4	CB_1		/* Alias, non-overlapping */
 #define	CB_TRACED		CB_1		/* Alias, non-overlapping */
 	CB_2,
 #define	CB_ADDR_V6_2		CB_2		/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_2		/* Alias, non-overlapping */
 #define	CB_CLUSTER_ID_INGRESS	CB_2		/* Alias, non-overlapping */
-#define CB_HSIPC_PORT		CB_2		/* Alias, non-overlapping */
-#define CB_DSR_SRC_LABEL	CB_2		/* Alias, non-overlapping */
 #define CB_NAT_FLAGS		CB_2		/* Alias, non-overlapping */
 	CB_3,
 #define	CB_ADDR_V6_3		CB_3		/* Alias, non-overlapping */

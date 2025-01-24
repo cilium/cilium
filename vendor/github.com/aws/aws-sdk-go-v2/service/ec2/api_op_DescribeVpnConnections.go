@@ -425,6 +425,9 @@ func vpnConnectionAvailableStateRetryable(ctx context.Context, input *DescribeVp
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -631,6 +634,9 @@ func vpnConnectionDeletedStateRetryable(ctx context.Context, input *DescribeVpnC
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

@@ -14,14 +14,6 @@
 #include "common.h"
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
-#define ROUTER_IP
-#define SECLABEL
-#define SECLABEL_IPV4
-#define SECLABEL_IPV6
-#undef ROUTER_IP
-#undef SECLABEL
-#undef SECLABEL_IPV4
-#undef SECLABEL_IPV6
 
 #define skb_change_type mock_skb_change_type
 int mock_skb_change_type(__maybe_unused struct __sk_buff *skb, __u32 type)
@@ -47,7 +39,7 @@ __section("mock-handle-policy")
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 	/* https://github.com/cilium/cilium/blob/v1.16.0-pre.1/bpf/bpf_lxc.c#L2040 */
-#if !defined(ENABLE_ROUTING) && !defined(ENABLE_NODEPORT)
+#if defined(ENABLE_ENDPOINT_ROUTES) && !defined(ENABLE_NODEPORT)
 	return TC_ACT_OK;
 #else
 	return TC_ACT_REDIRECT;

@@ -88,7 +88,6 @@ int ipv6_from_netdev_ns_for_pod_check(const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	printk("status_code: %d\n", *status_code);
 	assert(*status_code == CTX_ACT_REDIRECT);
 
 	l2 = data + sizeof(*status_code);
@@ -209,7 +208,6 @@ int ipv6_from_netdev_ns_for_node_ip_check(const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	printk("status_code: %d\n", *status_code);
 	assert(*status_code == CTX_ACT_OK);
 
 	l2 = data + sizeof(*status_code);

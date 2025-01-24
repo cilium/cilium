@@ -92,7 +92,7 @@ type ProxyPorts struct {
 	// restart
 	proxyPortsPath string
 
-	// Trigger for stroring proxy ports on to file
+	// Trigger for storing proxy ports on to file
 	Trigger *trigger.Trigger
 
 	// mutex is the lock required when accessing fields below or
@@ -175,11 +175,14 @@ func (p *ProxyPorts) isPortAvailable(openLocalPorts map[uint16]struct{}, port ui
 	return true
 }
 
+// allocatePort checks to see if the given 'port' is available and allocates a new random
+// proxy port if not.
+// Returns a non-zero allocated port if successful, or 0 and error if not.
 func (p *ProxyPorts) allocatePort(port, min, max uint16) (uint16, error) {
 	// Get a snapshot of the TCP and UDP ports already open locally.
 	openLocalPorts := OpenLocalPorts()
 
-	if p.isPortAvailable(openLocalPorts, port, false) {
+	if port != 0 && p.isPortAvailable(openLocalPorts, port, false) {
 		return port, nil
 	}
 
@@ -223,12 +226,15 @@ func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (err error) {
 		// Check if pp.proxyPort is available and find another available proxy port
 		// if not.
 		pp.ProxyPort, err = p.allocatePort(pp.ProxyPort, p.rangeMin, p.rangeMax)
-		if err == nil {
-			// marks port as reserved
-			p.allocatedPorts[pp.ProxyPort] = true
-			// mark proxy port as configured
-			pp.configured = true
-		}
+	}
+
+	// Mark proxy port as reserved and configured, regardless if it was restored or
+	// allocated above.
+	if err == nil && pp.ProxyPort != 0 {
+		// marks port as reserved
+		p.allocatedPorts[pp.ProxyPort] = true
+		// mark proxy port as configured
+		pp.configured = true
 	}
 	return err
 }
@@ -437,7 +443,7 @@ func (p *ProxyPorts) reset(pp *ProxyPort) {
 
 // FindByType returns a ProxyPort matching the given type, listener name, and direction, if
 // found.
-// Adds reference cound to the returned ProxyPort to prevent it being concurrently released.
+// Adds reference bound to the returned ProxyPort to prevent it being concurrently released.
 // Reference must be released with ReleaseProxyPort.
 // Must NOT be called with mutex held!
 func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener string, ingress bool) (string, *ProxyPort) {
@@ -521,7 +527,7 @@ var (
 	staleProxyPortsFile = errors.New("proxy ports file is too old")
 )
 
-// restore proxy ports from file created earlier by stroreProxyPorts
+// restore proxy ports from file created earlier by storeProxyPorts
 // must be called with mutex held
 func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint) error {
 	log := log.WithField(logfields.Path, p.proxyPortsPath)
@@ -602,7 +608,7 @@ func (p *ProxyPorts) RestoreProxyPorts(restoredProxyPortsStaleLimit uint) {
 
 	err := p.restoreProxyPortsFromFile(restoredProxyPortsStaleLimit)
 	if err != nil {
-		log.WithError(err).WithField(logfields.Path, p.proxyPortsPath).Info("Resoring proxy ports from file failed, falling back to restoring from iptables rules")
+		log.WithError(err).WithField(logfields.Path, p.proxyPortsPath).Info("Restoring proxy ports from file failed, falling back to restoring from iptables rules")
 		p.restoreProxyPortsFromIptables()
 	}
 }

@@ -237,6 +237,8 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 										},
 									},
 								},
+								Ingress: []policyapi.IngressRule{{}},
+								Egress:  nil,
 							},
 						},
 					},
@@ -255,7 +257,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 								},
 							},
 						}).
-						WithIngressRules(nil).
+						WithIngressRules([]policyapi.IngressRule{{}}).
 						WithEgressRules(nil).
 						WithLabels(utils.GetPolicyLabels(
 							"production",
@@ -286,8 +288,8 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 								},
 							},
 						},
-						Ingress:     nil,
-						Egress:      nil,
+						Ingress:     []policyapi.IngressRule{{}},
+						Egress:      []policyapi.EgressRule{{}},
 						Labels:      lbls,
 						Description: "",
 					},
@@ -308,6 +310,8 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 										},
 									},
 								},
+								Ingress: []policyapi.IngressRule{{}},
+								Egress:  nil,
 							},
 						},
 					},
@@ -326,7 +330,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 								},
 							},
 						}).
-						WithIngressRules(nil).
+						WithIngressRules([]policyapi.IngressRule{{}}).
 						WithEgressRules(nil).
 						WithLabels(utils.GetPolicyLabels(
 							"production",
@@ -355,8 +359,8 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 								},
 							},
 						},
-						Ingress:     nil,
-						Egress:      nil,
+						Ingress:     []policyapi.IngressRule{{}},
+						Egress:      []policyapi.EgressRule{{}},
 						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 						Description: "",
 					},
@@ -377,7 +381,8 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 										},
 									},
 								},
-								Labels: labels.ParseLabelArray("foo=bar"),
+								Labels:  labels.ParseLabelArray("foo=bar"),
+								Ingress: []policyapi.IngressRule{{}},
 							},
 						},
 					},
@@ -398,7 +403,7 @@ func TestAddCiliumNetworkPolicyByLabels(t *testing.T) {
 								},
 							},
 						}).
-						WithIngressRules(nil).
+						WithIngressRules([]policyapi.IngressRule{{}}).
 						WithEgressRules(nil).
 						WithLabels(lbls),
 				})

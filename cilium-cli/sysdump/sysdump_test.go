@@ -240,6 +240,143 @@ func TestListCiliumExternalWorkloads(t *testing.T) {
 	assert.GreaterOrEqual(len(externalWorkloads.Items), 0)
 }
 
+func TestFilterPods(t *testing.T) {
+	crashingPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "crashingPod",
+		},
+		Status: corev1.PodStatus{
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					State: corev1.ContainerState{
+						Waiting: &corev1.ContainerStateWaiting{
+							Reason: "CrashLoopBackOff",
+						},
+					},
+				},
+			},
+		},
+	}
+	crashingInitContainerPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "crashingInitContainerPod",
+		},
+		Status: corev1.PodStatus{
+			InitContainerStatuses: []corev1.ContainerStatus{
+				{
+					State: corev1.ContainerState{
+						Waiting: &corev1.ContainerStateWaiting{
+							Reason: "CrashLoopBackOff",
+						},
+					},
+				},
+			},
+		},
+	}
+	restartedInitContainerPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "restartedInitContainerPod",
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+			InitContainerStatuses: []corev1.ContainerStatus{
+				{
+					RestartCount: 1,
+					State: corev1.ContainerState{
+						Terminated: &corev1.ContainerStateTerminated{
+							Reason: "Error",
+						},
+					},
+				},
+			},
+		},
+	}
+	runningReadyPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "runningReadyPod",
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	notRunningPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "nonRunningPod",
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodFailed,
+		},
+	}
+	notReadyPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "notReadyPod",
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionFalse,
+				},
+			},
+		},
+	}
+
+	podList := &corev1.PodList{
+		Items: []corev1.Pod{crashingPod, crashingInitContainerPod, restartedInitContainerPod,
+			runningReadyPod, notRunningPod, notReadyPod},
+	}
+	result := filterCrashedPods(podList, 0)
+	assert.Len(t, result, 2)
+	assert.Equal(t, crashingPod.Name, result[0].Name)
+	assert.Equal(t, crashingInitContainerPod.Name, result[1].Name)
+
+	result = filterRunningNotReadyPods(podList, 0)
+	assert.Len(t, result, 1)
+	assert.Equal(t, notReadyPod.Name, result[0].Name)
+
+	result = filterRestartedContainersPods(podList, 0)
+	assert.Len(t, result, 1)
+	assert.Equal(t, restartedInitContainerPod.Name, result[0].Name)
+}
+
+func TestFilterPodsLimit(t *testing.T) {
+	examplePod := corev1.Pod{}
+	podList := &corev1.PodList{
+		Items: []corev1.Pod{examplePod, examplePod, examplePod, examplePod, examplePod},
+	}
+	filterFunc := func(po *corev1.Pod) bool {
+		return true
+	}
+	testCases := []struct {
+		limit   int
+		wantLen int
+	}{
+		{
+			limit:   0,
+			wantLen: 5,
+		},
+		{
+			limit:   3,
+			wantLen: 3,
+		},
+		{
+			limit:   100,
+			wantLen: 5,
+		},
+	}
+	for _, tc := range testCases {
+		result := filterPods(podList, filterFunc, tc.limit)
+		assert.Len(t, result, tc.wantLen)
+	}
+}
+
 type execRequest struct {
 	namespace string
 	pod       string
@@ -353,6 +490,21 @@ func (c *fakeClient) ExecInPodWithStderr(_ context.Context, namespace, pod, cont
 	return *bytes.NewBuffer(out.stdout), *bytes.NewBuffer(out.stderr), out.err
 }
 
+func (c *fakeClient) ExecInPodWithWriters(_, _ context.Context, namespace, pod, container string, command []string, stdout, stderr io.Writer) error {
+	r := execRequest{namespace, pod, container, strings.Join(command, " ")}
+	out, ok := c.execs[r]
+	if !ok {
+		panic(fmt.Sprintf("unexpected exec: %v", r))
+	}
+
+	fmt.Println("out: ", string(out.stdout))
+	fmt.Println("err: ", string(out.stderr))
+
+	stdout.Write(out.stdout)
+	stderr.Write(out.stderr)
+	return out.err
+}
+
 func (c *fakeClient) GetCiliumVersion(_ context.Context, _ *corev1.Pod) (*semver.Version, error) {
 	panic("implement me")
 }
@@ -377,7 +529,7 @@ func (c *fakeClient) GetDeployment(_ context.Context, _, _ string, _ metav1.GetO
 	return nil, nil
 }
 
-func (c *fakeClient) GetLogs(_ context.Context, _, _, _ string, _ corev1.PodLogOptions) (string, error) {
+func (c *fakeClient) GetLogs(_ context.Context, _, _, _ string, _ corev1.PodLogOptions, _ io.Writer) error {
 	panic("implement me")
 }
 

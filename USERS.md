@@ -342,6 +342,11 @@ Users (Alphabetically)
       L: https://gdatasoftware.com
       Q: @farodin91
 
+    * N: Guidewire Software, Inc.
+      D: Guidewire Software, Inc. is using Cilium for the Guidewire Cloud Platform.
+      U: CNI, network policy, and network visibility
+      L: https://www.guidewire.com
+
     * N: IDNIC | Kadabra
       D: IDNIC is the National Internet Registry administering IP addresses for INDONESIA, uses Cilium to powered Kadabra project runing services across multi data centers.
       U: Networking, Network Policies, kube-proxy Replacement, Service Load Balancing and Cluster Mesh
@@ -746,6 +751,11 @@ Users (Alphabetically)
       U: Available supported CNI
       L: https://sighup.io, https://github.com/sighupio/fury-kubernetes-networking
       Q: @jnardiello @nutellino
+
+    * N: SINAD
+      D: SINAD uses Cilium and integrates Tetragon (Which is amazing) to their application EzyKube 
+      U: CNI, Networking, Node2Node & Pod2Pod Encryption, Kube-Proxy Replacement, eBPF, security
+      L: https://sinad.io 
 
     * N: SmileDirectClub
       D: SmileDirectClub is using Cilium in manufacturing clusters (self-hosted on vSphere and AWS EC2)

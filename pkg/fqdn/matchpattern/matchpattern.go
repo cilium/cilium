@@ -23,7 +23,7 @@ const MatchAllAnchoredPattern = "(?:)"
 // it can be or-ed (joined with "|") with other rules, and still match all rules.
 const MatchAllUnAnchoredPattern = ".*"
 
-// Validate ensures that pattern is a parseable matchPattern. It returns the
+// Validate ensures that pattern is a parsable matchPattern. It returns the
 // regexp generated when validating.
 func Validate(pattern string) (matcher *regexp.Regexp, err error) {
 	if err := prevalidate(pattern); err != nil {

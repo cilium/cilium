@@ -58,7 +58,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
-	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -212,8 +211,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NODE_MAP"] = nodemap.MapName
 	cDefinesMap["NODE_MAP_V2"] = nodemap.MapNameV2
 	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", h.nodeMap.Size())
-	cDefinesMap["WORLD_CIDRS4_MAP"] = worldcidrsmap.MapName4
-	cDefinesMap["WORLD_CIDRS4_MAP_SIZE"] = fmt.Sprintf("%d", worldcidrsmap.MapMaxEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["L2_RESPONSER_MAP4_SIZE"] = fmt.Sprintf("%d", l2respondermap.DefaultMaxEntries)
 
@@ -701,10 +698,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
 	}
 
-	if option.Config.EnableHighScaleIPcache {
-		cDefinesMap["ENABLE_HIGH_SCALE_IPCACHE"] = "1"
-	}
-
 	if option.Config.EnableCustomCalls {
 		cDefinesMap["ENABLE_CUSTOM_CALLS"] = "1"
 	}
@@ -1036,8 +1029,8 @@ func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e dat
 
 	secID := e.GetIdentityLocked().Uint32()
 	fmt.Fprint(fw, defineUint32("SECLABEL", secID))
-	fmt.Fprint(fw, defineUint32("SECLABEL_IPV4", secID))
-	fmt.Fprint(fw, defineUint32("SECLABEL_IPV6", secID))
+	fmt.Fprintln(fw, "#define SECLABEL_IPV4 SECLABEL")
+	fmt.Fprintln(fw, "#define SECLABEL_IPV6 SECLABEL")
 	fmt.Fprint(fw, defineUint32("POLICY_VERDICT_LOG_FILTER", e.GetPolicyVerdictLogFilter()))
 
 	epID := uint16(e.GetID())

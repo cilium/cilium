@@ -36,7 +36,7 @@ func proxyForTest() (*Proxy, func()) {
 
 type fakeProxyPolicy struct{}
 
-func (p *fakeProxyPolicy) CopyL7RulesPerEndpoint() policy.L7DataMap {
+func (p *fakeProxyPolicy) GetPerSelectorPolicies() policy.L7DataMap {
 	return policy.L7DataMap{}
 }
 
@@ -74,9 +74,8 @@ func TestCreateOrUpdateRedirectMissingListener(t *testing.T) {
 	ctx := context.TODO()
 	wg := completion.NewWaitGroup(ctx)
 
-	proxyPort, err, finalizeFunc, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
+	proxyPort, err, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
 	require.Equal(t, uint16(0), proxyPort)
 	require.Error(t, err)
-	require.Nil(t, finalizeFunc)
 	require.Nil(t, revertFunc)
 }

@@ -19,6 +19,7 @@ const (
 	DefaultCiliumNodeInitLabelSelector       = "app=cilium-node-init"
 	DefaultCiliumSpireAgentLabelSelector     = "app=spire-agent"
 	DefaultCiliumSpireServerLabelSelector    = "app=spire-server"
+	DefaultCollectLogsFromNotReadyAgents     = true
 	DefaultDebug                             = false
 	DefaultProfiling                         = true
 	DefaultTracing                           = false

@@ -163,6 +163,44 @@ func TestLabelArrayListSort(t *testing.T) {
 	require.EqualValues(t, expected2, list2.Sort())
 }
 
+func TestModelsFromLabelArrayListString(t *testing.T) {
+	arrayList := LabelArrayList{
+		nil,
+		{
+			NewLabel("aaa", "", LabelSourceReserved),
+		},
+		{
+			NewLabel("env", "devel", LabelSourceAny),
+		},
+		{
+			NewLabel("env", "devel", LabelSourceAny),
+			NewLabel("user", "bob", LabelSourceContainer),
+		},
+		{
+			NewLabel("env", "devel", LabelSourceAny),
+			NewLabel("user", "bob", LabelSourceContainer),
+			NewLabel("xyz", "", LabelSourceAny),
+		},
+		{
+			NewLabel("foo", "bar", LabelSourceAny),
+		},
+	}
+	expected := [][]string{
+		{""},
+		{"reserved:aaa"},
+		{"any:env=devel"},
+		{"any:env=devel", "container:user=bob"},
+		{"any:env=devel", "container:user=bob", "any:xyz"},
+		{"any:foo=bar"},
+	}
+
+	i := 0
+	for model := range ModelsFromLabelArrayListString(arrayList.String()) {
+		require.EqualValues(t, expected[i], model)
+		i++
+	}
+}
+
 func TestLabelArrayListMergeSorted(t *testing.T) {
 	list1 := LabelArrayList{
 		{
@@ -253,8 +291,15 @@ func TestLabelArrayListMergeSorted(t *testing.T) {
 
 		a = tc.a.DeepCopy().Sort()
 		b = tc.b.DeepCopy().Sort()
+		as := a.String()
+		bs := b.String()
+
 		a.MergeSorted(b)
 		require.EqualValues(t, tc.expected, a, tc.name+" MergeSorted")
 		require.EqualValues(t, a.Sort(), a, tc.name+" MergeSorted returned unsorted result")
+
+		as = MergeSortedLabelArrayListStrings(as, bs)
+		require.EqualValues(t, tc.expected.String(), as, tc.name+" MergeSortedLabelArrayListStrings")
+		require.EqualValues(t, a.Sort().String(), as, tc.name+" MergeSortedLabelArrayListStrings returned unsorted result")
 	}
 }

@@ -782,7 +782,7 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 }
 
 #ifdef ENABLE_NAT_46X64_GATEWAY
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC8215)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC6052)
 int tail_nat_ipv46(struct __ctx_buff *ctx)
 {
 	int ret, oif = 0, l3_off = ETH_HLEN;
@@ -795,7 +795,7 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	if (nat46_rfc8215(ctx, ip4, l3_off)) {
+	if (nat46_rfc6052(ctx, ip4, l3_off)) {
 		ret = DROP_NAT46;
 		goto drop_err;
 	}
@@ -813,7 +813,7 @@ drop_err:
 					  CTX_ACT_DROP, METRIC_EGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC8215)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC6052)
 int tail_nat_ipv64(struct __ctx_buff *ctx)
 {
 	int ret, oif = 0, l3_off = ETH_HLEN;
@@ -826,7 +826,7 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	if (nat64_rfc8215(ctx, ip6)) {
+	if (nat64_rfc6052(ctx, ip6)) {
 		ret = DROP_NAT64;
 		goto drop_err;
 	}
@@ -1386,12 +1386,12 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	} else {
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
-		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
+		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
 			ret = neigh_record_ip6(ctx);
 			if (ret < 0)
 				return ret;
-			if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->saddr))
-				return tail_call_internal(ctx, CILIUM_CALL_IPV64_RFC8215,
+			if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->saddr))
+				return tail_call_internal(ctx, CILIUM_CALL_IPV64_RFC6052,
 							  ext_err);
 			ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_XLATE);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
@@ -1402,7 +1402,7 @@ skip_service_lookup:
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
-	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
+    ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST)) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
 		if (is_svc_proto) {
 			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
 						      &key.address,
@@ -1616,21 +1616,12 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	}
 #endif
 
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
- #ifdef IS_BPF_OVERLAY
-	src_sec_identity = ctx_load_meta(ctx, CB_DSR_SRC_LABEL);
- #endif
-
-	tunnel_endpoint = ip4->daddr;
-	dst_sec_identity = 0;
-#else
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (!info || info->tunnel_endpoint == 0)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	tunnel_endpoint = info->tunnel_endpoint;
 	dst_sec_identity = info->sec_identity;
-#endif
 
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
@@ -2115,7 +2106,6 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__u32 src_sec_identity __maybe_unused = SECLABEL;
 	bool allow_neigh_map = true;
-	bool check_revdnat = true;
 	bool has_l4_header;
 	__u32 *vrf_id __maybe_unused = NULL;
 
@@ -2128,24 +2118,10 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
-			check_revdnat = false;
-		else
-			return ret;
-	}
+			goto skip_revdnat;
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY)
-	/* The gateway node needs to manually steer any reply traffic
-	 * for a remote pod into the tunnel (to avoid iptables potentially
-	 * dropping or accidentally SNATing the packets).
-	 */
-	if (egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
-		trace->reason = TRACE_REASON_CT_REPLY;
-		goto redirect;
+		return ret;
 	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
-
-	if (!check_revdnat)
-		goto out;
 
 #if defined(ENABLE_SRV6) && defined(IS_BPF_LXC)
 	/* Determine if packet belongs to a VRF before we do NAT.
@@ -2194,7 +2170,20 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 		goto redirect;
 	}
-out:
+
+skip_revdnat:
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
+	/* The gateway node needs to manually steer any reply traffic
+	 * for a remote pod into the tunnel (to avoid iptables potentially
+	 * dropping or accidentally SNATing the packets).
+	 */
+	if (egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
+		trace->reason = TRACE_REASON_CT_REPLY;
+		src_sec_identity = WORLD_ID;
+		goto redirect;
+	}
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
 	return CTX_ACT_OK;
 
 redirect:
@@ -2219,7 +2208,8 @@ redirect:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY)) || defined(TUNNEL_MODE)
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
+    defined(TUNNEL_MODE)
 	if (tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
 
@@ -2327,7 +2317,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY))
+    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
@@ -2666,7 +2656,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key->dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, key->address);
-		ctx_store_meta(ctx, CB_DSR_SRC_LABEL, src_sec_identity);
 		ctx_store_meta(ctx, CB_DSR_L3_OFF, l3_off);
 #endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR, ext_err);
@@ -2723,7 +2712,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (ip4->daddr != IPV4_DIRECT_ROUTING)
-			return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC8215, ext_err);
+			return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC6052, ext_err);
 #endif
 		/* The packet is not destined to a service but it can be a reply
 		 * packet from a remote backend, in which case we need to perform
@@ -2733,7 +2722,7 @@ skip_service_lookup:
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
-	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
+    ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST)) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
 		if (is_svc_proto) {
 			/* Check if packet has embedded DSR info, or belongs to
 			 * an established DSR connection:
@@ -2774,8 +2763,8 @@ skip_service_lookup:
 						  ext_err);
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		} else if (is_svc_proto &&
-			   snat_v6_has_v4_match_rfc8215(&tuple)) {
-			ret = snat_remap_rfc8215(ctx, ip4, l3_off);
+			   snat_v6_has_v4_match_rfc6052(&tuple)) {
+			ret = snat_remap_rfc6052(ctx, ip4, l3_off);
 			if (ret)
 				return ret;
 			ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_ROUTE);

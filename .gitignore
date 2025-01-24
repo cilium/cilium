@@ -67,7 +67,6 @@ test/*_manifest.yaml
 test/*.xml
 test/*.json
 test/*.log
-test/bpf/_results
 test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
@@ -84,14 +83,6 @@ test/cilium.conf.ginkgo
 external-workload-ca.crt
 external-workload-tls.crt
 external-workload-tls.key
-
-# GKE temporary files
-test/gke/cluster-name
-test/gke/cluster-uri
-test/gke/cluster-version
-test/gke/gke-kubeconfig
-test/gke/resize-kubeconfig
-test/gke/registry-adder.yaml
 
 # Emacs backup files
 *~

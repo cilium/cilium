@@ -1465,6 +1465,12 @@ to the same service endpoints; but two requests for the same service, sent from
 the same source but to different service ports may be routed to distinct service
 endpoints.
 
+Note that if the session affinity feature is used in combination with Maglev
+consistent hashing to select backends, then Maglev will not take the source
+port as input for its hashing in order to respect the user's ClientIP choice
+(see also `GH#26709 <https://github.com/cilium/cilium/issues/26709>`__ for
+further details).
+
 For users who run with kube-proxy (i.e. with Cilium's kube-proxy replacement
 disabled), the ClusterIP service loadbalancing when a request is sent from a pod
 running in a non-host network namespace is still performed at the pod network
@@ -1864,7 +1870,6 @@ For more information, see `this GitHub issue <https://github.com/cilium/cilium/i
 Limitations
 ###########
 
-    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`encryption_ipsec`.
     * Cilium's eBPF kube-proxy replacement relies upon the socket-LB feature
       which uses eBPF cgroup hooks to implement the service translation. Using it with libceph
       deployments currently requires support for the getpeername(2) hook address translation in

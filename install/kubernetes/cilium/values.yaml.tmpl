@@ -419,13 +419,7 @@ bandwidthManager:
   bbr: false
 # -- Configure standalone NAT46/NAT64 gateway
 nat46x64Gateway:
-  # -- Enable RFC8215-prefixed translation
-  enabled: false
-# -- EnableHighScaleIPcache enables the special ipcache mode for high scale
-# clusters. The ipcache content will be reduced to the strict minimum and
-# traffic will be encapsulated to carry security identities.
-highScaleIPcache:
-  # -- Enable the high scale mode for the ipcache.
+  # -- Enable RFC6052-prefixed translation
   enabled: false
 # -- Configure L2 announcements
 l2announcements:
@@ -1282,7 +1276,7 @@ hubble:
           - name: all
             contextOptions: []
             includeFilters: []
-            excludeFilters: []  
+            excludeFilters: []
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
   # -- Enables redacting sensitive information present in Layer 7 flows.
@@ -1843,10 +1837,6 @@ hubble:
       #      - chart-example.local
   # -- Hubble flows export.
   export:
-    # --- Defines max file size of output file before it gets rotated.
-    fileMaxSizeMb: 10
-    # --- Defines max number of backup/rotated files.
-    fileMaxBackups: 5
     # --- Static exporter configuration.
     # Static exporter is bound to agent lifecycle.
     static:
@@ -1862,6 +1852,12 @@ hubble:
       denyList: []
       # - '{"source_pod":["kube-system/"]}'
       # - '{"destination_pod":["kube-system/"]}'
+      # --- Defines max file size of output file before it gets rotated.
+      fileMaxSizeMb: 10
+      # --- Defines max number of backup/rotated files.
+      fileMaxBackups: 5
+      # --- Enable compression of rotated files.
+      fileCompress: false
     # --- Dynamic exporters configuration.
     # Dynamic exporters may be reconfigured without a need of agent restarts.
     dynamic:
@@ -1879,6 +1875,9 @@ hubble:
             includeFilters: []
             excludeFilters: []
             filePath: "/var/run/cilium/hubble/events.log"
+            fileMaxSizeMb: 10
+            fileMaxBackups: 5
+            fileCompress: false
             #   - name: "test002"
             #     filePath: "/var/log/network/flow-log/pa/test002.log"
             #     fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
@@ -1888,6 +1887,9 @@ hubble:
             #       - type: 1
             #     - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
             #     excludeFilters: []
+            #     fileMaxSizeMb: 1
+            #     fileMaxBackups: 10
+            #     fileCompress: true
             #     end: "2023-10-09T23:59:59-07:00"
 
   # -- Emit v1.Events related to pods on detection of packet drops.
@@ -2329,6 +2331,13 @@ envoy:
     # Possible values: trace, debug, info, warning, error, critical, off
     # @default -- Defaults to the default log level of the Cilium Agent - `info`
     defaultLevel: ~
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Size of the Envoy access log buffer created within the agent in bytes.
+    # Tune this value up if you encounter "Envoy: Discarded truncated access log message" errors.
+    # Large request/response header sizes (e.g. 16KiB) will require a larger buffer size.
+    accessLogBufferSize: 4096
   # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
   # -- Time in seconds after which the initial fetch on an xDS stream is considered timed out
@@ -2589,23 +2598,42 @@ svcSourceRangeCheck: true
 synchronizeK8sNodes: true
 # -- Configure TLS configuration in the agent.
 tls:
+  # @schema
+  # type: [null, string]
+  # @schema
   # -- This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies
   # (namely the secrets referenced by terminatingTLS and originatingTLS).
+  # This value is DEPRECATED and will be removed in a future version.
+  # Use `tls.readSecretsOnlyFromSecretsNamespace` instead.
   # Possible values:
   #   - local
   #   - k8s
-  secretsBackend: local
+  secretsBackend: ~
+  # @schema
+  # type: [null, boolean]
+  # @schema  
+  # -- Configure if the Cilium Agent will only look in `tls.secretsNamespace` for
+  #    CiliumNetworkPolicy relevant Secrets.
+  #    If false, the Cilium Agent will be granted READ (GET/LIST/WATCH) access
+  #    to _all_ secrets in the entire cluster. This is not recommended and is
+  #    included for backwards compatibility.
+  #    This value obsoletes `tls.secretsBackend`, with `true` == `local` in the old
+  #    setting, and `false` == `k8s`.
+  readSecretsOnlyFromSecretsNamespace: ~
+  # -- Configures where secrets used in CiliumNetworkPolicies will be looked for
+  secretsNamespace:
+    # -- Create secrets namespace for TLS Interception secrets.
+    create: true
+    # -- Name of TLS Interception secret namespace.
+    name: cilium-secrets
   # -- Configures settings for synchronization of TLS Interception Secrets
   secretSync:
+    # @schema
+    # type: [null, boolean]
+    # @schema
     # -- Enable synchronization of Secrets for TLS Interception. If disabled and
     # tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
-    enabled: true
-    # -- This configures secret synchronization for secrets used in CiliumNetworkPolicies
-    secretsNamespace:
-      # -- Create secrets namespace for TLS Interception secrets.
-      create: true
-      # -- Name of TLS Interception secret namespace.
-      name: cilium-secrets
+    enabled: ~
   # -- Base64 encoded PEM values for the CA certificate and private key.
   # This can be used as common CA to generate certificates used by hubble and clustermesh components.
   # It is neither required nor used when cert-manager is used to generate the certificates.

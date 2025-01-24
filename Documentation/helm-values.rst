@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:2919d0172f7524b2d8df9e50066a682669e6d170ac0f6a49676d54358fe970b5","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:a5d0ce49aa801d475da48f8cb163c354ab95cab073cd3c138bd458fc8257fbf1","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -447,7 +447,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:e4f80054d2d503e04337ed61b64c12fa3cca5a32963ba8bd2080d20e1ccc1d8d","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.2","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:cb3b1480f404489cbf0dbb9ac4576f44392532800180a4d6260ab430b4cbaedc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.3","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -1311,7 +1311,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:a23a6c27842dac991c4adc413395331da77914ac16fc9a2326270a109e19e467","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1736327338-5f5adcad8e5ac4a66f313a1742eb573d5ae81c3c","useDigest":true}``
+     - ``{"digest":"sha256:0a62df4ef2e56b428414cc9b68404ec5edb6fab3f590371a614238ab9d82b408","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.32.3-1737536179-7717128c4e264aa4ec7e43f6bb795ab854340b16","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -1324,6 +1324,10 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - :spelling:ignore:`envoy.log.accessLogBufferSize`
+     - Size of the Envoy access log buffer created within the agent in bytes. Tune this value up if you encounter "Envoy: Discarded truncated access log message" errors. Large request/response header sizes (e.g. 16KiB) will require a larger buffer size.
+     - int
+     - ``4096``
    * - :spelling:ignore:`envoy.log.defaultLevel`
      - Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. This option allows to have a different log level than the Cilium Agent - e.g. lower it to ``critical``. Possible values: trace, debug, info, warning, error, critical, off
      - string
@@ -1620,14 +1624,6 @@
      - TCP port for the agent health API. This is not the port for cilium-health.
      - int
      - ``9879``
-   * - :spelling:ignore:`highScaleIPcache`
-     - EnableHighScaleIPcache enables the special ipcache mode for high scale clusters. The ipcache content will be reduced to the strict minimum and traffic will be encapsulated to carry security identities.
-     - object
-     - ``{"enabled":false}``
-   * - :spelling:ignore:`highScaleIPcache.enabled`
-     - Enable the high scale mode for the ipcache.
-     - bool
-     - ``false``
    * - :spelling:ignore:`hostFirewall`
      - Configure the host firewall.
      - object
@@ -1663,11 +1659,11 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"fileMaxBackups":5,"fileMaxSizeMb":10,"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}}``
+     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}``
    * - :spelling:ignore:`hubble.export.dynamic`
      - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
      - object
-     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
+     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
    * - :spelling:ignore:`hubble.export.dynamic.config.configMapName`
      - -- Name of configmap with configuration that may be altered to reconfigure exporters within a running agents.
      - string
@@ -1675,23 +1671,27 @@
    * - :spelling:ignore:`hubble.export.dynamic.config.content`
      - -- Exporters configuration in YAML format.
      - list
-     - ``[{"excludeFilters":[],"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
+     - ``[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
    * - :spelling:ignore:`hubble.export.dynamic.config.createConfigMap`
      - -- True if helm installer should create config map. Switch to false if you want to self maintain the file content.
      - bool
      - ``true``
-   * - :spelling:ignore:`hubble.export.fileMaxBackups`
-     - - Defines max number of backup/rotated files.
-     - int
-     - ``5``
-   * - :spelling:ignore:`hubble.export.fileMaxSizeMb`
-     - - Defines max file size of output file before it gets rotated.
-     - int
-     - ``10``
    * - :spelling:ignore:`hubble.export.static`
      - - Static exporter configuration. Static exporter is bound to agent lifecycle.
      - object
-     - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"filePath":"/var/run/cilium/hubble/events.log"}``
+     - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}``
+   * - :spelling:ignore:`hubble.export.static.fileCompress`
+     - - Enable compression of rotated files.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`hubble.export.static.fileMaxBackups`
+     - - Defines max number of backup/rotated files.
+     - int
+     - ``5``
+   * - :spelling:ignore:`hubble.export.static.fileMaxSizeMb`
+     - - Defines max file size of output file before it gets rotated.
+     - int
+     - ``10``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string
@@ -2661,7 +2661,7 @@
      - object
      - ``{"enabled":false}``
    * - :spelling:ignore:`nat46x64Gateway.enabled`
-     - Enable RFC8215-prefixed translation
+     - Enable RFC6052-prefixed translation
      - bool
      - ``false``
    * - :spelling:ignore:`nodeIPAM.enabled`
@@ -3291,7 +3291,7 @@
    * - :spelling:ignore:`tls`
      - Configure TLS configuration in the agent.
      - object
-     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false},"secretSync":{"enabled":true,"secretsNamespace":{"create":true,"name":"cilium-secrets"}},"secretsBackend":"local"}``
+     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false},"readSecretsOnlyFromSecretsNamespace":null,"secretSync":{"enabled":null},"secretsBackend":null,"secretsNamespace":{"create":true,"name":"cilium-secrets"}}``
    * - :spelling:ignore:`tls.ca`
      - Base64 encoded PEM values for the CA certificate and private key. This can be used as common CA to generate certificates used by hubble and clustermesh components. It is neither required nor used when cert-manager is used to generate the certificates.
      - object
@@ -3328,30 +3328,34 @@
      - Use a Secret instead of a ConfigMap.
      - bool
      - ``false``
+   * - :spelling:ignore:`tls.readSecretsOnlyFromSecretsNamespace`
+     - Configure if the Cilium Agent will only look in ``tls.secretsNamespace`` for    CiliumNetworkPolicy relevant Secrets.    If false, the Cilium Agent will be granted READ (GET/LIST/WATCH) access    to *all* secrets in the entire cluster. This is not recommended and is    included for backwards compatibility.    This value obsoletes ``tls.secretsBackend``\ , with ``true`` == ``local`` in the old    setting, and ``false`` == ``k8s``.
+     - string
+     - ``nil``
    * - :spelling:ignore:`tls.secretSync`
      - Configures settings for synchronization of TLS Interception Secrets
      - object
-     - ``{"enabled":true,"secretsNamespace":{"create":true,"name":"cilium-secrets"}}``
+     - ``{"enabled":null}``
    * - :spelling:ignore:`tls.secretSync.enabled`
      - Enable synchronization of Secrets for TLS Interception. If disabled and tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
-     - bool
-     - ``true``
-   * - :spelling:ignore:`tls.secretSync.secretsNamespace`
-     - This configures secret synchronization for secrets used in CiliumNetworkPolicies
+     - string
+     - ``nil``
+   * - :spelling:ignore:`tls.secretsBackend`
+     - This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies (namely the secrets referenced by terminatingTLS and originatingTLS). This value is DEPRECATED and will be removed in a future version. Use ``tls.readSecretsOnlyFromSecretsNamespace`` instead. Possible values:   - local   - k8s
+     - string
+     - ``nil``
+   * - :spelling:ignore:`tls.secretsNamespace`
+     - Configures where secrets used in CiliumNetworkPolicies will be looked for
      - object
      - ``{"create":true,"name":"cilium-secrets"}``
-   * - :spelling:ignore:`tls.secretSync.secretsNamespace.create`
+   * - :spelling:ignore:`tls.secretsNamespace.create`
      - Create secrets namespace for TLS Interception secrets.
      - bool
      - ``true``
-   * - :spelling:ignore:`tls.secretSync.secretsNamespace.name`
+   * - :spelling:ignore:`tls.secretsNamespace.name`
      - Name of TLS Interception secret namespace.
      - string
      - ``"cilium-secrets"``
-   * - :spelling:ignore:`tls.secretsBackend`
-     - This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies (namely the secrets referenced by terminatingTLS and originatingTLS). Possible values:   - local   - k8s
-     - string
-     - ``"local"``
    * - :spelling:ignore:`tolerations`
      - Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list

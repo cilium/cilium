@@ -184,16 +184,16 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 	td := newTestData()
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+	owner := DummyOwner{}
 	b.ReportAllocs()
 	b.ResetTimer()
-	n := 0
 	for i := 0; i < b.N; i++ {
-		epPolicy := ip.DistillPolicy(DummyOwner{}, nil)
-		n += epPolicy.policyMapState.Len()
+		epPolicy := ip.DistillPolicy(owner, nil)
+		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
 	}
 	ip.Detach()
-	b.Logf("Number of MapState entries: %d\n", n/b.N)
+	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
@@ -262,7 +262,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
 				}),
 					features: denyRules,
@@ -357,7 +357,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
 				}),
 					features: denyRules,
@@ -432,7 +432,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, nil)
 	policy.Ready()
 
-	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(td.wildcardCachedSelector)
+	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel})
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -452,7 +452,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}}),
 					},
 				}),
 					features: denyRules,
@@ -462,7 +462,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(mapStateMap{
+		policyMapState: emptyMapState().withState(mapStateMap{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey():                  allowEgressMapStateEntry,
@@ -589,7 +589,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel}).withOwners(cachedSelectorTest)
+	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel})
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -611,12 +611,12 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 							cachedSelectorWorldV6: &PerSelectorPolicy{IsDeny: true},
 							cachedSelectorTest:    &PerSelectorPolicy{IsDeny: true},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 							cachedSelectorWorld:   {ruleLabel},
 							cachedSelectorWorldV4: {ruleLabel},
 							cachedSelectorWorldV6: {ruleLabel},
 							cachedSelectorTest:    {ruleLabel},
-						},
+						}),
 					},
 				}),
 					features: denyRules,
@@ -626,13 +626,13 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(mapStateMap{
+		policyMapState: emptyMapState().withState(mapStateMap{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressKey(): allowEgressMapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry.withOwners(cachedSelectorWorld),
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorldV4, cachedSelectorWorld),
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorldV6, cachedSelectorWorld),
+			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry,
 			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry,
 			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry,
 		}),

@@ -6,6 +6,7 @@ package experimental
 import (
 	"context"
 	"fmt"
+	"iter"
 	"net/netip"
 	"slices"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
@@ -70,8 +72,8 @@ var baseFrontend = Frontend{
 		ServiceName: testServiceName,
 		PortName:    "", // Ignored, backends already resolved.
 	},
-	Status:        reconciler.StatusPending(),
-	nodePortAddrs: nodePortAddrs,
+	Backends: func(yield func(*Backend, statedb.Revision) bool) {},
+	Status:   reconciler.StatusPending(),
 }
 
 var emptyInstances = func() part.Map[BackendInstanceKey, BackendInstance] {
@@ -95,6 +97,15 @@ var baseBackend = Backend{
 
 var nextBackendRevision = statedb.Revision(1)
 
+func concatBe(bes iter.Seq2[*Backend, statedb.Revision], be *Backend, rev statedb.Revision) iter.Seq2[*Backend, statedb.Revision] {
+	return func(yield func(*Backend, statedb.Revision) bool) {
+		if !yield(be, rev) {
+			return
+		}
+		bes(yield)
+	}
+}
+
 // newTestCase creates a testCase from a function that manipulates the base service and frontends.
 func newTestCase(name string, mod func(*Service, *Frontend) (delete bool, bes []Backend), maps []MapDump, maglev []MapDump) testCase {
 	svc := baseService
@@ -102,7 +113,7 @@ func newTestCase(name string, mod func(*Service, *Frontend) (delete bool, bes []
 	delete, bes := mod(&svc, &fe)
 	fe.service = &svc
 	for _, be := range bes {
-		fe.Backends = append(fe.Backends, BackendWithRevision{Backend: &be, Revision: nextBackendRevision})
+		fe.Backends = concatBe(fe.Backends, &be, nextBackendRevision)
 		nextBackendRevision++
 	}
 	return testCase{
@@ -134,7 +145,7 @@ var clusterIPTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		nil,
 	),
@@ -147,10 +158,10 @@ var clusterIPTestCases = []testCase{
 			return false, []Backend{baseBackend}
 		},
 		[]MapDump{
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[1(1021)]",
@@ -168,12 +179,12 @@ var clusterIPTestCases = []testCase{
 			return false, []Backend{be1, be2}
 		},
 		[]MapDump{
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
-			"BE: ID=2 ADDR=10.1.0.2:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<auto> SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[1(511), 2(510)]",
@@ -189,7 +200,7 @@ var clusterIPTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		nil,
 	),
@@ -205,8 +216,8 @@ var clusterIPTestCases = []testCase{
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
 			"REV: ID=2 ADDR=10.0.0.2:80",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=2 ADDR=10.0.0.2:80 SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		nil,
 	),
@@ -216,7 +227,7 @@ var clusterIPTestCases = []testCase{
 		deleteFrontend(extraFrontend, ClusterIP),
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		nil,
 	),
@@ -232,8 +243,8 @@ var clusterIPTestCases = []testCase{
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
 			"REV: ID=3 ADDR=10.0.0.2:80",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=3 ADDR=10.0.0.2:80 SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=3 ADDR=10.0.0.2:80/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		nil,
 	),
@@ -243,7 +254,7 @@ var clusterIPTestCases = []testCase{
 		deleteFrontend(extraFrontend, ClusterIP),
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		nil,
 	),
@@ -268,12 +279,12 @@ var quarantineTestCases = []testCase{
 			return false, []Backend{be1, be2}
 		},
 		[]MapDump{
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
-			"BE: ID=2 ADDR=10.1.0.2:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<auto> SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[1(511), 2(510)]",
@@ -292,12 +303,12 @@ var quarantineTestCases = []testCase{
 			return false, []Backend{be1, be2}
 		},
 		[]MapDump{
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=quarantined",
-			"BE: ID=2 ADDR=10.1.0.2:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=quarantined",
+			"BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<auto> SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[2(1021)]",
@@ -330,16 +341,16 @@ var nodePortTestCases = []testCase{
 		},
 
 		[]MapDump{
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
-			"BE: ID=2 ADDR=10.1.0.2:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<zero>",
 			"REV: ID=2 ADDR=<nodePort>",
-			"SVC: ID=1 ADDR=<zero> SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<zero> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<zero> SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[1(511), 2(510)]",
@@ -367,13 +378,13 @@ var hostPortTestCases = []testCase{
 			return false, []Backend{baseBackend}
 		},
 		[]MapDump{
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<zero>",
 			"REV: ID=2 ADDR=<nodePort>",
-			"SVC: ID=1 ADDR=<zero> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal+non-routable",
-			"SVC: ID=1 ADDR=<zero> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal+non-routable",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal+non-routable",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[1(1021)]",
@@ -398,10 +409,10 @@ var hostPortTestCases = []testCase{
 			return false, []Backend{baseBackend}
 		},
 		[]MapDump{
-			"BE: ID=2 ADDR=10.1.0.1:80 STATE=active",
+			"BE: ID=2 ADDR=10.1.0.1:80/TCP STATE=active",
 			"REV: ID=3 ADDR=<auto>",
-			"SVC: ID=3 ADDR=<auto> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
-			"SVC: ID=3 ADDR=<auto> SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
+			"SVC: ID=3 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
+			"SVC: ID=3 ADDR=<auto>/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
 		},
 		[]MapDump{
 			"MAGLEV: ID=3 INNER=[2(1021)]",
@@ -434,10 +445,10 @@ var proxyTestCases = []testCase{
 			return false, []Backend{baseBackend}
 		},
 		[]MapDump{
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=2570 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
-			"SVC: ID=1 ADDR=<auto> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=2570 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+l7-load-balancer",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[1(1021)]",
@@ -468,7 +479,7 @@ var miscFlagsTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+46x64",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable+46x64",
 		},
 		nil,
 	),
@@ -483,7 +494,7 @@ var miscFlagsTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+InternalLocal+non-routable",
 		},
 		nil,
 	),
@@ -498,7 +509,7 @@ var miscFlagsTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable",
 		},
 		nil,
 	),
@@ -515,7 +526,7 @@ var miscFlagsTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable",
 		},
 		nil,
 	),
@@ -538,7 +549,7 @@ var miscFlagsTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=2 ADDR=10.0.0.2:80",
-			"SVC: ID=2 ADDR=10.0.0.2:80/i SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
+			"SVC: ID=2 ADDR=10.0.0.2:80/TCP/i SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+InternalLocal",
 		},
 		nil,
 	),
@@ -557,7 +568,7 @@ var miscFlagsTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=2 ADDR=10.0.0.2:80",
-			"SVC: ID=2 ADDR=10.0.0.2:80/i SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+two-scopes",
+			"SVC: ID=2 ADDR=10.0.0.2:80/TCP/i SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=HostPort+Local+two-scopes",
 		},
 		nil,
 	),
@@ -585,7 +596,7 @@ var loadBalancerTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal",
 		},
 		nil,
 	),
@@ -608,7 +619,7 @@ var externalIPTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ExternalIPs+Local+InternalLocal",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=ExternalIPs+Local+InternalLocal",
 		},
 		nil,
 	),
@@ -638,7 +649,7 @@ var localRedirectTestCases = []testCase{
 		},
 		[]MapDump{
 			"REV: ID=1 ADDR=<auto>",
-			"SVC: ID=1 ADDR=<auto> SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect+Local+InternalLocal",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 BEID=0 COUNT=0 QCOUNT=0 FLAGS=LocalRedirect+Local+InternalLocal",
 		},
 		nil,
 	),
@@ -671,16 +682,16 @@ var sessionAffinityTestCases = []testCase{
 			"AFF: ID=1 BEID=2",
 			"AFF: ID=2 BEID=1",
 			"AFF: ID=2 BEID=2",
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=active",
-			"BE: ID=2 ADDR=10.1.0.2:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<zero>",
 			"REV: ID=2 ADDR=<nodePort>",
-			"SVC: ID=1 ADDR=<zero> SLOT=0 BEID=1 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
-			"SVC: ID=1 ADDR=<zero> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
-			"SVC: ID=1 ADDR=<zero> SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=0 BEID=1 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=0 BEID=1 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=0 BEID=1 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[1(511), 2(510)]",
@@ -706,16 +717,16 @@ var sessionAffinityTestCases = []testCase{
 		[]MapDump{
 			"AFF: ID=1 BEID=2",
 			"AFF: ID=2 BEID=2",
-			"BE: ID=1 ADDR=10.1.0.1:80 STATE=quarantined",
-			"BE: ID=2 ADDR=10.1.0.2:80 STATE=active",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=quarantined",
+			"BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active",
 			"REV: ID=1 ADDR=<zero>",
 			"REV: ID=2 ADDR=<nodePort>",
-			"SVC: ID=1 ADDR=<zero> SLOT=0 BEID=1 COUNT=1 QCOUNT=1 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
-			"SVC: ID=1 ADDR=<zero> SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
-			"SVC: ID=1 ADDR=<zero> SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=0 BEID=1 COUNT=1 QCOUNT=1 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
-			"SVC: ID=2 ADDR=<nodePort> SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=0 BEID=1 COUNT=1 QCOUNT=1 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=1 ADDR=<zero>/TCP SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=0 BEID=1 COUNT=1 QCOUNT=1 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
+			"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
 		},
 		[]MapDump{
 			"MAGLEV: ID=1 INNER=[2(1021)]",
@@ -746,13 +757,13 @@ var sessionAffinityTestCases = []testCase{
 		[]MapDump{
 			"AFF: ID=3 BEID=3",
 			"AFF: ID=4 BEID=3",
-			"BE: ID=3 ADDR=10.1.0.1:80 STATE=active",
+			"BE: ID=3 ADDR=10.1.0.1:80/TCP STATE=active",
 			"REV: ID=3 ADDR=<zero>",
 			"REV: ID=4 ADDR=<nodePort>",
-			"SVC: ID=3 ADDR=<zero> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
-			"SVC: ID=3 ADDR=<zero> SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
-			"SVC: ID=4 ADDR=<nodePort> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
-			"SVC: ID=4 ADDR=<nodePort> SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
+			"SVC: ID=3 ADDR=<zero>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=3 ADDR=<zero>/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=4 ADDR=<nodePort>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
+			"SVC: ID=4 ADDR=<nodePort>/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+sessionAffinity",
 		},
 		[]MapDump{
 			"MAGLEV: ID=3 INNER=[3(1021)]",
@@ -770,13 +781,13 @@ var sessionAffinityTestCases = []testCase{
 			return false, []Backend{baseBackend}
 		},
 		[]MapDump{
-			"BE: ID=3 ADDR=10.1.0.1:80 STATE=active",
+			"BE: ID=3 ADDR=10.1.0.1:80/TCP STATE=active",
 			"REV: ID=3 ADDR=<zero>",
 			"REV: ID=4 ADDR=<nodePort>",
-			"SVC: ID=3 ADDR=<zero> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
-			"SVC: ID=3 ADDR=<zero> SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
-			"SVC: ID=4 ADDR=<nodePort> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
-			"SVC: ID=4 ADDR=<nodePort> SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
+			"SVC: ID=3 ADDR=<zero>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
+			"SVC: ID=3 ADDR=<zero>/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
+			"SVC: ID=4 ADDR=<nodePort>/TCP SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
+			"SVC: ID=4 ADDR=<nodePort>/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
 		},
 		[]MapDump{
 			"MAGLEV: ID=3 INNER=[3(1021)]",
@@ -852,6 +863,23 @@ func TestBPFOps(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.EnableExperimentalLB = true
 
+	// Insert node addrs used for NodePort/HostPort
+	db := statedb.New()
+	nodeAddrs, _ := tables.NewNodeAddressTable()
+	require.NoError(t, db.RegisterTable(nodeAddrs))
+	wtxn := db.WriteTxn(nodeAddrs)
+	for _, n := range nodePortAddrs {
+		na := tables.NodeAddress{
+			Addr:       n,
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "lol0",
+		}
+		_, _, err := nodeAddrs.Insert(wtxn, na)
+		require.NoError(t, err)
+	}
+	wtxn.Commit()
+
 	for _, testCaseSet := range testCases {
 		// Run each set with Random and Maglev load balancing algos.
 		for _, algo := range []string{option.NodePortAlgRandom, option.NodePortAlgMaglev} {
@@ -861,7 +889,19 @@ func TestBPFOps(t *testing.T) {
 				// fresh IDs.
 				external := extCfg
 				external.NodePortAlg = algo
-				ops := newBPFOps(lc, log, cfg, external, lbmaps, maglev)
+				p := bpfOpsParams{
+					Lifecycle:     lc,
+					Log:           log,
+					Cfg:           cfg,
+					ExtCfg:        external,
+					LBMaps:        lbmaps,
+					Maglev:        maglev,
+					DB:            db,
+					NodeAddresses: nodeAddrs,
+				}
+
+				ops := newBPFOps(p)
+
 				for _, testCase := range testCaseSet {
 					t.Run(fmt.Sprintf("%s/%s/ipv6:%v", testCase.name, algo, addr.IsIPv6()), func(t *testing.T) {
 						frontend := testCase.frontend
@@ -880,7 +920,7 @@ func TestBPFOps(t *testing.T) {
 						if !testCase.delete {
 							err := ops.Update(
 								context.TODO(),
-								nil, // ReadTxn (unused)
+								db.ReadTxn(),
 								&frontend,
 							)
 							require.NoError(t, err, "Update")
@@ -904,7 +944,7 @@ func TestBPFOps(t *testing.T) {
 
 						nonMaglev := []string{}
 						maglev := []string{}
-						for _, v := range DumpLBMaps(lbmaps, addr, false, nil) {
+						for _, v := range dumpLBMapsWithReplace(lbmaps, addr, false) {
 							if strings.HasPrefix(v, "MAGLEV") {
 								maglev = append(maglev, v)
 							} else {
@@ -926,7 +966,7 @@ func TestBPFOps(t *testing.T) {
 				}
 
 				// Verify that the BPF maps are empty after the test set.
-				maps := DumpLBMaps(lbmaps, addr, false, nil)
+				maps := dumpLBMapsWithReplace(lbmaps, addr, false)
 				require.Empty(t, maps, "BPF maps not empty")
 
 				// Verify that all internal state has been cleaned up.
@@ -934,7 +974,7 @@ func TestBPFOps(t *testing.T) {
 				require.Empty(t, ops.serviceIDAlloc.entities, "Frontend ID allocations remain")
 				require.Empty(t, ops.backendStates, "Backend state remain")
 				require.Empty(t, ops.backendReferences, "Backend references remain")
-				require.Empty(t, ops.nodePortAddrs, "NodePort addrs state remain")
+				require.Empty(t, ops.nodePortAddrByService, "NodePort addrs state remain")
 			}
 		}
 	}

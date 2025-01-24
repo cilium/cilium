@@ -31,7 +31,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/math"
 )
 
 const (
@@ -182,7 +181,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 			"excessIPs":      excessIPs,
 			"freeOnENICount": freeOnENICount,
 		}).Debug("ENI has unused IPs that can be released")
-		maxReleaseOnENI := math.IntMin(freeOnENICount, excessIPs)
+		maxReleaseOnENI := min(freeOnENICount, excessIPs)
 
 		firstENIWithFreeIPFound := r.IPsToRelease == nil
 		eniWithMoreFreeIPsFound := maxReleaseOnENI > len(r.IPsToRelease)
@@ -230,7 +229,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 		}
 
 		_, effectiveLimits := n.getEffectiveIPLimits(&e, limits.IPv4)
-		availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
+		availableOnENI := max(effectiveLimits-len(e.Addresses), 0)
 		if availableOnENI <= 0 {
 			continue
 		} else {
@@ -251,7 +250,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 				a.InterfaceID = key
 				a.PoolID = ipamTypes.PoolID(subnet.ID)
-				a.IPv4.AvailableForAllocation = math.IntMin(subnet.AvailableAddresses, availableOnENI)
+				a.IPv4.AvailableForAllocation = min(subnet.AvailableAddresses, availableOnENI)
 			}
 		}
 	}
@@ -441,7 +440,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	desc := "Cilium-CNI (" + n.node.InstanceID() + ")"
 
 	// Must allocate secondary ENI IPs as needed, up to ENI instance limit - 1 (reserve 1 for primary IP)
-	toAllocate := math.IntMin(allocation.IPv4.MaxIPsToAllocate, limits.IPv4-1)
+	toAllocate := min(allocation.IPv4.MaxIPsToAllocate, limits.IPv4-1)
 	// Validate whether request has already been fulfilled in the meantime
 	if toAllocate == 0 {
 		return 0, "", nil
@@ -591,7 +590,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 				stats.NodeCapacity += leftoverPrefixCapcity
 			}
 
-			availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
+			availableOnENI := max(effectiveLimits-len(e.Addresses), 0)
 			if availableOnENI > 0 {
 				stats.RemainingAvailableInterfaceCount++
 			}
@@ -664,7 +663,7 @@ func (n *Node) GetMaximumAllocatableIPv4() int {
 	}
 
 	// limits.IPv4 contains the primary IP which is not available for allocation
-	maxPerInterface := math.IntMax(limits.IPv4-1, 0)
+	maxPerInterface := max(limits.IPv4-1, 0)
 
 	if n.IsPrefixDelegated() {
 		maxPerInterface = maxPerInterface * option.ENIPDBlockSizeIPv4
@@ -729,9 +728,9 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 	}
 
 	// limits.IPv4 contains the primary IP which is not available for allocation
-	maxPerInterface := math.IntMax(limits.IPv4-1, 0)
+	maxPerInterface := max(limits.IPv4-1, 0)
 
-	return math.IntMin(minimum, (limits.Adapters-index)*maxPerInterface)
+	return min(minimum, (limits.Adapters-index)*maxPerInterface)
 }
 
 func (n *Node) isPrefixDelegationEnabled() bool {

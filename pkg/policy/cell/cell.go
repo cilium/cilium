@@ -31,14 +31,19 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	PolicyQueueSize uint `mapstructure:"policy-queue-size"`
+	EnableWellKnownIdentities bool `mapstructure:"enable-well-known-identities"`
+	PolicyQueueSize           uint `mapstructure:"policy-queue-size"`
 }
 
 var defaultConfig = Config{
-	PolicyQueueSize: 100,
+	// EnableWellKnownIdentities is enabled by default as this is the
+	// original behavior. New default Helm templates will disable this.
+	EnableWellKnownIdentities: true,
+	PolicyQueueSize:           100,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("enable-well-known-identities", def.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	flags.Uint("policy-queue-size", def.PolicyQueueSize, "Size of queue for policy-related events")
 }
 
@@ -46,6 +51,7 @@ type policyRepoParams struct {
 	cell.In
 
 	Lifecycle       cell.Lifecycle
+	Config          Config
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
 	IdentityManager identitymanager.IDManager
@@ -54,7 +60,7 @@ type policyRepoParams struct {
 }
 
 func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
-	if option.Config.EnableWellKnownIdentities {
+	if params.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))

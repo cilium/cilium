@@ -56,11 +56,11 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2024-12-12 | ``quay.io/cilium/cilium:v1.16.5``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.5>`__  |
+| `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2025-01-21 | ``quay.io/cilium/cilium:v1.16.6``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.6>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2024-12-13 | ``quay.io/cilium/cilium:v1.15.12`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.12>`__ |
+| `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2025-01-16 | ``quay.io/cilium/cilium:v1.15.13`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.13>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.14 <https://github.com/cilium/cilium/tree/v1.14>`__ | 2024-12-12 | ``quay.io/cilium/cilium:v1.14.18`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.14.18>`__ |
+| `v1.14 <https://github.com/cilium/cilium/tree/v1.14>`__ | 2025-01-16 | ``quay.io/cilium/cilium:v1.14.19`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.14.19>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Architectures
@@ -240,52 +240,6 @@ Getting Started
 * `Frequently Asked Questions`_
 * Contributing_
 
-What is eBPF and XDP?
-=====================
-
-Berkeley Packet Filter (BPF) is a Linux kernel bytecode interpreter originally
-introduced to filter network packets, e.g. for tcpdump and socket filters. The
-BPF instruction set and surrounding architecture have recently been
-significantly reworked with additional data structures such as hash tables and
-arrays for keeping state as well as additional actions to support packet
-mangling, forwarding, encapsulation, etc. Furthermore, a compiler back end for
-LLVM allows for programs to be written in C and compiled into BPF instructions.
-An in-kernel verifier ensures that BPF programs are safe to run and a JIT
-compiler converts the BPF bytecode to CPU architecture-specific instructions
-for native execution efficiency. BPF programs can be run at various hooking
-points in the kernel such as for incoming packets, outgoing packets, system
-calls, kprobes, uprobes, tracepoints, etc.
-
-BPF continues to evolve and gain additional capabilities with each new Linux
-release. Cilium leverages BPF to perform core data path filtering, mangling,
-monitoring and redirection, and requires BPF capabilities that are in any Linux
-kernel version 4.8.0 or newer (the latest current stable Linux kernel is
-4.14.x).
-
-Many Linux distributions including CoreOS, Debian, Docker's LinuxKit, Fedora,
-openSUSE and Ubuntu already ship kernel versions >= 4.8.x. You can check your Linux
-kernel version by running ``uname -a``. If you are not yet running a recent
-enough kernel, check the Documentation of your Linux distribution on how to run
-Linux kernel 4.9.x or later.
-
-To read up on the necessary kernel versions to run the BPF runtime, see the
-section Prerequisites_.
-
-.. image:: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/bpf-overview.png
-    :align: center
-
-XDP is a further step in evolution and enables running a specific flavor of BPF
-programs from the network driver with direct access to the packet's DMA buffer.
-This is, by definition, the earliest possible point in the software stack,
-where programs can be attached to in order to allow for a programmable, high
-performance packet processor in the Linux kernel networking data path.
-
-Further information about BPF and XDP targeted for developers can be found in
-the `BPF and XDP Reference Guide`_.
-
-To know more about Cilium, its extensions and use cases around Cilium and BPF
-take a look at `Further Readings <FURTHER_READINGS.rst>`_ section.
-
 Community
 =========
 
@@ -325,10 +279,6 @@ Adopters
 A list of adopters of the Cilium project who are deploying it in production, and of their use cases,
 can be found in file `USERS.md <https://github.com/cilium/cilium/blob/main/USERS.md>`__.
 
-Roadmap
--------
-Cilium maintains a `public roadmap <https://docs.cilium.io/en/latest/community/roadmap/>`__. It gives a high-level view of the main priorities for the project, the maturity of different features and projects, and how to influence the project direction.
-
 License
 =======
 
@@ -351,7 +301,6 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
 .. _Contributing: https://docs.cilium.io/en/stable/contributing/development/
 .. _Prerequisites: https://docs.cilium.io/en/stable/operations/system_requirements/
-.. _`BPF and XDP Reference Guide`: https://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
 .. _`Meeting Notes and Zoom Info`: https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#

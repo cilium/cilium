@@ -6,6 +6,7 @@ package sysdump
 import (
 	"archive/tar"
 	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/kubectl/pkg/util/podutils"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
@@ -39,7 +41,8 @@ import (
 )
 
 const sysdumpLogFile = "cilium-sysdump.log"
-const helmReleaseName = "cilium"
+const ciliumHelmReleaseName = "cilium"
+const tetragonHelmReleaseName = "tetragon"
 
 // Options groups together the set of options required to collect a sysdump.
 type Options struct {
@@ -57,6 +60,8 @@ type Options struct {
 	CiliumEnvoyLabelSelector string
 	// The release name of Cilium Helm chart.
 	CiliumHelmReleaseName string
+	// The release name of Tetragon Helm chart.
+	TetragonHelmReleaseName string
 	// The labels used to target Cilium Node Init daemon set. Usually, this label is same as CiliumNodeInitLabelSelector.
 	CiliumNodeInitDaemonSetSelector string
 	// The labels used to target Cilium Node Init pods.
@@ -69,6 +74,8 @@ type Options struct {
 	CiliumSPIREServerLabelSelector string
 	// The labels used to target Cilium SPIRE agent pods.
 	CiliumSPIREAgentLabelSelector string
+	// Whether to collect logs from cilium-agent pods that are crashing.
+	CollectLogsFromNotReadyAgents bool
 	// Whether to enable debug logging.
 	Debug bool
 	// Whether to enable scraping profiling data.
@@ -163,6 +170,9 @@ type Collector struct {
 	NodeList []string
 	// CiliumPods is a list of Cilium agent pods running on nodes in NodeList.
 	CiliumPods []*corev1.Pod
+	// CiliumNotReadyPods is a list of additional Cilium agent pods to collect logs from
+	// regardless of node filter.
+	CiliumNotReadyPods []*corev1.Pod
 	// CiliumOperatorPods is the list of Cilium operator pods.
 	CiliumOperatorPods []*corev1.Pod
 	// CiliumConfigMap is a pointer to cilium-config ConfigMap.
@@ -225,10 +235,17 @@ func NewCollector(
 	}
 
 	if c.Options.CiliumHelmReleaseName == "" {
-		c.log("ℹ️ Using default Cilium Helm release name: %q", helmReleaseName)
-		c.Options.CiliumHelmReleaseName = helmReleaseName
+		c.log("ℹ️ Using default Cilium Helm release name: %q", ciliumHelmReleaseName)
+		c.Options.CiliumHelmReleaseName = ciliumHelmReleaseName
 	} else {
 		c.log("ℹ️ Cilium Helm release name: %q", c.Options.CiliumHelmReleaseName)
+	}
+
+	if c.Options.TetragonHelmReleaseName == "" {
+		c.log("ℹ️ Using default Tetragon Helm release name: %q", tetragonHelmReleaseName)
+		c.Options.TetragonHelmReleaseName = tetragonHelmReleaseName
+	} else {
+		c.log("ℹ️ Tetragon Helm release name: %q", c.Options.TetragonHelmReleaseName)
 	}
 
 	if c.Options.CiliumSPIRENamespace == "" {
@@ -283,6 +300,23 @@ func NewCollector(
 			return nil, fmt.Errorf("failed to get Cilium pods: %w", err)
 		}
 		c.CiliumPods = FilterPods(ciliumPods, c.NodeList)
+		if c.Options.CollectLogsFromNotReadyAgents {
+			crashedPods := filterCrashedPods(ciliumPods, 5)
+			notReady := filterRunningNotReadyPods(ciliumPods, 5)
+			restartedPods := filterRestartedContainersPods(ciliumPods, 5)
+			allPods := slices.Concat(crashedPods, notReady, restartedPods)
+
+			for _, pod := range allPods {
+				if !slices.ContainsFunc(c.CiliumNotReadyPods, func(p *corev1.Pod) bool {
+					return p.Name == pod.Name
+				}) {
+					c.CiliumNotReadyPods = append(c.CiliumNotReadyPods, pod)
+				}
+			}
+			if len(c.CiliumNotReadyPods) > 0 {
+				c.logWarn("Collecting additional logs from %d not ready/crashing/restarted Cilium agent pods", len(c.CiliumNotReadyPods))
+			}
+		}
 
 		c.CiliumConfigMap, err = c.Client.GetConfigMap(context.Background(), c.Options.CiliumNamespace, ciliumConfigMapName, metav1.GetOptions{})
 		if err != nil {
@@ -378,24 +412,46 @@ func (c *Collector) AbsoluteTempPath(f string) string {
 	return path.Join(c.sysdumpDir, c.replaceTimestamp(f))
 }
 
+func (c *Collector) WithFileSink(filename string, fn func(io.Writer) error) error {
+	path := c.AbsoluteTempPath(filename)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileMode)
+	if err != nil {
+		return err
+	}
+
+	return errors.Join(
+		fn(file),
+		file.Close(),
+	)
+}
+
 // WriteYAML writes a kubernetes object to a file as YAML.
 func (c *Collector) WriteYAML(filename string, o runtime.Object) error {
-	return writeYaml(c.AbsoluteTempPath(filename), o)
+	return c.WithFileSink(filename, func(w io.Writer) error {
+		return writeYAML(o, w)
+	})
 }
 
 // WriteString writes a string to a file.
 func (c *Collector) WriteString(filename string, value string) error {
-	return writeString(c.AbsoluteTempPath(filename), value)
-}
-
-// WriteBytes writes a byte array to a file.
-func (c *Collector) WriteBytes(filename string, value []byte) error {
-	return writeBytes(c.AbsoluteTempPath(filename), value)
+	return c.WithFileSink(filename, func(out io.Writer) error {
+		_, err := fmt.Fprint(out, value)
+		return err
+	})
 }
 
 // WriteTable writes a kubernetes table to a file.
 func (c *Collector) WriteTable(filename string, value *metav1.Table) error {
-	return writeTable(c.AbsoluteTempPath(filename), value)
+	return c.WithFileSink(filename, func(out io.Writer) error {
+		return writeTable(value, out)
+	})
+}
+
+// WriteEventTable writes writes a html summary of cluster events to a file.
+func (c *Collector) WriteEventTable(filename string, events []corev1.Event) error {
+	return c.WithFileSink(filename, func(out io.Writer) error {
+		return writeEventTable(events, out)
+	})
 }
 
 // Run performs the actual sysdump collection.
@@ -438,8 +494,8 @@ func (c *Collector) Run() error {
 				if err := c.WriteYAML(kubernetesEventsFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes events: %w", err)
 				}
-				if err := c.WriteBytes(kubernetesEventsTableFileName, makeEventTable(v.Items)); err != nil {
-					return fmt.Errorf("failed to write event tble: %w", err)
+				if err := c.WriteEventTable(kubernetesEventsTableFileName, v.Items); err != nil {
+					return fmt.Errorf("failed to write event table: %w", err)
 				}
 				return nil
 			},
@@ -588,7 +644,7 @@ func (c *Collector) Run() error {
 					if err != nil {
 						return fmt.Errorf("failed to get logs from Hubble certgen pods")
 					}
-					if err := c.SubmitLogsTasks(filterCrashedPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					if err := c.SubmitLogsTasks(filterCrashedPods(p, 0), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 						return fmt.Errorf("failed to collect logs from Hubble certgen pods")
 					}
 				}
@@ -1251,6 +1307,17 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting logs from crashing Cilium pods",
+			Quick:           false,
+			Task: func(_ context.Context) error {
+				if err := c.SubmitLogsTasks(c.CiliumNotReadyPods, c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from not ready Cilium pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting logs from Cilium Envoy pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
@@ -1617,7 +1684,7 @@ func (c *Collector) Run() error {
 	helmTasks := []Task{
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting Helm metadata from the release",
+			Description:     "Collecting Helm metadata from the Cilium release",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetHelmMetadata(ctx, c.Options.CiliumHelmReleaseName, c.Options.CiliumNamespace)
@@ -1632,7 +1699,22 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting Helm values from the release",
+			Description:     "Collecting Helm metadata from the Tetragon release",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetHelmMetadata(ctx, c.Options.TetragonHelmReleaseName, c.Options.TetragonNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to get the helm metadata from the release: %w", err)
+				}
+				if err := c.WriteString(tetragonHelmMetadataFileName, v); err != nil {
+					return fmt.Errorf("failed to write the helm metadata to the file: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting Helm values from the Cilium release",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetHelmValues(ctx, c.Options.CiliumHelmReleaseName, c.Options.CiliumNamespace)
@@ -1640,6 +1722,21 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("failed to get the helm values from the release: %w", err)
 				}
 				if err := c.WriteString(ciliumHelmValuesFileName, v); err != nil {
+					return fmt.Errorf("failed to write the helm values to the file: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting Helm values from the Tetragon release",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetHelmValues(ctx, c.Options.TetragonHelmReleaseName, c.Options.TetragonNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to get the helm values from the release: %w", err)
+				}
+				if err := c.WriteString(tetragonHelmValuesFileName, v); err != nil {
 					return fmt.Errorf("failed to write the helm values to the file: %w", err)
 				}
 				return nil
@@ -2429,21 +2526,18 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 	for _, p := range pods {
 		p := p
 		if err := c.Pool.Submit("hubble-flows-"+p.Name, func(ctx context.Context) error {
-			b, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{
-				"timeout", "--signal", "SIGINT", "--preserve-status", hubbleFlowsTimeout, "bash", "-c",
-				fmt.Sprintf("hubble observe --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w: %s", p.Name, p.Namespace, err, e.String())
+			if err := c.WithFileSink(fmt.Sprintf(hubbleFlowsFileName, p.Name), func(stdout io.Writer) error {
+				return c.WithFileSink(fmt.Sprintf(hubbleObserveFileName, p.Name), func(stderr io.Writer) error {
+					return c.Client.ExecInPodWithWriters(ctx, nil, p.Namespace, p.Name, containerName, []string{
+						"timeout", "--signal", "SIGINT", "--preserve-status", hubbleFlowsTimeout, "bash", "-c",
+						fmt.Sprintf("hubble observe --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
+					}, stdout, stderr)
+
+				})
+			}); err != nil {
+				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
 			}
-			// Dump the resulting file's contents to the temporary directory.
-			if err := c.WriteBytes(fmt.Sprintf(hubbleFlowsFileName, p.Name), b.Bytes()); err != nil {
-				return fmt.Errorf("failed to write hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
-			}
-			// Dump the stderr from the hubble observe command to the temporary directory.
-			if err := c.WriteBytes(fmt.Sprintf(hubbleObserveFileName, p.Name), e.Bytes()); err != nil {
-				return fmt.Errorf("failed to write hubble stderr for %q in namespace %q: %w", p.Name, p.Namespace, err)
-			}
+
 			c.logDebug("Finished collecting hubble flows from %s/%s", p.Namespace, p.Name)
 			return nil
 		}); err != nil {
@@ -2469,13 +2563,10 @@ func (c *Collector) submitSpireEntriesTasks(pods []*corev1.Pod) error {
 			}()
 
 			command := []string{"/opt/spire/bin/spire-server", "entry", "show", "-output", "json"}
-			o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, command)
-			if err != nil {
+			if err := c.WithFileSink(fmt.Sprintf(ciliumSPIREServerEntriesFileName, p.Name), func(out io.Writer) error {
+				return c.Client.ExecInPodWithWriters(ctx, nil, p.Namespace, p.Name, containerName, command, out, k8s.StderrAsError)
+			}); err != nil {
 				return fmt.Errorf("failed to collect 'spire-server' output for %q in namespace %q: %w", p.Name, p.Namespace, err)
-			}
-
-			if err := c.WriteBytes(fmt.Sprintf(ciliumSPIREServerEntriesFileName, p.Name), o.Bytes()); err != nil {
-				return fmt.Errorf("failed to write spireserver stdout for %q in namespace %q: %w", p.Name, p.Namespace, err)
 			}
 
 			return nil
@@ -2531,15 +2622,13 @@ func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName s
 			cniConfigFileNames := strings.Split(strings.TrimSpace(outputStr.String()), "\n")
 			for _, cniFileName := range cniConfigFileNames {
 				cniConfigPath := path.Join(c.Options.CNIConfigDirectory, cniFileName)
-				cniConfigFileContent, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
-					catCommand,
-					cniConfigPath,
-				})
-				if err != nil {
+				if err := c.WithFileSink(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), func(out io.Writer) error {
+					return c.Client.ExecInPodWithWriters(ctx, nil, p.GetNamespace(), p.GetName(), containerName, []string{
+						catCommand,
+						cniConfigPath,
+					}, out, k8s.StderrAsError)
+				}); err != nil {
 					return fmt.Errorf("failed to copy CNI config file %q from directory %q: %w", cniFileName, c.Options.CNIConfigDirectory, err)
-				}
-				if err := c.WriteBytes(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), cniConfigFileContent.Bytes()); err != nil {
-					return fmt.Errorf("failed to write CNI configuration %q for %q in namespace %q: %w", cniFileName, p.GetName(), p.Namespace, err)
 				}
 			}
 			return nil
@@ -2586,18 +2675,17 @@ func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string)
 				if err != nil {
 					return err
 				}
-				o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{
-					gopsCommand,
-					g,
-					agentPID,
-				})
-				if err != nil {
+
+				if err := c.WithFileSink(fmt.Sprintf(gopsFileName, p.Name, containerName, g), func(out io.Writer) error {
+					return c.Client.ExecInPodWithWriters(ctx, nil, p.Namespace, p.Name, containerName, []string{
+						gopsCommand,
+						g,
+						agentPID,
+					}, out, k8s.StderrAsError)
+				}); err != nil {
 					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
 				}
-				// Dump the output to the temporary directory.
-				if err := c.WriteBytes(fmt.Sprintf(gopsFileName, p.Name, containerName, g), o.Bytes()); err != nil {
-					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
-				}
+
 				return nil
 			}); err != nil {
 				return fmt.Errorf("failed to submit %s gops task for %q: %w", g, p.Name, err)
@@ -2744,14 +2832,13 @@ func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, lim
 		for _, d := range allContainers {
 			d := d
 			if err := c.Pool.Submit(fmt.Sprintf("logs-%s-%s", p.Name, d.Name), func(ctx context.Context) error {
-				l, err := c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
-					corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Timestamps: true})
-				if err != nil {
+				if err := c.WithFileSink(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name), func(out io.Writer) error {
+					return c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
+						corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Timestamps: true}, out)
+				}); err != nil {
 					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 				}
-				if err := c.WriteString(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name), l); err != nil {
-					return fmt.Errorf("failed to collect logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
-				}
+
 				// Check if this container has restarted, in which case we should gather the previous one's logs too.
 				previous := false
 				for _, s := range p.Status.ContainerStatuses {
@@ -2762,12 +2849,10 @@ func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, lim
 				}
 				if previous {
 					c.logDebug("Collecting logs for restarted container %q in pod %q in namespace %q", d.Name, p.Name, p.Namespace)
-					u, err := c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
-						corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Previous: true, Timestamps: true})
-					if err != nil {
-						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
-					}
-					if err := c.WriteString(fmt.Sprintf(ciliumPreviousLogsFileName, p.Name, d.Name), u); err != nil {
+					if err := c.WithFileSink(fmt.Sprintf(ciliumPreviousLogsFileName, p.Name, d.Name), func(out io.Writer) error {
+						return c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
+							corev1.PodLogOptions{LimitBytes: &limitBytes, SinceTime: &t, Previous: true, Timestamps: true}, out)
+					}); err != nil {
 						return fmt.Errorf("failed to collect previous logs for %q (%q) in namespace %q: %w", p.Name, d.Name, p.Namespace, err)
 					}
 				}
@@ -2855,15 +2940,15 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 			prefix: "state/services",
 		},
 	} {
-		stdout, stderr, err := c.Client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, []string{
-			"cilium", "kvstore", "get", "cilium/" + dump.prefix, "--recursive", "-o", "json",
-		})
-		if err != nil {
-			return fmt.Errorf("failed to collect kvstore data in %q in namespace %q: %w: %s", pod.Name, pod.Namespace, err, stderr.String())
-		}
 		filename := "kvstore-" + dump.name + ".json"
-		if err := c.WriteString(filename, stdout.String()); err != nil {
-			return fmt.Errorf("failed writing kvstore dump for prefix %q to file %q: %w", dump.prefix, filename, err)
+
+		var stderr bytes.Buffer
+		if err := c.WithFileSink(filename, func(out io.Writer) error {
+			return c.Client.ExecInPodWithWriters(ctx, nil, pod.Namespace, pod.Name, defaults.AgentContainerName, []string{
+				"cilium", "kvstore", "get", "cilium/" + dump.prefix, "--recursive", "-o", "json",
+			}, out, &stderr)
+		}); err != nil {
+			return fmt.Errorf("failed to collect kvstore data in %q in namespace %q: %w: %s", pod.Name, pod.Namespace, err, stderr.String())
 		}
 	}
 
@@ -2950,23 +3035,27 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods []*corev1.Pod) error
 
 			filename := fmt.Sprintf("%s-%s-%s-<ts>.%s", pod.Name, task.container, task.name, task.ext)
 			if err := c.Pool.Submit(filename, func(ctx context.Context) error {
-				stdout, stderr, err := c.Client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, task.container, task.cmd)
-				if err != nil {
-					stderrStr := stderr.String()
-					if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
-						// The default cobra error tends to be misleading when both the
-						// command and the flags are not found, as it reports the missing
-						// flags rather than the missing command. Hence, let's just guess
-						// and output a generic unknown command error.
-						stderrStr = "unknown command - this is expected if not supported by this Cilium version"
+				if err := c.WithFileSink(filename, func(out io.Writer) error {
+					var stderr bytes.Buffer
+
+					err := c.Client.ExecInPodWithWriters(ctx, nil, pod.Namespace, pod.Name, task.container, task.cmd, out, &stderr)
+					if err != nil {
+						stderrStr := stderr.String()
+						if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
+							// The default cobra error tends to be misleading when both the
+							// command and the flags are not found, as it reports the missing
+							// flags rather than the missing command. Hence, let's just guess
+							// and output a generic unknown command error.
+							stderrStr = "unknown command - this is expected if not supported by this Cilium version"
+						}
+
+						return fmt.Errorf("%w: %s", err, stderrStr)
 					}
 
-					return fmt.Errorf("failed to collect clustermesh %s information from %s/%s (%s): %w: %s",
-						task.name, pod.Namespace, pod.Name, task.container, err, stderrStr)
-				}
-
-				if err := c.WriteString(filename, stdout.String()); err != nil {
-					return fmt.Errorf("failed to write clustermesh %s information to file %q: %w", task.name, filename, err)
+					return nil
+				}); err != nil {
+					return fmt.Errorf("failed to collect clustermesh %s information from %s/%s (%s): %w",
+						task.name, pod.Namespace, pod.Name, task.container, err)
 				}
 
 				return nil
@@ -3023,31 +3112,64 @@ func buildNodeNameList(nodes *corev1.NodeList, filter string) []string {
 
 // AllPods converts a PodList into a slice of Pod objects.
 func AllPods(l *corev1.PodList) []*corev1.Pod {
-	return filterPods(l, func(*corev1.Pod) bool { return true })
+	return filterPods(l, func(*corev1.Pod) bool { return true }, 0)
 }
 
 // FilterPods filters a list of pods by node names.
 func FilterPods(l *corev1.PodList, n []string) []*corev1.Pod {
-	return filterPods(l, func(po *corev1.Pod) bool { return slices.Contains(n, po.Spec.NodeName) })
+	return filterPods(l, func(po *corev1.Pod) bool { return slices.Contains(n, po.Spec.NodeName) }, 0)
 }
 
-func filterCrashedPods(l *corev1.PodList) []*corev1.Pod {
+func filterCrashedPods(l *corev1.PodList, limit int) []*corev1.Pod {
 	return filterPods(l, func(po *corev1.Pod) bool {
+		for _, containerStatus := range po.Status.InitContainerStatuses {
+			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+				return true
+			}
+		}
 		for _, containerStatus := range po.Status.ContainerStatuses {
 			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
 				return true
 			}
 		}
 		return false
-	})
+	}, limit)
 }
 
-func filterPods(l *corev1.PodList, filter func(po *corev1.Pod) bool) []*corev1.Pod {
+func filterRunningNotReadyPods(l *corev1.PodList, limit int) []*corev1.Pod {
+	return filterPods(l, func(po *corev1.Pod) bool {
+		if po.Status.Phase != corev1.PodRunning {
+			return false
+		}
+		return !podutils.IsPodReady(po)
+	}, limit)
+}
+
+func filterRestartedContainersPods(l *corev1.PodList, limit int) []*corev1.Pod {
+	return filterPods(l, func(po *corev1.Pod) bool {
+		for _, containerStatus := range po.Status.InitContainerStatuses {
+			if containerStatus.RestartCount > 0 {
+				return true
+			}
+		}
+		for _, containerStatus := range po.Status.ContainerStatuses {
+			if containerStatus.RestartCount > 0 {
+				return true
+			}
+		}
+		return false
+	}, limit)
+}
+
+func filterPods(l *corev1.PodList, filter func(po *corev1.Pod) bool, limit int) []*corev1.Pod {
 	r := make([]*corev1.Pod, 0)
 	for _, p := range l.Items {
 		p := p
 		if filter(&p) {
 			r = append(r, &p)
+			if limit > 0 && len(r) >= limit {
+				break
+			}
 		}
 	}
 	return r
@@ -3163,6 +3285,9 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 	cmd.Flags().StringVar(&options.CiliumHelmReleaseName,
 		optionPrefix+"cilium-helm-release-name", "",
 		"The Cilium Helm release name for which to get values. If not provided then the --helm-release-name global flag is used (if provided)")
+	cmd.Flags().StringVar(&options.TetragonHelmReleaseName,
+		optionPrefix+"tetragon-helm-release-name", "",
+		"The Tetragon Helm release name for which to get values.")
 	cmd.Flags().StringVar(&options.CiliumOperatorLabelSelector,
 		optionPrefix+"cilium-operator-label-selector", DefaultCiliumOperatorLabelSelector,
 		"The labels used to target Cilium operator pods")
@@ -3178,6 +3303,9 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 	cmd.Flags().StringVar(&options.CiliumSPIREServerLabelSelector,
 		optionPrefix+"cilium-spire-server-selector", DefaultCiliumSpireServerLabelSelector,
 		"The labels used to target Cilium spire-server pods")
+	cmd.Flags().BoolVar(&options.CollectLogsFromNotReadyAgents,
+		optionPrefix+"collect-logs-from-not-ready-agents", DefaultCollectLogsFromNotReadyAgents,
+		"Whether to collect logs from not ready Cilium agent pods")
 	cmd.Flags().BoolVar(&options.Debug,
 		optionPrefix+"debug", DefaultDebug,
 		"Whether to enable debug logging")

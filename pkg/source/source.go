@@ -4,6 +4,8 @@
 package source
 
 import (
+	"slices"
+
 	"github.com/cilium/hive/cell"
 )
 
@@ -63,6 +65,9 @@ const (
 // Sources is a priority-sorted slice of sources.
 type Sources []Source
 
+// The ordering in defaultSources is critical and it should only be changed
+// with care because as it determines the behavior of AllowOverwrite().
+// It is from highest precedence to lowest precedence.
 var defaultSources Sources = []Source{
 	KubeAPIServer,
 	Local,
@@ -70,6 +75,7 @@ var defaultSources Sources = []Source{
 	CustomResource,
 	Kubernetes,
 	ClusterMesh,
+	Directory,
 	LocalAPI,
 	Generated,
 	Restored,
@@ -79,57 +85,18 @@ var defaultSources Sources = []Source{
 // AllowOverwrite returns true if new state from a particular source is allowed
 // to overwrite existing state from another source
 func AllowOverwrite(existing, new Source) bool {
-	switch existing {
+	overflowNegative := overflowNegativeTo(len(defaultSources))
+	return overflowNegative(slices.Index(defaultSources, new)) <= overflowNegative(slices.Index(defaultSources, existing))
+}
 
-	// KubeAPIServer state can only be overwritten by other kube-apiserver
-	// state.
-	case KubeAPIServer:
-		return new == KubeAPIServer
-
-	// Local state can only be overwritten by other local state or
-	// kube-apiserver state.
-	case Local:
-		return new == Local || new == KubeAPIServer
-
-	// KVStore can be overwritten by other kvstore, local state, or
-	// kube-apiserver state.
-	case KVStore:
-		return new == KVStore || new == Local || new == KubeAPIServer
-
-	// Custom-resource state can be overwritten by other CRD, kvstore,
-	// local or kube-apiserver state.
-	case CustomResource:
-		return new == CustomResource || new == KVStore || new == Local || new == KubeAPIServer
-
-	// Kubernetes state can be overwritten by everything except clustermesh,
-	// local API, generated, restored and unspecified state.
-	case Kubernetes:
-		return new != ClusterMesh && new != LocalAPI && new != Generated && new != Restored && new != Unspec
-
-	// ClusterMesh state can be overwritten by everything except local API,
-	// generated, restored and unspecified state.
-	case ClusterMesh:
-		return new != LocalAPI && new != Generated && new != Restored && new != Unspec
-
-	// Local API state can be overwritten by everything except restored,
-	// generated and unspecified state
-	case LocalAPI:
-		return new != Generated && new != Restored && new != Unspec
-
-	// Generated can be overwritten by everything except by Restored and
-	// Unspecified
-	case Generated:
-		return new != Restored && new != Unspec
-
-	// Restored can be overwritten by everything except by Unspecified
-	case Restored:
-		return new != Unspec
-
-	// Unspecified state can be overwritten by everything
-	case Unspec:
-		return true
+func overflowNegativeTo(infinity int) func(int) int {
+	return func(n int) int {
+		if n < 0 {
+			return infinity
+		} else {
+			return n
+		}
 	}
-	return true
 }
 
 var Cell = cell.Module(

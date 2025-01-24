@@ -174,7 +174,7 @@ jobs:
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250105.013256'
+            kernel: 'bpf-next-20250110.013326'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -190,7 +190,7 @@ jobs:
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250105.013256'
+            kernel: 'bpf-next-20250110.013326'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -247,7 +247,7 @@ jobs:
 
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250105.013256'
+            kernel: 'bpf-next-20250110.013326'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -287,14 +287,15 @@ jobs:
 
           - name: '15'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250105.013256'
+            kernel: 'bpf-next-20250110.013326'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             tunnel: 'disabled'
+            lb-mode: 'dsr'
             ingress-controller: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
             ciliumendpointslice: 'true'
 
           - name: '16'
@@ -304,7 +305,7 @@ jobs:
             kpr: 'true'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
-            tunnel: 'vxlan'
+            tunnel: 'geneve'
             lb-mode: 'snat'
             encryption: 'wireguard'
             encryption-node: 'false'
@@ -314,7 +315,7 @@ jobs:
 
           - name: '17'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250105.013256'
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -326,7 +327,7 @@ jobs:
 
           - name: '18'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250105.013256'
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -338,7 +339,7 @@ jobs:
 
           - name: '19'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250105.013256'
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit'
             kube-proxy: 'none'
             kpr: 'true'
@@ -350,7 +351,7 @@ jobs:
 
           - name: '20'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250105.013256'
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit-l2'
             kube-proxy: 'none'
             kpr: 'true'
@@ -361,7 +362,7 @@ jobs:
 
           - name: '21'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250105.013256'
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit'
             kube-proxy: 'none'
             kpr: 'true'
@@ -372,7 +373,7 @@ jobs:
 
           - name: '22'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250105.013256'
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit-l2'
             kube-proxy: 'none'
             kpr: 'true'
@@ -383,7 +384,7 @@ jobs:
 
           - name: '23'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250105.013256'
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit'
             kube-proxy: 'none'
             kpr: 'true'
@@ -396,7 +397,7 @@ jobs:
 
           - name: '24'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20250105.013256'
+            kernel: 'bpf-net-20250110.013326'
             misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -408,7 +409,7 @@ jobs:
 
           - name: '25'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20250105.013256'
+            kernel: 'bpf-net-20250110.013326'
             misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -688,7 +689,7 @@ jobs:
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
-          cilium status --wait --wait-duration=10m
+          cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
@@ -763,7 +764,7 @@ jobs:
             ${{ steps.cilium-stable-config.outputs.config }} \
             ${{ steps.kvstore.outputs.config }}
 
-          cilium status --wait --wait-duration=10m
+          cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
@@ -817,21 +818,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: features-tested-${{ matrix.name }}
           path: ${{ env.job_name }}*.json

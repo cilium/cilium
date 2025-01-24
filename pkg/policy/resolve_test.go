@@ -136,7 +136,9 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	return rules, generateCIDRIdentities(rules)
 }
 
-type DummyOwner struct{}
+type DummyOwner struct {
+	mapStateSize int
+}
 
 func (d DummyOwner) CreateRedirects(*L4Filter) {
 }
@@ -155,6 +157,10 @@ func (d DummyOwner) GetID() uint64 {
 
 func (d DummyOwner) IsHost() bool {
 	return false
+}
+
+func (d DummyOwner) MapStateSize() int {
+	return d.mapStateSize
 }
 
 func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
@@ -183,16 +189,16 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	td := newTestData()
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+	owner := DummyOwner{}
 	b.ReportAllocs()
 	b.ResetTimer()
-	n := 0
 	for i := 0; i < b.N; i++ {
-		epPolicy := ip.DistillPolicy(DummyOwner{}, nil)
+		epPolicy := ip.DistillPolicy(owner, nil)
+		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
-		n += epPolicy.policyMapState.Len()
 	}
 	ip.Detach()
-	fmt.Printf("Number of MapState entries: %d\n", n/b.N)
+	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
@@ -290,7 +296,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 								isRedirect:      true,
 							},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
 				}),
 					features: redirectRules,
@@ -403,7 +409,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 							},
 							cachedSelectorHost: nil,
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 					},
 				}),
 					features: redirectRules,
@@ -482,7 +488,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects)
 	policy.Ready()
 
-	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel).withOwners(td.wildcardCachedSelector)
+	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -503,7 +509,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: nil,
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {ruleLabel}}),
 					},
 				})},
 				Egress: newL4DirectionPolicy(),
@@ -512,7 +518,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(mapStateMap{
+		policyMapState: emptyMapState().withState(mapStateMap{
 			EgressKey():                  allowEgressMapStateEntry,
 			IngressKey().WithTCPPort(80): rule1MapStateEntry,
 		}),
@@ -641,7 +647,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel).withOwners(cachedSelectorTest)
+	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -669,12 +675,12 @@ func TestMapStateWithIngress(t *testing.T) {
 								CanShortCircuit: true,
 							},
 						},
-						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 							cachedSelectorWorld:   {ruleLabel},
 							cachedSelectorWorldV4: {ruleLabel},
 							cachedSelectorWorldV6: {ruleLabel},
 							cachedSelectorTest:    {ruleLabel},
-						},
+						}),
 					},
 				}),
 					features: authRules,
@@ -685,11 +691,11 @@ func TestMapStateWithIngress(t *testing.T) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		policyMapState: newMapState().withState(mapStateMap{
+		policyMapState: emptyMapState().withState(mapStateMap{
 			EgressKey(): allowEgressMapStateEntry,
-			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry.withOwners(cachedSelectorWorld),
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorld, cachedSelectorWorldV4),
-			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry.withOwners(cachedSelectorWorld, cachedSelectorWorldV6),
+			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry,
 			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
 			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
 		}),
@@ -775,7 +781,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: newMapState(),
+				PolicyMapState: emptyMapState(),
 			},
 			args: args{
 				identity: 0,
@@ -790,7 +796,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState(),
+				PolicyMapState: emptyMapState(),
 			},
 			args: args{
 				identity: 0,
@@ -805,7 +811,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(mapStateMap{
+				PolicyMapState: emptyMapState().withState(mapStateMap{
 					IngressKey(): {},
 				}),
 			},
@@ -822,7 +828,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(mapStateMap{
+				PolicyMapState: emptyMapState().withState(mapStateMap{
 					EgressKey(): {},
 				}),
 			},
@@ -839,8 +845,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(mapStateMap{
-					IngressKey(): NewMapStateEntry(DenyEntry, nil),
+				PolicyMapState: emptyMapState().withState(mapStateMap{
+					IngressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
 			args: args{
@@ -856,8 +862,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(mapStateMap{
-					IngressKey(): NewMapStateEntry(DenyEntry, nil),
+				PolicyMapState: emptyMapState().withState(mapStateMap{
+					IngressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
 			args: args{
@@ -873,8 +879,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: newMapState().withState(mapStateMap{
-					EgressKey(): NewMapStateEntry(DenyEntry, nil),
+				PolicyMapState: emptyMapState().withState(mapStateMap{
+					EgressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
 			args: args{
@@ -890,8 +896,8 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: newMapState().withState(mapStateMap{
-					EgressKey(): NewMapStateEntry(DenyEntry, nil),
+				PolicyMapState: emptyMapState().withState(mapStateMap{
+					EgressKey(): NewMapStateEntry(DenyEntry),
 				}),
 			},
 			args: args{

@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define DEBUG
-#define TRACE_NOTIFY
-#define DROP_NOTIFY
-#define POLICY_VERDICT_NOTIFY
-#define ENABLE_CAPTURE
-#define TRACE_SOCK_NOTIFY
-
 #include <bpf/ctx/unspec.h>
 
 #include "node_config.h"
@@ -87,7 +80,6 @@ add_type(struct tunnel_value);
 add_type(struct auth_key);
 add_type(struct auth_info);
 add_type(struct encrypt_config);
-add_type(struct world_cidrs_key4);
 add_type(struct mcast_subscriber_v4);
 add_type(struct node_key);
 add_type(struct node_value);

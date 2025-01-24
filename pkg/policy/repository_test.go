@@ -65,6 +65,11 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
 	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 
+	// lal takes a single label and returns a []labels.LabelArray containing only that label
+	lal := func(lbl labels.Label) []labels.LabelArray {
+		return []labels.LabelArray{{lbl}}
+	}
+
 	fooIngressRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
 		Ingress: []api.IngressRule{
@@ -178,7 +183,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
 	require.ElementsMatch(t, matchingRules.AsPolicyRules(), api.Rules{&fooIngressRule1, &fooIngressRule2})
 
-	_, _, numDeleted := repo.deleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
+	_, _, numDeleted := repo.ReplaceByLabels(nil, lal(fooIngressRule1Label))
 	require.Equal(t, 1, numDeleted)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
@@ -186,7 +191,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
 	require.EqualValues(t, fooIngressRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooIngressRule2Label})
+	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooIngressRule2Label))
 	require.Equal(t, 1, numDeleted)
 
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
@@ -200,7 +205,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, ing, "ingress policy enforcement should not apply since no ingress rules select")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
 	require.EqualValues(t, fooEgressRule1, matchingRules[0].Rule, "returned matching rules did not match")
-	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
+	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressRule1Label))
 	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.mustAdd(fooEgressRule2)
@@ -210,7 +215,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
 	require.EqualValues(t, fooEgressRule2, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{fooEgressRule2Label})
+	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressRule2Label))
 	require.Equal(t, 1, numDeleted)
 
 	_, _, err = repo.mustAdd(combinedRule)
@@ -219,7 +224,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules selects")
 	require.EqualValues(t, combinedRule, matchingRules[0].Rule, "returned matching rules did not match")
-	_, _, numDeleted = repo.deleteByLabelsLocked(labels.LabelArray{combinedLabel})
+	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(combinedLabel))
 	require.Equal(t, 1, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
@@ -259,90 +264,6 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, ingress)
 	require.False(t, egress)
 
-}
-
-func TestAddSearchDelete(t *testing.T) {
-	td := newTestData()
-	repo := td.repo
-
-	lbls1 := labels.LabelArray{
-		labels.ParseLabel("tag1"),
-		labels.ParseLabel("tag2"),
-	}
-	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
-		Labels:           lbls1,
-	}
-	rule1.Sanitize()
-	rule2 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Labels:           lbls1,
-	}
-	rule2.Sanitize()
-	lbls2 := labels.LabelArray{labels.ParseSelectLabel("tag3")}
-	rule3 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Labels:           lbls2,
-	}
-	rule3.Sanitize()
-
-	nextRevision := uint64(1)
-
-	require.Equal(t, nextRevision, repo.GetRevision())
-	nextRevision++
-
-	// add rule1,rule2
-	rev, _, err := repo.mustAdd(rule1)
-	require.NoError(t, err)
-	require.Equal(t, nextRevision, rev)
-	nextRevision++
-	rev, _, err = repo.mustAdd(rule2)
-	require.NoError(t, err)
-	require.Equal(t, nextRevision, rev)
-	nextRevision++
-
-	// rule3 should not be in there yet
-	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{}, repo.searchRLocked(lbls2))
-	repo.mutex.RUnlock()
-
-	// add rule3
-	rev, _, err = repo.mustAdd(rule3)
-	require.NoError(t, err)
-	require.Equal(t, nextRevision, rev)
-	nextRevision++
-
-	// search rule1,rule2
-	repo.mutex.RLock()
-	require.ElementsMatch(t, api.Rules{&rule1, &rule2}, repo.searchRLocked(lbls1))
-	require.ElementsMatch(t, api.Rules{&rule3}, repo.searchRLocked(lbls2))
-	repo.mutex.RUnlock()
-
-	// delete rule1, rule2
-	rev, n := repo.deleteByLabels(lbls1)
-	require.Equal(t, 2, n)
-	require.Equal(t, nextRevision, rev)
-	nextRevision++
-
-	// delete rule1, rule2 again has no effect
-	rev, n = repo.deleteByLabels(lbls1)
-	require.Equal(t, 0, n)
-	require.Equal(t, nextRevision-1, rev)
-
-	// rule3 can still be found
-	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{&rule3}, repo.searchRLocked(lbls2))
-	repo.mutex.RUnlock()
-
-	// delete rule3
-	rev, n = repo.deleteByLabels(lbls2)
-	require.Equal(t, 1, n)
-	require.Equal(t, nextRevision, rev)
-
-	// rule1 is gone
-	repo.mutex.RLock()
-	require.EqualValues(t, api.Rules{}, repo.searchRLocked(lbls2))
-	repo.mutex.RUnlock()
 }
 
 func BenchmarkParseLabel(b *testing.B) {
@@ -749,7 +670,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				td.cachedSelectorBar1: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3}}),
 		},
 		"8/ICMP": {
 			Port:     8,
@@ -759,7 +680,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				td.cachedSelectorBar2: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}}),
 		},
 		"128/ICMPV6": {
 			Port:     128,
@@ -769,7 +690,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				td.cachedSelectorBar2: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}}),
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -785,7 +706,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -801,7 +722,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 		"9090/TCP": {
 			Port:     9090,
@@ -818,7 +739,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsL7}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsL7}}),
 		},
 	})
 	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
@@ -953,10 +874,10 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				td.cachedSelectorBar1: {labelsL4HTTP},
 				td.cachedSelectorBar2: {labelsL7HTTP},
-			},
+			}),
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -973,10 +894,10 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				td.cachedSelectorBar1: {labelsL4Kafka},
 				td.cachedSelectorBar2: {labelsL7Kafka},
-			},
+			}),
 		},
 	})
 	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
@@ -1034,7 +955,7 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
+	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
 
 	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
@@ -1045,9 +966,9 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 				expectedCachedSelector: nil,
 			},
 			Ingress: true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				expectedCachedSelector: {nil},
-			},
+			}),
 		},
 	})
 	require.Equal(t, expectedPolicy, policy)
@@ -1116,8 +1037,8 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
-	expectedCachedSelector2, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector2)
+	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
+	expectedCachedSelector2, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector2)
 
 	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
@@ -1127,9 +1048,9 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector2: nil,
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				expectedCachedSelector2: {nil},
-			},
+			}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1138,9 +1059,9 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector: nil,
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				expectedCachedSelector: {nil},
-			},
+			}),
 		},
 	})
 	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
@@ -1297,7 +1218,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1313,7 +1234,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 		"8/ICMP": {
 			Port:     8,
@@ -1323,7 +1244,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				td.cachedSelectorBar2: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}}),
 		},
 		"128/ICMPV6": {
 			Port:     128,
@@ -1333,7 +1254,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				td.cachedSelectorBar2: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMPv6}}),
 		},
 		"0/ANY": {
 			Port:     0,
@@ -1344,7 +1265,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 				td.cachedSelectorBar1: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4}}),
 		},
 	})
 	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
@@ -1485,10 +1406,10 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				td.cachedSelectorBar1: {labelsL3HTTP},
 				td.cachedSelectorBar2: {labelsL7HTTP},
-			},
+			}),
 		},
 		"53/UDP": {
 			Port:     53,
@@ -1505,10 +1426,10 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				td.cachedSelectorBar1: {labelsL3DNS},
 				td.cachedSelectorBar2: {labelsL7DNS},
-			},
+			}),
 		},
 	})
 	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
@@ -1529,7 +1450,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 	cidrSelectors := cidrSlice.GetAsEndpointSelectors()
 	var cachedSelectors CachedSelectorSlice
 	for i := range cidrSelectors {
-		c, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, cidrSelectors[i])
+		c, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, cidrSelectors[i])
 		cachedSelectors = append(cachedSelectors, c)
 		defer td.sc.RemoveSelector(c, dummySelectorCacheUser)
 	}
@@ -1614,7 +1535,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsHTTP}}),
 		},
 		"0/ANY": {
 			Port:     0,
@@ -1625,7 +1546,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: nil,
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}}),
 		},
 	})
 	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
@@ -1743,11 +1664,11 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 				cachedSelectorWorldV6: nil,
 			},
 			Ingress: true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				cachedSelectorWorld:   {labelsL3},
 				cachedSelectorWorldV4: {labelsL3},
 				cachedSelectorWorldV6: {labelsL3},
-			},
+			}),
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -1763,7 +1684,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsKafka}}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1779,7 +1700,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 	})
 
@@ -1895,11 +1816,11 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 				cachedSelectorWorldV6: nil,
 			},
 			Ingress: false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 				cachedSelectorWorld:   {labelsL3},
 				cachedSelectorWorldV4: {labelsL3},
 				cachedSelectorWorldV6: {labelsL3},
-			},
+			}),
 		},
 		"53/UDP": {
 			Port:     53,
@@ -1915,7 +1836,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsDNS}}),
 		},
 		"80/TCP": {
 			Port:     80,
@@ -1931,7 +1852,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 					isRedirect: true,
 				},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 	})
 
@@ -2055,7 +1976,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}}),
 	})
 
 	if !assert.EqualValues(t, expected.Ingress.PortRules, l4IngressPolicy) {
@@ -2346,9 +2267,7 @@ func TestIterate(t *testing.T) {
 
 	require.Equal(t, numRules-numModified, numWithEgress)
 
-	repo.mutex.Lock()
-	_, _, numDeleted := repo.deleteByLabelsLocked(labels.LabelArray{lbls[0]})
-	repo.mutex.Unlock()
+	_, _, numDeleted := repo.ReplaceByLabels(nil, []labels.LabelArray{{lbls[0]}})
 	require.Equal(t, 1, numDeleted)
 
 	numWithEgress = 0

@@ -75,6 +75,7 @@ type ModifyInstanceAttributeRequest struct {
 	Recyclable                  requests.Boolean                               `position:"Query" name:"Recyclable"`
 	NetworkInterfaceQueueNumber requests.Integer                               `position:"Query" name:"NetworkInterfaceQueueNumber"`
 	Description                 string                                         `position:"Query" name:"Description"`
+	CpuOptionsThreadsPerCore    requests.Integer                               `position:"Query" name:"CpuOptions.ThreadsPerCore"`
 	DeletionProtection          requests.Boolean                               `position:"Query" name:"DeletionProtection"`
 	UserData                    string                                         `position:"Query" name:"UserData"`
 	Password                    string                                         `position:"Query" name:"Password"`
@@ -84,6 +85,7 @@ type ModifyInstanceAttributeRequest struct {
 	ImageOptions                ModifyInstanceAttributeImageOptions            `position:"Query" name:"ImageOptions"  type:"Struct"`
 	OSNameEn                    string                                         `position:"Query" name:"OSNameEn"`
 	EnableJumboFrame            requests.Boolean                               `position:"Query" name:"EnableJumboFrame"`
+	CpuOptionsCore              requests.Integer                               `position:"Query" name:"CpuOptions.Core"`
 	ResourceOwnerAccount        string                                         `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount                string                                         `position:"Query" name:"OwnerAccount"`
 	CreditSpecification         string                                         `position:"Query" name:"CreditSpecification"`

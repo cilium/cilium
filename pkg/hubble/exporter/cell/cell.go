@@ -42,8 +42,8 @@ type config struct {
 var DefaultConfig = config{
 	FlowlogsConfigFilePath: "",
 	ExportFilePath:         "",
-	ExportFileMaxSizeMB:    10,
-	ExportFileMaxBackups:   5,
+	ExportFileMaxSizeMB:    exporter.DefaultFileMaxSizeMB,
+	ExportFileMaxBackups:   exporter.DefaultFileMaxBackups,
 	ExportFileCompress:     false,
 	ExportAllowlist:        []*flowpb.FlowFilter{},
 	ExportDenylist:         []*flowpb.FlowFilter{},
@@ -138,7 +138,7 @@ func NewHubbleDynamicExporter(params hubbleExportersParams) (hubbleExportersOut,
 		return hubbleExportersOut{}, nil
 	}
 
-	dynamicExporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath, params.Config.ExportFileMaxSizeMB, params.Config.ExportFileMaxBackups)
+	dynamicExporter := exporter.NewDynamicExporter(params.Logger, params.Config.FlowlogsConfigFilePath)
 	params.JobGroup.Add(job.OneShot("hubble-dynamic-exporter", func(ctx context.Context, health cell.Health) error {
 		return dynamicExporter.Watch(ctx)
 	}))

@@ -69,6 +69,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	ep := Endpoint{
 		SecurityIdentity: podID,
 		policyGetter:     &mockPolicyGetter{repo},
+		desiredPolicy:    policy.NewEndpointPolicy(repo),
 	}
 	ep.UpdateLogger(nil)
 
@@ -133,8 +134,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	for {
 		t.Log("Calculating policy...")
 		ep.forcePolicyCompute = true
-		res, err := ep.regeneratePolicy(stats, datapathRegenCtxt)
+		err := ep.regeneratePolicy(stats, datapathRegenCtxt)
 		assert.NoError(t, err)
+		res := datapathRegenCtxt.policyResult
 
 		// Sleep a random amount, so we accumulate some changes
 		// This does not slow down the test, since we always generate testFactor identities.

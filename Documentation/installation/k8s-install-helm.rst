@@ -93,8 +93,7 @@ Install Cilium
 
           helm install cilium |CHART_RELEASE| \\
             --namespace kube-system \\
-            --set aksbyocni.enabled=true \\
-            --set nodeinit.enabled=true
+            --set aksbyocni.enabled=true
 
        .. note::
 
@@ -166,7 +165,7 @@ Install Cilium
          If you use masquerading with the option ``egressMasqueradeInterfaces=eth+``,
          remember to replace ``eth+`` with the proper interface name. For
          reference, Amazon Linux 2 uses ``eth+``, whereas Amazon Linux 2023 uses
-         ``ens+``. Mixed node clusters are not supported currently.
+         ``ens+``.
 
     .. group-tab:: OpenShift
 

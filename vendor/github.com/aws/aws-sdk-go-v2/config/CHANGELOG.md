@@ -1,3 +1,28 @@
+# v1.29.1 (2025-01-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.0 (2025-01-15)
+
+* **Feature**: S3 client behavior is updated to always calculate a checksum by default for operations that support it (such as PutObject or UploadPart), or require it (such as DeleteObjects). The checksum algorithm used by default now becomes CRC32. Checksum behavior can be configured using `when_supported` and `when_required` options - in code using RequestChecksumCalculation, in shared config using request_checksum_calculation, or as env variable using AWS_REQUEST_CHECKSUM_CALCULATION. The S3 client attempts to validate response checksums for all S3 API operations that support checksums. However, if the SDK has not implemented the specified checksum algorithm then this validation is skipped. Checksum validation behavior can be configured using `when_supported` and `when_required` options - in code using ResponseChecksumValidation, in shared config using response_checksum_validation, or as env variable using AWS_RESPONSE_CHECKSUM_VALIDATION.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.28.11 (2025-01-14)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.28.10 (2025-01-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.28.9 (2025-01-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.28.8 (2025-01-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.28.7 (2024-12-19)
 
 * **Bug Fix**: Fix improper use of printf-style functions.

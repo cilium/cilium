@@ -311,6 +311,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/egress_gateway.go @cilium/egress-gateway
 /cilium-cli/connectivity/builder/egress_gateway_excluded_cidrs.go @cilium/egress-gateway
 /cilium-cli/connectivity/builder/egress_gateway_with_l7_policy.go @cilium/egress-gateway
+/cilium-cli/connectivity/builder/local_redirect_policy.go @cilium/sig-lb
 /cilium-cli/connectivity/builder/no_ipsec_xfrm_errors.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/node_to_node_encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
@@ -325,6 +326,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/tests/health.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/host.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/ipsec_xfrm.go @cilium/ipsec
+/cilium-cli/connectivity/tests/lrp.go @cilium/sig-lb
 /cilium-cli/connectivity/tests/pod.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/service.go @cilium/sig-lb
 /cilium-cli/connectivity/tests/to-cidr.go @cilium/sig-policy
@@ -453,6 +455,7 @@ Makefile* @cilium/build
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
+/operator/doublewrite @cilium/metrics
 /operator/pkg/bgpv2 @cilium/sig-bgp
 /operator/pkg/ciliumendpointslice @cilium/sig-scalability
 /operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
@@ -484,6 +487,7 @@ Makefile* @cilium/build
 /pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
+/pkg/cmdref @cilium/cli
 /pkg/command/ @cilium/cli
 /pkg/common/ @cilium/sig-agent
 /pkg/common/ipsec/ @cilium/ipsec
@@ -495,7 +499,8 @@ Makefile* @cilium/build
 /pkg/container/set/ @cilium/sig-policy
 /pkg/controller @cilium/sig-agent
 /pkg/counter @cilium/sig-datapath
-/pkg/crypto/ @cilium/sig-hubble @cilium/sig-policy
+/pkg/crypto/certificatemanager @cilium/envoy @cilium/sig-servicemesh
+/pkg/crypto/certloader @cilium/sig-hubble
 /pkg/datapath/ @cilium/sig-datapath
 /pkg/datapath/fake/ipsec.go @cilium/ipsec
 /pkg/datapath/linux/config/ @cilium/loader
@@ -563,7 +568,6 @@ Makefile* @cilium/build
 /pkg/maglev @cilium/sig-lb
 /pkg/maps/ @cilium/sig-datapath
 /pkg/maps/egressmap @cilium/egress-gateway
-/pkg/math/ @cilium/sig-agent
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
 /pkg/monitor @cilium/sig-datapath
@@ -626,7 +630,6 @@ Makefile* @cilium/build
 # Service handling tests
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
 # Datapath tests
-/test/bpf/ @cilium/sig-datapath
 /bpf/tests/bpftest/ @cilium/sig-datapath
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure

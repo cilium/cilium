@@ -260,15 +260,14 @@ func (p *proxyPolicy) GetListener() string {
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Only called after a new selector policy has been computed.
-func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]uint16, ff revert.FinalizeFunc, rf revert.RevertFunc) {
+func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]uint16, rf revert.RevertFunc) {
 	if e.isProperty(PropertyFakeEndpoint) || e.IsProxyDisabled() {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	desiredRedirects = make(map[string]uint16)
 
 	var (
-		finalizeList revert.FinalizeList
 		revertStack  revert.RevertStack
 		updatedStats []*models.ProxyStatistics
 	)
@@ -297,7 +296,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		}
 
 		pp := newProxyPolicy(l4, listener, dstPort, dstProto)
-		proxyPort, err, finalizeFunc, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
+		proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
 		if err != nil {
 			// Skip redirects that can not be created or updated.  This
 			// can happen when a listener is missing, for example when
@@ -308,7 +307,6 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			e.getLogger().WithField(logfields.Listener, pp.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
 			continue
 		}
-		finalizeList.Append(finalizeFunc)
 		revertStack.Push(revertFunc)
 		desiredRedirects[proxyID] = proxyPort
 
@@ -331,7 +329,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		return nil
 	})
 
-	return desiredRedirects, finalizeList.Finalize, revertStack.Revert
+	return desiredRedirects, revertStack.Revert
 }
 
 // Must be called with endpoint.mutex locked for writing, as this calls back to
@@ -587,14 +585,30 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
+	// lock the endpoint, read our values, then unlock
+	err := e.lockAlive()
+	if err != nil {
+		return err
+	}
+	identityRevision := e.identityRevision
+	e.unlock()
+	policyRevision := e.policyGetter.GetPolicyRepository().GetRevision()
+
 	// regenerate policy without holding the lock.
 	// This is because policy generation needs the ipcache to make progress, and the ipcache
 	// needs to call endpoint.ApplyPolicyMapChanges()
-	stats.policyCalculation.Start()
-	policyResult, err := e.regeneratePolicy(stats, datapathRegenCtxt)
-	stats.policyCalculation.End(err == nil)
-	if err != nil {
-		return fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
+	// Computed only if not already done earlier, or if policy has updated since the policy was
+	// computed.
+	if datapathRegenCtxt.policyResult == nil ||
+		datapathRegenCtxt.policyResult.endpointPolicy == nil ||
+		datapathRegenCtxt.policyResult.identityRevision < identityRevision ||
+		datapathRegenCtxt.policyResult.policyRevision < policyRevision {
+		stats.policyCalculation.Start()
+		err := e.regeneratePolicy(stats, datapathRegenCtxt)
+		stats.policyCalculation.End(err == nil)
+		if err != nil {
+			return fmt.Errorf("unable to regenerate policy for '%s': %w", e.StringID(), err)
+		}
 	}
 
 	// Any possible DNS redirects had their rules updated by 'e.regeneratePolicy' above, so we
@@ -640,11 +654,13 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// Note that the incoming policy can be the same as the previous policy in cases
 	// where an unnecessary policy computation was skipped. In that case
 	// e.desiredPolicy == e.realizedPolicy also after this call.
-	if err := e.setDesiredPolicy(policyResult, datapathRegenCtxt); err != nil {
+	if err := e.setDesiredPolicy(datapathRegenCtxt); err != nil {
 		return err
 	}
-	// Mark the desired policy as ready when done before the lock is released
-	defer e.desiredPolicy.Ready()
+	// Mark the new desired policy as ready when done before the lock is released
+	if e.desiredPolicy != e.realizedPolicy {
+		defer e.desiredPolicy.Ready()
+	}
 
 	// Apply pending policy map changes so that desired map is up-to-date before
 	// syncing the maps below.
@@ -672,6 +688,9 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		if err != nil && !errors.Is(err, ErrPolicyEntryMaxExceeded) {
 			return err
 		}
+
+		// Signal computation of the initial Envoy policy if not done yet
+		e.InitialPolicyComputedLocked()
 	}
 
 	currentDir := datapathRegenCtxt.currentDir
@@ -897,7 +916,7 @@ func (e *Endpoint) scrubIPsInConntrackTable() {
 // SkipStateClean can be called on a endpoint before its first build to skip
 // the cleaning of state such as the conntrack table. This is useful when an
 // endpoint is being restored from state and the datapath state should not be
-// claned.
+// cleaned.
 //
 // The endpoint lock must NOT be held.
 func (e *Endpoint) SkipStateClean() {

@@ -322,7 +322,7 @@ type identityNotifier interface {
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
 // an identical EndpointSelector has already been cached, the corresponding
 // types.CachedSelector is returned, otherwise one is created and added to the cache.
-func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.LabelArray, fqdnSelec api.FQDNSelector) (cachedSelector types.CachedSelector, added bool) {
+func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls stringLabels, fqdnSelec api.FQDNSelector) (cachedSelector types.CachedSelector, added bool) {
 	key := fqdnSelec.String()
 
 	sc.mutex.Lock()
@@ -345,7 +345,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 }
 
 // must hold lock for writing
-func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls labels.LabelArray, key string, source selectorSource) (types.CachedSelector, bool) {
+func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls stringLabels, key string, source selectorSource) (types.CachedSelector, bool) {
 	idSel := &identitySelector{
 		key:              key,
 		users:            make(map[CachedSelectionUser]struct{}),
@@ -393,7 +393,7 @@ func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelecto
 // selector cache. If an identical EndpointSelector has already been
 // cached, the corresponding types.CachedSelector is returned, otherwise one
 // is created and added to the cache.
-func (sc *SelectorCache) AddIdentitySelector(user types.CachedSelectionUser, lbls labels.LabelArray, selector api.EndpointSelector) (cachedSelector types.CachedSelector, added bool) {
+func (sc *SelectorCache) AddIdentitySelector(user types.CachedSelectionUser, lbls stringLabels, selector api.EndpointSelector) (cachedSelector types.CachedSelector, added bool) {
 	// The key returned here may be different for equivalent
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking
@@ -498,7 +498,14 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 // Caller should Wait() on the returned sync.WaitGroup before triggering any
 // policy updates. Policy updates may need Endpoint locks, so this Wait() can
 // deadlock if the caller is holding any endpoint locks.
-func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) {
+//
+// Incremental deletes of mutated identities are not sent to the users, as that could
+// lead to deletion of policy map entries while other selectors may still select the mutated
+// identity.
+// In this case the return value is 'true' and the caller should trigger policy updates on all
+// endpoints to remove the affected identity only from selectors that no longer select the mutated
+// identity.
+func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -581,8 +588,13 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 					adds = append(adds, numericID)
 					idSel.cachedSelections[numericID] = struct{}{}
 				} else if !matches && exists {
-					// identity was mutated and no longer matches
-					dels = append(dels, numericID)
+					// Identity was mutated and no longer matches, the identity
+					// is deleted from the cached selections, but is not sent to
+					// users as a deletion. Instead, we return 'mutated = true'
+					// telling the caller to trigger forced policy updates on
+					// all endpoints to recompute the policy as if the mutated
+					// identity was never selected by the affected selector.
+					mutated = true
 					delete(idSel.cachedSelections, numericID)
 				}
 			}
@@ -609,4 +621,5 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 
 		txn.Commit()
 	}
+	return mutated
 }

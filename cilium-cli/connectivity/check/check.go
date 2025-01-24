@@ -90,6 +90,7 @@ type Parameters struct {
 	JunitProperties        map[string]string
 	ImpersonateAs          string
 	ImpersonateGroups      []string
+	IPFamilies             []string
 
 	IncludeConnDisruptTest        bool
 	ConnDisruptTestSetup          bool

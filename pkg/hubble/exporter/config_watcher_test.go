@@ -27,7 +27,7 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 	// then
 	assert.Len(t, config.FlowLogs, 3)
 
-	assert.Equal(t, uint64(0x912a996c7b013eb3), hash, "hash should match")
+	assert.Equal(t, uint64(0xe9229c315ae724ec), hash, "hash should match")
 
 	expectedDate := time.Date(2023, 10, 9, 23, 59, 59, 0, time.FixedZone("", -7*60*60))
 
@@ -57,6 +57,9 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 				},
 			},
 			ExcludeFilters: FlowFilters{},
+			FileMaxSizeMB:  10,
+			FileMaxBackups: 3,
+			FileCompress:   true,
 			End:            &expectedDate,
 		},
 		{
@@ -69,7 +72,10 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 					DestinationPod: []string{"ingress/"},
 				},
 			},
-			End: nil,
+			FileMaxSizeMB:  10,
+			FileMaxBackups: 3,
+			FileCompress:   true,
+			End:            nil,
 		},
 	}
 

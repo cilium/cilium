@@ -388,9 +388,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableUnreachableRoutes, false, "Add unreachable routes on pod deletion")
 	option.BindEnv(vp, option.EnableUnreachableRoutes)
 
-	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
-	option.BindEnv(vp, option.EnableWellKnownIdentities)
-
 	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPsec support")
 	option.BindEnv(vp, option.EnableIPSecName)
 
@@ -635,10 +632,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(vp, option.EnableIdentityMark)
-
-	flags.Bool(option.EnableHighScaleIPcache, defaults.EnableHighScaleIPcache, "Enable the high scale mode for ipcache")
-	option.BindEnv(vp, option.EnableHighScaleIPcache)
-	flags.MarkDeprecated(option.EnableHighScaleIPcache, "The high-scale mode for ipcache is deprecated and will be removed in v1.18.")
 
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(vp, option.EnableHostFirewall)
@@ -1054,6 +1047,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
 	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)
 
+	flags.Bool(option.WireguardTrackAllIPsFallback, defaults.WireguardTrackAllIPsFallback, "Force WireGuard to track all IPs")
+	flags.MarkHidden(option.WireguardTrackAllIPsFallback)
+	option.BindEnv(vp, option.WireguardTrackAllIPsFallback)
+
 	flags.Bool(option.LBSourceRangeAllTypes, false, "Propagate loadbalancerSourceRanges to all corresponding service types")
 	option.BindEnv(vp, option.LBSourceRangeAllTypes)
 
@@ -1372,31 +1369,6 @@ func initEnv(vp *viper.Viper) {
 	if option.Config.EnableHostFirewall {
 		if option.Config.EnableIPSec {
 			log.Fatal("IPSec cannot be used with the host firewall.")
-		}
-	}
-
-	if option.Config.EnableHighScaleIPcache {
-		if option.Config.TunnelingEnabled() {
-			log.Fatal("The high-scale IPcache mode requires native routing.")
-		}
-		if option.Config.EnableIPSec {
-			log.Fatal("IPsec is not supported in high scale IPcache mode.")
-		}
-		if option.Config.EnableIPv6 {
-			log.Fatal("The high-scale IPcache mode is not supported with IPv6.")
-		}
-		if !option.Config.EnableWellKnownIdentities {
-			log.Fatal("The high-scale IPcache mode requires well-known identities to be enabled.")
-		}
-		if err := probes.HaveOuterSourceIPSupport(); err != nil {
-			log.WithError(err).Fatal("The high scale IPcache mode needs support in the kernel to set the outer source IP address.")
-		}
-	}
-
-	if err := probes.HaveSKBAdjustRoomL2RoomMACSupport(); err != nil {
-		if option.Config.ServiceNoBackendResponse != option.ServiceNoBackendResponseDrop {
-			log.Warn("The kernel does not support --service-no-backend-response=reject, falling back to --service-no-backend-response=drop")
-			option.Config.ServiceNoBackendResponse = option.ServiceNoBackendResponseDrop
 		}
 	}
 

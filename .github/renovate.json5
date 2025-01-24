@@ -122,6 +122,8 @@
         "github.com/prometheus/", // Prometheu's official org
         "go.etcd.io/etcd/", // etcd's official org
         "golang.org/x/", // Golang official experimental org
+        "golangci/golangci-lint", // Golang CI linter
+        "protocolbuffers/protobuf", // protobuf buffers
         "google.golang.org/", // Google official repo for api/genproto/grpc/protobuf
         "k8s.io/", // Kubernetes official repo
         "quay.io/cilium/", // LVH images
@@ -354,18 +356,9 @@
       "allowedVersions": "<1.24",
       "matchBaseBranches": [
         "v1.17",
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "docker.io/library/golang",
-        "go"
-      ],
-      "allowedVersions": "<1.23",
-      "matchBaseBranches": [
         "v1.16",
         "v1.15",
-        "v1.14",
+        "v1.14"
       ]
     },
     {
@@ -618,21 +611,12 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
-      "allowedVersions": "/^v1\\.30\\.([0-9]+)-([0-9]+)-.*$/",
-      "matchBaseBranches": [
-        "v1.16",
-        "v1.15",
-        "v1.14",
-      ]
-    },
-    {
-      "matchDepNames": [
-        "quay.io/cilium/cilium-envoy"
-      ],
-      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
       "allowedVersions": "/^v1\\.31\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "v1.17",
+        "v1.16",
+        "v1.15",
+        "v1.14"
       ]
     },
     {
@@ -653,9 +637,13 @@
     },
     {
       "matchPackageNames": [
-        "github.com/aws/aws-sdk-go-v2/service/ec2",
         "github.com/aliyun/alibaba-cloud-sdk-go",
+        "github.com/aws/smithy-go",
         "renovatebot/github-action"
+      ],
+      "matchDepPatterns": [
+        "github.com/Azure/azure-sdk-for-go/sdk/*",
+        "github.com/aws/aws-sdk-go-v2*"
       ],
       "schedule": ["on the 1st day instance on sunday"]
     },
@@ -797,6 +785,14 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?)\\s+KIND_K8S_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+      ]
+    },
+    {
+      "fileMatch": [
+        "^.github/workflows/renovate-config-validator\\.yaml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?)\\s+RENOVATE_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
       ]
     },
     {
