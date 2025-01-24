@@ -32,6 +32,7 @@ const (
 	RelayContainerName  = "hubble-relay"
 	RelayDeploymentName = "hubble-relay"
 	RelayConfigMapName  = "hubble-relay-config"
+	RelayPodSelector    = "app.kubernetes.io/name=hubble-relay"
 
 	HubbleUIDeploymentName = "hubble-ui"
 
