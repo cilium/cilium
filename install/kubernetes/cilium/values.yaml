@@ -1511,7 +1511,7 @@ hubble:
     # -- hubble-relay container security context
     securityContext:
       # readOnlyRootFilesystem: true
-      runAsNonRoot: true
+      runAsNonRoot: false
       runAsUser: 65532
       runAsGroup: 65532
       capabilities:
