@@ -239,6 +239,10 @@ func (c *Client) GetDeployment(ctx context.Context, namespace, name string, opts
 	return c.Clientset.AppsV1().Deployments(namespace).Get(ctx, name, opts)
 }
 
+func (c *Client) ListDeployment(ctx context.Context, namespace string, options metav1.ListOptions) (*appsv1.DeploymentList, error) {
+	return c.Clientset.AppsV1().Deployments(namespace).List(ctx, options)
+}
+
 func (c *Client) DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.AppsV1().Deployments(namespace).Delete(ctx, name, opts)
 }
