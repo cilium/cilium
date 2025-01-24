@@ -321,6 +321,16 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		scopes = append(scopes, loadbalancer.ScopeInternal)
 	}
 
+	// SessionAffinity
+	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {
+		s.SessionAffinity = true
+
+		s.SessionAffinityTimeout = time.Duration(int(time.Second) * int(slim_corev1.DefaultClientIPServiceAffinitySeconds))
+		if cfg := svc.Spec.SessionAffinityConfig; cfg != nil && cfg.ClientIP != nil && cfg.ClientIP.TimeoutSeconds != nil && *cfg.ClientIP.TimeoutSeconds != 0 {
+			s.SessionAffinityTimeout = time.Duration(int(time.Second) * int(*cfg.ClientIP.TimeoutSeconds))
+		}
+	}
+
 	// ClusterIP
 	clusterIPs := container.NewImmSet(svc.Spec.ClusterIPs...)
 	if svc.Spec.ClusterIP != "" {

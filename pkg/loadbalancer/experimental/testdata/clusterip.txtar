@@ -25,7 +25,7 @@ db/cmp backends backends_empty.table
 
 -- services.table --
 Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
-test/echo   k8s                  Cluster            Cluster                              0                     false              
+test/echo   k8s                  Cluster            Cluster            42s               0                     false
 
 -- frontends.table --
 Address               Type        ServiceName   PortName   Backends                     Status
@@ -65,6 +65,10 @@ spec:
   selector:
     name: echo
   type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 42
 
 -- endpointslice.yaml --
 apiVersion: discovery.k8s.io/v1
@@ -103,5 +107,5 @@ ports:
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=42 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
