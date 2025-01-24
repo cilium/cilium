@@ -563,11 +563,7 @@ jobs:
           cat <<EOF > run-in-lvm.sh
           #!/usr/bin/env bash
           ./cilium-cli features status -o markdown --output-file="feature-status.md"
-          ./cilium-cli features status -o json --output-file="${1}.json"
-          cd /host
-          if ! find /host/test/test_results -type f -iname 'feature-status-*.json' | grep -q .; then
-            exit 0
-          fi
+          ./cilium-cli features status -o json --output-file="feature-status-${1}.json"
           find . -type f -iname 'feature-status-*.json' | while IFS= read -r file; do
             mv "\$file" "./${{ env.job_name }}-\${file##*/feature-status-}"
           done
