@@ -999,15 +999,9 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
 		// use ErrTryAgainLater to tell the runtime that this is not a check failure
-		return cniTypes.NewError(cniTypes.ErrTryAgainLater, "DaemonDown",
+		return cniTypes.NewError(types.CniErrPluginNotAvailable, "DaemonDown",
 			fmt.Sprintf("unable to connect to Cilium agent: %s", client.Hint(err)))
 	}
-
-	if _, err := c.Daemon.GetHealthz(nil); err != nil {
-		return cniTypes.NewError(types.CniErrPluginNotAvailable, "DaemonHealthzFailed",
-			fmt.Sprintf("Cilium agent healthz check failed: %s", client.Hint(err)))
-	}
-	logger.Debugf("Cilium agent is healthy")
 
 	// If this is a chained plugin, then "delegate" to the special chaining mode and be done
 	if chainAction, err := getChainedAction(n, logger); chainAction != nil {
@@ -1029,7 +1023,12 @@ func (cmd *Cmd) Status(args *skel.CmdArgs) error {
 		logger.WithError(err).Error("Invalid chaining mode")
 		return err
 	}
-	fmt.Fprintln(os.Stderr, "No chained plugin")
+
+	if _, err := c.Daemon.GetHealthz(nil); err != nil {
+		return cniTypes.NewError(types.CniErrPluginNotAvailable, "DaemonHealthzFailed",
+			fmt.Sprintf("Cilium agent healthz check failed: %s", client.Hint(err)))
+	}
+	logger.Debugf("Cilium agent is healthy")
 
 	if n.IPAM.Type != "" {
 		// If using a delegated plugin for IPAM, invoke the STATUS API of the delegated
