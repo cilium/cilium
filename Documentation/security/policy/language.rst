@@ -820,6 +820,67 @@ to any layer 3 destination:
            :language: json
 
 
+Limit TLS Server Name Indication (SNI)
+--------------------------------------
+
+When multiple websites are hosted on the same server with a shared IP address,
+Server Name Indication (SNI), an extension of the TLS protocol, ensures that
+the client receives the correct SSL certificate for the website they are
+trying to access. SNI allows the hostname or domain name of the website to be
+specified during the TLS handshake, rather than after the handshake when the
+HTTP connection is established.
+
+Cilium Network Policy can limit an endpoint's ability to establish a TLS
+handshake to a specified list of SNIs. The SNI policy is always configured
+at the egress level and is usually set up alongside port policies.
+
+Example (TLS SNI)
+~~~~~~~~~~~~~~~~~
+
+.. note:: TLS SNI policy enforcement requires L7 proxy enabled.
+
+The following rule limits all endpoints with the label ``app=myService`` to
+only be able to establish TLS connections with ``one.one.one.one`` SNI. Any
+other attempt to another SNI (for example, with ``cilium.io``) will be rejected.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_sni.yaml
+           :language: yaml
+
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_sni.json
+           :language: json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_sni.json
+           :language: json
+
+Below is the same SSL error while trying to connect to ``cilium.io`` from curl.
+
+.. code-block:: shell-session
+
+    $ kubectl exec <my-service-pod> -- curl -v https://cilium.io
+    * Host cilium.io:443 was resolved.
+    * IPv6: (none)
+    * IPv4: 104.198.14.52
+    *   Trying 104.198.14.52:443...
+    * Connected to cilium.io (104.198.14.52) port 443
+    * ALPN: curl offers h2,http/1.1
+    * TLSv1.3 (OUT), TLS handshake, Client hello (1):
+    *  CAfile: /etc/ssl/certs/ca-certificates.crt
+    *  CApath: /etc/ssl/certs
+    * Recv failure: Connection reset by peer
+    * OpenSSL SSL_connect: Connection reset by peer in connection to cilium.io:443
+    * Closing connection
+    curl: (35) Recv failure: Connection reset by peer
+    command terminated with exit code 35
+
 
 .. _l7_policy:
 
