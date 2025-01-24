@@ -323,9 +323,9 @@ func (c *Client) PodLogs(namespace, name string, opts *corev1.PodLogOptions) *re
 	return c.Clientset.CoreV1().Pods(namespace).GetLogs(name, opts)
 }
 
-func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, previous bool) (string, error) {
+func (c *Client) CiliumLogs(ctx context.Context, namespace, pod, containerName string, since time.Time, previous bool) (string, error) {
 	opts := &corev1.PodLogOptions{
-		Container:  defaults.AgentContainerName,
+		Container:  containerName,
 		Timestamps: true,
 		SinceTime:  &metav1.Time{Time: since},
 		Previous:   previous,
