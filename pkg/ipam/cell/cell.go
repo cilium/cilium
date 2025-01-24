@@ -58,6 +58,7 @@ type ipamAPIHandlerParams struct {
 	cell.In
 
 	IPAM            *ipam.IPAM
+	Clientset       k8sClient.Clientset
 	EndpointManager endpointmanager.EndpointManager
 }
 
@@ -70,7 +71,7 @@ type ipamAPIHandlerOut struct {
 }
 
 func newIPAMAPIHandler(params ipamAPIHandlerParams) ipamAPIHandlerOut {
-	if option.Config.LoadBalancerOnly {
+	if !params.Clientset.IsEnabled() {
 		return ipamAPIHandlerOut{}
 	}
 
