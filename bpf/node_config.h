@@ -234,6 +234,8 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define LB6_HEALTH_MAP test_cilium_lb6_health
 #endif /* ENABLE_NODEPORT || ENABLE_HOST_FIREWALL */
 
+#define DIRECT_ROUTING_DEV_IFINDEX 0
+
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV4
 #define NODEPORT_NEIGH4 test_cilium_neigh4
@@ -244,7 +246,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif
 
 #ifdef ENABLE_NODEPORT
-# define DIRECT_ROUTING_DEV_IFINDEX 0
 # ifdef ENABLE_IPV4
 #  ifndef IPV4_DIRECT_ROUTING
 #   define IPV4_DIRECT_ROUTING 0
