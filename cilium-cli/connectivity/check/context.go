@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -95,6 +96,8 @@ type ConnectivityTest struct {
 	controlPlaneNodes  map[string]*corev1.Node
 	nodesWithoutCilium map[string]struct{}
 	ciliumNodes        map[NodeIdentity]*ciliumv2.CiliumNode
+
+	testConnDisruptClientNSTrafficDeploymentNames []string
 }
 
 // NodeIdentity uniquely identifies a Node by Cluster and Name.
@@ -1261,4 +1264,37 @@ func (ct *ConnectivityTest) SocatClientCommand(port int, group string) []string 
 func (ct *ConnectivityTest) KillMulticastTestSender() []string {
 	cmd := []string{"pkill", "-f", socatMulticastTestMsg}
 	return cmd
+}
+
+func (ct *ConnectivityTest) ForEachIPFamily(hasNetworkPolicies bool, do func(features.IPFamily)) {
+	ipFams := features.GetIPFamilies(ct.Params().IPFamilies)
+
+	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
+	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
+	// and https://github.com/cilium/cilium/issues/23910).
+	if f, ok := ct.Feature(features.EndpointRoutes); ok &&
+		f.Enabled && hasNetworkPolicies &&
+		versioncheck.MustCompile("<1.14.0")(ct.CiliumVersion) {
+
+		ipFams = []features.IPFamily{features.IPFamilyV4}
+	}
+
+	for _, ipFam := range ipFams {
+		switch ipFam {
+		case features.IPFamilyV4:
+			if f, ok := ct.Features[features.IPv4]; ok && f.Enabled {
+				do(ipFam)
+			}
+
+		case features.IPFamilyV6:
+			if f, ok := ct.Features[features.IPv6]; ok && f.Enabled {
+				do(ipFam)
+			}
+		}
+	}
+}
+
+func (ct *ConnectivityTest) ShouldRunConnDisruptNSTraffic() bool {
+	return ct.Features[features.NodeWithoutCilium].Enabled &&
+		(ct.Params().MultiCluster == "" || ct.Features[features.KPRNodePort].Enabled)
 }

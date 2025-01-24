@@ -5,8 +5,10 @@ package check
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
+	"net/netip"
 	"slices"
 	"sort"
 	"strings"
@@ -70,11 +72,17 @@ const (
 	hostNetNSDeploymentNameNonCilium = "host-netns-non-cilium" // runs on non-Cilium test nodes
 	kindHostNetNS                    = "host-netns"
 
-	testConnDisruptClientDeploymentName = "test-conn-disrupt-client"
-	testConnDisruptServerDeploymentName = "test-conn-disrupt-server"
-	testConnDisruptServiceName          = "test-conn-disrupt"
-	testConnDisruptCNPName              = "test-conn-disrupt"
-	KindTestConnDisrupt                 = "test-conn-disrupt"
+	testConnDisruptClientDeploymentName          = "test-conn-disrupt-client"
+	testConnDisruptClientNSTrafficDeploymentName = "test-conn-disrupt-client"
+	testConnDisruptServerDeploymentName          = "test-conn-disrupt-server"
+	testConnDisruptServerNSTrafficDeploymentName = "test-conn-disrupt-server-ns-traffic"
+	testConnDisruptServiceName                   = "test-conn-disrupt"
+	testConnDisruptNSTrafficServiceName          = "test-conn-disrupt-ns-traffic"
+	testConnDisruptCNPName                       = "test-conn-disrupt"
+	testConnDisruptNSTrafficCNPName              = "test-conn-disrupt-ns-traffic"
+	testConnDisruptServerNSTrafficAppLabel       = "test-conn-disrupt-server-ns-traffic"
+	KindTestConnDisrupt                          = "test-conn-disrupt"
+	KindTestConnDisruptNSTraffic                 = "test-conn-disrupt-ns-traffic"
 
 	bwPrioAnnotationString = "bandwidth.cilium.io/priority"
 )
@@ -448,6 +456,41 @@ func newConnDisruptCNP(ns string) *ciliumv2.CiliumNetworkPolicy {
 	}
 }
 
+func newConnDisruptCNPForNSTraffic(ns string) *ciliumv2.CiliumNetworkPolicy {
+	selector := policyapi.EndpointSelector{
+		LabelSelector: &slimmetav1.LabelSelector{
+			MatchLabels: map[string]string{"kind": KindTestConnDisruptNSTraffic},
+		},
+	}
+
+	ports := []policyapi.PortRule{{
+		Ports: []policyapi.PortProtocol{{
+			Protocol: policyapi.ProtoTCP,
+			Port:     "8000",
+		}},
+	}}
+
+	return &ciliumv2.CiliumNetworkPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       ciliumv2.CNPKindDefinition,
+			APIVersion: ciliumv2.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: testConnDisruptNSTrafficCNPName, Namespace: ns},
+		Spec: &policyapi.Rule{
+			EndpointSelector: selector,
+			Ingress: []policyapi.IngressRule{{
+				IngressCommonRule: policyapi.IngressCommonRule{
+					FromEntities: policyapi.EntitySlice{
+						policyapi.EntityWorld,
+						policyapi.EntityRemoteNode,
+					},
+				},
+				ToPorts: ports,
+			}},
+		},
+	}
+}
+
 func (ct *ConnectivityTest) ingresses() map[string]string {
 	ingresses := map[string]string{"same-node": echoSameNodeDeploymentName}
 	if !ct.Params().SingleNode || ct.Params().MultiCluster != "" {
@@ -520,114 +563,28 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	// Deploy test-conn-disrupt actors (only in the first
 	// test namespace in case of tests concurrent run)
 	if ct.params.ConnDisruptTestSetup && ct.params.TestNamespaceIndex == 0 {
-		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), testConnDisruptServerDeploymentName)
-			readinessProbe := &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					Exec: &corev1.ExecAction{
-						Command: []string{"cat", "/tmp/server-ready"},
-					},
-				},
-				PeriodSeconds:       int32(3),
-				InitialDelaySeconds: int32(1),
-				FailureThreshold:    int32(20),
-			}
-			testConnDisruptServerDeployment := newDeployment(deploymentParameters{
-				Name:           testConnDisruptServerDeploymentName,
-				Kind:           KindTestConnDisrupt,
-				Image:          ct.params.TestConnDisruptImage,
-				Replicas:       3,
-				Labels:         map[string]string{"app": "test-conn-disrupt-server"},
-				Command:        []string{"tcd-server", "8000"},
-				Port:           8000,
-				ReadinessProbe: readinessProbe,
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
-				},
-			})
-			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptServerDeploymentName), metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service account %s: %w", testConnDisruptServerDeploymentName, err)
-			}
-			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s: %w", testConnDisruptServerDeployment, err)
-			}
+		if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerDeploymentName, KindTestConnDisrupt, 3,
+			testConnDisruptServiceName, "test-conn-disrupt-server", newConnDisruptCNP); err != nil {
+			return err
 		}
 
-		// Make sure that the server deployment is ready to spread client connections
-		err := WaitForDeployment(ctx, ct, ct.clients.src, ct.params.TestNamespace, testConnDisruptServerDeploymentName)
-		if err != nil {
-			ct.Failf("%s deployment is not ready: %s", testConnDisruptServerDeploymentName, err)
+		if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientDeploymentName, KindTestConnDisrupt,
+			"test-conn-disrupt-client", fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
+			5, false); err != nil {
+			return err
 		}
 
-		for _, client := range ct.Clients() {
-			_, err = client.GetService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.GetOptions{})
-			if err != nil {
-				ct.Logf("✨ [%s] Deploying %s service...", client.ClusterName(), testConnDisruptServiceName)
-				svc := newService(testConnDisruptServiceName, map[string]string{"app": "test-conn-disrupt-server"}, nil, "http", 8000, ct.Params().ServiceType)
-				svc.ObjectMeta.Annotations = map[string]string{"service.cilium.io/global": "true"}
-				_, err = client.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create service %s: %w", testConnDisruptServiceName, err)
-				}
+		if ct.ShouldRunConnDisruptNSTraffic() {
+			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerNSTrafficDeploymentName, KindTestConnDisruptNSTraffic, 1,
+				testConnDisruptNSTrafficServiceName, testConnDisruptServerNSTrafficAppLabel, newConnDisruptCNPForNSTraffic); err != nil {
+				return err
 			}
 
-			if enabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.CNP)); enabled {
-				ipsec, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec"))
-				if ipsec && versioncheck.MustCompile(">=1.14.0 <1.16.0")(ct.CiliumVersion) {
-					// https://github.com/cilium/cilium/issues/36681
-					continue
-				}
-				for _, client := range ct.Clients() {
-					ct.Logf("✨ [%s] Deploying %s CiliumNetworkPolicy...", client.ClusterName(), testConnDisruptCNPName)
-					_, err = client.ApplyGeneric(ctx, newConnDisruptCNP(ct.params.TestNamespace))
-					if err != nil {
-						return fmt.Errorf("unable to create CiliumNetworkPolicy %s: %w", testConnDisruptCNPName, err)
-					}
-				}
+			if err := ct.createTestConnDisruptClientDeploymentForNSTraffic(ctx); err != nil {
+				return err
 			}
-		}
-
-		_, err = ct.clients.dst.GetDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.dst.ClusterName(), testConnDisruptClientDeploymentName)
-			readinessProbe := &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					Exec: &corev1.ExecAction{
-						Command: []string{"cat", "/tmp/client-ready"},
-					},
-				},
-				PeriodSeconds:       int32(3),
-				InitialDelaySeconds: int32(1),
-				FailureThreshold:    int32(20),
-			}
-			testConnDisruptClientDeployment := newDeployment(deploymentParameters{
-				Name:     testConnDisruptClientDeploymentName,
-				Kind:     KindTestConnDisrupt,
-				Image:    ct.params.TestConnDisruptImage,
-				Replicas: 5,
-				Labels:   map[string]string{"app": "test-conn-disrupt-client"},
-				Command: []string{
-					"tcd-client",
-					"--dispatch-interval", ct.params.ConnDisruptDispatchInterval.String(),
-					fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-				},
-				ReadinessProbe: readinessProbe,
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
-				},
-			})
-
-			_, err = ct.clients.dst.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptClientDeploymentName), metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service account %s: %w", testConnDisruptClientDeploymentName, err)
-			}
-			_, err = ct.clients.dst.CreateDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s: %w", testConnDisruptClientDeployment, err)
-			}
+		} else {
+			ct.Info("Skipping conn-disrupt-test for NS traffic")
 		}
 	}
 
@@ -1179,6 +1136,251 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	return nil
 }
 
+func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.Context, deployName, kind string, replicas int, svcName, appLabel string,
+	cnpFunc func(ns string) *ciliumv2.CiliumNetworkPolicy) error {
+	_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, deployName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), deployName)
+		readinessProbe := &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"cat", "/tmp/server-ready"},
+				},
+			},
+			PeriodSeconds:       int32(3),
+			InitialDelaySeconds: int32(1),
+			FailureThreshold:    int32(20),
+		}
+		testConnDisruptServerDeployment := newDeployment(deploymentParameters{
+			Name:           deployName,
+			Kind:           kind,
+			Image:          ct.params.TestConnDisruptImage,
+			Replicas:       replicas,
+			Labels:         map[string]string{"app": appLabel},
+			Command:        []string{"tcd-server", "8000"},
+			Port:           8000,
+			ReadinessProbe: readinessProbe,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
+			},
+		})
+		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(deployName), metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create service account %s: %w", deployName, err)
+		}
+		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeployment, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %w", testConnDisruptServerDeployment, err)
+		}
+	}
+
+	// Make sure that the server deployment is ready to spread client connections
+	err = WaitForDeployment(ctx, ct, ct.clients.src, ct.params.TestNamespace, deployName)
+	if err != nil {
+		ct.Failf("%s deployment is not ready: %s", deployName, err)
+	}
+
+	for _, client := range ct.Clients() {
+		_, err = client.GetService(ctx, ct.params.TestNamespace, svcName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s service...", client.ClusterName(), svcName)
+			svc := newService(svcName, map[string]string{"app": appLabel}, nil, "http", 8000, ct.Params().ServiceType)
+			svc.ObjectMeta.Annotations = map[string]string{"service.cilium.io/global": "true"}
+			_, err = client.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service %s: %w", svcName, err)
+			}
+		}
+
+		if enabled, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.CNP)); enabled {
+			ipsec, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec"))
+			if ipsec && versioncheck.MustCompile(">=1.14.0 <1.16.0")(ct.CiliumVersion) {
+				// https://github.com/cilium/cilium/issues/36681
+				continue
+			}
+			for _, client := range ct.Clients() {
+				cnp := cnpFunc(ct.params.TestNamespace)
+				ct.Logf("✨ [%s] Deploying %s CiliumNetworkPolicy...", client.ClusterName(), cnp.Name)
+				_, err = client.ApplyGeneric(ctx, cnp)
+				if err != nil {
+					return fmt.Errorf("unable to create CiliumNetworkPolicy %s: %w", cnp.Name, err)
+				}
+			}
+		}
+	}
+
+	return err
+}
+
+func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Context, deployName, kind, appLabel, address string, replicas int, isExternal bool) error {
+	_, err := ct.clients.dst.GetDeployment(ctx, ct.params.TestNamespace, deployName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.dst.ClusterName(), deployName)
+		readinessProbe := &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"cat", "/tmp/client-ready"},
+				},
+			},
+			PeriodSeconds:       int32(3),
+			InitialDelaySeconds: int32(1),
+			FailureThreshold:    int32(20),
+		}
+
+		param := deploymentParameters{
+			Name:     deployName,
+			Kind:     kind,
+			Image:    ct.params.TestConnDisruptImage,
+			Replicas: replicas,
+			Labels:   map[string]string{"app": appLabel},
+			Command: []string{
+				"tcd-client",
+				"--dispatch-interval", ct.params.ConnDisruptDispatchInterval.String(),
+				address,
+			},
+			ReadinessProbe: readinessProbe,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
+			},
+		}
+		if isExternal {
+			param.NodeSelector = map[string]string{defaults.CiliumNoScheduleLabel: "true"}
+			param.HostNetwork = true
+			param.Tolerations = []corev1.Toleration{
+				{Operator: corev1.TolerationOpExists},
+			}
+		}
+		testConnDisruptClientDeployment := newDeployment(param)
+
+		_, err = ct.clients.dst.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(deployName), metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create service account %s: %w", deployName, err)
+		}
+		_, err = ct.clients.dst.CreateDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeployment, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %w", testConnDisruptClientDeployment, err)
+		}
+	}
+
+	return err
+}
+
+func (ct *ConnectivityTest) createTestConnDisruptClientDeploymentForNSTraffic(ctx context.Context) error {
+	nodes, err := ct.getBackendNodeAndNonBackendNode(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, n := range nodes {
+		for _, client := range ct.Clients() {
+			svc, err := client.GetService(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficServiceName, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to get service %s: %w", testConnDisruptNSTrafficServiceName, err)
+			}
+
+			var errs error
+			np := uint16(svc.Spec.Ports[0].NodePort)
+			addrs := slices.Clone(n.node.Status.Addresses)
+			hasNetworkPolicies, err := ct.hasNetworkPolicies(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to check if any netpol exists: %w", err)
+			}
+			ct.ForEachIPFamily(hasNetworkPolicies, func(family features.IPFamily) {
+				for _, addr := range addrs {
+					if features.GetIPFamily(addr.Address) != family {
+						continue
+					}
+
+					// On GKE ExternalIP is not reachable from inside a cluster
+					if addr.Type == corev1.NodeExternalIP {
+						if f, ok := ct.Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
+							continue
+						}
+					}
+
+					deployName := fmt.Sprintf("%s-%s-%s-%s", testConnDisruptClientNSTrafficDeploymentName, n.nodeType, family, strings.ToLower(string(addr.Type)))
+					if err := ct.createTestConnDisruptClientDeployment(ctx,
+						deployName,
+						KindTestConnDisruptNSTraffic,
+						fmt.Sprintf("test-conn-disrupt-client-%s-%s-%s", n.nodeType, family, strings.ToLower(string(addr.Type))),
+						netip.AddrPortFrom(netip.MustParseAddr(addr.Address), np).String(),
+						1, true); err != nil {
+						errs = errors.Join(errs, err)
+					}
+					ct.testConnDisruptClientNSTrafficDeploymentNames = append(ct.testConnDisruptClientNSTrafficDeploymentNames, deployName)
+				}
+			})
+			if errs != nil {
+				return errs
+			}
+		}
+	}
+
+	return err
+}
+
+type nodeWithType struct {
+	nodeType string
+	node     *corev1.Node
+}
+
+func (ct *ConnectivityTest) getBackendNodeAndNonBackendNode(ctx context.Context) ([]nodeWithType, error) {
+	appLabel := fmt.Sprintf("app=%s", testConnDisruptServerNSTrafficAppLabel)
+	podList, err := ct.clients.src.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: appLabel})
+	if err != nil {
+		return nil, fmt.Errorf("unable to list pods with lable %s: %w", appLabel, err)
+	}
+
+	pod := podList.Items[0]
+
+	var nodes []nodeWithType
+	nodes = append(nodes, nodeWithType{
+		nodeType: "backend-node",
+		node:     ct.nodes[pod.Spec.NodeName],
+	})
+	for name, node := range ct.Nodes() {
+		if name != pod.Spec.NodeName {
+			nodes = append(nodes, nodeWithType{
+				nodeType: "non-backend-node",
+				node:     node,
+			})
+			break
+		}
+	}
+
+	return nodes, err
+}
+
+func (ct *ConnectivityTest) hasNetworkPolicies(ctx context.Context) (bool, error) {
+	for _, client := range ct.Clients() {
+		cnps, err := client.ListCiliumNetworkPolicies(ctx, ct.params.TestNamespace, metav1.ListOptions{Limit: 1})
+		if err != nil {
+			return false, err
+		}
+		if len(cnps.Items) > 0 {
+			return true, nil
+		}
+
+		ccnps, err := client.ListCiliumClusterwideNetworkPolicies(ctx, metav1.ListOptions{Limit: 1})
+		if err != nil {
+			return false, err
+		}
+		if len(ccnps.Items) > 0 {
+			return true, nil
+		}
+
+		nps, err := client.ListNetworkPolicies(ctx, metav1.ListOptions{Limit: 1})
+		if err != nil {
+			return false, err
+		}
+		if len(nps.Items) > 0 {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name string, nodeName string, hostNetwork bool) error {
 	ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), name)
 	gracePeriod := int64(1)
@@ -1351,6 +1553,10 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		// not matter much, because the two clients are identical.
 		srcList = append(srcList, testConnDisruptServerDeploymentName)
 		dstList = append(dstList, testConnDisruptClientDeploymentName)
+		if ct.ShouldRunConnDisruptNSTraffic() {
+			srcList = append(srcList, testConnDisruptServerNSTrafficDeploymentName)
+			dstList = append(dstList, ct.testConnDisruptClientNSTrafficDeploymentNames...)
+		}
 	}
 
 	if ct.params.MultiCluster != "" || !ct.params.SingleNode {
@@ -1412,10 +1618,22 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 	ct.Debugf("🔥 [%s] Deleting test-conn-disrupt deployments...", client.ClusterName())
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.DeleteOptions{})
+	deployList, err := client.ListDeployment(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + KindTestConnDisruptNSTraffic})
+	if err != nil {
+		ct.Warnf("failed to list deployments: %s %v", KindTestConnDisruptNSTraffic, err)
+	}
+	for _, deploy := range deployList.Items {
+		_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
+		_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
+	}
+	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerNSTrafficDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerNSTrafficDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.DeleteOptions{})
+	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptCNPName, metav1.DeleteOptions{})
+	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficCNPName, metav1.DeleteOptions{})
 
 	return nil
 }
