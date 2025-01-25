@@ -190,7 +190,7 @@ func (s *DefaultServer) Start(ctx context.Context) error {
 
 	log.Info("Starting webhook server")
 
-	cfg := &tls.Config{ //nolint:gosec
+	cfg := &tls.Config{
 		NextProtos: []string{"h2"},
 	}
 	// fallback TLS config ready, will now mutate if passer wants full control over it
@@ -272,7 +272,7 @@ func (s *DefaultServer) Start(ctx context.Context) error {
 // server has been started.
 func (s *DefaultServer) StartedChecker() healthz.Checker {
 	config := &tls.Config{
-		InsecureSkipVerify: true, //nolint:gosec // config is used to connect to our own webhook port.
+		InsecureSkipVerify: true,
 	}
 	return func(req *http.Request) error {
 		s.mu.Lock()
