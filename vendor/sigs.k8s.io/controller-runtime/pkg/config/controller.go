@@ -53,4 +53,10 @@ type Controller struct {
 	// NeedLeaderElection indicates whether the controller needs to use leader election.
 	// Defaults to true, which means the controller will use leader election.
 	NeedLeaderElection *bool
+
+	// UsePriorityQueue configures the controllers queue to use the controller-runtime provided
+	// priority queue.
+	//
+	// Note: This flag is disabled by default until a future version. It's currently in beta.
+	UsePriorityQueue *bool
 }

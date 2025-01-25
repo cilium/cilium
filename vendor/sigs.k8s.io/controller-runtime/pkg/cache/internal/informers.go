@@ -47,7 +47,7 @@ type InformersOpts struct {
 	Mapper                meta.RESTMapper
 	ResyncPeriod          time.Duration
 	Namespace             string
-	NewInformer           *func(cache.ListerWatcher, runtime.Object, time.Duration, cache.Indexers) cache.SharedIndexInformer
+	NewInformer           func(cache.ListerWatcher, runtime.Object, time.Duration, cache.Indexers) cache.SharedIndexInformer
 	Selector              Selector
 	Transform             cache.TransformFunc
 	UnsafeDisableDeepCopy bool
@@ -59,7 +59,7 @@ type InformersOpts struct {
 func NewInformers(config *rest.Config, options *InformersOpts) *Informers {
 	newInformer := cache.NewSharedIndexInformer
 	if options.NewInformer != nil {
-		newInformer = *options.NewInformer
+		newInformer = options.NewInformer
 	}
 	return &Informers{
 		config:     config,
@@ -585,7 +585,7 @@ func newGVKFixupWatcher(gvk schema.GroupVersionKind, watcher watch.Interface) wa
 // hammer the apiserver with list requests simultaneously.
 func calculateResyncPeriod(resync time.Duration) time.Duration {
 	// the factor will fall into [0.9, 1.1)
-	factor := rand.Float64()/5.0 + 0.9 //nolint:gosec
+	factor := rand.Float64()/5.0 + 0.9
 	return time.Duration(float64(resync.Nanoseconds()) * factor)
 }
 

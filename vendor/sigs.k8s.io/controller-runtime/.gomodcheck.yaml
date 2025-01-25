@@ -12,3 +12,6 @@ excludedModules:
   # --- test dependencies:
   - github.com/onsi/ginkgo/v2
   - github.com/onsi/gomega
+
+  # --- We want a newer version with generics support for this
+  - github.com/google/btree
