@@ -25,7 +25,7 @@ runs:
             # https://github.com/bpftrace/bpftrace/issues/3011
             # Let's buy us some time, and keep installing v0.19.1 for the moment.
 
-            curl -L https://github.com/bpftrace/bpftrace/releases/download/v0.19.1/bpftrace -o bpftrace
+            curl -L https://github.com/bpftrace/bpftrace/releases/download/v0.20.4/bpftrace -o bpftrace
             install -m 755 bpftrace /usr/local/bin/bpftrace
 
           fi
@@ -42,6 +42,8 @@ runs:
             export BPFTRACE_BTF="/boot/btf-\$(uname -r)"
           fi
 
+          export BPFTRACE_MAX_MAP_KEYS=8192
+          export BPFTRACE_LOG_SIZE=100000000
           bpftrace ${{ inputs.script }} -q \
             ${{ inputs.args }} \
             > ${{ inputs.output-path }}/bpftrace.out \
