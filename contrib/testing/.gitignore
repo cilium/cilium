@@ -2,3 +2,5 @@
 # installing cilium via Make target `kind-install-cilium`.
 kind-custom.yaml
 
+# May contain config used by the `cluster-install-cilium` Make target.
+remote-values.yaml
