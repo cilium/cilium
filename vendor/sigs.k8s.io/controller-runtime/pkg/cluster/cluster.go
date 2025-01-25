@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -65,8 +64,8 @@ type Cluster interface {
 	// GetRESTMapper returns a RESTMapper
 	GetRESTMapper() meta.RESTMapper
 
-	// GetAPIReader returns a reader that will be configured to use the API server.
-	// This should be used sparingly and only when the client does not fit your
+	// GetAPIReader returns a reader that will be configured to use the API server directly.
+	// This should be used sparingly and only when the cached client does not fit your
 	// use case.
 	GetAPIReader() client.Reader
 
@@ -87,16 +86,6 @@ type Options struct {
 	// Logger is the logger that should be used by this Cluster.
 	// If none is set, it defaults to log.Log global logger.
 	Logger logr.Logger
-
-	// SyncPeriod determines the minimum frequency at which watched resources are
-	// reconciled. A lower period will correct entropy more quickly, but reduce
-	// responsiveness to change if there are many watched resources. Change this
-	// value only if you know what you are doing. Defaults to 10 hours if unset.
-	// there will a 10 percent jitter between the SyncPeriod of all controllers
-	// so that all controllers will not send list requests simultaneously.
-	//
-	// Deprecated: Use Cache.SyncPeriod instead.
-	SyncPeriod *time.Duration
 
 	// HTTPClient is the http client that will be used to create the default
 	// Cache and Client. If not set the rest.HTTPClientFor function will be used
@@ -193,9 +182,6 @@ func New(config *rest.Config, opts ...Option) (Cluster, error) {
 		}
 		if cacheOpts.HTTPClient == nil {
 			cacheOpts.HTTPClient = options.HTTPClient
-		}
-		if cacheOpts.SyncPeriod == nil {
-			cacheOpts.SyncPeriod = options.SyncPeriod
 		}
 	}
 	cache, err := options.NewCache(config, cacheOpts)

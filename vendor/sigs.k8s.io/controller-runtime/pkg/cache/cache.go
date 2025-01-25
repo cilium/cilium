@@ -19,11 +19,12 @@ package cache
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -231,15 +232,16 @@ type Options struct {
 	// This will be used for all object types, unless it is set in ByObject or
 	// DefaultNamespaces.
 	//
-	// Defaults to false.
+	// Defaults to true.
 	DefaultEnableWatchBookmarks *bool
 
 	// ByObject restricts the cache's ListWatch to the desired fields per GVK at the specified object.
 	// If unset, this will fall through to the Default* settings.
 	ByObject map[client.Object]ByObject
 
-	// newInformer allows overriding of NewSharedIndexInformer for testing.
-	newInformer *func(toolscache.ListerWatcher, runtime.Object, time.Duration, toolscache.Indexers) toolscache.SharedIndexInformer
+	// NewInformer allows overriding of NewSharedIndexInformer, for example for testing
+	// or if someone wants to write their own Informer.
+	NewInformer func(toolscache.ListerWatcher, runtime.Object, time.Duration, toolscache.Indexers) toolscache.SharedIndexInformer
 }
 
 // ByObject offers more fine-grained control over the cache's ListWatch by object.
@@ -291,7 +293,7 @@ type ByObject struct {
 	// assume bookmarks are returned at any specific interval, nor may they
 	// assume the server will send any BOOKMARK event during a session.
 	//
-	// Defaults to false.
+	// Defaults to true.
 	EnableWatchBookmarks *bool
 }
 
@@ -326,7 +328,7 @@ type Config struct {
 	// assume bookmarks are returned at any specific interval, nor may they
 	// assume the server will send any BOOKMARK event during a session.
 	//
-	// Defaults to false.
+	// Defaults to true.
 	EnableWatchBookmarks *bool
 }
 
@@ -430,8 +432,8 @@ func newCache(restConfig *rest.Config, opts Options) newCacheFunc {
 				Transform:             config.Transform,
 				WatchErrorHandler:     opts.DefaultWatchErrorHandler,
 				UnsafeDisableDeepCopy: ptr.Deref(config.UnsafeDisableDeepCopy, false),
-				EnableWatchBookmarks:  ptr.Deref(config.EnableWatchBookmarks, false),
-				NewInformer:           opts.newInformer,
+				EnableWatchBookmarks:  ptr.Deref(config.EnableWatchBookmarks, true),
+				NewInformer:           opts.NewInformer,
 			}),
 			readerFailOnMissingInformer: opts.ReaderFailOnMissingInformer,
 		}
@@ -467,6 +469,8 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		}
 	}
 
+	opts.ByObject = maps.Clone(opts.ByObject)
+	opts.DefaultNamespaces = maps.Clone(opts.DefaultNamespaces)
 	for obj, byObject := range opts.ByObject {
 		isNamespaced, err := apiutil.IsObjectNamespaced(obj, opts.Scheme, opts.Mapper)
 		if err != nil {
@@ -478,6 +482,8 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 
 		if isNamespaced && byObject.Namespaces == nil {
 			byObject.Namespaces = maps.Clone(opts.DefaultNamespaces)
+		} else {
+			byObject.Namespaces = maps.Clone(byObject.Namespaces)
 		}
 
 		// Default the namespace-level configs first, because they need to use the undefaulted type-level config
@@ -485,7 +491,6 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		for namespace, config := range byObject.Namespaces {
 			// 1. Default from the undefaulted type-level config
 			config = defaultConfig(config, byObjectToConfig(byObject))
-
 			// 2. Default from the namespace-level config. This was defaulted from the global default config earlier, but
 			//    might not have an entry for the current namespace.
 			if defaultNamespaceSettings, hasDefaultNamespace := opts.DefaultNamespaces[namespace]; hasDefaultNamespace {
@@ -498,7 +503,7 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 			if namespace == metav1.NamespaceAll {
 				config.FieldSelector = fields.AndSelectors(
 					appendIfNotNil(
-						namespaceAllSelector(maps.Keys(byObject.Namespaces)),
+						namespaceAllSelector(slices.Collect(maps.Keys(byObject.Namespaces))),
 						config.FieldSelector,
 					)...,
 				)
@@ -529,7 +534,7 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		if namespace == metav1.NamespaceAll {
 			cfg.FieldSelector = fields.AndSelectors(
 				appendIfNotNil(
-					namespaceAllSelector(maps.Keys(opts.DefaultNamespaces)),
+					namespaceAllSelector(slices.Collect(maps.Keys(opts.DefaultNamespaces))),
 					cfg.FieldSelector,
 				)...,
 			)

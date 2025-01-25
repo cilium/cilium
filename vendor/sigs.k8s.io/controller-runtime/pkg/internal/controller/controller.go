@@ -21,9 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-logr/logr"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -169,43 +171,66 @@ func (c *Controller[request]) Start(ctx context.Context) error {
 		defer utilruntime.HandleCrash()
 
 		// NB(directxman12): launch the sources *before* trying to wait for the
-		// caches to sync so that they have a chance to register their intendeded
+		// caches to sync so that they have a chance to register their intended
 		// caches.
+		errGroup := &errgroup.Group{}
 		for _, watch := range c.startWatches {
-			c.LogConstructor(nil).Info("Starting EventSource", "source", fmt.Sprintf("%s", watch))
+			log := c.LogConstructor(nil)
+			_, ok := watch.(interface {
+				String() string
+			})
 
-			if err := watch.Start(ctx, c.Queue); err != nil {
-				return err
-			}
-		}
-
-		// Start the SharedIndexInformer factories to begin populating the SharedIndexInformer caches
-		c.LogConstructor(nil).Info("Starting Controller")
-
-		for _, watch := range c.startWatches {
-			syncingSource, ok := watch.(source.SyncingSource)
 			if !ok {
-				continue
+				log = log.WithValues("source", fmt.Sprintf("%T", watch))
+			} else {
+				log = log.WithValues("source", fmt.Sprintf("%s", watch))
 			}
-
-			if err := func() error {
-				// use a context with timeout for launching sources and syncing caches.
+			didStartSyncingSource := &atomic.Bool{}
+			errGroup.Go(func() error {
+				// Use a timeout for starting and syncing the source to avoid silently
+				// blocking startup indefinitely if it doesn't come up.
 				sourceStartCtx, cancel := context.WithTimeout(ctx, c.CacheSyncTimeout)
 				defer cancel()
 
-				// WaitForSync waits for a definitive timeout, and returns if there
-				// is an error or a timeout
-				if err := syncingSource.WaitForSync(sourceStartCtx); err != nil {
-					err := fmt.Errorf("failed to wait for %s caches to sync: %w", c.Name, err)
-					c.LogConstructor(nil).Error(err, "Could not wait for Cache to sync")
-					return err
-				}
+				sourceStartErrChan := make(chan error, 1) // Buffer chan to not leak goroutine if we time out
+				go func() {
+					defer close(sourceStartErrChan)
+					log.Info("Starting EventSource")
+					if err := watch.Start(ctx, c.Queue); err != nil {
+						sourceStartErrChan <- err
+						return
+					}
+					syncingSource, ok := watch.(source.TypedSyncingSource[request])
+					if !ok {
+						return
+					}
+					didStartSyncingSource.Store(true)
+					if err := syncingSource.WaitForSync(sourceStartCtx); err != nil {
+						err := fmt.Errorf("failed to wait for %s caches to sync %v: %w", c.Name, syncingSource, err)
+						log.Error(err, "Could not wait for Cache to sync")
+						sourceStartErrChan <- err
+					}
+				}()
 
-				return nil
-			}(); err != nil {
-				return err
-			}
+				select {
+				case err := <-sourceStartErrChan:
+					return err
+				case <-sourceStartCtx.Done():
+					if didStartSyncingSource.Load() { // We are racing with WaitForSync, wait for it to let it tell us what happened
+						return <-sourceStartErrChan
+					}
+					if ctx.Err() != nil { // Don't return an error if the root context got cancelled
+						return nil
+					}
+					return fmt.Errorf("timed out waiting for source %s to Start. Please ensure that its Start() method is non-blocking", watch)
+				}
+			})
 		}
+		if err := errGroup.Wait(); err != nil {
+			return err
+		}
+
+		c.LogConstructor(nil).Info("Starting Controller")
 
 		// All the watches have been started, we can reset the local slice.
 		//
@@ -311,7 +336,7 @@ func (c *Controller[request]) reconcileHandler(ctx context.Context, req request)
 		ctrlmetrics.ReconcileErrors.WithLabelValues(c.Name).Inc()
 		ctrlmetrics.ReconcileTotal.WithLabelValues(c.Name, labelError).Inc()
 		if !result.IsZero() {
-			log.Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
+			log.Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes requeuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
 		}
 		log.Error(err, "Reconciler error")
 	case result.RequeueAfter > 0:
