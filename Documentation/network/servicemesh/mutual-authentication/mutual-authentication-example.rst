@@ -29,7 +29,7 @@ Verify that the Pods have been successfully deployed:
 
     $ kubectl get svc echo
     NAME   TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)    AGE
-    echo   ClusterIP   10.96.16.90   <none>        8080/TCP   42m
+    echo   ClusterIP   10.96.16.90   <none>        3000/TCP   42m
     $ kubectl get pod pod-worker 
     NAME         READY   STATUS    RESTARTS   AGE
     pod-worker   1/1     Running   0          40m
@@ -40,9 +40,9 @@ Run the following commands:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it pod-worker -- curl -s -o /dev/null -w "%{http_code}" http://echo:8080/headers
+    $ kubectl exec -it pod-worker -- curl -s -o /dev/null -w "%{http_code}" http://echo:3000/headers
     200
-    $ kubectl exec -it pod-worker -- curl http://echo:8080/headers-1
+    $ kubectl exec -it pod-worker -- curl http://echo:3000/headers-1
     Access denied
 
 The first request should be successful (the *pod-worker* Pod is able to connect to the *echo* Service over a specific HTTP path and the HTTP status code is ``200``).
@@ -212,9 +212,9 @@ Re-try your connectivity tests. They should give similar results as before:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it pod-worker -- curl -s -o /dev/null -w "%{http_code}" http://echo:8080/headers
+    $ kubectl exec -it pod-worker -- curl -s -o /dev/null -w "%{http_code}" http://echo:3000/headers
     200
-    $ kubectl exec -it pod-worker -- curl http://echo:8080/headers-1
+    $ kubectl exec -it pod-worker -- curl http://echo:3000/headers-1
     Access denied
 
 Verify that mutual authentication has happened by accessing the logs on the agent. 
