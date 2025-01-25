@@ -27,6 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// Warnings represents warning messages.
+type Warnings []string
+
 // CustomValidator defines functions for validating an operation.
 // The object to be validated is passed into methods as a parameter.
 type CustomValidator interface {
