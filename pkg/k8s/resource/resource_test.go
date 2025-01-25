@@ -743,9 +743,9 @@ func TestResource_Retries(t *testing.T) {
 	)
 
 	var rateLimiterUsed atomic.Int64
-	rateLimiter := func() workqueue.RateLimiter {
+	rateLimiter := func() workqueue.TypedRateLimiter[resource.WorkItem] {
 		rateLimiterUsed.Add(1)
-		return workqueue.DefaultControllerRateLimiter()
+		return workqueue.DefaultTypedControllerRateLimiter[resource.WorkItem]()
 	}
 
 	hive := hive.New(
