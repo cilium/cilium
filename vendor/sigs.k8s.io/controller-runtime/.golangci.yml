@@ -5,13 +5,13 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
     - errchkjson
     - errorlint
     - exhaustive
-    - exportloopref
     - ginkgolinter
     - goconst
     - gocritic
@@ -19,7 +19,6 @@ linters:
     - gofmt
     - goimports
     - goprintffuncname
-    - gosec
     - gosimple
     - govet
     - importas
@@ -165,8 +164,16 @@ issues:
     - linters:
         - dupl
       path: _test\.go
+    - linters:
+        - revive
+      path: .*/internal/.*
+    - linters:
+        - unused
+      # Seems to incorrectly trigger on the two implementations that are only
+      # used through an interface and not directly..?
+      path: pkg/controller/priorityqueue/metrics\.go
 
 run:
-  go: "1.22"
+  go: "1.23"
   timeout: 10m
   allow-parallel-runners: true
