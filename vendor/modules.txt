@@ -251,6 +251,10 @@ github.com/chai2010/gettext-go/po
 # github.com/cilium/charts v0.0.0-20250122005123-9aa3c2db578d
 ## explicit; go 1.17
 github.com/cilium/charts
+# github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 v2.0.0-00010101000000-000000000000 => ./pkg/k8s/apis/cilium.io/v2
+## explicit; go 1.23.4
+github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2
+github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator
 # github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 ## explicit; go 1.21
 github.com/cilium/coverbee
@@ -1799,8 +1803,8 @@ golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # gomodules.xyz/jsonpatch/v2 v2.4.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
-# google.golang.org/genproto/googleapis/api v0.0.0-20241216192217-9240e9c98484
-## explicit; go 1.21
+# google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f
+## explicit; go 1.22
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
@@ -2813,4 +2817,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 sigs.k8s.io/yaml/goyaml.v3
+# github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2 => ./pkg/k8s/apis/cilium.io/v2
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.5-1
