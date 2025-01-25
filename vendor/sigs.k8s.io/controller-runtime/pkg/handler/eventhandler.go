@@ -18,9 +18,11 @@ package handler
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -132,4 +134,68 @@ func (h TypedFuncs[object, request]) Generic(ctx context.Context, e event.TypedG
 	if h.GenericFunc != nil {
 		h.GenericFunc(ctx, e, q)
 	}
+}
+
+// LowPriority is the priority set by WithLowPriorityWhenUnchanged
+const LowPriority = -100
+
+// WithLowPriorityWhenUnchanged reduces the priority of events stemming from the initial listwatch or from a resync if
+// and only if a priorityqueue.PriorityQueue is used. If not, it does nothing.
+func WithLowPriorityWhenUnchanged[object client.Object, request comparable](u TypedEventHandler[object, request]) TypedEventHandler[object, request] {
+	return TypedFuncs[object, request]{
+		CreateFunc: func(ctx context.Context, tce event.TypedCreateEvent[object], trli workqueue.TypedRateLimitingInterface[request]) {
+			// Due to how the handlers are factored, we have to wrap the workqueue to be able
+			// to inject custom behavior.
+			u.Create(ctx, tce, workqueueWithCustomAddFunc[request]{
+				TypedRateLimitingInterface: trli,
+				addFunc: func(item request, q workqueue.TypedRateLimitingInterface[request]) {
+					priorityQueue, isPriorityQueue := q.(priorityqueue.PriorityQueue[request])
+					if !isPriorityQueue {
+						q.Add(item)
+						return
+					}
+					var priority int
+					if isObjectUnchanged(tce) {
+						priority = LowPriority
+					}
+					priorityQueue.AddWithOpts(priorityqueue.AddOpts{Priority: priority}, item)
+				},
+			})
+		},
+		UpdateFunc: func(ctx context.Context, tue event.TypedUpdateEvent[object], trli workqueue.TypedRateLimitingInterface[request]) {
+			u.Update(ctx, tue, workqueueWithCustomAddFunc[request]{
+				TypedRateLimitingInterface: trli,
+				addFunc: func(item request, q workqueue.TypedRateLimitingInterface[request]) {
+					priorityQueue, isPriorityQueue := q.(priorityqueue.PriorityQueue[request])
+					if !isPriorityQueue {
+						q.Add(item)
+						return
+					}
+					var priority int
+					if tue.ObjectOld.GetResourceVersion() == tue.ObjectNew.GetResourceVersion() {
+						priority = LowPriority
+					}
+					priorityQueue.AddWithOpts(priorityqueue.AddOpts{Priority: priority}, item)
+				},
+			})
+		},
+		DeleteFunc:  u.Delete,
+		GenericFunc: u.Generic,
+	}
+}
+
+type workqueueWithCustomAddFunc[request comparable] struct {
+	workqueue.TypedRateLimitingInterface[request]
+	addFunc func(item request, q workqueue.TypedRateLimitingInterface[request])
+}
+
+func (w workqueueWithCustomAddFunc[request]) Add(item request) {
+	w.addFunc(item, w.TypedRateLimitingInterface)
+}
+
+// isObjectUnchanged checks if the object in a create event is unchanged, for example because
+// we got it in our initial listwatch. The heuristic it uses is to check if the object is older
+// than one minute.
+func isObjectUnchanged[object client.Object](e event.TypedCreateEvent[object]) bool {
+	return e.Object.GetCreationTimestamp().Time.Before(time.Now().Add(-time.Minute))
 }

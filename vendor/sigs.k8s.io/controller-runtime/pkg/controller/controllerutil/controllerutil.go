@@ -181,6 +181,21 @@ func HasControllerReference(object metav1.Object) bool {
 	return false
 }
 
+// HasOwnerReference returns true if the owners list contains an owner reference
+// that matches the object's group, kind, and name.
+func HasOwnerReference(ownerRefs []metav1.OwnerReference, obj client.Object, scheme *runtime.Scheme) (bool, error) {
+	gvk, err := apiutil.GVKForObject(obj, scheme)
+	if err != nil {
+		return false, err
+	}
+	idx := indexOwnerRef(ownerRefs, metav1.OwnerReference{
+		APIVersion: gvk.GroupVersion().String(),
+		Name:       obj.GetName(),
+		Kind:       gvk.Kind,
+	})
+	return idx != -1, nil
+}
+
 // RemoveControllerReference removes an owner reference where the controller
 // equals true
 func RemoveControllerReference(owner, object metav1.Object, scheme *runtime.Scheme) error {

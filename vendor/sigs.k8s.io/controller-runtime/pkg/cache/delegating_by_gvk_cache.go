@@ -18,10 +18,11 @@ package cache
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,7 +74,7 @@ func (dbt *delegatingByGVKCache) GetInformerForKind(ctx context.Context, gvk sch
 }
 
 func (dbt *delegatingByGVKCache) Start(ctx context.Context) error {
-	allCaches := maps.Values(dbt.caches)
+	allCaches := slices.Collect(maps.Values(dbt.caches))
 	allCaches = append(allCaches, dbt.defaultCache)
 
 	wg := &sync.WaitGroup{}
@@ -100,7 +101,7 @@ func (dbt *delegatingByGVKCache) Start(ctx context.Context) error {
 
 func (dbt *delegatingByGVKCache) WaitForCacheSync(ctx context.Context) bool {
 	synced := true
-	for _, cache := range append(maps.Values(dbt.caches), dbt.defaultCache) {
+	for _, cache := range append(slices.Collect(maps.Values(dbt.caches)), dbt.defaultCache) {
 		if !cache.WaitForCacheSync(ctx) {
 			synced = false
 		}

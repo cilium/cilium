@@ -173,7 +173,8 @@ func (TypedResourceVersionChangedPredicate[T]) Update(e event.TypedUpdateEvent[T
 // The metadata.generation field of an object is incremented by the API server when writes are made to the spec field of an object.
 // This allows a controller to ignore update events where the spec is unchanged, and only the metadata and/or status fields are changed.
 //
-// For CustomResource objects the Generation is only incremented when the status subresource is enabled.
+// For CustomResource objects the Generation is incremented when spec is changed, or status changed and status not modeled as subresource.
+// subresource status update will not increase Generation.
 //
 // Caveats:
 //
@@ -191,7 +192,8 @@ type GenerationChangedPredicate = TypedGenerationChangedPredicate[client.Object]
 // The metadata.generation field of an object is incremented by the API server when writes are made to the spec field of an object.
 // This allows a controller to ignore update events where the spec is unchanged, and only the metadata and/or status fields are changed.
 //
-// For CustomResource objects the Generation is only incremented when the status subresource is enabled.
+// For CustomResource objects the Generation is incremented when spec is changed, or status changed and status not modeled as subresource.
+// subresource status update will not increase Generation.
 //
 // Caveats:
 //
