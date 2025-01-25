@@ -319,7 +319,10 @@ func (manager *Manager) processEvents(ctx context.Context) {
 	// the identity allocator, where the minimum retry timeout is set to 20
 	// milliseconds and the max number of attempts is 16 (so 20ms * 2^16 ==
 	// ~20 minutes)
-	endpointsRateLimit := workqueue.NewItemExponentialFailureRateLimiter(time.Millisecond*20, time.Minute*20)
+	endpointsRateLimit := workqueue.NewTypedItemExponentialFailureRateLimiter[resource.WorkItem](
+		time.Millisecond*20,
+		time.Minute*20,
+	)
 
 	policyEvents := manager.policies.Events(ctx)
 	nodeEvents := manager.ciliumNodes.Events(ctx)

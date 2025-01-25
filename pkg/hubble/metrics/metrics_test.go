@@ -42,7 +42,7 @@ func TestInitializedMetrics(t *testing.T) {
 		EnabledMetrics = []api.NamedHandler{}
 		endpointDeletionHandler = &CiliumEndpointDeletionHandler{
 			gracefulPeriod: 10 * time.Millisecond,
-			queue:          workqueue.NewDelayingQueue(),
+			queue:          workqueue.NewTypedDelayingQueue[*types.CiliumEndpoint](),
 		}
 
 		ProcessCiliumEndpointDeletion(deletedEndpoint)

@@ -59,7 +59,7 @@ var (
 	eventsOpts = resource.WithRateLimiter(
 		// This rate limiter will retry in the following pattern
 		// 250ms, 500ms, 1s, 2s, 4s, 8s, 16s, 32s, .... max 5m
-		workqueue.NewItemExponentialFailureRateLimiter(250*time.Millisecond, 5*time.Minute),
+		workqueue.NewTypedItemExponentialFailureRateLimiter[resource.WorkItem](250*time.Millisecond, 5*time.Minute),
 	)
 )
 
