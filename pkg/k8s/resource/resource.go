@@ -406,14 +406,14 @@ func (r *resource[T]) Stop(stopCtx cell.HookContext) error {
 }
 
 type eventsOpts struct {
-	rateLimiter  workqueue.RateLimiter
+	rateLimiter  workqueue.TypedRateLimiter[WorkItem]
 	errorHandler ErrorHandler
 }
 
 type EventsOpt func(*eventsOpts)
 
 // WithRateLimiter sets the rate limiting algorithm to be used when requeueing failed events.
-func WithRateLimiter(r workqueue.RateLimiter) EventsOpt {
+func WithRateLimiter(r workqueue.TypedRateLimiter[WorkItem]) EventsOpt {
 	return func(o *eventsOpts) {
 		o.rateLimiter = r
 	}
@@ -452,7 +452,7 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 
 	options := eventsOpts{
 		errorHandler: AlwaysRetry, // Default error handling is to always retry.
-		rateLimiter:  workqueue.DefaultControllerRateLimiter(),
+		rateLimiter:  workqueue.DefaultTypedControllerRateLimiter[WorkItem](),
 	}
 	for _, apply := range opts {
 		apply(&options)
@@ -468,8 +468,8 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		r:         r,
 		options:   options,
 		debugInfo: debugInfo,
-		wq: workqueue.NewRateLimitingQueueWithConfig(options.rateLimiter,
-			workqueue.RateLimitingQueueConfig{Name: r.resourceName()}),
+		wq: workqueue.NewTypedRateLimitingQueueWithConfig[WorkItem](options.rateLimiter,
+			workqueue.TypedRateLimitingQueueConfig[WorkItem]{Name: r.resourceName()}),
 	}
 
 	// Fork a goroutine to process the queued keys and pass them to the subscriber.
@@ -587,7 +587,7 @@ func (r *resource[T]) resourceName() string {
 type subscriber[T k8sRuntime.Object] struct {
 	r         *resource[T]
 	debugInfo string
-	wq        workqueue.RateLimitingInterface
+	wq        workqueue.TypedRateLimitingInterface[WorkItem]
 	options   eventsOpts
 }
 
@@ -693,13 +693,12 @@ loop:
 	}
 }
 
-func (s *subscriber[T]) getWorkItem() (e workItem, shutdown bool) {
-	var raw any
-	raw, shutdown = s.wq.Get()
+func (s *subscriber[T]) getWorkItem() (e WorkItem, shutdown bool) {
+	raw, shutdown := s.wq.Get()
 	if shutdown {
 		return
 	}
-	return raw.(workItem), false
+	return raw, false
 }
 
 func (s *subscriber[T]) enqueueSync() {
@@ -710,7 +709,7 @@ func (s *subscriber[T]) enqueueKey(key Key) {
 	s.wq.Add(keyWorkItem{key})
 }
 
-func (s *subscriber[T]) eventDone(entry workItem, err error) {
+func (s *subscriber[T]) eventDone(entry WorkItem, err error) {
 	// This is based on the example found in k8s.io/client-go/examples/worsueue/main.go.
 
 	// Mark the object as done being processed. If it was marked dirty
@@ -787,13 +786,13 @@ func (l *lastKnownObjects[T]) DeleteByUID(key Key, objToDelete T) {
 	}
 }
 
-// workItem restricts the set of types we use when type-switching over the
+// WorkItem restricts the set of types we use when type-switching over the
 // queue entries, so that we'll get a compiler error on impossible types.
 //
 // The queue entries must be kept comparable and not be pointers as we want
 // to be able to coalesce multiple keyEntry's into a single element in the
 // queue.
-type workItem interface {
+type WorkItem interface {
 	isWorkItem()
 }
 
