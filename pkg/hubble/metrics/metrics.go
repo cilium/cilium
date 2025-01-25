@@ -33,7 +33,7 @@ import (
 
 type CiliumEndpointDeletionHandler struct {
 	gracefulPeriod time.Duration
-	queue          workqueue.DelayingInterface
+	queue          workqueue.TypedDelayingInterface[*types.CiliumEndpoint]
 }
 
 var (
@@ -77,7 +77,7 @@ func ProcessCiliumEndpointDeletion(pod *types.CiliumEndpoint) error {
 func initEndpointDeletionHandler() {
 	endpointDeletionHandler = &CiliumEndpointDeletionHandler{
 		gracefulPeriod: time.Minute,
-		queue:          workqueue.NewDelayingQueue(),
+		queue:          workqueue.NewTypedDelayingQueue[*types.CiliumEndpoint](),
 	}
 
 	go func() {
@@ -86,7 +86,7 @@ func initEndpointDeletionHandler() {
 			if quit {
 				return
 			}
-			api.ProcessCiliumEndpointDeletion(endpoint.(*types.CiliumEndpoint), EnabledMetrics)
+			api.ProcessCiliumEndpointDeletion(endpoint, EnabledMetrics)
 			endpointDeletionHandler.queue.Done(endpoint)
 		}
 	}()
