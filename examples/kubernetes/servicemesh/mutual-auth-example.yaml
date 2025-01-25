@@ -7,10 +7,10 @@ metadata:
   name: echo
 spec:
   ports:
-  - port: 8080
+  - port: 3000
     name: high
     protocol: TCP
-    targetPort: 8080
+    targetPort: 3000
   selector:
     app: echo
 ---
@@ -31,10 +31,10 @@ spec:
         app: echo
     spec:
       containers:
-      - image: gcr.io/kubernetes-e2e-test-images/echoserver:2.2
+      - image: gcr.io/k8s-staging-ingressconformance/echoserver:v20221109-7ee2f3e
         name: echo
         ports:
-        - containerPort: 8080
+        - containerPort: 3000
         env:
           - name: NODE_NAME
             valueFrom:
