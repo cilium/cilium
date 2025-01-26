@@ -413,11 +413,11 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	if serviceOK {
 		s.metrics.DelService(oldService)
 		s.emitEvent(ServiceEvent{
-			Action:       DeleteService,
-			ID:           svcID,
-			OldService:   oldService,
-			OldEndpoints: endpoints,
-			SWGDone:      swg.Add(),
+			Action:    DeleteService,
+			ID:        svcID,
+			Service:   oldService,
+			Endpoints: endpoints,
+			SWGDone:   swg.Add(),
 		})
 	}
 }
@@ -808,7 +808,6 @@ func (s *ServiceCache) mergeExternalServiceDeleteLocked(service *serviceStore.Cl
 				Action:       UpdateService,
 				ID:           id,
 				Service:      svc,
-				OldService:   svc,
 				Endpoints:    endpoints,
 				OldEndpoints: oldEPs,
 				SWGDone:      swg.Add(),
@@ -817,8 +816,6 @@ func (s *ServiceCache) mergeExternalServiceDeleteLocked(service *serviceStore.Cl
 			if !serviceReady {
 				delete(s.services, id)
 				event.Action = DeleteService
-				event.Service = nil
-				event.Endpoints = nil
 			}
 
 			s.emitEvent(event)
@@ -874,11 +871,11 @@ func (s *ServiceCache) MergeClusterServiceDelete(service *serviceStore.ClusterSe
 
 	if ok {
 		s.emitEvent(ServiceEvent{
-			Action:       DeleteService,
-			ID:           id,
-			OldService:   svc,
-			OldEndpoints: endpoints,
-			SWGDone:      swg.Add(),
+			Action:    DeleteService,
+			ID:        id,
+			Service:   svc,
+			Endpoints: endpoints,
+			SWGDone:   swg.Add(),
 		})
 	}
 }
