@@ -4,14 +4,12 @@
 package watchers
 
 import (
-	"os"
 	"sort"
 	"testing"
 
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -23,16 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
-
-func TestMain(m *testing.M) {
-	// Reduce debouncing duration to speed up the tests.
-	option.Config.K8sServiceDebounceWaitTime = time.Millisecond
-	option.Config.K8sServiceDebounceBufferSize = 128
-
-	os.Exit(m.Run())
-}
 
 type fakeSvcManager struct {
 	OnDeleteService func(frontend loadbalancer.L3n4Addr) (bool, error)
@@ -349,27 +338,18 @@ func Test_addK8sSVCs_ClusterIP(t *testing.T) {
 	}
 
 	go svcWatcher.k8sServiceHandler()
-
 	swg := lock.NewStoppableWaitGroup()
+
 	k8sSvcCache.UpdateService(k8sSvc, swg)
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
-	swg.Stop()
-	swg.Wait()
-
-	// NOTE: Due to the service event debouncing of the service events we use a new [StoppableWaitGroup]
-	// for each group of changes we want to be processed without coalescing.
-
-	swg = lock.NewStoppableWaitGroup()
 	// Running a 2nd update should also trigger a new upsert service
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
 	// Running a 3rd update should also not trigger anything because the
 	// endpoints are the same
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
-	swg.Stop()
-	swg.Wait()
 
-	swg = lock.NewStoppableWaitGroup()
 	k8sSvcCache.DeleteService(k8sSvc, swg)
+
 	swg.Stop()
 	swg.Wait()
 
@@ -493,18 +473,14 @@ func TestChangeSVCPort(t *testing.T) {
 	}
 
 	go svcWatcher.k8sServiceHandler()
-
 	swg := lock.NewStoppableWaitGroup()
+
 	k8sSvcCache.UpdateService(k8sSvc, swg)
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
-	swg.Stop()
-	swg.Wait()
-
-	swg = lock.NewStoppableWaitGroup()
 	k8sSvcCache.UpdateService(k8sSvcChanged, swg)
+
 	swg.Stop()
 	swg.Wait()
-
 	require.Equal(t, 2, svcUpsertManagerCalls) // Add and Update events
 	require.EqualValues(t, upsertsWanted, upserts)
 }
@@ -968,30 +944,21 @@ func Test_addK8sSVCs_NodePort(t *testing.T) {
 
 	k8sSvcCache.UpdateService(k8sSvc, swg)
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
-
-	swg.Stop()
-	swg.Wait()
-
-	swg = lock.NewStoppableWaitGroup()
-
 	// Running a 2nd update should also trigger a new upsert service
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
 	// Running a 3rd update should also not trigger anything because the
 	// endpoints are the same
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
 
+	k8sSvcCache.DeleteService(k8sSvc, swg)
+
 	swg.Stop()
 	swg.Wait()
 	require.Equal(t, len(upsert1stWanted)+len(upsert2ndWanted), svcUpsertManagerCalls)
-	require.EqualValues(t, upsert1stWanted, upsert1st)
-	require.EqualValues(t, upsert2ndWanted, upsert2nd)
-
-	swg = lock.NewStoppableWaitGroup()
-	k8sSvcCache.DeleteService(k8sSvc, swg)
-	swg.Stop()
-	swg.Wait()
 	require.Equal(t, len(del1stWanted), svcDeleteManagerCalls)
 
+	require.EqualValues(t, upsert1stWanted, upsert1st)
+	require.EqualValues(t, upsert2ndWanted, upsert2nd)
 	require.EqualValues(t, del1stWanted, del1st)
 }
 
@@ -1269,18 +1236,15 @@ func Test_addK8sSVCs_GH9576_1(t *testing.T) {
 	}
 
 	go svcWatcher.k8sServiceHandler()
-
 	swg := lock.NewStoppableWaitGroup()
+
 	k8sSvcCache.UpdateService(k8sSvc1stApply, swg)
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
-	swg.Stop()
-	swg.Wait()
 
-	swg = lock.NewStoppableWaitGroup()
 	k8sSvcCache.UpdateService(k8sSvc2ndApply, swg)
+
 	swg.Stop()
 	swg.Wait()
-
 	require.Equal(t, wantSvcUpsertManagerCalls, svcUpsertManagerCalls)
 	require.Equal(t, wantSvcDeleteManagerCalls, svcDeleteManagerCalls)
 
@@ -1561,15 +1525,12 @@ func Test_addK8sSVCs_GH9576_2(t *testing.T) {
 	}
 
 	go svcWatcher.k8sServiceHandler()
-
 	swg := lock.NewStoppableWaitGroup()
+
 	k8sSvcCache.UpdateService(k8sSvc1stApply, swg)
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
-	swg.Stop()
-	swg.Wait()
-
-	swg = lock.NewStoppableWaitGroup()
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
+
 	swg.Stop()
 	swg.Wait()
 
@@ -2487,32 +2448,22 @@ func Test_addK8sSVCs_ExternalIPs(t *testing.T) {
 	}
 
 	go svcWatcher.k8sServiceHandler()
-
 	swg := lock.NewStoppableWaitGroup()
+
 	k8sSvcCache.UpdateService(svc1stApply, swg)
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
-	swg.Stop()
-	swg.Wait()
-
-	swg = lock.NewStoppableWaitGroup()
 	// Running a 2nd update should also trigger a new upsert service
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
 	// Running a 3rd update should also not trigger anything because the
 	// endpoints are the same
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep2ndApply), swg)
-	swg.Stop()
-	swg.Wait()
 
-	swg = lock.NewStoppableWaitGroup()
 	k8sSvcCache.UpdateService(svc2ndApply, swg)
-	swg.Stop()
-	swg.Wait()
 
-	swg = lock.NewStoppableWaitGroup()
 	k8sSvcCache.DeleteService(svc1stApply, swg)
+
 	swg.Stop()
 	swg.Wait()
-
 	require.Equal(t, len(upsert1stWanted)+len(upsert2ndWanted)+len(upsert3rdWanted), svcUpsertManagerCalls)
 	require.Equal(t, len(del1stWanted)+len(del2ndWanted), svcDeleteManagerCalls)
 
@@ -2628,188 +2579,16 @@ func TestHeadless(t *testing.T) {
 	}
 
 	go svcWatcher.k8sServiceHandler()
-
 	swg := lock.NewStoppableWaitGroup()
+
 	k8sSvcCache.UpdateService(k8sSvc, swg)
 	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep1stApply), swg)
-	swg.Stop()
-	swg.Wait()
-
-	swg = lock.NewStoppableWaitGroup()
 	k8sSvcCache.UpdateService(k8sSvcChanged, swg)
+
 	swg.Stop()
 	swg.Wait()
-
 	require.Equal(t, len(upsertsWanted), svcUpsertManagerCalls)
 	require.Equal(t, len(delstWanted), svcDeleteManagerCalls)
 	require.EqualValues(t, upsertsWanted, upserts)
 	require.EqualValues(t, delstWanted, delst)
-}
-
-func TestServiceEventDebounce(t *testing.T) {
-	oldTime := option.Config.K8sServiceDebounceWaitTime
-	defer func() {
-		option.Config.K8sServiceDebounceWaitTime = oldTime
-	}()
-	// Use longer wait time to trigger coalescing. The asserts in this test must
-	// retry if needed and not rely on coalescing to always happen.
-	option.Config.K8sServiceDebounceWaitTime = 20 * time.Millisecond
-
-	ep := &slim_corev1.Endpoints{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-		},
-		Subsets: []slim_corev1.EndpointSubset{
-			{
-				Addresses: []slim_corev1.EndpointAddress{{IP: "10.0.0.2"}},
-				Ports: []slim_corev1.EndpointPort{
-					{
-						Name:     "http",
-						Port:     8080,
-						Protocol: slim_corev1.ProtocolTCP,
-					},
-				},
-			},
-		},
-	}
-
-	upserts, deletes := 0, 0
-	fes := sets.New[loadbalancer.L3n4Addr]()
-	var lastDelete *loadbalancer.L3n4Addr
-
-	svcManager := &fakeSvcManager{
-		OnUpsertService: func(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
-			upserts++
-			fes.Insert(p.Frontend.L3n4Addr)
-			return false, 0, nil
-		},
-		OnDeleteService: func(fe loadbalancer.L3n4Addr) (b bool, e error) {
-			deletes++
-			fes.Delete(fe)
-			lastDelete = &fe
-			return true, nil
-		},
-	}
-
-	db, nodeAddrs := newDB(t)
-	k8sSvcCache := k8s.NewServiceCache(db, nodeAddrs, k8s.NewSVCMetricsNoop())
-	svcWatcher := &K8sServiceWatcher{
-		k8sSvcCache: k8sSvcCache,
-		svcManager:  svcManager,
-	}
-
-	go svcWatcher.k8sServiceHandler()
-
-	k8sSvc := &slim_corev1.Service{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
-			},
-		},
-		Spec: slim_corev1.ServiceSpec{
-			ClusterIP:  "127.0.0.1",
-			ClusterIPs: []string{"127.0.0.1"},
-			Type:       slim_corev1.ServiceTypeClusterIP,
-			Ports: []slim_corev1.ServicePort{
-				{
-					Name:     "http",
-					Protocol: slim_corev1.ProtocolTCP,
-					Port:     80,
-				},
-			},
-		},
-	}
-	setClusterIP := func(ip string) {
-		k8sSvc.Spec.ClusterIP = ip
-		k8sSvc.Spec.ClusterIPs = []string{ip}
-	}
-
-	// Test that coalescing will mark multiple SWGs as done.
-	swg1, swg2, swg3 := lock.NewStoppableWaitGroup(),
-		lock.NewStoppableWaitGroup(),
-		lock.NewStoppableWaitGroup()
-
-	k8sSvcCache.UpdateService(k8sSvc, swg1)
-	k8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(ep), swg1)
-
-	swg1.Stop()
-	swg1.Wait()
-
-	setClusterIP("127.0.0.2")
-	k8sSvcCache.UpdateService(k8sSvc, swg2)
-	setClusterIP("127.0.0.3")
-	k8sSvcCache.UpdateService(k8sSvc, swg3)
-	k8sSvcCache.DeleteService(k8sSvc, swg3)
-	setClusterIP("127.0.0.4")
-	k8sSvcCache.UpdateService(k8sSvc, swg3)
-	k8sSvcCache.DeleteService(k8sSvc, swg3)
-
-	// All SWGs should be marked done even when they're collapsed.
-	for _, swg := range []*lock.StoppableWaitGroup{swg2, swg3} {
-		swg.Stop()
-		swg.Wait()
-	}
-
-	require.NotZero(t, upserts, "upserts")
-	require.NotZero(t, deletes, "deletes")
-	require.Empty(t, fes)
-
-	// Test coalescing of update and deletes within single buffer. Since
-	// this requires the coalescing to really happen, we try this multiple
-	// times to make this non-flaky. Looking forward to the testing/synctest
-	// package when we don't need this sort of thing anymore.
-	for range 20 {
-		upserts, deletes = 0, 0
-		swg := lock.NewStoppableWaitGroup()
-		k8sSvcCache.UpdateService(k8sSvc, swg)
-		k8sSvcCache.DeleteService(k8sSvc, swg)
-		swg.Stop()
-		swg.Wait()
-		if upserts == 0 && deletes == 0 {
-			break
-		}
-	}
-	// The update and delete cancelled each other out.
-	require.Zero(t, upserts, "upserts")
-	require.Zero(t, deletes, "deletes")
-	require.Empty(t, fes)
-
-	// Test that multiple updates followed by a delete will be coalesced into
-	// a single delete of the original service.
-	for range 20 {
-		// Start with a service with IP 127.0.0.5
-		swg := lock.NewStoppableWaitGroup()
-		setClusterIP("127.0.0.5")
-		k8sSvcCache.UpdateService(k8sSvc, swg)
-		swg.Stop()
-		swg.Wait()
-
-		// Update the service multiple times and finally delete it.
-		// These should get coalesced into a single delete.
-		upserts, deletes = 0, 0
-		swg = lock.NewStoppableWaitGroup()
-		k8sSvcCache.UpdateService(k8sSvc, swg)
-		setClusterIP("127.0.0.6")
-		k8sSvcCache.UpdateService(k8sSvc, swg)
-		setClusterIP("127.0.0.7")
-		k8sSvcCache.UpdateService(k8sSvc, swg)
-		setClusterIP("127.0.0.8")
-		k8sSvcCache.UpdateService(k8sSvc, swg)
-		k8sSvcCache.DeleteService(k8sSvc, swg)
-		swg.Stop()
-		swg.Wait()
-
-		if lastDelete != nil && lastDelete.AddrCluster.String() == "127.0.0.5" {
-			break
-		}
-	}
-	require.Zero(t, upserts, "upserts")
-	require.Equal(t, 2, deletes, "deletes") // ANY+TCP
-	require.Empty(t, fes)
-	require.NotNil(t, lastDelete)
-	require.Equal(t, "127.0.0.5", lastDelete.AddrCluster.String())
-
 }
