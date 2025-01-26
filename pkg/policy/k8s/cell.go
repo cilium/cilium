@@ -113,6 +113,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 
 		toServicesPolicies: make(map[resource.Key]struct{}),
 		cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
+		seenServices:       sets.New[k8s.ServiceID](),
 		metricsManager:     params.MetricsManager,
 	}
 

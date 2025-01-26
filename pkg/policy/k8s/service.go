@@ -42,9 +42,15 @@ func (p *policyWatcher) onServiceEvent(event k8s.ServiceNotification) {
 func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, oldSVC *k8s.Service) error {
 	var errs []error
 	// newService is true if this is the first time we observe this service
-	newService := oldSVC == nil
+	newService := !p.seenServices.Has(svcID)
 	// changedService is true if the service label or selector has changed
 	changedService := !newSVC.DeepEqual(oldSVC)
+
+	if newSVC != nil {
+		p.seenServices.Insert(svcID)
+	} else {
+		p.seenServices.Delete(svcID)
+	}
 
 	// candidatePolicyKeys contains the set of policy names we need to process
 	// for this service update. By default, we consider all policies with

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -259,6 +260,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		cnpCache:           map[resource.Key]*types.SlimCNP{},
 		toServicesPolicies: map[resource.Key]struct{}{},
 		cnpByServiceID:     map[k8s.ServiceID]map[resource.Key]struct{}{},
+		seenServices:       sets.New[k8s.ServiceID](),
 		metricsManager:     NewCNPMetricsNoop(),
 	}
 
@@ -539,6 +541,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 		cnpCache:           map[resource.Key]*types.SlimCNP{},
 		toServicesPolicies: map[resource.Key]struct{}{},
 		cnpByServiceID:     map[k8s.ServiceID]map[resource.Key]struct{}{},
+		seenServices:       sets.New[k8s.ServiceID](),
 		metricsManager:     NewCNPMetricsNoop(),
 	}
 

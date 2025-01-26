@@ -64,6 +64,7 @@ type policyWatcher struct {
 	// toServicesPolicies is the set of policies that contain ToServices references
 	toServicesPolicies map[resource.Key]struct{}
 	cnpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
+	seenServices       sets.Set[k8s.ServiceID]
 
 	metricsManager CNPMetrics
 }
