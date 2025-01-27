@@ -71,6 +71,47 @@ type NeighborRequest struct {
 	Password string
 }
 
+// Neighbor is an object representing a single BGP neighbor. It is an analogue
+// of GoBGP's Peer object, but only contains minimal fields required for Cilium
+// usecases.
+type Neighbor struct {
+	Address         netip.Addr
+	ASN             uint32
+	AuthPassword    string
+	EbgpMultihop    *NeighborEbgpMultihop
+	RouteReflector  *NeighborRouteReflector
+	Timers          *NeighborTimers
+	Transport       *NeighborTransport
+	GracefulRestart *NeighborGracefulRestart
+	AfiSafis        []*Family
+}
+
+type NeighborTransport struct {
+	LocalAddress string
+	LocalPort    uint32
+	RemotePort   uint32
+}
+
+type NeighborEbgpMultihop struct {
+	TTL uint32
+}
+
+type NeighborTimers struct {
+	ConnectRetry      uint64
+	HoldTime          uint64
+	KeepaliveInterval uint64
+}
+
+type NeighborGracefulRestart struct {
+	Enabled     bool
+	RestartTime uint32
+}
+
+type NeighborRouteReflector struct {
+	Client    bool
+	ClusterID string
+}
+
 // SoftResetDirection defines the direction in which a BGP soft reset should be performed
 type SoftResetDirection int
 
