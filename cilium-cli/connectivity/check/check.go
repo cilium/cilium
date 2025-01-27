@@ -94,6 +94,7 @@ type Parameters struct {
 
 	IncludeConnDisruptTest        bool
 	ConnDisruptTestSetup          bool
+	SkipConnDisruptTestNSTraffic  bool
 	ConnDisruptTestRestartsPath   string
 	ConnDisruptTestXfrmErrorsPath string
 	ConnDisruptDispatchInterval   time.Duration

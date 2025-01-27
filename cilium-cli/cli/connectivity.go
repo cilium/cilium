@@ -175,6 +175,8 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.ConnDisruptTestRestartsPath, "conn-disrupt-test-restarts-path", "/tmp/cilium-conn-disrupt-restarts", "Conn disrupt test temporary result file (used internally)")
 	cmd.Flags().StringVar(&params.ConnDisruptTestXfrmErrorsPath, "conn-disrupt-test-xfrm-errors-path", "/tmp/cilium-conn-disrupt-xfrm-errors", "Conn disrupt test temporary result file (used internally)")
 	cmd.Flags().DurationVar(&params.ConnDisruptDispatchInterval, "conn-disrupt-dispatch-interval", 0, "TCP packet dispatch interval")
+	cmd.Flags().BoolVar(&params.SkipConnDisruptTestNSTraffic, "skip-conn-disrupt-test-ns-traffic", false, "Skip conn disrupt test for NS traffic")
+	cmd.Flags().MarkHidden("skip-conn-disrupt-test-ns-traffic")
 
 	cmd.Flags().StringSliceVar(&params.ExpectedDropReasons, "expected-drop-reasons", defaults.ExpectedDropReasons, "List of expected drop reasons")
 	cmd.Flags().MarkHidden("expected-drop-reasons")
