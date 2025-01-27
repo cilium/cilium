@@ -297,6 +297,13 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
 	}
 
+	if len(svc.Spec.Ports) > 0 {
+		s.PortNames = map[string]uint16{}
+		for _, port := range svc.Spec.Ports {
+			s.PortNames[port.Name] = uint16(port.Port)
+		}
+	}
+
 	for _, srcRange := range svc.Spec.LoadBalancerSourceRanges {
 		cidr, err := cidr.ParseCIDR(srcRange)
 		if err != nil {

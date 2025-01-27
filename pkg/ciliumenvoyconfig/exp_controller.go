@@ -164,48 +164,28 @@ func (c *cecController) proxyRedirectController(ctx context.Context, health cell
 }
 
 // backendController watches the frontends (that are associated with backends) for changes
-// and recomputes the endpoints resource. Frontends are watched as the services in CiliumEnvoyConfig
-// can specify frontend ports to filter by.
+// and recomputes the endpoints resource.
 func (c *cecController) backendController(ctx context.Context, health cell.Health) error {
-	frontends := c.writer.Frontends()
-	wtxn := c.params.DB.WriteTxn(frontends)
-	changeIter, err := c.writer.Frontends().Changes(wtxn)
-	wtxn.Commit()
-	if err != nil {
-		return err
-	}
-
-	limiter := rate.NewLimiter(50*time.Millisecond, 3)
+	// Limit how often the backends for listeners are recomputed.
+	limiter := rate.NewLimiter(100*time.Millisecond, 1)
 
 	for {
-		// Iterate over the changes to collect the services that reference changed backends.
 		wtxn := c.params.DB.WriteTxn(c.params.CECs)
-		services := sets.New[loadbalancer.ServiceName]()
-		changes, watch := changeIter.Next(wtxn)
-		for change := range changes {
-			services.Insert(change.Object.ServiceName)
-		}
 
-		// Find all CECs that reference those services and recompute their backends.
-		visited := sets.New[CECName]()
-		for serviceName := range services {
-			for cec := range c.params.CECs.List(wtxn, CECByServiceName(serviceName)) {
-				if visited.Has(cec.Name) {
-					continue
-				}
-				visited.Insert(cec.Name)
-				cec = cec.Clone()
-				if updateBackends(cec, wtxn, frontends) {
-					c.params.CECs.Insert(wtxn, cec)
-				}
+		for cec := range c.params.CECs.All(wtxn) {
+			if newCEC := updateBackends(cec, wtxn, c.writer.Services(), c.writer.Backends()); newCEC != nil {
+				c.params.CECs.Insert(wtxn, newCEC)
 			}
 		}
-		wtxn.Commit()
+		rtxn := wtxn.Commit()
 
+		_, svcWatch := c.writer.Services().AllWatch(rtxn)
+		_, watch := c.writer.Backends().AllWatch(rtxn)
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-watch:
+		case <-svcWatch:
 		}
 
 		if err := limiter.Wait(ctx); err != nil {
@@ -257,16 +237,8 @@ func (c *cecController) nodeLabelController(ctx context.Context, health cell.Hea
 	return nil
 }
 
-// updateBackends recomputes the endpoint resources. Returns true if updated.
-func updateBackends(cec *CEC, txn statedb.ReadTxn, fes statedb.Table[*experimental.Frontend]) bool {
-	revision := fes.Revision(txn)
-	if cec.FrontendsRevision > revision {
-		// Already computed with a newer revision. This is used to coordinate between
-		// the reflector and the backend controller.
-		return false
-	}
-	cec.FrontendsRevision = revision
-
+// updateBackends recomputes the endpoint resources. Returns new CEC if updated, nil otherwise.
+func updateBackends(cec *CEC, txn statedb.ReadTxn, svcs statedb.Table[*experimental.Service], bes statedb.Table[*experimental.Backend]) *CEC {
 	services := map[loadbalancer.ServiceName]sets.Set[string]{}
 	for _, l := range cec.Spec.Services {
 		name := l.ServiceName()
@@ -291,57 +263,71 @@ func updateBackends(cec *CEC, txn statedb.ReadTxn, fes statedb.Table[*experiment
 		}
 	}
 	assignments := []*envoy_config_endpoint.ClusterLoadAssignment{}
-	for svc, ports := range services {
+	for svcName, ports := range services {
+		svc, _, found := svcs.Get(txn, experimental.ServiceByName(svcName))
+		if !found {
+			continue
+		}
 		assignments = append(
 			assignments,
 			backendsToLoadAssignments(
-				svc,
+				svcName,
 				ports,
-				fes.List(txn, experimental.FrontendByServiceName(svc)))...)
+				svc.PortNames,
+				bes.List(txn, experimental.BackendByServiceName(svcName)))...)
 	}
 	if assignmentsEqual(cec.Resources.Endpoints, assignments) {
-		return false
+		return nil
 	}
+	cec = cec.Clone()
 	cec.Resources.Endpoints = assignments
 	cec.Status = reconciler.StatusPending()
-	return true
+	return cec
 }
 
 func backendsToLoadAssignments(
 	serviceName loadbalancer.ServiceName,
 	ports sets.Set[string],
-	frontends iter.Seq2[*experimental.Frontend, statedb.Revision]) []*envoy_config_endpoint.ClusterLoadAssignment {
+	portNames map[string]uint16,
+	backends iter.Seq2[*experimental.Backend, statedb.Revision]) []*envoy_config_endpoint.ClusterLoadAssignment {
 	var endpoints []*envoy_config_endpoint.ClusterLoadAssignment
 
 	// Partition backends by port name.
 	backendMap := map[string]map[string]*experimental.Backend{}
-	backendMap[anyPort] = nil
-	for fe := range frontends {
+
+	for be := range backends {
+		inst := be.GetInstance(serviceName)
 		portName := anyPort
-		// If ports are specified, only pick frontends with matching port or port name.
+
+		// If ports are specified only pick the backends that match the service port name or number.
 		if ports.Len() > 0 {
 			switch {
-			case ports.Has(string(fe.PortName)):
-				portName = string(fe.PortName)
-			case ports.Has(strconv.Itoa(int(fe.Address.Port))):
-				portName = strconv.Itoa(int(fe.Address.Port))
-			case ports.Has(strconv.Itoa(int(fe.ServicePort))):
-				portName = strconv.Itoa(int(fe.ServicePort))
+			case inst.PortName == "":
+			case ports.Has(inst.PortName):
+				portName = inst.PortName
 			default:
-				continue
+				port, found := portNames[inst.PortName]
+				if !found {
+					continue
+				}
+				portS := strconv.FormatUint(uint64(port), 10)
+				// Try looking up by port number
+				if !ports.Has(portS) {
+					continue
+				}
+				portName = portS
 			}
 		}
-		for be := range fe.Backends {
-			if be.State != loadbalancer.BackendStateActive {
-				continue
-			}
-			backends := backendMap[portName]
-			if backends == nil {
-				backends = map[string]*experimental.Backend{}
-				backendMap[portName] = backends
-			}
-			backends[be.L3n4Addr.String()] = be
+
+		if be.State != loadbalancer.BackendStateActive {
+			continue
 		}
+		backends := backendMap[portName]
+		if backends == nil {
+			backends = map[string]*experimental.Backend{}
+			backendMap[portName] = backends
+		}
+		backends[be.L3n4Addr.String()] = be
 	}
 
 	for _, port := range slices.Sorted(maps.Keys(backendMap)) {
@@ -398,6 +384,7 @@ func backendsToLoadAssignments(
 			})
 		}
 	}
+
 	return endpoints
 }
 

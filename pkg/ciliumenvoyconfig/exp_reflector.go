@@ -67,9 +67,10 @@ func registerCECReflector(
 	g job.Group,
 	db *statedb.DB,
 	tbl statedb.RWTable[*CEC],
-	frontends statedb.Table[*experimental.Frontend],
+	services statedb.Table[*experimental.Service],
+	backends statedb.Table[*experimental.Backend],
 ) error {
-	if !option.Config.EnableL7Proxy || !option.Config.EnableEnvoyConfig {
+	if !option.Config.EnableL7Proxy && !option.Config.EnableEnvoyConfig {
 		return nil
 	}
 	if lws.cec == nil || !ecfg.EnableExperimentalLB {
@@ -145,8 +146,10 @@ func registerCECReflector(
 			Status:           reconciler.StatusPending(),
 		}
 
-		// Fill in the endpoints
-		updateBackends(cec, txn, frontends)
+		// Fill in the endpoints.
+		if newCEC := updateBackends(cec, txn, services, backends); newCEC != nil {
+			cec = newCEC
+		}
 
 		return cec, true
 	}
