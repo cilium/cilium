@@ -24,21 +24,16 @@ type CEC struct {
 	Name k8sTypes.NamespacedName
 	Spec *ciliumv2.CiliumEnvoyConfigSpec
 
-	Selector         labels.Selector `json:"-"`
+	Selector         labels.Selector `json:"-" yaml:"-"`
 	SelectsLocalNode bool
 	Listeners        part.Map[string, uint16]
 
-	// FrontendsRevision is the latest revision of [experimental.Frontend] from
-	// which the [Resources.Endpoints] were updated. This is used to coordinate
-	// updates between the reflector and the backendController.
-	FrontendsRevision statedb.Revision
-
-	// Resources is the parsed envoy.Resources.
-	Resources envoy.Resources `json:"-"`
+	// Resources is the parsed envoy.Resources with the endpoints filled in.
+	Resources envoy.Resources
 
 	// ReconciledResources is the last successfully reconciled resources.
 	// Updated by the reconciliation operations.
-	ReconciledResources *envoy.Resources `json:"-"`
+	ReconciledResources *envoy.Resources `json:"-" yaml:"-"`
 
 	// Status is the reconciliation status of [Resources] towards Envoy.
 	Status reconciler.Status

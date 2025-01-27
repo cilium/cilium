@@ -75,6 +75,9 @@ type Service struct {
 	// client addresses.
 	SourceRanges []cidr.CIDR
 
+	// PortNames maps a port name to a port number.
+	PortNames map[string]uint16
+
 	// Properties are additional untyped properties that can carry feature
 	// specific metadata about the service.
 	Properties part.Map[string, any]

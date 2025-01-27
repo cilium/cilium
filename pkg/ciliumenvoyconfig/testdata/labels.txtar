@@ -75,9 +75,9 @@ spec:
 
 -- envoy_a.expected --
 policy-trigger-count: 1
-update: count=1 listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=test/a:*=,test/a=
+update: count=1 listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy_b.expected --
 policy-trigger-count: 1
-update: count=2 listeners=test/envoy-b/envoy-lb-listener/1000 endpoints=test/b:*=,test/b=
-delete: count=1 listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=test/a:*=,test/a=
+update: count=2 listeners=test/envoy-b/envoy-lb-listener/1000 endpoints=
+delete: count=1 listeners=test/envoy-a/envoy-lb-listener/1000 endpoints=
