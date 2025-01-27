@@ -92,6 +92,7 @@ func TestScript(t *testing.T) {
 							LBMapEntries:                    1000,
 							NodePortAlg:                     cfg.NodePortAlg,
 							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
+							EnableSessionAffinity:           cfg.EnableSessionAffinity,
 							EnableK8sTerminatingEndpoint:    true,
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}

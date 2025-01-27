@@ -45,6 +45,10 @@ type TestConfig struct {
 	// Can be removed once this option moves out from DaemonConfig into [Config].
 	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
 
+	// EnableSessionAffinity is defined here to allow script tests to enable this.
+	// Can be removed once this option moves out from DaemonConfig into [Config].
+	EnableSessionAffinity bool `mapstructure:"enable-session-affinity"`
+
 	// LoadBalancerAlgorithmAnnotation mirrors option.Config.LoadBalancerAlgorithmAnnotation.
 	LoadBalancerAlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
 }
@@ -53,6 +57,7 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
 	flags.String("node-port-algorithm", option.NodePortAlgRandom, "NodePort algorithm")
 	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
+	flags.Bool(option.EnableSessionAffinity, false, "Enable support for session affinity")
 	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
 }
 
