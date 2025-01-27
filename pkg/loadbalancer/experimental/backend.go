@@ -4,6 +4,7 @@
 package experimental
 
 import (
+	"bytes"
 	"fmt"
 	"iter"
 	"strconv"
@@ -80,11 +81,13 @@ type BackendInstanceKey struct {
 }
 
 func (k BackendInstanceKey) Key() []byte {
-	prefix := []byte(k.ServiceName.String() + " ")
-	if k.SourcePriority == 0 {
-		return prefix
+	var buf bytes.Buffer
+	buf.WriteString(k.ServiceName.String())
+	if k.SourcePriority != 0 {
+		buf.WriteByte(' ')
+		buf.WriteByte(k.SourcePriority)
 	}
-	return append(prefix, byte(k.SourcePriority))
+	return buf.Bytes()
 }
 
 func (be *Backend) GetInstance(name loadbalancer.ServiceName) *BackendInstance {
