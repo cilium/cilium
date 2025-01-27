@@ -1272,13 +1272,12 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 			}
 		}
 		// We can increment this, even if we did not delete a key,
-		// because the only non-deleted keys match what is already
-		// in the deny map, they will be replaced.
+		// because non-deleted keys match what is already in the
+		// deny map, they will be replaced.
 		i++
 		// Once the length of the deny keys to be added has been deleted we can safely add them.
 		if i == len(denyMap) {
 			for denyKey := range denyMap {
-				e.policyMap.DenyKey(denyKey)
 				if err := e.policyMap.DenyKey(denyKey); err != nil {
 					return fmt.Errorf("failed to add deny all policy (%v): %w", denyKey, err)
 				}
@@ -1291,7 +1290,6 @@ func (e *Endpoint) endpointPolicyLockdown() error {
 	// but it is worth having for testing purposes.
 	if !addedDenyEntries {
 		for denyKey := range denyMap {
-			e.policyMap.DenyKey(denyKey)
 			if err := e.policyMap.DenyKey(denyKey); err != nil {
 				return fmt.Errorf("failed to add deny all policy (%v): %w", denyKey, err)
 			}
