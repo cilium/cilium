@@ -116,6 +116,8 @@ else
   exec /home/kubernetes/bin/the-kubelet "${@}" --network-plugin=cni --cni-bin-dir={{ .Values.cni.binPath }}
 fi
 EOF
+    echo "Restarting the kubelet..."
+    systemctl restart kubelet
   else
     echo "Kubelet wrapper already exists, skipping..."
   fi
@@ -135,10 +137,10 @@ else
     echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir={{ .Values.cni.binPath }}"
     mkdir -p {{ .Values.cni.binPath }}
     sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:g" "${KUBELET_DEFAULTS_FILE}"
+    echo "Restarting the kubelet..."
+    systemctl restart kubelet
   fi
 fi
-echo "Restarting the kubelet..."
-systemctl restart kubelet
 {{- end }}
 
 {{- if (and .Values.gke.enabled (or .Values.enableIPv4Masquerade .Values.gke.disableDefaultSnat))}}
