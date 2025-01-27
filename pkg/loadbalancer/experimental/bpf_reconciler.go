@@ -611,7 +611,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 		ops.releaseBackend(orphanState.id, orphanState.addr)
 	}
 
-	activeCount, inactiveCount := 0, 0
+	activeCount, terminatingCount, inactiveCount := 0, 0, 0
 
 	// Update backends that are new or changed.
 	for i, be := range orderedBackends {
@@ -665,9 +665,12 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 			}
 		}
 
-		if be.State == loadbalancer.BackendStateActive {
+		switch be.State {
+		case loadbalancer.BackendStateActive:
 			activeCount++
-		} else {
+		case loadbalancer.BackendStateTerminating:
+			terminatingCount++
+		default:
 			inactiveCount++
 		}
 	}
@@ -733,7 +736,7 @@ func (ops *BPFOps) updateFrontend(fe *Frontend) error {
 	}
 
 	ops.log.Debug("Update master service", "id", feID)
-	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount, algorithm); err != nil {
+	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, terminatingCount, inactiveCount, algorithm); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
@@ -778,10 +781,17 @@ func (ops *BPFOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 	return err
 }
 
-func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, inactiveBackends int, algorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
+func (ops *BPFOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, terminatingBackends, inactiveBackends int, algorithm loadbalancer.SVCLoadBalancingAlgorithm) error {
 	svcKey.SetBackendSlot(0)
-	svcVal.SetCount(activeBackends)
-	svcVal.SetQCount(inactiveBackends)
+	if activeBackends == 0 {
+		// If there are no active backends we can use the terminating backends.
+		// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/1669-proxy-terminating-endpoints
+		svcVal.SetCount(terminatingBackends)
+		svcVal.SetQCount(inactiveBackends)
+	} else {
+		svcVal.SetCount(activeBackends)
+		svcVal.SetQCount(terminatingBackends + inactiveBackends)
+	}
 	svcVal.SetBackendID(0)
 	svcVal.SetLbAlg(algorithm)
 
