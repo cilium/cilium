@@ -6,6 +6,7 @@ package experimental
 import (
 	"context"
 	"encoding/binary"
+	"iter"
 	"log/slog"
 	"os"
 	"slices"
@@ -380,11 +381,11 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		require.Equal(t, 3, p.BackendTable.NumObjects(wtxn))
 		err := p.Writer.DeleteBackendsBySource(wtxn, source.Kubernetes)
 		require.NoError(t, err, "DeleteBackendsBySource failed")
-		iter := p.BackendTable.All(wtxn)
-		require.Empty(t, statedb.Collect(iter))
+		bes := p.BackendTable.All(wtxn)
+		require.Empty(t, statedb.Collect(bes))
 
 		// No backends remain for the service.
-		require.Empty(t, statedb.Collect(fe.Backends))
+		require.Empty(t, statedb.Collect(iter.Seq2[*Backend, statedb.Revision](fe.Backends)))
 
 		wtxn.Abort()
 	}
@@ -713,7 +714,7 @@ func TestWithConflictingSources(t *testing.T) {
 				if weight == nil {
 					_, _, found := p.Writer.Backends().Get(txn, BackendByServiceName(name))
 					require.False(t, found)
-					require.Empty(t, statedb.Collect(fe.Backends))
+					require.Empty(t, statedb.Collect(iter.Seq2[*Backend, statedb.Revision](fe.Backends)))
 				} else {
 					backends := p.Writer.Backends().List(txn, BackendByServiceName(name))
 					count := 0
@@ -723,7 +724,7 @@ func TestWithConflictingSources(t *testing.T) {
 						backendFromTable = b
 					}
 					require.Equal(t, 1, count)
-					actual := slices.Collect(statedb.ToSeq(fe.Backends))
+					actual := slices.Collect(statedb.ToSeq(iter.Seq2[*Backend, statedb.Revision](fe.Backends)))
 					require.Len(t, actual, 1)
 					for desc, b := range map[string]*Backend{"from table": backendFromTable, "from Frontend": actual[0]} {
 						bi := b.GetInstance(name)
