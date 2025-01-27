@@ -1,4 +1,4 @@
-#! --enable-experimental-lb
+#! --enable-experimental-lb --enable-session-affinity
 
 # Start the test application
 hive start
@@ -105,6 +105,7 @@ ports:
   protocol: TCP
 
 -- lbmaps.expected --
+AFF: ID=1 BEID=1
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=random AFFTimeout=42 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+sessionAffinity+non-routable
