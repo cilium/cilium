@@ -67,6 +67,8 @@ type CachingIdentityAllocator interface {
 	ReleaseRestoredIdentities()
 
 	Close()
+
+	LocalIdentityChanges() stream.Observable[cache.IdentityChange]
 }
 
 type identityAllocatorParams struct {

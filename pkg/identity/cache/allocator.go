@@ -834,7 +834,7 @@ type IdentityChange struct {
 	Labels labels.Labels
 }
 
-// Observe the identity changes. Conforms to stream.Observable.
+// Observe identity changes. Doesn't include local identities. Conforms to stream.Observable.
 // Replays the current state of the cache when subscribing.
 func (m *CachingIdentityAllocator) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
 	// This short-lived go routine serves the purpose of waiting for the global identity allocator becoming ready
@@ -881,6 +881,12 @@ func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
 	}
 
 	return idLabels
+}
+
+// LocalIdentityChanges returns an observable for (only) node-local identities.
+// Replays current state on subscription followed by a Sync event.
+func (m *CachingIdentityAllocator) LocalIdentityChanges() stream.Observable[IdentityChange] {
+	return m.localIdentities
 }
 
 // clusterIDValidator returns a validator ensuring that the identity ID belongs
