@@ -1,4 +1,4 @@
-# Test handling of CiliumClusterwideEnvoyConfig
+# Test handling of headless services
 
 # Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
@@ -12,36 +12,37 @@ db/cmp ciliumenvoyconfigs cec_empty.table
 k8s add service.yaml endpointslice.yaml
 db/cmp services services.table
 
-# Add the CiliumClusterwideEnvoyConfig and wait for it to be ingested.
-k8s add ccec.yaml
-db/cmp ciliumenvoyconfigs cec.table
+# Add the CiliumEnvoyConfig and wait for it to be ingested.
+k8s add cec.yaml
 
-# Check that both services are now redirected to proxy.
-db/cmp services services_redirected.table
+db/cmp ciliumenvoyconfigs cec.table
 
 # Check that right updates towards Envoy happened.
 envoy envoy.out
 * cmp envoy.out envoy1.expected
 
 # Test the processing other way around, e.g. CEC exists before
-# the service.
-k8s delete service.yaml endpointslice.yaml
-db/cmp services services_empty.table
+# the service. Start by dropping the backends.
+k8s delete endpointslice.yaml
 
-# Backends towards Envoy should be updated.
+# Backends towards Envoy should be dropped.
 envoy envoy.out
 * cmp envoy.out envoy2.expected
 
+# Drop the service
+k8s delete service.yaml
+db/cmp services services_empty.table
+
 # Add back the service and endpoints
 k8s add service.yaml endpointslice.yaml
-db/cmp services services_redirected.table
+db/cmp services services.table
 
 # Check again that updates happened.
 envoy envoy.out
 * cmp envoy.out envoy3.expected
 
 # Cleanup. Remove CEC and check that proxy redirect is gone.
-k8s delete ccec.yaml
+k8s delete cec.yaml
 db/cmp services services.table
 db/cmp ciliumenvoyconfigs cec_empty.table
 
@@ -56,43 +57,42 @@ Name        ProxyRedirect
 
 -- services.table --
 Name        ProxyRedirect
-test/echo2    
-
--- services_redirected.table --
-Name        ProxyRedirect
-test/echo2  1000
+test/echo   
 
 -- cec_empty.table --
 Name    Services
 
 -- cec.table --
-Name                  Selected  Services    Listeners
-/envoy-lb-listener-2  true      test/echo2  /envoy-lb-listener-2/envoy-lb-listener-2:1000
+Name                    BackendServices  Services
+test/envoy-lb-listener  test/echo
 
--- ccec.yaml --
+-- cec.yaml --
 apiVersion: cilium.io/v2
-kind: CiliumClusterwideEnvoyConfig
+kind: CiliumEnvoyConfig
 metadata:
-  name: envoy-lb-listener-2
+  name: envoy-lb-listener
+  namespace: test
 spec:
-  services:
-    - name: echo2
+  backendServices:
+    - name: echo
       namespace: test
+      number:
+      - "80"
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
-      name: envoy-lb-listener-2
+      name: envoy-lb-listener
 
 -- service.yaml --
 apiVersion: v1
 kind: Service
 metadata:
-  name: echo2
+  name: echo
   namespace: test
   uid: a49fe99c-3564-4754-acc4-780f2331a49b
+  annotations:
+    service.kubernetes.io/headless: "true"
 spec:
-  clusterIP: 10.96.50.104
-  clusterIPs:
-  - 10.96.50.104
+  clusterIP: "none"
   ports:
   - name: http
     nodePort: 30781
@@ -100,7 +100,7 @@ spec:
     protocol: TCP
     targetPort: 80
   selector:
-    name: echo2
+    name: echo
   type: NodePort
 status:
   loadBalancer: {}
@@ -110,37 +110,37 @@ apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
   labels:
-    kubernetes.io/service-name: echo2
-  name: echo2-eps1
+    kubernetes.io/service-name: echo
+  name: echo-eps1
   namespace: test
-  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd76
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
 addressType: IPv4
 endpoints:
 - addresses:
-  - 10.244.1.2
+  - 10.244.1.1
   conditions:
     ready: true
     serving: true
     terminating: false
   nodeName: nodeport-worker
 ports:
-- name: tcp
-  port: 8081
+- name: http
+  port: 8080
   protocol: TCP
 
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+update: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 1
-update: count=2 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=
+update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy3.expected --
 policy-trigger-count: 1
-update: count=3 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy4.expected --
 policy-trigger-count: 2
-update: count=3 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
-delete: count=1 listeners=/envoy-lb-listener-2/envoy-lb-listener-2/1000 endpoints=test/echo2:*=10.244.1.2:8081,test/echo2=10.244.1.2:8081
+update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
+delete: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080

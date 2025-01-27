@@ -16,6 +16,8 @@ db/cmp services services.table
 k8s add cec.yaml
 db/cmp ciliumenvoyconfigs cec.table
 
+break
+
 # Check that both services are now redirected to proxy.
 db/cmp services services_redirected.table
 
@@ -158,17 +160,17 @@ SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUN
 SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=,test/echo:80=10.244.1.1:8080,test/echo=
+update: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 1
-update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=,test/echo=
+update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy3.expected --
 policy-trigger-count: 1
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=,test/echo:80=10.244.1.1:8080,test/echo=
+update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy4.expected --
 policy-trigger-count: 2
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=,test/echo:80=10.244.1.1:8080,test/echo=
-delete: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=,test/echo:80=10.244.1.1:8080,test/echo=
+update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
+delete: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
