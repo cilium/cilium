@@ -6,6 +6,7 @@ package cache
 import (
 	"context"
 
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -135,4 +136,9 @@ func (n *NoopIdentityAllocator) Close() {}
 func (m *NoopIdentityAllocator) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
 	// No-op, because identities are not managed.
 	complete(nil)
+}
+
+// Noop identity allocator is itself a noop observable, just return itself as the local identity observable.
+func (m *NoopIdentityAllocator) LocalIdentityChanges() stream.Observable[IdentityChange] {
+	return m
 }
