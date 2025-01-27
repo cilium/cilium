@@ -597,7 +597,7 @@ github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 github.com/cilium/proxy/go/envoy/watchdog/v3
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/statedb v0.3.5
+# github.com/cilium/statedb v0.3.6-0.20250128085330-14b4c0f3c2ef
 ## explicit; go 1.23
 github.com/cilium/statedb
 github.com/cilium/statedb/index
