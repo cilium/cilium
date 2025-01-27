@@ -570,29 +570,48 @@ func (txn *txn) Commit() ReadTxn {
 	return txn
 }
 
-func writeTableAsJSON(buf *bufio.Writer, txn *txn, table *tableEntry) error {
+func marshalJSON(data any) (out []byte) {
+	// Catch panics from JSON marshalling to ensure we have some output for debugging
+	// purposes even if the object has panicing JSON marshalling.
+	defer func() {
+		if r := recover(); r != nil {
+			out = []byte(fmt.Sprintf("\"panic marshalling JSON: %.32s\"", r))
+		}
+	}()
+	bs, err := json.Marshal(data)
+	if err != nil {
+		return []byte("\"marshalling error: " + err.Error() + "\"")
+	}
+	return bs
+}
+
+func writeTableAsJSON(buf *bufio.Writer, txn *txn, table *tableEntry) (err error) {
 	indexTxn := txn.mustIndexReadTxn(table.meta, PrimaryIndexPos)
 	iter := indexTxn.Iterator()
 
-	buf.WriteString("  \"" + table.meta.Name() + "\": [\n")
+	writeString := func(s string) {
+		if err != nil {
+			return
+		}
+		_, err = buf.WriteString(s)
+	}
+	writeString("  \"" + table.meta.Name() + "\": [\n")
 
 	_, obj, ok := iter.Next()
 	for ok {
-		buf.WriteString("    ")
-		bs, err := json.Marshal(obj.data)
-		if err != nil {
+		writeString("    ")
+		if _, err := buf.Write(marshalJSON(obj.data)); err != nil {
 			return err
 		}
-		buf.Write(bs)
 		_, obj, ok = iter.Next()
 		if ok {
-			buf.WriteString(",\n")
+			writeString(",\n")
 		} else {
-			buf.WriteByte('\n')
+			writeString("\n")
 		}
 	}
-	buf.WriteString("  ]")
-	return nil
+	writeString("  ]")
+	return
 }
 
 // WriteJSON marshals out the database as JSON into the given writer.
@@ -613,8 +632,7 @@ func (txn *txn) WriteJSON(w io.Writer, tables ...string) error {
 			first = false
 		}
 
-		err := writeTableAsJSON(buf, txn, &table)
-		if err != nil {
+		if err := writeTableAsJSON(buf, txn, &table); err != nil {
 			return err
 		}
 	}
