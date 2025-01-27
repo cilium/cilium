@@ -75,7 +75,7 @@ type ExternalConfig struct {
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
 		ExternalClusterIP:               cfg.ExternalClusterIP,
-		EnableSessionAffinity:           cfg.EnableSessionAffinity,
+		EnableSessionAffinity:           true, // FIXME cfg.EnableSessionAffinity,
 		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 		NodePortMin:                     uint16(cfg.NodePortMin),
 		NodePortMax:                     uint16(cfg.NodePortMax),
