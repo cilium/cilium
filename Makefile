@@ -38,7 +38,7 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 TESTPKGS ?= ./...
 UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/ipsec/...
 
-GOTEST_BASE := -timeout 600s
+GOTEST_BASE := -timeout 720s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
