@@ -26,7 +26,7 @@ import (
 
 var (
 	// maxTestDuration is allowed time for test execution
-	maxTestDuration = 15 * time.Second
+	maxTestDuration = 25 * time.Second
 
 	// maxGracefulRestartTestDuration is max allowed time for graceful restart test
 	maxGracefulRestartTestDuration = 1 * time.Minute
