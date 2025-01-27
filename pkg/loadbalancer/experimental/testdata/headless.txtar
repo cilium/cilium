@@ -1,0 +1,103 @@
+#! --enable-experimental-lb
+
+# Start the test application
+hive start
+
+# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
+db/initialized
+
+# Add a headless service with backends. It should appear in the services table, but should have
+# no frontends.
+k8s add service.yaml endpointslice.yaml
+db/cmp services services.table
+db/cmp backends backends.table 
+db/cmp frontends frontends_empty.table
+
+# The BPF maps should be empty since there are no frontends.
+lb/maps-dump lbmaps.actual
+cmp lbmaps.expected lbmaps.actual
+
+# Cleanup
+k8s delete service.yaml endpointslice.yaml
+db/cmp services services_empty.table
+db/cmp frontends frontends_empty.table
+db/cmp backends backends_empty.table
+
+#####
+
+-- services.table --
+Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+test/echo   k8s                  Cluster            Cluster                              0                     false
+
+-- backends.table --
+Address             State    Instances          Shadows        NodeName          ZoneID
+10.244.1.1:80/TCP   active   test/echo (http)                  nodeport-worker   0
+
+-- services_empty.table --
+Name  Source
+
+-- backends_empty.table --
+Address  State
+
+-- frontends_empty.table --
+Address  Type
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+  annotations:
+    service.kubernetes.io/headless: "true"
+spec:
+  clusterIP: "none"
+  selector:
+    name: echo
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+    service.kubernetes.io/headless: "true"
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- lbmaps.expected --
+
