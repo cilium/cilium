@@ -165,6 +165,11 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 			}
 			if f.NodePort != nil {
 				result[features.KPRNodePort] = features.Status{Enabled: f.NodePort.Enabled}
+				acceleration := strings.ToLower(f.NodePort.Acceleration)
+				result[features.KPRNodePortAcceleration] = features.Status{
+					Enabled: mode != "false" && acceleration != "disabled",
+					Mode:    mode,
+				}
 			}
 			if f.SessionAffinity != nil {
 				result[features.KPRSessionAffinity] = features.Status{Enabled: f.SessionAffinity.Enabled}
