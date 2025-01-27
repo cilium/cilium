@@ -90,6 +90,11 @@ func (k BackendInstanceKey) Key() []byte {
 	return buf.Bytes()
 }
 
+type backendWithRevision struct {
+	*Backend
+	Revision statedb.Revision
+}
+
 func (be *Backend) GetInstance(name loadbalancer.ServiceName) *BackendInstance {
 	// Return the instance matching the service name with highest priority
 	// (lowest number)

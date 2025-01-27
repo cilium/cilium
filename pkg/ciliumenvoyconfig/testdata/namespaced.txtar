@@ -16,8 +16,6 @@ db/cmp services services.table
 k8s add cec.yaml
 db/cmp ciliumenvoyconfigs cec.table
 
-break
-
 # Check that both services are now redirected to proxy.
 db/cmp services services_redirected.table
 

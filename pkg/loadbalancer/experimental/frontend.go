@@ -4,8 +4,10 @@
 package experimental
 
 import (
+	"encoding/json"
 	"fmt"
 	"iter"
+	"slices"
 	"strings"
 
 	"github.com/cilium/statedb"
@@ -51,7 +53,7 @@ type Frontend struct {
 	Status reconciler.Status
 
 	// Backends associated with the frontend.
-	Backends iter.Seq2[*Backend, statedb.Revision]
+	Backends backendsSeq2
 
 	// ID is the identifier allocated to this frontend. Used as the key
 	// in the services BPF map. This field is populated by the reconciler
@@ -68,9 +70,16 @@ type Frontend struct {
 	service *Service
 }
 
-type BackendWithRevision struct {
-	*Backend
-	Revision statedb.Revision
+// backendsSeq2 is an iterator for sequence of backends that is also JSON and YAML
+// marshalable.
+type backendsSeq2 iter.Seq2[*Backend, statedb.Revision]
+
+func (s backendsSeq2) MarshalJSON() ([]byte, error) {
+	return json.Marshal(slices.Collect(statedb.ToSeq(iter.Seq2[*Backend, statedb.Revision](s))))
+}
+
+func (s backendsSeq2) MarshalYAML() (any, error) {
+	return slices.Collect(statedb.ToSeq(iter.Seq2[*Backend, statedb.Revision](s))), nil
 }
 
 func (fe *Frontend) Service() *Service {
@@ -119,7 +128,7 @@ func (fe *Frontend) TableRow() []string {
 
 // showBackends returns the backends associated with a frontend in form
 // "1.2.3.4:80 (active), [2001::1]:443 (terminating)"
-func showBackends(bes iter.Seq2[*Backend, statedb.Revision]) string {
+func showBackends(bes backendsSeq2) string {
 	const maxToShow = 5
 	count := 0
 	var b strings.Builder
