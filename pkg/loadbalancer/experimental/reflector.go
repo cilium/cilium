@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -162,7 +163,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 				case resource.Upsert:
 					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
 
-					if endpointsByService[name] == 0 {
+					if endpointsByService[name] == 0 && !isHeadless(obj) {
 						// We have not yet seen backends for this service. Postpone its handling
 						// until they've been seen.
 						pendingServices[name] = obj
@@ -277,12 +278,15 @@ var (
 	zeroV6 = cmtypes.MustParseAddrCluster("::")
 )
 
-func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
+func isHeadless(svc *slim_corev1.Service) bool {
+	_, headless := svc.Labels[corev1.IsHeadlessService]
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
-		// Skip headless services
-		return
+		headless = true
 	}
+	return headless
+}
 
+func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
 	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
 	s = &Service{
 		Name:                name,
