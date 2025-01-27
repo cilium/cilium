@@ -906,7 +906,7 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ID, svcKey lbmap.ServiceKey, svc
 
 }
 
-func (ops *BPFOps) updateMaglev(fe *Frontend, feID loadbalancer.ID, activeBackends []BackendWithRevision) error {
+func (ops *BPFOps) updateMaglev(fe *Frontend, feID loadbalancer.ID, activeBackends []backendWithRevision) error {
 	if len(activeBackends) == 0 {
 		if err := ops.LBMaps.DeleteMaglev(lbmap.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
@@ -994,7 +994,7 @@ func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L
 	ops.backendIDAlloc.deleteLocalID(loadbalancer.ID(id))
 }
 
-func (ops *BPFOps) computeMaglevTable(svc *Service, bes []BackendWithRevision) ([]loadbalancer.BackendID, error) {
+func (ops *BPFOps) computeMaglevTable(svc *Service, bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
 	var errs []error
 	backendInfos := func(yield func(maglev.BackendInfo) bool) {
 		for _, be := range bes {
@@ -1027,10 +1027,10 @@ func (ops *BPFOps) computeMaglevTable(svc *Service, bes []BackendWithRevision) (
 //
 // Backends are sorted to deterministically to keep the order stable in BPF maps
 // when updating.
-func sortedBackends(beIter iter.Seq2[*Backend, statedb.Revision]) []BackendWithRevision {
-	bes := []BackendWithRevision{}
+func sortedBackends(beIter backendsSeq2) []backendWithRevision {
+	bes := []backendWithRevision{}
 	for be, rev := range beIter {
-		bes = append(bes, BackendWithRevision{be, rev})
+		bes = append(bes, backendWithRevision{be, rev})
 	}
 	sort.Slice(bes, func(i, j int) bool {
 		a, b := bes[i], bes[j]

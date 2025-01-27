@@ -6,7 +6,6 @@ package experimental
 import (
 	"context"
 	"fmt"
-	"iter"
 	"net/netip"
 	"slices"
 	"strings"
@@ -98,7 +97,7 @@ var baseBackend = Backend{
 
 var nextBackendRevision = statedb.Revision(1)
 
-func concatBe(bes iter.Seq2[*Backend, statedb.Revision], be *Backend, rev statedb.Revision) iter.Seq2[*Backend, statedb.Revision] {
+func concatBe(bes backendsSeq2, be *Backend, rev statedb.Revision) backendsSeq2 {
 	return func(yield func(*Backend, statedb.Revision) bool) {
 		if !yield(be, rev) {
 			return

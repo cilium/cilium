@@ -228,7 +228,7 @@ func (w *Writer) newFrontend(txn statedb.ReadTxn, params FrontendParams, svc *Se
 
 func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *Frontend) {
 	fe.Status = reconciler.StatusPending()
-	fe.Backends = getBackendsForFrontend(txn, w.bes, w.nodeName, fe)
+	fe.Backends = backendsSeq2(getBackendsForFrontend(txn, w.bes, w.nodeName, fe))
 
 }
 
