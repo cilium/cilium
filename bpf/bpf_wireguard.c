@@ -46,7 +46,7 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 	if (magic == MARK_MAGIC_OVERLAY)
 		goto out;
 
-	ret = handle_nat_fwd(ctx, 0, proto, true, &trace, &ext_err);
+	ret = handle_nat_fwd(ctx, 0, src_sec_identity, proto, true, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  METRIC_EGRESS);
