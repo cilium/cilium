@@ -60,6 +60,7 @@ type LocalInstanceMap map[string]*instance.BGPInstance
 
 type bgpRouterManagerParams struct {
 	cell.In
+	Lifecycle           cell.Lifecycle
 	Logger              logrus.FieldLogger
 	JobGroup            job.Group
 	DaemonConfig        *option.DaemonConfig
@@ -202,6 +203,8 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 
 		metrics: params.Metrics,
 	}
+
+	params.Lifecycle.Append(m)
 
 	params.JobGroup.Add(
 		job.OneShot("bgp-state-observer", func(ctx context.Context, health cell.Health) (err error) {
@@ -766,8 +769,12 @@ func (m *BGPRouterManager) getRoutePoliciesV2(ctx context.Context, params restap
 	return res, nil
 }
 
-// Stop cleans up all servers, should be called at shutdown
-func (m *BGPRouterManager) Stop() {
+func (m *BGPRouterManager) Start(_ cell.HookContext) error {
+	return nil
+}
+
+// Stop cleans up all servers, called by hive lifecycle at shutdown
+func (m *BGPRouterManager) Stop(_ cell.HookContext) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -788,6 +795,7 @@ func (m *BGPRouterManager) Stop() {
 	m.BGPInstances = make(LocalInstanceMap)
 	m.state.notifications = make(map[string]types.StateNotificationCh)
 	m.running = false
+	return nil
 }
 
 // ReconcileInstances is a API for configuring the BGP Instances from the
