@@ -410,6 +410,38 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return 0, err
 	}
 
+	// Avoid BPF program compilation and installation if the endpoint or node
+	// configuration hasn't changed. Hashing the endpoint configuration requires
+	// getting the security identity, which takes out a read lock on the Endpoint.
+	// Make sure to calculate the endpoint hash outside of a locked context.
+	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Orchestrator().EndpointHash(e)
+	if err != nil {
+		return 0, fmt.Errorf("hash endpoint configuration: %w", err)
+	}
+
+	if datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash {
+		if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
+			logger.WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
+				Debugf("BPF endpoint configuration hashed (was: %q)", e.bpfHeaderfileHash)
+		}
+
+		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapath
+	}
+
+	dir := datapathRegenCtxt.currentDir
+	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
+		if err := e.writeHeaderfile(datapathRegenCtxt.nextDir); err != nil {
+			return 0, fmt.Errorf("write endpoint header file: %w", err)
+		}
+		dir = datapathRegenCtxt.nextDir
+	}
+
+	if err := e.lockAlive(); err != nil {
+		return 0, err
+	}
+	datapathRegenCtxt.epInfoCache = e.createEpInfoCache(dir)
+	e.unlock()
+
 	// No need to compile BPF in dry mode. Also, in lb-only mode we do not
 	// support local Pods on the worker node, hence endpoint BPF regeneration
 	// is skipped everywhere.
@@ -746,32 +778,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	defer func() {
 		stats.prepareBuild.End(preCompilationError == nil)
 	}()
-
-	// Avoid BPF program compilation and installation if the headerfile for the endpoint
-	// or the node have not changed.
-	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Orchestrator().EndpointHash(e)
-	if err != nil {
-		return fmt.Errorf("hash header file: %w", err)
-	}
-
-	if datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash {
-		if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
-			logger.WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
-				Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
-		}
-
-		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapath
-	}
-
-	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
-		if err := e.writeHeaderfile(nextDir); err != nil {
-			return fmt.Errorf("unable to write header file: %w", err)
-		}
-
-		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(nextDir)
-	} else {
-		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)
-	}
 
 	return nil
 }
