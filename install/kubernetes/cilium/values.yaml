@@ -1600,13 +1600,6 @@ hubble:
     # @schema
     # type: [null, string]
     # @schema
-    # -- Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
-    #
-    # This option has been deprecated and is a no-op.
-    dialTimeout: ~
-    # @schema
-    # type: [null, string]
-    # @schema
     # -- Backoff duration to retry connecting to the local hubble instance in case of failure (e.g. "30s").
     retryTimeout: ~
     # @schema
