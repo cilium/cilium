@@ -49,8 +49,9 @@ envoy envoy.out
 
 # Cleanup. Remove CEC and check that proxy redirect is gone.
 k8s delete cec.yaml
-db/cmp services services.table
 db/cmp ciliumenvoyconfigs cec_empty.table
+db/cmp envoy-resources envoy_resources_empty.table
+db/cmp services services.table
 
 # The listener should now be deleted.
 envoy envoy.out
@@ -71,6 +72,9 @@ test/echo   1000
 
 -- cec_empty.table --
 Name    Services
+
+-- envoy_resources_empty.table --
+Name
 
 -- cec.table --
 Name                    Services
@@ -156,17 +160,17 @@ SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=Cl
 SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 1
-update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=
+update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy3.expected --
 policy-trigger-count: 1
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+update: count=4 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy4.expected --
 policy-trigger-count: 2
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
+update: count=4 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
 delete: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:*=10.244.1.1:25,10.244.1.1:8080,test/echo=10.244.1.1:25,10.244.1.1:8080
