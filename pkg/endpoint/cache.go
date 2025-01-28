@@ -131,11 +131,6 @@ func (ep *epInfoCache) GetIdentity() identity.NumericIdentity {
 	return ep.identity
 }
 
-// GetIdentityLocked returns the security identity of the endpoint.
-func (ep *epInfoCache) GetIdentityLocked() identity.NumericIdentity {
-	return ep.identity
-}
-
 // GetEndpointNetNsCookie returns the network namespace cookie for the endpoint
 func (ep *epInfoCache) GetEndpointNetNsCookie() uint64 {
 	return ep.netNsCookie
