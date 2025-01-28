@@ -68,16 +68,16 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.23.5
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.198.0
+  eksctl_version: v0.202.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.31.4
+  kubectl_version: v1.32.1
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 503.0.0
+  gcloud_version: 507.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 147e53d962f818eec901549c29be48b70b02b8d7
+  egw_utils_ref: 6109384d875d68fb7b069a3fce3cb44dc37b44ed
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   AWS_SSH_KEY: ~/.ssh/id_aws.pub
@@ -114,7 +114,7 @@ jobs:
           - md
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -206,12 +206,12 @@ jobs:
           fi
 
       - name: Install Go
-        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
         with:
           go-version: ${{ env.go_version }}
 
       - name: Setup gcloud credentials
-        uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
         with:
           workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PERF_SA }}
@@ -219,7 +219,7 @@ jobs:
           export_environment_variables: true
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@f0990588f1e5b5af6827153b93673613abdc6ec7 # v2.1.1
+        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a # v2.1.2
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
@@ -239,7 +239,7 @@ jobs:
           rm eksctl_$(uname -s)_amd64.tar.gz
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        uses: aws-actions/configure-aws-credentials@4fc4975a852c8cd99761e2de1f4ba73402e44dd9 # v4.0.3
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
@@ -263,7 +263,7 @@ jobs:
           gcloud version
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)
@@ -472,7 +472,7 @@ jobs:
 
       - name: Upload sysdump
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: cilium-sysdump
           path: cilium-sysdump-final.zip
@@ -480,7 +480,7 @@ jobs:
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: features-tested-${{ matrix.test_type }}
           path: features-*.json
@@ -492,7 +492,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@511e3d9dbf06f6dbde8d1af6834eb1fcab38ca05 # main
+        uses: cilium/scale-tests-action/export-results@99bcf57d537bcf05a2851a4a847d6a560e838824 # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
