@@ -372,7 +372,7 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	}
 
 	// NodePort
-	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort {
+	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
 		for _, scope := range scopes {
 			for _, family := range svc.Spec.IPFamilies {
 				for _, port := range svc.Spec.Ports {
