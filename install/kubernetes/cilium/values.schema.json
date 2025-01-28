@@ -2913,12 +2913,6 @@
             "annotations": {
               "type": "object"
             },
-            "dialTimeout": {
-              "type": [
-                "null",
-                "string"
-              ]
-            },
             "enabled": {
               "type": "boolean"
             },

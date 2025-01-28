@@ -14,9 +14,6 @@ import (
 const (
 	// ClusterName is the default cluster name
 	ClusterName = ciliumDefaults.ClusterName
-	// DialTimeout is the timeout that is used when establishing a new
-	// connection.
-	DialTimeout = 30 * time.Second
 	// HealthCheckInterval is the time interval between health checks.
 	HealthCheckInterval = 5 * time.Second
 	// GopsPort is the default port for gops to listen on.
