@@ -57,7 +57,7 @@ to see here.
      https://tools.ietf.org/html/rfc7348
 
    Geneve
-     https://tools.ietf.org/html/draft-ietf-nvo3-geneve-04
+     https://tools.ietf.org/html/rfc8926
 
    Pod
      https://kubernetes.io/docs/concepts/workloads/pods/pod/
