@@ -17,19 +17,15 @@ import (
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/part"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/cilium/stream"
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
@@ -44,31 +40,18 @@ type cecControllerParams struct {
 	ExpConfig      experimental.Config
 	LocalNodeStore *node.LocalNodeStore
 
-	NodeLabels    *nodeLabels
-	CECs          statedb.RWTable[*CEC]
-	EnvoySyncer   resourceMutator
-	PolicyTrigger policyTrigger
-}
-
-type resourceMutator interface {
-	DeleteEnvoyResources(context.Context, envoy.Resources) error
-	UpdateEnvoyResources(context.Context, envoy.Resources, envoy.Resources) error
-}
-
-type policyTrigger interface {
-	TriggerPolicyUpdates()
+	NodeLabels     *nodeLabels
+	CECs           statedb.RWTable[*CEC]
+	EnvoyResources statedb.RWTable[*EnvoyResource]
+	Writer         *experimental.Writer
+	Services       statedb.Table[*experimental.Service]
+	Backends       statedb.Table[*experimental.Backend]
 }
 
 type cecController struct {
-	params cecControllerParams
-	writer *experimental.Writer
-}
+	cecControllerParams
 
-type cecControllerOut struct {
-	cell.Out
-
-	C    *cecController
-	Hook experimental.ServiceHook `group:"service-hooks"`
+	revisions map[CECName]revisions
 }
 
 func newNodeLabels() *nodeLabels {
@@ -78,136 +61,33 @@ func newNodeLabels() *nodeLabels {
 	return nl
 }
 
-func newCECController(params cecControllerParams) cecControllerOut {
+func registerCECController(params cecControllerParams) {
 	if !params.ExpConfig.EnableExperimentalLB {
-		return cecControllerOut{}
+		return
 	}
 
-	c := &cecController{params, nil}
-	params.JobGroup.Add(job.OneShot("proxy-redirect-controller", c.proxyRedirectController))
-	params.JobGroup.Add(job.OneShot("backends-controller", c.backendController))
+	c := &cecController{
+		cecControllerParams: params,
+		revisions:           map[CECName]revisions{},
+	}
 	params.JobGroup.Add(job.OneShot("node-label-controller", c.nodeLabelController))
-	return cecControllerOut{
-		C:    c,
-		Hook: c.onServiceUpsert,
-	}
-}
-
-func (c *cecController) setWriter(w *experimental.Writer) {
-	if c != nil {
-		c.writer = w
-	}
-}
-
-// proxyRedirectController watches for changed CECs and updates the proxy redirect in services.
-func (c *cecController) proxyRedirectController(ctx context.Context, health cell.Health) error {
-	wtxn := c.params.DB.WriteTxn(c.params.CECs)
-	changeIter, err := c.params.CECs.Changes(wtxn)
-	wtxn.Commit()
-	if err != nil {
-		return err
-	}
-
-	svcs := c.writer.Services()
-	limiter := rate.NewLimiter(50*time.Millisecond, 3)
-	listeners := part.Set[uint16]{}
-
-	for {
-		wtxn := c.writer.WriteTxn()
-		changes, watch := changeIter.Next(wtxn)
-		oldListeners := listeners
-		for change := range changes {
-			cec := change.Object
-			if !change.Deleted && cec.Status.Kind != reconciler.StatusKindDone {
-				// Only process the CEC once it has been reconciled towards Envoy to avoid
-				// setting redirects before Envoy is ready.
-				continue
-			}
-
-			for _, port := range cec.Listeners.All() {
-				if change.Deleted {
-					listeners = listeners.Delete(port)
-				} else {
-					listeners = listeners.Set(port)
-				}
-			}
-
-			for _, svcl := range cec.Spec.Services {
-				svc, _, found := svcs.Get(wtxn, experimental.ServiceByName(svcl.ServiceName()))
-				if found && (change.Deleted || !getProxyRedirect(cec, svcl).Equal(svc.ProxyRedirect)) {
-					// Do an upsert to call into onServiceUpsert() to update the L7ProxyPort.
-					c.writer.UpsertService(wtxn, svc.Clone())
-				}
-			}
-		}
-		wtxn.Commit()
-
-		// When listeners change trigger the policy updates.
-		if !oldListeners.Equal(listeners) {
-			// TODO: Policy does not need to be recomputed for this, but if we do not 'force'
-			// the bpf maps are not updated with the new proxy ports either. Move from the
-			// simple boolean to an enum that can more selectively skip regeneration steps (like
-			// we do for the datapath recompilations already?)
-			c.params.PolicyTrigger.TriggerPolicyUpdates()
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-watch:
-		}
-
-		if err := limiter.Wait(ctx); err != nil {
-			return err
-		}
-	}
-}
-
-// backendController watches the frontends (that are associated with backends) for changes
-// and recomputes the endpoints resource.
-func (c *cecController) backendController(ctx context.Context, health cell.Health) error {
-	// Limit how often the backends for listeners are recomputed.
-	limiter := rate.NewLimiter(100*time.Millisecond, 1)
-
-	for {
-		wtxn := c.params.DB.WriteTxn(c.params.CECs)
-
-		for cec := range c.params.CECs.All(wtxn) {
-			if newCEC := updateBackends(cec, wtxn, c.writer.Services(), c.writer.Backends()); newCEC != nil {
-				c.params.CECs.Insert(wtxn, newCEC)
-			}
-		}
-		rtxn := wtxn.Commit()
-
-		_, svcWatch := c.writer.Services().AllWatch(rtxn)
-		_, watch := c.writer.Backends().AllWatch(rtxn)
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-watch:
-		case <-svcWatch:
-		}
-
-		if err := limiter.Wait(ctx); err != nil {
-			return err
-		}
-	}
+	params.JobGroup.Add(job.OneShot("resources-controller", c.processLoop))
 }
 
 // nodeLabelController updates the [SelectsLocalNode] when node labels change.
 func (c *cecController) nodeLabelController(ctx context.Context, health cell.Health) error {
-	localNodeChanges := stream.ToChannel(ctx, c.params.LocalNodeStore)
+	localNodeChanges := stream.ToChannel(ctx, c.LocalNodeStore)
 
 	for localNode := range localNodeChanges {
 		newLabels := localNode.Labels
-		oldLabels := *c.params.NodeLabels.Load()
+		oldLabels := *c.NodeLabels.Load()
 
 		if !maps.Equal(newLabels, oldLabels) {
-			c.params.Log.Debug("Labels changed", "old", oldLabels, "new", newLabels)
+			c.Log.Debug("Labels changed", "old", oldLabels, "new", newLabels)
 
 			// Since the labels changed, recompute 'SelectsLocalNode'
 			// for all CECs.
-			wtxn := c.params.DB.WriteTxn(c.params.CECs)
+			wtxn := c.DB.WriteTxn(c.CECs)
 
 			// Store the new labels so the reflector can compute 'SelectsLocalNode'
 			// on the fly. The reflector may already update 'SelectsLocalNode' to the
@@ -218,16 +98,15 @@ func (c *cecController) nodeLabelController(ctx context.Context, health cell.Hea
 			// this can be removed and we can instead read the labels directly from the node
 			// table.
 			labelSet := labels.Set(newLabels)
-			c.params.NodeLabels.Store(&newLabels)
+			c.NodeLabels.Store(&newLabels)
 
-			for cec := range c.params.CECs.All(wtxn) {
+			for cec := range c.CECs.All(wtxn) {
 				if cec.Selector != nil {
 					selects := cec.Selector.Matches(labelSet)
 					if selects != cec.SelectsLocalNode {
 						cec = cec.Clone()
 						cec.SelectsLocalNode = selects
-						cec.Status = reconciler.StatusPending()
-						c.params.CECs.Insert(wtxn, cec)
+						c.CECs.Insert(wtxn, cec)
 					}
 				}
 			}
@@ -237,61 +116,203 @@ func (c *cecController) nodeLabelController(ctx context.Context, health cell.Hea
 	return nil
 }
 
-// updateBackends recomputes the endpoint resources. Returns new CEC if updated, nil otherwise.
-func updateBackends(cec *CEC, txn statedb.ReadTxn, svcs statedb.Table[*experimental.Service], bes statedb.Table[*experimental.Backend]) *CEC {
-	services := map[loadbalancer.ServiceName]sets.Set[string]{}
+func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *experimental.ProxyRedirect {
+	var port uint16
+	if svcl.Listener != "" {
+		// Listener names are qualified after parsing, so qualify the listener reference as well for it to match
+		svcListener, _ := api.ResourceQualifiedName(
+			cec.Name.Namespace, cec.Name.Name, svcl.Listener, api.ForceNamespace)
+		port, _ = cec.Listeners.Get(svcListener)
+	} else {
+		for _, p := range cec.Listeners.All() {
+			port = p
+			break
+		}
+	}
+	if port == 0 {
+		return nil
+	}
+	return &experimental.ProxyRedirect{
+		ProxyPort: port,
+		Ports:     svcl.Ports,
+	}
+}
+
+func (c *cecController) processLoop(ctx context.Context, health cell.Health) error {
+	ws := statedb.NewWatchSet()
+	existing := sets.New[CECName]()
+	limiter := rate.NewLimiter(100*time.Millisecond, 1)
+	for {
+		wtxn := c.DB.WriteTxn(c.EnvoyResources)
+
+		// Process all CiliumEnvoyConfigs to compute the new EnvoyResources.
+		cecs, watch := c.CECs.AllWatch(wtxn)
+		ws.Add(watch)
+		processed := sets.New[CECName]()
+		for cec, rev := range cecs {
+			c.processCEC(wtxn, ws, cec, rev)
+			processed.Insert(cec.Name)
+			existing.Delete(cec.Name)
+		}
+
+		// Remove orphaned envoy resources.
+		for orphan := range existing {
+			c.EnvoyResources.Delete(wtxn, &EnvoyResource{Name: orphan})
+			delete(c.revisions, orphan)
+		}
+		existing = processed
+		wtxn.Commit()
+
+		// Wait for any of the queries we made to invalidate before
+		// recomputing again.
+		if err := ws.Wait(ctx); err != nil {
+			return err
+		}
+
+		if err := limiter.Wait(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+func (c *cecController) processCEC(wtxn statedb.WriteTxn, ws *statedb.WatchSet, cec *CEC, rev statedb.Revision) {
+	if !cec.SelectsLocalNode && c.revisions[cec.Name].cecRevision != rev {
+		c.EnvoyResources.Delete(
+			wtxn,
+			&EnvoyResource{Name: cec.Name},
+		)
+		c.revisions[cec.Name] = revisions{cecRevision: rev}
+		return
+	}
+
+	assignments := map[string]*envoy_config_endpoint.ClusterLoadAssignment{}
+	redirects, revisions, updated := c.processSpec(
+		wtxn,
+		ws,
+		cec,
+		rev,
+		c.revisions[cec.Name],
+		assignments,
+	)
+	if !updated {
+		return
+	}
+
+	c.revisions[cec.Name] = revisions
+
+	// Shallow copy of Resources is enough as we just set the Endpoints field.
+	resources := cec.Resources
+
+	resources.Endpoints = make([]*envoy_config_endpoint.ClusterLoadAssignment, 0, len(assignments))
+	for _, key := range slices.Sorted(maps.Keys(assignments)) {
+		resources.Endpoints = append(resources.Endpoints, assignments[key])
+	}
+
+	c.EnvoyResources.Modify(
+		wtxn,
+		&EnvoyResource{
+			Name:      cec.Name,
+			Resources: resources,
+			Redirects: redirects,
+			Status:    reconciler.StatusPending(),
+		},
+		func(old, new *EnvoyResource) *EnvoyResource {
+			if old != nil {
+				new.ReconciledResources = old.ReconciledResources
+				new.ReconciledRedirects = old.ReconciledRedirects
+			}
+			return new
+		},
+	)
+}
+
+func (c *cecController) processSpec(
+	txn statedb.ReadTxn,
+	ws *statedb.WatchSet,
+	cec *CEC,
+	cecRevision statedb.Revision,
+	prevRevisions revisions,
+	assignments map[string]*envoy_config_endpoint.ClusterLoadAssignment,
+) (map[loadbalancer.ServiceName]*experimental.ProxyRedirect, revisions, bool) {
+	redirects := map[loadbalancer.ServiceName]*experimental.ProxyRedirect{}
+	servicePorts := map[loadbalancer.ServiceName]sets.Set[string]{}
+
 	for _, l := range cec.Spec.Services {
-		name := l.ServiceName()
-		ports := services[name]
+		ports := servicePorts[l.ServiceName()]
 		if ports == nil {
 			ports = sets.New[string]()
-			services[name] = ports
+			servicePorts[l.ServiceName()] = ports
 		}
 		for _, p := range l.Ports {
 			ports.Insert(strconv.Itoa(int(p)))
 		}
+		redirects[l.ServiceName()] = getProxyRedirect(cec, l)
 	}
+
 	for _, l := range cec.Spec.BackendServices {
-		name := l.ServiceName()
-		ports := services[name]
+		ports := servicePorts[l.ServiceName()]
 		if ports == nil {
 			ports = sets.New[string]()
-			services[name] = ports
+			servicePorts[l.ServiceName()] = ports
 		}
 		for _, p := range l.Ports {
 			ports.Insert(p)
 		}
 	}
-	assignments := []*envoy_config_endpoint.ClusterLoadAssignment{}
-	for svcName, ports := range services {
-		svc, _, found := svcs.Get(txn, experimental.ServiceByName(svcName))
+
+	// The deferred load assignment computations. Only ran if the input object
+	// revisions have changed.
+	var computations []func()
+
+	revisions := revisions{
+		cecRevision: cecRevision,
+		services:    map[loadbalancer.ServiceName]statedb.Revision{},
+		backends:    map[loadbalancer.L3n4Addr]statedb.Revision{},
+	}
+
+	for name, ports := range servicePorts {
+		svc, rev, watchSvc, found := c.Services.GetWatch(txn, experimental.ServiceByName(name))
+		ws.Add(watchSvc)
+		revisions.services[name] = rev
+
 		if !found {
 			continue
 		}
-		assignments = append(
-			assignments,
-			backendsToLoadAssignments(
-				svcName,
+		bes, watchBes := c.Backends.ListWatch(txn, experimental.BackendByServiceName(svc.Name))
+		ws.Add(watchBes)
+
+		for be, rev := range bes {
+			revisions.backends[be.L3n4Addr] = rev
+		}
+		computations = append(computations, func() {
+			computeLoadAssignments(
+				assignments,
+				svc.Name,
 				ports,
 				svc.PortNames,
-				bes.List(txn, experimental.BackendByServiceName(svcName)))...)
+				bes)
+		})
 	}
-	if assignmentsEqual(cec.Resources.Endpoints, assignments) {
-		return nil
+
+	if prevRevisions.equal(revisions) {
+		// Nothing has changed.
+		return redirects, revisions, false
 	}
-	cec = cec.Clone()
-	cec.Resources.Endpoints = assignments
-	cec.Status = reconciler.StatusPending()
-	return cec
+
+	// Recompute the load assignments.
+	for _, compute := range computations {
+		compute()
+	}
+	return redirects, revisions, true
 }
 
-func backendsToLoadAssignments(
+func computeLoadAssignments(
+	assignments map[string]*envoy_config_endpoint.ClusterLoadAssignment,
 	serviceName loadbalancer.ServiceName,
 	ports sets.Set[string],
 	portNames map[string]uint16,
-	backends iter.Seq2[*experimental.Backend, statedb.Revision]) []*envoy_config_endpoint.ClusterLoadAssignment {
-	var endpoints []*envoy_config_endpoint.ClusterLoadAssignment
-
+	backends iter.Seq2[*experimental.Backend, statedb.Revision],
+) {
 	// Partition backends by port name.
 	backendMap := map[string]map[string]*experimental.Backend{}
 
@@ -318,7 +339,6 @@ func backendsToLoadAssignments(
 				portName = portS
 			}
 		}
-
 		if be.State != loadbalancer.BackendStateActive {
 			continue
 		}
@@ -369,164 +389,33 @@ func backendsToLoadAssignments(
 				},
 			},
 		}
-		endpoints = append(endpoints, endpoint)
+		assignments[endpoint.ClusterName] = endpoint
 
 		// for backward compatibility, if any port is allowed, publish one more
 		// endpoint having cluster name as service name.
 		if port == anyPort {
-			endpoints = append(endpoints, &envoy_config_endpoint.ClusterLoadAssignment{
-				ClusterName: serviceName.String(),
-				Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
-					{
-						LbEndpoints: lbEndpoints,
+			assignments[serviceName.String()] =
+				&envoy_config_endpoint.ClusterLoadAssignment{
+					ClusterName: serviceName.String(),
+					Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
+						{
+							LbEndpoints: lbEndpoints,
+						},
 					},
-				},
-			})
+				}
 		}
 	}
-
-	return endpoints
 }
 
-// assignmentsEqual returns false if the cluster load assignments are not equal. Equal assignments but in different
-// order are assumed non-equal.
-func assignmentsEqual(a []*envoy_config_endpoint.ClusterLoadAssignment, b []*envoy_config_endpoint.ClusterLoadAssignment) bool {
-
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if !proto.Equal(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
+// revisions tracks the object revisions used to compute the EnvoyResource from a
+// CiliumEnvoyConfig. The EnvoyResource is only recomputed if there's a difference
+// in the revisions.
+type revisions struct {
+	cecRevision statedb.Revision
+	services    map[loadbalancer.ServiceName]statedb.Revision
+	backends    map[loadbalancer.L3n4Addr]statedb.Revision
 }
 
-func getProxyRedirect(cec *CEC, svcl *ciliumv2.ServiceListener) *experimental.ProxyRedirect {
-	var port uint16
-	if svcl.Listener != "" {
-		// Listener names are qualified after parsing, so qualify the listener reference as well for it to match
-		svcListener, _ := api.ResourceQualifiedName(
-			cec.Name.Namespace, cec.Name.Name, svcl.Listener, api.ForceNamespace)
-		port, _ = cec.Listeners.Get(svcListener)
-	} else {
-		for _, p := range cec.Listeners.All() {
-			port = p
-			break
-		}
-	}
-	if port == 0 {
-		return nil
-	}
-	return &experimental.ProxyRedirect{
-		ProxyPort: port,
-		Ports:     svcl.Ports,
-	}
-}
-
-// onServiceUpsert is called when the service is upserted, but before it is committed.
-// We set the proxy port on the service if there's a matching CEC.
-func (c *cecController) onServiceUpsert(txn statedb.ReadTxn, svc *experimental.Service) {
-	// Look up if there is a CiliumEnvoyConfig that references this service.
-	cec, _, found := c.params.CECs.Get(txn, CECByServiceName(svc.Name))
-	if !found {
-		c.params.Log.Debug("onServiceUpsert: CEC not found", "name", svc.Name)
-		svc.ProxyRedirect = nil
-		return
-	}
-
-	// Find the service listener that referenced this service.
-	var svcl *ciliumv2.ServiceListener
-	for _, l := range cec.Spec.Services {
-		if l.Namespace == svc.Name.Namespace && l.Name == svc.Name.Name {
-			svcl = l
-			break
-		}
-	}
-	if svcl == nil {
-		return
-	}
-
-	pr := getProxyRedirect(cec, svcl)
-	c.params.Log.Debug("Setting proxy redirection (on service upsert)",
-		"namespace", svcl.Namespace,
-		"name", svcl.Name,
-		"ProxyRedirect", pr,
-		"Listener", svcl.Listener)
-	svc.ProxyRedirect = pr
-}
-
-type policyTriggerWrapper struct{ updater *policy.Updater }
-
-func (p policyTriggerWrapper) TriggerPolicyUpdates() {
-	p.updater.TriggerPolicyUpdates("Envoy Listeners changed")
-}
-
-func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
-	return policyTriggerWrapper{updater}
-}
-
-type envoyOps struct {
-	log *slog.Logger
-	xds resourceMutator
-}
-
-// Delete implements reconciler.Operations.
-func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, cec *CEC) error {
-	if prev := cec.ReconciledResources; prev != nil {
-		// Perform the deletion with the resources that were last successfully reconciled
-		// instead of whatever the latest one is (which would have not been pushed to Envoy).
-		return ops.xds.DeleteEnvoyResources(ctx, *prev)
-	}
-	return nil
-}
-
-// Prune implements reconciler.Operations.
-func (ops *envoyOps) Prune(ctx context.Context, txn statedb.ReadTxn, objects iter.Seq2[*CEC, statedb.Revision]) error {
-	return nil
-}
-
-// Update implements reconciler.Operations.
-func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, cec *CEC) error {
-	var prevResources envoy.Resources
-	if cec.ReconciledResources != nil {
-		prevResources = *cec.ReconciledResources
-	}
-
-	var err error
-	if cec.SelectsLocalNode {
-		resources := cec.Resources
-		err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
-		if err == nil {
-			cec.ReconciledResources = &resources
-		}
-	} else if cec.ReconciledResources != nil {
-		// The local node no longer selected and it had been reconciled to envoy previously.
-		// Delete the resources and forget.
-		err = ops.xds.DeleteEnvoyResources(ctx, prevResources)
-		if err == nil {
-			cec.ReconciledResources = nil
-		}
-	}
-	return err
-}
-
-var _ reconciler.Operations[*CEC] = &envoyOps{}
-
-func registerEnvoyReconciler(log *slog.Logger, xds resourceMutator, params reconciler.Params, cecs statedb.RWTable[*CEC]) error {
-	ops := &envoyOps{
-		log: log, xds: xds,
-	}
-	_, err := reconciler.Register(
-		params,
-		cecs,
-		(*CEC).Clone,
-		(*CEC).SetStatus,
-		(*CEC).GetStatus,
-		ops,
-		nil,
-		reconciler.WithoutPruning(),
-	)
-	return err
+func (r revisions) equal(other revisions) bool {
+	return r.cecRevision == other.cecRevision && maps.Equal(r.services, other.services) && maps.Equal(r.backends, other.backends)
 }
