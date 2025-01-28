@@ -219,13 +219,15 @@ jobs:
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
+          mkdir -p /home/runner/.kube
+          touch /home/runner/.kube/config
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@f313219850d324b516748ff7b00a6f9fa30d34ae # v0.16.23
         with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+          skip-build: true
+          image-repo: quay.io/cilium/cilium-cli-ci
+          image-tag: aeba0fa6f4dffc0fbbd35fa88164ebf54b0cdb6a
           binary-name: cilium-cli
           binary-dir: ./
 
