@@ -807,6 +807,17 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(t *testing.T) {
 	s.testNodeChurnXFRMLeaksWithConfig(t, config)
 }
 
+// Tests the same as TestNodeChurnXFRMLeaks, but in tunneling mode. As a
+// consequence, encrypted overlay will kick in.
+func TestNodeChurnXFRMLeaksEncryptedOverlay(t *testing.T) {
+	s := setupLinuxPrivilegedIPv4OnlyTestSuite(t)
+	config := s.nodeConfigTemplate
+	config.EnableIPSec = true
+	config.EnableEncapsulation = true
+	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
+	s.testNodeChurnXFRMLeaksWithConfig(t, config)
+}
+
 // Tests the same as linuxPrivilegedBaseTestSuite.TestNodeChurnXFRMLeaks just
 // for the subnet encryption.
 func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksSubnetMode(t *testing.T) {
