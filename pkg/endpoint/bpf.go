@@ -1147,7 +1147,6 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 
 	// Ingress endpoint has no bpf policy maps, so return before applying changes to bpf.
 	if e.isProperty(PropertySkipBPFPolicy) {
-
 		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
 			log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
 		}
@@ -1160,12 +1159,19 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		return nil
 	}
 
+	if e.policyMap == nil {
+		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+			log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to endpoint not having policy map yet")
+		}
+		return nil
+	}
+
 	// Add policy map entries before deleting to avoid transient drops. If there
 	// isn't enough space to add all the entries before deleting some, then delete
 	// first. If e.realizedPolicy or e.policyMap is nil then the map has not been
 	// populated yet.
 	errors := 0
-	if e.realizedPolicy == nil || e.policyMap == nil ||
+	if e.realizedPolicy == nil ||
 		e.realizedPolicy.Len()+len(changes.Adds) <= int(e.policyMap.MaxEntries()) {
 		errors += e.addPolicyKeys(changes.Adds)
 		errors += e.deletePolicyKeys(changes.Deletes, changes.Adds)
