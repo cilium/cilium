@@ -104,6 +104,7 @@ out:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
+	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -114,7 +115,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	/* contrary to tail_handle_snat_fwd_ipv4, we don't check for
@@ -125,8 +126,8 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 * for IPv6, and so it's not possible yet for masqueraded traffic to get
 	 * redirected to another interface
 	 */
-	send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, UNKNOWN_ID, UNKNOWN_ID, &saddr,
-			   TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+	send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+			   &saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 			   trace.reason, trace.monitor);
 
 	return ret;
@@ -195,8 +196,8 @@ skip_fib:
 }
 
 static __always_inline int
-__handle_nat_fwd_ipv6(struct __ctx_buff *ctx, bool revdnat_only, struct trace_ctx *trace,
-		      __s8 *ext_err)
+__handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
+		      bool revdnat_only, struct trace_ctx *trace, __s8 *ext_err)
 {
 	bool snat_done = false;
 	int ret;
@@ -208,9 +209,11 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, bool revdnat_only, struct trace_ct
 #if !defined(ENABLE_DSR) ||						\
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
      defined(ENABLE_MASQUERADE_IPV6)
-	if (!snat_done)
+	if (!snat_done) {
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD,
 					 ext_err);
+	}
 #endif
 
 	if (is_defined(IS_BPF_HOST) && snat_done)
@@ -225,14 +228,17 @@ handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 {
 	__u32 cb_nat_flags = ctx_load_and_clear_meta(ctx, CB_NAT_FLAGS);
 	bool revdnat_only = cb_nat_flags & CB_NAT_FLAGS_REVDNAT_ONLY;
+	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 
-	return __handle_nat_fwd_ipv6(ctx, revdnat_only, trace, ext_err);
+	return __handle_nat_fwd_ipv6(ctx, src_id, revdnat_only, trace, ext_err);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
 static __always_inline
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
+	/* Will be cleared out in handle_nat_fwd_ipv6 */
+	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
@@ -242,11 +248,11 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, UNKNOWN_ID, UNKNOWN_ID,
+		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				  trace.reason, trace.monitor);
 
@@ -400,6 +406,7 @@ out:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
+	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -411,7 +418,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id, &saddr, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	/* Don't emit a trace event if the packet has been redirected to another
@@ -420,8 +427,8 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 * the interface to which the egress IP is assigned to.
 	 */
 	if (ret == CTX_ACT_OK)
-		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, UNKNOWN_ID, UNKNOWN_ID, saddr,
-				   TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
+				   saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				   trace.reason, trace.monitor);
 
 	return ret;
@@ -527,7 +534,8 @@ skip_fib:
 
 static __always_inline int
 __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
-		      bool revdnat_only, struct trace_ctx *trace, __s8 *ext_err)
+		      __u32 src_id __maybe_unused, bool revdnat_only,
+			  struct trace_ctx *trace, __s8 *ext_err)
 {
 	bool snat_done = false;
 	int ret;
@@ -542,6 +550,7 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
     (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
 	if (!snat_done) {
 		ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD,
 					 ext_err);
 	}
@@ -560,14 +569,17 @@ handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 cb_nat_flags = ctx_load_and_clear_meta(ctx, CB_NAT_FLAGS);
 	bool revdnat_only = cb_nat_flags & CB_NAT_FLAGS_REVDNAT_ONLY;
 	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 
-	return __handle_nat_fwd_ipv4(ctx, cluster_id, revdnat_only, trace, ext_err);
+	return __handle_nat_fwd_ipv4(ctx, cluster_id, src_id, revdnat_only, trace, ext_err);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
 static __always_inline
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
+	/* Will be cleared out in handle_nat_fwd_ipv4 */
+	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
@@ -577,11 +589,11 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
-		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, UNKNOWN_ID, UNKNOWN_ID,
+		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 				  trace.reason, trace.monitor);
 
@@ -689,9 +701,9 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
  * encryption.
  */
 static __always_inline int
-handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __be16 proto,
-	       bool revdnat_only, struct trace_ctx *trace __maybe_unused,
-	       __s8 *ext_err __maybe_unused)
+handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
+	       __be16 proto, bool revdnat_only, struct trace_ctx *trace __maybe_unused,
+		   __s8 *ext_err __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
 	__u32 cb_nat_flags = 0;
@@ -701,6 +713,7 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __be16 proto,
 
 	ctx_store_meta(ctx, CB_NAT_FLAGS, cb_nat_flags);
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
+	ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
