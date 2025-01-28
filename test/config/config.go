@@ -35,7 +35,6 @@ type CiliumTestConfigType struct {
 	CiliumOperatorSuffix string
 	HubbleRelayImage     string
 	HubbleRelayTag       string
-	ProvisionK8s         bool
 	Timeout              time.Duration
 	Kubeconfig           string
 	KubectlPath          string
@@ -85,8 +84,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies which image of hubble-relay to use during tests")
 	flagset.StringVar(&c.HubbleRelayTag, "cilium.hubble-relay-tag", "",
 		"Specifies which tag of hubble-relay to use during tests")
-	flagset.BoolVar(&c.ProvisionK8s, "cilium.provision-k8s", true,
-		"Specifies whether Kubernetes should be deployed and installed via kubeadm or not")
 	flagset.DurationVar(&c.Timeout, "cilium.timeout", 24*time.Hour,
 		"Specifies timeout for test run")
 	flagset.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
