@@ -265,10 +265,6 @@ func Init() {
 		os.Setenv("HUBBLE_RELAY_TAG", config.CiliumTestConfig.HubbleRelayTag)
 	}
 
-	if !config.CiliumTestConfig.ProvisionK8s {
-		os.Setenv("SKIP_K8S_PROVISION", "true")
-	}
-
 	// Copy over envronment variables that are passed in.
 	for envVar, helmVar := range map[string]string{
 		"CILIUM_TAG":             "image.tag",

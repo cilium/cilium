@@ -246,7 +246,6 @@ usage information.
         -cilium.hubble-relay-image=quay.io/${quay_org}/hubble-relay-ci \
         -cilium.hubble-relay-tag=${commit_sha} \
         -cilium.kubeconfig=/root/.kube/config \
-        -cilium.provision-k8s=false \
         -cilium.operator-suffix=-ci \
         -cilium.holdEnvironment=true
       Using CNI_INTEGRATION="kind"
@@ -440,8 +439,6 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             Pass the environment invoking ginkgo, including PATH, to subcommands
       -cilium.provision
             Provision Vagrant boxes and Cilium before running test (default true)
-      -cilium.provision-k8s
-            Specifies whether Kubernetes should be deployed and installed via kubeadm or not (default true)
       -cilium.runQuarantined
             Run tests that are under quarantine.
       -cilium.showCommands
@@ -734,7 +731,7 @@ To run tests with Kind, try
 
 .. code-block:: shell-session
 
-  K8S_VERSION=1.25 ginkgo --focus=K8s -- -cilium.provision=false --cilium.image=localhost:5000/cilium/cilium-dev -cilium.tag=local  --cilium.operator-image=localhost:5000/cilium/operator -cilium.operator-tag=local -cilium.kubeconfig=`echo ~/.kube/config` -cilium.provision-k8s=false  -cilium.testScope=K8s -cilium.operator-suffix=
+  K8S_VERSION=1.25 ginkgo --focus=K8s -- -cilium.provision=false --cilium.image=localhost:5000/cilium/cilium-dev -cilium.tag=local  --cilium.operator-image=localhost:5000/cilium/operator -cilium.operator-tag=local -cilium.kubeconfig=`echo ~/.kube/config` -cilium.testScope=K8s -cilium.operator-suffix=
 
 
 Running in GKE
