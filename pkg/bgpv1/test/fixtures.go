@@ -293,8 +293,6 @@ func start(ctx context.Context, t testing.TB, peerConfigs []gobgpConfig, f *fixt
 			peer.stopGoBGP()
 		}
 
-		f.bgp.BGPMgr.Stop()
-
 		f.hive.Stop(tlog, ctx)
 		teardownLinks()
 	}
