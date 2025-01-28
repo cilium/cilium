@@ -731,8 +731,8 @@ ct_recreate6:
 		 * the packet needs IPSec encap so push ctx to stack for encap, or
 		 * (c) packet was redirected to tunnel device so return.
 		 */
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, 0, 0, encrypt_key,
-					     &key, SECLABEL_IPV6, *dst_sec_identity,
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
+					     SECLABEL_IPV6, *dst_sec_identity,
 					     &trace);
 		switch (ret) {
 		case CTX_ACT_OK:
@@ -1277,8 +1277,7 @@ skip_vtep:
 		}
 #endif
 
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->saddr,
-					     ip4->daddr, encrypt_key, &key,
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
 					     SECLABEL_IPV4, *dst_sec_identity, &trace);
 		switch (ret) {
 		case CTX_ACT_OK:
