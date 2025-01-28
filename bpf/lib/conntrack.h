@@ -13,6 +13,7 @@
 #include "dbg.h"
 #include "l4.h"
 #include "signal.h"
+#include "lib/ipv4.h"
 
 enum ct_action {
 	ACTION_UNSPEC,
@@ -752,15 +753,17 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, int off,
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP:
 		if (1) {
-			__be16 identifier = 0;
-			__u8 type;
+			__u8	type		= 0;
+			__u8	code		= 0;
+			__be16	identifier	= 0;
 
-			if (ctx_load_bytes(ctx, off, &type, 1) < 0)
-				return DROP_CT_INVALID_HDR;
-			if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
-			     ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
-					    &identifier, 2) < 0)
-				return DROP_CT_INVALID_HDR;
+			err = ipv4_load_l4_ports_for_icmp(
+				ctx, off, CT_INGRESS,
+				&type, &code, &identifier,
+				true // create_frag_record
+			);
+			if (err < 0)
+				return err;
 
 			tuple->sport = 0;
 			tuple->dport = 0;
@@ -913,7 +916,7 @@ static __always_inline int ct_lookup4(const void *map,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_fragment = ipv4_is_fragment(ip4);
-	bool has_l4_header = true;
+	bool has_l4_header = ipv4_has_l4_header(ip4);
 	int ret;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
