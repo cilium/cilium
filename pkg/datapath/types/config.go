@@ -40,11 +40,6 @@ type LoadTimeConfiguration interface {
 	// GetIdentity returns a globally-significant numeric security identity.
 	GetIdentity() identity.NumericIdentity
 
-	// GetIdentityLocked returns a globally-significant numeric security
-	// identity while assuming that the backing data structure is locked.
-	// This function should be removed in favour of GetIdentity()
-	GetIdentityLocked() identity.NumericIdentity
-
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
 	GetNodeMAC() mac.MAC
