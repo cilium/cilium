@@ -6,6 +6,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/sirupsen/logrus"
 
@@ -106,6 +107,77 @@ func (p *Proxy) SetProxyPort(name string, proxyType types.ProxyType, port uint16
 // OpenLocalPorts returns the set of L4 ports currently open locally.
 func OpenLocalPorts() map[uint16]struct{} {
 	return proxyports.OpenLocalPorts()
+}
+
+// preCreateRedirects creates standard cilium-envoy listeners and holds references on them
+// to prevent recycling them even when no endpoints have any redirects
+func (p *Proxy) preCreateRedirects(startCtx context.Context) {
+	wg := completion.NewWaitGroup(startCtx)
+
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	for _, ingress := range []bool{false, true} {
+		for _, ppType := range []types.ProxyType{types.ProxyTypeHTTP, types.ProxyTypeAny} {
+			ppName, pp := p.proxyPorts.FindByTypeWithReference(ppType, "", ingress)
+			if pp == nil {
+				log.
+					WithError(proxyTypeNotFoundError(ppType, "", ingress)).
+					Error("Proxy port not found")
+				continue
+			}
+
+			// Callback for Envoy ACK/NACK handling for the redirect.  If we get a
+			// non-nil 'err' Envoy has NACKed the listener update, and the whole
+			// (endpoint) regeneration will also be reverted. Revert can happen for
+			// other reasons as well (such as bpf datapath compilation failure), and we
+			// do not want to churn proxy ports in that case.  Not called for DNS
+			// redirects.  This callback is called before the finalize or revert
+			// function is called.
+			proxyCallback := func(err error) {
+				if err == nil {
+					// Enable datapath redirection for the proxy port if proxy
+					// creation was successful, even if the overall (endpoint)
+					// regeneration fails. This way there is less churn on the
+					// proxy port allocation and datapath. Endpoint policy will
+					// no redirect to the new proxy implementation if
+					// regeneration fails.
+					err = p.proxyPorts.AckProxyPort(startCtx, ppName, pp)
+					if err != nil {
+						log.
+							WithError(err).
+							Error("Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed")
+					}
+				} else {
+					// Release proxy port if NACK was received. Do not release a
+					// port that has already been successfully acknowledged or
+					// that it statically configured.
+					p.proxyPorts.ResetUnacknowledged(pp)
+				}
+			}
+
+			// try first with the previous port, if any
+			p.proxyPorts.Restore(pp)
+
+			err := p.proxyPorts.AllocatePort(pp, false)
+			if err != nil {
+				log.WithError(err).
+					WithField("portName", ppName).
+					WithField(logfields.ProxyPort, pp.ProxyPort).
+					Warning("Unable to pre-allocate proxy port")
+				continue
+			}
+
+			mayUseOriginalSourceAddr := p.envoyIntegration.iptablesManager.SupportsOriginalSourceAddr()
+			// Only use original source address for egress
+			if pp.Ingress {
+				mayUseOriginalSourceAddr = false
+			}
+			listenerName := net.JoinHostPort(ppName, fmt.Sprintf("%d", pp.ProxyPort))
+			err = p.envoyIntegration.xdsServer.AddListener(listenerName, policy.L7ParserType(pp.ProxyType), pp.ProxyPort, pp.Ingress, mayUseOriginalSourceAddr, wg, proxyCallback)
+
+		}
+	}
 }
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding

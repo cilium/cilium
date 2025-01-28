@@ -4,6 +4,8 @@
 package proxy
 
 import (
+	"context"
+
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
@@ -76,10 +78,14 @@ func newProxy(params proxyParams) *Proxy {
 	controllerName := "proxy-ports-checkpoint"
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) (err error) {
+		OnStart: func(ctx cell.HookContext) (err error) {
 			// Restore all proxy ports before we create the trigger to overwrite the
 			// file below
 			p.proxyPorts.RestoreProxyPorts(params.Config.RestoredProxyPortsAgeLimit)
+
+			// pre-create standard cilium-envoy listeners and hold a reference on them
+			// to prevent recycling them even when no endpoints have any redirects
+			p.preCreateRedirects(context.Context(ctx))
 
 			p.proxyPorts.Trigger, err = trigger.NewTrigger(trigger.Parameters{
 				MinInterval: 10 * time.Second,
