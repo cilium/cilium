@@ -89,6 +89,12 @@ var (
 
 	//go:embed manifests/echo-ingress-from-cidr.yaml
 	echoIngressFromCIDRYAML string
+
+	//go:embed manifests/allow-ingress-specific-ns-ccnp.yaml
+	ingressfromSpecificNS string
+
+	//go:embed manifests/allow-egress-specific-ns-ccnp.yaml
+	egresstoSpecificNS string
 )
 
 var (
@@ -289,6 +295,10 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 		hostFirewallEgress{},
 		clientEgressL7TlsDenyWithoutHeaders{},
 		clientEgressL7TlsHeaders{},
+		egresstoSpecificNamespace{},
+		ingressfromSpecificNamespace{},
+		ingressCNPEgressCCNPMulti{},
+		ingressCCNPEgressCNPMulti{},
 	}
 	return injectTests(tests, ct)
 }
@@ -321,6 +331,9 @@ func renderTemplates(clusterName string, param check.Parameters) (map[string]str
 		"clientEgressOnlyDNSPolicyYAML":                      clientEgressOnlyDNSPolicyYAML,
 		"echoIngressFromCIDRYAML":                            echoIngressFromCIDRYAML,
 		"denyCIDRPolicyYAML":                                 denyCIDRPolicyYAML,
+		"ingressfromSpecificNS":							  ingressfromSpecificNS,
+		"egresstoSpecificNS":								  egresstoSpecificNS,
+
 	}
 	if param.K8sLocalHostTest {
 		templates["clientEgressToCIDRCPHostPolicyYAML"] = clientEgressToCIDRCPHostPolicyYAML
