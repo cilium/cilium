@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/part"
-	"github.com/cilium/statedb/reconciler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -67,8 +66,6 @@ func registerCECReflector(
 	g job.Group,
 	db *statedb.DB,
 	tbl statedb.RWTable[*CEC],
-	services statedb.Table[*experimental.Service],
-	backends statedb.Table[*experimental.Backend],
 ) error {
 	if !option.Config.EnableL7Proxy && !option.Config.EnableEnvoyConfig {
 		return nil
@@ -143,14 +140,7 @@ func registerCECReflector(
 			Spec:             spec,
 			Resources:        resources,
 			Listeners:        listeners,
-			Status:           reconciler.StatusPending(),
 		}
-
-		// Fill in the endpoints.
-		if newCEC := updateBackends(cec, txn, services, backends); newCEC != nil {
-			cec = newCEC
-		}
-
 		return cec, true
 	}
 

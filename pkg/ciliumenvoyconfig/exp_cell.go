@@ -30,23 +30,19 @@ var (
 		experimentalControllerCells,
 	)
 
-	experimentalControllerCells = cell.Group(
-		cell.Provide(
-			newCECController,
-		),
-		cell.Invoke((*cecController).setWriter),
-		cell.Invoke(registerEnvoyReconciler),
-	)
+	experimentalControllerCells = cell.Invoke(registerCECController)
 
 	experimentalTableCells = cell.Group(
 		cell.ProvidePrivate(
 			NewCECTable,
 			statedb.RWTable[*CEC].ToTable,
+			NewEnvoyResourcesTable,
 			newNodeLabels,
 			cecListerWatchers,
 		),
 		cell.Invoke(
 			registerCECReflector,
+			registerEnvoyReconciler,
 		),
 	)
 )

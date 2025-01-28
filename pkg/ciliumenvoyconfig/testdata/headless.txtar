@@ -14,8 +14,8 @@ db/cmp services services.table
 
 # Add the CiliumEnvoyConfig and wait for it to be ingested.
 k8s add cec.yaml
-
 db/cmp ciliumenvoyconfigs cec.table
+db/cmp envoy-resources envoy-resources.table
 
 # Check that right updates towards Envoy happened.
 envoy envoy.out
@@ -29,7 +29,8 @@ k8s delete endpointslice.yaml
 envoy envoy.out
 * cmp envoy.out envoy2.expected
 
-# Drop the service
+# Drop the service. No changes towards envoy as the load assignments
+# do not change.
 k8s delete service.yaml
 db/cmp services services_empty.table
 
@@ -40,6 +41,15 @@ db/cmp services services.table
 # Check again that updates happened.
 envoy envoy.out
 * cmp envoy.out envoy3.expected
+
+# Adding an unrelated service does not trigger updates.
+k8s add unrelated_service.yaml unrelated_endpointslice.yaml
+
+# No updates should happen.
+envoy envoy.out
+* cmp envoy.out envoy3.expected
+
+k8s delete unrelated_service.yaml unrelated_endpointslice.yaml
 
 # Cleanup. Remove CEC and check that proxy redirect is gone.
 k8s delete cec.yaml
@@ -57,7 +67,7 @@ Name        ProxyRedirect
 
 -- services.table --
 Name        ProxyRedirect
-test/echo   
+test/echo
 
 -- cec_empty.table --
 Name    Services
@@ -65,6 +75,10 @@ Name    Services
 -- cec.table --
 Name                    BackendServices  Services
 test/envoy-lb-listener  test/echo
+
+-- envoy-resources.table --
+Name                     Status
+test/envoy-lb-listener   Done 
 
 -- cec.yaml --
 apiVersion: cilium.io/v2
@@ -105,6 +119,27 @@ spec:
 status:
   loadBalancer: {}
 
+-- unrelated_service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: unrelated
+  namespace: test
+  uid: b49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 1.2.3.4
+  clusterIPs:
+  - 1.2.3.4
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: unrelated
+  type: ClusterIP
+
 -- endpointslice.yaml --
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
@@ -118,6 +153,29 @@ addressType: IPv4
 endpoints:
 - addresses:
   - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- unrelated_endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: unrelated
+  name: unrelated-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
   conditions:
     ready: true
     serving: true

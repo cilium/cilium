@@ -47,7 +47,17 @@ db/cmp services services_redirected.table
 envoy envoy.out
 * cmp envoy.out envoy3.expected
 
-# Cleanup. Remove CEC and check that proxy redirect is gone.
+# Change the service name in the CEC and check that
+# proxy redirect gets removed.
+cp cec.yaml cec2.yaml
+replace 'name: echo' 'name: echo2' cec2.yaml
+k8s update cec2.yaml
+db/cmp services services.table
+
+# Revert and then check that deleting the CEC results in
+# proxy redirect and listeners being removed.
+k8s update cec.yaml
+db/cmp services services_redirected.table
 k8s delete cec.yaml
 db/cmp services services.table
 db/cmp ciliumenvoyconfigs cec_empty.table
@@ -158,17 +168,17 @@ SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUN
 SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
+update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 1
-update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=
+update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy3.expected --
 policy-trigger-count: 1
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
+update: count=4 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy4.expected --
 policy-trigger-count: 2
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
+update: count=6 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
