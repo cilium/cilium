@@ -371,17 +371,6 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      encrypt_key, secctx, info->sec_identity,
 						      &trace);
-	} else {
-		struct tunnel_key key = {};
-
-		/* IPv6 lookup key: daddr/96 */
-		ipv6_addr_copy(&key.ip6, dst);
-		key.ip6.p4 = 0;
-		key.family = ENDPOINT_KEY_IPV6;
-
-		ret = encap_and_redirect_netdev(ctx, &key, encrypt_key, secctx, &trace);
-		if (ret != DROP_NO_TUNNEL_ENDPOINT)
-			return ret;
 	}
 skip_tunnel:
 #endif
@@ -839,17 +828,6 @@ skip_vtep:
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      encrypt_key, secctx, info->sec_identity,
 						      &trace);
-	} else {
-		/* IPv4 lookup key: daddr & IPV4_MASK */
-		struct tunnel_key key = {};
-
-		key.ip4 = ip4->daddr & IPV4_MASK;
-		key.family = ENDPOINT_KEY_IPV4;
-
-		cilium_dbg(ctx, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect_netdev(ctx, &key, encrypt_key, secctx, &trace);
-		if (ret != DROP_NO_TUNNEL_ENDPOINT)
-			return ret;
 	}
 skip_tunnel:
 #endif

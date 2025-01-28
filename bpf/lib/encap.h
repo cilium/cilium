@@ -114,51 +114,17 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  * CTX_ACT_REDIRECT.
  */
 static __always_inline int
-encap_and_redirect_lxc(struct __ctx_buff *ctx,
-		       __be32 tunnel_endpoint __maybe_unused,
-		       __u32 src_ip __maybe_unused,
-		       __u32 dst_ip __maybe_unused,
-		       __u8 encrypt_key __maybe_unused,
-		       struct tunnel_key *key __maybe_unused,
-		       __u32 seclabel, __u32 dstid,
-		       const struct trace_ctx *trace)
+encap_and_redirect_lxc(struct __ctx_buff *ctx __maybe_unused,
+		       __be32 tunnel_endpoint, __u8 encrypt_key __maybe_unused,
+		       __u32 seclabel __maybe_unused, __u32 dstid __maybe_unused,
+		       const struct trace_ctx *trace __maybe_unused)
 {
-	struct tunnel_value *tunnel __maybe_unused;
-
-	if (tunnel_endpoint)
-		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
-						encrypt_key, seclabel, dstid,
-						trace);
-
-	tunnel = map_lookup_elem(&cilium_tunnel_map, key);
-	if (!tunnel)
+	if (!tunnel_endpoint)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-# ifdef ENABLE_IPSEC
-	if (tunnel->key) {
-		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
-
-		return set_ipsec_encrypt(ctx, min_encrypt_key, tunnel->ip4,
-					 seclabel, false, false);
-	}
-# endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
-						dstid, NOT_VTEP_DST, trace);
-}
-
-static __always_inline int
-encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
-			  __u8 encrypt_key, __u32 seclabel,
-			  const struct trace_ctx *trace)
-{
-	struct tunnel_value *tunnel;
-
-	tunnel = map_lookup_elem(&cilium_tunnel_map, k);
-	if (!tunnel)
-		return DROP_NO_TUNNEL_ENDPOINT;
-
-	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, encrypt_key,
-					      seclabel, 0, trace);
+	return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
+					encrypt_key, seclabel, dstid,
+					trace);
 }
 #endif /* TUNNEL_MODE */
 
