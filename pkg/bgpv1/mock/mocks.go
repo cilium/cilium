@@ -6,6 +6,7 @@ package mock
 import (
 	"context"
 
+	"github.com/cilium/hive/cell"
 	v1 "k8s.io/api/core/v1"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	v1listers "k8s.io/client-go/listers/core/v1"
@@ -41,7 +42,7 @@ type MockBGPRouterManager struct {
 	GetPeers_           func(ctx context.Context) ([]*models.BgpPeer, error)
 	GetRoutes_          func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 	GetRoutePolicies_   func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
-	Stop_               func()
+	Stop_               func(cell.HookContext) error
 }
 
 func (m *MockBGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1.CiliumBGPPeeringPolicy, ciliumNode *v2.CiliumNode) error {
@@ -64,6 +65,6 @@ func (m *MockBGPRouterManager) GetRoutePolicies(ctx context.Context, params rest
 	return m.GetRoutePolicies_(ctx, params)
 }
 
-func (m *MockBGPRouterManager) Stop() {
-	m.Stop_()
+func (m *MockBGPRouterManager) Stop(ctx cell.HookContext) error {
+	return m.Stop_(ctx)
 }
