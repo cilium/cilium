@@ -1140,29 +1140,37 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 
 	var errs error
 	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(oldNode) {
-		if err := n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+		if n.nodeConfig.EnableIPv4 {
+			if err := n.deleteDirectRoute(oldNode.IPv4AllocCIDR, oldIP4); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+			}
 		}
-		if err := n.deleteDirectRoute(oldNode.IPv6AllocCIDR, oldIP6); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+		if n.nodeConfig.EnableIPv6 {
+			if err := n.deleteDirectRoute(oldNode.IPv6AllocCIDR, oldIP6); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old direct routing: deleting old routes: %w", err))
+			}
 		}
 	}
 
 	if n.enableEncapsulation(oldNode) {
-		oldPrefix4 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv4AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
-		oldPrefix6 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv6AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
-		if err := deleteTunnelMapping(n.log, oldPrefix4, false); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv4: %w", err))
-		}
-		if err := deleteTunnelMapping(n.log, oldPrefix6, false); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv6: %w", err))
+		if n.nodeConfig.EnableIPv4 {
+			oldPrefix4 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv4AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
+			if err := deleteTunnelMapping(n.log, oldPrefix4, false); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv4: %w", err))
+			}
+			if err := n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv4: %w", err))
+			}
 		}
 
-		if err := n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv4: %w", err))
-		}
-		if err := n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv6: %w", err))
+		if n.nodeConfig.EnableIPv6 {
+			oldPrefix6 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv6AllocCIDR, n.prefixClusterMutatorFn(oldNode)...)
+			if err := deleteTunnelMapping(n.log, oldPrefix6, false); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting tunnel mapping for ipv6: %w", err))
+			}
+			if err := n.deleteNodeRoute(oldNode.IPv6AllocCIDR, false); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to remove old encapsulation config: deleting old single cluster node route for ipv6: %w", err))
+			}
 		}
 	}
 
