@@ -1004,6 +1004,10 @@
      - defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none @schema type: [string] @schema
      - string
      - ``"lbipam"``
+   * - :spelling:ignore:`devices`
+     - List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'. Note that setting this option disables auto-detection of devices, a feature that selects only those network devices with an IP address configured. Refer to ``forceDeviceDetection``.
+     - string
+     - ``nil`` 
    * - :spelling:ignore:`directRoutingSkipUnreachable`
      - Enable skipping of PodCIDR routes between worker nodes if the worker nodes are in a different L2 network segment.
      - bool
