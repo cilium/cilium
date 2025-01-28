@@ -5,8 +5,11 @@ package manager
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -86,9 +89,12 @@ func newAllNodeManager(in struct {
 	IPSetFilter IPSetFilterFn `optional:"true"`
 	NodeMetrics *nodeMetrics
 	Health      cell.Health
+	JobGroup    job.Group
+	DB          *statedb.DB
+	Devices     statedb.Table[*tables.Device]
 },
 ) (NodeManager, error) {
-	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health)
+	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices)
 	if err != nil {
 		return nil, err
 	}
