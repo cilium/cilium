@@ -4,6 +4,7 @@
 #pragma once
 
 #include <linux/ip.h>
+#include <linux/icmp.h>
 
 #include "dbg.h"
 #include "l4.h"
@@ -135,7 +136,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 			  bool *has_l4_header)
 {
 	bool is_fragment, not_first_fragment;
-	int ret;
+	int ret = CTX_ACT_OK;
 
 	struct ipv4_frag_id frag_id = {
 		.daddr = ip4->daddr,
@@ -152,14 +153,49 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 		if (has_l4_header)
 			*has_l4_header = !not_first_fragment;
 
-		if (likely(not_first_fragment))
-			return ipv4_frag_get_l4ports(&frag_id, ports);
+		if (likely(not_first_fragment)) {
+			ret = ipv4_frag_get_l4ports(&frag_id, ports);
+			goto out;
+		}
 	}
 
-	/* load sport + dport into tuple */
-	ret = l4_load_ports(ctx, l4_off, (__be16 *)ports);
-	if (ret < 0)
-		return DROP_CT_INVALID_HDR;
+	switch (ip4->protocol) {
+		case IPPROTO_ICMP: {
+			// load identifier from ICMP header
+			__u8	type		= 0;
+			__u8	code		= 0;
+			__be16	identifier	= 0;
+
+			if (ctx_load_bytes(ctx, l4_off, &type, 1) < 0) {
+				ret = DROP_CT_INVALID_HDR;
+				goto fail;
+			}
+			if (ctx_load_bytes(ctx, l4_off + 1, &code, 1) < 0) {
+				ret = DROP_CT_INVALID_HDR;
+				goto fail;
+			}
+			if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
+				ctx_load_bytes(ctx, l4_off + offsetof(struct icmphdr, un.echo.id),
+				&identifier, 2) < 0)
+			{
+				ret = DROP_CT_INVALID_HDR;
+				goto fail;
+			}
+			ports->sport = (__be16)((type << 8) | code);
+			ports->dport = identifier;
+			break;
+		}
+
+		default: {
+			// load sport + dport into tuple
+			ret = l4_load_ports(ctx, l4_off, (__be16 *)ports);
+			if (ret < 0) {
+				ret = DROP_CT_INVALID_HDR;
+				goto out;
+			}
+			break;
+		}
+	}
 
 	if (unlikely(is_fragment)) {
 		/* First logical fragment for this datagram (not necessarily the first
@@ -174,9 +210,131 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 		 */
 	}
 
-	return 0;
+out:
+	return ret;
+fail:
+	goto out;
 }
 #endif
+
+static __always_inline int
+ipv4_load_l4_ports_for_icmp(
+	struct __ctx_buff	*a_ctx,
+	int					a_l4_off,
+	enum ct_dir			a_ct_dir __maybe_unused,
+	__u8				*a_type,
+	__u8				*a_code,
+	__be16				*a_identifier,
+	bool				a_create_frag_record)
+{
+	int							ret			= 0;
+	__u8						type		= 0;
+	__u8						code		= 0;
+	__be16						identifier	= 0;
+	struct ipv4_frag_l4ports	ports;
+	struct iphdr				*ip4;
+	void						*data, *data_end;
+	bool						is_fragment;
+	bool						has_l4_header;
+#ifdef ENABLE_IPV4_FRAGMENTS
+	struct ipv4_frag_id	frag_id;
+	enum metric_dir		mdir = ct_to_metrics_dir(a_ct_dir);
+#endif
+
+	if (	NULL == a_type
+		||	NULL == a_code
+		||	NULL == a_identifier)
+	{
+		ret = EINVAL;
+		goto out;
+	}
+
+	if (!revalidate_data(a_ctx, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto out;
+	}
+
+	is_fragment		= ipv4_is_fragment(ip4);
+	has_l4_header	= ipv4_has_l4_header(ip4);
+
+#ifdef ENABLE_IPV4_FRAGMENTS
+	// fill the key
+	frag_id.daddr	= ip4->daddr;
+	frag_id.saddr	= ip4->saddr;
+	frag_id.id		= ip4->id;
+	frag_id.proto	= ip4->protocol;
+	frag_id.pad		= 0;
+#endif
+
+	if (has_l4_header) {
+		// load identifier from ICMP header
+		if (ctx_load_bytes(a_ctx, a_l4_off, &type, 1) < 0) {
+			ret = DROP_CT_INVALID_HDR;
+			goto fail;
+		}
+		if (ctx_load_bytes(a_ctx, a_l4_off + 1, &code, 1) < 0) {
+			ret = DROP_CT_INVALID_HDR;
+			goto fail;
+		}
+		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
+			 ctx_load_bytes(a_ctx, a_l4_off + offsetof(struct icmphdr, un.echo.id),
+					&identifier, 2) < 0)
+		{
+			ret = DROP_CT_INVALID_HDR;
+			goto fail;
+		}
+
+		if (	is_fragment
+			&&	a_create_frag_record)
+		{
+			// "more fragments" flag is set,
+			// it's fragmented ICMP, store header info to the map
+			ports.sport = (__be16)((type << 8) | code);
+			ports.dport = identifier;
+
+#ifdef ENABLE_IPV4_FRAGMENTS
+			// First logical fragment for this datagram (not necessarily the first
+			// we receive). Fragment has L4 header, create an entry in datagrams map.
+			if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, &frag_id, &ports, BPF_ANY))
+				update_metrics(ctx_full_len(a_ctx), mdir, REASON_FRAG_PACKET_UPDATE);
+
+			// Do not return an error if map update failed, as nothing prevents us
+			// to process the current packet normally.
+#endif
+		}
+	}
+#ifdef ENABLE_IPV4_FRAGMENTS
+	else {
+		// it should be a fragmented packet
+		is_fragment = ipv4_is_not_first_fragment(ip4);
+		if (!is_fragment) {
+			ret = DROP_CT_INVALID_HDR;
+			goto out;
+		}
+
+		update_metrics(ctx_full_len(a_ctx), mdir, REASON_FRAG_PACKET);
+
+		// load identifier from frag map
+		ret = ipv4_frag_get_l4ports(&frag_id, &ports);
+		if (0 > ret) {
+			goto out;
+		}
+
+		type		= (ports.sport & 0xff00) >> 8;
+		code		= (ports.sport & 0x00ff);
+		identifier	= ports.dport;
+	}
+#endif
+
+	*a_type			= type;
+	*a_code			= code;
+	*a_identifier	= identifier;
+
+out:
+	return ret;
+fail:
+	goto out;
+}
 
 static __always_inline int
 ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
