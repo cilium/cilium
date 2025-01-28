@@ -21,9 +21,11 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health"
@@ -240,7 +242,7 @@ func TestNodeLifecycle(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 
@@ -319,7 +321,7 @@ func TestMultipleSources(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -402,7 +404,7 @@ func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(b, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -426,7 +428,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -451,7 +453,7 @@ func TestBackgroundSync(t *testing.T) {
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	mngr.Subscribe(signalNodeHandler)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -498,7 +500,7 @@ func TestIpcache(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -575,7 +577,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -657,7 +659,7 @@ func TestNodeEncryption(t *testing.T) {
 	mngr, err := New(&option.DaemonConfig{
 		EncryptNode: true,
 		EnableIPSec: true,
-	}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -750,7 +752,7 @@ func TestNode(t *testing.T) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -911,6 +913,222 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	assert.NoError(err)
 }
 
+// TestCarrierDownReconciler tests that we can detect carrier down events for physical devices
+// but ignore loopback devices.
+func TestCarrierDownReconciler(t *testing.T) {
+	// Declare values to use outside of hive later.
+	var (
+		m           *manager
+		deviceTable statedb.RWTable[*tables.Device]
+		db          *statedb.DB
+	)
+
+	// Use hive to create the manager and tables, mock the rest.
+	h := hive.New(
+		cell.Provide(tables.NewDeviceTable),                   // Provide statedb.RWTable[*tables.Device]
+		cell.Provide(statedb.RWTable[*tables.Device].ToTable), // Provide statedb.Table[*tables.Device] from RW table
+		cell.Invoke(statedb.RegisterTable[*tables.Device]),
+		cell.Provide(func() testParams {
+			return testParams{
+				Config:        &option.DaemonConfig{},
+				IPCache:       newIPcacheMock(),
+				IPSet:         newIPSetMock(),
+				NodeMetrics:   NewNodeMetrics(),
+				IPSetFilterFn: func(no *nodeTypes.Node) bool { return false },
+			}
+		}),
+		cell.Module("node_manager", "Node Manager",
+			cell.Provide(New),
+		),
+		cell.Invoke(func(manager *manager, dt statedb.RWTable[*tables.Device], database *statedb.DB) {
+			m = manager
+			deviceTable = dt
+			db = database
+		}),
+	)
+
+	// Just populate the hive, no need to start it.
+	h.Populate(hivetest.Logger(t))
+
+	// Add a node to the manager. When we decide to revalidate neighbors, we do so for all nodes
+	// so we need at least one to be present otherwise we will never enqueue anything.
+	m.nodes[nodeTypes.Identity{
+		Name: "node1",
+	}] = &nodeEntry{
+		node: nodeTypes.Node{
+			Name: "node1",
+		},
+	}
+
+	// Stop the reconciler if things take to long.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Create two devices, eth0 and lo. We will modify these devices to simulate carrier changes.
+	tx := db.WriteTxn(deviceTable)
+	_, _, err := deviceTable.Insert(tx, &tables.Device{
+		Index:    1,
+		Name:     "eth0",
+		RawFlags: unix.IFF_UP | unix.IFF_RUNNING,
+		Type:     "device",
+	})
+	if err != nil {
+		tx.Abort()
+		t.Fatal(err)
+	}
+
+	_, _, err = deviceTable.Insert(tx, &tables.Device{
+		Index:    2,
+		Name:     "lo",
+		RawFlags: unix.IFF_UP | unix.IFF_RUNNING | unix.IFF_LOOPBACK,
+		Type:     "device",
+	})
+	if err != nil {
+		tx.Abort()
+		t.Fatal(err)
+	}
+
+	tx.Commit()
+
+	// Create a mock health reporter. We will the health reporting as a signal for when reconciliation
+	// happened.
+	mh := &mockHealth{ok: make(chan struct{}, 10)}
+	// Wait for at least one OK signal, but consume more if there are any.
+	wait := func() {
+		<-mh.ok
+	loop:
+		for {
+			select {
+			case <-mh.ok:
+			default:
+				break loop
+			}
+		}
+	}
+
+	// Start the reconciler in the background.
+	go m.carrierDownReconciler(ctx, mh)
+
+	// Wait for the initial OK we get after initialization
+	wait()
+
+	// Modify eth0 so it is carrier down
+	tx = db.WriteTxn(deviceTable)
+	_, _, err = deviceTable.Insert(tx, &tables.Device{
+		Index:    1,
+		Name:     "eth0",
+		RawFlags: unix.IFF_UP,
+		Type:     "device",
+	})
+	if err != nil {
+		tx.Abort()
+		t.Fatal(err)
+	}
+	tx.Commit()
+
+	// Wait for reconciliation
+	wait()
+
+	if !m.nodeNeighborQueue.isEmpty() {
+		t.Fatal("Expected nodeNeighborQueue to be empty")
+	}
+
+	// Modify eth0 so its carrier is up again.
+	tx = db.WriteTxn(deviceTable)
+	_, _, err = deviceTable.Insert(tx, &tables.Device{
+		Index:    1,
+		Name:     "eth0",
+		RawFlags: unix.IFF_UP | unix.IFF_RUNNING,
+		Type:     "device",
+	})
+	if err != nil {
+		tx.Abort()
+		t.Fatal(err)
+	}
+	tx.Commit()
+
+	// Wait for reconciliation
+	wait()
+
+	if m.nodeNeighborQueue.isEmpty() {
+		t.Fatal("Expected nodeNeighborQueue to not be empty")
+	}
+	// Drain the queue
+	for _, more := m.nodeNeighborQueue.pop(); more; _, more = m.nodeNeighborQueue.pop() {
+	}
+
+	// Modify lo so its down
+	tx = db.WriteTxn(deviceTable)
+	_, _, err = deviceTable.Insert(tx, &tables.Device{
+		Index:    2,
+		Name:     "lo",
+		RawFlags: unix.IFF_LOOPBACK,
+		Type:     "device",
+	})
+	if err != nil {
+		tx.Abort()
+		t.Fatal(err)
+	}
+
+	tx.Commit()
+
+	// Wait for reconciliation
+	wait()
+
+	if !m.nodeNeighborQueue.isEmpty() {
+		t.Fatal("Expected nodeNeighborQueue to be empty")
+	}
+
+	// Modify lo so its carrier is up again.
+	tx = db.WriteTxn(deviceTable)
+	_, _, err = deviceTable.Insert(tx, &tables.Device{
+		Index:    2,
+		Name:     "lo",
+		RawFlags: unix.IFF_UP | unix.IFF_RUNNING | unix.IFF_LOOPBACK,
+		Type:     "device",
+	})
+
+	if err != nil {
+		tx.Abort()
+		t.Fatal(err)
+	}
+
+	tx.Commit()
+
+	// Wait for reconciliation
+	wait()
+
+	// We expect the queue to still be empty since we should be ignoring changes
+	// to loopback devices.
+	if !m.nodeNeighborQueue.isEmpty() {
+		t.Fatal("Expected nodeNeighborQueue to be empty")
+	}
+
+	cancel()
+}
+
+var _ cell.Health = (*mockHealth)(nil)
+
+type mockHealth struct {
+	ok chan struct{}
+}
+
+func (mh *mockHealth) OK(status string) {
+	mh.ok <- struct{}{}
+}
+
+func (mh *mockHealth) Degraded(reason string, err error) {
+}
+
+func (mh *mockHealth) Stopped(reason string) {
+}
+
+func (mh *mockHealth) NewScope(name string) cell.Health {
+	return mh
+}
+
+func (mh *mockHealth) Close() {}
+
 type testParams struct {
 	cell.Out
 	Config        *option.DaemonConfig
@@ -949,7 +1167,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{
 		LocalRouterIPv4: "169.254.4.6",
-	}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h)
+	}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1049,7 +1267,7 @@ func TestNodeIpset(t *testing.T) {
 	mngr, err := New(&option.DaemonConfig{
 		RoutingMode:          option.RoutingModeNative,
 		EnableIPv4Masquerade: true,
-	}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h)
+	}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h, nil, nil, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -1230,7 +1448,7 @@ func TestNodesStartupPruning(t *testing.T) {
 	mngr, err := New(&option.DaemonConfig{
 		StateDir:    tmp,
 		ClusterName: "c1",
-	}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		mngr.Stop(context.TODO())
