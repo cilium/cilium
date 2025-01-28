@@ -63,6 +63,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 
 			id:       e.GetID(),
 			identity: e.getIdentity(),
+			ifIndex:  e.GetIfIndex(),
 			mac:      e.GetNodeMAC(),
 			ipv4:     e.IPv4Address(),
 			ipv6:     e.IPv6Address(),
