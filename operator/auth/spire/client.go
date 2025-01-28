@@ -46,6 +46,7 @@ var defaultSelectors = []*types.Selector{
 var Cell = cell.Module(
 	"spire-client",
 	"Spire Server API Client",
+	cell.Config(defaultMutualAuthConfig),
 	cell.Config(ClientConfig{}),
 	cell.Provide(NewClient),
 )
@@ -53,13 +54,29 @@ var Cell = cell.Module(
 var FakeCellClient = cell.Module(
 	"fake-spire-client",
 	"Fake Spire Server API Client",
+	cell.Config(defaultMutualAuthConfig),
 	cell.Config(ClientConfig{}),
 	cell.Provide(NewFakeClient),
 )
 
+// MutualAuthConfig contains general configuration for mutual authentication.
+type MutualAuthConfig struct {
+	Enabled bool `mapstructure:"mesh-auth-mutual-enabled"`
+}
+
+var defaultMutualAuthConfig = MutualAuthConfig{
+	Enabled: false,
+}
+
+// Flags adds the flags used by ClientConfig.
+func (cfg MutualAuthConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("mesh-auth-mutual-enabled",
+		cfg.Enabled,
+		"The flag to enable mutual authentication for the SPIRE server (beta).")
+}
+
 // ClientConfig contains the configuration for the SPIRE client.
 type ClientConfig struct {
-	MutualAuthEnabled            bool          `mapstructure:"mesh-auth-mutual-enabled"`
 	SpireAgentSocketPath         string        `mapstructure:"mesh-auth-spire-agent-socket"`
 	SpireServerAddress           string        `mapstructure:"mesh-auth-spire-server-address"`
 	SpireServerConnectionTimeout time.Duration `mapstructure:"mesh-auth-spire-server-connection-timeout"`
@@ -68,10 +85,6 @@ type ClientConfig struct {
 
 // Flags adds the flags used by ClientConfig.
 func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
-	flags.BoolVar(&cfg.MutualAuthEnabled,
-		"mesh-auth-mutual-enabled",
-		false,
-		"The flag to enable mutual authentication for the SPIRE server (beta).")
 	flags.StringVar(&cfg.SpireAgentSocketPath,
 		"mesh-auth-spire-agent-socket",
 		"/run/spire/sockets/agent/agent.sock",
@@ -106,8 +119,8 @@ type Client struct {
 
 // NewClient creates a new SPIRE client.
 // If the mutual authentication is not enabled, it returns a noop client.
-func NewClient(params params, lc cell.Lifecycle, cfg ClientConfig, log *slog.Logger) identity.Provider {
-	if !cfg.MutualAuthEnabled {
+func NewClient(params params, lc cell.Lifecycle, authCfg MutualAuthConfig, cfg ClientConfig, log *slog.Logger) identity.Provider {
+	if !authCfg.Enabled {
 		return &noopClient{}
 	}
 	client := &Client{
