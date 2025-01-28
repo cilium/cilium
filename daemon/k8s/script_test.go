@@ -6,7 +6,6 @@ package k8s
 import (
 	"context"
 	"maps"
-	"os"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -27,10 +26,12 @@ import (
 // run in parallel. If you need to update the expected files inside the txtar
 // files you can run 'go test . -scripttest.update' to update the files.
 func TestScript(t *testing.T) {
+	now := time.Now
 	time.Now = func() time.Time {
 		return time.Date(2000, 1, 1, 10, 30, 0, 0, time.UTC)
 	}
-	os.Setenv("TZ", "")
+	t.Cleanup(func() { time.Now = now })
+	t.Setenv("TZ", "")
 
 	log := hivetest.Logger(t)
 	scripttest.Test(t,
