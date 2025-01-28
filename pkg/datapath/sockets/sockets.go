@@ -115,8 +115,8 @@ func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
 
 func filterAndDestroyUDPSockets(family uint8, socketCB func(socket netlink.SocketID, err error)) error {
 	err := socketDiagUDPExecutor(family, func(m syscall.NetlinkMessage) error {
-		sockInfo := &socket{}
-		err := sockInfo.deserialize(m.Data)
+		sockInfo := &Socket{}
+		err := sockInfo.Deserialize(m.Data)
 		socketCB(sockInfo.ID, err)
 		return nil
 	})
@@ -126,7 +126,9 @@ func filterAndDestroyUDPSockets(family uint8, socketCB func(socket netlink.Socke
 	return nil
 }
 
-type socketRequest struct {
+// SocketRequest implements netlink.NetlinkRequestData to be used
+// to send socket requests to netlink.
+type SocketRequest struct {
 	Family   uint8
 	Protocol uint8
 	Ext      uint8
@@ -135,7 +137,7 @@ type socketRequest struct {
 	ID       netlink.SocketID
 }
 
-func (r socketRequest) Serialize() []byte {
+func (r SocketRequest) Serialize() []byte {
 	var bb bytes.Buffer
 
 	bb.Grow(sizeofSocketRequest)
@@ -160,7 +162,7 @@ func (r socketRequest) Serialize() []byte {
 	return bb.Bytes()
 }
 
-func (r *socketRequest) Len() int { return sizeofSocketRequest }
+func (r *SocketRequest) Len() int { return sizeofSocketRequest }
 
 func serializeAddr(bb *bytes.Buffer, family uint8, addr net.IP) {
 	if addr == nil {
@@ -179,9 +181,13 @@ func serializeAddr(bb *bytes.Buffer, family uint8, addr net.IP) {
 	}
 }
 
-type socket netlink.Socket
+// Socket is an alias of the netlink library Socket
+// type but it implements deserialization functions.
+type Socket netlink.Socket
 
-func (s *socket) deserialize(b []byte) error {
+// Deserialize accepts raw byte data of a netlink socket diag response
+// and deserializes it into the target socket.
+func (s *Socket) Deserialize(b []byte) error {
 	// early size check to guarantee safety of reads below
 	if len(b) < sizeofSocket {
 		return fmt.Errorf("socket data short read (%d); want %d", len(b), sizeofSocket)
@@ -222,7 +228,7 @@ func destroySocket(sockId netlink.SocketID, family uint8, protocol uint8) error 
 	defer s.Close()
 
 	req := nl.NewNetlinkRequest(SOCK_DESTROY, unix.NLM_F_REQUEST)
-	req.AddData(&socketRequest{
+	req.AddData(&SocketRequest{
 		Family:   family,
 		Protocol: protocol,
 		States:   uint32(0xfff),
@@ -243,7 +249,7 @@ func socketDiagUDPExecutor(family uint8, receiver func(message syscall.NetlinkMe
 	defer s.Close()
 
 	req := nl.NewNetlinkRequest(nl.SOCK_DIAG_BY_FAMILY, unix.NLM_F_DUMP)
-	req.AddData(&socketRequest{
+	req.AddData(&SocketRequest{
 		Family:   family,
 		Protocol: unix.IPPROTO_UDP,
 		States:   uint32(0xfff),

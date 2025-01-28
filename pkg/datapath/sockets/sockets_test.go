@@ -14,12 +14,12 @@ import (
 func TestSocketReqSerialize(t *testing.T) {
 	testCases := []struct {
 		name     string
-		req      socketRequest
+		req      SocketRequest
 		expected []byte
 	}{
 		{
 			name: "nil addresses",
-			req: socketRequest{
+			req: SocketRequest{
 				Family:   2,
 				Protocol: 6,
 				Ext:      0,
@@ -38,7 +38,7 @@ func TestSocketReqSerialize(t *testing.T) {
 		},
 		{
 			name: "non-nil addresses",
-			req: socketRequest{
+			req: SocketRequest{
 				Family:   2,
 				Protocol: 6,
 				Ext:      0,
@@ -67,12 +67,12 @@ func TestSocketDeserialize(t *testing.T) {
 	testCases := []struct {
 		name     string
 		buf      []byte
-		expected socket
+		expected Socket
 	}{
 		{
 			name: "default route addresses",
 			buf:  []byte{2, 7, 0, 0, 170, 213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 89, 101, 0, 0, 5, 0, 8, 0, 0, 0, 0, 0, 8, 0, 15, 0, 0, 0, 0, 0, 12, 0, 21, 0, 157, 14, 0, 0, 0, 0, 0, 0, 6, 0, 22, 0, 80, 0, 0, 0},
-			expected: socket{
+			expected: Socket{
 				Family:  2,
 				State:   7,
 				Timer:   0,
@@ -95,7 +95,7 @@ func TestSocketDeserialize(t *testing.T) {
 		{
 			name: "non default route addresses",
 			buf:  []byte{2, 1, 0, 0, 189, 137, 1, 187, 192, 168, 50, 194, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 151, 99, 52, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 3, 0, 0, 146, 138, 10, 0, 5, 0, 8, 0, 0, 0, 0, 0, 8, 0, 15, 0, 0, 0, 0, 0, 12, 0, 21, 0, 1, 42, 0, 0, 0, 0, 0, 0, 6, 0, 22, 0, 80, 0, 0, 0},
-			expected: socket{
+			expected: Socket{
 				Family:  2,
 				State:   1,
 				Timer:   0,
@@ -118,8 +118,8 @@ func TestSocketDeserialize(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var sock socket
-			err := sock.deserialize(tc.buf)
+			var sock Socket
+			err := sock.Deserialize(tc.buf)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, sock)
 		})
@@ -127,7 +127,7 @@ func TestSocketDeserialize(t *testing.T) {
 }
 
 func BenchmarkSocketReqSerialize(b *testing.B) {
-	requests := [...]socketRequest{
+	requests := [...]SocketRequest{
 		{
 			Family:   2,
 			Protocol: 6,
@@ -175,8 +175,8 @@ func BenchmarkSocketDeserialize(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, buf := range buffers {
-			var sock socket
-			sock.deserialize(buf)
+			var sock Socket
+			sock.Deserialize(buf)
 		}
 	}
 }
