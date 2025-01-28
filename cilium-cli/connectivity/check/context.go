@@ -941,7 +941,7 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, 
 		// resolvers from appending suffixes from the search list, while
 		// circumventing shenanigans associated with the host header including
 		// the trailing dot.
-		cmd = append(cmd, "-H", fmt.Sprintf("Host: %s", strings.TrimSuffix(host, ".")))
+		cmd = append(cmd, "-H", fmt.Sprintf("Host=%s", strings.TrimSuffix(host, ".")))
 	}
 
 	numTargets := 1

@@ -32,10 +32,10 @@ func clientEgressL7TlsHeadersTest(ct *check.ConnectivityTest, templates map[stri
 		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretBackendK8s)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
-		WithCiliumPolicy(yamlFile).                                   // L7 allow policy with TLS interception
+		WithCiliumPolicy(yamlFile). // L7 allow policy with TLS interception
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 		WithScenarios(tests.PodToWorldWithTLSIntercept(
-			"-H", "X-Very-Secret-Token: 42",
+			"-H", "X-Very-Secret-Token=42",
 			"--retry", "5",
 			"--retry-delay", "0",
 			"--retry-all-errors")).
@@ -54,11 +54,11 @@ func clientEgressL7ExtraTlsHeadersTest(ct *check.ConnectivityTest, templates map
 		WithFeatureRequirements(features.RequireEnabled(features.PolicySecretSync)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget). // Only one certificate for ExternalTarget
-		WithCiliumPolicy(yamlFile).                                        // L7 allow policy with TLS interception
-		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).      // DNS resolution only
+		WithCiliumPolicy(yamlFile). // L7 allow policy with TLS interception
+		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
 		WithScenarios(tests.PodToWorldWithExtraTLSIntercept(
 			"externaltarget-tls",
-			"-H", "X-Very-Secret-Token: 42",
+			"-H", "X-Very-Secret-Token=42",
 			"--retry", "5",
 			"--retry-delay", "0",
 			"--retry-all-errors")).

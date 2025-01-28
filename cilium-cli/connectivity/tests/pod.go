@@ -171,7 +171,7 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 			t.NewAction(s, epName, client, ep, ipFam).Run(func(a *check.Action) {
 				opts := make([]string, 0, len(curlOpts)+2)
 				opts = append(opts, curlOpts...)
-				opts = append(opts, "-H", "X-Very-Secret-Token: 42")
+				opts = append(opts, "-H", "X-Very-Secret-Token=42")
 
 				a.ExecInPod(ctx, ct.CurlCommand(ep, ipFam, opts...))
 
