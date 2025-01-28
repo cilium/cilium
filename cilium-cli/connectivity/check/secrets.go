@@ -56,7 +56,7 @@ func (t *Test) applySecrets(ctx context.Context) error {
 	// Register a finalizer with the Test immediately to enable cleanup.
 	t.finalizers = append(t.finalizers, func(ctx context.Context) error {
 		if err := t.deleteSecrets(ctx); err != nil {
-			t.CiliumLogs(ctx)
+			t.ContainerLogs(ctx)
 			return err
 		}
 

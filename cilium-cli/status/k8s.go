@@ -80,7 +80,7 @@ type k8sImplementation interface {
 	GetDeployment(ctx context.Context, namespace, name string, options metav1.GetOptions) (*appsv1.Deployment, error)
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
-	CiliumLogs(ctx context.Context, namespace, pod, container string, since time.Time, previous bool) (string, error)
+	ContainerLogs(ctx context.Context, namespace, pod, container string, since time.Time, previous bool) (string, error)
 }
 
 func NewK8sStatusCollector(client k8sImplementation, params K8sStatusParameters) (*K8sStatusCollector, error) {
@@ -447,7 +447,7 @@ func (k *K8sStatusCollector) logComponentTask(status *Status, namespace, deploym
 						if containerStatus.RestartCount > 0 {
 							getPrevious = true
 						}
-						logs, errLogCollection := k.client.CiliumLogs(ctx, namespace, podName, containerName, terminated.FinishedAt.Time.Add(-2*time.Minute), getPrevious)
+						logs, errLogCollection := k.client.ContainerLogs(ctx, namespace, podName, containerName, terminated.FinishedAt.Time.Add(-2*time.Minute), getPrevious)
 						if errLogCollection != nil {
 							status.CollectionError(fmt.Errorf("failed to gather logs from %s:%s:%s: %w", namespace, podName, containerName, err))
 						} else if logs != "" {
