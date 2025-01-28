@@ -42,6 +42,11 @@
   {{ fail "enableCnpStatusUpdates was deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
 {{- end }}
 
+{{/* validate single k8sServiceHost strategy */}}
+{{- if and (and .Values.k8sServiceHostRef.name .Values.k8sServiceHostRef.key) .Values.k8sServiceHost }}
+  {{- fail "Both k8sServiceHostRef and k8sServiceHost are set. Please set only one of them." }}
+{{- end }}
+
 {{/* validate hubble config */}}
 {{- if and .Values.hubble.ui.enabled (not .Values.hubble.ui.standalone.enabled) }}
   {{- if not .Values.hubble.relay.enabled }}
