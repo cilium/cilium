@@ -47,7 +47,7 @@ var Cell = cell.Module(
 	"spire-client",
 	"Spire Server API Client",
 	cell.Config(defaultMutualAuthConfig),
-	cell.Config(ClientConfig{}),
+	cell.Config(defaultClientConfig),
 	cell.Provide(NewClient),
 )
 
@@ -55,7 +55,7 @@ var FakeCellClient = cell.Module(
 	"fake-spire-client",
 	"Fake Spire Server API Client",
 	cell.Config(defaultMutualAuthConfig),
-	cell.Config(ClientConfig{}),
+	cell.Config(defaultClientConfig),
 	cell.Provide(NewFakeClient),
 )
 
@@ -83,23 +83,26 @@ type ClientConfig struct {
 	SpiffeTrustDomain            string        `mapstructure:"mesh-auth-spiffe-trust-domain"`
 }
 
+var defaultClientConfig = ClientConfig{
+	SpireAgentSocketPath:         "/run/spire/sockets/agent/agent.sock",
+	SpireServerAddress:           "spire-server.spire.svc:8081",
+	SpireServerConnectionTimeout: 10 * time.Second,
+	SpiffeTrustDomain:            "spiffe.cilium",
+}
+
 // Flags adds the flags used by ClientConfig.
 func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringVar(&cfg.SpireAgentSocketPath,
-		"mesh-auth-spire-agent-socket",
-		"/run/spire/sockets/agent/agent.sock",
+	flags.String("mesh-auth-spire-agent-socket",
+		cfg.SpireAgentSocketPath,
 		"The path for the SPIRE admin agent Unix socket.")
-	flags.StringVar(&cfg.SpireServerAddress,
-		"mesh-auth-spire-server-address",
-		"spire-server.spire.svc:8081",
+	flags.String("mesh-auth-spire-server-address",
+		cfg.SpireServerAddress,
 		"SPIRE server endpoint.")
-	flags.DurationVar(&cfg.SpireServerConnectionTimeout,
-		"mesh-auth-spire-server-connection-timeout",
-		10*time.Second,
+	flags.Duration("mesh-auth-spire-server-connection-timeout",
+		cfg.SpireServerConnectionTimeout,
 		"SPIRE server connection timeout.")
-	flags.StringVar(&cfg.SpiffeTrustDomain,
-		"mesh-auth-spiffe-trust-domain",
-		"spiffe.cilium",
+	flags.String("mesh-auth-spiffe-trust-domain",
+		cfg.SpiffeTrustDomain,
 		"The trust domain for the SPIFFE identity.")
 }
 
