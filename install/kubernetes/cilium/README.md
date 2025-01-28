@@ -685,6 +685,9 @@ contributors across the globe, there is almost always someone available to help.
 | k8sClientRateLimit.qps | int | 10 | The sustained request rate in requests per second. |
 | k8sNetworkPolicy.enabled | bool | `true` | Enable support for K8s NetworkPolicy |
 | k8sServiceHost | string | `""` | Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap |
+| k8sServiceHostRef | object | `{"key":null,"name":null}` | Configure the Kubernetes service endpoint dynamically using a ConfigMap. Mutually exclusive with `k8sServiceHost`. |
+| k8sServiceHostRef.key | string | `nil` | Key in the ConfigMap containing the Kubernetes service endpoint |
+| k8sServiceHostRef.name | string | `nil` | name of the ConfigMap containing the Kubernetes service endpoint |
 | k8sServiceLookupConfigMapName | string | `""` | When `k8sServiceHost=auto`, allows to customize the configMap name. It defaults to `cluster-info`. |
 | k8sServiceLookupNamespace | string | `""` | When `k8sServiceHost=auto`, allows to customize the namespace that contains `k8sServiceLookupConfigMapName`. It defaults to `kube-public`. |
 | k8sServicePort | string | `""` | Kubernetes service port |

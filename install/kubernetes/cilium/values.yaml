@@ -52,6 +52,18 @@ iptablesRandomFully: false
 # -- (string) Kubernetes config path
 # @default -- `"~/.kube/config"`
 kubeConfigPath: ""
+# -- Configure the Kubernetes service endpoint dynamically using a ConfigMap. Mutually exclusive with `k8sServiceHost`.
+k8sServiceHostRef:
+  # @schema
+  # type: [string, null]
+  # @schema
+  # -- (string) name of the ConfigMap containing the Kubernetes service endpoint
+  name:
+  # @schema
+  # type: [string, null] 
+  # @schema
+  # -- (string) Key in the ConfigMap containing the Kubernetes service endpoint
+  key:
 # -- (string) Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap
 k8sServiceHost: ""
 # @schema
