@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package troubleshoot
 
 import (
 	"context"
@@ -21,15 +21,11 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
-// TroubleshootCmd represents the troubleshoot command. Note that this command
+// Cmd represents the troubleshoot command. Note that this command
 // is additionally registered as a subcommand of the Cilium operator.
-var TroubleshootCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "troubleshoot",
 	Short: "Run troubleshooting utilities to check control-plane connectivity",
-}
-
-func init() {
-	RootCmd.AddCommand(TroubleshootCmd)
 }
 
 var _ kvstore.EtcdDbgDialer = (*troubleshootDialer)(nil)
