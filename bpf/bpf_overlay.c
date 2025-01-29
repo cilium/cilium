@@ -158,7 +158,6 @@ not_esp:
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-#ifdef CILIUM_NET_IFINDEX
 	if (1) {
 		union macaddr host_mac = CILIUM_HOST_MAC;
 		union macaddr router_mac = THIS_INTERFACE_MAC;
@@ -171,9 +170,6 @@ not_esp:
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
 	}
-#else
-	return CTX_ACT_OK;
-#endif
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_OVERLAY)
@@ -195,7 +191,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
-#ifdef CILIUM_NET_IFINDEX
 	if (1) {
 		union macaddr host_mac = CILIUM_HOST_MAC;
 		union macaddr router_mac = THIS_INTERFACE_MAC;
@@ -209,9 +204,6 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
 		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
 	}
-#else
-	return CTX_ACT_OK;
-#endif
 }
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)

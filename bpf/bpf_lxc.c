@@ -669,12 +669,9 @@ ct_recreate6:
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING)) {
-# ifdef CILIUM_NET_IFINDEX
+				if (is_defined(ENABLE_ROUTING))
 					goto to_host;
-# endif
-					return DROP_HOST_UNREACHABLE;
-				}
+
 				goto pass_to_stack;
 			}
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
@@ -1179,12 +1176,9 @@ ct_recreate4:
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING)) {
-# ifdef CILIUM_NET_IFINDEX
+				if (is_defined(ENABLE_ROUTING))
 					goto to_host;
-# endif
-					return DROP_HOST_UNREACHABLE;
-				}
+
 				goto pass_to_stack;
 			}
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
