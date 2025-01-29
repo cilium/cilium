@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -492,20 +493,37 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// Re-enable operator so that all endpoints are eventually updated
 			kubectl.SetCiliumOperatorReplicas(2)
 
-			// Due to IPCache update delays, it can take up to a few seconds
-			// before both nodes have added the new pod IPs to their allowedIPs
-			// list, which can cause flakes in CI. Therefore wait for the
-			// IPs to be present on both nodes before performing the test
-			waitForAllowedIP := func(ciliumPod, ip string) {
-				jsonpath := fmt.Sprintf(`{.encryption.wireguard.interfaces[*].peers[*].allowed-ips[?(@=='%s')]}`, ip)
+			// waitForAllowedIP checks that the provided pod IP is covered within
+			// the tracked allowedIPs. First, it retrieve the pod alloc CIDRs for
+			// the node, ensures that the pod IP is within this CIDR, and then
+			// waits until the CIDR appears on the allowedIP. Expect 1 exact
+			// CIDR since running with IPv6 disabled.
+			waitForAllowedIP := func(ciliumPod, node, ipStr string) {
+				cidrs, err := kubectl.GetPodCIDRsOnNodeByName(node)
+				Expect(err).To(BeNil(), "cannot retrieve CIDRs for node %q", node)
+				Expect(cidrs).To(HaveLen(1), "should have only 1 pod alloc CIDRs (IPv4) for node %q", node)
+
+				cidrInAllowedIPs := cidrs[0]
+				network := netip.MustParsePrefix(cidrInAllowedIPs)
+				ip := netip.MustParseAddr(ipStr)
+				Expect(network.Contains(ip)).To(BeTrue(), "pod IP %q not in alloc CIDRs %q", ip.String(), cidrInAllowedIPs)
+
+				jsonpath := fmt.Sprintf(`{.encryption.wireguard.interfaces[*].peers[*].allowed-ips[?(@=='%s')]}`, cidrInAllowedIPs)
 				ciliumCmd := fmt.Sprintf(`cilium-dbg debuginfo --output jsonpath="%s"`, jsonpath)
-				expected := fmt.Sprintf("jsonpath=%s", ip)
-				err := kubectl.CiliumExecUntilMatch(ciliumPod, ciliumCmd, expected)
-				Expect(err).To(BeNil(), "ip %q not in allowedIPs of pod %q", ip, ciliumPod)
+				expected := fmt.Sprintf("jsonpath=%s", cidrInAllowedIPs)
+				err = kubectl.CiliumExecUntilMatch(ciliumPod, ciliumCmd, expected)
+				Expect(err).To(BeNil(), "pod alloc CIDR %q not in allowedIPs of pod %q", cidrInAllowedIPs, ciliumPod)
+
+				// CIDRs might be inserted immediately, but there could be ongoing operations
+				// post re-enabling of the operator that prevent pod-to-pod connectivity.
+				time.Sleep(1 * time.Minute)
 			}
 
-			waitForAllowedIP(ciliumPodK8s1, fmt.Sprintf("%s/32", dstPodIP))
-			waitForAllowedIP(ciliumPodK8s2, fmt.Sprintf("%s/32", srcPodIP))
+			dstPodNodeName := k8s2NodeName
+			srcPodNodeName := k8s1NodeName
+
+			waitForAllowedIP(ciliumPodK8s1, dstPodNodeName, dstPodIP.String())
+			waitForAllowedIP(ciliumPodK8s2, srcPodNodeName, srcPodIP.String())
 
 			checkNoLeakP2P(srcPod, srcPodIP.String(), dstPodIP.String(), true)
 

@@ -993,6 +993,17 @@ func (kub *Kubectl) GetPodOnNodeLabeledWithOffset(label string, podFilter string
 	return podName, podIP
 }
 
+// GetPodCIDRsOnNodeByName retrieves the list of pod alloc CIDRs on a given node.
+func (kub *Kubectl) GetPodCIDRsOnNodeByName(node string) ([]string, error) {
+	jsonFilter := "{.spec.ipam.podCIDRs}"
+	res := kub.Exec(fmt.Sprintf("%s -n %s get cn %s -o jsonpath='%s'", KubectlCmd, KubeSystemNamespace, node, jsonFilter))
+	if !res.WasSuccessful() {
+		return nil, res.GetError()
+	}
+	podCIDRsList := []string{}
+	return podCIDRsList, res.Unmarshal(&podCIDRsList)
+}
+
 // GetSvcIP returns the cluster IP for the given service. If the service
 // does not contain a cluster IP, the function keeps retrying until it has or
 // the context timesout.
