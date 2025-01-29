@@ -758,7 +758,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, int off,
 			__be16 identifier = 0;
 
 			err = ipv4_load_l4_ports_for_icmp(ctx, off, CT_INGRESS,
-				&type, &code, &identifier, true);
+							  &type, &code, &identifier, true);
 			if (err < 0)
 				return err;
 
