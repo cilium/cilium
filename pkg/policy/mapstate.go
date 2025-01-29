@@ -29,12 +29,9 @@ import (
 type Key = types.Key
 type Keys = types.Keys
 type MapStateEntry = types.MapStateEntry
+type MapStateMap = types.MapStateMap
 
 const NoAuthRequirement = types.NoAuthRequirement
-
-// Map type for external use. Internally we have more detail in private 'mapStateEntry' type,
-// as well as more extensive indexing via tries.
-type MapStateMap map[Key]MapStateEntry
 
 type mapStateMap map[Key]mapStateEntry
 
@@ -494,29 +491,6 @@ func (msA *mapState) Equal(msB *mapState) bool {
 		vB, ok := msB.get(kA)
 		return ok && (&vB).Equal(&vA)
 	})
-}
-
-// Diff returns the string of differences between 'obtained' and 'expected' prefixed with
-// '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
-// For use in debugging from other packages.
-func (obtained MapStateMap) Diff(expected MapStateMap) (res string) {
-	res += "Missing (-), Unexpected (+):\n"
-	for kE, vE := range expected {
-		if vO, ok := obtained[kE]; ok {
-			if vO != vE {
-				res += "- " + kE.String() + ": " + vE.String() + "\n"
-				res += "+ " + kE.String() + ": " + vO.String() + "\n"
-			}
-		} else {
-			res += "- " + kE.String() + ": " + vE.String() + "\n"
-		}
-	}
-	for kO, vO := range obtained {
-		if _, ok := expected[kO]; !ok {
-			res += "+ " + kO.String() + ": " + vO.String() + "\n"
-		}
-	}
-	return res
 }
 
 // Diff returns the string of differences between 'obtained' and 'expected' prefixed with
