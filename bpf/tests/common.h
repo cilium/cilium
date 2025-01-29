@@ -129,23 +129,6 @@ struct {
 	}								\
 })
 
-#ifdef TEST_DEBUG
-#define test_pdebug(a_level, fmt)							\
-	if (a_level <= s_debug_level) {							\
-		test_log("[" __FILE__ ":" LINE_STRING "] " fmt);	\
-	}
-
-#define test_pdebug_args(a_level, fmt, args...)				\
-	if (a_level <= s_debug_level) {							\
-		test_log("[" __FILE__ ":" LINE_STRING "] " fmt,		\
-			args											\
-		);													\
-	}
-#else
-#define test_pdebug(a_level, fmt)
-#define test_pdebug_args(a_level, fmt, args...)
-#endif
-
 /* This is a hack to allow us to convert the integer produced by __LINE__ */
 /* to a string so we can concat it at compile time. */
 #define STRINGIZE(x) STRINGIZE2(x)
