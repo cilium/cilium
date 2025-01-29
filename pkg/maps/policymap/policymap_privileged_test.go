@@ -46,7 +46,9 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 	testMap := setupPolicyMapPrivilegedTestSuite(t)
 
 	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
-	err := testMap.AllowKey(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
+	entry := newAllowEntry(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
+	//err := testMap.AllowKey(fooKey, 42, policyTypes.AuthTypeSpire.AsDerivedRequirement(), 0)
+	err := testMap.Update(&fooKey, &entry)
 	require.NoError(t, err)
 
 	dump, err := testMap.DumpToSlice()
@@ -60,8 +62,9 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 	require.Equal(t, policyTypes.ProxyPortPriority(42), dump[0].PolicyEntry.ProxyPortPriority)
 
 	// Special case: allow-all entry
-	barEntry := NewKey(0, 0, 0, 0, 0)
-	err = testMap.AllowKey(barEntry, 0, policyTypes.AuthRequirement(0), 0)
+	barKey := NewKey(0, 0, 0, 0, 0)
+	barEntry := newAllowEntry(barKey, 0, policyTypes.AuthRequirement(0), 0)
+	err = testMap.Update(&barKey, &barEntry)
 	require.NoError(t, err)
 
 	dump, err = testMap.DumpToSlice()
@@ -84,7 +87,7 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 
 	fooKey := NewKey(1, 1, 1, 1, SinglePortPrefixLen)
 	fooEntry := newDenyEntry(fooKey)
-	err := testMap.DenyKey(fooKey)
+	err := testMap.Update(&fooKey, &fooEntry)
 	require.NoError(t, err)
 
 	dump, err := testMap.DumpToSlice()
@@ -96,7 +99,8 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 
 	// Special case: deny-all entry
 	barKey := NewKey(0, 0, 0, 0, 0)
-	err = testMap.DenyKey(barKey)
+	barEntry := newDenyEntry(barKey)
+	err = testMap.Update(&barKey, &barEntry)
 	require.NoError(t, err)
 
 	dump, err = testMap.DumpToSlice()
