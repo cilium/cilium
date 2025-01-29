@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -330,9 +331,7 @@ func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
 	for _, p := range dev.Peers {
 		if pc, ok := pubKeyToPeerConfig[p.PublicKey]; ok {
 			for _, ip := range p.AllowedIPs {
-				if !pc.hasAllowedIP(ip) {
-					pc.queueAllowedIPsRemove(ip)
-				}
+				pc.queueRestoredIPRemove(ip)
 			}
 
 			log.WithFields(logrus.Fields{
@@ -403,21 +402,23 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		peer = &peerConfig{}
 
 		if a.needIPCacheEvents {
-			peer.queueAllowedIPsInsert(a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6)...)
+			for _, ip := range a.ipCache.LookupByHostRLocked(nodeIPv4, nodeIPv6) {
+				peer.queueAllowedIPInsert(ip)
+			}
 		}
 	}
 
 	// Handle Node IP change
 	if peer.nodeIPv4 != nil && !peer.nodeIPv4.Equal(nodeIPv4) {
 		delete(a.nodeNameByNodeIP, peer.nodeIPv4.String())
-		peer.queueAllowedIPsRemove(net.IPNet{
+		peer.queueAllowedIPRemove(net.IPNet{
 			IP:   peer.nodeIPv4,
 			Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
 		})
 	}
 	if peer.nodeIPv6 != nil && !peer.nodeIPv6.Equal(nodeIPv6) {
 		delete(a.nodeNameByNodeIP, peer.nodeIPv6.String())
-		peer.queueAllowedIPsRemove(net.IPNet{
+		peer.queueAllowedIPRemove(net.IPNet{
 			IP:   peer.nodeIPv6,
 			Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
 		})
@@ -428,18 +429,14 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 			IP:   nodeIPv4,
 			Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
 		}
-		if !peer.hasAllowedIP(ipn) {
-			peer.queueAllowedIPsInsert(ipn)
-		}
+		peer.queueAllowedIPInsert(ipn)
 	}
 	if option.Config.EnableIPv6 && nodeIPv6 != nil {
 		ipn := net.IPNet{
 			IP:   nodeIPv6,
 			Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
 		}
-		if !peer.hasAllowedIP(ipn) {
-			peer.queueAllowedIPsInsert(ipn)
-		}
+		peer.queueAllowedIPInsert(ipn)
 	}
 
 	ep := ""
@@ -672,8 +669,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	case modType == ipcache.Delete && oldHostIP != nil:
 		if nodeName, ok := a.nodeNameByNodeIP[oldHostIP.String()]; ok {
 			if peer := a.peerByNodeName[nodeName]; peer != nil {
-				if peer.hasAllowedIP(ipnet) {
-					peer.queueAllowedIPsRemove(ipnet)
+				if peer.queueAllowedIPRemove(ipnet) {
 					updatedPeer = peer
 				}
 			}
@@ -681,8 +677,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	case modType == ipcache.Upsert && newHostIP != nil:
 		if nodeName, ok := a.nodeNameByNodeIP[newHostIP.String()]; ok {
 			if peer := a.peerByNodeName[nodeName]; peer != nil {
-				if !peer.hasAllowedIP(ipnet) {
-					peer.queueAllowedIPsInsert(ipnet)
+				if peer.queueAllowedIPInsert(ipnet) {
 					updatedPeer = peer
 				}
 			}
@@ -771,14 +766,14 @@ type peerConfig struct {
 	pubKey             wgtypes.Key
 	endpoint           *net.UDPAddr
 	nodeIPv4, nodeIPv6 net.IP
-	allowedIPs         map[netip.Prefix]net.IPNet
+	allowedIPs         *bitlpm.CIDRTrie[struct{}]
 	needsInsert        map[netip.Prefix]net.IPNet
 	needsRemove        map[netip.Prefix]net.IPNet
 }
 
 func (p *peerConfig) lazyInitMaps() {
 	if p.allowedIPs == nil {
-		p.allowedIPs = map[netip.Prefix]net.IPNet{}
+		p.allowedIPs = bitlpm.NewCIDRTrie[struct{}]()
 	}
 
 	if p.needsInsert == nil {
@@ -790,37 +785,130 @@ func (p *peerConfig) lazyInitMaps() {
 	}
 }
 
-// queueAllowedIPsInsert adds ip to the list of IPs that need to be inserted
-// during the next update to this peer. The update is queued regardless of the
-// current state of p.allowedIPs, so callers should use hasAllowedIP to
-// avoid unnecessary updates.
-func (p *peerConfig) queueAllowedIPsInsert(ips ...net.IPNet) {
-	p.lazyInitMaps()
+// getUncoveredIPs returns the minimal set of tracked IPs that would
+// not be covered anymore upon removal of the given IP.
+// Ex.: removing 192.168.1.1/24 from the trie below returns [192.168.1.1/31, 192.168.1.2/31].
+//
+//	                      *
+//	                   /     \
+//	         192.168.1.1/24   192.168.2.1/24
+//	            /      \
+//	  192.168.1.1/31   192.168.1.2/31
+//	        /
+//	192.168.1.1/32
+func (p *peerConfig) getUncoveredIPs(pfx netip.Prefix) []netip.Prefix {
+	ret := []netip.Prefix{}
 
-	for _, ip := range ips {
-		pfx := ipnetToPrefix(ip)
-		p.needsInsert[pfx] = ip
-		delete(p.needsRemove, pfx)
+	// Skip if single IP as there cannot be uncovered children.
+	if pfx.IsSingleIP() {
+		return ret
 	}
+
+	var prev netip.Prefix
+	it := p.allowedIPs.DescendantIterator(pfx)
+	for ok, k, _ := it.Next(); ok; ok, k, _ = it.Next() {
+		pfxChild := netip.Prefix(k)
+		// Add new visited child.
+		if pfxChild != pfx && !prev.Contains(pfxChild.Addr()) {
+			ret = append(ret, pfxChild)
+			prev = pfxChild
+		}
+	}
+
+	return ret
 }
 
-// queueAllowedIPsRemove adds ip to the list of IPs that need to be removed
-// during the next update to this peer. The update is queued regardless of the
-// current state of p.allowedIPs, so callers should use hasAllowedIP to
-// avoid unnecessary updates.
-func (p *peerConfig) queueAllowedIPsRemove(ips ...net.IPNet) {
+// queueAllowedIPInsert tracks the ip from the peerConfig and returns true
+// in case the ip is also queued for insertion during the next round of updates.
+// The IP is enqueued if it was not tracked and has no ancestor that contains it.
+// When the IP is enqueued, the method verifies and adds to the removal queue
+// all the tracked IPs that would be covered by the given one upon insertion.
+func (p *peerConfig) queueAllowedIPInsert(ip net.IPNet) bool {
 	p.lazyInitMaps()
 
-	for _, ip := range ips {
-		pfx := ipnetToPrefix(ip)
+	pfx := ipnetToPrefix(ip)
+
+	// Skip if no new key has been created.
+	if !p.allowedIPs.Upsert(pfx, struct{}{}) {
+		return false
+	}
+
+	// Skip if there is already an ancestor tracked.
+	if p.hasGreaterPrefix(pfx) {
+		return false
+	}
+
+	p.needsInsert[pfx] = ip
+	delete(p.needsRemove, pfx)
+
+	// Untrack addresses already covered by this prefix.
+	for _, pfxChild := range p.getUncoveredIPs(pfx) {
+		if _, ok := p.needsInsert[pfxChild]; ok {
+			delete(p.needsInsert, pfxChild)
+		} else {
+			p.needsRemove[pfxChild] = *netipx.PrefixIPNet(pfxChild)
+		}
+	}
+
+	return true
+}
+
+// queueRestoredIPRemove adds ip to the list of IPs that need to be removed
+// during the next update to this peer in case it is not tracked in the config.
+// This method must be called during RestoreFinished, to make sure that all
+// restored IPs that are not tracked anymore are also removed from the device.
+func (p *peerConfig) queueRestoredIPRemove(ip net.IPNet) bool {
+	p.lazyInitMaps()
+
+	pfx := ipnetToPrefix(ip)
+	_, exists := p.allowedIPs.ExactLookup(pfx)
+	if !exists || p.hasGreaterPrefix(pfx) {
+		// Prefix not found or has a greater CIDR, delete from kernel allowedIP.
 		p.needsRemove[pfx] = ip
 		delete(p.needsInsert, pfx)
+		return true
 	}
+
+	return false
+}
+
+// queueAllowedIPRemove untracks the ip from the peerConfig and returns true
+// in case the ip is also queued for removal during the next round of updates.
+// The IP is enqueued if it was tracked and has no ancestor that contains it.
+// When the IP is enqueued, the method verifies and adds to the insert queue
+// all the tracked IPs that would not be covered by the given one upon removal.
+func (p *peerConfig) queueAllowedIPRemove(ip net.IPNet) bool {
+	p.lazyInitMaps()
+
+	pfx := ipnetToPrefix(ip)
+
+	// Skip if prefix is not tracked.
+	if !p.allowedIPs.Delete(pfx) {
+		return false
+	}
+
+	// Skip if there is already an ancestor tracked.
+	if p.hasGreaterPrefix(pfx) {
+		return false
+	}
+
+	p.needsRemove[pfx] = ip
+	delete(p.needsInsert, pfx)
+
+	// Track back uncovered addresses after the removal.
+	for _, pfxChild := range p.getUncoveredIPs(pfx) {
+		if _, ok := p.needsRemove[pfxChild]; ok {
+			delete(p.needsRemove, pfxChild)
+		} else {
+			p.needsInsert[pfxChild] = *netipx.PrefixIPNet(pfxChild)
+		}
+	}
+
+	return true
 }
 
 // queuedAllowedIPUpdates returns the set of allowed IP insertions and removals
-// that are currently pending. If enableAllowedIPRemovals has not yet been
-// called, this method will not return any removals.
+// that are currently pending.
 func (p *peerConfig) queuedAllowedIPUpdates() (insert []net.IPNet, remove []net.IPNet) {
 	for _, ip := range p.needsInsert {
 		insert = append(insert, ip)
@@ -833,11 +921,17 @@ func (p *peerConfig) queuedAllowedIPUpdates() (insert []net.IPNet, remove []net.
 	return
 }
 
-// hasAllowedIP returns true if ip has been synced to this peer on the device.
-func (p *peerConfig) hasAllowedIP(ip net.IPNet) bool {
-	_, exists := p.allowedIPs[ipnetToPrefix(ip)]
-
-	return exists
+// hasGreaterPrefix returns true if a more general prefix than the
+// provided one is tracked in the peerConfig.
+func (p *peerConfig) hasGreaterPrefix(pfx netip.Prefix) bool {
+	it := p.allowedIPs.AncestorIterator(pfx)
+	for ok, k, _ := it.Next(); ok; ok, k, _ = it.Next() {
+		pfxAncestor := netip.Prefix(k)
+		if pfxAncestor != pfx {
+			return true
+		}
+	}
+	return false
 }
 
 // finishAllowedIPSync signals that any queued updates for the given ips have
@@ -846,15 +940,8 @@ func (p *peerConfig) hasAllowedIP(ip net.IPNet) bool {
 func (p *peerConfig) finishAllowedIPSync(ips []net.IPNet) {
 	for _, ip := range ips {
 		pfx := ipnetToPrefix(ip)
-		if aip, exists := p.needsInsert[pfx]; exists {
-			p.allowedIPs[pfx] = aip
-			delete(p.needsInsert, pfx)
-		}
-
-		if _, exists := p.needsRemove[pfx]; exists {
-			delete(p.allowedIPs, pfx)
-			delete(p.needsRemove, pfx)
-		}
+		delete(p.needsInsert, pfx)
+		delete(p.needsRemove, pfx)
 	}
 
 	if len(p.needsInsert) == 0 {
