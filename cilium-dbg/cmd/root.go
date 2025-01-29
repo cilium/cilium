@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/components"
@@ -55,6 +56,7 @@ func init() {
 	vp.BindPFlags(flags)
 	RootCmd.AddCommand(cmdref.NewCmd(RootCmd))
 	RootCmd.AddCommand(newCmdCompletion(os.Stdout))
+	RootCmd.AddCommand(troubleshoot.Cmd)
 	RootCmd.SetOut(os.Stdout)
 	RootCmd.SetErr(os.Stderr)
 }
