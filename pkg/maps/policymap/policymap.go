@@ -337,6 +337,24 @@ func NewKey(trafficDirection trafficdirection.TrafficDirection, id identity.Nume
 	}
 }
 
+// NewKeyFromPolicyKey converts a policy MapState key to a bpf PolicyMap key.
+func NewKeyFromPolicyKey(pk policyTypes.Key) PolicyKey {
+	prefixLen := StaticPrefixBits
+	if pk.Nexthdr != 0 || pk.DestPort != 0 {
+		prefixLen += NexthdrBits
+		if pk.DestPort != 0 {
+			prefixLen += uint32(pk.PortPrefixLen())
+		}
+	}
+	return PolicyKey{
+		Prefixlen:        prefixLen,
+		Identity:         uint32(pk.Identity),
+		TrafficDirection: uint8(pk.TrafficDirection()),
+		Nexthdr:          uint8(pk.Nexthdr),
+		DestPortNetwork:  byteorder.HostToNetwork16(pk.DestPort),
+	}
+}
+
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
 func newEntry(proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16, flags policyEntryFlags) PolicyEntry {
@@ -348,55 +366,25 @@ func newEntry(proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTyp
 	}
 }
 
-// newAllowEntry returns an allow PolicyEntry for the specified parameters in
-// network byte-order.
-// This is separated out to be used in unit testing.
-func newAllowEntry(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) PolicyEntry {
+// NewEntryFromPolicyEntry converts a policy MapState entry to a PolicyMap entry.
+func NewEntryFromPolicyEntry(key PolicyKey, pe policyTypes.MapStateEntry) PolicyEntry {
 	pef := getPolicyEntryFlags(policyEntryFlagParams{
+		IsDeny:    pe.IsDeny(),
 		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
 	})
-	return newEntry(proxyPortPriority, authReq, proxyPort, pef)
-}
 
-// newDenyEntry returns a deny PolicyEntry for the specified parameters in
-// network byte-order.
-// This is separated out to be used in unit testing.
-func newDenyEntry(key PolicyKey) PolicyEntry {
-	pef := getPolicyEntryFlags(policyEntryFlagParams{
-		IsDeny:    true,
-		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
-	})
-	return newEntry(0, 0, 0, pef)
-}
-
-// AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
-// Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) error {
-	entry := newAllowEntry(key, proxyPortPriority, authReq, proxyPort)
-	return pm.Update(&key, &entry)
-}
-
-// Allow pushes an entry into the PolicyMap to allow traffic in the given
-// `trafficDirection` for identity `id` with destination port `dport` over
-// protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
-func (pm *PolicyMap) Allow(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) error {
-	key := NewKey(trafficDirection, id, proto, dport, portPrefixLen)
-	return pm.AllowKey(key, proxyPortPriority, authReq, proxyPort)
-}
-
-// DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.
-// Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) DenyKey(key PolicyKey) error {
-	entry := newDenyEntry(key)
-	return pm.Update(&key, &entry)
-}
-
-// Deny pushes an entry into the PolicyMap to deny traffic in the given
-// `trafficDirection` for identity `id` with destination port `dport` over
-// protocol `proto`. It is assumed that `dport` is in host byte-order.
-func (pm *PolicyMap) Deny(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8) error {
-	key := NewKey(trafficDirection, id, proto, dport, portPrefixLen)
-	return pm.DenyKey(key)
+	if pe.IsDeny() {
+		return PolicyEntry{
+			Flags: pef,
+		}
+	} else {
+		return PolicyEntry{
+			ProxyPortNetwork:  byteorder.HostToNetwork16(pe.ProxyPort),
+			Flags:             pef,
+			AuthRequirement:   pe.AuthRequirement,
+			ProxyPortPriority: pe.ProxyPortPriority,
+		}
+	}
 }
 
 // Exists determines whether PolicyMap currently contains an entry that
@@ -459,6 +447,35 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	err := pm.DumpWithCallback(cb)
 
 	return entries, err
+}
+
+func (pm *PolicyMap) DumpToMapStateMap() (policyTypes.MapStateMap, error) {
+	out := make(policyTypes.MapStateMap)
+
+	cb := func(bpfKey bpf.MapKey, bpfVal bpf.MapValue) {
+		key := bpfKey.(*PolicyKey)
+		val := bpfVal.(*PolicyEntry)
+
+		// Convert from policymap.Key to policy.Key
+		policyKey := policyTypes.KeyForDirection(trafficdirection.TrafficDirection(key.TrafficDirection)).
+			WithIdentity(identity.NumericIdentity(key.Identity)).
+			WithPortProtoPrefix(u8proto.U8proto(key.Nexthdr), key.GetDestPort(), key.GetPortPrefixLen())
+
+		// Convert from policymap.PolicyEntry to policyTypes.MapStateEntry.
+		policyVal := policyTypes.MapStateEntry{
+			ProxyPortPriority: val.ProxyPortPriority,
+			ProxyPort:         val.GetProxyPort(),
+			AuthRequirement:   val.AuthRequirement,
+		}.WithDeny(val.IsDeny())
+		// if policymapEntry has invalid prefix length, force update by storing as an
+		// invalid MapStateEntry
+		if !val.IsValid(key) {
+			policyVal.Invalid = true
+		}
+		out[policyKey] = policyVal
+	}
+	err := pm.DumpWithCallback(cb)
+	return out, err
 }
 
 func (v *PolicyEntry) IsValid(k *PolicyKey) bool {

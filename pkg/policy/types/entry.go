@@ -34,6 +34,8 @@ type MapStateEntry struct {
 	AuthRequirement AuthRequirement
 }
 
+type MapStateMap map[Key]MapStateEntry
+
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
 	var authText string
@@ -145,4 +147,27 @@ func (e *MapStateEntry) Merge(entry MapStateEntry) {
 			e.AuthRequirement = entry.AuthRequirement
 		}
 	}
+}
+
+// Diff returns the string of differences between 'obtained' and 'expected' prefixed with
+// '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
+// For use in debugging from other packages.
+func (obtained MapStateMap) Diff(expected MapStateMap) (res string) {
+	res += "Missing (-), Unexpected (+):\n"
+	for kE, vE := range expected {
+		if vO, ok := obtained[kE]; ok {
+			if vO != vE {
+				res += "- " + kE.String() + ": " + vE.String() + "\n"
+				res += "+ " + kE.String() + ": " + vO.String() + "\n"
+			}
+		} else {
+			res += "- " + kE.String() + ": " + vE.String() + "\n"
+		}
+	}
+	for kO, vO := range obtained {
+		if _, ok := expected[kO]; !ok {
+			res += "+ " + kO.String() + ": " + vO.String() + "\n"
+		}
+	}
+	return res
 }

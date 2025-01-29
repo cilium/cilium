@@ -4,6 +4,7 @@
 package policymap
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,6 +15,27 @@ import (
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+// newAllowEntry returns an allow PolicyEntry for the specified parameters in
+// network byte-order.
+// This is separated out to be used in unit testing.
+func newAllowEntry(key PolicyKey, proxyPortPriority policyTypes.ProxyPortPriority, authReq policyTypes.AuthRequirement, proxyPort uint16) PolicyEntry {
+	pef := getPolicyEntryFlags(policyEntryFlagParams{
+		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
+	})
+	return newEntry(proxyPortPriority, authReq, proxyPort, pef)
+}
+
+// newDenyEntry returns a deny PolicyEntry for the specified parameters in
+// network byte-order.
+// This is separated out to be used in unit testing.
+func newDenyEntry(key PolicyKey) PolicyEntry {
+	pef := getPolicyEntryFlags(policyEntryFlagParams{
+		IsDeny:    true,
+		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
+	})
+	return newEntry(0, 0, 0, pef)
+}
 
 func TestPolicyEntriesDump_Less(t *testing.T) {
 	type args struct {
@@ -405,5 +427,69 @@ func TestPortProtoString(t *testing.T) {
 	for _, tt := range tests {
 		got := tt.args.key.PortProtoString()
 		require.Equal(t, tt.want, got, "Test Name: %s", tt.name)
+	}
+}
+
+func TestNewEntryFromPolicyEntry(t *testing.T) {
+	tc := []struct {
+		key  policyTypes.Key
+		in   policyTypes.MapStateEntry
+		want PolicyEntry
+	}{
+		// deny all
+		{
+			key: policyTypes.IngressKey(),
+			in:  policyTypes.DenyEntry(),
+			want: PolicyEntry{
+				Flags: getPolicyEntryFlags(policyEntryFlagParams{
+					IsDeny: true,
+				}),
+			},
+		},
+
+		{
+			key: policyTypes.EgressKey(),
+			in:  policyTypes.DenyEntry(),
+			want: PolicyEntry{
+				Flags: getPolicyEntryFlags(policyEntryFlagParams{
+					IsDeny: true,
+				}),
+			},
+		},
+
+		// Proxy tcp 80 to proxy port 1337
+		{
+			key: policyTypes.EgressKey().WithTCPPort(80).WithIdentity(1234),
+			in:  policyTypes.AllowEntry().WithProxyPort(1337).WithProxyPriority(42),
+			want: PolicyEntry{
+				Flags: getPolicyEntryFlags(policyEntryFlagParams{
+					IsDeny:    false,
+					PrefixLen: 24,
+				}),
+				ProxyPortNetwork:  byteorder.HostToNetwork16(1337),
+				ProxyPortPriority: 255 - 42, //prio is inverted
+			},
+		},
+
+		// proxy ports 4-7
+		{
+			key: policyTypes.EgressKey().WithTCPPortPrefix(4, 14).WithIdentity(1234),
+			in:  policyTypes.AllowEntry().WithProxyPort(1337).WithProxyPriority(42),
+			want: PolicyEntry{
+				Flags: getPolicyEntryFlags(policyEntryFlagParams{
+					IsDeny:    false,
+					PrefixLen: 22,
+				}),
+				ProxyPortNetwork:  byteorder.HostToNetwork16(1337),
+				ProxyPortPriority: 255 - 42, //prio is inverted
+			},
+		},
+	}
+
+	for i, tt := range tc {
+		t.Run(fmt.Sprintf("case-%d", i), func(t *testing.T) {
+			key := NewKeyFromPolicyKey(tt.key)
+			require.Equal(t, tt.want, NewEntryFromPolicyEntry(key, tt.in))
+		})
 	}
 }
