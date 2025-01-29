@@ -161,7 +161,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 
 	switch (ip4->protocol) {
 		case IPPROTO_ICMP: {
-			// load identifier from ICMP header
+			/* load identifier from ICMP header */
 			__u8 type = 0;
 			__u8 code = 0;
 			__be16 identifier = 0;
@@ -175,9 +175,8 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 				goto fail;
 			}
 			if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
-				ctx_load_bytes(ctx, l4_off + offsetof(struct icmphdr, un.echo.id),
-					&identifier, 2) < 0)
-			{
+			    ctx_load_bytes(ctx, l4_off + offsetof(struct icmphdr, un.echo.id),
+					   &identifier, 2) < 0) {
 				ret = DROP_CT_INVALID_HDR;
 				goto fail;
 			}
@@ -187,7 +186,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 		}
 
 		default: {
-			// load sport + dport into tuple
+			/* load sport + dport into tuple */
 			ret = l4_load_ports(ctx, l4_off, (__be16 *)ports);
 			if (ret < 0) {
 				ret = DROP_CT_INVALID_HDR;
@@ -219,7 +218,8 @@ fail:
 
 static __always_inline int
 ipv4_load_l4_ports_for_icmp(struct __ctx_buff *ctx, int l4_off, enum ct_dir ct_dir __maybe_unused,
-	__u8 *type_out, __u8 *code_out, __be16 *identifier_out, bool create_frag_record)
+			    __u8 *type_out, __u8 *code_out, __be16 *identifier_out,
+				bool create_frag_record)
 {
 	int ret = 0;
 	__u8 type = 0;
@@ -249,7 +249,7 @@ ipv4_load_l4_ports_for_icmp(struct __ctx_buff *ctx, int l4_off, enum ct_dir ct_d
 	has_l4_header = ipv4_has_l4_header(ip4);
 
 #ifdef ENABLE_IPV4_FRAGMENTS
-	// fill the key
+	/* fill the key */
 	frag_id.daddr = ip4->daddr;
 	frag_id.saddr = ip4->saddr;
 	frag_id.id = ip4->id;
@@ -258,7 +258,7 @@ ipv4_load_l4_ports_for_icmp(struct __ctx_buff *ctx, int l4_off, enum ct_dir ct_d
 #endif
 
 	if (has_l4_header) {
-		// load identifier from ICMP header
+		/* load identifier from ICMP header */
 		if (ctx_load_bytes(ctx, l4_off, &type, 1) < 0) {
 			ret = DROP_CT_INVALID_HDR;
 			goto fail;
@@ -268,33 +268,32 @@ ipv4_load_l4_ports_for_icmp(struct __ctx_buff *ctx, int l4_off, enum ct_dir ct_d
 			goto fail;
 		}
 		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
-			 ctx_load_bytes(ctx, l4_off + offsetof(struct icmphdr, un.echo.id),
-					&identifier, 2) < 0)
-		{
+		    ctx_load_bytes(ctx, l4_off + offsetof(struct icmphdr, un.echo.id),
+				   &identifier, 2) < 0) {
 			ret = DROP_CT_INVALID_HDR;
 			goto fail;
 		}
 
 		if (is_fragment && create_frag_record) {
-			// "more fragments" flag is set,
-			// it's fragmented ICMP, store header info to the map
+			/* "more fragments" flag is set, */
+			/* it's fragmented ICMP, store header info to the map */
 			ports.sport = (__be16)((type << 8) | code);
 			ports.dport = identifier;
 
 #ifdef ENABLE_IPV4_FRAGMENTS
-			// First logical fragment for this datagram (not necessarily the first
-			// we receive). Fragment has L4 header, create an entry in datagrams map.
+			/* First logical fragment for this datagram (not necessarily the first */
+			/* we receive). Fragment has L4 header, create an entry in datagrams map. */
 			if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, &frag_id, &ports, BPF_ANY))
 				update_metrics(ctx_full_len(ctx), mdir, REASON_FRAG_PACKET_UPDATE);
 
-			// Do not return an error if map update failed, as nothing prevents us
-			// to process the current packet normally.
+			/* Do not return an error if map update failed, as nothing prevents us */
+			/* to process the current packet normally. */
 #endif
 		}
 	}
 #ifdef ENABLE_IPV4_FRAGMENTS
-	else {
-		// it should be a fragmented packet
+	if (!has_l4_header) {
+		/* it should be a fragmented packet */
 		is_fragment = ipv4_is_not_first_fragment(ip4);
 		if (!is_fragment) {
 			ret = DROP_CT_INVALID_HDR;
@@ -303,11 +302,10 @@ ipv4_load_l4_ports_for_icmp(struct __ctx_buff *ctx, int l4_off, enum ct_dir ct_d
 
 		update_metrics(ctx_full_len(ctx), mdir, REASON_FRAG_PACKET);
 
-		// load identifier from frag map
+		/* load identifier from frag map */
 		ret = ipv4_frag_get_l4ports(&frag_id, &ports);
-		if (0 > ret) {
+		if (ret < 0)
 			goto out;
-		}
 
 		type = (ports.sport & 0xff00) >> 8;
 		code = (ports.sport & 0x00ff);
