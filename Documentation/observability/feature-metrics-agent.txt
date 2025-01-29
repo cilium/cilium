@@ -308,14 +308,9 @@
     -
   * - ``config``
     - ``mode``
-    - ``"lb-only"``
+    - ``"netkit"``
     - Datapath config mode enabled on the agent
     - gauge
-  * -
-    -
-    - ``"netkit"``
-    -
-    -
   * -
     -
     - ``"netkit-l2"``
