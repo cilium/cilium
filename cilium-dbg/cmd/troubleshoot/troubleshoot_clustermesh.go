@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package troubleshoot
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -28,6 +29,9 @@ var troubleshootClusterMeshCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clustermesh [clusters...]",
 		Short: "Troubleshoot connectivity towards remote clusters",
+		PreRun: func(cmd *cobra.Command, args []string) {
+			initConfig()
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			local := getLocalClusterName(cmd.ErrOrStderr())
 			TroubleshootClusterMesh(
@@ -41,12 +45,28 @@ var troubleshootClusterMeshCmd = func() *cobra.Command {
 	flags.StringVar(&cfg, "clustermesh-config", "/var/lib/cilium/clustermesh/", "Path to the ClusterMesh configuration directory")
 	flags.DurationVar(&timeout, "timeout", 5*time.Second, "Timeout when checking connectivity to a given cluster")
 	flags.BoolVar(&disableDialer, "without-service-resolution", false, "Disable k8s service to IP resolution through the k8s client")
+	flags.StringVar(&clientHost, "H", "", "URI to server-side API")
 
 	return cmd
 }()
 
 func init() {
-	TroubleshootCmd.AddCommand(troubleshootClusterMeshCmd)
+	Cmd.AddCommand(troubleshootClusterMeshCmd)
+}
+
+var (
+	clientHost string
+	client     *clientPkg.Client
+)
+
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	if cl, err := clientPkg.NewClient(clientHost); err != nil {
+		fmt.Fprintf(os.Stderr, "Error while creating client: %s\n", err)
+		os.Exit(1)
+	} else {
+		client = cl
+	}
 }
 
 func TroubleshootClusterMesh(

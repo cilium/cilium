@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	ciliumdbg "github.com/cilium/cilium/cilium-dbg/cmd"
+	ciliumdbg "github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package troubleshoot
 
 import (
 	"context"
@@ -51,5 +51,5 @@ var troubleshootKVStoreCmd = func() *cobra.Command {
 }()
 
 func init() {
-	TroubleshootCmd.AddCommand(troubleshootKVStoreCmd)
+	Cmd.AddCommand(troubleshootKVStoreCmd)
 }
