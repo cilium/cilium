@@ -753,15 +753,12 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, int off,
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP:
 		if (1) {
-			__u8	type		= 0;
-			__u8	code		= 0;
-			__be16	identifier	= 0;
+			__u8 type = 0;
+			__u8 code = 0;
+			__be16 identifier = 0;
 
-			err = ipv4_load_l4_ports_for_icmp(
-				ctx, off, CT_INGRESS,
-				&type, &code, &identifier,
-				true // create_frag_record
-			);
+			err = ipv4_load_l4_ports_for_icmp(ctx, off, CT_INGRESS,
+				&type, &code, &identifier, true);
 			if (err < 0)
 				return err;
 
