@@ -783,7 +783,7 @@ data:
 {{- end }}
 {{- if hasKey .Values "loadBalancer" }}
 {{- if .Values.loadBalancer.standalone }}
-  datapath-mode: lb-only
+  bpf-lb-only: {{ .Values.loadBalancer.standalone | quote }}
 {{- end }}
 {{- if hasKey .Values.loadBalancer "mode" }}
   bpf-lb-mode: {{ .Values.loadBalancer.mode | quote }}
