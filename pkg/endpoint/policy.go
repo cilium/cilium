@@ -333,7 +333,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 				e.desiredPolicy.Detach()
 				e.desiredPolicy = e.realizedPolicy
 
-				currentMap, err := e.dumpPolicyMapToMapStateMap()
+				currentMap, err := e.policyMap.DumpToMapStateMap()
 				if err != nil {
 					return fmt.Errorf("unable to dump PolicyMap when trying to revert failed endpoint regeneration: %w", err)
 				}
