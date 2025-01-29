@@ -262,7 +262,7 @@ jobs:
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@91f9d86d8d10112370ade4390747f9602b574bb7 # v0.0.21
         with:
           test-name: runtime-tests
           install-dependencies: true
@@ -272,7 +272,7 @@ jobs:
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.19"
+          lvh-version: "v0.0.21"
           mem: 12G
 
       # Load Ginkgo build from GitHub
@@ -324,7 +324,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@91f9d86d8d10112370ade4390747f9602b574bb7 # v0.0.21
         with:
           provision: 'false'
           cmd: |
@@ -379,7 +379,7 @@ jobs:
       - name: Runtime privileged tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@91f9d86d8d10112370ade4390747f9602b574bb7 # v0.0.21
         with:
           provision: 'false'
           cmd: |
@@ -393,7 +393,7 @@ jobs:
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@91f9d86d8d10112370ade4390747f9602b574bb7 # v0.0.21
         with:
           provision: 'false'
           cmd: |
@@ -407,7 +407,7 @@ jobs:
         # which is 'agent' and 'datapath' focus.
         if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        uses: cilium/little-vm-helper@91f9d86d8d10112370ade4390747f9602b574bb7 # v0.0.21
         with:
           provision: 'false'
           cmd: |
