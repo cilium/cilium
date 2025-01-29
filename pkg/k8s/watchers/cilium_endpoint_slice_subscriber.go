@@ -84,11 +84,6 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 				"CEPName": CEPName,
 			}).Debug("CEP deleted, calling endpointDeleted")
 			cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCES.Namespace)
-			// LocalNode already has the latest CEP.
-			// Hence, skip processing endpointupdate for localNode CEPs.
-			if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
-				continue
-			}
 			cs.deleteCEPfromCES(CEPName, newCES.GetName(), cep)
 		}
 	}
@@ -135,11 +130,6 @@ func (cs *cesSubscriber) OnDelete(ces *cilium_v2a1.CiliumEndpointSlice) {
 			"CEPName": CEPName,
 		}).Debug("CES deleted, calling endpointDeleted")
 		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ces.Endpoints[i], ces.Namespace)
-		// LocalNode already deleted the CEP.
-		// Hence, skip processing endpointDeleted for localNode CEPs.
-		if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
-			continue
-		}
 		// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.
 		// Delete CEP only if there is match in CEPToCES map and also delete CEPName in CEPToCES map.
 		cs.deleteCEPfromCES(CEPName, ces.GetName(), cep)
