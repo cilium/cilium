@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
-	ciliumdbg "github.com/cilium/cilium/cilium-dbg/cmd"
+	troubleshoot "github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/endpointgc"
@@ -296,7 +296,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 	cmd.AddCommand(
 		MetricsCmd,
 		StatusCmd,
-		ciliumdbg.TroubleshootCmd,
+		troubleshoot.Cmd,
 		h.Command(),
 	)
 
