@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
 #pragma once
@@ -10,8 +10,7 @@
 
 #define TEST_MTU 1500
 
-typedef struct
-{
+struct icmp4_frag_test_info {
 	__u8 packet_type;
 	__u16 icmp4_payload_len;
 	__u8 egress;
@@ -23,12 +22,13 @@ typedef struct
 	__u8 icmp4_code;
 	__u16 icmp4_id;
 	__u16 pkt_size;
-} icmp4_frag_test_info_t;
+};
 
 #define TO_NETDEV	0
 #define FROM_NETDEV	1
 
-static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx, icmp4_frag_test_info_t *test_info)
+static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx,
+					     struct icmp4_frag_test_info *test_info)
 {
 	int ret	= TEST_FAIL;
 	struct iphdr *l3_ptr = NULL;
@@ -38,7 +38,7 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx, icmp4_frag_
 	char *data_end = (char *)(long)ctx->data_end;
 	char *data = orig;
 
-	// L2
+	/* L2 */
 	struct ethhdr l2_egress = {
 		.h_proto = bpf_htons(ETH_P_IP),
 		.h_source = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
@@ -50,20 +50,21 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx, icmp4_frag_
 		.h_dest = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
 	};
 	struct ethhdr *l2;
-	if (test_info->egress) {
+
+	if (test_info->egress)
 		l2 = &l2_egress;
-	} else {
+	else
 		l2 = &l2_ingress;
-	}
+
 	len = sizeof(struct ethhdr);
-	if (data + len > data_end) {
+	if (data + len > data_end)
 		goto fail;
-	}
 	memcpy(data, l2, len);
 	data += len;
 
-	// L3
+	/* L3 */
 	__u32 saddr, daddr;
+
 	if (test_info->egress) {
 		saddr = IP_ENDPOINT;
 		daddr = IP_WORLD;
@@ -82,13 +83,12 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx, icmp4_frag_
 	};
 	l3_ptr = (struct iphdr *)data;
 	len = sizeof(struct iphdr);
-	if (data + len > data_end) {
+	if (data + len > data_end)
 		goto fail;
-	}
 	memcpy(data, &l3, len);
 	data += len;
 
-	// L4
+	/* L4 */
 	if (!test_info->ip4_next_fragment_offset) {
 		struct icmphdr l4 __align_stack_8 = {
 			.type = test_info->icmp4_type,
@@ -99,9 +99,8 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx, icmp4_frag_
 			},
 		};
 		len = sizeof(struct icmphdr);
-		if (data + len > data_end) {
+		if (data + len > data_end)
 			goto fail;
-		}
 		memcpy(data, &l4, len);
 		data += len;
 	}
@@ -110,42 +109,39 @@ static __always_inline int mk_icmp4_frag_pkt(struct __ctx_buff *ctx, icmp4_frag_
 	__u16 remain_len = test_info->icmp4_payload_len
 		- test_info->ip4_next_fragment_offset;
 
-	if (0 == avail_len) {
+	if (avail_len == 0)
 		goto fail;
-	}
 
-	// set current fragment offset (before it can be changed)
+	/* set current fragment offset (before it can be changed) */
 	test_info->ip4_fragment_offset = test_info->ip4_next_fragment_offset;
 
-	if (0 < remain_len) {
+	if (remain_len > 0) {
 		__u16 ip4_payload_len = 0;
-		if (avail_len < remain_len) {
+
+		if (avail_len < remain_len)
 			ip4_payload_len = avail_len;
-		} else {
+		else
 			ip4_payload_len = remain_len;
-		}
 		data += ip4_payload_len;
 		test_info->ip4_next_fragment_offset += ip4_payload_len;
 	}
 
 	test_info->ip4_more_fragments = false;
-	if (test_info->ip4_next_fragment_offset < test_info->icmp4_payload_len) {
-		// we have more payload
+	if (test_info->ip4_next_fragment_offset < test_info->icmp4_payload_len)
+		/* we have more payload */
 		test_info->ip4_more_fragments = true;
-	}
 
 	test_info->pkt_size = (__u16)(data - orig);
 
-	// update l3 header
-	l3.frag_off = bpf_htons((__u16)(
-		(test_info->ip4_fragment_offset & 0x1FFF)
-			+ (test_info->ip4_more_fragments << 13)
+	/* update l3 header */
+	l3.frag_off = bpf_htons((__u16)((test_info->ip4_fragment_offset & 0x1FFF)
+		+ (test_info->ip4_more_fragments << 13)
 	));
 	l3.tot_len = bpf_htons(test_info->pkt_size);
 	len	= sizeof(struct iphdr);
 	memcpy((void *)l3_ptr, &l3, len);
 
-	// all ok
+	/* all ok */
 	ret = TEST_PASS;
 
 out:
