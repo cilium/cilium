@@ -870,15 +870,12 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMP: {
-		__u8	type		= 0;
-		__u8	code		= 0;
-		__be16	identifier	= 0;
+		__u8 type = 0;
+		__u8 code = 0;
+		__be16 identifier = 0;
 
-		ret = ipv4_load_l4_ports_for_icmp(
-			ctx, off, CT_EGRESS,
-			&type, &code, &identifier,
-			true // create_frag_record
-		);
+		ret = ipv4_load_l4_ports_for_icmp(ctx, off, CT_EGRESS,
+			&type, &code, &identifier, true);
 		if (ret < 0)
 			return ret;
 
@@ -1036,15 +1033,12 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP: {
-		__u8	type		= 0;
-		__u8	code		= 0;
-		__be16	identifier	= 0;
+		__u8 type = 0;
+		__u8 code = 0;
+		__be16 identifier = 0;
 
-		ret = ipv4_load_l4_ports_for_icmp(
-			ctx, off, CT_INGRESS,
-			&type, &code, &identifier,
-			true // create_frag_record
-		);
+		ret = ipv4_load_l4_ports_for_icmp(ctx, off, CT_INGRESS,
+			&type, &code, &identifier, true);
 		if (ret < 0)
 			return ret;
 
