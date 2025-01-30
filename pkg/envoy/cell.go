@@ -330,7 +330,7 @@ type syncerParams struct {
 }
 
 func registerSecretSyncer(params syncerParams) error {
-	if !params.K8sClientset.IsEnabled() {
+	if !params.K8sClientset.IsEnabled() || !option.Config.EnableL7Proxy {
 		return nil
 	}
 
