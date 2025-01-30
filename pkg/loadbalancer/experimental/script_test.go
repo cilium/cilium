@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -125,7 +126,7 @@ func TestScript(t *testing.T) {
 				Cmds: cmds,
 			}
 		}, []string{
-			fmt.Sprintf("HEALTHADDR=%s", healthServerAddr),
+			fmt.Sprintf("HEALTHADDR=%s", cmtypes.AddrClusterFrom(chooseHealthServerLoopbackAddressForTesting(), 0)),
 		}, "testdata/*.txtar")
 }
 
