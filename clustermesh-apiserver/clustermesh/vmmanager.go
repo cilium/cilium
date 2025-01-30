@@ -60,6 +60,7 @@ type ExternalWorkloadsConfig struct {
 
 func (def ExternalWorkloadsConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-external-workloads", def.EnableExternalWorkloads, "Enable support for external workloads")
+	flags.MarkDeprecated("enable-external-workloads", "The feature has been deprecated and it will be removed in v1.18")
 }
 
 func externalWorkloadsProvider(
