@@ -178,9 +178,8 @@ jobs:
         if: ${{ success() }}
         run: |
           cd $HOME
-          cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
-          kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
-          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9962/metrics > metrics-agent.prom
+          cilium_pod_ip=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].status.podIP}' )
+          curl http://${cilium_pod_ip}:9962/metrics > metrics-agent.prom
 
           operator_ip=$(kubectl get pods -n kube-system -l io.cilium/app=operator -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}')
           curl http://${operator_ip}:9963/metrics > metrics-operator.prom
