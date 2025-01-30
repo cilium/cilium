@@ -19,7 +19,6 @@ internal_dependencies=(
 cilium_images=(\
   "cilium" \
   "clustermesh-apiserver" \
-  "docker-plugin" \
   "hubble-relay" \
   "operator" \
   "operator-azure" \

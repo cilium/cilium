@@ -77,8 +77,6 @@ func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, ep
 	if model.ContainerID != "" {
 		ep.containerID.Store(&model.ContainerID)
 	}
-	ep.dockerNetworkID = model.DockerNetworkID
-	ep.dockerEndpointID = model.DockerEndpointID
 	ep.K8sPodName = model.K8sPodName
 	ep.K8sNamespace = model.K8sNamespace
 	ep.K8sUID = model.K8sUID
@@ -172,9 +170,7 @@ func NewEndpointFromChangeModel(ctx context.Context, dnsRulesAPI DNSRulesAPI, ep
 
 func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifiers {
 	identifiers := &models.EndpointIdentifiers{
-		CniAttachmentID:  e.GetCNIAttachmentID(),
-		DockerEndpointID: e.dockerEndpointID,
-		DockerNetworkID:  e.dockerNetworkID,
+		CniAttachmentID: e.GetCNIAttachmentID(),
 	}
 
 	// Use legacy endpoint identifiers only if the endpoint has not opted out

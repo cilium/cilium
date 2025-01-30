@@ -311,9 +311,6 @@ func (mgr *endpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 	case endpointid.ContainerIdPrefix:
 		return mgr.lookupContainerID(eid), nil
 
-	case endpointid.DockerEndpointPrefix:
-		return mgr.lookupDockerEndpoint(eid), nil
-
 	case endpointid.ContainerNamePrefix:
 		return mgr.lookupDockerContainerName(eid), nil
 
@@ -475,13 +472,6 @@ func (mgr *endpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.
 // lookupCiliumID looks up endpoint by endpoint ID
 func (mgr *endpointManager) lookupCiliumID(id uint16) *endpoint.Endpoint {
 	if ep, ok := mgr.endpoints[id]; ok {
-		return ep
-	}
-	return nil
-}
-
-func (mgr *endpointManager) lookupDockerEndpoint(id string) *endpoint.Endpoint {
-	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.DockerEndpointPrefix, id)]; ok {
 		return ep
 	}
 	return nil

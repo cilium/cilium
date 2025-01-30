@@ -199,24 +199,6 @@ func TestLookup(t *testing.T) {
 			},
 		},
 		{
-			name: "endpoint by docker endpoint ID",
-			cm: &apiv1.EndpointChangeRequest{
-				DockerEndpointID: "1234",
-			},
-			setupArgs: func() args {
-				return args{
-					endpointid.NewID(endpointid.DockerEndpointPrefix, "1234"),
-				}
-			},
-			setupWant: func() want {
-				return want{
-					ep:       true,
-					err:      nil,
-					errCheck: assert.EqualValues,
-				}
-			},
-		},
-		{
 			name: "endpoint by container name (deprecated)",
 			cm: &apiv1.EndpointChangeRequest{
 				ContainerName: "foo",
@@ -718,9 +700,6 @@ func TestUpdateReferences(t *testing.T) {
 		mgr.updateReferencesLocked(ep, ep.Identifiers())
 
 		ep = mgr.LookupCNIAttachmentID(want.ep.GetCNIAttachmentID())
-		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
-
-		ep = mgr.lookupDockerEndpoint(want.ep.GetDockerEndpointID())
 		require.Equal(t, want.ep, ep, "Test Name: %s", tt.name)
 
 		ep = mgr.LookupIPv4(want.ep.IPv4.String())

@@ -66,11 +66,6 @@ var _ = Describe("RuntimeAgentKVStoreTest", func() {
 			err := vm.SetUpCiliumWithOptions("--kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
 			Expect(err).Should(BeNil(), "Cilium failed to start")
 
-			By("Restarting cilium-docker service")
-			vm.Exec("sudo systemctl restart cilium-docker")
-			Expect(vm.WaitDockerPluginReady()).Should(BeTrue(), "Docker plugin is not ready after timeout")
-			ExpectCiliumReady(vm)
-
 			containers(helpers.Create)
 
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")

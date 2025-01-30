@@ -113,8 +113,6 @@ func TestParse(t *testing.T) {
 	}
 
 	tests := []test{
-		{DockerEndpointPrefix + ":foo", DockerEndpointPrefix, "foo", false},
-		{DockerEndpointPrefix + ":foo:foo", DockerEndpointPrefix, "foo:foo", false},
 		{"unknown:unknown", "", "", true},
 		{"unknown", CiliumLocalIdPrefix, "unknown", false},
 	}

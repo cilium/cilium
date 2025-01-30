@@ -31,12 +31,6 @@ type EndpointIdentifiers struct {
 	// Name assigned to container (deprecated, may not be unique)
 	ContainerName string `json:"container-name,omitempty"`
 
-	// Docker endpoint ID
-	DockerEndpointID string `json:"docker-endpoint-id,omitempty"`
-
-	// Docker network ID
-	DockerNetworkID string `json:"docker-network-id,omitempty"`
-
 	// K8s namespace for this endpoint (deprecated, may not be unique)
 	K8sNamespace string `json:"k8s-namespace,omitempty"`
 

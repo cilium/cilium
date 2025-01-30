@@ -137,8 +137,6 @@ The following codeowner groups cover more specific knowledge about Cilium
 Agent internals or the way that particular Cilium features interact with
 external software and protocols:
 
-- `@cilium/docker <https://github.com/orgs/cilium/teams/docker>`__:
-  Maintain the deprecated docker-plugin.
 - `@cilium/endpoint <https://github.com/orgs/cilium/teams/endpoint>`__:
   Provide background on how the Cilium Endpoint package fits into the overall
   agent architecture, relationship with generation of policy / datapath

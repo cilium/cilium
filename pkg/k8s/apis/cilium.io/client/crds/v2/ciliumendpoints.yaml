@@ -148,12 +148,6 @@ spec:
                     description: Name assigned to container (deprecated, may not be
                       unique)
                     type: string
-                  docker-endpoint-id:
-                    description: Docker endpoint ID
-                    type: string
-                  docker-network-id:
-                    description: Docker network ID
-                    type: string
                   k8s-namespace:
                     description: K8s namespace for this endpoint (deprecated, may
                       not be unique)

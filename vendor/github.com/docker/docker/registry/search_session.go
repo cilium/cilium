@@ -6,7 +6,6 @@ import (
 	_ "crypto/sha512"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -16,6 +15,7 @@ import (
 	"github.com/containerd/log"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/errdefs"
+	"github.com/docker/docker/pkg/ioutils"
 	"github.com/pkg/errors"
 )
 
@@ -76,35 +76,6 @@ func cloneRequest(r *http.Request) *http.Request {
 	return r2
 }
 
-// onEOFReader wraps an io.ReadCloser and a function
-// the function will run at the end of file or close the file.
-type onEOFReader struct {
-	Rc io.ReadCloser
-	Fn func()
-}
-
-func (r *onEOFReader) Read(p []byte) (int, error) {
-	n, err := r.Rc.Read(p)
-	if err == io.EOF {
-		r.runFunc()
-	}
-	return n, err
-}
-
-// Close closes the file and run the function.
-func (r *onEOFReader) Close() error {
-	err := r.Rc.Close()
-	r.runFunc()
-	return err
-}
-
-func (r *onEOFReader) runFunc() {
-	if fn := r.Fn; fn != nil {
-		fn()
-		r.Fn = nil
-	}
-}
-
 // RoundTrip changes an HTTP request's headers to add the necessary
 // authentication-related headers
 func (tr *authTransport) RoundTrip(orig *http.Request) (*http.Response, error) {
@@ -148,7 +119,7 @@ func (tr *authTransport) RoundTrip(orig *http.Request) (*http.Response, error) {
 	if len(resp.Header["X-Docker-Token"]) > 0 {
 		tr.token = resp.Header["X-Docker-Token"]
 	}
-	resp.Body = &onEOFReader{
+	resp.Body = &ioutils.OnEOFReader{
 		Rc: resp.Body,
 		Fn: func() {
 			tr.mu.Lock()

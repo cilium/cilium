@@ -67,12 +67,6 @@ func (in *EndpointIdentifiers) DeepEqual(other *EndpointIdentifiers) bool {
 	if in.ContainerName != other.ContainerName {
 		return false
 	}
-	if in.DockerEndpointID != other.DockerEndpointID {
-		return false
-	}
-	if in.DockerNetworkID != other.DockerNetworkID {
-		return false
-	}
 	if in.K8sNamespace != other.K8sNamespace {
 		return false
 	}

@@ -49,9 +49,6 @@ jobs:
           - name: clustermesh-apiserver
             dockerfile: ./images/clustermesh-apiserver/Dockerfile
 
-          - name: docker-plugin
-            dockerfile: ./images/cilium-docker-plugin/Dockerfile
-
     steps:
       - name: Checkout main branch to access local actions
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

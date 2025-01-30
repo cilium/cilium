@@ -21,10 +21,12 @@ type flusher interface {
 	Flush()
 }
 
+var errWriteFlusherClosed = io.EOF
+
 func (wf *WriteFlusher) Write(b []byte) (n int, err error) {
 	select {
 	case <-wf.closed:
-		return 0, io.EOF
+		return 0, errWriteFlusherClosed
 	default:
 	}
 
@@ -71,7 +73,7 @@ func (wf *WriteFlusher) Close() error {
 
 	select {
 	case <-wf.closed:
-		return io.EOF
+		return errWriteFlusherClosed
 	default:
 		close(wf.closed)
 	}
