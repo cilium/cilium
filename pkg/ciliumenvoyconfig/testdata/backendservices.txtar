@@ -12,7 +12,15 @@ db/cmp ciliumenvoyconfigs cec_empty.table
 # to reconcile.
 k8s add service.yaml endpointslice.yaml
 db/cmp frontends frontends1.table
+
+# Add the first backend service with named ports. The 'http' one
+# will be matched and the backend with port 9080 chosen. The
+# existence of the alternative port name (http-alt) should not
+# affect the matching.
 k8s add be_service.yaml be_endpointslice.yaml
+
+# Then add a second one with unnamed ports.
+k8s add be_service_unnamed_port.yaml be_endpointslice_unnamed_port.yaml
 db/cmp services services.table
 
 # Add the CiliumEnvoyConfig and wait for it to be ingested.
@@ -47,34 +55,40 @@ envoy envoy.out
 Name  ProxyRedirect
 
 -- services.table --
-Name           ProxyRedirect
+Name                       ProxyRedirect
 test/backend
+test/backend_unnamed_port
 test/frontend   
 
 -- services_redirected.table --
-Name            ProxyRedirect
+Name                      ProxyRedirect
 test/backend
-test/frontend   1000 (ports: [80])
+test/backend_unnamed_port
+test/frontend             1000 (ports: [80])
 
 -- frontends1.table --
 Address            Type        ServiceName     PortName   Backends                    Status   Error
-1.0.0.1:80/TCP     ClusterIP   test/frontend   http       1.1.0.1:8080/TCP (active)   Done     
+1.0.0.1:80/TCP     ClusterIP   test/frontend   http       1.1.0.1:8080/TCP (active)   Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend   http2      1.1.0.1:9090/TCP (active)   Done
 
 -- frontends2.table --
-Address            Type        ServiceName     PortName   Backends                                             Status   Error
-1.0.0.1:80/TCP     ClusterIP   test/frontend   http       1.1.0.1:8080/TCP (active)                            Done     
-2.0.0.1:9080/TCP   ClusterIP   test/backend    http       2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
+Address            Type        ServiceName                PortName   Backends                                             Status   Error
+1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP (active)                            Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP (active)                            Done
+2.0.0.1:9080/TCP   ClusterIP   test/backend               http       2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
+2.0.0.1:9081/TCP   ClusterIP   test/backend               http-alt   2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
+3.0.0.1:9080/TCP   ClusterIP   test/backend_unnamed_port             3.1.0.1:9080/TCP (active)                            Done
 
 -- envoy-resources.table --
-Name           Listeners                   Endpoints                                                        Status   Error
-test/ingress   test/ingress/listener       test/backend:9080: 2.1.0.1, 2.1.0.2, test/frontend:80: 1.1.0.1   Done
+Name           Listeners             Endpoints                                                                                               Status   Error
+test/ingress   test/ingress/listener test/backend:9080: 2.1.0.1, 2.1.0.2, test/backend_unnamed_port:9080: 3.1.0.1, test/frontend:80: 1.1.0.1 Done
 
 -- cec_empty.table --
 Name    Services
 
 -- cec.table --
 Name           Services        BackendServices
-test/ingress   test/frontend   test/backend
+test/ingress   test/frontend   test/backend, test/backend_unnamed_port
 
 -- cec.yaml --
 apiVersion: cilium.io/v2
@@ -91,6 +105,10 @@ spec:
       - 80
   backendServices:
     - name: backend
+      namespace: test
+      number:
+      - "9080"
+    - name: backend_unnamed_port
       namespace: test
       number:
       - "9080"
@@ -115,6 +133,10 @@ spec:
     port: 80
     protocol: TCP
     targetPort: 80
+  - name: http2
+    port: 82
+    protocol: TCP
+    targetPort: 82
   selector:
     name: frontend
   type: ClusterIP
@@ -141,7 +163,10 @@ ports:
 - name: http
   port: 8080
   protocol: TCP
-
+- name: http2
+  port: 9090
+  protocol: TCP
+  
 -- be_service.yaml --
 apiVersion: v1
 kind: Service
@@ -158,6 +183,10 @@ spec:
     port: 9080
     protocol: TCP
     targetPort: 9080
+  - name: http-alt
+    port: 9081
+    protocol: TCP
+    targetPort: 9081
   selector:
     name: backend
   type: ClusterIP
@@ -185,23 +214,79 @@ ports:
 - name: http
   port: 9080
   protocol: TCP
+- name: http-alt
+  port: 9080
+  protocol: TCP
+
+-- be_service_unnamed_port.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend_unnamed_port
+  namespace: test
+  uid: f49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 3.0.0.1
+  clusterIPs:
+  - 3.0.0.1
+  ports:
+  - port: 9080
+    protocol: TCP
+    targetPort: 9080
+  selector:
+    name: unnamed_port
+  type: ClusterIP
+
+-- be_endpointslice_unnamed_port.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: backend_unnamed_port
+  name: backend-eps-unnamed-port
+  namespace: test
+  uid: e1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 3.1.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- port: 9080
+  protocol: TCP
 
 -- lbmaps.expected --
 BE: ID=1 ADDR=1.1.0.1:8080/TCP STATE=active
-BE: ID=2 ADDR=2.1.0.1:9080/TCP STATE=active
-BE: ID=3 ADDR=2.1.0.2:9080/TCP STATE=active
+BE: ID=2 ADDR=1.1.0.1:9090/TCP STATE=active
+BE: ID=3 ADDR=2.1.0.1:9080/TCP STATE=active
+BE: ID=4 ADDR=2.1.0.2:9080/TCP STATE=active
+BE: ID=5 ADDR=3.1.0.1:9080/TCP STATE=active
 REV: ID=1 ADDR=1.0.0.1:80
-REV: ID=2 ADDR=2.0.0.1:9080
+REV: ID=2 ADDR=1.0.0.1:82
+REV: ID=3 ADDR=2.0.0.1:9080
+REV: ID=4 ADDR=2.0.0.1:9081
+REV: ID=5 ADDR=3.0.0.1:9080
 SVC: ID=1 ADDR=1.0.0.1:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
 SVC: ID=1 ADDR=1.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
-SVC: ID=2 ADDR=2.0.0.1:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=2 ADDR=2.0.0.1:9080/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=2 ADDR=2.0.0.1:9080/TCP SLOT=2 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=1.0.0.1:82/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=1.0.0.1:82/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=2.0.0.1:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=2.0.0.1:9080/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=2.0.0.1:9080/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=2.0.0.1:9081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=2.0.0.1:9081/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=2.0.0.1:9081/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=2 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/frontend:80=1.1.0.1:8080
+update: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 2
-update: count=2 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/frontend:80=1.1.0.1:8080
-delete: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/frontend:80=1.1.0.1:8080
+update: count=2 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
+delete: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080

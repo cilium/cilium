@@ -88,9 +88,9 @@ var baseBackend = Backend{
 	Instances: emptyInstances.Set(
 		BackendInstanceKey{testServiceName, 0},
 		BackendInstance{
-			PortName: "",
-			Weight:   0,
-			State:    loadbalancer.BackendStateActive,
+			PortNames: nil,
+			Weight:    0,
+			State:     loadbalancer.BackendStateActive,
 		},
 	),
 }

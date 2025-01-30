@@ -205,16 +205,20 @@ func clusterServiceToBackendParams(service *store.ClusterService) (beps []Backen
 			continue
 		}
 		for name, l4 := range portConfig {
+			portNames := []string(nil)
+			if name != "" {
+				portNames = []string{name}
+			}
 			bep := BackendParams{
 				L3n4Addr: loadbalancer.L3n4Addr{
 					AddrCluster: addrCluster,
 					L4Addr:      *l4,
 				},
-				PortName: name,
-				Weight:   0,
-				NodeName: "",
-				ZoneID:   0,
-				State:    loadbalancer.BackendStateActive,
+				PortNames: portNames,
+				Weight:    0,
+				NodeName:  "",
+				ZoneID:    0,
+				State:     loadbalancer.BackendStateActive,
 			}
 			beps = append(beps, bep)
 		}
@@ -296,7 +300,9 @@ func newMinimalEndpoints(svcName loadbalancer.ServiceName, backends iter.Seq[*Ba
 			eps.Backends[be.AddrCluster] = ports
 		}
 		inst := be.GetInstance(svcName)
-		ports[inst.PortName] = &be.L4Addr
+		for _, portName := range inst.PortNames {
+			ports[portName] = &be.L4Addr
+		}
 	}
 	return eps
 }
@@ -474,8 +480,8 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 			if inst == nil {
 				continue
 			}
-			bes = append(bes, &loadbalancer.Backend{
-				FEPortName: inst.PortName,
+			beModel := &loadbalancer.Backend{
+				FEPortName: "",
 				ID:         0,
 				Weight:     inst.Weight,
 				NodeName:   be.NodeName,
@@ -483,7 +489,16 @@ func (s *serviceManagerAdapter) GetDeepCopyServices() (svcs []*loadbalancer.SVC)
 				L3n4Addr:   be.L3n4Addr,
 				State:      inst.State,
 				Preferred:  true,
-			})
+			}
+			if len(inst.PortNames) == 0 {
+				bes = append(bes, beModel)
+			} else {
+				for _, portName := range inst.PortNames {
+					beModel = beModel.DeepCopy()
+					beModel.FEPortName = portName
+					bes = append(bes, beModel)
+				}
+			}
 		}
 		proxyPort := uint16(0)
 		if svc.ProxyRedirect != nil {
