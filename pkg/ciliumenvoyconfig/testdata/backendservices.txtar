@@ -16,8 +16,10 @@ db/cmp frontends frontends1.table
 # Add the first backend service with named ports. The 'http' one
 # will be matched and the backend with port 9080 chosen. The
 # existence of the alternative port name (http-alt) should not
-# affect the matching.
+# affect the matching. Wait for frontends to be reconciled for
+# deterministic ID allocation.
 k8s add be_service.yaml be_endpointslice.yaml
+db/cmp frontends frontends2.table
 
 # Then add a second one with unnamed ports.
 k8s add be_service_unnamed_port.yaml be_endpointslice_unnamed_port.yaml
@@ -29,7 +31,7 @@ db/cmp ciliumenvoyconfigs cec.table
 
 # Check that service is now redirected to proxy.
 db/cmp services services_redirected.table
-db/cmp frontends frontends2.table
+db/cmp frontends frontends3.table
 db/cmp envoy-resources envoy-resources.table
 
 # Check BPF maps. The service should have L7 redirect set.
@@ -38,6 +40,7 @@ lb/maps-dump lbmaps.out
 
 # Check that right updates towards Envoy happened.
 envoy envoy.out
+replace 'count=2' 'count=1' envoy.out
 * cmp envoy.out envoy1.expected
 
 # Cleanup
@@ -45,8 +48,10 @@ k8s delete cec.yaml
 db/cmp services services.table
 db/cmp ciliumenvoyconfigs cec_empty.table
 
-# The listener should now be deleted.
+# The listener should now be deleted. The update count may be either
+# 1 or 2 depending on when the controller is woken up.
 envoy envoy.out
+replace 'count=2' 'count=1' envoy.out
 * cmp envoy.out envoy2.expected
 
 # ---------------------------------------------
@@ -72,6 +77,13 @@ Address            Type        ServiceName     PortName   Backends              
 1.0.0.1:82/TCP     ClusterIP   test/frontend   http2      1.1.0.1:9090/TCP (active)   Done
 
 -- frontends2.table --
+Address            Type        ServiceName                PortName   Backends                                             Status   Error
+1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP (active)                            Done
+1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP (active)                            Done
+2.0.0.1:9080/TCP   ClusterIP   test/backend               http       2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
+2.0.0.1:9081/TCP   ClusterIP   test/backend               http-alt   2.1.0.1:9080/TCP (active), 2.1.0.2:9080/TCP (active) Done
+
+-- frontends3.table --
 Address            Type        ServiceName                PortName   Backends                                             Status   Error
 1.0.0.1:80/TCP     ClusterIP   test/frontend              http       1.1.0.1:8080/TCP (active)                            Done
 1.0.0.1:82/TCP     ClusterIP   test/frontend              http2      1.1.0.1:9090/TCP (active)                            Done
@@ -288,5 +300,5 @@ update: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 2
-update: count=2 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
+update: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
 delete: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
