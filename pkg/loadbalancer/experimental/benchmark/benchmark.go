@@ -480,8 +480,8 @@ func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev
 						if state, tmpErr := instance.State.String(); tmpErr != nil || state != "active" {
 							err = errors.Join(err, fmt.Errorf("Incorrect state for backend #%06d, got %q, want %q", i, state, "active"))
 						}
-						if instance.PortName != svcs[i].Spec.Ports[0].Name {
-							err = errors.Join(err, fmt.Errorf("Incorrect instance port name for backend #%06d, got %q, want %q", i, instance.PortName, svcs[i].Spec.Ports[0].Name))
+						if instance.PortNames[0] != svcs[i].Spec.Ports[0].Name {
+							err = errors.Join(err, fmt.Errorf("Incorrect instance port name for backend #%06d, got %q, want %q", i, instance.PortNames[0], svcs[i].Spec.Ports[0].Name))
 						}
 					}
 				}

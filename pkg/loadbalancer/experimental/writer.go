@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -269,7 +270,7 @@ func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], no
 				if instance == nil {
 					continue
 				}
-				if string(fe.PortName) != instance.PortName {
+				if !slices.Contains(instance.PortNames, string(fe.PortName)) {
 					continue
 				}
 			}
@@ -460,10 +461,10 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 		be.Instances = be.Instances.Set(
 			BackendInstanceKey{ServiceName: serviceName, SourcePriority: w.sourcePriority(source)},
 			BackendInstance{
-				PortName: bep.PortName,
-				Weight:   bep.Weight,
-				Source:   source,
-				State:    bep.State,
+				PortNames: bep.PortNames,
+				Weight:    bep.Weight,
+				Source:    source,
+				State:     bep.State,
 			},
 		)
 
