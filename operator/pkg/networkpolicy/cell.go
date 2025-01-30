@@ -130,7 +130,7 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	}
 
 	if errs != nil {
-		log.Debug("Detected invalid CNP, setting condition", logfields.Error, errs)
+		log.Error("Detected invalid CNP, setting condition", logfields.Error, errs)
 	} else {
 		log.Debug("CNP now valid, setting condition")
 	}
