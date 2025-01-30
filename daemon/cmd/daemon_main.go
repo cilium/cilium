@@ -988,6 +988,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableK8sTerminatingEndpoint, true, "Enable auto-detect of terminating endpoint condition")
 	option.BindEnv(vp, option.EnableK8sTerminatingEndpoint)
+	flags.MarkDeprecated(option.EnableK8sTerminatingEndpoint, "Feature will be unconditionally enabled in v1.18")
 
 	flags.Bool(option.EnableVTEP, defaults.EnableVTEP, "Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)")
 	option.BindEnv(vp, option.EnableVTEP)

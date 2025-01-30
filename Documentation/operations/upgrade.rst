@@ -378,6 +378,8 @@ Deprecated Options
 * The ``cilium-docker-plugin`` has been deprecated and is planned to be removed in v1.18.
 * The ``--k8s-watcher-endpoint-selector`` cilium-agent flag didn't have any effect since v1.14 and
   has been deprecated. It will be remove in v1.18.
+* The ``--enable-k8s-terminating-endpoint`` cilium-agent flag (``enableK8sTerminatingEndpoint`` in Helm) has been deprecated.
+  The feature will be unconditionally enabled in v1.18.
 
 Helm Options
 ~~~~~~~~~~~~
