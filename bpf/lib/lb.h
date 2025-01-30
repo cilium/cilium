@@ -714,8 +714,9 @@ lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 			     const struct ipv6_ct_tuple *tuple,
 			     const struct lb6_service *svc)
 {
-	__be16 sport = lb6_svc_is_affinity(svc) ? 0 : tuple->sport;
-	__be16 dport = tuple->dport;
+	/* CT tuple is swapped, see lb4_select_backend_id_maglev() comment. */
+	__be16 sport = lb6_svc_is_affinity(svc) ? 0 : tuple->dport;
+	__be16 dport = tuple->sport;
 	__u32 zero = 0, index = svc->rev_nat_index;
 	__u32 *backend_ids;
 	void *maglev_lut;
@@ -1433,8 +1434,12 @@ lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 			     const struct ipv4_ct_tuple *tuple,
 			     const struct lb4_service *svc)
 {
-	__be16 sport = lb4_svc_is_affinity(svc) ? 0 : tuple->sport;
-	__be16 dport = tuple->dport;
+	/* CT tuple is swapped, hence the port swap. See also lb4_local()
+	 * call to ct_lazy_lookup4(..., CT_SERVICE, SCOPE_REVERSE, ...)
+	 * which then calls ipv4_ct_tuple_reverse().
+	 */
+	__be16 sport = lb4_svc_is_affinity(svc) ? 0 : tuple->dport;
+	__be16 dport = tuple->sport;
 	__u32 zero = 0, index = svc->rev_nat_index;
 	__u32 *backend_ids;
 	void *maglev_lut;
