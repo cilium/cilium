@@ -1,5 +1,8 @@
 # Test handling of CiliumEnvoyConfig
 
+# Add a node address for NodePort services
+db/insert node-addresses addrv4.yaml
+
 # Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
 db/initialized
@@ -18,6 +21,7 @@ db/cmp ciliumenvoyconfigs cec.table
 
 # Check that both services are now redirected to proxy.
 db/cmp services services_redirected.table
+db/cmp frontends frontends.table
 
 # Check BPF maps. The service should have L7 redirect set.
 lb/maps-dump lbmaps.out
@@ -68,6 +72,12 @@ envoy envoy.out
 
 # ---------------------------------------------
 
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
 -- services_empty.table --
 Name        ProxyRedirect
 
@@ -78,6 +88,13 @@ test/echo
 -- services_redirected.table --
 Name        ProxyRedirect
 test/echo   1000 (ports: [80])
+
+-- frontends.table --
+Address               Type        ServiceName   PortName   Status  Backends
+0.0.0.0:30725/TCP     NodePort    test/echo     smtp       Done    10.244.1.1:25/TCP (active)
+0.0.0.0:30781/TCP     NodePort    test/echo     http       Done    10.244.1.1:8080/TCP (active)
+10.96.50.104:25/TCP   ClusterIP   test/echo     smtp       Done    10.244.1.1:25/TCP (active)
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:8080/TCP (active)
 
 -- cec_empty.table --
 Name    Services
@@ -162,23 +179,35 @@ BE: ID=1 ADDR=10.244.1.1:8080/TCP STATE=active
 BE: ID=2 ADDR=10.244.1.1:25/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
 REV: ID=2 ADDR=10.96.50.104:25
+REV: ID=3 ADDR=0.0.0.0:30781
+REV: ID=4 ADDR=1.1.1.1:30781
+REV: ID=5 ADDR=0.0.0.0:30725
+REV: ID=6 ADDR=1.1.1.1:30725
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
 SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+l7-load-balancer
 SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=2 ADDR=10.96.50.104:25/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+l7-load-balancer
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=0 L7Proxy=1000 COUNT=1 QCOUNT=0 FLAGS=NodePort+l7-load-balancer
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+l7-load-balancer
+SVC: ID=5 ADDR=0.0.0.0:30725/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:30725/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:30725/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30725/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
+update: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 1
-update: count=3 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=
+update: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy3.expected --
 policy-trigger-count: 1
-update: count=4 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
+update: count=2 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=0 listeners=<nil> endpoints=<nil>
 -- envoy4.expected --
 policy-trigger-count: 2
-update: count=6 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
+update: count=4 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080
 delete: count=1 listeners=test/envoy-lb-listener/envoy-lb-listener/1000 endpoints=test/echo:80=10.244.1.1:8080

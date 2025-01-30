@@ -26,6 +26,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -374,7 +375,7 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	// NodePort
 	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
 		for _, scope := range scopes {
-			for _, family := range svc.Spec.IPFamilies {
+			for _, family := range getIPFamilies(svc) {
 				for _, port := range svc.Spec.Ports {
 					if port.NodePort == 0 {
 						continue
@@ -471,6 +472,38 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	}
 
 	return
+}
+
+func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
+	if len(svc.Spec.IPFamilies) == 0 {
+		// No IP families specified, try to deduce them from the cluster IPs
+		if len(svc.Spec.ClusterIP) == 0 || svc.Spec.ClusterIP == slim_corev1.ClusterIPNone {
+			return nil
+		}
+
+		ipv4, ipv6 := false, false
+		if len(svc.Spec.ClusterIPs) > 0 {
+			for _, cip := range svc.Spec.ClusterIPs {
+				if ip.IsIPv6(net.ParseIP(cip)) {
+					ipv6 = true
+				} else {
+					ipv4 = true
+				}
+			}
+		} else {
+			ipv6 = ip.IsIPv6(net.ParseIP(svc.Spec.ClusterIP))
+			ipv4 = !ipv6
+		}
+		families := make([]slim_corev1.IPFamily, 0, 2)
+		if ipv4 {
+			families = append(families, slim_corev1.IPv4Protocol)
+		}
+		if ipv6 {
+			families = append(families, slim_corev1.IPv4Protocol)
+		}
+		return families
+	}
+	return svc.Spec.IPFamilies
 }
 
 func convertEndpoints(ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []BackendParams) {
