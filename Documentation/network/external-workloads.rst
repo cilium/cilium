@@ -16,7 +16,9 @@ This is a step-by-step guide on how to add external workloads (such as
 VMs) in to your Kubernetes cluster and to enforce security policies to
 restrict access.
 
-.. include:: ../beta.rst
+.. warning:: 
+
+	This feature has been deprecated and will be removed in v1.18.
 
 Prerequisites
 #############
