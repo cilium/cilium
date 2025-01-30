@@ -482,37 +482,15 @@ func (ct *ConnectivityTest) maybeNodeToNodeEncryptionAffinity() *corev1.NodeAffi
 	}
 }
 
-func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context)  error {
+func (ct *ConnectivityTest) deployCCNPPods(ctx context.Context)  error {
 
 
 	namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2",}
 
-	namespaceObjects := []*corev1.Namespace{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cilium-test-ccnp1",
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cilium-test-ccnp2",
-			},
-		},
-
-	}
-
-	for i, ns := range namespaces {
+	for _, ns := range namespaces {
 	
 		clientccnp := ct.clients.src
 		var err error
-
-		_, err = clientccnp.GetNamespace(ctx, ns, metav1.GetOptions{})
-		if err != nil {
-			_, err = clientccnp.CreateNamespace(ctx, namespaceObjects[i], metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create namespace %s: %w", ns, err)
-			}
-		}
 
 		_, err = clientccnp.GetDeployment(ctx, ns, ccnpDeploymentName, metav1.GetOptions{})
 		if err != nil {
@@ -575,6 +553,40 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				return fmt.Errorf("unable to create namespace %s: %w", ct.params.TestNamespace, err)
 			}
 		}
+
+		if ct.Features[features.CCNP].Enabled {
+
+				namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2",}
+
+				namespaceObjects := []*corev1.Namespace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cilium-test-ccnp1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cilium-test-ccnp2",
+					},
+				},
+		
+			}
+		
+			for i, ns := range namespaces {
+		
+				_, err = client.GetNamespace(ctx, ns, metav1.GetOptions{})
+				if err != nil {
+					ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", client.ClusterName(), ns)
+					_, err = client.CreateNamespace(ctx, namespaceObjects[i], metav1.CreateOptions{})
+					if err != nil {
+						return fmt.Errorf("unable to create namespace %s: %w", ns, err)
+					}
+				}
+			}
+
+		}
+
+
 	}
 
 	// Deploy perf actors (only in the first test namespace
@@ -1244,7 +1256,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 	if ct.Features[features.CCNP].Enabled {
 		ct.Logf("✨ [%s] Deploying ccnp deployment...", ct.clients.src.ClusterName())
-		ct.deployCCNPTestEnv(ctx)
+		ct.deployCCNPPods(ctx)
 	}
 
 	return nil
