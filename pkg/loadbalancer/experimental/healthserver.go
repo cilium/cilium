@@ -40,14 +40,15 @@ var healthServerCell = cell.Module(
 type healthServerParams struct {
 	cell.In
 
-	Jobs      job.Group
-	Log       *slog.Logger
-	DB        *statedb.DB
-	Config    Config
-	ExtConfig ExternalConfig
-	Frontends statedb.Table[*Frontend]
-	Backends  statedb.Table[*Backend]
-	Writer    *Writer
+	Jobs       job.Group
+	Log        *slog.Logger
+	DB         *statedb.DB
+	Config     Config
+	TestConfig *TestConfig `optional:"true"`
+	ExtConfig  ExternalConfig
+	Frontends  statedb.Table[*Frontend]
+	Backends   statedb.Table[*Backend]
+	Writer     *Writer
 }
 
 // healthServer manages HTTP health check ports. For each added service,
@@ -55,10 +56,11 @@ type healthServerParams struct {
 // responds with 200 OK if there are local endpoints for the service, or with
 // 503 Service Unavailable if the service does not have any local endpoints.
 type healthServer struct {
-	params        healthServerParams
-	serverByPort  map[uint16]*httpHealthServer
-	portByService map[lb.ServiceName]uint16
-	nodeName      string
+	params           healthServerParams
+	serverByPort     map[uint16]*httpHealthServer
+	portByService    map[lb.ServiceName]uint16
+	nodeName         string
+	healthServerAddr cmtypes.AddrCluster
 }
 
 func registerHealthServer(params healthServerParams) {
@@ -71,14 +73,20 @@ func registerHealthServer(params healthServerParams) {
 		serverByPort:  map[uint16]*httpHealthServer{},
 		portByService: map[lb.ServiceName]uint16{},
 	}
+
+	addr := netip.IPv4Unspecified()
+	if params.TestConfig != nil {
+		addr = chooseHealthServerLoopbackAddressForTesting()
+	}
+	s.healthServerAddr = cmtypes.AddrClusterFrom(addr, 0)
+
 	params.Jobs.Add(job.OneShot("control-loop", s.controlLoop))
 }
 
-func chooseHealthServerLoopbackAddress() netip.Addr {
+func chooseHealthServerLoopbackAddressForTesting() netip.Addr {
 	// Choose a loopback IP address that's tied to the process ID.
 	// This makes it possible to stress test the health server in parallel
-	// as each process gets its own address. In production the agent runs
-	// in its own PID namespace and this always returns 127.1.0.1.
+	// as each process gets its own address.
 	pid := os.Getpid()
 	return netip.AddrFrom4(
 		[4]byte{
@@ -89,14 +97,6 @@ func chooseHealthServerLoopbackAddress() netip.Addr {
 		},
 	)
 }
-
-var (
-	// healthServerAddr is the IP address on which the health HTTP servers
-	// listen on. We use the process ID as the seed for choosing the address
-	// to allow parallel testing. In production use it's deterministically
-	// 127.1.0.1.
-	healthServerAddr = cmtypes.AddrClusterFrom(chooseHealthServerLoopbackAddress(), 0)
-)
 
 func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) error {
 	s.nodeName = nodeTypes.GetName()
@@ -189,7 +189,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 				source.Local,
 				BackendParams{
 					L3n4Addr: lb.L3n4Addr{
-						AddrCluster: healthServerAddr,
+						AddrCluster: s.healthServerAddr,
 						L4Addr: lb.L4Addr{
 							Protocol: lb.TCP,
 							Port:     port,
@@ -227,7 +227,7 @@ func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer 
 		backends: s.params.Backends,
 	}
 	srv.Server = http.Server{
-		Addr:    fmt.Sprintf("%s:%d", healthServerAddr.Addr().String(), port),
+		Addr:    fmt.Sprintf("%s:%d", s.healthServerAddr.Addr().String(), port),
 		Handler: srv,
 	}
 	s.params.Jobs.Add(
