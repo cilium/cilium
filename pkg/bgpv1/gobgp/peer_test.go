@@ -377,6 +377,14 @@ func TestGetPeerConfigV1(t *testing.T) {
 						require.Equal(t, safi.Config, peer.AfiSafis[i].Config)
 					}
 				}
+
+				// Make sure the new conversion function
+				// produces the same result as before for the
+				// same input (CiliumBGPNeighbor).
+				if tt.neighbor != nil {
+					n := types.ToNeighborV1(tt.neighbor, "")
+					require.Equal(t, peer, ToGoBGPPeer(n, nil, true))
+				}
 			} else {
 				require.Error(t, err)
 			}
@@ -482,6 +490,14 @@ func TestGetPeerConfigV2(t *testing.T) {
 					for i, safi := range tt.expected.AfiSafis {
 						require.Equal(t, safi.Config, peer.AfiSafis[i].Config)
 					}
+				}
+
+				// Make sure the new conversion function
+				// produces the same result as before for the
+				// same input (CiliumBGPNodePeer).
+				if tt.peer != nil {
+					n := types.ToNeighborV2(tt.peer, tt.peerConfig, "")
+					require.Equal(t, peer, ToGoBGPPeer(n, nil, true))
 				}
 			} else {
 				require.Error(t, err)
