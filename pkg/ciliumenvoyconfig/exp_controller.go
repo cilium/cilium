@@ -317,37 +317,65 @@ func computeLoadAssignments(
 	backendMap := map[string]map[string]*experimental.Backend{}
 
 	for be := range backends {
+		if be.State != loadbalancer.BackendStateActive {
+			// FIXME: should use the control-plane logic for picking the backends,
+			// e.g. if all terminating then all active and so on. Since we must support
+			// headless services we can't go via [Frontend.Backends] and must produce
+			// that list of backends separately.
+			continue
+		}
+
 		inst := be.GetInstance(serviceName)
-		portName := anyPort
+		bePortNames := []string{anyPort}
 
 		// If ports are specified only pick the backends that match the service port name or number.
 		if ports.Len() > 0 {
-			switch {
-			case inst.PortName == "":
-			case ports.Has(inst.PortName):
-				portName = inst.PortName
-			default:
-				port, found := portNames[inst.PortName]
-				if !found {
-					continue
+			bePortNames = bePortNames[:0]
+			if len(inst.PortNames) == 0 {
+				// Backend without a port name will match with the
+				// nameless port in the service.
+				for name, number := range portNames {
+					if name != "" {
+						continue
+					}
+					portS := strconv.FormatUint(uint64(number), 10)
+					if ports.Has(portS) {
+						bePortNames = append(bePortNames, portS)
+					}
 				}
-				portS := strconv.FormatUint(uint64(port), 10)
-				// Try looking up by port number
-				if !ports.Has(portS) {
-					continue
+			} else {
+				// Backend has port name(s), try to match them up
+				// against the filter ports. We try to match both
+				// by name and by port number.
+				for _, portName := range inst.PortNames {
+					if ports.Has(portName) {
+						bePortNames = append(bePortNames, portName)
+						continue
+					}
+
+					// The "name" not found from ports, see if the
+					// "number" can be found.
+					port, found := portNames[portName]
+					if !found {
+						continue
+					}
+					portS := strconv.FormatUint(uint64(port), 10)
+					// Try looking up by port number
+					if !ports.Has(portS) {
+						continue
+					}
+					bePortNames = append(bePortNames, portS)
 				}
-				portName = portS
 			}
 		}
-		if be.State != loadbalancer.BackendStateActive {
-			continue
+		for _, portName := range bePortNames {
+			backends := backendMap[portName]
+			if backends == nil {
+				backends = map[string]*experimental.Backend{}
+				backendMap[portName] = backends
+			}
+			backends[be.L3n4Addr.String()] = be
 		}
-		backends := backendMap[portName]
-		if backends == nil {
-			backends = map[string]*experimental.Backend{}
-			backendMap[portName] = backends
-		}
-		backends[be.L3n4Addr.String()] = be
 	}
 
 	for _, port := range slices.Sorted(maps.Keys(backendMap)) {

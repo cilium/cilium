@@ -26,9 +26,9 @@ const (
 type BackendParams struct {
 	loadbalancer.L3n4Addr
 
-	// PortName is the frontend port name. If a frontend has specified a port name
-	// only the backends with matching port name are selected.
-	PortName string
+	// PortNames are the optional names for the ports. A frontend can specify which
+	// backends to select by port name.
+	PortNames []string
 
 	// Weight of backend for load-balancing.
 	Weight uint16
@@ -117,9 +117,9 @@ func (be *Backend) GetInstanceFromSource(name loadbalancer.ServiceName, src sour
 // BackendInstance defines the backend's properties associated with a specific
 // service.
 type BackendInstance struct {
-	// PortName is the frontend port name used for filtering the backends
-	// associated with a service.
-	PortName string
+	// PortNames are the optional names for the ports. A frontend can specify which
+	// backends to select by port name.
+	PortNames []string
 
 	// Weight is the load-balancing weight for this backend in association
 	// with a specific service.
@@ -168,9 +168,14 @@ func showInstances(be *Backend) string {
 	var b strings.Builder
 	for k, inst := range be.PreferredInstances() {
 		b.WriteString(k.ServiceName.String())
-		if inst.PortName != "" {
+		if len(inst.PortNames) > 0 {
 			b.WriteString(" (")
-			b.WriteString(string(inst.PortName))
+			for i, name := range inst.PortNames {
+				b.WriteString(string(name))
+				if i < len(inst.PortNames)-1 {
+					b.WriteRune(' ')
+				}
+			}
 			b.WriteRune(')')
 		}
 		b.WriteString(", ")
@@ -199,8 +204,8 @@ func showShadows(be *Backend) string {
 			continue // Omit the instance that is already included in showInstances
 		}
 		instance := string(inst.Source)
-		if inst.PortName != "" {
-			instance += fmt.Sprintf(" (%s)", inst.PortName)
+		if len(inst.PortNames) > 0 {
+			instance += fmt.Sprintf(" (%s)", strings.Join(inst.PortNames, " "))
 		}
 		instances = append(instances, instance)
 	}

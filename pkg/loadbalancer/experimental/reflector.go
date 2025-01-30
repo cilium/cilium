@@ -511,25 +511,45 @@ func convertEndpoints(ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []B
 		Name:      ep.ServiceID.Name,
 		Namespace: ep.ServiceID.Namespace,
 	}
+
+	// k8s.Endpoints may have the same backend address multiple times
+	// with a different port name. Collapse them down into single
+	// entry.
+	type entry struct {
+		portNames []string
+		backend   *k8s.Backend
+	}
+	entries := map[loadbalancer.L3n4Addr]entry{}
+
 	for addrCluster, be := range ep.Backends {
 		for portName, l4Addr := range be.Ports {
 			l3n4Addr := loadbalancer.L3n4Addr{
 				AddrCluster: addrCluster,
 				L4Addr:      *l4Addr,
 			}
-			state := loadbalancer.BackendStateActive
-			if be.Terminating {
-				state = loadbalancer.BackendStateTerminating
+			portNames := entries[l3n4Addr].portNames
+			if portName != "" {
+				portNames = append(portNames, portName)
 			}
-			be := BackendParams{
-				L3n4Addr: l3n4Addr,
-				NodeName: be.NodeName,
-				PortName: portName,
-				Weight:   loadbalancer.DefaultBackendWeight,
-				State:    state,
+			entries[l3n4Addr] = entry{
+				portNames: portNames,
+				backend:   be,
 			}
-			out = append(out, be)
 		}
+	}
+	for l3n4Addr, entry := range entries {
+		state := loadbalancer.BackendStateActive
+		if entry.backend.Terminating {
+			state = loadbalancer.BackendStateTerminating
+		}
+		be := BackendParams{
+			L3n4Addr:  l3n4Addr,
+			NodeName:  entry.backend.NodeName,
+			PortNames: entry.portNames,
+			Weight:    loadbalancer.DefaultBackendWeight,
+			State:     state,
+		}
+		out = append(out, be)
 	}
 	return
 }
