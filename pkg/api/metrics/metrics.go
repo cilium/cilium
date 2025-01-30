@@ -29,6 +29,10 @@ func NewPrometheusMetrics(namespace, subsystem string, registry metrics.Register
 		Subsystem: subsystem,
 		Name:      "api_duration_seconds",
 		Help:      "Duration of interactions with API",
+		Buckets: merge(
+			prometheus.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
+			prometheus.LinearBuckets(1, 1, 60),      // 1s, 2s, 3s, ... 60s,
+		),
 	}, []string{"operation", "response_code"})
 
 	m.RateLimit = prometheus.NewHistogramVec(prometheus.HistogramOpts{
