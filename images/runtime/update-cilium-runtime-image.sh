@@ -9,24 +9,24 @@ set -o pipefail
 set -o nounset
 
 image_full=${1}
-image="${image_full%%:*}"
 root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
+
+image="quay.io/cilium/cilium-runtime"
 
 # shellcheck disable=SC2207
 used_by=($(find . -type f -name Dockerfile -print0 | xargs -0 git grep -l CILIUM_RUNTIME_IMAGE=))
 
 for i in "${used_by[@]}" ; do
-  sed -E "s#${image}:.*#${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
+  sed -E "s#((CILIUM_RUNTIME|BASE)_IMAGE=)${image}:.*\$#\1${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
 done
 
 # shellcheck disable=SC2207
-github_used_by=($(git grep -l "${image}:" .github/actions/))
+github_used_by=($(git grep -l "${image}:" .github/workflows/))
 
 for i in "${github_used_by[@]}" ; do
-  # Added specific " char after image_full for handling environment variable action setup
-  sed -E "s#${image}:.*#${image_full}\\\"#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
+  sed -E "s#${image}:.*#${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
 done
 
 do_check="${CHECK:-false}"
