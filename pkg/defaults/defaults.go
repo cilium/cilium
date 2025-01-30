@@ -331,10 +331,6 @@ const (
 	// initial allocator state from kvstore before exiting.
 	AllocatorListTimeout = 3 * time.Minute
 
-	// K8sWatcherEndpointSelector specifies the k8s endpoints that Cilium
-	// should watch for.
-	K8sWatcherEndpointSelector = "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager"
-
 	// ConntrackGCMaxLRUInterval is the maximum conntrack GC interval when using LRU maps
 	ConntrackGCMaxLRUInterval = 12 * time.Hour
 
