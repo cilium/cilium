@@ -376,6 +376,8 @@ Deprecated Options
   and will be removed in Cilium 1.18.
 * The :ref:`External Workloads <external_workloads>` feature has been deprecated and will be removed in v1.18.
 * The ``cilium-docker-plugin`` has been deprecated and is planned to be removed in v1.18.
+* The ``--k8s-watcher-endpoint-selector`` cilium-agent flag didn't have any effect since v1.14 and
+  has been deprecated. It will be remove in v1.18.
 
 Helm Options
 ~~~~~~~~~~~~
