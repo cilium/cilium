@@ -260,14 +260,16 @@ func checkDeadlock(stack []uintptr, ptr interface{}, currentID int64, ch <-chan 
 }
 
 type lockOrder struct {
-	mu    sync.Mutex
-	cur   map[interface{}]stackGID // stacktraces + gids for the locks currently taken.
-	order map[beforeAfter]ss       // expected order of locks.
+	mu          sync.Mutex
+	cur         map[interface{}]stackGID // stacktraces + gids for the locks currently taken.
+	pToStackGID map[interface{}]stackGID // stacktraces + gids for the locks currently taken.
+	order       map[beforeAfter]ss       // expected order of locks.
 }
 
 type stackGID struct {
 	stack []uintptr
 	gid   int64
+	time  time.Time
 }
 
 type beforeAfter struct {
@@ -284,15 +286,16 @@ var lo = newLockOrder()
 
 func newLockOrder() *lockOrder {
 	return &lockOrder{
-		cur:   map[interface{}]stackGID{},
-		order: map[beforeAfter]ss{},
+		pToStackGID: map[interface{}]stackGID{},
+		cur:         map[interface{}]stackGID{},
+		order:       map[beforeAfter]ss{},
 	}
 }
 
 func (l *lockOrder) postLock(stack []uintptr, p interface{}) {
 	gid := goid.Get()
 	l.mu.Lock()
-	l.cur[p] = stackGID{stack, gid}
+	l.cur[p] = stackGID{stack, gid, time.Now()}
 	l.mu.Unlock()
 }
 
@@ -302,6 +305,7 @@ func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 	}
 	gid := goid.Get()
 	l.mu.Lock()
+	l.pToStackGID[p] = stackGID{stack, gid, time.Now()}
 	for b, bs := range l.cur {
 		if b == p {
 			if bs.gid == gid {
@@ -323,14 +327,16 @@ func (l *lockOrder) preLock(stack []uintptr, p interface{}) {
 		if bs.gid != gid { // We want locks taken in the same goroutine only.
 			continue
 		}
+		// bs gid == current gid
 		if s, ok := l.order[beforeAfter{p, b}]; ok {
+			pGID := l.pToStackGID[p]
 			Opts.mu.Lock()
-			fmt.Fprintln(Opts.LogBuf, header, "Inconsistent locking. saw this ordering in one goroutine:")
-			fmt.Fprintln(Opts.LogBuf, "happened before")
+			fmt.Fprintf(Opts.LogBuf, header+"Inconsistent locking. saw this ordering in one goroutine[%d] at %s:\n", pGID.gid, pGID.time)
+			fmt.Fprintf(Opts.LogBuf, "happened before pointer %p\n", b)
 			printStack(Opts.LogBuf, s.before)
-			fmt.Fprintln(Opts.LogBuf, "happened after")
+			fmt.Fprintf(Opts.LogBuf, "happened after pointer %p\n", p)
 			printStack(Opts.LogBuf, s.after)
-			fmt.Fprintln(Opts.LogBuf, "in another goroutine: happened before")
+			fmt.Fprintf(Opts.LogBuf, "in another goroutine[%d] at %s: happened before\n", bs.gid, bs.time)
 			printStack(Opts.LogBuf, bs.stack)
 			fmt.Fprintln(Opts.LogBuf, "happened after")
 			printStack(Opts.LogBuf, stack)
@@ -363,22 +369,9 @@ func (r *rlocker) Unlock() { (*RWMutex)(r).RUnlock() }
 
 // Under lo.mu Locked.
 func (l *lockOrder) other(ptr interface{}) {
-	empty := true
-	for k := range l.cur {
-		if k == ptr {
-			continue
-		}
-		empty = false
-	}
-	if empty {
-		return
-	}
-	fmt.Fprintln(Opts.LogBuf, "Other goroutines holding locks:")
+	fmt.Fprintln(Opts.LogBuf, "All goroutines holding locks:")
 	for k, pp := range l.cur {
-		if k == ptr {
-			continue
-		}
-		fmt.Fprintf(Opts.LogBuf, "goroutine %v lock %p\n", pp.gid, k)
+		fmt.Fprintf(Opts.LogBuf, "goroutine %v lock %p caused problems? %t\n", pp.gid, k, k == ptr)
 		printStack(Opts.LogBuf, pp.stack)
 	}
 	fmt.Fprintln(Opts.LogBuf)

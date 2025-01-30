@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf"
+	"github.com/petermattis/goid"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -368,9 +369,14 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		{Name: []string{"kernel", "timer_migration"}, Val: "0", IgnoreErr: true},
 	}
 
+	fmt.Printf("aanm Reinitialize executed with go routine %d\n", goid.Get())
+	defer fmt.Printf("aanm Reinitialize leaving with go routine %d\n", goid.Get())
+
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
+
+	fmt.Printf("aanm Reinitialize executed with go routine after locking %d\n", goid.Get())
 
 	// Startup relies on not returning an error here, maybe something we
 	// can fix in the future.
