@@ -228,7 +228,7 @@ jobs:
 
       - name: Wait for Cilium to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --interactive=false
           kubectl get pods -n kube-system
 
       - name: Install Cilium LB IPPool and L2 Announcement Policy

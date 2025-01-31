@@ -254,7 +254,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --interactive=false
 
       - name: Setup CL2
         run: |
@@ -343,7 +343,7 @@ jobs:
             --set clustermesh.apiserver.metrics.serviceMonitor.enabled=true \
             --values values-clustermesh-config.yaml
 
-          cilium status --wait
+          cilium status --wait --interactive=false
           cilium clustermesh status --wait --wait-duration=5m
 
       - name: Run CL2
