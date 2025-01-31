@@ -380,6 +380,7 @@ Deprecated Options
   has been deprecated. It will be remove in v1.18.
 * The ``--enable-k8s-terminating-endpoint`` cilium-agent flag (``enableK8sTerminatingEndpoint`` in Helm) has been deprecated.
   The feature will be unconditionally enabled in v1.18.
+* The ``--datapath-mode=lb-only`` has been deprecated and will be removed in v1.18.
 
 Helm Options
 ~~~~~~~~~~~~
