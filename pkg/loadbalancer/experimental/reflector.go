@@ -280,7 +280,7 @@ var (
 )
 
 func isHeadless(svc *slim_corev1.Service) bool {
-	_, headless := svc.Labels[corev1.IsHeadlessService]
+	_, headless := svc.Annotations[corev1.IsHeadlessService]
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		headless = true
 	}
@@ -341,6 +341,12 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		if cfg := svc.Spec.SessionAffinityConfig; cfg != nil && cfg.ClientIP != nil && cfg.ClientIP.TimeoutSeconds != nil && *cfg.ClientIP.TimeoutSeconds != 0 {
 			s.SessionAffinityTimeout = time.Duration(int(time.Second) * int(*cfg.ClientIP.TimeoutSeconds))
 		}
+	}
+
+	// A service that is annotated as headless has no frontends, even if the service spec contains
+	// ClusterIPs etc.
+	if isHeadless(svc) {
+		return
 	}
 
 	// ClusterIP
