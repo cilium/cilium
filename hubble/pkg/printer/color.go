@@ -116,3 +116,23 @@ func (c colorer) authTestAlwaysFail(a interface{}) string {
 func (c colorer) authIsEnabled(a interface{}) string {
 	return c.green.Sprint(a)
 }
+
+// compute the list of unique ANSI escape sequences for this colorer.
+func (c *colorer) sequences() []string {
+	unique := make(map[string]struct{})
+	for _, v := range c.colors {
+		seq := v.Sprint("|")
+		split := strings.Split(seq, "|")
+		if len(split) != 2 {
+			// should never happen
+			continue
+		}
+		unique[split[0]] = struct{}{}
+		unique[split[1]] = struct{}{}
+	}
+	seqs := make([]string, 0, len(unique))
+	for k := range unique {
+		seqs = append(seqs, k)
+	}
+	return seqs
+}
