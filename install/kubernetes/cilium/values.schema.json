@@ -3935,6 +3935,17 @@
       },
       "type": "object"
     },
+    "k8sServiceHostRef": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "k8sServiceHost": {
       "type": "string"
     },
