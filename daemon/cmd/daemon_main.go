@@ -132,22 +132,24 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	// Validators
 	option.Config.FixedIdentityMappingValidator = option.Validator(func(val string) (string, error) {
-		vals := strings.Split(val, "=")
-		if len(vals) != 2 {
-			return "", fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, val)
-		}
-		ni, err := identity.ParseNumericIdentity(vals[0])
-		if err != nil {
-			return "", fmt.Errorf(`invalid numeric identity %q: %w`, val, err)
-		}
-		if !identity.IsUserReservedIdentity(ni) {
-			return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
-				val, identity.UserReservedNumericIdentity.Uint32(), identity.MinimalNumericIdentity.Uint32())
-		}
-		lblStr := vals[1]
-		lbl := labels.ParseLabel(lblStr)
-		if lbl.IsReservedSource() {
-			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
+		for _, kv := range strings.Split(val, ",") {
+			vals := strings.Split(kv, "=")
+			if len(vals) != 2 {
+				return "", fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, kv)
+			}
+			ni, err := identity.ParseNumericIdentity(vals[0])
+			if err != nil {
+				return "", fmt.Errorf(`invalid numeric identity %q: %w`, kv, err)
+			}
+			if !identity.IsUserReservedIdentity(ni) {
+				return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
+					kv, identity.UserReservedNumericIdentity.Uint32(), identity.MinimalNumericIdentity.Uint32())
+			}
+			lblStr := vals[1]
+			lbl := labels.ParseLabel(lblStr)
+			if lbl.IsReservedSource() {
+				return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
+			}
 		}
 		return val, nil
 	})
