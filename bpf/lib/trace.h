@@ -144,8 +144,9 @@ struct trace_notify {
 	__u32		dst_label;
 	__u16		dst_id;
 	__u8		reason;
-	__u8		ipv6:1;
-	__u8		pad:7;
+	__u8		ipv6:1,
+				l3:1,
+				pad:6;
 	__u32		ifindex;
 	union {
 		struct {
@@ -197,6 +198,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
 		   enum trace_reason reason, __u32 monitor, __u16 line, __u8 file)
 {
+	bool l3 = false, ipv6 = false;
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
 			      ctx_len);
@@ -220,6 +222,13 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
+#ifdef ENABLE_WIREGUARD
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX) {
+		l3 = true;
+		ipv6 = ctx->protocol == bpf_htons(ETH_P_IPV6);
+	}
+#endif
+
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
@@ -227,6 +236,8 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.dst_label	= dst,
 		.dst_id		= dst_id,
 		.reason		= reason,
+		.ipv6		= ipv6,
+		.l3			= l3,
 		.ifindex	= ifindex,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
@@ -241,6 +252,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __be32 orig_addr, __u16 dst_id,
 		   __u32 ifindex, enum trace_reason reason, __u32 monitor)
 {
+	bool l3 = false;
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
 			      ctx_len);
@@ -264,6 +276,11 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
+#ifdef ENABLE_WIREGUARD
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX)
+		l3 = true;
+#endif
+
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
@@ -272,7 +289,8 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.dst_id		= dst_id,
 		.reason		= reason,
 		.ifindex	= ifindex,
-		.ipv6		= 0,
+		.ipv6		= false,
+		.l3			= l3,
 		.orig_ip4	= orig_addr,
 	};
 
@@ -287,6 +305,7 @@ send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u16 dst_id, __u32 ifindex, enum trace_reason reason,
 		   __u32 monitor)
 {
+	bool l3 = false;
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
 			      ctx_len);
@@ -310,6 +329,11 @@ send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 			return;
 	}
 
+#ifdef ENABLE_WIREGUARD
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX)
+		l3 = true;
+#endif
+
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
@@ -318,7 +342,8 @@ send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.dst_id		= dst_id,
 		.reason		= reason,
 		.ifindex	= ifindex,
-		.ipv6		= 1,
+		.ipv6		= true,
+		.l3			= l3,
 	};
 
 	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
