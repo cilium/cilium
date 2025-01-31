@@ -17,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -64,13 +64,17 @@ func Test_translator_Translate(t *testing.T) {
 
 			input := &model.Model{}
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
-			output := &ciliumv2.CiliumEnvoyConfig{}
-			readOutput(t, fmt.Sprintf("testdata/%s/cec-output.yaml", tt.name), output)
+			expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
+			readOutput(t, fmt.Sprintf("testdata/%s/cec-output.yaml", tt.name), expectedCEC)
+			expectedService := &corev1.Service{}
+			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, _, _, err := trans.Translate(input)
+			cec, svc, _, err := trans.Translate(input)
 
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
+			require.Equal(t, expectedService, svc, "Service mismatch")
+
+			diffOutput := cmp.Diff(expectedCEC, cec, protocmp.Transform())
 			if len(diffOutput) != 0 {
 				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
 			}
@@ -98,10 +102,13 @@ func Test_translator_Translate_AppProtocol(t *testing.T) {
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
 			output := &ciliumv2.CiliumEnvoyConfig{}
 			readOutput(t, fmt.Sprintf("testdata/%s/cec-output.yaml", tt.name), output)
+			expectedService := &corev1.Service{}
+			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, _, _, err := trans.Translate(input)
+			cec, svc, _, err := trans.Translate(input)
 
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
+			require.Equal(t, expectedService, svc, "Service mismatch")
 			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
 			if len(diffOutput) != 0 {
 				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
@@ -202,20 +209,17 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					readInput(t, fmt.Sprintf("testdata/%s/%s/input.yaml", tt.name, translatorCase.name), input)
 					output := &ciliumv2.CiliumEnvoyConfig{}
 					readOutput(t, fmt.Sprintf("testdata/%s/%s/cec-output.yaml", tt.name, translatorCase.name), output)
+					expectedService := &corev1.Service{}
+					readOutput(t, fmt.Sprintf("testdata/%s/%s/service-output.yaml", tt.name, translatorCase.name), expectedService)
 
 					cec, svc, ep, err := translatorCase.gatewayAPITranslator.Translate(input)
-
 					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
+					require.Equal(t, expectedService, svc, "Service mismatch")
 
 					diffOutput := cmp.Diff(output, cec, protocmp.Transform())
 					if len(diffOutput) != 0 {
 						t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
 					}
-
-					require.NotNil(t, svc)
-					assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
-					require.Emptyf(t, svc.Spec.ExternalTrafficPolicy, "ClusterIP Services must not have an ExternalTrafficPolicy")
-
 					require.NotNil(t, ep)
 				})
 			}
@@ -252,10 +256,12 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
 			output := &ciliumv2.CiliumEnvoyConfig{}
 			readOutput(t, fmt.Sprintf("testdata/%s/cec-output.yaml", tt.name), output)
+			expectedService := &corev1.Service{}
+			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
 			cec, svc, ep, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-
+			require.Equal(t, expectedService, svc, "Service mismatch")
 			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
 			if len(diffOutput) != 0 {
 				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
@@ -305,7 +311,7 @@ func Test_getService(t *testing.T) {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: gatewayv1beta1.GroupVersion.String(),
+							APIVersion: gatewayv1.GroupVersion.String(),
 							Kind:       "Gateway",
 							Name:       "test-long-long-long-long-long-long-long-long-long-long-long-long-name",
 							UID:        types.UID("57889650-380b-4c05-9a2e-3baee7fd5271"),
@@ -349,7 +355,7 @@ func Test_getService(t *testing.T) {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: gatewayv1beta1.GroupVersion.String(),
+							APIVersion: gatewayv1.GroupVersion.String(),
 							Kind:       "Gateway",
 							Name:       "test-externaltrafficpolicy-local",
 							UID:        types.UID("41b82697-2d8d-4776-81b6-44d0bbac7faa"),
