@@ -27,26 +27,30 @@ func (g *GoBGPServer) AddNeighbor(ctx context.Context, n *types.Neighbor) error 
 }
 
 // UpdateNeighbor will update the existing CiliumBGPNeighbor in the gobgp.BgpServer.
-func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborRequest) error {
-	peer, needsHardReset, err := g.getPeerConfig(ctx, n, true)
+func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n *types.Neighbor) error {
+	oldPeer, err := g.getExistingPeer(ctx, n.Address, n.ASN)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get existing peer: %w", err)
 	}
+
+	newPeer := ToGoBGPPeer(n, oldPeer, n.Address.Is4())
+
+	needsHardReset := g.needsHardReset(oldPeer, newPeer)
 
 	// update peer config
 	peerReq := &gobgp.UpdatePeerRequest{
-		Peer: peer,
+		Peer: ToGoBGPPeer(n, oldPeer, n.Address.Is4()),
 	}
+
 	updateRes, err := g.server.UpdatePeer(ctx, peerReq)
 	if err != nil {
-		return fmt.Errorf("failed while updating peer %v:%v with ASN %v: %w", peer.Conf.NeighborAddress, peer.Transport.RemotePort, peer.Conf.PeerAsn, err)
+		return fmt.Errorf("failed while updating peer %v:%v with ASN %v: %w", oldPeer.Conf.NeighborAddress, oldPeer.Transport.RemotePort, oldPeer.Conf.PeerAsn, err)
 	}
 
 	// perform full / soft peer reset if necessary
 	if needsHardReset || updateRes.NeedsSoftResetIn {
-		g.logger.Infof("Resetting peer %s:%v (ASN %d) due to a config change", peer.Conf.NeighborAddress, peer.Transport.RemotePort, peer.Conf.PeerAsn)
 		resetReq := &gobgp.ResetPeerRequest{
-			Address:       peer.Conf.NeighborAddress,
+			Address:       oldPeer.Conf.NeighborAddress,
 			Communication: "Peer configuration changed",
 		}
 		if !needsHardReset {
@@ -54,11 +58,27 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborReques
 			resetReq.Direction = gobgp.ResetPeerRequest_IN
 		}
 		if err = g.server.ResetPeer(ctx, resetReq); err != nil {
-			return fmt.Errorf("failed while resetting peer %v:%v in ASN %v: %w", peer.Conf.NeighborAddress, peer.Transport.RemotePort, peer.Conf.PeerAsn, err)
+			return fmt.Errorf("failed while resetting peer %v:%v in ASN %v: %w", oldPeer.Conf.NeighborAddress, oldPeer.Transport.RemotePort, oldPeer.Conf.PeerAsn, err)
 		}
 	}
 
 	return nil
+}
+
+func (g *GoBGPServer) needsHardReset(oldPeer, newPeer *gobgp.Peer) bool {
+	// In some cases, we want to perform full session reset on update even if GoBGP would not perform it.
+	// An example of that is updating timer parameters that are negotiated during the session setup.
+	// As we provide declarative API (CRD), we want this config to be applied on existing sessions
+	// immediately, therefore we need full session reset.
+	if oldPeer == nil {
+		return false
+	}
+	if (oldPeer.Timers != nil && newPeer.Timers != nil) &&
+		(oldPeer.Timers.Config.HoldTime != newPeer.Timers.Config.HoldTime ||
+			oldPeer.Timers.Config.KeepaliveInterval != newPeer.Timers.Config.KeepaliveInterval) {
+		return true
+	}
+	return false
 }
 
 // convertBGPNeighborSAFI will convert a slice of CiliumBGPFamily to a slice of
