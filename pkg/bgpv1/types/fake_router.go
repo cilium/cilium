@@ -23,7 +23,7 @@ func (f *FakeRouter) AddNeighbor(ctx context.Context, n *Neighbor) error {
 	return nil
 }
 
-func (f *FakeRouter) UpdateNeighbor(ctx context.Context, n NeighborRequest) error {
+func (f *FakeRouter) UpdateNeighbor(ctx context.Context, n *Neighbor) error {
 	return nil
 }
 
