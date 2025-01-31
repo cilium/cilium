@@ -135,6 +135,10 @@ var (
 func getBPFCPU() string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
+			if probes.HaveV4ISA() == nil {
+				nameBPFCPU = "v4"
+				return
+			}
 			// We can probe the availability of BPF instructions indirectly
 			// based on what kernel helpers are available when both were
 			// added in the same release.

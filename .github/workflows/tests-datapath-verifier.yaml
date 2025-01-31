@@ -103,10 +103,10 @@ jobs:
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.6-20241218.004849'
-            ci-kernel: '61'
+            ci-kernel: '66'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.12-20241218.004849'
-            ci-kernel: '61'
+            ci-kernel: '66'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: 'bpf-next-20250110.013326'
             ci-kernel: 'netnext'
