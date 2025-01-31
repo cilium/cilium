@@ -156,16 +156,15 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	p.packet.Lock()
 	defer p.packet.Unlock()
 
-	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
-	// https://github.com/google/gopacket/issues/846
-	// TODO: reconsider this check if the issue is fixed upstream
+	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet.
+	// Skip decoding and truncate layers to avoid accidental re-use.
+	// See https://github.com/google/gopacket/issues/846
 	if len(data[packetOffset:]) > 0 {
 		err := p.packet.decLayer.DecodeLayers(data[packetOffset:], &p.packet.Layers)
 		if err != nil {
 			return err
 		}
 	} else {
-		// Truncate layers to avoid accidental re-use.
 		p.packet.Layers = p.packet.Layers[:0]
 	}
 
