@@ -169,7 +169,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		if err != nil {
 			return fmt.Errorf("failed fetching password for neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
-		if err := p.CurrentServer.Server.UpdateNeighbor(ctx, types.NeighborRequest{Neighbor: n, Password: tcpPassword}); err != nil {
+		if err := p.CurrentServer.Server.UpdateNeighbor(ctx, types.ToNeighborV1(n, tcpPassword)); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 		r.updateMetadata(p.CurrentServer, n, tcpPassword)
