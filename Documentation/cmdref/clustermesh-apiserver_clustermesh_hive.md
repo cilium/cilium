@@ -11,10 +11,12 @@ clustermesh-apiserver clustermesh hive [flags]
 ### Options
 
 ```
+      --api-serve-addr string                        Address to serve the KVStoreMesh API (default "localhost:9889")
       --cluster-id uint32                            Unique identifier of the cluster
       --cluster-name string                          Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --cluster-users-config-path string             The path of the config file with the list of remote cluster users (default "/var/lib/cilium/etcd-config/users.yaml")
       --cluster-users-enabled                        Enable the management of etcd users for remote clusters
+      --clustermesh-config string                    Path to the ClusterMesh configuration directory
       --clustermesh-enable-mcs-api                   Whether or not the MCS API support is enabled.
       --controller-group-metrics strings             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                    Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
@@ -24,6 +26,7 @@ clustermesh-apiserver clustermesh hive [flags]
       --enable-k8s                                   Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                     Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                    Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
+      --global-ready-timeout duration                KVStoreMesh will be considered ready even if any remote clusters have failed to synchronize within this duration (default 10m0s)
       --gops-port uint16                             Port for gops server to listen on (default 9892)
       --health-port int                              TCP port for ClusterMesh health API (default 9880)
   -h, --help                                         help for hive
@@ -44,6 +47,7 @@ clustermesh-apiserver clustermesh hive [flags]
       --log-driver strings                           Logging endpoints to use (example: syslog)
       --log-opt map                                  Log driver options (example: format=json)
       --max-connected-clusters uint32                Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
+      --per-cluster-ready-timeout duration           Remote clusters will be disregarded for readiness checks if a connection cannot be established within this duration (default 15s)
       --pprof                                        Enable serving pprof debugging API
       --pprof-address string                         Address that pprof listens on (default "localhost")
       --pprof-port uint16                            Port that pprof listens on (default 6063)
