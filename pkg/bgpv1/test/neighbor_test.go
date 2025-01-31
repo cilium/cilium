@@ -264,7 +264,7 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 	}
 
 	// This test run can take upto a minute
-	testCtx, testDone := context.WithTimeout(context.Background(), maxGracefulRestartTestDuration)
+	testCtx, testDone := context.WithTimeout(context.Background(), maxTestDuration)
 	defer testDone()
 
 	// test setup, we configure single gobgp instance here.
