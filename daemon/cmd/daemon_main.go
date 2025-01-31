@@ -250,7 +250,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkDeprecated(option.EnableRuntimeDeviceDetection, "Runtime device detection and datapath reconfiguration is now the default and only mode of operation")
 
 	flags.String(option.DatapathMode, defaults.DatapathMode,
-		fmt.Sprintf("Datapath mode name (%s, %s, %s, %s)",
+		fmt.Sprintf("Datapath mode name (%s, %s, %s, %s (deprecated))",
 			datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit,
 			datapathOption.DatapathModeNetkitL2, datapathOption.DatapathModeLBOnly))
 	option.BindEnv(vp, option.DatapathMode)
@@ -1288,6 +1288,7 @@ func initEnv(vp *viper.Viper) {
 		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
+		log.Warn("LB-only mode is deprecated and will be removed in v1.18")
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			option.Config.EnablePMTUDiscovery = true
 		}
