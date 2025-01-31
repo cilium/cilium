@@ -137,18 +137,6 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 	return c, hasIP, hasEth
 }
 
-// GetConnectionInfo returns the ConnectionInfo structure from data
-func GetConnectionInfo(data []byte) *ConnectionInfo {
-	dissectLock.Lock()
-	defer dissectLock.Unlock()
-
-	initParser()
-	parser.DecodeLayers(data, &cache.decoded)
-
-	c, _, _ := getConnectionInfoFromCache()
-	return c
-}
-
 // GetConnectionSummary decodes the data into layers and returns a connection
 // summary in the format:
 //
