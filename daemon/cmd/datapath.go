@@ -226,6 +226,10 @@ func (d *Daemon) initMaps() error {
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing neighbors map: %w", err)
 		}
+		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
+			option.Config.EnableIPv6); err != nil {
+			return fmt.Errorf("initializing NAT retries map: %w", err)
+		}
 	}
 
 	if option.Config.EnableIPv4FragmentsTracking {

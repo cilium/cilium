@@ -436,3 +436,19 @@ func RetriesMaps(ipv4, ipv6, nodeport bool) (ipv4RetriesMap, ipv6RetriesMap Retr
 	}
 	return
 }
+
+func CreateRetriesMaps(ipv4, ipv6 bool) error {
+	if ipv4 {
+		ipv4Map := NewRetriesMap(MapNameSnat4AllocRetries)
+		if err := ipv4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+	}
+	if ipv6 {
+		ipv6Map := NewRetriesMap(MapNameSnat6AllocRetries)
+		if err := ipv6Map.OpenOrCreate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
