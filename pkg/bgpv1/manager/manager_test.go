@@ -185,9 +185,7 @@ func TestGetRoutes(t *testing.T) {
 				PeerASN:     64100,
 			}
 			n.SetDefaults()
-			err = testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
-				Neighbor: n,
-			})
+			err = testSC.Server.AddNeighbor(context.Background(), types.ToNeighborV1(n, ""))
 			require.NoError(t, err)
 
 			// advertise test-provided prefixes

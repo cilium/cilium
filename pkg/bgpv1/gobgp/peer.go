@@ -16,16 +16,12 @@ import (
 
 // AddNeighbor will add the CiliumBGPNeighbor to the gobgp.BgpServer, creating
 // a BGP peering connection.
-func (g *GoBGPServer) AddNeighbor(ctx context.Context, n types.NeighborRequest) error {
-	peer, _, err := g.getPeerConfig(ctx, n, false)
-	if err != nil {
-		return err
-	}
+func (g *GoBGPServer) AddNeighbor(ctx context.Context, n *types.Neighbor) error {
 	peerReq := &gobgp.AddPeerRequest{
-		Peer: peer,
+		Peer: ToGoBGPPeer(n, nil, n.Address.Is4()),
 	}
-	if err = g.server.AddPeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while adding peer %s with ASN %d: %w", peer.Conf.NeighborAddress, peer.Conf.PeerAsn, err)
+	if err := g.server.AddPeer(ctx, peerReq); err != nil {
+		return fmt.Errorf("failed while adding peer %s with ASN %d: %w", n.Address, n.ASN, err)
 	}
 	return nil
 }
