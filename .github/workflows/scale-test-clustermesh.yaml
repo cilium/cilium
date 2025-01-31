@@ -344,7 +344,7 @@ jobs:
             --values values-clustermesh-config.yaml
 
           cilium status --wait
-          cilium clustermesh status --wait --interactive=false --wait-duration=5m
+          cilium clustermesh status --wait --wait-duration=5m
 
       - name: Run CL2
         id: run-cl2
