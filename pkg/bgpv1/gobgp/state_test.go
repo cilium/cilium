@@ -219,7 +219,7 @@ func TestGetPeerState(t *testing.T) {
 				},
 			},
 			localASN: 64124,
-			errStr:   "failed to parse PeerAddress: netip.ParsePrefix(\"192.168.0.XYZ\"): no '/'",
+			errStr:   "failed while adding peer invalid IP with ASN 64125: NeighborAddress is not configured",
 		},
 		{
 			name: "test invalid neighbor update",
@@ -267,9 +267,7 @@ func TestGetPeerState(t *testing.T) {
 			for _, n := range tt.neighbors {
 				n.SetDefaults()
 
-				err = testSC.AddNeighbor(context.Background(), types.NeighborRequest{
-					Neighbor: n,
-				})
+				err = testSC.AddNeighbor(context.Background(), types.ToNeighborV1(n, ""))
 				if tt.errStr != "" {
 					require.EqualError(t, err, tt.errStr)
 					return // no more checks
@@ -372,9 +370,7 @@ func TestGetRoutes(t *testing.T) {
 		testSC.Stop()
 	})
 
-	err = testSC.AddNeighbor(context.TODO(), types.NeighborRequest{
-		Neighbor: neighbor64125,
-	})
+	err = testSC.AddNeighbor(context.TODO(), types.ToNeighborV1(neighbor64125, ""))
 	require.NoError(t, err)
 
 	_, err = testSC.AdvertisePath(context.TODO(), types.PathRequest{
