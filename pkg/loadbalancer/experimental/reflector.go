@@ -696,9 +696,12 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 			continue
 		}
 
-		// Delete this orphaned service and associated frontends. The backends will be removed
-		// when they become unreferenced.
-		err := params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
+		if err != nil {
+			return fmt.Errorf("DeleteBackendsOfService: %w", err)
+		}
+
+		err = params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}
@@ -713,9 +716,11 @@ func deleteHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 		Namespace: pod.ObjectMeta.Namespace,
 	}
 	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
-		// Delete this orphaned service and associated frontends. The backends will be removed
-		// when they become unreferenced.
-		err := params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
+		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
+		if err != nil {
+			return fmt.Errorf("DeleteBackendsOfService: %w", err)
+		}
+		err = params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}

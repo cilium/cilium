@@ -297,20 +297,6 @@ func (w *Writer) deleteService(txn WriteTxn, svc *Service) error {
 		}
 	}
 
-	// Release references to the backends
-	for be := range w.bes.List(txn, BackendByServiceName(svc.Name)) {
-		be, orphan := be.release(svc.Name)
-		if orphan {
-			if _, _, err := w.bes.Delete(txn, be); err != nil {
-				return err
-			}
-		} else {
-			if _, _, err := w.bes.Insert(txn, be); err != nil {
-				return err
-			}
-		}
-	}
-
 	// And finally delete the service itself.
 	_, _, err := w.svcs.Delete(txn, svc)
 	return err
