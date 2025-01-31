@@ -57,6 +57,7 @@ type nodeLabels struct {
 }
 
 func registerCECReflector(
+	dcfg *option.DaemonConfig,
 	ecfg experimental.Config,
 	p *cecResourceParser,
 	crdSync promise.Promise[synced.CRDSync],
@@ -67,7 +68,7 @@ func registerCECReflector(
 	db *statedb.DB,
 	tbl statedb.RWTable[*CEC],
 ) error {
-	if !option.Config.EnableL7Proxy && !option.Config.EnableEnvoyConfig {
+	if !dcfg.EnableL7Proxy || !dcfg.EnableEnvoyConfig {
 		return nil
 	}
 	if lws.cec == nil || !ecfg.EnableExperimentalLB {
