@@ -100,7 +100,7 @@ func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s:%d, ",
 		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, api.BPFFileName(n.File), int(n.Line))
 	n.dumpIdentity(buf, numeric)
-	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():]))
+	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():], nil))
 	buf.Flush()
 }
 

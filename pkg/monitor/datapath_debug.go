@@ -466,7 +466,7 @@ func (n *DebugCapture) DumpInfo(data []byte, linkMonitor getters.LinkGetter) {
 	prefix := n.infoPrefix(linkMonitor)
 
 	if len(prefix) > 0 {
-		fmt.Printf("%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:]))
+		fmt.Printf("%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:], nil))
 	}
 }
 
@@ -530,7 +530,7 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getter
 
 	v := DebugCaptureToVerbose(n, linkMonitor)
 	v.CPUPrefix = cpuPrefix
-	v.Summary = GetConnectionSummary(data[DebugCaptureLen:])
+	v.Summary = GetConnectionSummary(data[DebugCaptureLen:], nil)
 
 	ret, err := json.Marshal(v)
 	return string(ret), err
