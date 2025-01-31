@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/statedb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
@@ -40,15 +41,16 @@ var healthServerCell = cell.Module(
 type healthServerParams struct {
 	cell.In
 
-	Jobs       job.Group
-	Log        *slog.Logger
-	DB         *statedb.DB
-	Config     Config
-	TestConfig *TestConfig `optional:"true"`
-	ExtConfig  ExternalConfig
-	Frontends  statedb.Table[*Frontend]
-	Backends   statedb.Table[*Backend]
-	Writer     *Writer
+	Jobs          job.Group
+	Log           *slog.Logger
+	DB            *statedb.DB
+	Config        Config
+	TestConfig    *TestConfig `optional:"true"`
+	ExtConfig     ExternalConfig
+	Frontends     statedb.Table[*Frontend]
+	Backends      statedb.Table[*Backend]
+	Writer        *Writer
+	NodeAddresses statedb.Table[tables.NodeAddress]
 }
 
 // healthServer manages HTTP health check ports. For each added service,
@@ -74,6 +76,7 @@ func registerHealthServer(params healthServerParams) {
 		portByService: map[lb.ServiceName]uint16{},
 	}
 
+	// TODO(brb) Handle ipv6 + cluster-id
 	addr := netip.IPv4Unspecified()
 	if params.TestConfig != nil {
 		addr = chooseHealthServerLoopbackAddressForTesting()
@@ -183,13 +186,30 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 					ServicePort: port,
 				},
 			)
+
+			// Find NodePort addr to use as a backend for $LB_VIP:$HC_NODEPORT frontend.
+			beAddr := netip.IPv4Unspecified()
+			is4 := fe.Address.AddrCluster.Is4()
+			if !is4 {
+				beAddr = netip.IPv6Unspecified()
+			}
+			for addr := range s.params.NodeAddresses.List(wtxn, tables.NodeAddressNodePortIndex.Query(true)) {
+				if is4 && addr.Addr.Is4() {
+					beAddr = addr.Addr
+					break
+				} else if !is4 && addr.Addr.Is6() {
+					beAddr = addr.Addr
+					break
+				}
+			}
+
 			s.params.Writer.UpsertBackends(
 				wtxn,
 				healthServiceName,
 				source.Local,
 				BackendParams{
 					L3n4Addr: lb.L3n4Addr{
-						AddrCluster: s.healthServerAddr,
+						AddrCluster: cmtypes.AddrClusterFrom(beAddr, 0),
 						L4Addr: lb.L4Addr{
 							Protocol: lb.TCP,
 							Port:     port,

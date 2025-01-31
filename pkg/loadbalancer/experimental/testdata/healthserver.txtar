@@ -4,9 +4,6 @@
 hive start
 db/initialized
 
-# Expand the addresses and ports. To make this test deterministic it uses a loopback
-# address (127.x.x.x) that is based on the process ID in order to not have the ports
-# clash with other processes in the system.
 env HEALTHPORT1=40000
 env HEALTHPORT2=40001
 cp service.yaml service2.yaml
@@ -16,12 +13,9 @@ replace '$HEALTHPORT' $HEALTHPORT2 service2.yaml
 replace '$HEALTHPORT' 0 service_no_health.yaml
 replace '$HEALTHPORT1' $HEALTHPORT1 services.table
 replace '$HEALTHPORT1' $HEALTHPORT1 health_with_service.table
-replace '$HEALTHADDR' $HEALTHADDR frontends.table
 replace '$HEALTHPORT' $HEALTHPORT1 frontends.table
 replace '$HEALTHPORT' $HEALTHPORT1 backends.table
-replace '$HEALTHADDR' $HEALTHADDR backends.table
 replace '$HEALTHPORT' $HEALTHPORT1 lbmaps.expected
-replace '$HEALTHADDR' $HEALTHADDR lbmaps.expected
 
 # HealthServer's jobs should be reported in module health
 db/cmp --grep=^loadbalancer health health_no_service.table
@@ -123,7 +117,7 @@ Address               Type         ServiceName            PortName   Status  Bac
 0.0.0.0:30781/TCP     NodePort     test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
 10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
 172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
-172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo-healthserver            Done    $HEALTHADDR:$HEALTHPORT/TCP/i (active)
+172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo-healthserver            Done    1.1.1.1:$HEALTHPORT/TCP/i (active)
 
 -- frontends_nohealthcheck.table --
 Address               Type         ServiceName            PortName   Status  Backends
@@ -142,11 +136,11 @@ Address               Type        ServiceName   PortName   Status  Backends
 
 -- backends.table --
 State    Instances              Address
+active   test/echo-healthserver 1.1.1.1:$HEALTHPORT/TCP/i
 active   test/echo (http)       10.244.1.1:80/TCP
 active   test/echo (http)       10.244.1.2:80/TCP
 active   test/echo (http)       10.244.1.3:80/TCP
 active   test/echo (http)       10.244.1.4:80/TCP
-active   test/echo-healthserver $HEALTHADDR:$HEALTHPORT/TCP/i
 
 -- backends_nohealthcheck.table --
 Address               State    Instances              NodeName     ZoneID
@@ -238,7 +232,7 @@ X-Load-Balancing-Endpoint-Weight=4
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 BE: ID=2 ADDR=10.244.1.2:80/TCP STATE=active
-BE: ID=3 ADDR=$HEALTHADDR:$HEALTHPORT/TCP STATE=active
+BE: ID=3 ADDR=1.1.1.1:$HEALTHPORT/TCP STATE=active
 REV: ID=1 ADDR=10.96.50.104:80
 REV: ID=2 ADDR=0.0.0.0:30781
 REV: ID=3 ADDR=1.1.1.1:30781
