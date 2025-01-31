@@ -306,7 +306,6 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off, ret;
-	struct endpoint_info *ep;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -314,7 +313,9 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	if (is_defined(IS_BPF_HOST)) {
+	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_MASQUERADE_IPV4)) {
+		struct endpoint_info *ep;
+
 		ep = __lookup_ip4_endpoint(ip4->saddr);
 		if (ep && ep->parent_ifindex && ep->parent_ifindex != THIS_INTERFACE_IFINDEX) {
 			/* This packet came from an endpoint with a parent interface and
