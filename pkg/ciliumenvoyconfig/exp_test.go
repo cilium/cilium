@@ -63,6 +63,8 @@ func TestScript(t *testing.T) {
 						EnableIPv6:        true,
 						SockRevNatEntries: 1000,
 						LBMapEntries:      1000,
+						EnableL7Proxy:     true,
+						EnableEnvoyConfig: true,
 					}
 				},
 				func() *experimental.TestConfig {
