@@ -484,7 +484,7 @@ func (ct *ConnectivityTest) maybeNodeToNodeEncryptionAffinity() *corev1.NodeAffi
 
 func (ct *ConnectivityTest) deployCCNPPods(ctx context.Context)  error {
 
-
+	
 	namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2",}
 
 	for _, ns := range namespaces {
@@ -554,7 +554,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		if ct.Features[features.CCNP].Enabled {
+
+		if ct.Features[features.CCNP].Enabled && ct.params.TestNamespaceIndex == 0 {
 
 				namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2",}
 
@@ -1254,7 +1255,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	if ct.Features[features.CCNP].Enabled {
+	if ct.Features[features.CCNP].Enabled && ct.params.TestNamespaceIndex == 0 {
 		ct.Logf("✨ [%s] Deploying ccnp deployment...", ct.clients.src.ClusterName())
 		ct.deployCCNPPods(ctx)
 	}
