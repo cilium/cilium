@@ -56,11 +56,11 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
+| `v1.17 <https://github.com/cilium/cilium/tree/v1.17>`__ | 2025-02-04 | ``quay.io/cilium/cilium:v1.17.0``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.17.0>`__ |
++---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 | `v1.16 <https://github.com/cilium/cilium/tree/v1.16>`__ | 2025-01-21 | ``quay.io/cilium/cilium:v1.16.6``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.16.6>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 | `v1.15 <https://github.com/cilium/cilium/tree/v1.15>`__ | 2025-01-16 | ``quay.io/cilium/cilium:v1.15.13`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.15.13>`__ |
-+---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.14 <https://github.com/cilium/cilium/tree/v1.14>`__ | 2025-01-16 | ``quay.io/cilium/cilium:v1.14.19`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.14.19>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Architectures
