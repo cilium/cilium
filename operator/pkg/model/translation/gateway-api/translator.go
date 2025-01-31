@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,6 +126,9 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 			Protocol: corev1.ProtocolTCP,
 		})
 	}
+	slices.SortFunc(ports, func(a, b corev1.ServicePort) int {
+		return int(a.Port) - int(b.Port)
+	})
 
 	shortenName := shortener.ShortenK8sResourceName(resource.Name)
 
