@@ -3833,6 +3833,17 @@ func (kub *Kubectl) validateCilium() error {
 		}
 		err = kub.ciliumServicePreFlightCheck()
 		if err != nil {
+			for _, sc := range kub.serviceCache.pods {
+				fmt.Printf("================ LBMAP(%s) ===============\n", sc.name)
+				for name, lb := range sc.loadBalancers {
+					fmt.Println(name, lb)
+				}
+				fmt.Printf("================ SVC(%s) ===============\n", sc.name)
+				for _, m := range sc.services {
+					fmt.Println(m.Spec.FrontendAddress, m.Spec.BackendAddresses)
+				}
+			}
+
 			return fmt.Errorf("cilium services are not set up correctly: %w", err)
 		}
 		err = kub.servicePreFlightCheck("kubernetes", "default")
