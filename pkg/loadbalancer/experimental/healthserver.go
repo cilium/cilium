@@ -148,10 +148,8 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 				delete(s.portByService, name)
 				exists = false
 				wtxn := s.params.Writer.WriteTxn()
-				s.params.Writer.DeleteServiceAndFrontends(
-					wtxn,
-					healthServiceName,
-				)
+				s.params.Writer.DeleteBackendsOfService(wtxn, healthServiceName, source.Local)
+				s.params.Writer.DeleteServiceAndFrontends(wtxn, healthServiceName)
 				wtxn.Commit()
 			}
 
@@ -162,7 +160,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 			s.serverByPort[port] = s.addListener(svc, port)
 			s.portByService[name] = port
 
-			// Create a NodePort service to expose the health server.
+			// Create a LoadBalancer service to expose the health server.
 			wtxn := s.params.Writer.WriteTxn()
 			s.params.Writer.UpsertServiceAndFrontends(
 				wtxn,
@@ -181,7 +179,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 						},
 						Scope: lb.ScopeExternal,
 					},
-					Type:        fe.Type,
+					Type:        lb.SVCTypeLoadBalancer,
 					ServiceName: healthServiceName,
 					ServicePort: port,
 				},
@@ -203,7 +201,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 				}
 			}
 
-			s.params.Writer.UpsertBackends(
+			s.params.Writer.SetBackends(
 				wtxn,
 				healthServiceName,
 				source.Local,
@@ -255,7 +253,6 @@ func (s *healthServer) addListener(svc *Service, port uint16) *httpHealthServer 
 			fmt.Sprintf("listener-%d", port),
 			func(ctx context.Context, health cell.Health) error {
 				if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-					fmt.Printf(">>> ListenAndServe: %s\n", err)
 					return err
 				}
 				return nil
