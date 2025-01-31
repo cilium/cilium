@@ -14,6 +14,7 @@
 /* Enable code paths under test*/
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
+#define ENABLE_MASQUERADE_IPV4	1
 #define ENABLE_ROUTING
 
 #define PRIMARY_IFACE 1
