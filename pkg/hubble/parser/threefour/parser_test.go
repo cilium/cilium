@@ -333,48 +333,77 @@ func BenchmarkL34Decode(b *testing.B) {
 }
 
 func TestDecodeTraceNotify(t *testing.T) {
-	buf := &bytes.Buffer{}
-	tn := monitor.TraceNotifyV0{
-		Type:     byte(monitorAPI.MessageTypeTrace),
-		SrcLabel: 123,
-		DstLabel: 456,
+	for _, c := range []struct {
+		Name       string
+		IsL3Device bool
+	}{{"L3Device", true}, {"L2Device", false}} {
+		t.Run(c.Name, func(t *testing.T) {
+			tn := monitor.TraceNotify{
+				TraceNotifyV0: monitor.TraceNotifyV0{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					SrcLabel: 123,
+					DstLabel: 456,
+					Version:  monitor.TraceNotifyVersion1,
+				},
+			}
+			lay := []gopacket.SerializableLayer{
+				&layers.Ethernet{
+					SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+					DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+					EthernetType: layers.EthernetTypeIPv4,
+				},
+				&layers.IPv4{
+					Version:  4,
+					IHL:      5,
+					Length:   49,
+					Id:       0xCECB,
+					TTL:      64,
+					Protocol: layers.IPProtocolUDP,
+					SrcIP:    net.IPv4(1, 2, 3, 4),
+					DstIP:    net.IPv4(1, 2, 3, 4),
+				},
+				&layers.UDP{
+					SrcPort: 23939,
+					DstPort: 32412,
+				},
+			}
+
+			if c.IsL3Device {
+				tn.Flags = monitor.TraceNotifyFlagIsL3Device
+				lay = lay[1:]
+			}
+
+			buf := &bytes.Buffer{}
+			err := binary.Write(buf, byteorder.Native, &tn)
+			require.NoError(t, err)
+			buffer := gopacket.NewSerializeBuffer()
+			err = gopacket.SerializeLayers(buffer, gopacket.SerializeOptions{}, lay...)
+			require.NoError(t, err)
+			buf.Write(buffer.Bytes())
+			require.NoError(t, err)
+			identityGetter := &testutils.FakeIdentityGetter{OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
+				if securityIdentity == uint32(tn.SrcLabel) {
+					return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:src=label", "k8s:io.cilium.k8s.policy.cluster=cluster-name"})}, nil
+				} else if securityIdentity == uint32(tn.DstLabel) {
+					return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label", "k8s:io.cilium.k8s.policy.cluster=cluster-name"})}, nil
+				}
+				return nil, fmt.Errorf("identity not found for %d", securityIdentity)
+			}}
+
+			parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
+			require.NoError(t, err)
+
+			f := &flowpb.Flow{}
+			err = parser.Decode(buf.Bytes(), f)
+			require.NoError(t, err)
+			assert.Equal(t, []string{"k8s:io.cilium.k8s.policy.cluster=cluster-name", "k8s:src=label"}, f.GetSource().GetLabels())
+			assert.Equal(t, []string{"k8s:dst=label", "k8s:io.cilium.k8s.policy.cluster=cluster-name"}, f.GetDestination().GetLabels())
+			assert.Equal(t, "cluster-name", f.GetSource().GetClusterName())
+			assert.Equal(t, "cluster-name", f.GetDestination().GetClusterName())
+			assert.Equal(t, uint32(23939), f.GetL4().GetUDP().GetSourcePort())
+			assert.Equal(t, uint32(32412), f.GetL4().GetUDP().GetDestinationPort())
+		})
 	}
-	err := binary.Write(buf, byteorder.Native, &tn)
-	require.NoError(t, err)
-	buffer := gopacket.NewSerializeBuffer()
-	err = gopacket.SerializeLayers(buffer,
-		gopacket.SerializeOptions{},
-		&layers.Ethernet{
-			SrcMAC: net.HardwareAddr{1, 2, 3, 4, 5, 6},
-			DstMAC: net.HardwareAddr{1, 2, 3, 4, 5, 6},
-		},
-		&layers.IPv4{
-			SrcIP: net.IPv4(1, 2, 3, 4),
-			DstIP: net.IPv4(1, 2, 3, 4),
-		},
-	)
-	require.NoError(t, err)
-	buf.Write(buffer.Bytes())
-	require.NoError(t, err)
-	identityGetter := &testutils.FakeIdentityGetter{OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-		if securityIdentity == uint32(tn.SrcLabel) {
-			return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:src=label", "k8s:io.cilium.k8s.policy.cluster=cluster-name"})}, nil
-		} else if securityIdentity == uint32(tn.DstLabel) {
-			return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label", "k8s:io.cilium.k8s.policy.cluster=cluster-name"})}, nil
-		}
-		return nil, fmt.Errorf("identity not found for %d", securityIdentity)
-	}}
-
-	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
-	require.NoError(t, err)
-
-	f := &flowpb.Flow{}
-	err = parser.Decode(buf.Bytes(), f)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"k8s:io.cilium.k8s.policy.cluster=cluster-name", "k8s:src=label"}, f.GetSource().GetLabels())
-	assert.Equal(t, []string{"k8s:dst=label", "k8s:io.cilium.k8s.policy.cluster=cluster-name"}, f.GetDestination().GetLabels())
-	assert.Equal(t, "cluster-name", f.GetSource().GetClusterName())
-	assert.Equal(t, "cluster-name", f.GetDestination().GetClusterName())
 }
 
 func TestDecodeDropNotify(t *testing.T) {
@@ -1530,23 +1559,29 @@ func TestDecode_TraceNotify(t *testing.T) {
 	parser, err := New(log, defaultEndpointGetter, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 
-	template := &flowpb.Flow{
-		EventType:   &flowpb.CiliumEventType{Type: 4},
-		Summary:     flowpb.IPVersion_IPv4.String(),
-		Type:        flowpb.FlowType_L3_L4,
-		Verdict:     flowpb.Verdict_FORWARDED,
-		Source:      &flowpb.Endpoint{},
-		Destination: &flowpb.Endpoint{},
-		Ethernet: &flowpb.Ethernet{
-			Source:      srcMAC.String(),
-			Destination: dstMAC.String(),
-		},
-		IP: &flowpb.IP{
-			IpVersion:   flowpb.IPVersion_IPv4,
-			Source:      localIP.String(),
-			Destination: remoteIP.String(),
-		},
-		TraceObservationPoint: flowpb.TraceObservationPoint_TO_ENDPOINT,
+	getTemplate := func(isL3Device bool) *flowpb.Flow {
+		template := &flowpb.Flow{
+			EventType:   &flowpb.CiliumEventType{Type: 4},
+			Summary:     flowpb.IPVersion_IPv4.String(),
+			Type:        flowpb.FlowType_L3_L4,
+			Verdict:     flowpb.Verdict_FORWARDED,
+			Source:      &flowpb.Endpoint{},
+			Destination: &flowpb.Endpoint{},
+			Ethernet: &flowpb.Ethernet{
+				Source:      srcMAC.String(),
+				Destination: dstMAC.String(),
+			},
+			IP: &flowpb.IP{
+				IpVersion:   flowpb.IPVersion_IPv4,
+				Source:      localIP.String(),
+				Destination: remoteIP.String(),
+			},
+			TraceObservationPoint: flowpb.TraceObservationPoint_TO_ENDPOINT,
+		}
+		if isL3Device {
+			template.Ethernet = nil
+		}
+		return template
 	}
 
 	testCases := []struct {
@@ -1618,6 +1653,7 @@ func TestDecode_TraceNotify(t *testing.T) {
 					ObsPoint: monitorAPI.TraceToCrypto,
 					Version:  monitor.TraceNotifyVersion1,
 					Reason:   monitor.TraceReasonUnknown,
+					Flags:    monitor.TraceNotifyFlagIsL3Device,
 				},
 				OrigIP: types.IPv6{1, 2, 3, 4},
 			},
@@ -1643,6 +1679,7 @@ func TestDecode_TraceNotify(t *testing.T) {
 					ObsPoint: monitorAPI.TraceFromCrypto,
 					Version:  monitor.TraceNotifyVersion1,
 					Reason:   monitor.TraceReasonUnknown,
+					Flags:    monitor.TraceNotifyFlagIsL3Device,
 				},
 				OrigIP: types.IPv6{1, 2, 3, 4},
 			},
@@ -1856,17 +1893,25 @@ func TestDecode_TraceNotify(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			want := proto.Clone(template)
-			proto.Merge(want, tc.want)
+			isL3Device := false
+			if ev, ok := tc.event.(monitor.TraceNotifyV1); ok {
+				isL3Device = (*monitor.TraceNotify)(&ev).IsL3Device()
+			}
 
-			data, err := testutils.CreateL3L4Payload(tc.event,
-				&layers.Ethernet{
+			var l []gopacket.SerializableLayer
+			if !isL3Device {
+				l = append(l, &layers.Ethernet{
 					SrcMAC:       srcMAC,
 					DstMAC:       dstMAC,
 					EthernetType: layers.EthernetTypeIPv4,
-				},
-				&layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()},
-			)
+				})
+			}
+			l = append(l, &layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()})
+
+			want := proto.Clone(getTemplate(isL3Device))
+			proto.Merge(want, tc.want)
+
+			data, err := testutils.CreateL3L4Payload(tc.event, l...)
 			if err != nil {
 				t.Fatalf("Unexpected error from CreateL3L4Payload(%T, ...): %v", tc.event, err)
 			}

@@ -44,8 +44,14 @@ type Parser struct {
 // re-usable packet to avoid reallocating gopacket datastructures
 type packet struct {
 	lock.Mutex
-	decLayer *gopacket.DecodingLayerParser
-	Layers   []gopacket.LayerType
+
+	decLayerL2Dev *gopacket.DecodingLayerParser
+	decLayerL3Dev struct {
+		IPv4 *gopacket.DecodingLayerParser
+		IPv6 *gopacket.DecodingLayerParser
+	}
+
+	Layers []gopacket.LayerType
 	layers.Ethernet
 	layers.IPv4
 	layers.IPv6
@@ -67,15 +73,21 @@ func New(
 	linkGetter getters.LinkGetter,
 ) (*Parser, error) {
 	packet := &packet{}
-	packet.decLayer = gopacket.NewDecodingLayerParser(
-		layers.LayerTypeEthernet, &packet.Ethernet,
+	decoders := []gopacket.DecodingLayer{
+		&packet.Ethernet,
 		&packet.IPv4, &packet.IPv6,
 		&packet.ICMPv4, &packet.ICMPv6,
-		&packet.TCP, &packet.UDP, &packet.SCTP)
+		&packet.TCP, &packet.UDP, &packet.SCTP,
+	}
+	packet.decLayerL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
+	packet.decLayerL3Dev.IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
+	packet.decLayerL3Dev.IPv6 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv6, decoders...)
 	// Let packet.decLayer.DecodeLayers return a nil error when it
 	// encounters a layer it doesn't have a parser for, instead of returning
 	// an UnsupportedLayerType error.
-	packet.decLayer.IgnoreUnsupported = true
+	packet.decLayerL2Dev.IgnoreUnsupported = true
+	packet.decLayerL3Dev.IPv4.IgnoreUnsupported = true
+	packet.decLayerL3Dev.IPv6.IgnoreUnsupported = true
 
 	return &Parser{
 		log:            log,
@@ -160,7 +172,24 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	// https://github.com/google/gopacket/issues/846
 	// TODO: reconsider this check if the issue is fixed upstream
 	if len(data[packetOffset:]) > 0 {
-		err := p.packet.decLayer.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		var isL3Device, isIPv6 bool
+		if tn != nil && tn.IsL3Device() {
+			isL3Device = true
+		}
+		if tn != nil && tn.IsIPv6() {
+			isIPv6 = true
+		}
+
+		var err error
+		switch {
+		case !isL3Device:
+			err = p.packet.decLayerL2Dev.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		case isIPv6:
+			err = p.packet.decLayerL3Dev.IPv6.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		default:
+			err = p.packet.decLayerL3Dev.IPv4.DecodeLayers(data[packetOffset:], &p.packet.Layers)
+		}
+
 		if err != nil {
 			return err
 		}

@@ -6,6 +6,7 @@ package monitor
 import (
 	"fmt"
 	"net"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -51,13 +52,27 @@ func TestConnectionSummary(t *testing.T) {
 
 	// Generated in scapy:
 	// Ether(src="01:23:45:67:89:ab", dst="02:33:45:67:89:ab")/IP(src="1.2.3.4",dst="5.6.7.8")/TCP(sport=80,dport=443)
-	packetData := []byte{2, 51, 69, 103, 137, 171, 1, 35, 69, 103, 137, 171, 8, 0, 69, 0, 0, 40, 0, 1, 0, 0, 64, 6, 106, 188, 1, 2, 3, 4, 5, 6, 7, 8, 0, 80, 1, 187, 0, 0, 0, 0, 0, 0, 0, 0, 80, 2, 32, 0, 125, 196, 0, 0}
+	l2Data := []byte{2, 51, 69, 103, 137, 171, 1, 35, 69, 103, 137, 171, 8, 0}
+	l3Data := []byte{69, 0, 0, 40, 0, 1, 0, 0, 64, 6, 106, 188, 1, 2, 3, 4, 5, 6, 7, 8, 0, 80, 1, 187, 0, 0, 0, 0, 0, 0, 0, 0, 80, 2, 32, 0, 125, 196, 0, 0}
 
-	summary := GetConnectionSummary(packetData)
+	for _, c := range []struct {
+		Name       string
+		IsL3Device bool
+	}{{"L3Device", true}, {"L2Device", false}} {
+		t.Run(c.Name, func(t *testing.T) {
+			var data []byte
+			if c.IsL3Device {
+				data = l3Data
+			} else {
+				data = slices.Concat(l2Data, l3Data)
+			}
+			summary := GetConnectionSummary(data, &decodeOpts{c.IsL3Device, false})
 
-	expect := fmt.Sprintf("%s -> %s %s",
-		net.JoinHostPort(srcIP, sport),
-		net.JoinHostPort(dstIP, dport),
-		"tcp SYN")
-	require.Equal(t, expect, summary)
+			expect := fmt.Sprintf("%s -> %s %s",
+				net.JoinHostPort(srcIP, sport),
+				net.JoinHostPort(dstIP, dport),
+				"tcp SYN")
+			require.Equal(t, expect, summary)
+		})
+	}
 }
