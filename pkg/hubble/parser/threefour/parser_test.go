@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -1523,23 +1524,29 @@ func TestDecode_TraceNotify(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), defaultEndpointGetter, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 
-	template := &flowpb.Flow{
-		EventType:   &flowpb.CiliumEventType{Type: 4},
-		Summary:     flowpb.IPVersion_IPv4.String(),
-		Type:        flowpb.FlowType_L3_L4,
-		Verdict:     flowpb.Verdict_FORWARDED,
-		Source:      &flowpb.Endpoint{},
-		Destination: &flowpb.Endpoint{},
-		Ethernet: &flowpb.Ethernet{
-			Source:      srcMAC.String(),
-			Destination: dstMAC.String(),
-		},
-		IP: &flowpb.IP{
-			IpVersion:   flowpb.IPVersion_IPv4,
-			Source:      localIP.String(),
-			Destination: remoteIP.String(),
-		},
-		TraceObservationPoint: flowpb.TraceObservationPoint_TO_ENDPOINT,
+	getTemplate := func(isL3Device bool) *flowpb.Flow {
+		template := &flowpb.Flow{
+			EventType:   &flowpb.CiliumEventType{Type: 4},
+			Summary:     flowpb.IPVersion_IPv4.String(),
+			Type:        flowpb.FlowType_L3_L4,
+			Verdict:     flowpb.Verdict_FORWARDED,
+			Source:      &flowpb.Endpoint{},
+			Destination: &flowpb.Endpoint{},
+			Ethernet: &flowpb.Ethernet{
+				Source:      srcMAC.String(),
+				Destination: dstMAC.String(),
+			},
+			IP: &flowpb.IP{
+				IpVersion:   flowpb.IPVersion_IPv4,
+				Source:      localIP.String(),
+				Destination: remoteIP.String(),
+			},
+			TraceObservationPoint: flowpb.TraceObservationPoint_TO_ENDPOINT,
+		}
+		if isL3Device {
+			template.Ethernet = nil
+		}
+		return template
 	}
 
 	testCases := []struct {
@@ -1611,6 +1618,7 @@ func TestDecode_TraceNotify(t *testing.T) {
 					ObsPoint: monitorAPI.TraceToCrypto,
 					Version:  monitor.TraceNotifyVersion1,
 					Reason:   monitor.TraceReasonUnknown,
+					Flags:    monitor.TraceNotifyFlagIsL3Device,
 				},
 				OrigIP: types.IPv6{1, 2, 3, 4},
 			},
@@ -1636,6 +1644,7 @@ func TestDecode_TraceNotify(t *testing.T) {
 					ObsPoint: monitorAPI.TraceFromCrypto,
 					Version:  monitor.TraceNotifyVersion1,
 					Reason:   monitor.TraceReasonUnknown,
+					Flags:    monitor.TraceNotifyFlagIsL3Device,
 				},
 				OrigIP: types.IPv6{1, 2, 3, 4},
 			},
@@ -1849,17 +1858,22 @@ func TestDecode_TraceNotify(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			want := proto.Clone(template)
-			proto.Merge(want, tc.want)
+			isL3Device := strings.HasSuffix(tc.name, "_crypto")
 
-			data, err := testutils.CreateL3L4Payload(tc.event,
-				&layers.Ethernet{
+			var l []gopacket.SerializableLayer
+			if !isL3Device {
+				l = append(l, &layers.Ethernet{
 					SrcMAC:       srcMAC,
 					DstMAC:       dstMAC,
 					EthernetType: layers.EthernetTypeIPv4,
-				},
-				&layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()},
-			)
+				})
+			}
+			l = append(l, &layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()})
+
+			want := proto.Clone(getTemplate(isL3Device))
+			proto.Merge(want, tc.want)
+
+			data, err := testutils.CreateL3L4Payload(tc.event, l...)
 			if err != nil {
 				t.Fatalf("Unexpected error from CreateL3L4Payload(%T, ...): %v", tc.event, err)
 			}
