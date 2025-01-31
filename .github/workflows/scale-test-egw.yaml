@@ -398,7 +398,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --interactive=false
 
       - name: Run preflight steps
         shell: bash
