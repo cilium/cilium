@@ -655,8 +655,8 @@ func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
 func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
 	val := decryptBit | (uint32(nodeID) << 16)
 	return &netlink.XfrmMark{
-		Value: val,
-		Mask:  linux_defaults.IPsecMarkMaskIn,
+		Value: val | 0x42,
+		Mask:  linux_defaults.IPsecMarkMaskIn, // 0xffff0f00
 	}
 }
 
