@@ -143,7 +143,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --interactive=false
           kubectl -n kube-system get pods
 
       - name: Run conformance test (e.g. connectivity check without external 1.1.1.1 and www.google.com)
