@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	stdtime "time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -223,7 +224,7 @@ func (gc *GC) Enable() {
 	select {
 	case <-initialScanComplete:
 		gc.logger.Info("Initial scan of connection tracking completed")
-	case <-time.After(30 * time.Second):
+	case <-stdtime.After(30 * time.Second):
 		gc.logger.Fatal("Timeout while waiting for initial conntrack scan")
 	}
 
