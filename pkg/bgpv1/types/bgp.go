@@ -344,7 +344,7 @@ type Router interface {
 	Stop()
 
 	// AddNeighbor configures BGP peer
-	AddNeighbor(ctx context.Context, n NeighborRequest) error
+	AddNeighbor(ctx context.Context, n *Neighbor) error
 
 	// UpdateNeighbor updates BGP peer
 	UpdateNeighbor(ctx context.Context, n NeighborRequest) error

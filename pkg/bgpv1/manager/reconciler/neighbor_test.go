@@ -276,10 +276,7 @@ func TestNeighborReconciler(t *testing.T) {
 
 				neighborReconciler.updateMetadata(testSC, n.DeepCopy(), tcpPassword)
 
-				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
-					Neighbor: &n,
-					Password: tcpPassword,
-				})
+				testSC.Server.AddNeighbor(context.Background(), types.ToNeighborV1(&n, tcpPassword))
 			}
 
 			// create new virtual router config with desired neighbors
