@@ -140,7 +140,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_NODEPORT
-#define SNAT_COLLISION_RETRIES 128
+#define SNAT_COLLISION_RETRIES 32
 #endif
 
 #define EGRESS_POLICY_MAP test_cilium_egress_gw_policy_v4
