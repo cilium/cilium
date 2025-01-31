@@ -156,7 +156,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	// remove neighbors
 	for _, n := range toRemove {
 		l.Infof("Removing peer %v %v from local ASN %v", n.PeerAddress, n.PeerASN, p.DesiredConfig.LocalASN)
-		if err := p.CurrentServer.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
+		if err := p.CurrentServer.Server.RemoveNeighbor(ctx, types.ToNeighborV1(n, "")); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 		r.deleteMetadata(p.CurrentServer, n)
