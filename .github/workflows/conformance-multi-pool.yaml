@@ -209,7 +209,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait
+          cilium status --wait --interactive=false
           kubectl -n kube-system get pods
 
       - name: Make JUnit report directory
