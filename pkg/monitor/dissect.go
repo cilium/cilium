@@ -147,7 +147,19 @@ func GetConnectionSummary(data []byte) string {
 	defer dissectLock.Unlock()
 
 	initParser()
-	parser.DecodeLayers(data, &cache.decoded)
+
+	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
+	// https://github.com/google/gopacket/issues/846
+	// TODO: reconsider this check if the issue is fixed upstream
+	if len(data) > 0 {
+		err := parser.DecodeLayers(data, &cache.decoded)
+		if err != nil {
+			return "[error]"
+		}
+	} else {
+		// Truncate layers to avoid accidental re-use.
+		cache.decoded = cache.decoded[:0]
+	}
 
 	c, hasIP, hasEth := getConnectionInfoFromCache()
 	srcIP, dstIP := c.SrcIP, c.DstIP
@@ -189,7 +201,14 @@ func Dissect(dissect bool, data []byte) {
 		defer dissectLock.Unlock()
 
 		initParser()
-		err := parser.DecodeLayers(data, &cache.decoded)
+
+		var err error
+		// See comment in [GetConnectionSummary].
+		if len(data) > 0 {
+			err = parser.DecodeLayers(data, &cache.decoded)
+		} else {
+			cache.decoded = cache.decoded[:0]
+		}
 
 		for _, typ := range cache.decoded {
 			switch typ {
@@ -252,7 +271,16 @@ func GetDissectSummary(data []byte) *DissectSummary {
 	defer dissectLock.Unlock()
 
 	initParser()
-	parser.DecodeLayers(data, &cache.decoded)
+
+	// See comment in [GetConnectionSummary].
+	if len(data) > 0 {
+		err := parser.DecodeLayers(data, &cache.decoded)
+		if err != nil {
+			return nil
+		}
+	} else {
+		cache.decoded = cache.decoded[:0]
+	}
 
 	ret := &DissectSummary{}
 
