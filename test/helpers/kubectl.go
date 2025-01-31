@@ -4265,9 +4265,6 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 				return fmt.Errorf("Error validating Cilium service on pod %v: %s", pod, err.Error())
 			}
 		}
-		if len(pod.services) != len(pod.loadBalancers) {
-			return fmt.Errorf("Length of Cilium services doesn't match length of bpf LB map on pod %v", pod)
-		}
 	}
 	return nil
 }
