@@ -22,39 +22,86 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
-var f = flowpb.Flow{
-	Time: &timestamppb.Timestamp{
-		Seconds: 1234,
-		Nanos:   567800000,
-	},
-	Type:     flowpb.FlowType_L3_L4,
-	NodeName: "k8s1",
-	Verdict:  flowpb.Verdict_DROPPED,
-	IP: &flowpb.IP{
-		Source:      "1.1.1.1",
-		Destination: "2.2.2.2",
-	},
-	Source: &flowpb.Endpoint{
-		Identity: 4,
-	},
-	Destination: &flowpb.Endpoint{
-		Identity: 12345,
-	},
-	L4: &flowpb.Layer4{
-		Protocol: &flowpb.Layer4_TCP{
-			TCP: &flowpb.TCP{
-				SourcePort:      31793,
-				DestinationPort: 8080,
+var (
+	f = flowpb.Flow{
+		Time: &timestamppb.Timestamp{
+			Seconds: 1234,
+			Nanos:   567800000,
+		},
+		Type:     flowpb.FlowType_L3_L4,
+		NodeName: "k8s1",
+		Verdict:  flowpb.Verdict_DROPPED,
+		IP: &flowpb.IP{
+			Source:      "1.1.1.1",
+			Destination: "2.2.2.2",
+		},
+		Source: &flowpb.Endpoint{
+			Identity: 4,
+		},
+		Destination: &flowpb.Endpoint{
+			Identity: 12345,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					SourcePort:      31793,
+					DestinationPort: 8080,
+				},
 			},
 		},
-	},
-	EventType: &flowpb.CiliumEventType{
-		Type:    monitorAPI.MessageTypeDrop,
-		SubType: 133,
-	},
-	Summary: "TCP Flags: SYN",
-	IsReply: &wrapperspb.BoolValue{Value: false},
-}
+		EventType: &flowpb.CiliumEventType{
+			Type:    monitorAPI.MessageTypeDrop,
+			SubType: 133,
+		},
+		Summary: "TCP Flags: SYN",
+		IsReply: &wrapperspb.BoolValue{Value: false},
+	}
+
+	kafkaUnescapedFlow = flowpb.Flow{
+		Time: &timestamppb.Timestamp{
+			Seconds: 1234,
+			Nanos:   567800000,
+		},
+		Type:     flowpb.FlowType_L7,
+		NodeName: "k8s1",
+		Verdict:  flowpb.Verdict_DROPPED,
+		IP: &flowpb.IP{
+			Source:      "1.1.1.1",
+			Destination: "2.2.2.2",
+		},
+		Source: &flowpb.Endpoint{
+			Identity: 4,
+		},
+		Destination: &flowpb.Endpoint{
+			Identity: 12345,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					SourcePort:      31793,
+					DestinationPort: 8080,
+				},
+			},
+		},
+		L7: &flowpb.Layer7{
+			Type:      flowpb.L7FlowType_REQUEST,
+			LatencyNs: *proto.Uint64(10),
+			Record: &flowpb.Layer7_Kafka{Kafka: &flowpb.Kafka{
+				ApiKey:        "1234",
+				CorrelationId: *proto.Int32(1),
+				// Black color, arbitrary control char and carriage-returns are not allowed, will be escaped
+				// Printer output that uses color will have color control sequences unescaped
+				Topic: "my-topic\x1b[30mblack\x1b[0m\x1b\r",
+			}},
+		},
+		EventType: &flowpb.CiliumEventType{
+			Type:    monitorAPI.MessageTypeDrop,
+			SubType: 133,
+		},
+		Summary: "Kafka request 1234 correlation id 1 topic 'my-topic[^[30mblack[^[0m[^\\r'",
+		IsReply: &wrapperspb.BoolValue{Value: false},
+	}
+)
 
 func TestPrinter_AllFieldsInMask(t *testing.T) {
 	fm := make(map[string]bool)
@@ -129,6 +176,19 @@ Jan  1 00:20:34.567   1.1.1.1:31793   2.2.2.2:8080   Policy denied   DROPPED   T
 			wantErr: false,
 			expected: `TIMESTAMP             NODE   SOURCE          DESTINATION    TYPE            VERDICT   SUMMARY
 Jan  1 00:20:34.567   k8s1   1.1.1.1:31793   2.2.2.2:8080   Policy denied   DROPPED   TCP Flags: SYN`,
+		},
+		{
+			name: "tabular-terminal-escaped",
+			options: []Option{
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{
+				f: &kafkaUnescapedFlow,
+			},
+			wantErr: false,
+			expected: `TIMESTAMP             SOURCE          DESTINATION    TYPE            VERDICT   SUMMARY
+Jan  1 00:20:34.567   1.1.1.1:31793   2.2.2.2:8080   kafka-request   DROPPED   Kafka request 1234 correlation id 1 topic 'my-topic[^[30mblack[^[0m[^\r'`,
 		},
 		{
 			name: "compact",
@@ -210,9 +270,39 @@ Jan  1 00:20:34.567   k8s1   1.1.1.1:31793   2.2.2.2:8080   Policy denied   DROP
 				"Policy denied DROPPED (TCP Flags: SYN)\n",
 		},
 		{
+			name: "compact-terminal-escaped",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{
+				f: &kafkaUnescapedFlow,
+			},
+			wantErr: false,
+			expected: "Jan  1 00:20:34.567: " +
+				"1.1.1.1:31793 (health) -> 2.2.2.2:8080 (ID:12345) " +
+				"kafka-request DROPPED (Kafka request 1234 correlation id 1 topic 'my-topic[^[30mblack[^[0m[^\\r')\n",
+		},
+		{
+			name: "compact-terminal-escaped-colored",
+			options: []Option{
+				Compact(),
+				WithColor("always"),
+				Writer(&buf),
+			},
+			args: args{
+				f: &kafkaUnescapedFlow,
+			},
+			wantErr: false,
+			expected: "Jan  1 00:20:34.567: " +
+				"\x1b[36m1.1.1.1:\x1b[33m31793\x1b[0m\x1b[0m \x1b[35m(health)\x1b[0m -> \x1b[36m2.2.2.2:\x1b[33m8080\x1b[0m\x1b[0m \x1b[35m(ID:12345)\x1b[0m " +
+				"kafka-request \x1b[31mDROPPED\x1b[0m (Kafka request 1234 correlation id 1 topic 'my-topic[^[30mblack[^[0m[^\\r')\n",
+		},
+		{
 			name: "json",
 			options: []Option{
-				JSONPB(),
+				JSONLegacy(),
 				WithColor("never"),
 				Writer(&buf),
 			},
@@ -220,14 +310,14 @@ Jan  1 00:20:34.567   k8s1   1.1.1.1:31793   2.2.2.2:8080   Policy denied   DROP
 				f: &f,
 			},
 			wantErr: false,
-			expected: `{"flow":{"time":"1970-01-01T00:20:34.567800Z",` +
+			expected: `{"time":"1970-01-01T00:20:34.567800Z",` +
 				`"verdict":"DROPPED",` +
 				`"IP":{"source":"1.1.1.1","destination":"2.2.2.2"},` +
 				`"l4":{"TCP":{"source_port":31793,"destination_port":8080}},` +
 				`"source":{"identity":4},"destination":{"identity":12345},` +
 				`"Type":"L3_L4","node_name":"k8s1",` +
 				`"event_type":{"type":1,"sub_type":133},` +
-				`"is_reply":false,"Summary":"TCP Flags: SYN"}}`,
+				`"is_reply":false,"Summary":"TCP Flags: SYN"}`,
 		},
 		{
 			name: "jsonpb",
@@ -248,6 +338,27 @@ Jan  1 00:20:34.567   k8s1   1.1.1.1:31793   2.2.2.2:8080   Policy denied   DROP
 				`"Type":"L3_L4","node_name":"k8s1",` +
 				`"event_type":{"type":1,"sub_type":133},` +
 				`"is_reply":false,"Summary":"TCP Flags: SYN"}}`,
+		},
+		{
+			name: "jsonpb-terminal-escaped",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{
+				f: &kafkaUnescapedFlow,
+			},
+			wantErr: false,
+			expected: `{"flow":{"time":"1970-01-01T00:20:34.567800Z",` +
+				`"verdict":"DROPPED",` +
+				`"IP":{"source":"1.1.1.1","destination":"2.2.2.2"},` +
+				`"l4":{"TCP":{"source_port":31793,"destination_port":8080}},` +
+				`"source":{"identity":4},"destination":{"identity":12345},` +
+				`"Type":"L7","node_name":"k8s1",` +
+				`"l7":{"type":"REQUEST","latency_ns":"10","kafka":{"api_key":"1234","correlation_id":1,"topic":"my-topic\u001b[30mblack\u001b[0m\u001b\r"}},` +
+				`"event_type":{"type":1,"sub_type":133},` +
+				`"is_reply":false,"Summary":"Kafka request 1234 correlation id 1 topic 'my-topic[^[30mblack[^[0m[^\\r'"}}`,
 		},
 		{
 			name: "dict",
@@ -286,6 +397,24 @@ DESTINATION: 2.2.2.2:8080
        TYPE: Policy denied
     VERDICT: DROPPED
     SUMMARY: TCP Flags: SYN`,
+		},
+		{
+			name: "dict-terminal-escaped",
+			options: []Option{
+				Dict(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args: args{
+				f: &kafkaUnescapedFlow,
+			},
+			wantErr: false,
+			expected: `  TIMESTAMP: Jan  1 00:20:34.567
+     SOURCE: 1.1.1.1:31793
+DESTINATION: 2.2.2.2:8080
+       TYPE: kafka-request
+    VERDICT: DROPPED
+    SUMMARY: Kafka request 1234 correlation id 1 topic 'my-topic[^[30mblack[^[0m[^\r'`,
 		},
 	}
 	for _, tt := range tests {
