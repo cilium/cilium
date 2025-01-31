@@ -67,6 +67,7 @@ type Parameters struct {
 	SocatImage             string
 	AgentDaemonSetName     string
 	DNSTestServerImage     string
+	PrintImageArtifacts    bool
 	IncludeUnsafeTests     bool
 	AgentPodSelector       string
 	CiliumPodSelector      string
