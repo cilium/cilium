@@ -329,5 +329,5 @@ var (
 	// Cf. https://github.com/cilium/cilium/issues/35803
 	endpointMapDeleteFailed = regexMatcher{regexp.MustCompile(`Ignoring error while deleting endpoint.*from map cilium_\w+: delete: key does not exist`)}
 	// envoyTLSWarning is the legitimate warning log for negative TLS SNI test case
-	envoyTLSWarning = regexMatcher{regexp.MustCompile("cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*cilium.io.*and raw socket is not allowed")}
+	envoyTLSWarning = regexMatcher{regexp.MustCompile("cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*one.one.one.one.*and raw socket is not allowed")}
 )
