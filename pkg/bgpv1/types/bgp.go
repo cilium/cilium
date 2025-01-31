@@ -11,7 +11,6 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 
 	"github.com/cilium/cilium/api/v1/models"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 // BGP metric labels
@@ -55,20 +54,6 @@ type Path struct {
 	AgeNanoseconds int64 // time duration in nanoseconds since the Path was created
 	Best           bool
 	UUID           []byte // path identifier in underlying implementation
-}
-
-// NeighborRequest contains neighbor parameters used when enabling or disabling peer
-type NeighborRequest struct {
-	// Deprecated: field kept for backward compatibility.
-	//
-	// Both Neighbor and Peer should not be used at the same time.
-	// Neighbor field is used in BGPv1 and Peer, PeerConfig fields are used in BGPv2.
-	Neighbor *v2alpha1api.CiliumBGPNeighbor
-
-	Peer       *v2alpha1api.CiliumBGPNodePeer
-	PeerConfig *v2alpha1api.CiliumBGPPeerConfigSpec
-	// Password is the "AuthSecret" in the Neighbor, fetched from a secret
-	Password string
 }
 
 // Neighbor is an object representing a single BGP neighbor. It is an analogue
