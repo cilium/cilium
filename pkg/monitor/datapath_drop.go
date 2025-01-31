@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"unsafe"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
@@ -15,22 +16,39 @@ import (
 )
 
 const (
-	DropNotifyVersion0 = 0
-	DropNotifyVersion1 = 1
+	// dropNotifyCommonLen is the minimum length required to determine the version of the DN event.
+	dropNotifyCommonLen = 16
+	// dropNotifyV1Len is the amount of packet data provided in a v1 drop notification.
+	dropNotifyV1Len = 36
+	// dropNotifyV2Len is the amount of packet data provided in a v2 drop notification.
+	dropNotifyV2Len = 40
+)
 
-	// DropNotifyV1Len is the amount of packet data provided in a v1 drop notification.
-	DropNotifyV1Len = 36
+const (
+	// DropNotifyFlagIsIPv6 is set in DropNotify.Flags when the
+	// notification refers to an IPv6 flow
+	DropNotifyFlagIsIPv6 uint32 = 1
+	// DropNotifyFlagIsL3Device is set in DropNotify.Flags when the
+	// notification refers to a L3 device.
+	DropNotifyFlagIsL3Device uint32 = 2
+)
+
+const (
+	DropNotifyVersion0 = iota
+	DropNotifyVersion1
+	DropNotifyVersion2
 )
 
 var (
 	dropNotifyLengthFromVersion = map[uint16]uint{
-		DropNotifyVersion0: DropNotifyV1Len, // retain backwards compatibility for testing.
-		DropNotifyVersion1: DropNotifyV1Len,
+		DropNotifyVersion0: dropNotifyV1Len, // retain backwards compatibility for testing.
+		DropNotifyVersion1: dropNotifyV1Len,
+		DropNotifyVersion2: dropNotifyV2Len,
 	}
 )
 
-// DropNotify is the message format of a drop notification in the BPF ring buffer
-type DropNotify struct {
+// DropNotifyV1 is the message format of a drop notification v1 in the BPF ring buffer.
+type DropNotifyV1 struct {
 	Type     uint8
 	SubType  uint8
 	Source   uint16
@@ -48,6 +66,15 @@ type DropNotify struct {
 	// data
 }
 
+// DropNotifyV2 is the message format of a drop notification v2 in the BPF ring buffer.
+type DropNotifyV2 struct {
+	DropNotifyV1
+	Flags uint32
+}
+
+// DropNotify is the message format of a drop notification in the BPF ring buffer.
+type DropNotify DropNotifyV2
+
 // dumpIdentity dumps the source and destination identities in numeric or
 // human-readable format.
 func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
@@ -60,12 +87,27 @@ func (n *DropNotify) dumpIdentity(buf *bufio.Writer, numeric DisplayFormat) {
 
 // DecodeDropNotify will decode 'data' into the provided DropNotify structure
 func DecodeDropNotify(data []byte, dn *DropNotify) error {
-	return dn.decodeDropNotify(data)
+	if len(data) < dropNotifyCommonLen {
+		return fmt.Errorf("Unknown trace event")
+	}
+
+	offset := unsafe.Offsetof(dn.Version)
+	length := unsafe.Sizeof(dn.Version)
+	version := byteorder.Native.Uint16(data[offset : offset+length])
+
+	switch version {
+	case DropNotifyVersion0,
+		DropNotifyVersion1:
+		return dn.decodeDropNotifyV1(data)
+	case DropNotifyVersion2:
+		return ((*DropNotifyV2)(dn)).decodeDropNotifyV2(data)
+	}
+	return fmt.Errorf("Unrecognized trace event (version %d)", version)
 }
 
-func (n *DropNotify) decodeDropNotify(data []byte) error {
-	if l := len(data); l < DropNotifyV1Len {
-		return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", DropNotifyV1Len, l)
+func (n *DropNotifyV1) decodeDropNotifyV1(data []byte) error {
+	if l := len(data); l < dropNotifyV1Len {
+		return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", dropNotifyV1Len, l)
 	}
 
 	n.Type = data[0]
@@ -86,6 +128,29 @@ func (n *DropNotify) decodeDropNotify(data []byte) error {
 	return nil
 }
 
+func (n *DropNotifyV2) decodeDropNotifyV2(data []byte) error {
+	if l := len(data); l < dropNotifyV2Len {
+		return fmt.Errorf("unexpected DropNotify data length, expected %d but got %d", dropNotifyV2Len, l)
+	}
+
+	if err := n.decodeDropNotifyV1(data); err != nil {
+		return err
+	}
+
+	n.Flags = byteorder.Native.Uint32(data[36:40])
+	return nil
+}
+
+// IsL3Device returns true if the trace comes from an L3 device.
+func (n *DropNotify) IsL3Device() bool {
+	return n.Flags&DropNotifyFlagIsL3Device != 0
+}
+
+// IsIPv6 returns true if the trace refers to an IPv6 packet.
+func (n *DropNotify) IsIPv6() bool {
+	return n.Flags&DropNotifyFlagIsIPv6 != 0
+}
+
 // DataOffset returns the offset from the beginning of DropNotify where the
 // notification data begins.
 //
@@ -100,7 +165,7 @@ func (n *DropNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	fmt.Fprintf(buf, "xx drop (%s) flow %#x to endpoint %d, ifindex %d, file %s:%d, ",
 		api.DropReasonExt(n.SubType, n.ExtError), n.Hash, n.DstID, n.Ifindex, api.BPFFileName(n.File), int(n.Line))
 	n.dumpIdentity(buf, numeric)
-	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():], nil))
+	fmt.Fprintf(buf, ": %s\n", GetConnectionSummary(data[n.DataOffset():], &decodeOpts{n.IsL3Device(), n.IsIPv6()}))
 	buf.Flush()
 }
 
