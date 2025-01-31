@@ -131,7 +131,8 @@ func (s *serviceCacheAdapter) MergeClusterServiceDelete(service *store.ClusterSe
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
 		Name:      service.Name,
-		Cluster:   service.Cluster,
+		// TODO ClusterAware
+		// Cluster: csvc.Cluster,
 	}
 	txn := s.writer.WriteTxn()
 	defer txn.Commit()
@@ -163,7 +164,8 @@ func (s *serviceCacheAdapter) MergeExternalServiceDelete(service *store.ClusterS
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
 		Name:      service.Name,
-		Cluster:   service.Cluster,
+		// TODO ClusterAware
+		// Cluster: csvc.Cluster,
 	}
 	txn := s.writer.WriteTxn()
 	defer txn.Commit()
@@ -184,7 +186,8 @@ func (s *serviceCacheAdapter) MergeExternalServiceUpdate(service *store.ClusterS
 	name := loadbalancer.ServiceName{
 		Namespace: service.Namespace,
 		Name:      service.Name,
-		Cluster:   service.Cluster,
+		// TODO ClusterAware
+		// Cluster: service.Cluster,
 	}
 
 	backends := clusterServiceToBackendParams(service)
@@ -228,14 +231,15 @@ func clusterServiceToBackendParams(service *store.ClusterService) (beps []Backen
 
 func clusterServiceToServiceAndFrontends(csvc *store.ClusterService) (*Service, []FrontendParams) {
 	name := loadbalancer.ServiceName{
-		Cluster:   csvc.Cluster,
+		// TODO ClusterAware
+		// Cluster: csvc.Cluster,
 		Name:      csvc.Name,
 		Namespace: csvc.Namespace,
 	}
 	svc := &Service{
 		Name:             name,
-		Source:           source.KVStore,
-		Labels:           labels.Map2Labels(csvc.Labels, string(source.KVStore)),
+		Source:           source.ClusterMesh,
+		Labels:           labels.Map2Labels(csvc.Labels, string(source.ClusterMesh)),
 		Selector:         csvc.Selector,
 		NatPolicy:        loadbalancer.SVCNatPolicyNone,
 		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
@@ -248,10 +252,9 @@ func clusterServiceToServiceAndFrontends(csvc *store.ClusterService) (*Service, 
 		if err != nil {
 			continue
 		}
-		for name, port := range ports {
+		for portName, port := range ports {
 			l4 := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			portName := loadbalancer.FEPortName(name)
-
+			portName := loadbalancer.FEPortName(portName)
 			fes = append(fes,
 				FrontendParams{
 					Address: loadbalancer.L3n4Addr{
@@ -259,7 +262,7 @@ func clusterServiceToServiceAndFrontends(csvc *store.ClusterService) (*Service, 
 						L4Addr:      *l4,
 					},
 					Type:        loadbalancer.SVCTypeClusterIP,
-					ServiceName: loadbalancer.ServiceName{},
+					ServiceName: name,
 					PortName:    portName,
 					ServicePort: l4.Port,
 				},
