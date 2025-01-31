@@ -168,9 +168,9 @@ jobs:
           kind: CiliumLoadBalancerIPPool
           metadata:
             name: "test-lb-pool"
-            spec:
-              blocks:
-                - cidr: "10.0.10.0/24"
+          spec:
+            blocks:
+            - cidr: "10.0.10.0/24"
           EOF
 
       - name: Run Kubernetes sig-network conformance test
