@@ -183,6 +183,14 @@ const (
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableGatewayAPI = "enable-gateway-api"
 
+	// KubeProxyReplacement is equivalent to the cilium-agent option, and
+	// is used to provide hints for misconfiguration.
+	KubeProxyReplacement = "kube-proxy-replacement"
+
+	// EnableNodePort is equivalent to the cilium-agent option, and
+	// is used to provide hints for misconfiguration.
+	EnableNodePort = "enable-node-port"
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace = "cilium-pod-namespace"
 
@@ -284,6 +292,11 @@ type OperatorConfig struct {
 
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
 	IPAMAutoCreateCiliumPodIPPools map[string]string
+
+	// KubeProxyReplacement or NodePort are required to implement cluster
+	// Ingress (or equivalent Gateway API functionality)
+	KubeProxyReplacement string
+	EnableNodePort       bool
 
 	// AWS options
 
@@ -433,6 +446,10 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.IPAMAPIQPSLimit = vp.GetFloat64(IPAMAPIQPSLimit)
 	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
 	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
+
+	// Gateways and Ingress
+	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
+	c.EnableNodePort = vp.GetBool(EnableNodePort)
 
 	// AWS options
 
