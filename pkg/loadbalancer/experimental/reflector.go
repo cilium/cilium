@@ -343,6 +343,12 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		}
 	}
 
+	// A service that is annotated as headless has no frontends, even if the service spec contains
+	// ClusterIPs etc.
+	if isHeadless(svc) {
+		return
+	}
+
 	// ClusterIP
 	clusterIPs := container.NewImmSet(svc.Spec.ClusterIPs...)
 	if svc.Spec.ClusterIP != "" {
