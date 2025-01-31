@@ -249,11 +249,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	for _, n := range toUpdate {
 		l.WithField(types.PeerLogField, n.Peer.Name).Info("Updating peer")
 
-		if err := p.BGPInstance.Router.UpdateNeighbor(ctx, types.NeighborRequest{
-			Peer:       n.Peer,
-			PeerConfig: n.Config,
-			Password:   n.Password,
-		}); err != nil {
+		if err := p.BGPInstance.Router.UpdateNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, n.Password)); err != nil {
 			return fmt.Errorf("failed to update neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
