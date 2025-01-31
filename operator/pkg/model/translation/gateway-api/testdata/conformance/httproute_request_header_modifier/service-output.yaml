@@ -1,0 +1,22 @@
+metadata:
+  creationTimestamp: null
+  labels:
+    gateway.networking.k8s.io/gateway-name: same-namespace
+    io.cilium.gateway/owning-gateway: same-namespace
+  name: cilium-gateway-same-namespace
+  namespace: gateway-conformance-infra
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    controller: true
+    kind: Gateway
+    name: same-namespace
+    uid: ""
+spec:
+  ports:
+  - name: port-80
+    port: 80
+    protocol: TCP
+    targetPort: 0
+  type: LoadBalancer
+status:
+  loadBalancer: {}
