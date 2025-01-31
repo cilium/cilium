@@ -66,7 +66,7 @@ func TestEnvoy(t *testing.T) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	xdsServer, err := newXDSServer(nil, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newXDSServer(nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -74,7 +74,6 @@ func TestEnvoy(t *testing.T) {
 		},
 		nil)
 	require.NotNil(t, xdsServer)
-	require.NoError(t, err)
 
 	err = xdsServer.start()
 	require.NoError(t, err)
@@ -182,14 +181,14 @@ func TestEnvoyNACK(t *testing.T) {
 
 	localEndpointStore := newLocalEndpointStore()
 
-	xdsServer, err := newXDSServer(nil, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newXDSServer(nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 		}, nil)
 	require.NotNil(t, xdsServer)
-	require.NoError(t, err)
+
 	err = xdsServer.start()
 	require.NoError(t, err)
 	defer xdsServer.stop()

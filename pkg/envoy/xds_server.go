@@ -215,7 +215,7 @@ type xdsServerConfig struct {
 }
 
 // newXDSServer creates a new xDS GRPC server.
-func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager) (*xdsServer, error) {
+func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager) *xdsServer {
 	return &xdsServer{
 		restorerPromise:    restorerPromise,
 		listenerCount:      make(map[string]uint),
@@ -226,7 +226,7 @@ func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCac
 		accessLogPath: getAccessLogSocketPath(config.envoySocketDir),
 		config:        config,
 		secretManager: secretManager,
-	}, nil
+	}
 }
 
 // start configures and starts the xDS GRPC server.
