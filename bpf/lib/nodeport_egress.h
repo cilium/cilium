@@ -339,6 +339,9 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 				if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
 					return DROP_WRITE_ERROR;
 
+				/* For EKS we don't have to rewrite the dmac. Once we require a 5.10
+				 * kernel, this can turn into bpf_redirect_neigh() for robustness.
+				 */
 				return ctx_redirect(ctx, ep->parent_ifindex, 0);
 			}
 		}
