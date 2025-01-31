@@ -20,7 +20,8 @@
 #include "metrics.h"
 #include "ratelimit.h"
 
-#ifdef DROP_NOTIFY
+#define NOTIFY_DROP_VER 2
+
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
@@ -30,7 +31,13 @@ struct drop_notify {
 	__u8		file;
 	__s8		ext_error;
 	__u32		ifindex;
+	__u8		ipv6:1;
+	__u8		l3_dev:1;
+	__u8		pad1:6;
+	__u8		pad2[3];
 };
+
+#ifdef DROP_NOTIFY
 
 /*
  * We pass information in the meta area as follows:
@@ -52,6 +59,7 @@ struct drop_notify {
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
 int __send_drop_notify(struct __ctx_buff *ctx)
 {
+	bool l3_dev = false, ipv6 = false;
 	/* Mask needed to calm verifier. */
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -75,9 +83,16 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 			return exitcode;
 	}
 
+#if defined(ENABLE_WIREGUARD) && (defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))
+	if (THIS_INTERFACE_IFINDEX == WG_IFINDEX) {
+		l3_dev = true;
+		ipv6 = ctx->protocol == bpf_htons(ETH_P_IPV6);
+	}
+#endif
+
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
-		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
+		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_DROP_VER),
 		.src_label	= ctx_load_meta(ctx, 0),
 		.dst_label	= ctx_load_meta(ctx, 1),
 		.dst_id		= ctx_load_meta(ctx, 3),
@@ -85,6 +100,8 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.file           = file,
 		.ext_error      = (__s8)(__u8)(error >> 8),
 		.ifindex        = ctx_get_ifindex(ctx),
+		.ipv6           = ipv6,
+		.l3_dev         = l3_dev,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,

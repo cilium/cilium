@@ -173,10 +173,10 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	// TODO: reconsider this check if the issue is fixed upstream
 	if len(data[packetOffset:]) > 0 {
 		var isL3Device, isIPv6 bool
-		if tn != nil && tn.IsL3Device() {
+		if (tn != nil && tn.IsL3Device()) || (dn != nil && dn.IsL3Device()) {
 			isL3Device = true
 		}
-		if tn != nil && tn.IsIPv6() {
+		if tn != nil && tn.IsIPv6() || (dn != nil && dn.IsIPv6()) {
 			isIPv6 = true
 		}
 
