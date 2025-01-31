@@ -221,6 +221,19 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
+	ipv4Retries, ipv6Retries := nat.RetriesMaps(option.Config.EnableIPv4,
+		option.Config.EnableIPv6, option.Config.EnableNodePort)
+	if ipv4Retries != nil {
+		if err := ipv4Retries.Create(); err != nil {
+			return fmt.Errorf("initializing ipv4Retries map: %w", err)
+		}
+	}
+	if ipv6Retries != nil {
+		if err := ipv6Retries.Create(); err != nil {
+			return fmt.Errorf("initializing ipv6Retries map: %w", err)
+		}
+	}
+
 	if option.Config.EnableNodePort {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {

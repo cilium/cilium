@@ -85,6 +85,7 @@ type NatMap interface {
 
 type RetriesMap interface {
 	commonMap
+	Create() error
 	DumpPerCPUWithCallback(bpf.DumpPerCPUCallback) error
 	ClearAll() error
 }
