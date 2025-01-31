@@ -935,11 +935,11 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 	}()
 
 	specEqual := oldPod != nil && newPod.Spec.DeepEqual(&oldPod.Spec)
-	hostIPEqual := oldPod != nil && newPod.Status.HostIP != oldPod.Status.HostIP
+	hostIPEqual := oldPod != nil && newPod.Status.HostIP == oldPod.Status.HostIP
 
-	// is spec and hostIPs are the same there no need to perform the remaining
+	// if spec, host IPs, and pod IPs are the same there no need to perform the remaining
 	// operations
-	if specEqual && hostIPEqual {
+	if specEqual && hostIPEqual && ipSliceEqual {
 		return nil
 	}
 
