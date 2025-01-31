@@ -386,32 +386,12 @@ func (g *GoBGPServer) getExistingPeer(ctx context.Context, peerAddr netip.Addr, 
 
 // RemoveNeighbor will remove the peer from the gobgp.BgpServer,
 // disconnecting the BGP peering connection.
-func (g *GoBGPServer) RemoveNeighbor(ctx context.Context, n types.NeighborRequest) error {
-	var address string
-	if n.Peer != nil {
-		// for BGPv2 n.Peer will set, n.Neighbor will not.
-		addr, err := netip.ParseAddr(*n.Peer.PeerAddress)
-		if err != nil {
-			return fmt.Errorf("failed to parse PeerAddress: %w", err)
-		}
-		address = addr.String()
-
-	} else {
-		// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
-		prefix, err := netip.ParsePrefix(n.Neighbor.PeerAddress)
-		if err != nil {
-			// unlikely, we validate this on CR write to k8s api.
-			return fmt.Errorf("failed to parse PeerAddress: %w", err)
-		}
-
-		address = prefix.Addr().String()
-	}
-
+func (g *GoBGPServer) RemoveNeighbor(ctx context.Context, n *types.Neighbor) error {
 	peerReq := &gobgp.DeletePeerRequest{
-		Address: address,
+		Address: n.Address.String(),
 	}
 	if err := g.server.DeletePeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.Neighbor.PeerAddress, n.Neighbor.PeerASN, err)
+		return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.Address, n.ASN, err)
 	}
 	return nil
 }

@@ -350,7 +350,7 @@ type Router interface {
 	UpdateNeighbor(ctx context.Context, n *Neighbor) error
 
 	// RemoveNeighbor removes BGP peer
-	RemoveNeighbor(ctx context.Context, n NeighborRequest) error
+	RemoveNeighbor(ctx context.Context, n *Neighbor) error
 
 	// ResetNeighbor resets BGP peering with the provided neighbor address
 	ResetNeighbor(ctx context.Context, r ResetNeighborRequest) error

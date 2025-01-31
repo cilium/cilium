@@ -27,7 +27,7 @@ func (f *FakeRouter) UpdateNeighbor(ctx context.Context, n *Neighbor) error {
 	return nil
 }
 
-func (f *FakeRouter) RemoveNeighbor(ctx context.Context, n NeighborRequest) error {
+func (f *FakeRouter) RemoveNeighbor(ctx context.Context, n *Neighbor) error {
 	return nil
 }
 

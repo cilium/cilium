@@ -236,9 +236,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	for _, n := range toRemove {
 		l.WithField(types.PeerLogField, n.Peer.Name).Info("Removing peer")
 
-		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, types.NeighborRequest{
-			Peer: n.Peer,
-		}); err != nil {
+		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, "")); err != nil {
 			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
