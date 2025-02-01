@@ -104,6 +104,13 @@ annotations:
       description: |
         Cilium Envoy Config specifies Envoy resources and K8s service mappings
         to be provisioned into Cilium host proxy instances in namespace context.
+    - kind: CiliumNodeConfig
+      version: v2
+      name: ciliumnodeconfigs.cilium.io
+      displayName: Cilium Node Configuration
+      description: |
+        CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
+        nodes indicated by a label selector.
     - kind: CiliumBGPPeeringPolicy
       version: v2alpha1
       name: ciliumbgppeeringpolicies.cilium.io
@@ -151,13 +158,6 @@ annotations:
       displayName: Cilium Load Balancer IP Pool
       description: |
         Defining a Cilium Load Balancer IP Pool instructs Cilium to assign IPs to LoadBalancer Services.
-    - kind: CiliumNodeConfig
-      version: v2alpha1
-      name: ciliumnodeconfigs.cilium.io
-      displayName: Cilium Node Configuration
-      description: |
-        CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
-        nodes indicated by a label selector.
     - kind: CiliumCIDRGroup
       version: v2alpha1
       name: ciliumcidrgroups.cilium.io
