@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/shortener"
 )
@@ -120,14 +121,15 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			" At a future date this annotation will be removed if no spec.addresses are set.", gw.GetNamespace(), gw.GetName(), annotation.LBIPAMIPKeyAlias))
 	}
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
-		GatewayClass:    *gwc,
-		Gateway:         *gw,
-		HTTPRoutes:      r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
-		TLSRoutes:       r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
-		GRPCRoutes:      r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
-		Services:        servicesList.Items,
-		ServiceImports:  serviceImportsList.Items,
-		ReferenceGrants: grants.Items,
+		GatewayClass:       *gwc,
+		GatewayClassConfig: r.getGatewayClassConfig(ctx, gwc),
+		Gateway:            *gw,
+		HTTPRoutes:         r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
+		TLSRoutes:          r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
+		GRPCRoutes:         r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
+		Services:           servicesList.Items,
+		ServiceImports:     serviceImportsList.Items,
+		ReferenceGrants:    grants.Items,
 	})
 
 	if err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList); err != nil {
@@ -273,6 +275,25 @@ func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *
 		}
 	}
 	return filtered
+}
+
+// getGatewayClassConfig returns the CiliumGatewayClassConfig referenced by the GatewayClass.
+// If the GatewayClass does not reference a CiliumGatewayClassConfig, it returns nil.
+func (r *gatewayReconciler) getGatewayClassConfig(ctx context.Context, gwc *gatewayv1.GatewayClass) *v2alpha1.CiliumGatewayClassConfig {
+	if gwc.Spec.ParametersRef == nil ||
+		gwc.Spec.ParametersRef.Group != v2alpha1.CustomResourceDefinitionGroup ||
+		gwc.Spec.ParametersRef.Kind != v2alpha1.CGCCKindDefinition {
+		return nil
+	}
+
+	res := &v2alpha1.CiliumGatewayClassConfig{}
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: string(*gwc.Spec.ParametersRef.Namespace),
+		Name:      gwc.Spec.ParametersRef.Name,
+	}, res); err != nil {
+		return nil
+	}
+	return res
 }
 
 func parentRefMatched(gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routeNamespace string, refs []gatewayv1.ParentReference) bool {

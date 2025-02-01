@@ -57,7 +57,6 @@ func setGatewayClassSupportedFeatures(gwc *gatewayv1.GatewayClass) *gatewayv1.Ga
 }
 
 // gatewayClassAcceptedCondition returns the GatewayClass with Accepted status condition.
-// TODO(tam): Update GatewayClassReasonInvalidParameters message when parameter support is added.
 func gatewayClassAcceptedCondition(gwc *gatewayv1.GatewayClass, accepted bool) metav1.Condition {
 	switch accepted {
 	case true:
