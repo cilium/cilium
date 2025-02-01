@@ -289,6 +289,11 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 			logfields.Node: n.k8sObj.Name,
 		}).Warning("Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore")
 	}
+	n.loggerLocked().WithFields(logrus.Fields{
+		logfields.Node:           n.k8sObj.Name,
+		"interfaceID":            a.InterfaceID,
+		"availableForAllocation": a.IPv4.AvailableForAllocation,
+	}).Warning("debug-36428 allocating IPs")
 	return n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
 }
 
