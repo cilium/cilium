@@ -1,0 +1,116 @@
+metadata:
+  creationTimestamp: null
+  labels:
+    cilium.io/use-original-source-address: "false"
+    gateway.networking.k8s.io/gateway-name: my-gateway
+  name: cilium-gateway-my-gateway
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    controller: true
+    kind: Gateway
+    name: my-gateway
+    uid: ""
+spec:
+  backendServices:
+  - name: my-service
+    namespace: default
+    number:
+    - "8080"
+  resources:
+  - '@type': type.googleapis.com/envoy.config.listener.v3.Listener
+    filterChains:
+    - filterChainMatch:
+        transportProtocol: raw_buffer
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          commonHttpProtocolOptions:
+            maxStreamDuration: 0s
+          httpFilters:
+          - name: envoy.filters.http.grpc_web
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.grpc_stats
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+              emitFilterState: true
+              enableUpstreamStats: true
+          - name: envoy.filters.http.router
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          internalAddressConfig:
+            cidrRanges:
+            - addressPrefix: 10.0.0.0
+              prefixLen: 8
+            - addressPrefix: 172.16.0.0
+              prefixLen: 12
+            - addressPrefix: 192.168.0.0
+              prefixLen: 16
+            - addressPrefix: 127.0.0.1
+              prefixLen: 32
+            - addressPrefix: ::1
+              prefixLen: 128
+          rds:
+            routeConfigName: listener-insecure
+          statPrefix: listener-insecure
+          upgradeConfigs:
+          - upgradeType: websocket
+          useRemoteAddress: true
+    listenerFilters:
+    - name: envoy.filters.listener.tls_inspector
+      typedConfig:
+        '@type': type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    name: listener
+    socketOptions:
+    - description: Enable TCP keep-alive (default to enabled)
+      intValue: "1"
+      level: "1"
+      name: "9"
+    - description: TCP keep-alive idle time (in seconds) (defaults to 10s)
+      intValue: "10"
+      level: "6"
+      name: "4"
+    - description: TCP keep-alive probe intervals (in seconds) (defaults to 5s)
+      intValue: "5"
+      level: "6"
+      name: "5"
+    - description: TCP keep-alive probe max failures.
+      intValue: "10"
+      level: "6"
+      name: "6"
+  - '@type': type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+    name: listener-insecure
+    virtualHosts:
+    - domains:
+      - '*'
+      name: '*'
+      routes:
+      - match:
+          pathSeparatedPrefix: /bar
+        route:
+          cluster: default:my-service:8080
+          maxStreamDuration:
+            maxStreamDuration: 0s
+  - '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+    connectTimeout: 5s
+    edsClusterConfig:
+      serviceName: default/my-service:8080
+    name: default:my-service:8080
+    outlierDetection:
+      splitExternalLocalOriginErrors: true
+    type: EDS
+    typedExtensionProtocolOptions:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        commonHttpProtocolOptions:
+          idleTimeout: 60s
+        useDownstreamProtocolConfig:
+          http2ProtocolOptions: {}
+  services:
+  - listener: ""
+    name: cilium-gateway-my-gateway
+    namespace: default
+    ports:
+    - 80

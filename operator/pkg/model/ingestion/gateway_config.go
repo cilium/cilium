@@ -4,10 +4,9 @@
 package ingestion
 
 import (
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 // GatewayClassConfig is the struct for GatewayClass parameters
@@ -22,8 +21,14 @@ type GatewayClassConfig struct {
 type ServiceConfig struct {
 	// Type is the type of the service (e.g. LoadBalancer, NodePort, ClusterIP).
 	// Defaults to LoadBalancer
-	Type                  *string `json:"type,omitempty"`
-	ExternalTrafficPolicy *string `json:"externalTrafficPolicy,omitempty"`
+	Type                          *string  `json:"type,omitempty"`
+	ExternalTrafficPolicy         *string  `json:"externalTrafficPolicy,omitempty"`
+	LoadBalancerClass             *string  `json:"loadBalancerClass,omitempty"`
+	LoadBalancerSourceRanges      []string `json:"loadBalancerSourceRanges,omitempty"`
+	IPFamilies                    []string `json:"ipFamilies,omitempty"`
+	IPFamilyPolicy                *string  `json:"ipFamilyPolicy,omitempty"`
+	AllocateLoadBalancerNodePorts *bool    `json:"allocateLoadBalancerNodePorts,omitempty"`
+	TrafficDistribution           *string  `json:"trafficDistribution,omitempty"`
 }
 
 func toServiceModel(params *v2alpha1.CiliumGatewayClassConfig) *model.Service {
@@ -36,6 +41,20 @@ func toServiceModel(params *v2alpha1.CiliumGatewayClassConfig) *model.Service {
 	}
 	res.Type = string(params.Spec.Service.Type)
 	res.ExternalTrafficPolicy = string(params.Spec.Service.ExternalTrafficPolicy)
+	res.LoadBalancerClass = params.Spec.Service.LoadBalancerClass
+	res.LoadBalancerSourceRanges = params.Spec.Service.LoadBalancerSourceRanges
+	res.IPFamilies = toIPFamilies(params.Spec.Service.IPFamilies)
+	res.IPFamilyPolicy = (*string)(params.Spec.Service.IPFamilyPolicy)
+	res.AllocateLoadBalancerNodePorts = params.Spec.Service.AllocateLoadBalancerNodePorts
+	res.TrafficDistribution = params.Spec.Service.TrafficDistribution
 
+	return res
+}
+
+func toIPFamilies(families []corev1.IPFamily) []string {
+	res := make([]string, 0, len(families))
+	for _, family := range families {
+		res = append(res, string(family))
+	}
 	return res
 }

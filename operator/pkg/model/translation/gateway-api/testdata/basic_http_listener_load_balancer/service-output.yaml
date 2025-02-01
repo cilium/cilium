@@ -13,12 +13,18 @@ metadata:
     uid: ""
 spec:
   ports:
-  - name: port-55555
-    port: 55555
+  - name: port-80
+    port: 80
     protocol: TCP
     targetPort: 0
-  type: ClusterIP
+  type: LoadBalancer
   ipFamilies:
   - IPv4
-status:
-  loadBalancer: {}
+  - IPv6
+  ipFamilyPolicy: PreferDualStack
+  allocateLoadBalancerNodePorts: true
+  loadBalancerClass: cilium
+  trafficDistribution: PreferClose
+  externalTrafficPolicy: Local
+  loadBalancerSourceRanges:
+  - 10.0.0.0/8

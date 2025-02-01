@@ -10,6 +10,7 @@ import (
 )
 
 // +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumgatewayclassconfig",path="ciliumgatewayclassconfigs",scope="Namespaced",shortName={cgcc}
 // +kubebuilder:printcolumn:name="Accepted",type=string,JSONPath=`.status.conditions[?(@.type=="Accepted")].status`
@@ -109,7 +110,7 @@ type CiliumGatewayClassConfigSpec struct {
 	Description *string `json:"description,omitempty"`
 
 	// Service specifies the configuration for the generated Service.
-	// Note that not all fields from upstream Service.Spec are supported.
+	// Note that not all fields from upstream Service.Spec are supported
 	//
 	// +kubebuilder:validation:Optional
 	Service *ServiceConfig `json:"service,omitempty"`
