@@ -60,7 +60,7 @@ func (i *cecTranslator) tcpClusterMutators(mutationFunc ...ClusterMutator) []Clu
 	)
 }
 
-func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) []ciliumv2.XDSResource {
+func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	envoyClusters := map[string]ciliumv2.XDSResource{}
 	var sortedClusterNames []string
 
@@ -94,7 +94,7 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) []ciliumv2.XDSResour
 		res[i] = envoyClusters[name]
 	}
 
-	return res
+	return res, nil
 }
 
 // httpCluster creates a new Envoy cluster.
