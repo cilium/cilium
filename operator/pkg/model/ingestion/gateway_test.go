@@ -22,6 +22,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
 		"basic http":                                             {},
 		"basic http nodeport service":                            {},
+		"basic http external traffic policy":                     {},
 		"Conformance/HTTPRouteSimpleSameNamespace":               {},
 		"Conformance/HTTPRouteCrossNamespace":                    {},
 		"Conformance/HTTPExactPathMatching":                      {},

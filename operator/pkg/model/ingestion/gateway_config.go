@@ -22,7 +22,8 @@ type GatewayClassConfig struct {
 type ServiceConfig struct {
 	// Type is the type of the service (e.g. LoadBalancer, NodePort, ClusterIP).
 	// Defaults to LoadBalancer
-	Type *string `json:"type,omitempty"`
+	Type                  *string `json:"type,omitempty"`
+	ExternalTrafficPolicy *string `json:"externalTrafficPolicy,omitempty"`
 }
 
 func toServiceModel(params *v2alpha1.CiliumGatewayClassConfig) *model.Service {
@@ -34,6 +35,7 @@ func toServiceModel(params *v2alpha1.CiliumGatewayClassConfig) *model.Service {
 		Type: string(corev1.ServiceTypeLoadBalancer),
 	}
 	res.Type = string(params.Spec.Service.Type)
+	res.ExternalTrafficPolicy = string(params.Spec.Service.ExternalTrafficPolicy)
 
 	return res
 }

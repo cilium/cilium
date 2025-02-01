@@ -18,4 +18,3 @@ spec:
     protocol: TCP
     targetPort: 0
   type: NodePort
-  externalTrafficPolicy: Local
