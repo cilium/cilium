@@ -20,7 +20,7 @@
       prefix: /bar
     timeout: {}
   service:
-    type: LoadBalancer
+    type: NodePort
   sources:
   - group: gateway.networking.k8s.io
     kind: Gateway
