@@ -165,6 +165,7 @@ func (l TLSPassthroughListener) GetService() *Service {
 }
 
 // Service holds the configuration for desired Service details
+// Note: This is a subset of the Service.Spec struct from k8s Service. Not all fields are supported.
 type Service struct {
 	// Type is the type of service that is being used for Listener (e.g. Load Balancer or Node port)
 	// Defaults to Load Balancer type
@@ -176,7 +177,13 @@ type Service struct {
 	// Applicable only if Type is Node NodePort
 	SecureNodePort *uint32 `json:"secure_node_port,omitempty"`
 
-	ExternalTrafficPolicy string `json:"external_traffic_policy,omitempty"`
+	ExternalTrafficPolicy         string   `json:"external_traffic_policy,omitempty"`
+	LoadBalancerClass             *string  `json:"load_balancer_class,omitempty"`
+	LoadBalancerSourceRanges      []string `json:"load_balancer_source_ranges,omitempty"`
+	IPFamilies                    []string `json:"ip_families,omitempty"`
+	IPFamilyPolicy                *string  `json:"ip_family_policy,omitempty"`
+	AllocateLoadBalancerNodePorts *bool    `json:"allocate_load_balancer_node_ports,omitempty"`
+	TrafficDistribution           *string  `json:"traffic_distribution,omitempty"`
 }
 
 // FullyQualifiedResource stores the full details of a Kubernetes resource, including
