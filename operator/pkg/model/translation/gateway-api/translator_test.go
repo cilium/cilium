@@ -32,6 +32,7 @@ func Test_translator_Translate(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "basic_http_listener"},
+		{name: "basic_http_listener_nodeport"},
 		{name: "basic_tls_sni_listener"},
 		{name: "conformance/httproute_simple_same_namespace"},
 		{name: "conformance/httproute_backend_protocol_h_2_c"},
@@ -354,7 +355,7 @@ func Test_getService(t *testing.T) {
 					ExternalTrafficPolicy: tt.args.externalTrafficPolicy,
 				},
 			}}
-			got := trans.desiredService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			got := trans.desiredService(nil, tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.Equalf(t, tt.want, got, "desiredService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
 		})

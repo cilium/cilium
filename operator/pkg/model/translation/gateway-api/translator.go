@@ -99,12 +99,13 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 
 	ep := t.desiredEndpoints(source, allLabels, allAnnotations)
-	lbSvc := t.desiredService(source, ports, allLabels, allAnnotations)
+	lbSvc := t.desiredService(listeners[0].GetService(), source, ports, allLabels, allAnnotations)
 
 	return cec, lbSvc, ep, err
 }
 
-func (t *gatewayAPITranslator) desiredService(owner *model.FullyQualifiedResource, ports []uint32, labels, annotations map[string]string) *corev1.Service {
+func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *model.FullyQualifiedResource,
+	ports []uint32, labels, annotations map[string]string) *corev1.Service {
 	if owner == nil {
 		return nil
 	}
@@ -148,18 +149,45 @@ func (t *gatewayAPITranslator) desiredService(owner *model.FullyQualifiedResourc
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:                  corev1.ServiceTypeLoadBalancer,
+			Ports:                 t.toServicePorts(ports),
+			Type:                  t.toServiceType(params),
 			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(t.cfg.ServiceConfig.ExternalTrafficPolicy),
-			Ports:                 servicePorts,
 		},
 	}
 
 	if t.cfg.HostNetworkConfig.Enabled {
-		res.Spec.Type = corev1.ServiceTypeClusterIP
 		res.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
 	}
 
 	return res
+}
+
+func (t *gatewayAPITranslator) toServicePorts(ports []uint32) []corev1.ServicePort {
+	uniquePorts := map[uint32]struct{}{}
+	for _, p := range ports {
+		uniquePorts[p] = struct{}{}
+	}
+
+	servicePorts := make([]corev1.ServicePort, 0, len(uniquePorts))
+	for p := range uniquePorts {
+		servicePorts = append(servicePorts, corev1.ServicePort{
+			Name:     fmt.Sprintf("port-%d", p),
+			Port:     int32(p),
+			Protocol: corev1.ProtocolTCP,
+		})
+	}
+
+	return servicePorts
+}
+
+func (t *gatewayAPITranslator) toServiceType(params *model.Service) corev1.ServiceType {
+	if t.cfg.HostNetworkConfig.Enabled {
+		return corev1.ServiceTypeClusterIP
+	}
+	if params == nil {
+		return corev1.ServiceTypeLoadBalancer
+	}
+	return corev1.ServiceType(params.Type)
 }
 
 func (t *gatewayAPITranslator) desiredEndpoints(owner *model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {
