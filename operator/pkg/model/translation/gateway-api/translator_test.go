@@ -34,6 +34,7 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "basic_http_listener"},
 		{name: "basic_http_listener_nodeport"},
 		{name: "basic_http_listener_external_traffic_policy"},
+		{name: "basic_http_listener_load_balancer"},
 		{name: "basic_tls_sni_listener"},
 		{name: "conformance/httproute_simple_same_namespace"},
 		{name: "conformance/httproute_backend_protocol_h_2_c"},

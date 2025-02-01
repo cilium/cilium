@@ -1,0 +1,39 @@
+- hostname: '*'
+  infrastructure:
+    Annotations:
+      internal-loadbalancer-annotation: "true"
+    Labels:
+      internal-loadbalancer-label: "true"
+  name: prod-web-gw
+  port: 80
+  routes:
+  - backends:
+    - name: my-service
+      namespace: default
+      port:
+        port: 8080
+    - name: my-service
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /bar
+    timeout: {}
+  service:
+    allocate_load_balancer_node_ports: true
+    external_traffic_policy: Local
+    ip_families:
+    - IPv4
+    - IPv6
+    ip_family_policy: PreferDualStack
+    load_balancer_class: cilium
+    load_balancer_source_ranges:
+    - 10.0.0.0/8
+    traffic_distribution: PreferClose
+    type: LoadBalancer
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
