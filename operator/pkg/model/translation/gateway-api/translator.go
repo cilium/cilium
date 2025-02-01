@@ -151,12 +151,8 @@ func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *mode
 		Spec: corev1.ServiceSpec{
 			Ports:                 t.toServicePorts(ports),
 			Type:                  t.toServiceType(params),
-			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(t.cfg.ServiceConfig.ExternalTrafficPolicy),
+			ExternalTrafficPolicy: t.toExternalTrafficPolicy(params),
 		},
-	}
-
-	if t.cfg.HostNetworkConfig.Enabled {
-		res.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
 	}
 
 	return res
@@ -188,6 +184,18 @@ func (t *gatewayAPITranslator) toServiceType(params *model.Service) corev1.Servi
 		return corev1.ServiceTypeLoadBalancer
 	}
 	return corev1.ServiceType(params.Type)
+}
+
+func (t *gatewayAPITranslator) toExternalTrafficPolicy(params *model.Service) corev1.ServiceExternalTrafficPolicy {
+	if t.cfg.HostNetworkConfig.Enabled {
+		return corev1.ServiceExternalTrafficPolicy("")
+	}
+
+	if params == nil || params.ExternalTrafficPolicy == nil {
+		return corev1.ServiceExternalTrafficPolicy(t.cfg.ServiceConfig.ExternalTrafficPolicy)
+	}
+
+	return corev1.ServiceExternalTrafficPolicy(*params.ExternalTrafficPolicy)
 }
 
 func (t *gatewayAPITranslator) desiredEndpoints(owner *model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {

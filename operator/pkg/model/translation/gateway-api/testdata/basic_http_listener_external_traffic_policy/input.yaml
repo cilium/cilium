@@ -13,7 +13,6 @@ http:
     timeout: {}
   service:
     type: NodePort
-    external_traffic_policy: Local
   sources:
   - group: gateway.networking.k8s.io
     kind: Gateway

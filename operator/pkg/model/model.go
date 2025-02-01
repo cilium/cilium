@@ -175,6 +175,8 @@ type Service struct {
 	// SecureNodePort is the back-end port of the service that is being used for HTTPS Listener
 	// Applicable only if Type is Node NodePort
 	SecureNodePort *uint32 `json:"secure_node_port,omitempty"`
+
+	ExternalTrafficPolicy *string `json:"external_traffic_policy,omitempty"`
 }
 
 // FullyQualifiedResource stores the full details of a Kubernetes resource, including
