@@ -1,0 +1,20 @@
+metadata:
+  creationTimestamp: null
+  labels:
+    gateway.networking.k8s.io/gateway-name: my-gateway
+    io.cilium.gateway/owning-gateway: my-gateway
+  name: cilium-gateway-my-gateway
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    controller: true
+    kind: Gateway
+    name: my-gateway
+    uid: ""
+spec:
+  ports:
+  - name: port-80
+    port: 80
+    protocol: TCP
+    targetPort: 0
+  type: NodePort

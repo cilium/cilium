@@ -39,6 +39,7 @@ type Listener interface {
 	GetPort() uint32
 	GetAnnotations() map[string]string
 	GetLabels() map[string]string
+	GetService() *Service
 }
 
 // HTTPListener holds configuration for any listener that terminates and proxies HTTP
@@ -103,6 +104,10 @@ func (l HTTPListener) GetLabels() map[string]string {
 	return nil
 }
 
+func (l HTTPListener) GetService() *Service {
+	return l.Service
+}
+
 // TLSPassthroughListener holds configuration for any listener that proxies TLS
 // based on the SNI value.
 // Each holds the configuration info for one distinct TLS listener, by
@@ -153,6 +158,10 @@ func (l TLSPassthroughListener) GetSources() []FullyQualifiedResource {
 
 func (l TLSPassthroughListener) GetPort() uint32 {
 	return l.Port
+}
+
+func (l TLSPassthroughListener) GetService() *Service {
+	return l.Service
 }
 
 // Service holds the configuration for desired Service details
