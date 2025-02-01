@@ -120,14 +120,15 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			" At a future date this annotation will be removed if no spec.addresses are set.", gw.GetNamespace(), gw.GetName(), annotation.LBIPAMIPKeyAlias))
 	}
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
-		GatewayClass:    *gwc,
-		Gateway:         *gw,
-		HTTPRoutes:      r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
-		TLSRoutes:       r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
-		GRPCRoutes:      r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
-		Services:        servicesList.Items,
-		ServiceImports:  serviceImportsList.Items,
-		ReferenceGrants: grants.Items,
+		GatewayClass:          *gwc,
+		GatewayClassConfigMap: r.getConfigMapForGatewayClass(ctx, gwc),
+		Gateway:               *gw,
+		HTTPRoutes:            r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
+		TLSRoutes:             r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
+		GRPCRoutes:            r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
+		Services:              servicesList.Items,
+		ServiceImports:        serviceImportsList.Items,
+		ReferenceGrants:       grants.Items,
 	})
 
 	if err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList); err != nil {
@@ -273,6 +274,23 @@ func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *
 		}
 	}
 	return filtered
+}
+
+// getConfigMapForGatewayClass returns the ConfigMap referenced by the GatewayClass.
+// If the GatewayClass does not reference a ConfigMap, it returns nil.
+func (r *gatewayReconciler) getConfigMapForGatewayClass(ctx context.Context, gwc *gatewayv1.GatewayClass) *corev1.ConfigMap {
+	if gwc.Spec.ParametersRef == nil || gwc.Spec.ParametersRef.Group != "v1" || gwc.Spec.ParametersRef.Kind != "ConfigMap" {
+		return nil
+	}
+
+	res := &corev1.ConfigMap{}
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: string(*gwc.Spec.ParametersRef.Namespace),
+		Name:      gwc.Spec.ParametersRef.Name,
+	}, res); err != nil {
+		return nil
+	}
+	return res
 }
 
 func parentRefMatched(gw *gatewayv1.Gateway, listener *gatewayv1.Listener, routeNamespace string, refs []gatewayv1.ParentReference) bool {

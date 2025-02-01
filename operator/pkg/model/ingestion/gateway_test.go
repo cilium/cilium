@@ -18,19 +18,10 @@ const (
 	basedGatewayTestdataDir = "testdata/gateway"
 )
 
-func GroupPtr(name string) *gatewayv1.Group {
-	group := gatewayv1.Group(name)
-	return &group
-}
-
-func KindPtr(name string) *gatewayv1.Kind {
-	kind := gatewayv1.Kind(name)
-	return &kind
-}
-
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
-		"basic http": {},
+		"basic http":                                             {},
+		"basic http nodeport service":                            {},
 		"Conformance/HTTPRouteSimpleSameNamespace":               {},
 		"Conformance/HTTPRouteCrossNamespace":                    {},
 		"Conformance/HTTPExactPathMatching":                      {},
@@ -198,6 +189,7 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	input := Input{}
 
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-gatewayclass.yaml"), &input.GatewayClass)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-gatewayclass-configmap.yaml"), &input.GatewayClassConfigMap)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-gateway.yaml"), &input.Gateway)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-httproute.yaml"), &input.HTTPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tlsroute.yaml"), &input.TLSRoutes)

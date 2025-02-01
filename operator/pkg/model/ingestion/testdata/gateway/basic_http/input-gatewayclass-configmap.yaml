@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-gateway-config
+data:
+  service: |
+    type: LoadBalancer

@@ -26,7 +26,9 @@ const (
 
 // Input is the input for GatewayAPI.
 type Input struct {
-	GatewayClass    gatewayv1.GatewayClass
+	GatewayClass          gatewayv1.GatewayClass
+	GatewayClassConfigMap *corev1.ConfigMap
+
 	Gateway         gatewayv1.Gateway
 	HTTPRoutes      []gatewayv1.HTTPRoute
 	TLSRoutes       []gatewayv1alpha2.TLSRoute
@@ -37,10 +39,10 @@ type Input struct {
 }
 
 // GatewayAPI translates Gateway API resources into a model.
-// TODO(tam): Support GatewayClass
 func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListener) {
 	var resHTTP []model.HTTPListener
 	var resTLSPassthrough []model.TLSPassthroughListener
+	gwcParams := unmarshalGatewayClassConfig(input.GatewayClassConfigMap)
 
 	labels := make(map[string]string)
 	annotations := make(map[string]string)
@@ -103,6 +105,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 			TLS:            toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
 			Routes:         httpRoutes,
 			Infrastructure: infra,
+			Service:        toServiceModel(gwcParams),
 		})
 
 		resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
@@ -121,6 +124,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 			Hostname:       toHostname(l.Hostname),
 			Routes:         toTLSRoutes(l, allListenerHostNames, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
 			Infrastructure: infra,
+			Service:        toServiceModel(gwcParams),
 		})
 	}
 
