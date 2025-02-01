@@ -101,41 +101,40 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		return nil, nil, nil, err
 	}
 
-	ep := getEndpoints(*source, allLabels, allAnnotations)
-	lbSvc := getService(source, ports, allLabels, allAnnotations, t.externalTrafficPolicy)
-
-	if t.hostNetworkEnabled {
-		lbSvc.Spec.Type = corev1.ServiceTypeClusterIP
-		lbSvc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
-	}
+	ep := t.desiredEndpoints(source, allLabels, allAnnotations)
+	lbSvc := t.desiredService(source, ports, allLabels, allAnnotations)
 
 	return cec, lbSvc, ep, err
 }
 
-func getService(resource *model.FullyQualifiedResource, allPorts []uint32, labels, annotations map[string]string, externalTrafficPolicy string) *corev1.Service {
+func (t *gatewayAPITranslator) desiredService(owner *model.FullyQualifiedResource, ports []uint32, labels, annotations map[string]string) *corev1.Service {
+	if owner == nil {
+		return nil
+	}
+
 	uniquePorts := map[uint32]struct{}{}
-	for _, p := range allPorts {
+	for _, p := range ports {
 		uniquePorts[p] = struct{}{}
 	}
 
-	ports := make([]corev1.ServicePort, 0, len(uniquePorts))
+	servicePorts := make([]corev1.ServicePort, 0, len(uniquePorts))
 	for p := range uniquePorts {
-		ports = append(ports, corev1.ServicePort{
+		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name:     fmt.Sprintf("port-%d", p),
 			Port:     int32(p),
 			Protocol: corev1.ProtocolTCP,
 		})
 	}
-	slices.SortFunc(ports, func(a, b corev1.ServicePort) int {
+	slices.SortFunc(servicePorts, func(a, b corev1.ServicePort) int {
 		return int(a.Port) - int(b.Port)
 	})
 
-	shortenName := shortener.ShortenK8sResourceName(resource.Name)
+	shortenName := shortener.ShortenK8sResourceName(owner.Name)
 
-	return &corev1.Service{
+	res := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + resource.Name),
-			Namespace: resource.Namespace,
+			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + owner.Name),
+			Namespace: owner.Namespace,
 			Labels: mergeMap(map[string]string{
 				owningGatewayLabel: shortenName,
 				gatewayNameLabel:   shortenName,
@@ -144,28 +143,38 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: gatewayv1beta1.GroupVersion.String(),
-					Kind:       resource.Kind,
-					Name:       resource.Name,
-					UID:        types.UID(resource.UID),
+					Kind:       owner.Kind,
+					Name:       owner.Name,
+					UID:        types.UID(owner.UID),
 					Controller: ptr.To(true),
 				},
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type:                  corev1.ServiceTypeLoadBalancer,
-			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(externalTrafficPolicy),
-			Ports:                 ports,
+			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(t.externalTrafficPolicy),
+			Ports:                 servicePorts,
 		},
 	}
+
+	if t.hostNetworkEnabled {
+		res.Spec.Type = corev1.ServiceTypeClusterIP
+		res.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
+	}
+
+	return res
 }
 
-func getEndpoints(resource model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {
-	shortedName := shortener.ShortenK8sResourceName(resource.Name)
+func (t *gatewayAPITranslator) desiredEndpoints(owner *model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {
+	if owner == nil {
+		return nil
+	}
+	shortedName := shortener.ShortenK8sResourceName(owner.Name)
 
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + resource.Name),
-			Namespace: resource.Namespace,
+			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + owner.Name),
+			Namespace: owner.Namespace,
 			Labels: mergeMap(map[string]string{
 				owningGatewayLabel: shortedName,
 				gatewayNameLabel:   shortedName,
@@ -174,9 +183,9 @@ func getEndpoints(resource model.FullyQualifiedResource, labels, annotations map
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: gatewayv1beta1.GroupVersion.String(),
-					Kind:       resource.Kind,
-					Name:       resource.Name,
-					UID:        types.UID(resource.UID),
+					Kind:       owner.Kind,
+					Name:       owner.Name,
+					UID:        types.UID(owner.UID),
 					Controller: ptr.To(true),
 				},
 			},
