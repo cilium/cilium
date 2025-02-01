@@ -345,8 +345,9 @@ func Test_getService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations, tt.args.externalTrafficPolicy)
-			assert.Equalf(t, tt.want, got, "getService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			trans := &gatewayAPITranslator{externalTrafficPolicy: tt.args.externalTrafficPolicy}
+			got := trans.desiredService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			assert.Equalf(t, tt.want, got, "desiredService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
 		})
 	}

@@ -178,9 +178,9 @@ func withSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // desiredEnvoyListener returns the desired Envoy listener for the given model.
-func (i *cecTranslator) desiredEnvoyListener(m *model.Model) []ciliumv2.XDSResource {
+func (i *cecTranslator) desiredEnvoyListener(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	if len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	listener := &envoy_config_listener.Listener{
@@ -200,8 +200,11 @@ func (i *cecTranslator) desiredEnvoyListener(m *model.Model) []ciliumv2.XDSResou
 		listener = fn(listener)
 	}
 
-	res, _ := toXdsResource(listener, envoy.ListenerTypeURL)
-	return []ciliumv2.XDSResource{res}
+	res, err := toXdsResource(listener, envoy.ListenerTypeURL)
+	if err != nil {
+		return nil, err
+	}
+	return []ciliumv2.XDSResource{res}, nil
 }
 
 func (i *cecTranslator) filterChains(name string, m *model.Model) []*envoy_config_listener.FilterChain {
