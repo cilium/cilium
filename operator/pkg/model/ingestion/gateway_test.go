@@ -23,6 +23,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"basic http":                                             {},
 		"basic http nodeport service":                            {},
 		"basic http external traffic policy":                     {},
+		"basic http load balancer":                               {},
 		"Conformance/HTTPRouteSimpleSameNamespace":               {},
 		"Conformance/HTTPRouteCrossNamespace":                    {},
 		"Conformance/HTTPExactPathMatching":                      {},
