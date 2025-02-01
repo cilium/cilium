@@ -493,7 +493,7 @@ data:
   preallocate-bpf-maps: "{{ .Values.bpf.preallocateMaps }}"
 
   # Name of the cluster. Only relevant when building a mesh of clusters.
-  cluster-name: {{ .Values.cluster.name }}
+  cluster-name: {{ .Values.cluster.name | quote }}
 
 {{- if hasKey .Values.cluster "id" }}
   # Unique ID of the cluster. Must be unique across all conneted clusters and
