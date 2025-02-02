@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/sirupsen/logrus"
 )
 
 // Limits specifies the IPAM relevant instance limits
@@ -558,12 +559,27 @@ func (m *InstanceMap) ForeachInterface(instanceID string, fn InterfaceIterator) 
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
+	instanceData := make(map[string][]string)
+	for id, instance := range m.data {
+		var interfaces []string
+		for ifaceID := range instance.Interfaces {
+			interfaces = append(interfaces, ifaceID)
+		}
+		instanceData[id] = interfaces
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"instances":           instanceData,
+		"requestedInstanceID": instanceID,
+	}).Info("Instance map contents")
+
 	if instanceID != "" {
 		if instance := m.data[instanceID]; instance != nil {
 			return foreachInterface(instanceID, instance, fn)
 		}
 		return fmt.Errorf("instance does not exist: %q", instanceID)
 	}
+
 	for instanceID, instance := range m.data {
 		if err := foreachInterface(instanceID, instance, fn); err != nil {
 			return err

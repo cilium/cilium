@@ -1,0 +1,308 @@
+=== RUN   TestStartENIGarbageCollector
+time="2025-02-10T23:20:37.690265243-05:00" level=debug msg=" ENI after initial creation &{fefcfb2f-a68d-48ac-a9e7-2a049257739d 10.10.126.144   desc 0 {subnet-1 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690326201-05:00" level=debug msg=" ENI after initial creation &{86543b7a-c3f1-4142-96b0-7356e48b445c 10.10.35.227   desc 0 {subnet-1 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690332701-05:00" level=debug msg=" ENI after initial creation &{7c336176-fc9c-45c0-a9a7-0a183105b874 10.10.72.200   desc 0 {subnet-1 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690337867-05:00" level=debug msg=" ENI after initial creation &{df9ccc2a-f7be-4a24-a504-1faef758fcd5 10.10.100.189   desc 0 {subnet-1 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690345034-05:00" level=debug msg=" ENI after initial creation &{a50d237c-401b-4187-a0e9-e901306e0194 10.10.67.117   desc 0 {subnet-1 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690349784-05:00" level=debug msg=" ENI after initial creation &{e101313b-cf76-46ce-9116-1ab89ddf7feb 10.10.53.65   desc 0 {subnet-1 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690354409-05:00" level=debug msg=" ENI after initial creation &{7b292a12-1330-4060-9e17-ebbebe26cd14 10.10.102.204   desc 0 {subnet-1 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690360284-05:00" level=debug msg=" ENI after initial creation &{b4da8491-2ddd-42ee-9207-89a362d0a902 10.10.110.251   desc 0 {subnet-1 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690365742-05:00" level=debug msg=" ENI after initial creation &{f8521e4c-0561-4ff3-affc-2fc5688ddbe0 10.10.117.125   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.69037345-05:00" level=debug msg=" ENI after initial creation &{64cebcd1-ecb1-45d0-8851-7fbcd00295af 10.10.60.76   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.69037845-05:00" level=debug msg=" ENI after initial creation &{d4f4c2f3-7b82-4c4b-9739-46699c9606d7 10.10.23.152   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690385784-05:00" level=debug msg=" ENI after initial creation &{c56e1e2e-712f-4483-87cb-84f846a96838 10.10.40.28   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690390617-05:00" level=debug msg=" ENI after initial creation &{a35f21a1-bdca-427f-b353-87f16c081b51 10.10.116.113   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690398075-05:00" level=debug msg=" ENI after initial creation &{13ee065b-8113-46eb-847c-0655c4089d0c 10.10.46.84   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690404117-05:00" level=debug msg=" ENI after initial creation &{f7745e65-d8f5-4b5e-a974-a4be7eb8eba2 10.10.108.255   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690409283-05:00" level=debug msg=" ENI after initial creation &{0135c195-e8cb-44c9-bbd5-1545989aee41 10.10.48.253   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.690412575-05:00" level=info msg="Starting to garbage collect detached ENIs" subsys=eni
+time="2025-02-10T23:20:37.690419283-05:00" level=debug msg="Starting new controller" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+time="2025-02-10T23:20:37.690464533-05:00" level=debug msg="Marked unattached interfaces for garbage collection" numInterfaces=4 subsys=eni
+time="2025-02-10T23:20:37.690478533-05:00" level=debug msg="Controller func execution time: 20.167µs" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+time="2025-02-10T23:20:37.690483658-05:00" level=debug msg="Controller run succeeded; waiting for next controller update or stop" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+time="2025-02-10T23:20:37.70160066-05:00" level=debug msg="Garbage collecting ENI" eniID=64cebcd1-ecb1-45d0-8851-7fbcd00295af subsys=eni
+time="2025-02-10T23:20:37.701629743-05:00" level=debug msg="Garbage collecting ENI" eniID=c56e1e2e-712f-4483-87cb-84f846a96838 subsys=eni
+time="2025-02-10T23:20:37.701633743-05:00" level=debug msg="Garbage collecting ENI" eniID=0135c195-e8cb-44c9-bbd5-1545989aee41 subsys=eni
+time="2025-02-10T23:20:37.701642451-05:00" level=debug msg="Garbage collecting ENI" eniID=a35f21a1-bdca-427f-b353-87f16c081b51 subsys=eni
+time="2025-02-10T23:20:37.701646826-05:00" level=debug msg="Marked unattached interfaces for garbage collection" numInterfaces=4 subsys=eni
+time="2025-02-10T23:20:37.701652951-05:00" level=debug msg="Controller func execution time: 91.041µs" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+time="2025-02-10T23:20:37.701659993-05:00" level=debug msg="Controller run succeeded; waiting for next controller update or stop" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+time="2025-02-10T23:20:37.712801161-05:00" level=debug msg=" ENI after initial creation &{4b6f3ecb-7afb-44a1-84de-775c4dc2c4ad 10.10.79.116   desc 0 {subnet-2 } {  []} [] [] [sg-1 sg-2] map[] }" subsys=aws-ec2
+time="2025-02-10T23:20:37.712832286-05:00" level=debug msg="Garbage collecting ENI" eniID=f8521e4c-0561-4ff3-affc-2fc5688ddbe0 subsys=eni
+time="2025-02-10T23:20:37.712835661-05:00" level=debug msg="Garbage collecting ENI" eniID=f7745e65-d8f5-4b5e-a974-a4be7eb8eba2 subsys=eni
+time="2025-02-10T23:20:37.712837786-05:00" level=debug msg="Garbage collecting ENI" eniID=d4f4c2f3-7b82-4c4b-9739-46699c9606d7 subsys=eni
+time="2025-02-10T23:20:37.712839869-05:00" level=debug msg="Garbage collecting ENI" eniID=13ee065b-8113-46eb-847c-0655c4089d0c subsys=eni
+time="2025-02-10T23:20:37.712844119-05:00" level=debug msg="Marked unattached interfaces for garbage collection" numInterfaces=1 subsys=eni
+time="2025-02-10T23:20:37.712847536-05:00" level=debug msg="Controller func execution time: 14.916µs" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+time="2025-02-10T23:20:37.712850786-05:00" level=debug msg="Controller run succeeded; waiting for next controller update or stop" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+time="2025-02-10T23:20:37.724218328-05:00" level=debug msg="Garbage collecting ENI" eniID=4b6f3ecb-7afb-44a1-84de-775c4dc2c4ad subsys=eni
+time="2025-02-10T23:20:37.724234203-05:00" level=debug msg="Failed to garbage collect ENI" error="ENI ID 4b6f3ecb-7afb-44a1-84de-775c4dc2c4ad is attached and cannot be deleted" subsys=eni
+time="2025-02-10T23:20:37.724240911-05:00" level=debug msg="Controller func execution time: 32.249µs" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+time="2025-02-10T23:20:37.724245244-05:00" level=debug msg="Controller run succeeded; waiting for next controller update or stop" name=ipam-eni-gc subsys=controller uuid=9b6be9d0-1f22-4668-9e84-ed233dc1aaae
+--- PASS: TestStartENIGarbageCollector (0.05s)
+=== RUN   TestGetSubnet
+time="2025-02-10T23:20:37.735726494-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.735760618-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=2 numSubnets=2 numVPCs=2 subsys=eni
+time="2025-02-10T23:20:37.735781618-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=4 numSubnets=3 numVPCs=2 subsys=eni
+--- PASS: TestGetSubnet (0.00s)
+=== RUN   TestFindSubnetByIDs
+time="2025-02-10T23:20:37.73581966-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.735838326-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=2 numSubnets=3 numVPCs=2 subsys=eni
+time="2025-02-10T23:20:37.735849243-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=4 numSubnets=3 numVPCs=2 subsys=eni
+--- PASS: TestFindSubnetByIDs (0.00s)
+=== RUN   TestFindSubnetByTags
+time="2025-02-10T23:20:37.735913576-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.735924492-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=2 numSubnets=2 numVPCs=2 subsys=eni
+time="2025-02-10T23:20:37.735979367-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=4 numSubnets=3 numVPCs=2 subsys=eni
+--- PASS: TestFindSubnetByTags (0.00s)
+=== RUN   TestGetSecurityGroupByTags
+time="2025-02-10T23:20:37.736527113-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.736557488-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=2 numSubnets=2 numVPCs=2 subsys=eni
+time="2025-02-10T23:20:37.736585321-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=4 numSubnets=3 numVPCs=2 subsys=eni
+time="2025-02-10T23:20:37.736599779-05:00" level=info msg="Synchronized ENI information" numInstances=2 numSecurityGroups=4 numSubnets=3 numVPCs=2 subsys=eni
+--- PASS: TestGetSecurityGroupByTags (0.00s)
+=== RUN   TestGetNodeNames
+time="2025-02-10T23:20:37.736763944-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.736791819-05:00" level=info msg="Synchronized ENI information" numInstances=0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.737015026-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:37.7371029-05:00" level=warning msg="Instance limits not found." error="Limits not found" instanceID= name=node1 subsys=ipam
+time="2025-02-10T23:20:37.737159108-05:00" level=info msg="Synchronized ENI information" numInstances=0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.73740719-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node2 subsys=ipam
+time="2025-02-10T23:20:37.737422898-05:00" level=warning msg="Instance limits not found." error="Limits not found" instanceID= name=node2 subsys=ipam
+--- PASS: TestGetNodeNames (0.00s)
+=== RUN   TestNodeManagerGet
+time="2025-02-10T23:20:37.737482273-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.737498981-05:00" level=info msg="Synchronized ENI information" numInstances=0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.737513772-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:37.737520522-05:00" level=warning msg="Instance limits not found." error="Limits not found" instanceID= name=node1 subsys=ipam
+--- PASS: TestNodeManagerGet (0.00s)
+=== RUN   TestNodeManagerDefaultAllocation
+time="2025-02-10T23:20:37.73755398-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.73757723-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.73759323-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:37.737695188-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:37.737724521-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=9 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=8 name=node1 neededIPs=8 remainingInterfaces=3 selectedInterface=4e6ae610-730e-48c2-a72d-51af29e38a8a selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:37.737754937-05:00" level=info msg="debug allocating IPs" availableForAllocation=8 interfaceID=4e6ae610-730e-48c2-a72d-51af29e38a8a node=node1 subsys=eni
+time="2025-02-10T23:20:37.737802187-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.747789322-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:37.747806822-05:00" level=info msg="Resolving IP deficit of node" available=8 availableForAllocation=1 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=7 name=node1 neededIPs=7 remainingInterfaces=3 selectedInterface=4e6ae610-730e-48c2-a72d-51af29e38a8a selectedPoolID=s-1 subsys=ipam used=7
+time="2025-02-10T23:20:37.747823489-05:00" level=info msg="debug allocating IPs" availableForAllocation=1 interfaceID=4e6ae610-730e-48c2-a72d-51af29e38a8a node=node1 subsys=eni
+time="2025-02-10T23:20:37.747850363-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.759182489-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:37.759205322-05:00" level=info msg="Resolving IP deficit of node" available=9 availableForAllocation=0 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=6 name=node1 neededIPs=6 remainingInterfaces=2 selectedInterface= selectedPoolID= subsys=ipam used=7
+time="2025-02-10T23:20:37.759227447-05:00" level=info msg="No more IPs available, creating new ENI" addresses=6 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.75924703-05:00" level=info msg="Created new ENI" addresses=6 eniID=083870f5-b155-4055-a663-cbd26c30f939 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.759259697-05:00" level=info msg="Attached ENI to instance" addresses=6 attachmentID= eniID=083870f5-b155-4055-a663-cbd26c30f939 index=1 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.759313905-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerDefaultAllocation (0.03s)
+=== RUN   TestNodeManagerPrefixDelegation
+time="2025-02-10T23:20:37.770618197-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.770661197-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.770683613-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:37.770786904-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:37.770813695-05:00" level=info msg="Resolving IP deficit of node" available=16 availableForAllocation=128 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=4 name=node1 neededIPs=4 remainingInterfaces=3 selectedInterface=60a5fa7c-8b51-4c7a-87af-a54b32879eb1 selectedPoolID=s-1 subsys=ipam used=12
+time="2025-02-10T23:20:37.770884403-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.782229529-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:37.782251195-05:00" level=info msg="Resolving IP deficit of node" available=32 availableForAllocation=112 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=1 name=node1 neededIPs=1 remainingInterfaces=3 selectedInterface=60a5fa7c-8b51-4c7a-87af-a54b32879eb1 selectedPoolID=s-1 subsys=ipam used=25
+time="2025-02-10T23:20:37.782276862-05:00" level=warning msg="Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore" node=node1 subsys=eni
+time="2025-02-10T23:20:37.782282403-05:00" level=info msg="debug allocating IPs" availableForAllocation=1 interfaceID=60a5fa7c-8b51-4c7a-87af-a54b32879eb1 node=node1 subsys=eni
+time="2025-02-10T23:20:37.782325861-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerPrefixDelegation (0.02s)
+=== RUN   TestNodeManagerENIWithSGTags
+time="2025-02-10T23:20:37.793671612-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.793702403-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.793720361-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:37.793797361-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:37.793829402-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=9 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=8 name=node1 neededIPs=8 remainingInterfaces=3 selectedInterface=2925d3d3-7dc3-4a81-ac5f-5e377683defb selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:37.79384211-05:00" level=info msg="debug allocating IPs" availableForAllocation=8 interfaceID=2925d3d3-7dc3-4a81-ac5f-5e377683defb node=node1 subsys=eni
+time="2025-02-10T23:20:37.79390961-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.805166236-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:37.805196486-05:00" level=info msg="Resolving IP deficit of node" available=8 availableForAllocation=1 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=7 name=node1 neededIPs=7 remainingInterfaces=3 selectedInterface=2925d3d3-7dc3-4a81-ac5f-5e377683defb selectedPoolID=s-1 subsys=ipam used=7
+time="2025-02-10T23:20:37.805213444-05:00" level=info msg="debug allocating IPs" availableForAllocation=1 interfaceID=2925d3d3-7dc3-4a81-ac5f-5e377683defb node=node1 subsys=eni
+time="2025-02-10T23:20:37.80525211-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.816552236-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:37.816578111-05:00" level=info msg="Resolving IP deficit of node" available=9 availableForAllocation=0 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=6 name=node1 neededIPs=6 remainingInterfaces=2 selectedInterface= selectedPoolID= subsys=ipam used=7
+time="2025-02-10T23:20:37.816614569-05:00" level=info msg="No more IPs available, creating new ENI" addresses=6 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg-1]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.816643444-05:00" level=info msg="Created new ENI" addresses=6 eniID=b11107d6-b9b5-4653-b3d3-c2ab4e6f13dd instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg-1]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.816656944-05:00" level=info msg="Attached ENI to instance" addresses=6 attachmentID= eniID=b11107d6-b9b5-4653-b3d3-c2ab4e6f13dd index=1 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg-1]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.816711318-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerENIWithSGTags (0.03s)
+=== RUN   TestNodeManagerMinAllocate20
+time="2025-02-10T23:20:37.828019819-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.82804586-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.828070693-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node2 subsys=ipam
+time="2025-02-10T23:20:37.828194734-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerMinAllocate20-1 name=node2 subsys=ipam
+time="2025-02-10T23:20:37.828209484-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=29 emptyInterfaceSlots=7 instanceID=i-testNodeManagerMinAllocate20-1 maxIPsToAllocate=10 name=node2 neededIPs=10 remainingInterfaces=8 selectedInterface=482150a4-dd34-47fe-9562-38f8e9d7f39d selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:37.828228609-05:00" level=info msg="debug allocating IPs" availableForAllocation=10 interfaceID=482150a4-dd34-47fe-9562-38f8e9d7f39d node=node2 subsys=eni
+time="2025-02-10T23:20:37.828273484-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerMinAllocate20-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.839700858-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerMinAllocate20-1 name=node2 subsys=ipam
+time="2025-02-10T23:20:37.839723567-05:00" level=info msg="Resolving IP deficit of node" available=10 availableForAllocation=19 emptyInterfaceSlots=7 instanceID=i-testNodeManagerMinAllocate20-1 maxIPsToAllocate=10 name=node2 neededIPs=10 remainingInterfaces=8 selectedInterface=482150a4-dd34-47fe-9562-38f8e9d7f39d selectedPoolID=s-1 subsys=ipam used=8
+time="2025-02-10T23:20:37.83974415-05:00" level=info msg="debug allocating IPs" availableForAllocation=10 interfaceID=482150a4-dd34-47fe-9562-38f8e9d7f39d node=node2 subsys=eni
+time="2025-02-10T23:20:37.839786483-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerMinAllocate20-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerMinAllocate20 (0.02s)
+=== RUN   TestNodeManagerMinAllocateAndPreallocate
+time="2025-02-10T23:20:37.850415905-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.850457238-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.850540112-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node2 subsys=ipam
+time="2025-02-10T23:20:37.850665528-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 name=node2 subsys=ipam
+time="2025-02-10T23:20:37.850691986-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=9 emptyInterfaceSlots=2 instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 maxIPsToAllocate=10 name=node2 neededIPs=10 remainingInterfaces=3 selectedInterface=53669c11-b22c-41f8-82c2-07f1d7db9fdb selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:37.85070957-05:00" level=info msg="debug allocating IPs" availableForAllocation=9 interfaceID=53669c11-b22c-41f8-82c2-07f1d7db9fdb node=node2 subsys=eni
+time="2025-02-10T23:20:37.850886527-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerMinAllocateAndPreallocate-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.862089778-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 name=node2 subsys=ipam
+time="2025-02-10T23:20:37.862135528-05:00" level=info msg="Resolving IP deficit of node" available=9 availableForAllocation=0 emptyInterfaceSlots=2 instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 maxIPsToAllocate=1 name=node2 neededIPs=1 remainingInterfaces=2 selectedInterface= selectedPoolID= subsys=ipam used=0
+time="2025-02-10T23:20:37.862175444-05:00" level=info msg="No more IPs available, creating new ENI" addresses=1 instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.862205194-05:00" level=info msg="Created new ENI" addresses=1 eniID=263eb2ee-f5f2-4231-96e6-83ce32804409 instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.862225652-05:00" level=info msg="Attached ENI to instance" addresses=1 attachmentID= eniID=263eb2ee-f5f2-4231-96e6-83ce32804409 index=1 instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.862285568-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerMinAllocateAndPreallocate-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.873324029-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.873446862-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 name=node2 subsys=ipam
+time="2025-02-10T23:20:37.873500403-05:00" level=info msg="Resolving IP deficit of node" available=10 availableForAllocation=8 emptyInterfaceSlots=1 instanceID=i-testNodeManagerMinAllocateAndPreallocate-1 maxIPsToAllocate=1 name=node2 neededIPs=1 remainingInterfaces=2 selectedInterface=263eb2ee-f5f2-4231-96e6-83ce32804409 selectedPoolID=s-1 subsys=ipam used=10
+time="2025-02-10T23:20:37.873544444-05:00" level=info msg="debug allocating IPs" availableForAllocation=1 interfaceID=263eb2ee-f5f2-4231-96e6-83ce32804409 node=node2 subsys=eni
+time="2025-02-10T23:20:37.873612069-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerMinAllocateAndPreallocate-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerMinAllocateAndPreallocate (0.03s)
+=== RUN   TestNodeManagerReleaseAddress
+time="2025-02-10T23:20:37.884274824-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:37.88435199-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.88442224-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node3 subsys=ipam
+time="2025-02-10T23:20:37.884599072-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerReleaseAddress-1 name=node3 subsys=ipam
+time="2025-02-10T23:20:37.884633738-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=14 emptyInterfaceSlots=3 instanceID=i-testNodeManagerReleaseAddress-1 maxIPsToAllocate=13 name=node3 neededIPs=10 remainingInterfaces=4 selectedInterface=58b230ba-b628-436d-a847-ed96fad565db selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:37.884667905-05:00" level=info msg="debug allocating IPs" availableForAllocation=13 interfaceID=58b230ba-b628-436d-a847-ed96fad565db node=node3 subsys=eni
+time="2025-02-10T23:20:37.88477357-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerReleaseAddress-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.896341194-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerReleaseAddress-1 name=node3 subsys=ipam
+time="2025-02-10T23:20:37.896399277-05:00" level=info msg="Resolving IP deficit of node" available=13 availableForAllocation=1 emptyInterfaceSlots=3 instanceID=i-testNodeManagerReleaseAddress-1 maxIPsToAllocate=5 name=node3 neededIPs=2 remainingInterfaces=4 selectedInterface=58b230ba-b628-436d-a847-ed96fad565db selectedPoolID=s-1 subsys=ipam used=13
+time="2025-02-10T23:20:37.896446985-05:00" level=info msg="debug allocating IPs" availableForAllocation=1 interfaceID=58b230ba-b628-436d-a847-ed96fad565db node=node3 subsys=eni
+time="2025-02-10T23:20:37.896564151-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerReleaseAddress-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:37.907391363-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerReleaseAddress-1 name=node3 subsys=ipam
+time="2025-02-10T23:20:37.907483029-05:00" level=info msg="Resolving IP deficit of node" available=14 availableForAllocation=0 emptyInterfaceSlots=3 instanceID=i-testNodeManagerReleaseAddress-1 maxIPsToAllocate=4 name=node3 neededIPs=1 remainingInterfaces=3 selectedInterface= selectedPoolID= subsys=ipam used=13
+time="2025-02-10T23:20:37.907551487-05:00" level=info msg="No more IPs available, creating new ENI" addresses=4 instanceID=i-testNodeManagerReleaseAddress-1 isPrefixDelegated=false name=node3 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.907624112-05:00" level=info msg="Created new ENI" addresses=4 eniID=a86515b7-3205-4258-a7c8-6ba6aa4e9063 instanceID=i-testNodeManagerReleaseAddress-1 isPrefixDelegated=false name=node3 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.90766382-05:00" level=info msg="Attached ENI to instance" addresses=4 attachmentID= eniID=a86515b7-3205-4258-a7c8-6ba6aa4e9063 index=1 instanceID=i-testNodeManagerReleaseAddress-1 isPrefixDelegated=false name=node3 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:37.90781786-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerReleaseAddress-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:39.921106817-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:42.921775058-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.923129765-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.92361022-05:00" level=info msg="Releasing excess IPs from node" available=18 excess=5 excessIps="[10.10.35.98 10.10.127.6 10.10.95.154 10.10.70.177 10.10.27.25]" instanceID=i-testNodeManagerReleaseAddress-1 name=node3 releasing="[10.10.35.98 10.10.127.6 10.10.95.154 10.10.70.177 10.10.27.25]" selectedInterface=58b230ba-b628-436d-a847-ed96fad565db selectedPoolID=s-1 subsys=ipam used=10
+time="2025-02-10T23:20:43.923826052-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerReleaseAddress-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerReleaseAddress (6.05s)
+=== RUN   TestNodeManagerENIExcludeInterfaceTags
+time="2025-02-10T23:20:43.931967243-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:43.932060951-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.932119784-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:43.932297158-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:43.93235049-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=0 emptyInterfaceSlots=2 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=8 name=node1 neededIPs=8 remainingInterfaces=2 selectedInterface= selectedPoolID= subsys=ipam used=0
+time="2025-02-10T23:20:43.932391282-05:00" level=info msg="No more IPs available, creating new ENI" addresses=8 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.932432157-05:00" level=info msg="Created new ENI" addresses=8 eniID=dba060e3-f725-4cbf-a8cd-e65914d8105a instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.932450031-05:00" level=info msg="Attached ENI to instance" addresses=8 attachmentID= eniID=dba060e3-f725-4cbf-a8cd-e65914d8105a index=1 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.932543489-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.9437467-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.943956699-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:43.943986823-05:00" level=info msg="Resolving IP deficit of node" available=8 availableForAllocation=1 emptyInterfaceSlots=1 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=7 name=node1 neededIPs=7 remainingInterfaces=2 selectedInterface=dba060e3-f725-4cbf-a8cd-e65914d8105a selectedPoolID=s-1 subsys=ipam used=7
+time="2025-02-10T23:20:43.944017073-05:00" level=info msg="debug allocating IPs" availableForAllocation=1 interfaceID=dba060e3-f725-4cbf-a8cd-e65914d8105a node=node1 subsys=eni
+time="2025-02-10T23:20:43.944083656-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.953928585-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerDefaultAllocation-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:43.953980543-05:00" level=info msg="Resolving IP deficit of node" available=9 availableForAllocation=0 emptyInterfaceSlots=1 instanceID=i-testNodeManagerDefaultAllocation-0 maxIPsToAllocate=6 name=node1 neededIPs=6 remainingInterfaces=1 selectedInterface= selectedPoolID= subsys=ipam used=7
+time="2025-02-10T23:20:43.954060501-05:00" level=info msg="No more IPs available, creating new ENI" addresses=6 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.954133792-05:00" level=info msg="Created new ENI" addresses=6 eniID=18fbdd33-f6df-4c6a-8e53-d596ab68dbff instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.954155209-05:00" level=info msg="Attached ENI to instance" addresses=6 attachmentID= eniID=18fbdd33-f6df-4c6a-8e53-d596ab68dbff index=2 instanceID=i-testNodeManagerDefaultAllocation-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.954261833-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerDefaultAllocation-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerENIExcludeInterfaceTags (0.02s)
+=== RUN   TestNodeManagerExceedENICapacity
+time="2025-02-10T23:20:43.95469433-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:43.954789412-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.954864162-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node2 subsys=ipam
+time="2025-02-10T23:20:43.954996119-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerExceedENICapacity-1 name=node2 subsys=ipam
+time="2025-02-10T23:20:43.955017119-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=14 emptyInterfaceSlots=2 instanceID=i-testNodeManagerExceedENICapacity-1 maxIPsToAllocate=20 name=node2 neededIPs=20 remainingInterfaces=3 selectedInterface=cca4fbf3-2feb-4a4d-8a97-58a67f6823c7 selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:43.955043494-05:00" level=info msg="debug allocating IPs" availableForAllocation=14 interfaceID=cca4fbf3-2feb-4a4d-8a97-58a67f6823c7 node=node2 subsys=eni
+time="2025-02-10T23:20:43.955132243-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerExceedENICapacity-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.965831874-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerExceedENICapacity-1 name=node2 subsys=ipam
+time="2025-02-10T23:20:43.965953457-05:00" level=info msg="Resolving IP deficit of node" available=14 availableForAllocation=0 emptyInterfaceSlots=2 instanceID=i-testNodeManagerExceedENICapacity-1 maxIPsToAllocate=6 name=node2 neededIPs=6 remainingInterfaces=2 selectedInterface= selectedPoolID= subsys=ipam used=0
+time="2025-02-10T23:20:43.96601654-05:00" level=info msg="No more IPs available, creating new ENI" addresses=6 instanceID=i-testNodeManagerExceedENICapacity-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.966074289-05:00" level=info msg="Created new ENI" addresses=6 eniID=e15e10bc-f0e8-40c4-b6d3-e9821f5b3bcc instanceID=i-testNodeManagerExceedENICapacity-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.966090123-05:00" level=info msg="Attached ENI to instance" addresses=6 attachmentID= eniID=e15e10bc-f0e8-40c4-b6d3-e9821f5b3bcc index=1 instanceID=i-testNodeManagerExceedENICapacity-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.966177372-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerExceedENICapacity-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.976734838-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.976941503-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerExceedENICapacity-1 name=node2 subsys=ipam
+time="2025-02-10T23:20:43.976969544-05:00" level=info msg="Resolving IP deficit of node" available=20 availableForAllocation=8 emptyInterfaceSlots=1 instanceID=i-testNodeManagerExceedENICapacity-1 maxIPsToAllocate=22 name=node2 neededIPs=22 remainingInterfaces=2 selectedInterface=e15e10bc-f0e8-40c4-b6d3-e9821f5b3bcc selectedPoolID=s-1 subsys=ipam used=40
+time="2025-02-10T23:20:43.976996752-05:00" level=info msg="debug allocating IPs" availableForAllocation=8 interfaceID=e15e10bc-f0e8-40c4-b6d3-e9821f5b3bcc node=node2 subsys=eni
+time="2025-02-10T23:20:43.97708071-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerExceedENICapacity-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.987096055-05:00" level=info msg="Resolving IP deficit of node" available=28 availableForAllocation=0 emptyInterfaceSlots=1 instanceID=i-testNodeManagerExceedENICapacity-1 maxIPsToAllocate=14 name=node2 neededIPs=14 remainingInterfaces=1 selectedInterface= selectedPoolID= subsys=ipam used=40
+time="2025-02-10T23:20:43.98722922-05:00" level=info msg="No more IPs available, creating new ENI" addresses=14 instanceID=i-testNodeManagerExceedENICapacity-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.987304512-05:00" level=info msg="Created new ENI" addresses=14 eniID=9f89567a-112c-4e1d-8e3f-c6520ec1df56 instanceID=i-testNodeManagerExceedENICapacity-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.987324345-05:00" level=info msg="Attached ENI to instance" addresses=14 attachmentID= eniID=9f89567a-112c-4e1d-8e3f-c6520ec1df56 index=2 instanceID=i-testNodeManagerExceedENICapacity-1 isPrefixDelegated=false name=node2 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:43.987446052-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerExceedENICapacity-1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerExceedENICapacity (0.04s)
+=== RUN   TestInterfaceCreatedInInitialSubnet
+time="2025-02-10T23:20:43.998903261-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:43.998983178-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=2 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:43.999030469-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:43.999199093-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testCreateInterfaceInCorrectSubnet-1 name=node1 subsys=ipam
+time="2025-02-10T23:20:43.999227759-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=14 emptyInterfaceSlots=2 instanceID=i-testCreateInterfaceInCorrectSubnet-1 maxIPsToAllocate=16 name=node1 neededIPs=16 remainingInterfaces=3 selectedInterface=b2aed75d-c449-4687-a150-f804549c409c selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:43.999256301-05:00" level=info msg="debug allocating IPs" availableForAllocation=14 interfaceID=b2aed75d-c449-4687-a150-f804549c409c node=node1 subsys=eni
+time="2025-02-10T23:20:43.9993288-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testCreateInterfaceInCorrectSubnet-1 numSecurityGroups=2 numSubnets=2 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:44.00970735-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testCreateInterfaceInCorrectSubnet-1 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.009862391-05:00" level=info msg="Resolving IP deficit of node" available=14 availableForAllocation=0 emptyInterfaceSlots=2 instanceID=i-testCreateInterfaceInCorrectSubnet-1 maxIPsToAllocate=2 name=node1 neededIPs=2 remainingInterfaces=2 selectedInterface= selectedPoolID= subsys=ipam used=0
+time="2025-02-10T23:20:44.009940974-05:00" level=info msg="No more IPs available, creating new ENI" addresses=2 instanceID=i-testCreateInterfaceInCorrectSubnet-1 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:44.009998307-05:00" level=info msg="Created new ENI" addresses=2 eniID=2d581128-fd91-48c3-bfdc-762d5320f7eb instanceID=i-testCreateInterfaceInCorrectSubnet-1 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:44.010026681-05:00" level=info msg="Attached ENI to instance" addresses=2 attachmentID= eniID=2d581128-fd91-48c3-bfdc-762d5320f7eb index=1 instanceID=i-testCreateInterfaceInCorrectSubnet-1 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:44.010125931-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testCreateInterfaceInCorrectSubnet-1 numSecurityGroups=2 numSubnets=2 numVPCs=1 subsys=eni
+--- PASS: TestInterfaceCreatedInInitialSubnet (0.02s)
+=== RUN   TestNodeManagerManyNodes
+    node_manager_test.go:717: This test is flaky, see https://github.com/cilium/cilium/issues/11560
+--- SKIP: TestNodeManagerManyNodes (0.00s)
+=== RUN   TestNodeManagerInstanceNotRunning
+time="2025-02-10T23:20:44.021620473-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:44.021731889-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:44.021824347-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:44.022003929-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerInstanceNotRunning-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.022043928-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=0 emptyInterfaceSlots=1 instanceID=i-testNodeManagerInstanceNotRunning-0 maxIPsToAllocate=8 name=node1 neededIPs=8 remainingInterfaces=1 selectedInterface= selectedPoolID= subsys=ipam used=0
+time="2025-02-10T23:20:44.022092886-05:00" level=info msg="No more IPs available, creating new ENI" addresses=8 instanceID=i-testNodeManagerInstanceNotRunning-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:44.022150386-05:00" level=info msg="Created new ENI" addresses=8 eniID=58a91309-aa82-4b75-bcc5-72149b3755de instanceID=i-testNodeManagerInstanceNotRunning-0 isPrefixDelegated=false name=node1 securityGroupIDs="[sg1 sg2]" subnetID=s-1 subsys=ipam
+time="2025-02-10T23:20:44.022188594-05:00" level=info msg="Set running false" instanceID=i-testNodeManagerInstanceNotRunning-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.022195052-05:00" level=info msg="Marking node as not running" subsys=eni
+time="2025-02-10T23:20:44.022211552-05:00" level=warning msg="Unable to create interface on instance: unable to attach ENI at index 1: foo is not 'running' foo" instanceID=i-testNodeManagerInstanceNotRunning-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.022256927-05:00" level=warning msg="Unable to maintain ip pool of node" error="unable to attach ENI at index 1: foo is not 'running' foo" instanceID=i-testNodeManagerInstanceNotRunning-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.022373968-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerInstanceNotRunning-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerInstanceNotRunning (0.01s)
+=== RUN   TestInstanceBeenDeleted
+time="2025-02-10T23:20:44.032482395-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:44.032590894-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:44.032642977-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:44.032754185-05:00" level=info msg="Synchronized ENI information" numInstances=0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:44.032791185-05:00" level=warning msg="Instance not found! Please delete corresponding ciliumnode if instance has already been deleted." instanceID=i-testInstanceBeenDeleted-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.032827434-05:00" level=warning msg="Instance not found! Please delete corresponding ciliumnode if instance has already been deleted." error="unable to retrieve ENIs" instanceID=i-testInstanceBeenDeleted-0 name=node1 subsys=ipam
+--- PASS: TestInstanceBeenDeleted (0.00s)
+=== RUN   TestNodeManagerStaticIP
+time="2025-02-10T23:20:44.032976558-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:44.0330146-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:44.033066766-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:44.033212348-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerStaticIP-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.033246973-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=9 emptyInterfaceSlots=2 instanceID=i-testNodeManagerStaticIP-0 maxIPsToAllocate=8 name=node1 neededIPs=8 remainingInterfaces=3 selectedInterface=0dca4a05-9382-40ab-a3ca-c11c7412bef7 selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:44.033274556-05:00" level=info msg="debug allocating IPs" availableForAllocation=8 interfaceID=0dca4a05-9382-40ab-a3ca-c11c7412bef7 node=node1 subsys=eni
+time="2025-02-10T23:20:44.033379305-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerStaticIP-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:44.044605516-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerStaticIP-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.044671058-05:00" level=info msg="Resolving IP deficit of node" available=8 availableForAllocation=1 emptyInterfaceSlots=2 instanceID=i-testNodeManagerStaticIP-0 maxIPsToAllocate=1 name=node1 neededIPs=1 remainingInterfaces=3 selectedInterface=0dca4a05-9382-40ab-a3ca-c11c7412bef7 selectedPoolID=s-1 subsys=ipam used=1
+time="2025-02-10T23:20:44.044704849-05:00" level=info msg="debug allocating IPs" availableForAllocation=1 interfaceID=0dca4a05-9382-40ab-a3ca-c11c7412bef7 node=node1 subsys=eni
+time="2025-02-10T23:20:44.04480964-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerStaticIP-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerStaticIP (0.02s)
+=== RUN   TestNodeManagerStaticIPAlreadyAssociated
+time="2025-02-10T23:20:44.055241232-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:44.055361731-05:00" level=info msg="Synchronized ENI information" numInstances=1 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+time="2025-02-10T23:20:44.055422022-05:00" level=info msg="Discovered new CiliumNode custom resource" name=node1 subsys=ipam
+time="2025-02-10T23:20:44.055587604-05:00" level=warning msg="Unable to compute pending pods, will not surge-allocate" error="pod store uninitialized" instanceID=i-testNodeManagerStaticIPAlreadyAssociated-0 name=node1 subsys=ipam
+time="2025-02-10T23:20:44.055611396-05:00" level=info msg="Resolving IP deficit of node" available=0 availableForAllocation=9 emptyInterfaceSlots=2 instanceID=i-testNodeManagerStaticIPAlreadyAssociated-0 maxIPsToAllocate=8 name=node1 neededIPs=8 remainingInterfaces=3 selectedInterface=cb4aa242-815c-414a-b9da-3737a376c7e0 selectedPoolID=s-1 subsys=ipam used=0
+time="2025-02-10T23:20:44.055642187-05:00" level=info msg="debug allocating IPs" availableForAllocation=8 interfaceID=cb4aa242-815c-414a-b9da-3737a376c7e0 node=node1 subsys=eni
+time="2025-02-10T23:20:44.055731645-05:00" level=info msg="Synchronized ENI information for the corresponding instance" instance=i-testNodeManagerStaticIPAlreadyAssociated-0 numSecurityGroups=2 numSubnets=1 numVPCs=1 subsys=eni
+--- PASS: TestNodeManagerStaticIPAlreadyAssociated (0.01s)
+=== RUN   TestENIIPAMCapacityAccounting
+time="2025-02-10T23:20:44.067680976-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+--- PASS: TestENIIPAMCapacityAccounting (0.00s)
+=== RUN   TestGetMaximumAllocatableIPv4
+time="2025-02-10T23:20:44.067847558-05:00" level=info msg="Initial EC2 API limits update completed successfully" subsys=aws-eni-limits
+time="2025-02-10T23:20:44.067865808-05:00" level=warning msg="Could not determine first interface index, maximum allocatable ipv4 addresses will be 0 (unlimited) this could lead to ip allocation overflows if the max-allocate flag is not set" first-interface-index=unknown subsys=eni
+time="2025-02-10T23:20:44.067898266-05:00" level=warning msg="Instance type network adapters limit is lower than the configured FirstInterfaceIndex, maximum allocatable ipv4 addresses will be 0 (unlimited) this could lead to ip allocation overflows if the max-allocate flag is not set" adaptors-limit=3 first-interface-index=4 subsys=eni
+time="2025-02-10T23:20:44.067916516-05:00" level=warning msg="Could not determined instance limits, maximum allocatable ipv4 addresses will be 0 (unlimited) this could lead to ip allocation overflows if the max-allocate flag is not set" adaptors-limit=unknown first-interface-index=0 subsys=eni
+--- PASS: TestGetMaximumAllocatableIPv4 (0.00s)
+=== RUN   TestGetUsedIPWithPrefixes
+--- PASS: TestGetUsedIPWithPrefixes (0.00s)
+PASS
+ok  	github.com/cilium/cilium/pkg/aws/eni	(cached)
