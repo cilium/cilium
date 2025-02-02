@@ -117,13 +117,11 @@ func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumI
 		cell.Provide(func() config {
 			if operatorManagingCID {
 				return config{
-					IdentityManagementMode:   option.IdentityManagementModeOperator,
-					EnableOperatorManageCIDs: true, // deprecated
+					IdentityManagementMode: option.IdentityManagementModeOperator,
 				}
 			} else {
 				return config{
-					IdentityManagementMode:   option.IdentityManagementModeAgent,
-					EnableOperatorManageCIDs: false, // deprecated
+					IdentityManagementMode: option.IdentityManagementModeAgent,
 				}
 			}
 		}),

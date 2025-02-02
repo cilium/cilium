@@ -57,6 +57,7 @@ cilium-operator-generic hive dot-graph [flags]
       --identity-gc-rate-interval duration                   Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                           Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
       --identity-heartbeat-timeout duration                  Timeout after which identity expires on lack of heartbeat (default 30m0s)
+      --identity-management-mode string                      Configure whether Cilium Identities are managed by cilium-agent, cilium-operator, or both (default "agent")
       --ingress-default-lb-mode string                       Default loadbalancer mode for Ingress. Applicable values: dedicated, shared (default "dedicated")
       --ingress-default-request-timeout duration             Default request timeout for Ingress.
       --ingress-default-secret-name string                   Default secret name for Ingress.
