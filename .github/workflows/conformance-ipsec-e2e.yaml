@@ -201,7 +201,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Setup bootid file
-        uses: cilium/little-vm-helper@91f9d86d8d10112370ade4390747f9602b574bb7 # v0.0.21
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
