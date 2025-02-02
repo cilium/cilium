@@ -385,6 +385,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 	}
 	// Update the resource in the node while holding the lock, otherwise resyncs can be
 	// triggered prior to the update being applied.
+	log.Debug("it's about to update the resource")
 	node.UpdatedResource(resource)
 }
 
