@@ -187,6 +187,9 @@ func hostRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, if
 		// L2-less device
 		mac = make([]byte, 6)
 		opts["ETH_HLEN"] = uint64(0)
+		if ifName == defaults.IPIPv4Device || ifName == defaults.IPIPv6Device {
+			delete(opts, "ETH_HLEN")
+		}
 	}
 	opts["THIS_INTERFACE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
 	opts["THIS_INTERFACE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
@@ -423,6 +426,15 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 	// Selectively attach bpf_host to cilium_wg0.
 	if option.Config.NeedBPFHostOnWireGuardDevice() {
 		devices = append(devices, wgTypes.IfaceName)
+	}
+
+	if option.Config.EnableIPIPTermination {
+		if option.Config.IPv4Enabled() {
+			devices = append(devices, defaults.IPIPv4Device)
+		}
+		if option.Config.IPv6Enabled() {
+			devices = append(devices, defaults.IPIPv6Device)
+		}
 	}
 
 	// Replace programs on physical devices, ignoring devices that don't exist.
