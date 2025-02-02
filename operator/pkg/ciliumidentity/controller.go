@@ -94,7 +94,6 @@ func registerController(p params) {
 	isOperatorManageCIDsEnabled := cmp.Or(
 		p.Config.IdentityManagementMode == option.IdentityManagementModeOperator,
 		p.Config.IdentityManagementMode == option.IdentityManagementModeBoth,
-		p.Config.EnableOperatorManageCIDs, // backwards-compatibility with deprecated operator-manages-identities flag.
 	)
 
 	if cmp.Or(
