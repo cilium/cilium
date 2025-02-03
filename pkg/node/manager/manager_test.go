@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -846,58 +847,35 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	// Tests health reporting on node manager.
 	assert := assert.New(t)
 
+	var (
+		statusTable statedb.Table[types.Status]
+		db          *statedb.DB
+		nh1         *signalNodeHandler
+	)
+
 	baseBackgroundSyncInterval = 1 * time.Millisecond
-	fn := func(m *manager, sh hive.Shutdowner, statusTable statedb.Table[types.Status], db *statedb.DB) {
-		defer sh.Shutdown()
+	fn := func(m *manager, sh hive.Shutdowner, st statedb.Table[types.Status], d *statedb.DB, lifecycle cell.Lifecycle) {
 		m.nodes[nodeTypes.Identity{
 			Name:    "node1",
 			Cluster: "c1",
 		}] = &nodeEntry{node: nodeTypes.Node{Name: "node1", Cluster: "c1"}}
 		m.nodeHandlers = make(map[datapath.NodeHandler]struct{})
-		nh1 := newSignalNodeHandler()
+		nh1 = newSignalNodeHandler()
 		nh1.EnableNodeValidateImplementationEvent = true
 		// By default this is a buffered channel, by making it a non-buffered
 		// channel we can sync up iterations of background sync.
 		nh1.NodeValidateImplementationEvent = make(chan nodeTypes.Node)
 		m.nodeHandlers[nh1] = struct{}{}
 
-		// Start the manager
-		assert.NoError(m.Start(context.Background()))
+		statusTable = st
+		db = d
 
-		checkStatus := func() (types.Status, <-chan struct{}) {
-			id := types.Identifier{
-				Module:    cell.FullModuleID{"node_manager"},
-				Component: []string{"background-sync"},
-			}
-			ss, _, watch, _ := statusTable.GetWatch(db.ReadTxn(), health.PrimaryIndex.Query(id.HealthID()))
-			return ss, watch
-		}
-
-		// Expecting initial empty health status before initial background sync,
-		// which is blocked by us not reading on `nh1.NodeValidateImplementationEvent`
-		status, watch := checkStatus()
-		assert.Equal(types.Level(""), status.Level)
-
-		// Unblock background sync by reading event. After this we expect the
-		// status to switch to "Degraded", due to the test error set below
-		nh1.NodeValidateImplementationEventError = fmt.Errorf("test error")
-		<-nh1.NodeValidateImplementationEvent
-		<-watch
-		status, watch = checkStatus()
-		assert.Equal(types.LevelDegraded, string(status.Level))
-
-		// Stop returning an error and unblock background sync by reading event. After
-		// this we expect the status to switch to "OK"
-		nh1.NodeValidateImplementationEventError = nil
-		<-nh1.NodeValidateImplementationEvent
-		<-watch
-		status, _ = checkStatus()
-		assert.Equal(types.LevelOK, string(status.Level))
+		lifecycle.Append(m)
 	}
 
 	ipcacheMock := newIPcacheMock()
 	config := &option.DaemonConfig{}
-	err := hive.New(
+	hive := hive.New(
 		cell.Provide(func() testParams {
 			return testParams{
 				Config:        config,
@@ -907,10 +885,72 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 				IPSetFilterFn: func(no *nodeTypes.Node) bool { return false },
 			}
 		}),
+		cell.Provide(tables.NewDeviceTable),                   // Provide statedb.RWTable[*tables.Device]
+		cell.Provide(statedb.RWTable[*tables.Device].ToTable), // Provide statedb.Table[*tables.Device] from RW table
+		cell.Invoke(statedb.RegisterTable[*tables.Device]),
 		cell.Module("node_manager", "Node Manager", cell.Provide(New)),
 		cell.Invoke(fn),
-	).Run(hivetest.Logger(t))
+	)
+	l := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	hive.Populate(l)
+
+	checkStatus := func() (types.Status, <-chan struct{}) {
+		id := types.Identifier{
+			Module:    cell.FullModuleID{"node_manager"},
+			Component: []string{"job-backgroundSync"},
+		}
+
+		rx := db.ReadTxn()
+		ss, _, watch, found := statusTable.GetWatch(rx, health.PrimaryIndex.Query(id.HealthID()))
+		if !found {
+			_, watch = statusTable.AllWatch(rx)
+		}
+
+		return ss, watch
+	}
+
+	err := hive.Start(l, context.Background())
 	assert.NoError(err)
+	defer hive.Stop(l, context.Background())
+
+	// Initially the status does not exist. When the job starts to run, the
+	// status will be "OK". Wait for the status to be "OK".
+	var (
+		status types.Status
+		watch  <-chan struct{}
+	)
+	for {
+		status, watch = checkStatus()
+		if status.Level == "" {
+			<-watch
+			continue
+		}
+
+		assert.Equal(types.LevelOK, string(status.Level))
+		break
+	}
+
+	// Unblock background sync by reading event. After this we expect the
+	// status to switch to "Degraded", due to the test error set below
+	nh1.NodeValidateImplementationEventError = fmt.Errorf("test error")
+	<-nh1.NodeValidateImplementationEvent
+	<-watch
+	status, watch = checkStatus()
+	assert.Equal(types.LevelDegraded, string(status.Level))
+
+	// Stop returning an error and unblock background sync by reading event. After
+	// this we expect the status to switch to "OK"
+	nh1.NodeValidateImplementationEventError = nil
+	<-nh1.NodeValidateImplementationEvent
+	<-watch
+	status, _ = checkStatus()
+	assert.Equal(types.LevelOK, string(status.Level))
+
+	// Replace the channel with a buffered one and empty the old channel.
+	// This unblocks the background sync, so everything can exit as it should.
+	oldChan := nh1.NodeValidateImplementationEvent
+	nh1.NodeValidateImplementationEvent = make(chan nodeTypes.Node, 100)
+	<-oldChan
 }
 
 // TestCarrierDownReconciler tests that we can detect carrier down events for physical devices
