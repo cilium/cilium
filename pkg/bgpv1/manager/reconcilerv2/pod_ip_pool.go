@@ -96,12 +96,8 @@ func (r *PodIPPoolReconciler) Cleanup(i *instance.BGPInstance) {
 }
 
 func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
-	if p.DesiredConfig == nil {
-		return fmt.Errorf("BUG: PodIPPoolReconciler reconciler called with nil CiliumBGPNodeConfig")
-	}
-
-	if p.CiliumNode == nil {
-		return fmt.Errorf("BUG: PodIPPoolReconciler reconciler called with nil CiliumNode")
+	if err := p.ValidateParams(); err != nil {
+		return err
 	}
 
 	lp := r.populateLocalPools(p.CiliumNode)
@@ -148,6 +144,9 @@ func (r *PodIPPoolReconciler) getDesiredPoolAFPaths(p ReconcileParams, desiredFa
 	for poolKey := range metadata.PoolAFPaths {
 		_, exists, err := r.poolStore.GetByKey(poolKey)
 		if err != nil {
+			if errors.Is(err, store.ErrStoreUninitialized) {
+				err = errors.Join(err, ErrAbortReconcile)
+			}
 			return nil, err
 		}
 
@@ -159,6 +158,9 @@ func (r *PodIPPoolReconciler) getDesiredPoolAFPaths(p ReconcileParams, desiredFa
 
 	pools, err := r.poolStore.List()
 	if err != nil {
+		if errors.Is(err, store.ErrStoreUninitialized) {
+			err = errors.Join(err, ErrAbortReconcile)
+		}
 		return nil, err
 	}
 
