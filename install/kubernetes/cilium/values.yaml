@@ -713,6 +713,14 @@ cni:
       memory: 10Mi
   # -- Enable route MTU for pod netns when CNI chaining is used
   enableRouteMTUForCNIChaining: false
+# @schema
+# type: [null, number]
+# @schema
+# -- (float64) Ratio of the connectivity probe frequency vs resource usage, a float in
+# [0, 1]. 0 will give more frequent probing, 1 will give less frequent probing. Probing
+# frequency is dynamically adjusted based on the cluster size.
+# @default -- `0.5`
+connectivityProbeFrequencyRatio: ~
 # -- (string) Configure how frequently garbage collection should occur for the datapath
 # connection tracking table.
 # @default -- `"0s"`
@@ -2601,7 +2609,7 @@ tls:
   secretsBackend: ~
   # @schema
   # type: [null, boolean]
-  # @schema  
+  # @schema
   # -- Configure if the Cilium Agent will only look in `tls.secretsNamespace` for
   #    CiliumNetworkPolicy relevant Secrets.
   #    If false, the Cilium Agent will be granted READ (GET/LIST/WATCH) access
