@@ -738,8 +738,8 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 
 		// Delete covered allow entries with lower proxy port priority.
 		//
-		// This can be skipped if no rules have proxy redirects
-		if features.contains(redirectRules) {
+		// This is only needed if the newEntry has a proxy port priority greater than zero.
+		if newEntry.ProxyPortPriority > 0 {
 			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 				if !v.IsDeny() && v.ProxyPortPriority < newEntry.ProxyPortPriority {
 					ms.deleteKeyWithChanges(k, changes)
