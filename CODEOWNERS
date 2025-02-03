@@ -322,7 +322,6 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/tests/encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/tests/encryption_v2.go @cilium/sig-encryption
 /cilium-cli/connectivity/tests/errors.go @cilium/sig-agent @cilium/sig-datapath
-/cilium-cli/connectivity/tests/externalworkload.go @cilium/sig-clustermesh
 /cilium-cli/connectivity/tests/from-cidr.go @cilium/sig-policy
 /cilium-cli/connectivity/tests/health.go @cilium/sig-agent
 /cilium-cli/connectivity/tests/host.go @cilium/sig-agent

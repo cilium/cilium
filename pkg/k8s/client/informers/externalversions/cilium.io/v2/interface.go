@@ -21,8 +21,6 @@ type Interface interface {
 	CiliumEndpoints() CiliumEndpointInformer
 	// CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
 	CiliumEnvoyConfigs() CiliumEnvoyConfigInformer
-	// CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.
-	CiliumExternalWorkloads() CiliumExternalWorkloadInformer
 	// CiliumIdentities returns a CiliumIdentityInformer.
 	CiliumIdentities() CiliumIdentityInformer
 	// CiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicyInformer.
@@ -69,11 +67,6 @@ func (v *version) CiliumEndpoints() CiliumEndpointInformer {
 // CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
 func (v *version) CiliumEnvoyConfigs() CiliumEnvoyConfigInformer {
 	return &ciliumEnvoyConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.
-func (v *version) CiliumExternalWorkloads() CiliumExternalWorkloadInformer {
-	return &ciliumExternalWorkloadInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumIdentities returns a CiliumIdentityInformer.
