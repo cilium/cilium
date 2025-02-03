@@ -34,6 +34,7 @@ var Cell = cell.Module(
 	// We don't validate that the ClusterID is different from 0 (and the
 	// ClusterName is not the default one), because they are valid in
 	// case we only use the external workloads feature, and not clustermesh.
+	// TODO(brb) add validation
 	cell.Config(cmtypes.DefaultClusterInfo),
 	cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
 	cell.Invoke(cmtypes.ClusterInfo.Validate),
@@ -75,7 +76,6 @@ var Cell = cell.Module(
 
 	usersManagementCell,
 	cell.Invoke(registerHooks),
-	externalWorkloadsCell,
 )
 
 var pprofConfig = pprof.Config{

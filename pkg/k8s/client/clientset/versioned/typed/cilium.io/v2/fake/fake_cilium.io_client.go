@@ -35,10 +35,6 @@ func (c *FakeCiliumV2) CiliumEnvoyConfigs(namespace string) v2.CiliumEnvoyConfig
 	return newFakeCiliumEnvoyConfigs(c, namespace)
 }
 
-func (c *FakeCiliumV2) CiliumExternalWorkloads() v2.CiliumExternalWorkloadInterface {
-	return newFakeCiliumExternalWorkloads(c)
-}
-
 func (c *FakeCiliumV2) CiliumIdentities() v2.CiliumIdentityInterface {
 	return newFakeCiliumIdentities(c)
 }

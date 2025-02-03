@@ -12,7 +12,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1983,24 +1982,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					}
 					ct.secondaryNetworkNodeIPv6[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
 				}
-			}
-		}
-	}
-
-	var logOnce sync.Once
-	for _, client := range ct.clients.clients() {
-		externalWorkloads, err := client.ListCiliumExternalWorkloads(ctx, metav1.ListOptions{})
-		if k8sErrors.IsNotFound(err) {
-			logOnce.Do(func() {
-				ct.Log("ciliumexternalworkloads.cilium.io is not defined. Disabling external workload tests")
-			})
-			continue
-		} else if err != nil {
-			return fmt.Errorf("unable to list external workloads: %w", err)
-		}
-		for _, externalWorkload := range externalWorkloads.Items {
-			ct.externalWorkloads[externalWorkload.Name] = ExternalWorkload{
-				workload: externalWorkload.DeepCopy(),
 			}
 		}
 	}

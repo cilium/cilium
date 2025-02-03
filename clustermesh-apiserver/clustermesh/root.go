@@ -75,7 +75,6 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 type parameters struct {
 	cell.In
 
-	ExternalWorkloadsConfig
 	CfgMCSAPI      operator.MCSAPIConfig
 	ClusterInfo    cmtypes.ClusterInfo
 	Clientset      k8sClient.Clientset
@@ -99,7 +98,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
+			startServer(params.ClusterInfo, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI, params.Logger)
 			return nil
 		},
 	})
@@ -345,9 +344,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 }
 
 func startServer(
-	startCtx cell.HookContext,
 	cinfo cmtypes.ClusterInfo,
-	allServices bool,
 	clientset k8sClient.Clientset,
 	backend kvstore.BackendOperations,
 	resources cmk8s.Resources,
@@ -385,7 +382,6 @@ func startServer(
 		Services:     resources.Services,
 		Endpoints:    resources.Endpoints,
 		Backend:      backend,
-		SharedOnly:   !allServices,
 		StoreFactory: factory,
 		SyncCallback: syncState.WaitForResource(),
 	}, logger)

@@ -25,3 +25,5 @@
 "cmdref/cilium-dbg_statedb_sysctl.md" "cmdref/cilium-dbg_statedb.md"
 "security/cassandra.rst" "security/network/proxy/envoy.rst"
 "security/memcached.rst" "security/network/proxy/envoy.rst"
+"network/external-toc.rst" "network/clustermesh/index.rst"
+"network/external-workloads.rst" "network/clustermesh/index.rst"

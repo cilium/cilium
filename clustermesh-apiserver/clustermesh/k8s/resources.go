@@ -37,7 +37,6 @@ var (
 			// cell providing LocalNodeStore, so we provide the resource with a separate
 			// constructor.
 			CiliumSlimEndpointResource,
-			k8s.CiliumExternalWorkloads,
 		),
 	)
 )

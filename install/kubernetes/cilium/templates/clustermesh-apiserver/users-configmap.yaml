@@ -1,5 +1,5 @@
 {{- if and
-  (or .Values.externalWorkloads.enabled (and .Values.clustermesh.useAPIServer (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal")))
+  (and .Values.clustermesh.useAPIServer (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal"))
   (ne .Values.clustermesh.apiserver.tls.authMode "legacy")
 }}
 ---
