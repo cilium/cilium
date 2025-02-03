@@ -73,6 +73,10 @@ func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2alpha1.Cil
 		if err != nil {
 			if errors.Is(err, store.ErrStoreUninitialized) {
 				lp.Errorf("BUG: Peer config store is not initialized")
+				// If store is not initialized, we can abort the reconcile loop and retry again.
+				// There is no need to continue with the rest of the reconcilers, since they
+				// will also fail because of store being not initialized.
+				err = errors.Join(err, ErrAbortReconcile)
 			}
 			return nil, err
 		}
@@ -107,6 +111,12 @@ func (p *CiliumPeerAdvertisement) getFamilyAdvertisements(family v2alpha1.Cilium
 	// get all advertisement CRD objects.
 	advertResources, err := p.adverts.List()
 	if err != nil {
+		if errors.Is(err, store.ErrStoreUninitialized) {
+			// If store is not initialized, we can abort the reconcile loop and retry again.
+			// There is no need to continue with the rest of the reconcilers, since they
+			// will also fail because of store being not initialized.
+			err = errors.Join(err, ErrAbortReconcile)
+		}
 		return nil, err
 	}
 
