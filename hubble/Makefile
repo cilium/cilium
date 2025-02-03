@@ -47,7 +47,7 @@ local-release: clean
 		for ARCH in $$ARCHS; do \
 			echo Building release binary for $$OS/$$ARCH...; \
 			test -d release/$$OS/$$ARCH|| mkdir -p release/$$OS/$$ARCH; \
-			make hubble GOOS=$$OS GOARCH=$$ARCH EXT=$$EXT TARGET_DIR=release/$$OS/$$ARCH; \
+			$(MAKE) hubble GOOS=$$OS GOARCH=$$ARCH EXT=$$EXT TARGET_DIR=release/$$OS/$$ARCH; \
 			tar -czf release/$(TARGET)-$$OS-$$ARCH.tar.gz -C release/$$OS/$$ARCH $(TARGET)$$EXT; \
 			(cd release && sha256sum $(TARGET)-$$OS-$$ARCH.tar.gz > $(TARGET)-$$OS-$$ARCH.tar.gz.sha256sum); \
 		done; \
