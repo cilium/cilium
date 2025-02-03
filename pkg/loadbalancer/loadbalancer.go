@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -821,7 +822,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 // keys for prefix searches, e.g. "1.2.3.4".
 // This must be kept in sync with Bytes().
 func L3n4AddrFromString(key string) (index.Key, error) {
-	keyErr := errors.New("bad key, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\"")
+	keyErr := errors.New("bad key, expected \"<addr>:<port>/<proto>(/i)\", e.g. \"1.2.3.4:80/TCP\" or classful prefix \"10.0.0.0/8\"")
 	var out []byte
 
 	if len(key) == 0 {
@@ -844,6 +845,22 @@ func L3n4AddrFromString(key string) (index.Key, error) {
 
 	addrCluster, err := cmtypes.ParseAddrCluster(addr)
 	if err != nil {
+		// See if the address is a prefix and try to parse it as such.
+		// We only support classful searches, e.g. /8, /16, /24, /32 since
+		// indexing is byte-wise.
+		if prefix, err := netip.ParsePrefix(addr); err == nil {
+			bits := prefix.Bits()
+			if bits%8 != 0 {
+				return index.Key{}, fmt.Errorf("%w: only classful prefixes supported (/8,/16,/24,/32)", keyErr)
+			}
+			bytes := prefix.Addr().As16()
+			if prefix.Addr().Is6() {
+				return index.Key(bytes[:bits/8]), nil
+			} else {
+				// The address is in the 16-byte format, cut from the last 4 bytes.
+				return index.Key(bytes[:12+bits/8]), nil
+			}
+		}
 		return index.Key{}, fmt.Errorf("%w: %w", keyErr, err)
 	}
 	addr20 := addrCluster.As20()

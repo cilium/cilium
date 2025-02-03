@@ -169,7 +169,7 @@ func showBackends(bes backendsSeq2) string {
 
 var (
 	frontendAddressIndex = statedb.Index[*Frontend, loadbalancer.L3n4Addr]{
-		Name: "frontends",
+		Name: "address",
 		FromObject: func(fe *Frontend) index.KeySet {
 			return index.NewKeySet(fe.Address.Bytes())
 		},

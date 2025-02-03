@@ -280,7 +280,7 @@ func (be *Backend) Clone() *Backend {
 
 var (
 	backendAddrIndex = statedb.Index[*Backend, loadbalancer.L3n4Addr]{
-		Name: "addr",
+		Name: "address",
 		FromObject: func(obj *Backend) index.KeySet {
 			return index.NewKeySet(obj.L3n4Addr.Bytes())
 		},
@@ -292,7 +292,7 @@ var (
 	BackendByAddress = backendAddrIndex.Query
 
 	backendServiceIndex = statedb.Index[*Backend, loadbalancer.ServiceName]{
-		Name:       "service-name",
+		Name:       "service",
 		FromObject: (*Backend).serviceNameKeys,
 		FromKey:    index.Stringer[loadbalancer.ServiceName],
 		FromString: index.FromString,
