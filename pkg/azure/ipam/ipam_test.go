@@ -163,7 +163,8 @@ func TestIpamPreAllocate8(t *testing.T) {
 		State: types.StateSucceeded,
 	}
 	resource.SetID("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11")
-	m.Update("vm1", ipamTypes.InterfaceRevision{
+	vm1ID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1"
+	m.Update(vm1ID, ipamTypes.InterfaceRevision{
 		Resource: resource.DeepCopy(),
 	})
 	api.UpdateInstances(m)
@@ -175,7 +176,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
-	cn := newCiliumNode("node1", "vm1", preAllocate, minAllocate)
+	cn := newCiliumNode("node1", vm1ID, preAllocate, minAllocate)
 	statusRevision := k8sapi.statusRevision()
 	mngr.Upsert(cn)
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
@@ -225,7 +226,8 @@ func TestIpamMinAllocate10(t *testing.T) {
 		State: types.StateSucceeded,
 	}
 	resource.SetID("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11")
-	m.Update("vm1", ipamTypes.InterfaceRevision{
+	vm1ID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1"
+	m.Update(vm1ID, ipamTypes.InterfaceRevision{
 		Resource: resource.DeepCopy(),
 	})
 	api.UpdateInstances(m)
@@ -237,7 +239,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
-	cn := newCiliumNode("node1", "vm1", preAllocate, minAllocate)
+	cn := newCiliumNode("node1", vm1ID, preAllocate, minAllocate)
 	statusRevision := k8sapi.statusRevision()
 	mngr.Upsert(cn)
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
@@ -311,7 +313,7 @@ func TestIpamManyNodes(t *testing.T) {
 					State:         types.StateSucceeded,
 				}
 				resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
-				allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
+				allInstances.Update(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i), ipamTypes.InterfaceRevision{
 					Resource: resource.DeepCopy(),
 				})
 			}
@@ -320,7 +322,7 @@ func TestIpamManyNodes(t *testing.T) {
 			instances.Resync(context.TODO())
 
 			for i := range state {
-				state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
+				state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i)}
 				state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, minAllocate)
 				mngr.Upsert(state[i].cn)
 			}
@@ -388,7 +390,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 			State:         types.StateSucceeded,
 		}
 		resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
-		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
+		allInstances.Update(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i), ipamTypes.InterfaceRevision{
 			Resource: resource.DeepCopy(),
 		})
 	}
@@ -397,7 +399,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	instances.Resync(context.Background())
 
 	for i := range state {
-		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
+		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i)}
 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, 10)
 		mngr.Upsert(state[i].cn)
 	}

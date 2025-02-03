@@ -478,7 +478,7 @@ type ipResyncStats struct {
 
 func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
 	node.updateLastResync(syncTime)
-	node.recalculate()
+	node.recalculate(ctx)
 	allocationNeeded := node.allocationNeeded()
 	releaseNeeded := node.releaseNeeded()
 	if allocationNeeded || releaseNeeded {
