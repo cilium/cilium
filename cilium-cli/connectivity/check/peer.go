@@ -300,57 +300,6 @@ func (s NodeportService) Port() uint32 {
 	return uint32(s.Service.Service.Spec.Ports[0].NodePort)
 }
 
-// ExternalWorkload is an external workload acting as a peer in a
-// connectivity test. It implements interface TestPeer.
-type ExternalWorkload struct {
-	// workload is the Kubernetes Cilium external workload resource.
-	workload *ciliumv2.CiliumExternalWorkload
-}
-
-// Name returns the name of the ExternalWorkload.
-func (e ExternalWorkload) Name() string {
-	return e.workload.Namespace + "/" + e.workload.Name
-}
-
-// Scheme returns an empty string.
-func (e ExternalWorkload) Scheme() string {
-	return ""
-}
-
-// Path returns an empty string.
-func (e ExternalWorkload) Path() string {
-	return ""
-}
-
-// Address returns the network address of the ExternalWorkload.
-func (e ExternalWorkload) Address(features.IPFamily) string {
-	return e.workload.Status.IP
-}
-
-// Port returns 0.
-func (e ExternalWorkload) Port() uint32 {
-	return 0
-}
-
-// HasLabel checks if given label exists and value matches.
-func (e ExternalWorkload) HasLabel(name, value string) bool {
-	v, ok := e.workload.Labels[name]
-	return ok && v == value
-}
-
-// Labels returns the copy of labels
-func (e ExternalWorkload) Labels() map[string]string {
-	newMap := make(map[string]string, len(e.workload.Labels))
-	for k, v := range e.workload.Labels {
-		newMap[k] = v
-	}
-	return newMap
-}
-
-func (e ExternalWorkload) FlowFilters() []*flow.FlowFilter {
-	return nil
-}
-
 // ICMPEndpoint returns a new ICMP endpoint.
 func ICMPEndpoint(name, host string) TestPeer {
 	return icmpEndpoint{

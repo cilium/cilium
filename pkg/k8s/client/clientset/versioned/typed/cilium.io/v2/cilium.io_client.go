@@ -20,7 +20,6 @@ type CiliumV2Interface interface {
 	CiliumEgressGatewayPoliciesGetter
 	CiliumEndpointsGetter
 	CiliumEnvoyConfigsGetter
-	CiliumExternalWorkloadsGetter
 	CiliumIdentitiesGetter
 	CiliumLocalRedirectPoliciesGetter
 	CiliumNetworkPoliciesGetter
@@ -51,10 +50,6 @@ func (c *CiliumV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterfa
 
 func (c *CiliumV2Client) CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigInterface {
 	return newCiliumEnvoyConfigs(c, namespace)
-}
-
-func (c *CiliumV2Client) CiliumExternalWorkloads() CiliumExternalWorkloadInterface {
-	return newCiliumExternalWorkloads(c)
 }
 
 func (c *CiliumV2Client) CiliumIdentities() CiliumIdentityInterface {

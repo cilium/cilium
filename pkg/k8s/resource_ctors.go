@@ -480,17 +480,6 @@ func ciliumEndpointSliceLocalPodIndexFunc(obj any) ([]string, error) {
 	return indices, nil
 }
 
-func CiliumExternalWorkloads(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumExternalWorkload], error) {
-	if !params.ClientSet.IsEnabled() {
-		return nil, nil
-	}
-	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumExternalWorkloadList](params.ClientSet.CiliumV2().CiliumExternalWorkloads()),
-		opts...,
-	)
-	return resource.New[*cilium_api_v2.CiliumExternalWorkload](params.Lifecycle, lw, resource.WithMetric("CiliumExternalWorkloads"), resource.WithCRDSync(params.CRDSyncPromise)), nil
-}
-
 func CiliumEnvoyConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumEnvoyConfig], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil

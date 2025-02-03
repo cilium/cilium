@@ -2358,14 +2358,6 @@
       },
       "type": "object"
     },
-    "externalWorkloads": {
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "extraArgs": {
       "items": {},
       "type": "array"

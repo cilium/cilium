@@ -33,10 +33,6 @@ type CiliumEnvoyConfigListerExpansion interface{}
 // CiliumEnvoyConfigNamespaceLister.
 type CiliumEnvoyConfigNamespaceListerExpansion interface{}
 
-// CiliumExternalWorkloadListerExpansion allows custom methods to be added to
-// CiliumExternalWorkloadLister.
-type CiliumExternalWorkloadListerExpansion interface{}
-
 // CiliumIdentityListerExpansion allows custom methods to be added to
 // CiliumIdentityLister.
 type CiliumIdentityListerExpansion interface{}

@@ -78,7 +78,7 @@
   {{ fail "Only one of .Values.hubble.redact.http.headers.allow, .Values.hubble.redact.http.headers.deny can be specified"}}
 {{- end }}
 
-{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "certmanager") }}
+{{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "certmanager") }}
   {{- if not .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef }}
     {{ fail "ClusterMesh TLS certgen method=certmanager requires that user specifies .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef" }}
   {{- end }}
@@ -169,14 +169,6 @@
     {{ fail "The clustermesh-apiserver cannot be enabled in combination with .Values.disableEndpointCRD=true" }}
   {{- end }}
 {{- end }}
-{{- if .Values.externalWorkloads.enabled }}
-  {{- if and (ne .Values.identityAllocationMode "crd") (ne .Values.identityAllocationMode "doublewrite-readkvstore") (ne .Values.identityAllocationMode "doublewrite-readcrd") }}
-    {{ fail (printf "External workloads support cannot be enabled in combination with .Values.identityAllocationMode=%s" .Values.identityAllocationMode ) }}
-  {{- end }}
-  {{- if .Values.disableEndpointCRD }}
-    {{ fail "External workloads support cannot be enabled in combination with .Values.disableEndpointCRD=true" }}
-  {{- end }}
-{{- end }}
 {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
   {{- if not .Values.clustermesh.useAPIServer }}
     {{- fail "kvstoremesh.kvstoreMode=external can only be used with clustermesh.useAPIServer=true" }}
@@ -186,9 +178,6 @@
   {{- end }}
   {{- if ne (toString .Values.clustermesh.apiserver.replicas) "1"  }}
     {{- fail "Only single clustermesh-apiserver replica is allowed when kvstoreMode=external" }}
-  {{- end }}
-  {{- if .Values.externalWorkloads.enabled }}
-    {{- fail (printf "KVStoreMesh with %s etcd cannot be enabled in combination with .Values.externalWorkloads.enabled=true" .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode) }}
   {{- end }}
   {{- if and (ne .Values.identityAllocationMode "kvstore") (ne .Values.identityAllocationMode "doublewrite-readkvstore") (ne .Values.identityAllocationMode "doublewrite-readcrd") }}
     {{- fail (printf "KVStoreMesh with %s etcd cannot be enabled in combination with .Values.identityAllocationMode=%s" .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode .Values.identityAllocationMode) }}

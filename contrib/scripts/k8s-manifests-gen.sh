@@ -22,7 +22,6 @@ CRDS_CILIUM_V2="ciliumnetworkpolicies \
                 ciliumendpoints \
                 ciliumidentities \
                 ciliumnodes \
-                ciliumexternalworkloads \
                 ciliumlocalredirectpolicies \
                 ciliumegressgatewaypolicies \
                 ciliumenvoyconfigs \
