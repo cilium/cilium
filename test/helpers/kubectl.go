@@ -131,6 +131,8 @@ var (
 		"ipam.operator.clusterPoolIPv6PodCIDRList": "fd02::/112",
 
 		"extraConfig.max-internal-timer-delay": "5s",
+
+		"connectivityProbeFrequencyRatio": "0",
 	}
 
 	eksChainingHelmOverrides = map[string]string{
