@@ -1361,6 +1361,10 @@ data:
   enable-source-ip-verification: {{ .Values.daemon.enableSourceIPVerification | quote }}
 {{- end }}
 
+{{- if has (kindOf .Values.connectivityProbeFrequencyRatio) (list "int64" "float64") }}
+  connectivity-probe-frequency-ratio: {{ .Values.connectivityProbeFrequencyRatio | quote }}
+{{- end }}
+
 # Extra config allows adding arbitrary properties to the cilium config.
 # By putting it at the end of the ConfigMap, it's also possible to override existing properties.
 {{- if .Values.extraConfig }}
