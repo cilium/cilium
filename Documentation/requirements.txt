@@ -3,7 +3,7 @@ Sphinx==7.1.2
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
-sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@84a34e7f301e9bfed5330da9acdb65d62020af4d
+sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@0d7703280a1287e97f37124c1d9689e2efe03923
 # We use semver to parse Cilium's version in the config file
 semver==3.0.1
 # Sphinx extensions
