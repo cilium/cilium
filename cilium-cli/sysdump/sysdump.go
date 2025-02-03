@@ -1448,21 +1448,6 @@ func (c *Collector) Run() error {
 				return fmt.Errorf("could not find running Cilium Pod")
 			},
 		},
-		{
-			CreatesSubtasks: true,
-			Description:     "Collecting Cilium external workloads",
-			Quick:           true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumExternalWorkloads(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium external workloads: %w", err)
-				}
-				if err := c.WriteYAML(ciliumExternalWorkloadFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium external workloads: %w", err)
-				}
-				return nil
-			},
-		},
 	}
 
 	if c.Options.HubbleFlowsCount > 0 {

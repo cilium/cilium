@@ -37,13 +37,6 @@ annotations:
       description: |
         Cilium Clusterwide Network Policies support configuring network traffic
         policiies across the entire cluster, including applying node firewalls.
-    - kind: CiliumExternalWorkload
-      version: v2
-      name: ciliumexternalworkloads.cilium.io
-      displayName: Cilium External Workload
-      description: |
-        Cilium External Workload supports configuring the ability for external
-        non-Kubernetes workloads to join the cluster.
     - kind: CiliumLocalRedirectPolicy
       version: v2
       name: ciliumlocalredirectpolicies.cilium.io

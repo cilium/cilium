@@ -1,4 +1,4 @@
-{{- if and (or .Values.externalWorkloads.enabled  .Values.clustermesh.useAPIServer) (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
+{{- if and .Values.clustermesh.useAPIServer (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
 apiVersion: v1
 kind: Service
 metadata:

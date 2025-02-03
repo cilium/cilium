@@ -54,7 +54,6 @@ const (
 	ClusterMeshAdminSecretName             = "clustermesh-apiserver-admin-cert"
 	ClusterMeshClientSecretName            = "clustermesh-apiserver-client-cert"
 	ClusterMeshRemoteSecretName            = "clustermesh-apiserver-remote-cert"
-	ClusterMeshExternalWorkloadSecretName  = "clustermesh-apiserver-external-workload-cert"
 	ClusterMeshConnectionModeBidirectional = "bidirectional"
 	ClusterMeshConnectionModeMesh          = "mesh"
 	ClusterMeshConnectionModeUnicast       = "unicast"

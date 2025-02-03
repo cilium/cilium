@@ -1,4 +1,4 @@
-{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.serviceAccounts.clustermeshApiserver.create .Values.rbac.create (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
+{{- if and .Values.clustermesh.useAPIServer .Values.serviceAccounts.clustermeshApiserver.create .Values.rbac.create (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -13,38 +13,10 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 rules:
-{{- if .Values.externalWorkloads.enabled }}
-- apiGroups:
-  - cilium.io
-  resources:
-  - ciliumnodes
-  - ciliumendpoints
-  - ciliumidentities
-  verbs:
-  - create
-- apiGroups:
-  - cilium.io
-  resources:
-  - ciliumexternalworkloads/status
-  - ciliumnodes
-  - ciliumidentities
-  verbs:
-  - update
-- apiGroups:
-  - cilium.io
-  resources:
-  - ciliumendpoints
-  - ciliumendpoints/status
-  verbs:
-  - patch
-{{- end }}
 - apiGroups:
   - cilium.io
   resources:
   - ciliumidentities
-{{- if .Values.externalWorkloads.enabled }}
-  - ciliumexternalworkloads
-{{- end }}
   - ciliumendpoints
   - ciliumnodes
   verbs:
