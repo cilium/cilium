@@ -5,6 +5,7 @@ package reconcilerv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 
@@ -116,11 +117,8 @@ func (r *NeighborReconciler) Cleanup(i *instance.BGPInstance) {
 }
 
 func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
-	if p.DesiredConfig == nil {
-		return fmt.Errorf("attempted neighbor reconciliation with nil CiliumBGPNodeInstance")
-	}
-	if p.BGPInstance == nil {
-		return fmt.Errorf("attempted neighbor reconciliation with nil BGPInstance")
+	if err := p.ValidateParams(); err != nil {
+		return err
 	}
 
 	var (
@@ -282,6 +280,9 @@ func (r *NeighborReconciler) getPeerConfig(peerConfig *v2alpha1.PeerConfigRefere
 
 	config, exists, err := r.PeerConfig.GetByKey(resource.Key{Name: peerConfig.Name})
 	if err != nil || !exists {
+		if errors.Is(err, store.ErrStoreUninitialized) {
+			err = errors.Join(err, ErrAbortReconcile)
+		}
 		return nil, exists, err
 	}
 
@@ -326,6 +327,9 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 	}
 	item, ok, err := r.SecretStore.GetByKey(resource.Key{Namespace: r.DaemonConfig.BGPSecretsNamespace, Name: name})
 	if err != nil || !ok {
+		if errors.Is(err, store.ErrStoreUninitialized) {
+			err = errors.Join(err, ErrAbortReconcile)
+		}
 		return nil, ok, err
 	}
 	result := map[string][]byte{}
