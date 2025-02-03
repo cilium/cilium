@@ -1,4 +1,4 @@
-{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.serviceAccounts.clustermeshApiserver.create .Values.rbac.create (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
+{{- if and .Values.clustermesh.useAPIServer .Values.serviceAccounts.clustermeshApiserver.create .Values.rbac.create (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:

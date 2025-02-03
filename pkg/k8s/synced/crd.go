@@ -103,7 +103,6 @@ func ClusterMeshAPIServerResourceNames() []string {
 		CRDResourceName(v2.CNName),
 		CRDResourceName(v2.CIDName),
 		CRDResourceName(v2.CEPName),
-		CRDResourceName(v2.CEWName),
 	}
 }
 
@@ -112,7 +111,6 @@ func ClusterMeshAPIServerResourceNames() []string {
 func AllCiliumCRDResourceNames() []string {
 	return append(
 		AgentCRDResourceNames(),
-		CRDResourceName(v2.CEWName),
 		CRDResourceName(v2.CNCName),
 		CRDResourceName(v2alpha1.CNCName), // TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
 	)
