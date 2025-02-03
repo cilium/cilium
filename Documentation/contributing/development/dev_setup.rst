@@ -457,6 +457,10 @@ Minor version
 
 #. Run ``./contrib/scripts/check-k8s-code-gen.sh``
 
+#. Check ``controller-runtime`` compatibility with the new Kubernetes version. If
+   there are any changes required, update the controller-runtime version in
+   ``go.mod``. See https://github.com/kubernetes-sigs/controller-runtime?tab=readme-ov-file#compatibility.
+
 #. Run ``go mod vendor && go mod tidy``
 
 #. Run ``./contrib/scripts/check-k8s-code-gen.sh`` (again)
