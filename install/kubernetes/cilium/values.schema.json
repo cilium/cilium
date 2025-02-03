@@ -1492,6 +1492,12 @@
         "object"
       ]
     },
+    "connectivityProbeFrequencyRatio": {
+      "type": [
+        "null",
+        "number"
+      ]
+    },
     "conntrackGCInterval": {
       "type": "string"
     },
