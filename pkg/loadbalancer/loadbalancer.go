@@ -22,6 +22,13 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+type IPFamily = bool
+
+const (
+	IPFamilyIPv4 = IPFamily(false)
+	IPFamilyIPv6 = IPFamily(true)
+)
+
 // SVCType is a type of a service.
 type SVCType string
 
