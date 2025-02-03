@@ -2313,6 +2313,9 @@ func backendToNode(b *lb.Backend) *nodeTypes.Node {
 }
 
 func (s *Service) upsertBackendNeighbors(newBackends, oldBackends []*lb.Backend) {
+	if s.backendDiscovery == nil {
+		return
+	}
 	for _, b := range newBackends {
 		s.backendDiscovery.InsertMiscNeighbor(backendToNode(b))
 	}
@@ -2320,6 +2323,9 @@ func (s *Service) upsertBackendNeighbors(newBackends, oldBackends []*lb.Backend)
 }
 
 func (s *Service) deleteBackendNeighbors(obsoleteBackends []*lb.Backend) {
+	if s.backendDiscovery == nil {
+		return
+	}
 	for _, b := range obsoleteBackends {
 		s.backendDiscovery.DeleteMiscNeighbor(backendToNode(b))
 	}
