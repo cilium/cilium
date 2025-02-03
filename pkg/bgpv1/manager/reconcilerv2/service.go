@@ -114,12 +114,8 @@ func (r *ServiceReconciler) Cleanup(i *instance.BGPInstance) {
 }
 
 func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
-	if p.DesiredConfig == nil {
-		return fmt.Errorf("BUG: attempted service reconciliation with nil CiliumBGPNodeConfig")
-	}
-
-	if p.CiliumNode == nil {
-		return fmt.Errorf("BUG: attempted service reconciliation with nil local CiliumNode")
+	if err := p.ValidateParams(); err != nil {
+		return err
 	}
 
 	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2alpha1.BGPServiceAdvert)

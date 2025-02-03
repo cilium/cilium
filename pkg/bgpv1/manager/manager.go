@@ -934,22 +934,43 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 func (m *BGPRouterManager) reconcileBGPConfigV2(ctx context.Context,
 	i *instance.BGPInstance,
 	newc *v2alpha1api.CiliumBGPNodeInstance,
-	ciliumNode *v2api.CiliumNode) error {
+	ciliumNode *v2api.CiliumNode) (err error) {
 
 	reconcileStart := time.Now()
 	for _, r := range m.ConfigReconcilers {
-		if err := r.Reconcile(ctx, reconcilerv2.ReconcileParams{
+		if rErr := r.Reconcile(ctx, reconcilerv2.ReconcileParams{
 			BGPInstance:   i,
 			DesiredConfig: newc,
 			CiliumNode:    ciliumNode,
-		}); err != nil {
+		}); rErr != nil {
 			m.metrics.ReconcileErrorCount.WithLabelValues(newc.Name).Inc()
-			return err
+			// If r.Reconcile returns ErrAbortReconcile, we should stop the reconciliation
+			// for this instance and return the error.
+			// Goal of stopping the reconciliation is twofold:
+			// 1. Error in the infrastructure (e.g. stores are not yet initialized ). In this
+			// case, we should stop the reconciliation as most of the other reconcilers will
+			// also fail.
+			// 2. There is hard dependency on the ordering of reconciliation, and we should
+			// not proceed with other reconcilers if current reconciler returns ErrAbortReconcile.
+			// This is to ensure correctness in the behavior of BGP configuration.
+			//
+			// If the reconciler returns any other error, we should continue with remaining
+			// reconcilers and accumulate the error. This ensures that we try to reconcile
+			// as much configuration as possible.
+			//
+			// High level retry will again call the reconciliation loop as long as we return
+			// error.
+			if errors.Is(rErr, reconcilerv2.ErrAbortReconcile) {
+				// Error is being joined here as we may have non-abort errors previously.
+				return errors.Join(err, rErr)
+			} else {
+				err = errors.Join(err, rErr)
+			}
 		}
 	}
 	m.metrics.ReconcileRunDuration.WithLabelValues(newc.Name).Observe(time.Since(reconcileStart).Seconds())
 	i.Config = newc
-	return nil
+	return err
 }
 
 // withdraw disconnects and removes BGP Instance(s) as instructed by the provided

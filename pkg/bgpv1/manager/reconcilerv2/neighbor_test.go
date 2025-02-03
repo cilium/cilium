@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -253,6 +254,11 @@ func TestNeighborReconciler(t *testing.T) {
 			reconcileParams := ReconcileParams{
 				BGPInstance:   testInstance,
 				DesiredConfig: nodeConfig,
+				CiliumNode: &v2api.CiliumNode{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bgp-node",
+					},
+				},
 			}
 			err = neighborReconciler.Reconcile(context.Background(), reconcileParams)
 			req.NoError(err)
@@ -268,6 +274,11 @@ func TestNeighborReconciler(t *testing.T) {
 			reconcileParams = ReconcileParams{
 				BGPInstance:   testInstance,
 				DesiredConfig: nodeConfig,
+				CiliumNode: &v2api.CiliumNode{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bgp-node",
+					},
+				},
 			}
 			err = neighborReconciler.Reconcile(context.Background(), reconcileParams)
 			req.NoError(err)

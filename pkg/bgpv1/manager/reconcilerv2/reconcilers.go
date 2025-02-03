@@ -5,6 +5,7 @@ package reconcilerv2
 
 import (
 	"context"
+	"errors"
 	"sort"
 
 	"github.com/cilium/hive/cell"
@@ -30,6 +31,12 @@ const (
 	PodIPPoolReconcilerPriority = 50
 	ServiceReconcilerPriority   = 40
 	PodCIDRReconcilerPriority   = 30
+)
+
+var (
+	// ErrAbortReconcile is used to indicate that the current reconcile loop should
+	// be aborted.
+	ErrAbortReconcile = errors.New("abort reconcile error")
 )
 
 type ReconcileParams struct {
@@ -94,4 +101,14 @@ func GetActiveReconcilers(log logrus.FieldLogger, reconcilers []ConfigReconciler
 	})
 
 	return activeReconcilers
+}
+
+func (p ReconcileParams) ValidateParams() error {
+	if p.DesiredConfig == nil {
+		return errors.Join(errors.New("BUG: reconciler called with nil CiliumBGPNodeConfig"), ErrAbortReconcile)
+	}
+	if p.CiliumNode == nil {
+		return errors.Join(errors.New("BUG: reconciler called with nil CiliumNode"), ErrAbortReconcile)
+	}
+	return nil
 }

@@ -84,12 +84,8 @@ func (r *PodCIDRReconciler) Cleanup(i *instance.BGPInstance) {
 }
 
 func (r *PodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
-	if p.DesiredConfig == nil {
-		return fmt.Errorf("BUG: PodCIDR reconciler called with nil CiliumBGPNodeConfig")
-	}
-
-	if p.CiliumNode == nil {
-		return fmt.Errorf("BUG: PodCIDR reconciler called with nil CiliumNode")
+	if err := p.ValidateParams(); err != nil {
+		return err
 	}
 
 	// get pod CIDR prefixes
