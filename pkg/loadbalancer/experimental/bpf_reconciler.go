@@ -96,12 +96,17 @@ type BPFOps struct {
 	// This is used when updating to remove orphans.
 	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]
 
-	// nodePortAddrByService are the last used NodePort addresses for a given NodePort
+	// nodePortAddrByPort are the last used NodePort addresses for a given NodePort
 	// (or HostPort) service (by port).
-	nodePortAddrByService map[uint16][]netip.Addr
+	nodePortAddrByPort map[nodePortAddrKey][]netip.Addr
 
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
+}
+
+type nodePortAddrKey struct {
+	family loadbalancer.IPFamily
+	port   uint16
 }
 
 type backendState struct {
@@ -129,20 +134,20 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		return nil
 	}
 	ops := &BPFOps{
-		cfg:                   p.ExtCfg,
-		maglev:                p.Maglev,
-		serviceIDAlloc:        newIDAllocator(firstFreeServiceID, maxSetOfServiceID),
-		restoredServiceIDs:    sets.New[loadbalancer.ID](),
-		backendIDAlloc:        newIDAllocator(firstFreeBackendID, maxSetOfBackendID),
-		restoredBackendIDs:    sets.New[loadbalancer.BackendID](),
-		log:                   p.Log,
-		backendStates:         map[loadbalancer.L3n4Addr]backendState{},
-		backendReferences:     map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
-		nodePortAddrByService: map[uint16][]netip.Addr{},
-		prevSourceRanges:      map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{},
-		LBMaps:                p.LBMaps,
-		db:                    p.DB,
-		nodeAddrs:             p.NodeAddresses,
+		cfg:                p.ExtCfg,
+		maglev:             p.Maglev,
+		serviceIDAlloc:     newIDAllocator(firstFreeServiceID, maxSetOfServiceID),
+		restoredServiceIDs: sets.New[loadbalancer.ID](),
+		backendIDAlloc:     newIDAllocator(firstFreeBackendID, maxSetOfBackendID),
+		restoredBackendIDs: sets.New[loadbalancer.BackendID](),
+		log:                p.Log,
+		backendStates:      map[loadbalancer.L3n4Addr]backendState{},
+		backendReferences:  map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
+		nodePortAddrByPort: map[nodePortAddrKey][]netip.Addr{},
+		prevSourceRanges:   map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{},
+		LBMaps:             p.LBMaps,
+		db:                 p.DB,
+		nodeAddrs:          p.NodeAddresses,
 	}
 	p.Lifecycle.Append(cell.Hook{OnStart: ops.start})
 	return ops
@@ -205,7 +210,8 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 	if fe.Type == loadbalancer.SVCTypeNodePort ||
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified() {
 
-		addrs, ok := ops.nodePortAddrByService[fe.Address.Port]
+		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port}
+		addrs, ok := ops.nodePortAddrByPort[key]
 		if ok {
 			for _, addr := range addrs {
 				fe = fe.Clone()
@@ -215,7 +221,7 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 					return err
 				}
 			}
-			delete(ops.nodePortAddrByService, fe.Address.Port)
+			delete(ops.nodePortAddrByPort, key)
 		} else {
 			ops.log.Warn("no nodePortAddrs", "port", fe.Address.Port)
 		}
@@ -503,18 +509,24 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) 
 		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster.IsUnspecified() {
 		// For NodePort create entries for each node address.
 		// For HostPort only create them if the address was not specified (HostIP is unset).
-		old := sets.New(ops.nodePortAddrByService[fe.Address.Port]...)
+		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port}
+		old := sets.New(ops.nodePortAddrByPort[key]...)
 
+		// Collect the node addresses suitable for NodePort that match the IP family of
+		// the frontend.
 		nodePortAddrs := statedb.Collect(
-			statedb.Map(
-				ops.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)),
-				func(addr tables.NodeAddress) netip.Addr { return addr.Addr }),
+			statedb.Filter(
+				statedb.Map(
+					ops.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)),
+					func(addr tables.NodeAddress) netip.Addr { return addr.Addr }),
+				func(addr netip.Addr) bool {
+					return addr.Is6() == fe.Address.IsIPv6()
+				},
+			),
 		)
 
+		// Create the NodePort/HostPort frontends with the node addresses.
 		for _, addr := range nodePortAddrs {
-			if fe.Address.IsIPv6() != addr.Is6() {
-				continue
-			}
 			fe = fe.Clone()
 			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 			if err := ops.updateFrontend(fe); err != nil {
@@ -526,9 +538,6 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) 
 
 		// Delete orphan NodePort/HostPort frontends
 		for addr := range old {
-			if fe.Address.IsIPv6() != addr.Is6() {
-				continue
-			}
 			fe = fe.Clone()
 			fe.Address.AddrCluster = cmtypes.AddrClusterFrom(addr, 0)
 			if err := ops.deleteFrontend(fe); err != nil {
@@ -536,7 +545,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) 
 				return err
 			}
 		}
-		ops.nodePortAddrByService[fe.Address.Port] = nodePortAddrs
+		ops.nodePortAddrByPort[key] = nodePortAddrs
 	}
 
 	return nil
