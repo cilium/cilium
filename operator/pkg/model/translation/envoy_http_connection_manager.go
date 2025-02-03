@@ -36,7 +36,7 @@ func (i *cecTranslator) httpConnectionManagerMutators() []HttpConnectionManagerM
 }
 
 // desiredHTTPConnectionManager returns a new HTTP connection manager filter with the given name and route.
-func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string) (ciliumv2.XDSResource, error) {
+func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string) ciliumv2.XDSResource {
 	connectionManager := &httpConnectionManagerv3.HttpConnectionManager{
 		StatPrefix: name,
 		RouteSpecifier: &httpConnectionManagerv3.HttpConnectionManager_Rds{
@@ -82,5 +82,6 @@ func (i *cecTranslator) desiredHTTPConnectionManager(name, routeName string) (ci
 		connectionManager = fn(connectionManager)
 	}
 
-	return toXdsResource(connectionManager, envoy.HttpConnectionManagerTypeURL)
+	res, _ := toXdsResource(connectionManager, envoy.HttpConnectionManagerTypeURL)
+	return res
 }
