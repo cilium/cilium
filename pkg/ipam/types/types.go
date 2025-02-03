@@ -431,6 +431,17 @@ type InterfaceRevision struct {
 	Fingerprint string
 }
 
+// DeepCopy returns a deep copy
+func (i *InterfaceRevision) DeepCopy() *InterfaceRevision {
+	if i == nil {
+		return nil
+	}
+	return &InterfaceRevision{
+		Resource:    i.Resource.DeepCopyInterface(),
+		Fingerprint: i.Fingerprint,
+	}
+}
+
 // Instance is the representation of an instance, typically a VM, subject to
 // per-node IPAM logic
 //
@@ -440,6 +451,20 @@ type Instance struct {
 	// interfaces is a map of all interfaces attached to the instance
 	// indexed by the interface ID
 	Interfaces map[string]InterfaceRevision
+}
+
+// DeepCopy returns a deep copy
+func (i *Instance) DeepCopy() *Instance {
+	if i == nil {
+		return nil
+	}
+	c := &Instance{
+		Interfaces: map[string]InterfaceRevision{},
+	}
+	for k, v := range i.Interfaces {
+		c.Interfaces[k] = *v.DeepCopy()
+	}
+	return c
 }
 
 // InstanceMap is the list of all instances indexed by instance ID

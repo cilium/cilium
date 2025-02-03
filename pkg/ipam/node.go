@@ -439,7 +439,7 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 
 	n.ops.UpdatedNode(resource)
 
-	n.recalculate()
+	n.recalculate(context.Background())
 	allocationNeeded := n.allocationNeeded()
 	if allocationNeeded {
 		n.requirePoolMaintenance()
@@ -456,14 +456,14 @@ func (n *Node) resourceAttached() (attached bool) {
 	return
 }
 
-func (n *Node) recalculate() {
+func (n *Node) recalculate(ctx context.Context) {
 	// Skip any recalculation if the CiliumNode resource does not exist yet
 	if !n.resourceAttached() {
 		return
 	}
 	scopedLog := n.logger()
 
-	a, stats, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
+	a, stats, err := n.ops.ResyncInterfacesAndIPs(ctx, scopedLog)
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -1025,7 +1025,7 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 		n.requireResync()
 	}
 	n.poolMaintenanceComplete()
-	n.recalculate()
+	n.recalculate(ctx)
 	if instanceMutated || err != nil {
 		n.instanceSync.Trigger()
 	}
