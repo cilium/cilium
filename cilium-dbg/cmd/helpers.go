@@ -340,23 +340,14 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 	for _, proto := range pa.protocols {
 		u8p := u8proto.U8proto(proto)
 		entry := fmt.Sprintf("%d %d/%s", pa.label, pa.port, u8p.String())
+		mapKey := policymap.NewKeyFromPolicyKey(policyTypes.KeyForDirection(pa.trafficDirection).WithIdentity(pa.label).WithPortProto(proto, pa.port))
 		if add {
-			var (
-				proxyPortPriority policyTypes.ProxyPortPriority // never set
-				authReq           policyTypes.AuthRequirement   // never set
-				proxyPort         uint16                        // never set
-				err               error
-			)
-			if pa.isDeny {
-				err = policyMap.Deny(pa.trafficDirection, pa.label, u8p, pa.port, policymap.SinglePortPrefixLen)
-			} else {
-				err = policyMap.Allow(pa.trafficDirection, pa.label, u8p, pa.port, policymap.SinglePortPrefixLen, proxyPortPriority, authReq, proxyPort)
-			}
-			if err != nil {
+			mapEntry := policymap.NewEntryFromPolicyEntry(mapKey, policyTypes.MapStateEntry{}.WithDeny(pa.isDeny))
+			if err := policyMap.Update(&mapKey, &mapEntry); err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {
-			if err := policyMap.Delete(pa.trafficDirection, pa.label, u8p, pa.port, policymap.SinglePortPrefixLen); err != nil {
+			if err := policyMap.DeleteKey(mapKey); err != nil {
 				Fatalf("Cannot delete policy key '%s': %s\n", entry, err)
 			}
 		}
