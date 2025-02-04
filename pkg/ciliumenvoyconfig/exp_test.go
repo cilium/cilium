@@ -127,7 +127,7 @@ func TestScript(t *testing.T) {
 				}
 				for _, info := range fakeEnvoy.all() {
 					if info.res == nil {
-						_, err = fmt.Fprintf(f, "%s: count=%d listeners=<nil> endpoints=<nil>\n", info.name, info.count)
+						_, err = fmt.Fprintf(f, "%s: listeners=<nil> endpoints=<nil>\n", info.name)
 						if err != nil {
 							return nil, err
 						}
@@ -151,7 +151,7 @@ func TestScript(t *testing.T) {
 						}
 					}
 					sort.Strings(endpoints)
-					_, err = fmt.Fprintf(f, "%s: count=%d listeners=%s endpoints=%s\n", info.name, info.count, strings.Join(listeners, ","), strings.Join(endpoints, ","))
+					_, err = fmt.Fprintf(f, "%s: listeners=%s endpoints=%s\n", info.name, strings.Join(listeners, ","), strings.Join(endpoints, ","))
 					if err != nil {
 						return nil, err
 					}

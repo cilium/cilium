@@ -296,9 +296,9 @@ SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0
 SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 -- envoy1.expected --
 policy-trigger-count: 1
-update: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
-delete: count=0 listeners=<nil> endpoints=<nil>
+update: listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
+delete: listeners=<nil> endpoints=<nil>
 -- envoy2.expected --
 policy-trigger-count: 2
-update: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
-delete: count=1 listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
+update: listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
+delete: listeners=test/ingress/listener/1000 endpoints=test/backend:9080=2.1.0.1:9080,2.1.0.2:9080,test/backend_unnamed_port:9080=3.1.0.1:9080,test/frontend:80=1.1.0.1:8080
