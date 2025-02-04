@@ -1040,7 +1040,7 @@ data:
 {{- else }}
   ipam: {{ $ipam | quote }}
 {{- end }}
-{{- if hasKey .Values.ipam "multiPoolPreAllocation" }}
+{{- if .Values.ipam.multiPoolPreAllocation }}
   ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation }}
 {{- end }}
 
