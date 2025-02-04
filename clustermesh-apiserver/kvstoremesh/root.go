@@ -6,11 +6,8 @@ package kvstoremesh
 import (
 	"log/slog"
 
-	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -46,18 +43,4 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 	rootCmd.AddCommand(h.Command())
 
 	return rootCmd
-}
-
-func registerClusterInfoValidator(lc cell.Lifecycle, cinfo types.ClusterInfo, log logrus.FieldLogger) {
-	lc.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			if err := cinfo.InitClusterIDMax(); err != nil {
-				return err
-			}
-			if err := cinfo.ValidateStrict(); err != nil {
-				return err
-			}
-			return nil
-		},
-	})
 }
