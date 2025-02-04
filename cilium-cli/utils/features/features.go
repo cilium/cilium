@@ -383,6 +383,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 			Enabled: cm.Data[string(PolicySecretSync)] == "true",
 		}
 	}
+
+	fs[PolicySecretSync] = Status{
+		Enabled: cm.Data[string(PolicySecretSync)] == "true",
+	}
 }
 
 func (fs Set) ExtractFromNodes(nodesWithoutCilium map[string]struct{}) {
