@@ -27,7 +27,7 @@ var Cell = cell.Module(
 	cell.Config(kvstoremesh.DefaultConfig),
 
 	cell.Config(cmtypes.DefaultClusterInfo),
-	cell.Invoke(registerClusterInfoValidator),
+	cell.Invoke(cmtypes.RegisterClusterInfoValidator),
 
 	pprof.Cell,
 	cell.Config(pprofConfig),
