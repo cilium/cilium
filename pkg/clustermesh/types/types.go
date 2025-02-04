@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/defaults"
 )
 
@@ -75,6 +77,20 @@ func ValidateClusterName(name string) error {
 	}
 
 	return nil
+}
+
+func RegisterClusterInfoValidator(lc cell.Lifecycle, cinfo ClusterInfo) {
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			if err := cinfo.InitClusterIDMax(); err != nil {
+				return err
+			}
+			if err := cinfo.ValidateStrict(); err != nil {
+				return err
+			}
+			return nil
+		},
+	})
 }
 
 type CiliumClusterConfig struct {
