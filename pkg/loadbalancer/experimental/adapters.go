@@ -300,8 +300,12 @@ func newMinimalEndpoints(svcName loadbalancer.ServiceName, backends iter.Seq[*Ba
 			eps.Backends[be.AddrCluster] = ports
 		}
 		inst := be.GetInstance(svcName)
-		for _, portName := range inst.PortNames {
-			ports[portName] = &be.L4Addr
+		if len(inst.PortNames) == 0 {
+			ports[""] = &be.L4Addr
+		} else {
+			for _, portName := range inst.PortNames {
+				ports[portName] = &be.L4Addr
+			}
 		}
 	}
 	return eps
