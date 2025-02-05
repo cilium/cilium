@@ -634,6 +634,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 							Port:     uint16(p.ContainerPort),
 						},
 					},
+					Weight: loadbalancer.DefaultBackendWeight,
 				}
 				bes = append(bes, bep)
 			}
