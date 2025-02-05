@@ -44,7 +44,7 @@ func (r regexMatcher) IsMatch(log string) bool {
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
 // logs. The error messages are defined in badLogMsgsWithExceptions, which key
 // is an error message, while values is a list of ignored messages.
-func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string) check.Scenario {
+func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, externalTarget string) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	errorLogExceptions := []logMatcher{
@@ -54,6 +54,8 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string) check.Sc
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
 	}
+
+	envoyTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	warningLogExceptions := []logMatcher{cantEnableJIT, delMissingService, podCIDRUnavailable,
 		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
 		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
@@ -330,6 +332,7 @@ var (
 	knownIssueWireguardCollision = regexMatcher{regexp.MustCompile("Cannot forward proxied DNS lookup.*:51871.*bind: address already in use")} // from: https://github.com/cilium/cilium/issues/30901
 	// Cf. https://github.com/cilium/cilium/issues/35803
 	endpointMapDeleteFailed = regexMatcher{regexp.MustCompile(`Ignoring error while deleting endpoint.*from map cilium_\w+: delete: key does not exist`)}
-	// envoyTLSWarning is the legitimate warning log for negative TLS SNI test case
-	envoyTLSWarning = regexMatcher{regexp.MustCompile("cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*one.one.one.one.*and raw socket is not allowed")}
+	// envoyTLSWarningTemplate is the legitimate warning log for negative TLS SNI test case
+	// This is a template string as we need to replace %s for external target flag
+	envoyTLSWarningTemplate = "cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*%s.*and raw socket is not allowed"
 )
