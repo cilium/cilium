@@ -6,8 +6,6 @@
 #include "common.h"
 #include "config.h"
 
-#if defined(CT_MAP_TCP4) && defined(CT_MAP_TCP6)
-
 #ifdef ENABLE_IPV6
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
@@ -15,7 +13,7 @@ struct {
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CT_MAP_SIZE_TCP);
-} CT_MAP_TCP6 __section_maps_btf;
+} cilium_ct6_global __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
@@ -23,7 +21,7 @@ struct {
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CT_MAP_SIZE_ANY);
-} CT_MAP_ANY6 __section_maps_btf;
+} cilium_ct_any6_global __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 /*
@@ -71,9 +69,9 @@ static __always_inline void *
 get_ct_map6(const struct ipv6_ct_tuple *tuple)
 {
 	if (tuple->nexthdr == IPPROTO_TCP)
-		return &CT_MAP_TCP6;
+		return &cilium_ct6_global;
 
-	return &CT_MAP_ANY6;
+	return &cilium_ct_any6_global;
 }
 
 static __always_inline void *
@@ -98,7 +96,7 @@ get_cluster_ct_any_map6(__u32 cluster_id __maybe_unused)
 	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
 		return map_lookup_elem(&PER_CLUSTER_CT_ANY6, &cluster_id);
 #endif
-	return &CT_MAP_ANY6;
+	return &cilium_ct_any6_global;
 }
 #endif
 
@@ -109,7 +107,7 @@ struct {
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CT_MAP_SIZE_TCP);
-} CT_MAP_TCP4 __section_maps_btf;
+} cilium_ct4_global __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
@@ -117,7 +115,7 @@ struct {
 	__type(value, struct ct_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CT_MAP_SIZE_ANY);
-} CT_MAP_ANY4 __section_maps_btf;
+} cilium_ct_any4_global __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 struct per_cluster_ct_map4_inner_map {
@@ -175,9 +173,9 @@ static __always_inline void *
 get_ct_map4(const struct ipv4_ct_tuple *tuple)
 {
 	if (tuple->nexthdr == IPPROTO_TCP)
-		return &CT_MAP_TCP4;
+		return &cilium_ct4_global;
 
-	return &CT_MAP_ANY4;
+	return &cilium_ct_any4_global;
 }
 
 static __always_inline void *
@@ -202,7 +200,6 @@ get_cluster_ct_any_map4(__u32 cluster_id __maybe_unused)
 	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
 		return map_lookup_elem(&PER_CLUSTER_CT_ANY4, &cluster_id);
 #endif
-	return &CT_MAP_ANY4;
+	return &cilium_ct_any4_global;
 }
-#endif
 #endif

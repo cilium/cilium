@@ -149,8 +149,8 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	 * as the tests and checks assume we have a fresh state every time.
 	 */
 	clear_map(&METRICS_MAP);
-	clear_map(&CT_MAP_TCP4);
-	clear_map(&CT_MAP_TCP6);
+	clear_map(&cilium_ct4_global);
+	clear_map(&cilium_ct6_global);
 	clear_map(get_cluster_snat_map_v4(0));
 	clear_map(get_cluster_snat_map_v6(0));
 
