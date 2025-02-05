@@ -33,6 +33,7 @@
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/proxy.h"
+#include "lib/policy.h"
 #include "lib/trace.h"
 #include "lib/identity.h"
 #include "lib/l3.h"

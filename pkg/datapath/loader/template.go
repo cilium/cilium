@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
 const (
@@ -31,9 +30,6 @@ var (
 
 	templateMAC = mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D})
 
-	elfMapPrefixes = []string{
-		policymap.MapName,
-	}
 	elfCtMapPrefixes = []string{
 		ctmap.MapNameTCP4,
 		ctmap.MapNameAny4,
@@ -140,11 +136,6 @@ func ELFMapSubstitutions(ep datapath.EndpointConfiguration) map[string]string {
 	result := make(map[string]string)
 	epID := uint16(ep.GetID())
 
-	for _, name := range elfMapPrefixes {
-		templateStr := bpf.LocalMapName(name, templateLxcID)
-		desiredStr := bpf.LocalMapName(name, epID)
-		result[templateStr] = desiredStr
-	}
 	if ep.ConntrackLocalLocked() {
 		for _, name := range elfCtMapPrefixes {
 			templateStr := bpf.LocalMapName(name, templateLxcID)

@@ -25,7 +25,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -49,7 +48,6 @@ var (
 		HostEndpointID:     1,
 	}
 	dummyDevCfg   = testutils.NewTestEndpoint()
-	dummyEPCfg    = testutils.NewTestEndpoint()
 	ipv4DummyAddr = netip.MustParseAddr("192.0.2.3")
 	ipv6DummyAddr = netip.MustParseAddr("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
 )
@@ -125,22 +123,6 @@ func TestWriteNetdevConfig(t *testing.T) {
 	writeConfig(t, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteNetdevConfig(w, dummyDevCfg.GetOptions())
 	})
-}
-
-func TestWriteStaticData(t *testing.T) {
-	cfg := &HeaderfileWriter{}
-	ep := &dummyEPCfg
-
-	mapSub := loader.ELFMapSubstitutions(ep)
-
-	var buf bytes.Buffer
-	cfg.writeStaticData(&buf, ep)
-	b := buf.Bytes()
-
-	for _, v := range mapSub {
-		t.Logf("Ensuring config has %s", v)
-		require.True(t, bytes.Contains(b, []byte(v)))
-	}
 }
 
 func createMainLink(name string, t *testing.T) *netlink.Dummy {
