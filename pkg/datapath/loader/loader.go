@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -212,8 +213,7 @@ func netdevRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.EndpointCo
 	}
 
 	// Rename the calls map to include the device's ifindex.
-	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, templateLxcID)
-	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex))
+	strings["cilium_calls"] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex))
 
 	return hcfg, strings
 }
@@ -348,6 +348,9 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration) (*config.BPFHost, map
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
+	// Rename the calls map to include the host endpoint's id.
+	strings["cilium_calls"] = bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID()))
+
 	return cfg, strings
 }
 
@@ -421,9 +424,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, link netlink.Link) (*c
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
 
-	// Rename the calls map to include the device's ifindex.
-	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, templateLxcID)
-	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex))
+	// Rename the calls map to include cilium_net's ifindex.
+	strings["cilium_calls"] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex))
 
 	return cfg, strings
 }
@@ -580,6 +582,9 @@ func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[st
 
 	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
 
+	// Rename the calls map to include the endpoint's id.
+	maps["cilium_calls"] = bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID()))
+
 	return cfg, maps
 }
 
@@ -680,6 +685,9 @@ func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
+		MapRenames: map[string]string{
+			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
+		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -706,8 +714,8 @@ func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.
 	return nil
 }
 
-func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlink.Link) (err error) {
-	if err := compileWireguard(ctx, cArgs); err != nil {
+func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err error) {
+	if err := compileWireguard(ctx); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
 
@@ -722,6 +730,9 @@ func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlin
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
+		MapRenames: map[string]string{
+			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
+		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},

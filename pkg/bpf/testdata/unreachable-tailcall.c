@@ -7,7 +7,7 @@
 
 volatile const int global_var = 0;
 
-struct bpf_elf_map __section_maps cilium_calls_test = {
+struct bpf_elf_map __section_maps cilium_calls = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
 	.id		= CILIUM_MAP_CALLS,
 	.size_key	= sizeof(__u32),
@@ -28,7 +28,7 @@ static int e(void *ctx) {
 
 __section_tail(CILIUM_MAP_CALLS, TAIL_D)
 static int d(void *ctx) {
-        tail_call_static(ctx, cilium_calls_test, TAIL_E);
+        tail_call_static(ctx, cilium_calls, TAIL_E);
         return 0;
 }
 
@@ -39,7 +39,7 @@ static int c(void *ctx) {
 
 __section_tail(CILIUM_MAP_CALLS, TAIL_B)
 static int b(void *ctx) {
-        tail_call_static(ctx, cilium_calls_test, TAIL_C);
+        tail_call_static(ctx, cilium_calls, TAIL_C);
         return 0;
 }
 
@@ -47,9 +47,9 @@ static int b(void *ctx) {
 __section_tail(CILIUM_MAP_CALLS, TAIL_A)
 static int a(void *ctx) {
         if (global_var == 0x01) {
-                tail_call_static(ctx, cilium_calls_test, TAIL_B);
+                tail_call_static(ctx, cilium_calls, TAIL_B);
         } else {
-                tail_call_static(ctx, cilium_calls_test, TAIL_C);
+                tail_call_static(ctx, cilium_calls, TAIL_C);
         }
 
         return 0;
@@ -57,6 +57,6 @@ static int a(void *ctx) {
 
 __section("tc")
 static int cil_entry(void *ctx) {
-        tail_call_static(ctx, cilium_calls_test, TAIL_A);
+        tail_call_static(ctx, cilium_calls, TAIL_A);
         return 0;
 }

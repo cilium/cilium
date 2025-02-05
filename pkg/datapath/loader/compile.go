@@ -394,7 +394,7 @@ func compileOverlay(ctx context.Context, opts []string) error {
 	return nil
 }
 
-func compileWireguard(ctx context.Context, opts []string) (err error) {
+func compileWireguard(ctx context.Context) (err error) {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -416,7 +416,6 @@ func compileWireguard(ctx context.Context, opts []string) (err error) {
 		Source:     wireguardProg,
 		Output:     wireguardObj,
 		OutputType: outputObject,
-		Options:    opts,
 	}
 	// Write out assembly and preprocessing files for debugging purposes
 	if _, err := compile(ctx, prog, dirs); err != nil {
