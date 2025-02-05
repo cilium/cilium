@@ -256,9 +256,25 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 							logfields.Error, err)
 					}
 				} else {
-					if err := upsertHostPort(p, txn, obj); err != nil {
-						p.Log.Error("BUG: Unexpected failure in upsertHostPort",
-							logfields.Error, err)
+					switch obj.Status.Phase {
+					case slim_corev1.PodFailed, slim_corev1.PodSucceeded:
+						// Pod has been terminated. Clean up the HostPort already even before the Pod object
+						// has been removed to free up the HostPort for other pods.
+						if err := deleteHostPort(p, txn, obj); err != nil {
+							p.Log.Error("BUG: Unexpected failure in deleteHostPort",
+								logfields.Error, err)
+						}
+					case slim_corev1.PodRunning:
+						if obj.ObjectMeta.DeletionTimestamp != nil {
+							// The pod has been marked for deletion. Stop processing HostPort changes
+							// for it.
+							continue
+						}
+
+						if err := upsertHostPort(p, txn, obj); err != nil {
+							p.Log.Error("BUG: Unexpected failure in upsertHostPort",
+								logfields.Error, err)
+						}
 					}
 				}
 			}
@@ -582,9 +598,21 @@ func netnsCookieSupported() bool {
 	return true
 }
 
+// hostPortServiceNamePrefix returns the common prefix for synthetic HostPort services
+// for the pod with the given name. This prefix is used as-is when cleaning up existing
+// HostPort entries for a pod. This handles the pod recreation where name stays but UID
+// changes, which we might see only as an update without any deletion.
+func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
+	return loadbalancer.ServiceName{
+		Name:      fmt.Sprintf("%s:host-port:", pod.ObjectMeta.Name),
+		Namespace: pod.ObjectMeta.Namespace,
+	}
+}
+
 func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
+	serviceNamePrefix := hostPortServiceNamePrefix(pod)
 
 	updatedServices := sets.New[loadbalancer.ServiceName]()
 	for _, c := range containers {
@@ -605,10 +633,12 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				continue
 			}
 
-			serviceName := loadbalancer.ServiceName{
-				Name:      fmt.Sprintf("%s/host-port/%d", pod.ObjectMeta.Name, p.HostPort),
-				Namespace: pod.ObjectMeta.Namespace,
-			}
+			// HostPort service names are of form:
+			// <namespace>/<name>:host-port:<port>:<uid>.
+			serviceName := serviceNamePrefix
+			serviceName.Name += fmt.Sprintf("%d:%s",
+				p.HostPort,
+				pod.ObjectMeta.UID)
 
 			var ipv4, ipv6 bool
 
@@ -676,20 +706,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				}
 			}
 
-			svc := &Service{
-				ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-				IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-				Name:             serviceName,
-				LoopbackHostPort: loopbackHostport,
-				Source:           source.Kubernetes,
-			}
-			_, err = params.Writer.UpsertService(wtxn, svc)
-			if err != nil {
-				return fmt.Errorf("UpsertService: %w", err)
-			}
-			if err := params.Writer.SetBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
-				return fmt.Errorf("UpsertBackends: %w", err)
-			}
+			fes := make([]FrontendParams, 0, len(feIPs))
 
 			for _, feIP := range feIPs {
 				addr := cmtypes.MustAddrClusterFromIP(feIP)
@@ -706,19 +723,31 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 					},
 					ServicePort: uint16(p.HostPort),
 				}
-				if _, err := params.Writer.UpsertFrontend(wtxn, fe); err != nil {
-					return fmt.Errorf("UpsertFrontend: %w", err)
-				}
+				fes = append(fes, fe)
 			}
+
+			svc := &Service{
+				ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+				IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+				Name:             serviceName,
+				LoopbackHostPort: loopbackHostport,
+				Source:           source.Kubernetes,
+			}
+
+			err = params.Writer.UpsertServiceAndFrontends(wtxn, svc, fes...)
+			if err != nil {
+				return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
+			}
+			if err := params.Writer.SetBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
+				return fmt.Errorf("SetBackends: %w", err)
+			}
+
 			updatedServices.Insert(serviceName)
 		}
 	}
 
-	// Find and remove orphaned HostPort services, frontends and backends.
-	serviceNamePrefix := loadbalancer.ServiceName{
-		Name:      pod.ObjectMeta.Name + "/host-port/",
-		Namespace: pod.ObjectMeta.Namespace,
-	}
+	// Find and remove orphaned HostPort services, frontends and backends
+	// if 'HostPort' has changed or has been unset.
 	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
 		if updatedServices.Has(svc.Name) {
 			continue
@@ -739,10 +768,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 }
 
 func deleteHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod) error {
-	serviceNamePrefix := loadbalancer.ServiceName{
-		Name:      pod.ObjectMeta.Name + "/host-port/",
-		Namespace: pod.ObjectMeta.Namespace,
-	}
+	serviceNamePrefix := hostPortServiceNamePrefix(pod)
 	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
 		err := params.Writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
 		if err != nil {
