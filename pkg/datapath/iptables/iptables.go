@@ -1221,7 +1221,8 @@ func (m *Manager) installMasqueradeRules(
 						return fmt.Errorf("cannot correlate source route device for generating masquerading rules")
 					}
 					for _, device := range devices {
-						if device == link.Attrs().Name {
+						filter := tables.DeviceFilter{device}
+						if filter.Match(link.Attrs().Name) {
 							match = true
 							break
 						}
