@@ -195,7 +195,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["TUNNEL_MAP"] = tunnel.MapName
 	cDefinesMap["TUNNEL_ENDPOINT_MAP_SIZE"] = fmt.Sprintf("%d", tunnel.MaxEntries)
-	cDefinesMap["ENDPOINTS_MAP"] = lxcmap.MapName
 	cDefinesMap["ENDPOINTS_MAP_SIZE"] = fmt.Sprintf("%d", lxcmap.MaxEntries)
 	cDefinesMap["METRICS_MAP"] = metricsmap.MapName
 	cDefinesMap["METRICS_MAP_SIZE"] = fmt.Sprintf("%d", metricsmap.MaxEntries)
@@ -203,7 +202,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["AUTH_MAP_SIZE"] = fmt.Sprintf("%d", option.Config.AuthMapEntries)
 	cDefinesMap["CONFIG_MAP"] = configmap.MapName
 	cDefinesMap["CONFIG_MAP_SIZE"] = fmt.Sprintf("%d", configmap.MaxEntries)
-	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
 	cDefinesMap["NODE_MAP"] = nodemap.MapName
 	cDefinesMap["NODE_MAP_V2"] = nodemap.MapNameV2

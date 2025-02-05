@@ -10,15 +10,6 @@
 #include "bpf/compiler.h"
 
 struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct endpoint_key);
-	__type(value, struct endpoint_info);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, ENDPOINTS_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-} ENDPOINTS_MAP __section_maps_btf;
-
-struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 	__type(key, struct metrics_key);
 	__type(value, struct metrics_value);
@@ -112,32 +103,6 @@ struct bpf_elf_map __section_maps cilium_calls = {
 	.max_elem	= CILIUM_CALL_SIZE,
 };
 #endif /* SKIP_CALLS_MAP */
-
-struct ipcache_key {
-	struct bpf_lpm_trie_key lpm_key;
-	__u16 cluster_id;
-	__u8 pad1;
-	__u8 family;
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad4;
-			__u32		pad5;
-			__u32		pad6;
-		};
-		union v6addr	ip6;
-	};
-} __packed;
-
-/* Global IP -> Identity map for applying egress label-based policy */
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct ipcache_key);
-	__type(value, struct remote_endpoint_info);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, IPCACHE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} IPCACHE_MAP __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
