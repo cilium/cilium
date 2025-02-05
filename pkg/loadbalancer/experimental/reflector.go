@@ -129,7 +129,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 	}
 
 	upsertService := func(txn WriteTxn, obj *slim_corev1.Service) {
-		svc, fes := convertService(obj)
+		svc, fes := convertService(p.ExtConfig, obj)
 		if svc == nil {
 			return
 		}
@@ -195,7 +195,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 				case resource.Sync:
 					markSync(txn)
 				case resource.Upsert:
-					name, backends := convertEndpoints(obj)
+					name, backends := convertEndpoints(p.ExtConfig, obj)
 
 					if len(backends) > 0 {
 						err := p.Writer.UpsertBackends(
@@ -287,7 +287,7 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
-func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
+func convertService(cfg ExternalConfig, svc *slim_corev1.Service) (s *Service, fes []FrontendParams) {
 	name := loadbalancer.ServiceName{Namespace: svc.Namespace, Name: svc.Name}
 	s = &Service{
 		Name:                name,
@@ -360,6 +360,10 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 			continue
 		}
 
+		if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+			continue
+		}
+
 		for _, port := range svc.Spec.Ports {
 			p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 			if p == nil {
@@ -382,6 +386,10 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
 		for _, scope := range scopes {
 			for _, family := range getIPFamilies(svc) {
+				if (!cfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
+					(!cfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
+					continue
+				}
 				for _, port := range svc.Spec.Ports {
 					if port.NodePort == 0 {
 						continue
@@ -426,6 +434,9 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 			if err != nil {
 				continue
 			}
+			if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
+				continue
+			}
 
 			for _, scope := range scopes {
 				for _, port := range svc.Spec.Ports {
@@ -454,6 +465,9 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 	for _, ip := range svc.Spec.ExternalIPs {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
+			continue
+		}
+		if (!cfg.EnableIPv6 && addr.Is6()) || (!cfg.EnableIPv4 && addr.Is4()) {
 			continue
 		}
 
@@ -512,7 +526,7 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []BackendParams) {
+func convertEndpoints(cfg ExternalConfig, ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []BackendParams) {
 	name = loadbalancer.ServiceName{
 		Name:      ep.ServiceID.Name,
 		Namespace: ep.ServiceID.Namespace,
@@ -528,6 +542,9 @@ func convertEndpoints(ep *k8s.Endpoints) (name loadbalancer.ServiceName, out []B
 	entries := map[loadbalancer.L3n4Addr]entry{}
 
 	for addrCluster, be := range ep.Backends {
+		if (!cfg.EnableIPv6 && addrCluster.Is6()) || (!cfg.EnableIPv4 && addrCluster.Is4()) {
+			continue
+		}
 		for portName, l4Addr := range be.Ports {
 			l3n4Addr := loadbalancer.L3n4Addr{
 				AddrCluster: addrCluster,
@@ -603,8 +620,12 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 					params.Log.Warn("Invalid Pod IP address. Ignoring.", "ip", podIP)
 					continue
 				}
+				if (!params.ExtConfig.EnableIPv6 && addr.Is6()) || (!params.ExtConfig.EnableIPv4 && addr.Is4()) {
+					continue
+				}
 				ipv4 = ipv4 || addr.Is4()
 				ipv6 = ipv6 || addr.Is6()
+
 				bep := BackendParams{
 					L3n4Addr: loadbalancer.L3n4Addr{
 						AddrCluster: addr,

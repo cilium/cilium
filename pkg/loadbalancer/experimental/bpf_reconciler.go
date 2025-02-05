@@ -200,6 +200,10 @@ func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 
 // Delete implements reconciler.Operations.
 func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) error {
+	if (!ops.cfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.cfg.EnableIPv4 && !fe.Address.IsIPv6()) {
+		return nil
+	}
+
 	ops.log.Debug("Delete", "address", fe.Address)
 
 	if err := ops.deleteFrontend(fe); err != nil {
@@ -232,6 +236,7 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, fe *Frontend) er
 }
 
 func (ops *BPFOps) deleteFrontend(fe *Frontend) error {
+
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
 		ops.log.Debug("Delete frontend: no ID found", "address", fe.Address)
@@ -500,6 +505,10 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Fron
 
 // Update implements reconciler.Operations.
 func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, fe *Frontend) error {
+	if (!ops.cfg.EnableIPv6 && fe.Address.IsIPv6()) || (!ops.cfg.EnableIPv4 && !fe.Address.IsIPv6()) {
+		return nil
+	}
+
 	if err := ops.updateFrontend(fe); err != nil {
 		ops.log.Warn("Updating frontend failed, retrying", "error", err)
 		return err

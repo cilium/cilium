@@ -64,6 +64,7 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 // ExternalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
 type ExternalConfig struct {
+	EnableIPv4, EnableIPv6          bool
 	ExternalClusterIP               bool
 	EnableSessionAffinity           bool
 	EnableHealthCheckNodePort       bool
@@ -74,6 +75,8 @@ type ExternalConfig struct {
 
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
+		EnableIPv4:                      cfg.EnableIPv4,
+		EnableIPv6:                      cfg.EnableIPv6,
 		ExternalClusterIP:               cfg.ExternalClusterIP,
 		EnableSessionAffinity:           true, // FIXME cfg.EnableSessionAffinity,
 		EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
