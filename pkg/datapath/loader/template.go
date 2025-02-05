@@ -35,7 +35,6 @@ var (
 
 	elfMapPrefixes = []string{
 		policymap.MapName,
-		callsmap.MapName,
 		callsmap.CustomCallsMapName,
 	}
 	elfCtMapPrefixes = []string{
@@ -145,9 +144,6 @@ func ELFMapSubstitutions(ep datapath.EndpointConfiguration) map[string]string {
 	epID := uint16(ep.GetID())
 
 	for _, name := range elfMapPrefixes {
-		if ep.IsHost() && name == callsmap.MapName {
-			name = callsmap.HostMapName
-		}
 		// Custom calls for hosts are not supported yet.
 		if name == callsmap.CustomCallsMapName &&
 			(!option.Config.EnableCustomCalls || ep.IsHost()) {

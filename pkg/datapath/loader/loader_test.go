@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -113,10 +112,6 @@ func TestCompileOrLoadDefaultEndpoint(t *testing.T) {
 // TestCompileOrLoadHostEndpoint is the same as
 // TestCompileAndLoadDefaultEndpoint, but for the host endpoint.
 func TestCompileOrLoadHostEndpoint(t *testing.T) {
-
-	callsmap.HostMapName = fmt.Sprintf("test_%s", callsmap.MapName)
-	callsmap.NetdevMapName = fmt.Sprintf("test_%s", callsmap.MapName)
-
 	hostEp := testutils.NewTestHostEndpoint()
 	initEndpoint(t, &hostEp)
 
