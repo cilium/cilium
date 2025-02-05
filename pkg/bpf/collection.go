@@ -8,13 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
 )
 
 // LoadCollectionSpec loads the eBPF ELF at the given path and parses it into
@@ -115,7 +114,7 @@ func removeUnreachableTailcalls(spec *ebpf.CollectionSpec) error {
 			ref := movR2.Reference()
 
 			// Ignore static tail calls made to maps that are not the calls map
-			if !strings.Contains(ref, callsmap.MapName) || strings.Contains(ref, callsmap.CustomCallsMapName) {
+			if ref != "cilium_calls" {
 				log.Debugf("program '%s'/'%s', found tail call at %d, reference '%s', not a calls map, skipping",
 					prog.SectionName, prog.Name, i, ref)
 				continue
@@ -235,8 +234,6 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 // objects to the given object. It is a wrapper around [LoadCollection]. See its
 // documentation for more details on the loading process.
 func LoadAndAssign(to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
-	log.Debug("Loading Collection into kernel")
-
 	coll, commit, err := LoadCollection(spec, opts)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
@@ -294,6 +291,11 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 	if opts == nil {
 		opts = &CollectionOptions{}
 	}
+
+	log.WithFields(logrus.Fields{
+		"MapRenames": opts.MapRenames,
+		"Constants":  fmt.Sprintf("%#v", opts.Constants)}).
+		Debug("Loading Collection into kernel")
 
 	// Copy spec so the modifications below don't affect the input parameter,
 	// allowing the spec to be safely re-used by the caller.
