@@ -10,7 +10,7 @@ spec:
   terminationGracePeriodSeconds: 0
   containers:
   - name: netperf
-    image: docker.io/tgraf/netperf:v1.0
+    image: quay.io/cilium/netperf:v1.0
     readinessProbe:
       exec:
         command: ["netperf", "-H", "127.0.0.1", "-l", "1"]
@@ -29,7 +29,7 @@ spec:
   terminationGracePeriodSeconds: 0
   containers:
   - name: netperf
-    image: docker.io/tgraf/netperf:v1.0
+    image: quay.io/cilium/netperf:v1.0
 ---
 apiVersion: v1
 kind: Service
