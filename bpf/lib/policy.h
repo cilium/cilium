@@ -74,6 +74,16 @@ __policy_account(__u32 remote_id, __u8 egress, __u8 proto, __be16 dport, __u8 lp
 {}
 #endif
 
+/* Per-endpoint policy enforcement map */
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct policy_key);
+	__type(value, struct policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_policy_v2 __section_maps_btf;
+
 static __always_inline int
 __policy_check(struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
 	       __u16 *proxy_port)
