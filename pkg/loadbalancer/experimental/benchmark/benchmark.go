@@ -59,6 +59,8 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	// to handle the termination state. Eventually this should migrate to the
 	// package for the k8s data source.
 	option.Config.EnableK8sTerminatingEndpoint = true
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = true
 
 	svcs, epSlices := ServicesAndSlices(testSize)
 
@@ -509,6 +511,8 @@ func testHive(maps experimental.LBMaps,
 	bo **experimental.BPFOps,
 ) *hive.Hive {
 	extConfig := experimental.ExternalConfig{
+		EnableIPv4:            true,
+		EnableIPv6:            true,
 		ExternalClusterIP:     false,
 		EnableSessionAffinity: true,
 		NodePortMin:           option.NodePortMinDefault,

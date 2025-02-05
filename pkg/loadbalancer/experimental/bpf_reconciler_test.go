@@ -954,6 +954,13 @@ func TestBPFOps(t *testing.T) {
 	maglev, err := maglev.New(maglevCfg, lc)
 	require.NoError(t, err, "maglev.New")
 
+	// Enable features.
+	extCfg := ExternalConfig{
+		EnableSessionAffinity: true,
+		EnableIPv4:            true,
+		EnableIPv6:            true,
+	}
+
 	var lbmaps LBMaps
 	if testutils.IsPrivileged() {
 		r := &BPFLBMaps{
@@ -967,17 +974,13 @@ func TestBPFOps(t *testing.T) {
 				SourceRangeMapMaxEntries: 1000,
 				MaglevMapMaxEntries:      1000,
 			},
+			ExtCfg:    extCfg,
 			MaglevCfg: maglevCfg,
 		}
 		lc.Append(r)
 		lbmaps = r
 	} else {
 		lbmaps = NewFakeLBMaps()
-	}
-
-	// Enable features.
-	extCfg := ExternalConfig{
-		EnableSessionAffinity: true,
 	}
 
 	cfg := DefaultConfig

@@ -31,6 +31,7 @@ type lbmapsParams struct {
 	TestConfig   *TestConfig `optional:"true"`
 	MapsConfig   LBMapsConfig
 	MaglevConfig maglev.Config
+	ExtConfig    ExternalConfig
 	Writer       *Writer
 }
 
@@ -59,7 +60,7 @@ func newLBMaps(p lbmapsParams) LBMaps {
 		}
 	}
 
-	r := &BPFLBMaps{Pinned: pinned, Cfg: p.MapsConfig, MaglevCfg: p.MaglevConfig}
+	r := &BPFLBMaps{Pinned: pinned, ExtCfg: p.ExtConfig, Cfg: p.MapsConfig, MaglevCfg: p.MaglevConfig}
 	p.Lifecycle.Append(r)
 	return r
 }
@@ -162,6 +163,7 @@ type BPFLBMaps struct {
 	Pinned bool
 
 	Cfg       LBMapsConfig
+	ExtCfg    ExternalConfig
 	MaglevCfg maglev.Config
 
 	service4Map, service6Map         *ebpf.Map
@@ -275,19 +277,31 @@ type mapDesc struct {
 }
 
 func (r *BPFLBMaps) allMaps() []mapDesc {
-	return []mapDesc{
+	v4Maps := []mapDesc{
 		{&r.service4Map, service4MapSpec, r.Cfg.ServiceMapMaxEntries},
-		{&r.service6Map, service6MapSpec, r.Cfg.ServiceMapMaxEntries},
 		{&r.backend4Map, backend4MapSpec, r.Cfg.BackendMapMaxEntries},
-		{&r.backend6Map, backend6MapSpec, r.Cfg.BackendMapMaxEntries},
 		{&r.revNat4Map, revNat4MapSpec, r.Cfg.RevNatMapMaxEntries},
+		{&r.sourceRange4Map, sourceRange4MapSpec, r.Cfg.SourceRangeMapMaxEntries},
+		{&r.maglev4Map, maglev4MapSpec, r.Cfg.MaglevMapMaxEntries},
+	}
+	v6Maps := []mapDesc{
+		{&r.service6Map, service6MapSpec, r.Cfg.ServiceMapMaxEntries},
+		{&r.backend6Map, backend6MapSpec, r.Cfg.BackendMapMaxEntries},
 		{&r.revNat6Map, revNat6MapSpec, r.Cfg.RevNatMapMaxEntries},
 		{&r.affinityMatchMap, affinityMatchMapSpec, r.Cfg.AffinityMapMaxEntries},
-		{&r.sourceRange4Map, sourceRange4MapSpec, r.Cfg.SourceRangeMapMaxEntries},
 		{&r.sourceRange6Map, sourceRange6MapSpec, r.Cfg.SourceRangeMapMaxEntries},
-		{&r.maglev4Map, maglev4MapSpec, r.Cfg.MaglevMapMaxEntries},
 		{&r.maglev6Map, maglev6MapSpec, r.Cfg.MaglevMapMaxEntries},
 	}
+	maps := []mapDesc{
+		{&r.affinityMatchMap, affinityMatchMapSpec, r.Cfg.AffinityMapMaxEntries},
+	}
+	if r.ExtCfg.EnableIPv4 {
+		maps = append(maps, v4Maps...)
+	}
+	if r.ExtCfg.EnableIPv6 {
+		maps = append(maps, v6Maps...)
+	}
+	return maps
 }
 
 // Start implements cell.HookInterface.
@@ -306,7 +320,6 @@ func (r *BPFLBMaps) Start(cell.HookContext) error {
 		*desc.target = m
 
 		if err := m.OpenOrCreate(); err != nil {
-			fmt.Printf("open failed: spec: %+v, innermap: %+v\n", desc.spec, desc.spec.InnerMap)
 			return fmt.Errorf("opening map %s: %w", desc.spec.Name, err)
 		}
 	}
@@ -330,6 +343,9 @@ func (r *BPFLBMaps) Stop(cell.HookContext) error {
 // iterateMap iterates over a BPF map, yielding new keys and values. Similar to
 // ebpf.IterateWithCallback but allocates new key & value instead of reusing.
 func iterateMap(m *ebpf.Map, newPair func() (any, any), cb func(any, any)) error {
+	if m == nil {
+		return nil
+	}
 	entries := m.Iterate()
 	for {
 		key, value := newPair()
@@ -603,11 +619,15 @@ func (r *BPFLBMaps) DumpMaglev(cb func(lbmap.MaglevOuterKey, lbmap.MaglevOuterVa
 		}
 		cb(maglevKey, *maglevValue, singletonKey, innerValue, ipv6)
 	}
-	majorErrs := []error{
-		r.maglev4Map.IterateWithCallback(&lbmap.MaglevOuterKey{}, &lbmap.MaglevOuterVal{}, func(k, v any) { cbWrap(k, v, false) }),
-		r.maglev6Map.IterateWithCallback(&lbmap.MaglevOuterKey{}, &lbmap.MaglevOuterVal{}, func(k, v any) { cbWrap(k, v, true) }),
+	if r.maglev4Map != nil {
+		errs = append(errs,
+			r.maglev4Map.IterateWithCallback(&lbmap.MaglevOuterKey{}, &lbmap.MaglevOuterVal{}, func(k, v any) { cbWrap(k, v, false) }))
 	}
-	return errors.Join(append(majorErrs, errs...)...)
+	if r.maglev6Map != nil {
+		errs = append(errs,
+			r.maglev6Map.IterateWithCallback(&lbmap.MaglevOuterKey{}, &lbmap.MaglevOuterVal{}, func(k, v any) { cbWrap(k, v, true) }))
+	}
+	return errors.Join(errs...)
 }
 
 // IsEmpty implements lbmaps.
