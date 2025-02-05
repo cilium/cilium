@@ -95,6 +95,7 @@ func TestScript(t *testing.T) {
 							EnableHealthCheckNodePort:       cfg.EnableHealthCheckNodePort,
 							EnableSessionAffinity:           cfg.EnableSessionAffinity,
 							EnableK8sTerminatingEndpoint:    true,
+							ExternalClusterIP:               cfg.ExternalClusterIP,
 							LoadBalancerAlgorithmAnnotation: cfg.LoadBalancerAlgorithmAnnotation,
 						}
 					},
