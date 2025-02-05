@@ -584,6 +584,9 @@ func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[st
 
 	// Rename the calls map to include the endpoint's id.
 	maps["cilium_calls"] = bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID()))
+	if option.Config.EnableCustomCalls {
+		maps["cilium_calls_custom"] = bpf.LocalMapName(callsmap.CustomCallsMapName, uint16(ep.GetID()))
+	}
 
 	return cfg, maps
 }
