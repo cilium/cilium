@@ -136,7 +136,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define SRV6_POLICY_MAP4 test_cilium_srv6_policy_v4
 #define SRV6_POLICY_MAP6 test_cilium_srv6_policy_v6
 #define SRV6_SID_MAP test_cilium_srv6_sid
-#define ENDPOINTS_MAP test_cilium_lxc
 #define EVENTS_MAP test_cilium_events
 #define EVENTS_MAP_RATE_LIMIT 0
 #define EVENTS_MAP_BURST_LIMIT 0
@@ -145,7 +144,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define AUTH_MAP test_cilium_auth
 #define CONFIG_MAP test_cilium_runtime_config
 #define POLICY_STATS_MAP_SIZE 200
-#define IPCACHE_MAP test_cilium_ipcache
 #define NODE_MAP_V2 test_cilium_node_map
 #define ENCRYPT_MAP test_cilium_encrypt_state
 #define L2_RESPONDER_MAP4 test_cilium_l2_responder_v4
