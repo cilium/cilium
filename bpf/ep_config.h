@@ -11,8 +11,6 @@
 
 #define HOST_EP_ID 0x1092
 
-#define POLICY_MAP test_cilium_policy_v2_65535
-
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif

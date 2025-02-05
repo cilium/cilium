@@ -117,7 +117,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
-	verdict = policy_can_egress6(ctx, &POLICY_MAP, tuple, ct_buffer->l4_off, HOST_ID,
+	verdict = policy_can_egress6(ctx, &cilium_policy_v2, tuple, ct_buffer->l4_off, HOST_ID,
 				     dst_sec_identity, &policy_match_type, &audited, ext_err,
 				     &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
@@ -246,7 +246,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		goto out;
 
 	/* Perform policy lookup */
-	verdict = policy_can_ingress6(ctx, &POLICY_MAP, tuple, ct_buffer->l4_off,
+	verdict = policy_can_ingress6(ctx, &cilium_policy_v2, tuple, ct_buffer->l4_off,
 				      *src_sec_identity, HOST_ID, &policy_match_type, &audited,
 				      ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
@@ -402,7 +402,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
-	verdict = policy_can_egress4(ctx, &POLICY_MAP, tuple, ct_buffer->l4_off, HOST_ID,
+	verdict = policy_can_egress4(ctx, &cilium_policy_v2, tuple, ct_buffer->l4_off, HOST_ID,
 				     dst_sec_identity, &policy_match_type,
 				     &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
@@ -533,7 +533,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 #  endif
 
 	/* Perform policy lookup */
-	verdict = policy_can_ingress4(ctx, &POLICY_MAP, tuple, ct_buffer->l4_off,
+	verdict = policy_can_ingress4(ctx, &cilium_policy_v2, tuple, ct_buffer->l4_off,
 				      is_untracked_fragment, *src_sec_identity, HOST_ID,
 				      &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
