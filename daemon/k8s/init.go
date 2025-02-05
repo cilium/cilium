@@ -36,6 +36,10 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 
 	if option.Config.IPAM == ipamOption.IPAMClusterPool {
 		for event := range localCiliumNodeResource.Events(ctx) {
+			if ctx.Err() == context.DeadlineExceeded {
+				log.WithField(logfields.NodeName, nodeTypes.GetName()).Error("Timeout while waiting for CiliumNode resource: API server connection issue")
+				break
+			}
 			if event.Kind == resource.Upsert {
 				no := nodeTypes.ParseCiliumNode(event.Object)
 				n = &no
@@ -51,6 +55,10 @@ func retrieveNodeInformation(ctx context.Context, log logrus.FieldLogger, localN
 		}
 	} else {
 		for event := range localNodeResource.Events(ctx) {
+			if ctx.Err() == context.DeadlineExceeded {
+				log.WithField(logfields.NodeName, nodeTypes.GetName()).Error("Timeout while waiting for Node resource: API server connection issue")
+				break
+			}
 			if event.Kind == resource.Upsert {
 				n = k8s.ParseNode(event.Object, source.Unspec)
 				log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes node")
