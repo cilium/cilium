@@ -16,3 +16,7 @@ pkg/k8s/client/clientset/** linguist-generated
 pkg/k8s/client/informers/** linguist-generated
 pkg/k8s/client/listers/** linguist-generated
 *.bt linguist-language=D
+
+./install/kubernetes/cilium/Chart.yaml merge=ours
+./install/kubernetes/cilium/values.yaml merge=ours
+./install/kubernetes/cilium/README.md merge=ours
