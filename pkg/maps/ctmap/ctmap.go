@@ -151,9 +151,6 @@ type Map struct {
 	bpf.Map
 
 	mapType mapType
-	// define maps to the macro used in the datapath portion for the map
-	// name, for example 'CT_MAP4'.
-	define string
 
 	// This field indicates which cluster this ctmap is. Zero for global
 	// maps and non-zero for per-cluster maps.
@@ -322,7 +319,6 @@ func newMap(mapName string, m mapType) *Map {
 			0,
 		).WithPressureMetric(),
 		mapType: m,
-		define:  m.bpfDefine(),
 	}
 	return result
 }
@@ -731,7 +727,6 @@ func NameIsGlobal(filename string) bool {
 func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	var mapEntriesTCP, mapEntriesAny int
 	for _, m := range maps(e, true, true) {
-		fmt.Fprintf(fw, "#define %s %s\n", m.define, m.Name())
 		if m.mapType.isTCP() {
 			mapEntriesTCP = m.mapType.maxEntries()
 		} else {
