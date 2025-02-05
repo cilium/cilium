@@ -24,6 +24,7 @@
 #include "dbg.h"
 #include "events.h"
 #include "common.h"
+#include "ipv6.h"
 #include "utils.h"
 #include "metrics.h"
 #include "ratelimit.h"
