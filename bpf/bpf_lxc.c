@@ -392,6 +392,23 @@ int NAME(struct __ctx_buff *ctx)						\
 }
 
 #ifdef ENABLE_CUSTOM_CALLS
+/* Private per-EP map for tail calls to user-defined programs. When custom calls
+ * are enabled, a map named cilium_calls_custom_XXXXX will be pinned to bpffs
+ * when loading the endpoint program.
+ */
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 4); /* ingress and egress, IPv4 and IPv6 */
+} cilium_calls_custom __section_maps_btf;
+
+#define CUSTOM_CALLS_IDX_IPV4_INGRESS	0
+#define CUSTOM_CALLS_IDX_IPV4_EGRESS	1
+#define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
+#define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
+
 /* Encode return value and identity into cb buffer. This is used before
  * executing tail calls to custom programs. "ret" is the return value supposed
  * to be returned to the kernel, needed by the callee to preserve the datapath
@@ -806,7 +823,7 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_CUSTOM_CALLS
 	if (!encode_custom_prog_meta(ctx, ret, dst_sec_identity)) {
-		tail_call_static(ctx, CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, cilium_calls_custom,
 				 CUSTOM_CALLS_IDX_IPV6_EGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -1356,7 +1373,7 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_CUSTOM_CALLS
 	if (!encode_custom_prog_meta(ctx, ret, dst_sec_identity)) {
-		tail_call_static(ctx, CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, cilium_calls_custom,
 				 CUSTOM_CALLS_IDX_IPV4_EGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -1731,7 +1748,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	 * proxy).
 	 */
 	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label)) {
-		tail_call_static(ctx, CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, cilium_calls_custom,
 				 CUSTOM_CALLS_IDX_IPV6_INGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -1824,7 +1841,7 @@ out:
 	 */
 	if (!proxy_redirect &&
 	    !encode_custom_prog_meta(ctx, ret, src_sec_identity)) {
-		tail_call_static(ctx, CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, cilium_calls_custom,
 				 CUSTOM_CALLS_IDX_IPV6_INGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -2087,7 +2104,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	 * proxy).
 	 */
 	if (!proxy_redirect && !encode_custom_prog_meta(ctx, ret, src_label)) {
-		tail_call_static(ctx, CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, cilium_calls_custom,
 				 CUSTOM_CALLS_IDX_IPV4_INGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_MISSED_CUSTOM_CALL);
@@ -2179,7 +2196,7 @@ out:
 	 */
 	if (!proxy_redirect &&
 	    !encode_custom_prog_meta(ctx, ret, src_sec_identity)) {
-		tail_call_static(ctx, CUSTOM_CALLS_MAP,
+		tail_call_static(ctx, cilium_calls_custom,
 				 CUSTOM_CALLS_IDX_IPV4_INGRESS);
 		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
 			       REASON_MISSED_CUSTOM_CALL);

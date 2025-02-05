@@ -137,26 +137,6 @@ struct bpf_elf_map __section_maps cilium_calls = {
 };
 #endif /* SKIP_CALLS_MAP */
 
-#if defined(ENABLE_CUSTOM_CALLS) && defined(CUSTOM_CALLS_MAP)
-/* Private per-EP map for tail calls to user-defined programs.
- * CUSTOM_CALLS_MAP is a per-EP map name, only defined for programs that need
- * to use the map, so we do not want to compile this definition if
- * CUSTOM_CALLS_MAP has not been #define-d.
- */
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__type(key, __u32);
-	__type(value, __u32);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, 4); /* ingress and egress, IPv4 and IPv6 */
-} CUSTOM_CALLS_MAP __section_maps_btf;
-
-#define CUSTOM_CALLS_IDX_IPV4_INGRESS	0
-#define CUSTOM_CALLS_IDX_IPV4_EGRESS	1
-#define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
-#define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
-#endif /* ENABLE_CUSTOM_CALLS && CUSTOM_CALLS_MAP */
-
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 cluster_id;

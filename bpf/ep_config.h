@@ -24,7 +24,6 @@
 #define CT_MAP_ANY4 test_cilium_ct_any4_65535
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
-#define CUSTOM_CALLS_MAP test_cilium_calls_custom_65535
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING
