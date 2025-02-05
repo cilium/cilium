@@ -51,6 +51,9 @@ type TestConfig struct {
 
 	// LoadBalancerAlgorithmAnnotation mirrors option.Config.LoadBalancerAlgorithmAnnotation.
 	LoadBalancerAlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
+
+	// ExternalClusterIP mirrors option.Config.ExternalClusterIP
+	ExternalClusterIP bool `mapstructure:"bpf-lb-external-clusterip"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
@@ -59,6 +62,7 @@ func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
 	flags.Bool(option.EnableSessionAffinity, false, "Enable support for session affinity")
 	flags.Bool("bpf-lb-algorithm-annotation", false, "Enable service-level annotation for configuring BPF load balancing algorithm")
+	flags.Bool(option.ExternalClusterIPName, false, "Enable cluster-external access to ClusterIPs")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
