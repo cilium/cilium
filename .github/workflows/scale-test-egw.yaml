@@ -135,7 +135,7 @@ jobs:
           # path right before the step where Cilium is installed.
           CILIUM_INSTALL_DEFAULTS="--chart-directory=untrusted/install/kubernetes/cilium \
             --wait=false \
-            --set=hubble.enbaled=true \
+            --set=hubble.enabled=true \
             --set=pprof.enabled=true \
             --set=prometheus.enabled=true \
             --set=cluster.name=${{ env.cluster_name }} \
