@@ -30,6 +30,7 @@ type IPIdentityMappingListener interface {
 	// hostIP is optional and may only be non-nil for an Upsert modification.
 	// k8sMeta contains the Kubernetes pod namespace and name behind the IP
 	// and may be nil.
+	// endpointFlags contains optional flags to be attached to the endpoint
 	OnIPIdentityCacheChange(modType CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
-		oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *K8sMetadata)
+		oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *K8sMetadata, endpointFlags uint8)
 }

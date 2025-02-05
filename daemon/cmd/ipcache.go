@@ -77,7 +77,7 @@ func (ipc *ipCacheDumpListener) getIdentity(securityIdentity uint32) (*identity.
 // OnIPIdentityCacheChange is called by DumpToListenerLocked
 func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
-	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8) {
 	cidr := cidrCluster.AsIPNet()
 
 	// only capture entries which are a subnet of cidrFilter

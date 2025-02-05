@@ -444,6 +444,13 @@ const (
 	// with TunnelPeer
 	ConflictingTunnelPeer = "conflictingTunnelPeer"
 
+	// EndpointFlags is the encoded set of flags for an endpoint
+	EndpointFlags = "endpointFlags"
+
+	// ConflictingEndpointFlags is the encoded set of flags that conflicts
+	// with 'EndpointFlags'
+	ConflictingEndpointFlags = "conflictingEndpointFlags"
+
 	// Type is the address type
 	Type = "type"
 
