@@ -175,8 +175,6 @@ func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, m
 // netdevRewrites prepares configuration data for attaching bpf_host.c to the
 // specified externally-facing network device.
 func netdevRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.EndpointConfiguration, link netlink.Link) (*config.BPFHost, map[string]string) {
-	strings := ELFMapSubstitutions(ep)
-
 	hcfg := config.NewBPFHost()
 
 	// External devices can be L2-less, in which case it won't have a MAC address
@@ -213,12 +211,14 @@ func netdevRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.EndpointCo
 		}
 	}
 
-	// Rename the calls map to include the device's ifindex.
-	strings["cilium_calls"] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex))
-	// Rename the policy map to include the host's endpoint id.
-	strings["cilium_policy_v2"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
+	renames := map[string]string{
+		// Rename the calls map to include the device's ifindex.
+		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
+		// Rename the policy map to include the host's endpoint id.
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+	}
 
-	return hcfg, strings
+	return hcfg, renames
 }
 
 func isObsoleteDev(dev string, devices []string) bool {
@@ -334,8 +334,6 @@ func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoi
 // ciliumHostRewrites prepares configuration data for attaching bpf_host.c to
 // the cilium_host network device.
 func ciliumHostRewrites(ep datapath.EndpointConfiguration) (*config.BPFHost, map[string]string) {
-	strings := ELFMapSubstitutions(ep)
-
 	cfg := config.NewBPFHost()
 
 	em := ep.GetNodeMAC()
@@ -351,11 +349,13 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration) (*config.BPFHost, map
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
-	// Rename calls and policy maps to include the host endpoint's id.
-	strings["cilium_calls"] = bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID()))
-	strings["cilium_policy_v2"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
+	renames := map[string]string{
+		// Rename calls and policy maps to include the host endpoint's id.
+		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+	}
 
-	return cfg, strings
+	return cfg, renames
 }
 
 // attachCiliumHost inserts the host endpoint's policy program into the global
@@ -407,8 +407,6 @@ func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 // ciliumNetRewrites prepares configuration data for attaching bpf_host.c to
 // the cilium_net network device.
 func ciliumNetRewrites(ep datapath.EndpointConfiguration, link netlink.Link) (*config.BPFHost, map[string]string) {
-	strings := ELFMapSubstitutions(ep)
-
 	cfg := config.NewBPFHost()
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
@@ -428,12 +426,14 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, link netlink.Link) (*c
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
 
-	// Rename the calls map to include cilium_net's ifindex.
-	strings["cilium_calls"] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex))
-	// Rename the policy map to include the host endpoint's id.
-	strings["cilium_policy_v2"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
+	renames := map[string]string{
+		// Rename the calls map to include cilium_net's ifindex.
+		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
+		// Rename the policy map to include the host endpoint's id.
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+	}
 
-	return cfg, strings
+	return cfg, renames
 }
 
 // attachCiliumNet attaches programs from bpf_host.c to cilium_net.
@@ -558,8 +558,6 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 // endpointRewrites prepares configuration data for attaching bpf_lxc.c to the
 // specified workload endpoint.
 func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[string]string) {
-	maps := ELFMapSubstitutions(ep)
-
 	cfg := config.NewBPFLXC()
 
 	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
@@ -588,14 +586,16 @@ func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[st
 
 	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
 
-	// Rename the calls and policy maps to include the endpoint's id.
-	maps["cilium_calls"] = bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID()))
-	if option.Config.EnableCustomCalls {
-		maps["cilium_calls_custom"] = bpf.LocalMapName(callsmap.CustomCallsMapName, uint16(ep.GetID()))
+	renames := map[string]string{
+		// Rename the calls and policy maps to include the endpoint's id.
+		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
 	}
-	maps["cilium_policy_v2"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
+	if option.Config.EnableCustomCalls {
+		renames["cilium_calls_custom"] = bpf.LocalMapName(callsmap.CustomCallsMapName, uint16(ep.GetID()))
+	}
 
-	return cfg, maps
+	return cfg, renames
 }
 
 // reloadEndpoint loads programs in spec into the device used by ep.

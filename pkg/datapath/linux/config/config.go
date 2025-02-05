@@ -677,9 +677,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				}
 			}
 		}
-
-		ctmap.WriteBPFMacros(fw, nil)
 	}
+
+	ctmap.WriteBPFMacros(fw, nil)
 
 	if option.Config.AllowICMPFragNeeded {
 		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
@@ -1023,12 +1023,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		} else {
 			fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
 		}
-	}
-
-	if e.ConntrackLocalLocked() {
-		ctmap.WriteBPFMacros(fw, e)
-	} else {
-		ctmap.WriteBPFMacros(fw, nil)
 	}
 
 	// Local delivery metrics should always be set for endpoint programs.
