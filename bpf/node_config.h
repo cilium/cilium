@@ -210,21 +210,18 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define MTU 1500
 #define EPHEMERAL_MIN 32768
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_NAT_46X64)
-#define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
-#define CT_MAP_ANY6 test_cilium_ct_any6_65535
-#define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
-#define CT_MAP_ANY4 test_cilium_ct_any4_65535
 #define PER_CLUSTER_CT_TCP6 test_cilium_per_cluster_ct_tcp6
 #define PER_CLUSTER_CT_ANY6 test_cilium_per_cluster_ct_any6
 #define PER_CLUSTER_CT_TCP4 test_cilium_per_cluster_ct_tcp4
 #define PER_CLUSTER_CT_ANY4 test_cilium_per_cluster_ct_any4
-#define CT_MAP_SIZE_TCP 4096
-#define CT_MAP_SIZE_ANY 4096
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING
 #define LB4_HEALTH_MAP test_cilium_lb4_health
 #define LB6_HEALTH_MAP test_cilium_lb6_health
 #endif /* ENABLE_NODEPORT || ENABLE_HOST_FIREWALL */
+
+#define CT_MAP_SIZE_TCP 4096
+#define CT_MAP_SIZE_ANY 4096
 
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV4

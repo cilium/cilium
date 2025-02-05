@@ -268,6 +268,6 @@ static __always_inline int create_ct_entry(struct __ctx_buff *ctx, __be16 client
 	tuple.dport = client_port;
 	__ipv4_ct_tuple_reverse(&tuple);
 
-	return ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
+	return ct_create4(get_ct_map4(&tuple), &cilium_ct_any4_global, &tuple, ctx,
 			 CT_EGRESS, &ct_state, NULL);
 }

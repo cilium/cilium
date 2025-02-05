@@ -34,7 +34,7 @@ ipv6_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv6_ct_
 	 * HOST_ID, but the actual srcid (derived from the packet mark) isn't.
 	 */
 	if (ct_ret == CT_NEW) {
-		int ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6,
+		int ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global,
 				     tuple, ctx, CT_EGRESS, NULL, ext_err);
 		if (unlikely(ret < 0))
 			return ret;
@@ -138,7 +138,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		 * case, it's OK to return ext_err from ct_create6 along with
 		 * its error code.
 		 */
-		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple,
+		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple,
 				 ctx, CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
@@ -268,7 +268,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		 * case, it's OK to return ext_err from ct_create6 along with
 		 * its error code.
 		 */
-		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple,
+		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple,
 				 ctx, CT_INGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
@@ -325,7 +325,7 @@ ipv4_whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_
 	 * HOST_ID, but the actual srcid (derived from the packet mark) isn't.
 	 */
 	if (ct_ret == CT_NEW) {
-		int ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4,
+		int ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global,
 				     tuple, ctx, CT_EGRESS, NULL, ext_err);
 		if (unlikely(ret < 0))
 			return ret;
@@ -423,7 +423,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		 * case, it's OK to return ext_err from ct_create4 along with
 		 * its error code.
 		 */
-		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple,
+		ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global, tuple,
 				 ctx, CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
@@ -555,7 +555,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 		 * case, it's OK to return ext_err from ct_create4 along with
 		 * its error code.
 		 */
-		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple,
+		ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global, tuple,
 				 ctx, CT_INGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;

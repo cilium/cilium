@@ -594,7 +594,7 @@ ct_recreate6:
 		ct_state_new.proxy_redirect = proxy_port > 0;
 		ct_state_new.from_l7lb = from_l7lb;
 
-		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
+		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
@@ -1660,7 +1660,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		 * case, it's OK to return ext_err from ct_create6 along with
 		 * its error code.
 		 */
-		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx, CT_INGRESS,
+		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple, ctx, CT_INGRESS,
 				 &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
@@ -2007,7 +2007,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		 * case, it's OK to return ext_err from ct_create4 along with
 		 * its error code.
 		 */
-		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx, CT_INGRESS,
+		ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global, tuple, ctx, CT_INGRESS,
 				 &ct_state_new, ext_err);
 		if (IS_ERR(ret))
 			return ret;
