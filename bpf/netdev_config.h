@@ -9,5 +9,3 @@
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif
-
-#define CALLS_MAP test_cilium_calls_65535

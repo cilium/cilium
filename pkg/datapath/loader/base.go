@@ -27,7 +27,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -263,9 +262,7 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 	}
 
 	// gather compile options for bpf_overlay.c
-	opts := []string{
-		fmt.Sprintf("-DCALLS_MAP=cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
-	}
+	opts := []string{}
 	if option.Config.EnableNodePort {
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
 	}
@@ -292,11 +289,7 @@ func reinitializeWireguard(ctx context.Context) (err error) {
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}
 
-	opts := []string{
-		fmt.Sprintf("-DCALLS_MAP=cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
-	}
-
-	if err := replaceWireguardDatapath(ctx, opts, link); err != nil {
+	if err := replaceWireguardDatapath(ctx, link); err != nil {
 		return fmt.Errorf("failed to load wireguard programs: %w", err)
 	}
 	return
@@ -462,7 +455,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
-		if err := compileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
+		if err := compileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			log.WithError(err).Fatal("failed to compile bpf_sock.c")
 		}
 		if err := socketlb.Enable(l.sysctl); err != nil {

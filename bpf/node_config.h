@@ -324,5 +324,3 @@ return false;
 #define IDENTITY_LEN 16
 #define IDENTITY_MAX 65535
 #endif
-
-#define CALLS_MAP test_cilium_calls_65535
