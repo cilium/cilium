@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -214,6 +215,8 @@ func netdevRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.EndpointCo
 
 	// Rename the calls map to include the device's ifindex.
 	strings["cilium_calls"] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex))
+	// Rename the policy map to include the host's endpoint id.
+	strings["cilium_policy_v2"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
 
 	return hcfg, strings
 }
@@ -348,8 +351,9 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration) (*config.BPFHost, map
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
-	// Rename the calls map to include the host endpoint's id.
+	// Rename calls and policy maps to include the host endpoint's id.
 	strings["cilium_calls"] = bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID()))
+	strings["cilium_policy_v2"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
 
 	return cfg, strings
 }
@@ -426,6 +430,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, link netlink.Link) (*c
 
 	// Rename the calls map to include cilium_net's ifindex.
 	strings["cilium_calls"] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex))
+	// Rename the policy map to include the host endpoint's id.
+	strings["cilium_policy_v2"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
 
 	return cfg, strings
 }
@@ -582,11 +588,12 @@ func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[st
 
 	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
 
-	// Rename the calls map to include the endpoint's id.
+	// Rename the calls and policy maps to include the endpoint's id.
 	maps["cilium_calls"] = bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID()))
 	if option.Config.EnableCustomCalls {
 		maps["cilium_calls_custom"] = bpf.LocalMapName(callsmap.CustomCallsMapName, uint16(ep.GetID()))
 	}
+	maps["cilium_policy_v2"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
 
 	return cfg, maps
 }
