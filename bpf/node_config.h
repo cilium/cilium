@@ -140,26 +140,15 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define RATELIMIT_MAP test_cilium_ratelimit
 #define RATELIMIT_METRICS_MAP test_cilium_ratelimit_metrics
 #define TUNNEL_MAP test_cilium_tunnel_map
-#define LB6_REVERSE_NAT_MAP test_cilium_lb6_reverse_nat
-#define LB6_SERVICES_MAP_V2 test_cilium_lb6_services
-#define LB6_BACKEND_MAP test_cilium_lb6_backends
 #define LB6_REVERSE_NAT_SK_MAP test_cilium_lb6_reverse_sk
 #define LB6_REVERSE_NAT_SK_MAP_SIZE 262144
-#define LB4_REVERSE_NAT_MAP test_cilium_lb4_reverse_nat
-#define LB4_SERVICES_MAP_V2 test_cilium_lb4_services
-#define LB4_BACKEND_MAP test_cilium_lb4_backends
 #define LB_ACT_MAP test_cilium_lb_act
 #define LB4_REVERSE_NAT_SK_MAP test_cilium_lb4_reverse_sk
 #define LB4_REVERSE_NAT_SK_MAP_SIZE 262144
-#define LB4_AFFINITY_MAP test_cilium_lb4_affinity
-#define LB6_AFFINITY_MAP test_cilium_lb6_affinity
-#define LB_AFFINITY_MATCH_MAP test_cilium_lb_affinity_match
+
 #define LB_MAGLEV_LUT_SIZE 32749
-#define LB4_MAGLEV_MAP_OUTER test_cilium_lb4_maglev_outer
-#define LB6_MAGLEV_MAP_OUTER test_cilium_lb6_maglev_outer
-#define LB4_SKIP_MAP test_cilium_skip_lb4
-#define LB6_SKIP_MAP test_cilium_skip_lb6
 #define THROTTLE_MAP test_cilium_throttle
+
 #define THROTTLE_MAP_SIZE 65536
 #define ENABLE_ARP_RESPONDER
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
@@ -203,8 +192,7 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define PER_CLUSTER_CT_ANY4 test_cilium_per_cluster_ct_any4
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING
-#define LB4_HEALTH_MAP test_cilium_lb4_health
-#define LB6_HEALTH_MAP test_cilium_lb6_health
+
 #endif /* ENABLE_NODEPORT || ENABLE_HOST_FIREWALL */
 
 #define CT_MAP_SIZE_TCP 4096
@@ -242,9 +230,7 @@ volatile const __u64 __config_ROUTER_IP_2;
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
-# define LB4_SRC_RANGE_MAP	test_cilium_lb4_source_range
 # define LB4_SRC_RANGE_MAP_SIZE	1000
-# define LB6_SRC_RANGE_MAP	test_cilium_lb6_source_range
 # define LB6_SRC_RANGE_MAP_SIZE	1000
 #endif
 
