@@ -160,7 +160,7 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 		},
 	};
 
-	value = map_lookup_elem(&RATELIMIT_MAP, &key);
+	value = map_lookup_elem(&cilium_ratelimit, &key);
 	if (!value)
 		test_fatal("ratelimit map lookup failed");
 
