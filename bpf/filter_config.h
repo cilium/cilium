@@ -7,11 +7,7 @@
  */
 #define CIDR4_HMAP_ELEMS 1024
 #define CIDR4_LMAP_ELEMS 1024
-#define CIDR4_HMAP_NAME v4_fix
-#define CIDR4_LMAP_NAME v4_dyn
 #define CIDR4_FILTER
 #define CIDR4_LPM_PREFILTER
-#define CIDR6_HMAP_NAME v6_fix
-#define CIDR6_LMAP_NAME v6_dyn
 #define CIDR6_FILTER
 #define CIDR6_LPM_PREFILTER
