@@ -93,10 +93,6 @@ type ParamsOut struct {
 func NewGroupV4Map(in ParamsIn) ParamsOut {
 	out := ParamsOut{}
 
-	out.NodeDefines = map[string]string{
-		"MCAST_GROUP_OUTER_V4_MAP": GroupOuter4MapName,
-	}
-
 	if !in.MulticastEnabled {
 		return out
 	}
