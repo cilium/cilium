@@ -168,11 +168,6 @@ func pidFromProcess(proc *os.Process) string {
 //
 // May output assembly or source code after prepocessing.
 func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, error) {
-	possibleCPUs, err := ebpf.PossibleCPU()
-	if err != nil {
-		return "", fmt.Errorf("failed to get number of possible CPUs: %w", err)
-	}
-
 	compileArgs := append(testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
@@ -188,7 +183,6 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (string, e
 	}
 
 	compileArgs = append(compileArgs, standardCFlags...)
-	compileArgs = append(compileArgs, fmt.Sprintf("-D__NR_CPUS__=%d", possibleCPUs))
 	compileArgs = append(compileArgs, "-mcpu="+getBPFCPU())
 	compileArgs = append(compileArgs, prog.Options...)
 	compileArgs = append(compileArgs,
