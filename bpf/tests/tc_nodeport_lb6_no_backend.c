@@ -169,7 +169,7 @@ validate_icmp_reply(const struct __ctx_buff *ctx, __u32 retval)
 		},
 	};
 
-	value = map_lookup_elem(&RATELIMIT_MAP, &key);
+	value = map_lookup_elem(&cilium_ratelimit, &key);
 	if (!value)
 		test_fatal("ratelimit map lookup failed");
 

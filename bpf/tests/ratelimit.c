@@ -35,19 +35,19 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 	test_init();
 
 	TEST("bucket-created-when-missing", {
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (value)
 			test_fatal("Bucket already exits");
 
 		ratelimit_check_and_take(&key, &settings);
 
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
 	})
 
 	TEST("block-on-bucket-empty", {
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
 
@@ -63,7 +63,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 	})
 
 	TEST("topup-after-interval", {
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
 
@@ -79,7 +79,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 	})
 
 	TEST("do-not-go-over-bucket-size", {
-		value = map_lookup_elem(&RATELIMIT_MAP, &key);
+		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
 
