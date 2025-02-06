@@ -543,7 +543,8 @@ enum {
 };
 
 #ifndef TRACE_PAYLOAD_LEN
-#define TRACE_PAYLOAD_LEN 128ULL
+/* Ethernet 16 + IPv6 40 + UDP 8 + VXLAN 8 (Geneve up to 260) [ Ethernet 16 + IPv6 40 + TCP 20 ] = 148 */
+#define TRACE_PAYLOAD_LEN 148ULL
 #endif
 
 #ifndef BPF_F_PSEUDO_HDR
