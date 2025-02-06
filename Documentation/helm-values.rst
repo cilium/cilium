@@ -3361,7 +3361,7 @@
      - object
      - ``{"enabled":null}``
    * - :spelling:ignore:`tls.secretSync.enabled`
-     - Enable synchronization of Secrets for TLS Interception. If disabled and tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
+     - Enable synchronization of Secrets for TLS Interception. If disabled and tls.readSecretsOnlyFromSecretsNamespace is set to 'false', then secrets will be read directly by the agent.
      - string
      - ``nil``
    * - :spelling:ignore:`tls.secretsBackend`
