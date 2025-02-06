@@ -319,7 +319,7 @@ int NAME(struct __ctx_buff *ctx)						\
 				   &ct_buffer.monitor);				\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
-	if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)	\
+	if (map_update_elem(&cilium_tail_call_buffer4, &zero, &ct_buffer, 0) < 0)	\
 		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
 					  ext_err);				\
 										\
@@ -381,7 +381,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
 										\
-	if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)	\
+	if (map_update_elem(&cilium_tail_call_buffer6, &zero, &ct_buffer, 0) < 0)	\
 		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
 					  ext_err);				\
 										\
@@ -442,7 +442,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct ct_buffer6);
 	__uint(max_entries, 1);
-} CT_TAIL_CALL_BUFFER6 __section_maps_btf;
+} cilium_tail_call_buffer6 __section_maps_btf;
 
 /* Handle egress IPv6 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
@@ -505,7 +505,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	/* No hairpin/loopback support for IPv6, see lb6_local(). */
 #endif /* ENABLE_PER_PACKET_LB */
 
-	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
 	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
@@ -884,7 +884,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct ct_buffer4);
 	__uint(max_entries, 1);
-} CT_TAIL_CALL_BUFFER4 __section_maps_btf;
+} cilium_tail_call_buffer4 __section_maps_btf;
 
 /* Handle egress IPv4 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
@@ -947,7 +947,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			   ip4->daddr, *dst_sec_identity);
 	}
 
-	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
 	if (ct_buffer->tuple.saddr == 0)
@@ -1569,7 +1569,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 
-	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
 	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
@@ -1889,7 +1889,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	is_untracked_fragment = ipv4_is_fragment(ip4);
 #endif
 
-	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
 	if (ct_buffer->tuple.saddr == 0)
