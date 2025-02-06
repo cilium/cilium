@@ -24,6 +24,7 @@
 #endif
 
 #include "lib/common.h"
+#include "lib/config_map.h"
 #include "lib/edt.h"
 #include "lib/arp.h"
 #include "lib/maps.h"
@@ -1053,10 +1054,9 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 	struct l2_responder_v4_key key;
 	struct l2_responder_v4_stats *stats;
 	int ret;
-	__u32 index = RUNTIME_CONFIG_AGENT_LIVENESS;
-	__u64 *time;
+	__u64 time;
 
-	time = map_lookup_elem(&CONFIG_MAP, &index);
+	time = config_get(RUNTIME_CONFIG_AGENT_LIVENESS);
 	if (!time)
 		return CTX_ACT_OK;
 
@@ -1064,7 +1064,7 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 	 * of the responder map anymore. So stop responding, assuming other nodes
 	 * will take over for a node without an active agent.
 	 */
-	if (ktime_get_ns() - (*time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
+	if (ktime_get_ns() - (time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
 		return CTX_ACT_OK;
 
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))

@@ -162,16 +162,12 @@ int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 {
 	struct l2_responder_v4_key key;
 	struct l2_responder_v4_stats value = {0};
-	__u32 index;
-	__u64 time;
 
 	key.ifindex = 0;
 	key.ip4 = v4_svc_one;
 	map_update_elem(&L2_RESPONDER_MAP4, &key, &value, BPF_ANY);
 
-	index = RUNTIME_CONFIG_AGENT_LIVENESS;
-	time = ktime_get_ns();
-	map_update_elem(&CONFIG_MAP, &index, &time, BPF_ANY);
+	config_set(RUNTIME_CONFIG_AGENT_LIVENESS, ktime_get_ns());
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, 0);
