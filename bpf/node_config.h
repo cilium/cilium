@@ -99,7 +99,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #  define IPV4_SNAT_EXCLUSION_DST_CIDR_LEN 16
 # endif /* ENABLE_MASQUERADE_IPV4 */
 #ifdef ENABLE_NODEPORT
-#define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 #define IPV4_INTER_CLUSTER_SNAT 0xfffff50a
 #endif
@@ -116,7 +115,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #  define IPV6_SNAT_EXCLUSION_DST_CIDR_MASK { .addr = { 0xff, 0xff, 0xff, 0xff, 0xff, 0x0 } }
 # endif /* ENABLE_MASQUERADE_IPV6 */
 #ifdef ENABLE_NODEPORT
-#define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
 #define SNAT_MAPPING_IPV6_SIZE 524288
 #define NODEPORT_NEIGH6_SIZE 524288
 #endif /* ENABLE_NODEPORT */
