@@ -27,15 +27,19 @@ func (s *podToK8sLocal) Name() string {
 func (s *podToK8sLocal) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	k8sSvc := ct.K8sService()
+	ipFamilies := []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6}
 	for _, pod := range ct.ControlPlaneClientPods() {
-		t.NewAction(s, fmt.Sprintf("curl-k8s-from-pod-%s", pod.Name()), &pod, k8sSvc, features.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(k8sSvc, features.IPFamilyAny))
-			a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-				DNSRequired: true,
-				AltDstPort:  k8sSvc.Port(),
-			}))
+		for _, ipFamily := range ipFamilies {
+			actionName := fmt.Sprintf("curl-k8s-from-pod-%s-%s", pod.Name(), ipFamily)
+			t.NewAction(s, actionName, &pod, k8sSvc, ipFamily).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(k8sSvc, ipFamily))
+				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+					DNSRequired: true,
+					AltDstPort:  k8sSvc.Port(),
+				}))
 
-			a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
-		})
+				a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
+			})
+		}
 	}
 }
