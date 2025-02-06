@@ -180,15 +180,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define CT_MAP_SIZE_ANY 4096
 
 #ifdef ENABLE_NODEPORT
-#ifdef ENABLE_IPV4
-#define NODEPORT_NEIGH4 test_cilium_neigh4
-#endif
-#ifdef ENABLE_IPV6
-#define NODEPORT_NEIGH6 test_cilium_neigh6
-#endif
-#endif
-
-#ifdef ENABLE_NODEPORT
 # define DIRECT_ROUTING_DEV_IFINDEX 0
 # ifdef ENABLE_IPV4
 #  ifndef IPV4_DIRECT_ROUTING
