@@ -181,8 +181,6 @@ func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4
 
 	nodeOut := defines.NodeOut{
 		NodeDefines: defines.Map{
-			"SRV6_VRF_MAP4":     vrfMapName4,
-			"SRV6_VRF_MAP6":     vrfMapName6,
 			"SRV6_VRF_MAP_SIZE": strconv.FormatUint(maxVRFEntries, 10),
 		},
 	}
