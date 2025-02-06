@@ -133,7 +133,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define EVENTS_MAP_RATE_LIMIT 0
 #define EVENTS_MAP_BURST_LIMIT 0
 #define SIGNAL_MAP test_cilium_signals
-#define RATELIMIT_METRICS_MAP test_cilium_ratelimit_metrics
 #define LB6_REVERSE_NAT_SK_MAP test_cilium_lb6_reverse_sk
 #define LB6_REVERSE_NAT_SK_MAP_SIZE 262144
 #define LB_ACT_MAP test_cilium_lb_act
