@@ -2622,7 +2622,7 @@ tls:
     # type: [null, boolean]
     # @schema
     # -- Enable synchronization of Secrets for TLS Interception. If disabled and
-    # tls.secretsBackend is set to 'k8s', then secrets will be read directly by the agent.
+    # tls.readSecretsOnlyFromSecretsNamespace is set to 'false', then secrets will be read directly by the agent.
     enabled: ~
   # -- Base64 encoded PEM values for the CA certificate and private key.
   # This can be used as common CA to generate certificates used by hubble and clustermesh components.
