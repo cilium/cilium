@@ -52,6 +52,10 @@ type packet struct {
 		IPv4 *gopacket.DecodingLayerParser
 		IPv6 *gopacket.DecodingLayerParser
 	}
+	decLayerEncap struct {
+		VXLAN  *gopacket.DecodingLayerParser
+		Geneve *gopacket.DecodingLayerParser
+	}
 
 	Layers []gopacket.LayerType
 	layers.Ethernet
@@ -62,6 +66,19 @@ type packet struct {
 	layers.TCP
 	layers.UDP
 	layers.SCTP
+	overlay struct {
+		Layers []gopacket.LayerType
+		layers.VXLAN
+		layers.Geneve
+		layers.Ethernet
+		layers.IPv4
+		layers.IPv6
+		layers.ICMPv4
+		layers.ICMPv6
+		layers.TCP
+		layers.UDP
+		layers.SCTP
+	}
 }
 
 // New returns a new L3/L4 parser
@@ -85,12 +102,24 @@ func New(
 	packet.decLayerL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
 	packet.decLayerL3Dev.IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
 	packet.decLayerL3Dev.IPv6 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv6, decoders...)
+
+	overlayDecoders := []gopacket.DecodingLayer{
+		&packet.overlay.VXLAN, &packet.overlay.Geneve,
+		&packet.overlay.Ethernet,
+		&packet.overlay.IPv4, &packet.overlay.IPv6,
+		&packet.overlay.ICMPv4, &packet.overlay.ICMPv6,
+		&packet.overlay.TCP, &packet.overlay.UDP, &packet.overlay.SCTP,
+	}
+	packet.decLayerEncap.VXLAN = gopacket.NewDecodingLayerParser(layers.LayerTypeVXLAN, overlayDecoders...)
+	packet.decLayerEncap.Geneve = gopacket.NewDecodingLayerParser(layers.LayerTypeGeneve, overlayDecoders...)
 	// Let packet.decLayer.DecodeLayers return a nil error when it
 	// encounters a layer it doesn't have a parser for, instead of returning
 	// an UnsupportedLayerType error.
 	packet.decLayerL2Dev.IgnoreUnsupported = true
 	packet.decLayerL3Dev.IPv4.IgnoreUnsupported = true
 	packet.decLayerL3Dev.IPv6.IgnoreUnsupported = true
+	packet.decLayerEncap.VXLAN.IgnoreUnsupported = true
+	packet.decLayerEncap.Geneve.IgnoreUnsupported = true
 
 	args := &options.Options{
 		EnableNetworkPolicyCorrelation: true,
@@ -179,7 +208,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 	isL3Device := tn != nil && tn.IsL3Device() || dn != nil && dn.IsL3Device()
 	isIPv6 := tn != nil && tn.IsIPv6() || dn != nil && dn.IsIPv6()
-	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary, err := decodeLayers(data[packetOffset:], p.packet, isL3Device, isIPv6)
+	ether, ip, l4, encap, srcIP, dstIP, srcPort, dstPort, summary, err := decodeLayers(data[packetOffset:], p.packet, isL3Device, isIPv6)
 	if err != nil {
 		return err
 	}
@@ -226,6 +255,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.Ethernet = ether
 	decoded.IP = ip
 	decoded.L4 = l4
+	decoded.Capsule = encap
 	decoded.Source = srcEndpoint
 	decoded.Destination = dstEndpoint
 	decoded.Type = pb.FlowType_L3_L4
@@ -264,13 +294,14 @@ func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6 bool) (
 	ethernet *pb.Ethernet,
 	ip *pb.IP,
 	l4 *pb.Layer4,
+	encap *pb.Encapsulation,
 	sourceIP, destinationIP netip.Addr,
 	sourcePort, destinationPort uint16,
 	summary string,
 	err error,
 ) {
-	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
-	// https://github.com/google/gopacket/issues/846
+	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet,
+	// see https://github.com/google/gopacket/issues/846
 	// TODO: reconsider this check if the issue is fixed upstream
 	if len(payload) == 0 {
 		return
@@ -295,7 +326,9 @@ func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6 bool) (
 	}
 
 	for _, typ := range packet.Layers {
+		//if typ != gopacket.LayerTypePayload {
 		summary = typ.String()
+		//}
 		switch typ {
 		case layers.LayerTypeEthernet:
 			ethernet = decodeEthernet(&packet.Ethernet)
@@ -316,6 +349,70 @@ func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6 bool) (
 		case layers.LayerTypeICMPv6:
 			l4 = decodeICMPv6(&packet.ICMPv6)
 			summary = "ICMPv6 " + packet.ICMPv6.TypeCode.String()
+		}
+	}
+
+	// Truncate layers to avoid accidental re-use.
+	packet.overlay.Layers = packet.overlay.Layers[:0]
+	// FIXME: get signal from datapath about encapsulation (similar to
+	// isL3Device / isIPv6) instead of guessing based on protocol + port.
+	var parser *gopacket.DecodingLayerParser
+	switch udp := l4.GetUDP(); {
+	case udp.GetSourcePort() == 8472, udp.GetDestinationPort() == 8472: // VXLAN
+		parser = packet.decLayerEncap.VXLAN
+	case udp.GetSourcePort() == 6081, udp.GetDestinationPort() == 6081: // Geneve
+		parser = packet.decLayerEncap.Geneve
+	default:
+		return
+	}
+
+	err = parser.DecodeLayers(packet.UDP.Payload, &packet.overlay.Layers)
+	if err != nil {
+		err = fmt.Errorf("overlay: %w", err)
+		return
+	}
+
+	// Ensure we have parsed the overlay layers until "l4", otherwise the
+	// resulting flow could misrepresent what is happening (e.g. same IP
+	// addresses for overlay and underlay).
+	if len(packet.overlay.Layers) < 4 {
+		return
+	}
+
+	// Expect VXLAN/Geneve encap as first overlay layer, if not we bail out.
+	switch packet.overlay.Layers[0] {
+	case layers.LayerTypeVXLAN:
+		encap = &pb.Encapsulation{Protocol: pb.Encapsulation_VXLAN, IP: ip, L4: l4}
+	case layers.LayerTypeGeneve:
+		encap = &pb.Encapsulation{Protocol: pb.Encapsulation_GENEVE, IP: ip, L4: l4}
+	default:
+		return
+	}
+
+	// Parse the rest of the overlay layers as we would do for a
+	// non-encapsulated packet.
+	for _, typ := range packet.overlay.Layers[1:] {
+		summary = typ.String()
+		switch typ {
+		case layers.LayerTypeEthernet:
+			ethernet = decodeEthernet(&packet.overlay.Ethernet)
+		case layers.LayerTypeIPv4:
+			ip, sourceIP, destinationIP = decodeIPv4(&packet.overlay.IPv4)
+		case layers.LayerTypeIPv6:
+			ip, sourceIP, destinationIP = decodeIPv6(&packet.overlay.IPv6)
+		case layers.LayerTypeTCP:
+			l4, sourcePort, destinationPort = decodeTCP(&packet.overlay.TCP)
+			summary = "TCP Flags: " + getTCPFlags(packet.overlay.TCP)
+		case layers.LayerTypeUDP:
+			l4, sourcePort, destinationPort = decodeUDP(&packet.overlay.UDP)
+		case layers.LayerTypeSCTP:
+			l4, sourcePort, destinationPort = decodeSCTP(&packet.overlay.SCTP)
+		case layers.LayerTypeICMPv4:
+			l4 = decodeICMPv4(&packet.overlay.ICMPv4)
+			summary = "ICMPv4 " + packet.overlay.ICMPv4.TypeCode.String()
+		case layers.LayerTypeICMPv6:
+			l4 = decodeICMPv6(&packet.overlay.ICMPv6)
+			summary = "ICMPv6 " + packet.overlay.ICMPv6.TypeCode.String()
 		}
 	}
 
