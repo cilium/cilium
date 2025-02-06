@@ -105,7 +105,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define NODEPORT_NEIGH4_SIZE 524288
 #endif /* ENABLE_NODEPORT */
-#define CAPTURE4_RULES cilium_capture4_rules
 #define CAPTURE4_SIZE 16384
 #endif /* ENABLE_IPV4 */
 
@@ -118,7 +117,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define SNAT_MAPPING_IPV6_SIZE 524288
 #define NODEPORT_NEIGH6_SIZE 524288
 #endif /* ENABLE_NODEPORT */
-#define CAPTURE6_RULES cilium_capture6_rules
 #define CAPTURE6_SIZE 16384
 #endif /* ENABLE_IPV6 */
 
