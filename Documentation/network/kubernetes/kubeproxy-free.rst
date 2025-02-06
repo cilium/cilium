@@ -384,6 +384,7 @@ service type:
       - port: 80
         targetPort: 80
     type: LoadBalancer
+    allocateLoadBalancerNodePorts: false
 
 In the above example only the ``LoadBalancer`` service is created without
 corresponding ``NodePort`` and ``ClusterIP`` services. If the annotation
