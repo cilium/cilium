@@ -113,7 +113,7 @@ setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 	key.reason = REASON_FORWARDED;
 	key.dir = METRIC_EGRESS;
 
-	map_delete_elem(&METRICS_MAP, &key);
+	map_delete_elem(&cilium_metrics, &key);
 
 	policy_add_egress_allow_all_entry();
 
@@ -169,7 +169,7 @@ check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 		key.reason = REASON_FORWARDED;
 		key.dir = METRIC_EGRESS;
 
-		entry = map_lookup_elem(&METRICS_MAP, &key);
+		entry = map_lookup_elem(&cilium_metrics, &key);
 		if (!entry)
 			test_fatal("metrics entry not found")
 

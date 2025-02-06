@@ -216,7 +216,7 @@ int ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 	key.reason = REASON_DECRYPTING;
 	key.dir = METRIC_INGRESS;
 
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found")
 
