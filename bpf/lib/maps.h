@@ -68,24 +68,6 @@ struct bpf_elf_map __section_maps cilium_calls = {
 };
 #endif /* SKIP_CALLS_MAP */
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct node_key);
-	__type(value, __u16);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, NODE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} NODE_MAP __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct node_key);
-	__type(value, struct node_value);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, NODE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} NODE_MAP_V2 __section_maps_btf;
-
 struct l2_responder_v4_key {
 	__u32 ip4;
 	__u32 ifindex;

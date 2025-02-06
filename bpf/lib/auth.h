@@ -6,7 +6,7 @@
 #include "common.h"
 #include "utime.h"
 #include "signal.h"
-#include "maps.h"
+#include "node.h"
 
 /* Global auth map for enforcing authentication policy */
 struct {
@@ -35,7 +35,7 @@ auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remot
 	if (remote_node_ip) {
 		node_ip.family = ENDPOINT_KEY_IPV4;
 		node_ip.ip4 = remote_node_ip;
-		node_value = map_lookup_elem(&NODE_MAP_V2, &node_ip);
+		node_value = map_lookup_elem(&cilium_node_map_v2, &node_ip);
 		if (!node_value || !node_value->id)
 			return DROP_NO_NODE_ID;
 		key.remote_node_id = node_value->id;
