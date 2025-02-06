@@ -4,7 +4,7 @@
 #pragma once
 
 #include "common.h"
-#include "maps.h"
+#include "config_map.h"
 
 /*
  * Number of bits to shift a monotonic 64-bit nanosecond clock for utime unit.
@@ -15,19 +15,6 @@
  */
 #define UTIME_SHIFT 9
 
-static __always_inline __u64
-_utime_get_offset()
-{
-	__u32 index = RUNTIME_CONFIG_UTIME_OFFSET;
-	__u64 *offset;
-
-	offset = map_lookup_elem(&CONFIG_MAP, &index);
-	if (likely(offset))
-		return *offset;
-
-	return 0;
-}
-
 /**
  * Return the current time in "utime" unit (512 ns per unit) that is directly
  * comparable to expirations times in bpf maps.
@@ -35,5 +22,5 @@ _utime_get_offset()
 static __always_inline __u64
 utime_get_time()
 {
-	return (ktime_get_ns() >> UTIME_SHIFT) + _utime_get_offset();
+	return (ktime_get_ns() >> UTIME_SHIFT) + config_get(RUNTIME_CONFIG_UTIME_OFFSET);
 }
