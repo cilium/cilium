@@ -53,6 +53,7 @@
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"
 #include "lib/vxlan.h"
+#include "lib/l2_responder.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
  #define host_wg_encrypt_hook(ctx, proto) wg_maybe_redirect_to_encrypt(ctx, proto)
@@ -1072,7 +1073,7 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 
 	key.ip4 = tip;
 	key.ifindex = ctx->ingress_ifindex;
-	stats = map_lookup_elem(&L2_RESPONDER_MAP4, &key);
+	stats = map_lookup_elem(&cilium_l2_responder_v4, &key);
 	if (!stats)
 		return CTX_ACT_OK;
 
