@@ -68,17 +68,6 @@ struct bpf_elf_map __section_maps cilium_calls = {
 };
 #endif /* SKIP_CALLS_MAP */
 
-#ifdef ENABLE_VTEP
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct vtep_key);
-	__type(value, struct vtep_value);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, VTEP_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-} VTEP_MAP __section_maps_btf;
-#endif /* ENABLE_VTEP */
-
 #ifndef SKIP_CALLS_MAP
 static __always_inline __must_check int
 tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
