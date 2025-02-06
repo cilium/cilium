@@ -297,12 +297,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		return fmt.Errorf("failed to extract DNS message details: %w", err)
 	}
 
-	serverAddrPort, err := netip.ParseAddrPort(serverAddr)
-	if err != nil {
-		log.WithError(err).Error("cannot extract destination IP/port from DNS request")
-	}
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
-
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
 
@@ -338,9 +332,11 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// updates for the response IPs. Due to G1 performing all the work
 		// first, G2 executes T4 also as a no-op and releases the msg back to the
 		// pod at T5 before G1 would at T6.
+		//
+		// We do not do a `defer unlock()` here, as we should release the lock before
+		// doing final bookkeeping.
 		mutexAcquireStart := time.Now()
 		d.dnsNameManager.LockName(qname)
-		defer d.dnsNameManager.UnlockName(qname)
 
 		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
 			log.WithFields(logrus.Fields{
@@ -389,6 +385,9 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			metrics.ProxyDatapathUpdateTimeout.Inc()
 		}
 
+		// Policy updates for this name have been pushed out; we can release the lock.
+		d.dnsNameManager.UnlockName(qname)
+
 		log.WithFields(logrus.Fields{
 			logfields.Duration:   time.Since(updateStart),
 			logfields.EndpointID: ep.GetID(),
@@ -399,6 +398,12 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	}
 
 	stat.ProcessingTime.End(true)
+
+	serverAddrPort, err := netip.ParseAddrPort(serverAddr)
+	if err != nil {
+		log.WithError(err).Error("cannot extract destination IP/port from DNS request")
+	}
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
 
 	// Ensure that there are no early returns from this function before the
 	// code below, otherwise the log record will not be made.
