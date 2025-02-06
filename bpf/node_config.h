@@ -130,7 +130,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define SNAT_COLLISION_RETRIES 32
 #endif
 
-#define EGRESS_POLICY_MAP test_cilium_egress_gw_policy_v4
 #define EVENTS_MAP_RATE_LIMIT 0
 #define EVENTS_MAP_BURST_LIMIT 0
 #define POLICY_STATS_MAP_SIZE 200
