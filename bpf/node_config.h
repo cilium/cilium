@@ -138,8 +138,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define LB4_REVERSE_NAT_SK_MAP_SIZE 262144
 
 #define LB_MAGLEV_LUT_SIZE 32749
-#define THROTTLE_MAP test_cilium_throttle
-
 #define THROTTLE_MAP_SIZE 65536
 #define ENABLE_ARP_RESPONDER
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536

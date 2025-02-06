@@ -19,7 +19,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, THROTTLE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} THROTTLE_MAP __section_maps_btf;
+} cilium_throttle __section_maps_btf;
 
 static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
 					      __u32 aggregate)
@@ -59,7 +59,7 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 
 	aggregate.direction = DIRECTION_EGRESS;
 
-	info = map_lookup_elem(&THROTTLE_MAP, &aggregate);
+	info = map_lookup_elem(&cilium_throttle, &aggregate);
 	if (!info)
 		return CTX_ACT_OK;
 	if (!info->bps)
