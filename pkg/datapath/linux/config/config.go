@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -555,12 +554,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.EnableNodePort {
 		if option.Config.EnableIPv4 {
 			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
-			cDefinesMap["SNAT_ALLOC_RETRIES_IPV4"] = nat.MapNameSnat4AllocRetries
 		}
 
 		if option.Config.EnableIPv6 {
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
-			cDefinesMap["SNAT_ALLOC_RETRIES_IPV6"] = nat.MapNameSnat6AllocRetries
 		}
 
 		cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.SnatCollisionRetries)
@@ -573,7 +570,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				var excludeCIDR *cidr.CIDR
 				if option.Config.EnableIPMasqAgent {
 					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
-					cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapNameIPv4
 
 					// native-routing-cidr is optional with ip-masq-agent and may be nil
 					excludeCIDR = option.Config.IPv4NativeRoutingCIDR
@@ -594,7 +590,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				var excludeCIDR *cidr.CIDR
 				if option.Config.EnableIPMasqAgent {
 					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
-					cDefinesMap["IP_MASQ_AGENT_IPV6"] = ipmasq.MapNameIPv6
 
 					excludeCIDR = option.Config.IPv6NativeRoutingCIDR
 				} else {

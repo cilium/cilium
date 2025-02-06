@@ -1020,7 +1020,7 @@ static __u32 retries_100percent[SNAT_COLLISION_RETRIES + 1];
 static __always_inline bool store_retries(__u32 *buf, bool dump)
 {
 	for (__u32 i = 0; i <= SNAT_COLLISION_RETRIES; i++) {
-		__u32 *v = map_lookup_elem(&SNAT_ALLOC_RETRIES_IPV4, &(__u32){i});
+		__u32 *v = map_lookup_elem(&cilium_snat_v4_alloc_retries, &(__u32){i});
 
 		if (!v)
 			return false;
