@@ -25,7 +25,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} LB6_SKIP_MAP __section_maps_btf;
+} cilium_skip_lb6 __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -34,7 +34,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB6_REVERSE_NAT_MAP __section_maps_btf;
+} cilium_lb6_reverse_nat __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -43,7 +43,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_SERVICE_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB6_SERVICES_MAP_V2 __section_maps_btf;
+} cilium_lb6_services_v2 __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -52,7 +52,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB6_BACKEND_MAP __section_maps_btf;
+} cilium_lb6_backends_v3 __section_maps_btf;
 
 #ifdef ENABLE_SESSION_AFFINITY
 struct {
@@ -61,7 +61,7 @@ struct {
 	__type(value, struct lb_affinity_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
-} LB6_AFFINITY_MAP __section_maps_btf;
+} cilium_lb6_affinity __section_maps_btf;
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
@@ -72,7 +72,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, LB6_SRC_RANGE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} LB6_SRC_RANGE_MAP __section_maps_btf;
+} cilium_lb6_source_range __section_maps_btf;
 #endif
 
 #ifdef ENABLE_HEALTH_CHECK
@@ -82,7 +82,7 @@ struct {
 	__type(value, struct lb6_health);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
-} LB6_HEALTH_MAP __section_maps_btf;
+} cilium_lb6_health __section_maps_btf;
 #endif
 
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
@@ -100,7 +100,7 @@ struct {
 		__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
 		__uint(max_entries, 1);
 	});
-} LB6_MAGLEV_MAP_OUTER __section_maps_btf;
+} cilium_lb6_maglev __section_maps_btf;
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV6 */
 
@@ -112,7 +112,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} LB4_SKIP_MAP __section_maps_btf;
+} cilium_skip_lb4 __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -121,7 +121,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB4_REVERSE_NAT_MAP __section_maps_btf;
+} cilium_lb4_reverse_nat __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -130,7 +130,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_SERVICE_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB4_SERVICES_MAP_V2 __section_maps_btf;
+} cilium_lb4_services_v2 __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -139,7 +139,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB4_BACKEND_MAP __section_maps_btf;
+} cilium_lb4_backends_v3 __section_maps_btf;
 
 #ifdef ENABLE_SESSION_AFFINITY
 struct {
@@ -148,7 +148,7 @@ struct {
 	__type(value, struct lb_affinity_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
-} LB4_AFFINITY_MAP __section_maps_btf;
+} cilium_lb4_affinity __section_maps_btf;
 #endif
 
 #ifdef ENABLE_SRC_RANGE_CHECK
@@ -159,7 +159,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, LB4_SRC_RANGE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} LB4_SRC_RANGE_MAP __section_maps_btf;
+} cilium_lb4_source_range __section_maps_btf;
 #endif
 
 #ifdef ENABLE_HEALTH_CHECK
@@ -169,7 +169,7 @@ struct {
 	__type(value, struct lb4_health);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
-} LB4_HEALTH_MAP __section_maps_btf;
+} cilium_lb4_health __section_maps_btf;
 #endif
 
 #if defined(LB_SELECTION_PER_SERVICE) || LB_SELECTION == LB_SELECTION_MAGLEV
@@ -187,7 +187,7 @@ struct {
 		__uint(value_size, sizeof(__u32) * LB_MAGLEV_LUT_SIZE);
 		__uint(max_entries, 1);
 	});
-} LB4_MAGLEV_MAP_OUTER __section_maps_btf;
+} cilium_lb4_maglev __section_maps_btf;
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV4 */
 
@@ -199,7 +199,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB_AFFINITY_MATCH_MAP __section_maps_btf;
+} cilium_lb_affinity_match __section_maps_btf;
 #endif
 
 #ifdef LB_DEBUG
@@ -537,7 +537,7 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
 {
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT_LOOKUP, index, 0);
 
-	return map_lookup_elem(&LB6_REVERSE_NAT_MAP, &index);
+	return map_lookup_elem(&cilium_lb6_reverse_nat, &index);
 }
 
 /** Perform IPv6 reverse NAT based on reverse NAT index
@@ -646,7 +646,7 @@ bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 		.addr = *saddr,
 	};
 
-	if (map_lookup_elem(&LB6_SRC_RANGE_MAP, &key))
+	if (map_lookup_elem(&cilium_lb6_source_range, &key))
 		verdict = true;
 
 	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
@@ -673,13 +673,13 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	key->backend_slot = 0;
-	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 
 #if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	/* If there are no elements for a specific protocol, check for ANY entries. */
 	if (!svc && key->proto != 0) {
 		key->proto = 0;
-		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 	}
 #endif
 
@@ -687,7 +687,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 		if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 			return svc;
 		key->scope = LB_LOOKUP_SCOPE_INT;
-		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
 	}
 
 	return svc;
@@ -695,7 +695,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 
 static __always_inline struct lb6_backend *__lb6_lookup_backend(__u32 backend_id)
 {
-	return map_lookup_elem(&LB6_BACKEND_MAP, &backend_id);
+	return map_lookup_elem(&cilium_lb6_backends_v3, &backend_id);
 }
 
 static __always_inline struct lb6_backend *
@@ -713,7 +713,7 @@ lb6_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
 static __always_inline
 struct lb6_service *__lb6_lookup_backend_slot(struct lb6_key *key)
 {
-	return map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+	return map_lookup_elem(&cilium_lb6_services_v2, key);
 }
 
 static __always_inline
@@ -764,7 +764,7 @@ lb6_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 	__u32 *backend_ids;
 	void *maglev_lut;
 
-	maglev_lut = map_lookup_elem(&LB6_MAGLEV_MAP_OUTER, &index);
+	maglev_lut = map_lookup_elem(&cilium_lb6_maglev, &index);
 	if (unlikely(!maglev_lut))
 		return 0;
 
@@ -863,7 +863,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 	else
 		ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
 
-	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
+	val = map_lookup_elem(&cilium_lb6_affinity, &key);
 	if (val != NULL) {
 		__u32 now = (__u32)bpf_mono_now();
 		struct lb_affinity_match match = {
@@ -873,12 +873,12 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 
 		if (READ_ONCE(val->last_used) +
 		    bpf_sec_to_mono(lb6_affinity_timeout(svc)) <= now) {
-			map_delete_elem(&LB6_AFFINITY_MAP, &key);
+			map_delete_elem(&cilium_lb6_affinity, &key);
 			return 0;
 		}
 
-		if (!map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match)) {
-			map_delete_elem(&LB6_AFFINITY_MAP, &key);
+		if (!map_lookup_elem(&cilium_lb_affinity_match, &match)) {
+			map_delete_elem(&cilium_lb6_affinity, &key);
 			return 0;
 		}
 
@@ -915,7 +915,7 @@ __lb6_update_affinity(const struct lb6_service *svc, bool netns_cookie,
 	else
 		ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
 
-	map_update_elem(&LB6_AFFINITY_MAP, &key, &val, 0);
+	map_update_elem(&cilium_lb6_affinity, &key, &val, 0);
 }
 
 static __always_inline void
@@ -975,7 +975,7 @@ lb6_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
 	key.netns_cookie = cookie;
 	key.address = addr;
 	key.port = port;
-	val = map_lookup_elem(&LB6_SKIP_MAP, &key);
+	val = map_lookup_elem(&cilium_skip_lb6, &key);
 	if (val)
 		return true;
 	return false;
@@ -1269,7 +1269,7 @@ lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
 {
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT_LOOKUP, index, 0);
 
-	return map_lookup_elem(&LB4_REVERSE_NAT_MAP, &index);
+	return map_lookup_elem(&cilium_lb4_reverse_nat, &index);
 }
 
 /** Perform IPv4 reverse NAT based on reverse NAT index
@@ -1372,7 +1372,7 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 		.addr = saddr,
 	};
 
-	if (map_lookup_elem(&LB4_SRC_RANGE_MAP, &key))
+	if (map_lookup_elem(&cilium_lb4_source_range, &key))
 		verdict = true;
 
 	return verdict ^ !!(svc->flags2 & SVC_FLAG_SOURCE_RANGE_DENY);
@@ -1399,13 +1399,13 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	key->backend_slot = 0;
-	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 
 #if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
 	/* If there are no elements for a specific protocol, check for ANY entries. */
 	if (!svc && key->proto != 0) {
 		key->proto = 0;
-		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 	}
 #endif
 
@@ -1413,7 +1413,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 		if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 			return svc;
 		key->scope = LB_LOOKUP_SCOPE_INT;
-		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
 	}
 
 	return svc;
@@ -1421,7 +1421,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 
 static __always_inline struct lb4_backend *__lb4_lookup_backend(__u32 backend_id)
 {
-	return map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
+	return map_lookup_elem(&cilium_lb4_backends_v3, &backend_id);
 }
 
 static __always_inline struct lb4_backend *
@@ -1439,7 +1439,7 @@ lb4_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
 static __always_inline
 struct lb4_service *__lb4_lookup_backend_slot(struct lb4_key *key)
 {
-	return map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+	return map_lookup_elem(&cilium_lb4_services_v2, key);
 }
 
 static __always_inline
@@ -1493,7 +1493,7 @@ lb4_select_backend_id_maglev(struct __ctx_buff *ctx __maybe_unused,
 	__u32 *backend_ids;
 	void *maglev_lut;
 
-	maglev_lut = map_lookup_elem(&LB4_MAGLEV_MAP_OUTER, &index);
+	maglev_lut = map_lookup_elem(&cilium_lb4_maglev, &index);
 	if (unlikely(!maglev_lut))
 		return 0;
 
@@ -1608,7 +1608,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 	};
 	struct lb_affinity_val *val;
 
-	val = map_lookup_elem(&LB4_AFFINITY_MAP, &key);
+	val = map_lookup_elem(&cilium_lb4_affinity, &key);
 	if (val != NULL) {
 		__u32 now = (__u32)bpf_mono_now();
 		struct lb_affinity_match match = {
@@ -1623,12 +1623,12 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 		 */
 		if (READ_ONCE(val->last_used) +
 		    bpf_sec_to_mono(lb4_affinity_timeout(svc)) <= now) {
-			map_delete_elem(&LB4_AFFINITY_MAP, &key);
+			map_delete_elem(&cilium_lb4_affinity, &key);
 			return 0;
 		}
 
-		if (!map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match)) {
-			map_delete_elem(&LB4_AFFINITY_MAP, &key);
+		if (!map_lookup_elem(&cilium_lb_affinity_match, &match)) {
+			map_delete_elem(&cilium_lb4_affinity, &key);
 			return 0;
 		}
 
@@ -1662,7 +1662,7 @@ __lb4_update_affinity(const struct lb4_service *svc, bool netns_cookie,
 		.last_used	= now,
 	};
 
-	map_update_elem(&LB4_AFFINITY_MAP, &key, &val, 0);
+	map_update_elem(&cilium_lb4_affinity, &key, &val, 0);
 }
 
 static __always_inline void
@@ -1740,7 +1740,7 @@ lb4_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
 	key.netns_cookie = cookie;
 	key.address = address;
 	key.port = port;
-	val = map_lookup_elem(&LB4_SKIP_MAP, &key);
+	val = map_lookup_elem(&cilium_skip_lb4, &key);
 	if (val)
 		return true;
 	return false;
