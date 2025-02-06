@@ -111,7 +111,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 		.ipv6		= 0,
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
 static __always_inline void
@@ -149,7 +149,7 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	};
 	ipv6_addr_copy_unaligned(&msg.dst_ip.ip6, dst_addr);
 
-	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 #else
 static __always_inline void
