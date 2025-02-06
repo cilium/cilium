@@ -134,10 +134,8 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define EVENTS_MAP_RATE_LIMIT 0
 #define EVENTS_MAP_BURST_LIMIT 0
 #define POLICY_STATS_MAP_SIZE 200
-#define LB6_REVERSE_NAT_SK_MAP test_cilium_lb6_reverse_sk
 #define LB6_REVERSE_NAT_SK_MAP_SIZE 262144
 #define LB_ACT_MAP test_cilium_lb_act
-#define LB4_REVERSE_NAT_SK_MAP test_cilium_lb4_reverse_sk
 #define LB4_REVERSE_NAT_SK_MAP_SIZE 262144
 
 #define LB_MAGLEV_LUT_SIZE 32749
