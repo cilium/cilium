@@ -499,15 +499,6 @@ struct srv6_policy_key6 {
 	union v6addr dst_cidr;
 };
 
-struct vtep_key {
-	__u32 vtep_ip;
-};
-
-struct vtep_value {
-	__u64 vtep_mac;
-	__u32 tunnel_endpoint;
-};
-
 struct node_key {
 	__u16 pad1;
 	__u8 pad2;
