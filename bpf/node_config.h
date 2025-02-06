@@ -131,11 +131,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #endif
 
 #define EGRESS_POLICY_MAP test_cilium_egress_gw_policy_v4
-#define SRV6_VRF_MAP4 test_cilium_srv6_vrf_v4
-#define SRV6_VRF_MAP6 test_cilium_srv6_vrf_v6
-#define SRV6_POLICY_MAP4 test_cilium_srv6_policy_v4
-#define SRV6_POLICY_MAP6 test_cilium_srv6_policy_v6
-#define SRV6_SID_MAP test_cilium_srv6_sid
 #define EVENTS_MAP test_cilium_events
 #define EVENTS_MAP_RATE_LIMIT 0
 #define EVENTS_MAP_BURST_LIMIT 0
