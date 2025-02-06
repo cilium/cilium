@@ -26,7 +26,7 @@ static __always_inline int accept(struct __ctx_buff *ctx, __u32 ep_id)
 
 	aggregate.direction = DIRECTION_INGRESS;
 
-	info = map_lookup_elem(&THROTTLE_MAP, &aggregate);
+	info = map_lookup_elem(&cilium_throttle, &aggregate);
 	if (!info)
 		return CTX_ACT_OK;
 	if (!info->bps)
