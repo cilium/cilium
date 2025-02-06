@@ -233,7 +233,7 @@ int ipv6_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 	 */
 	node_ip.k.family = ENDPOINT_KEY_IPV6;
 	memcpy((__u8 *)&node_ip.k.ip6, (__u8 *)v6_pod_one, 16);
-	map_update_elem(&NODE_MAP_V2, &node_ip.k, &node_value, BPF_ANY);
+	map_update_elem(&cilium_node_map_v2, &node_ip.k, &node_value, BPF_ANY);
 
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
 	return TEST_ERROR;
