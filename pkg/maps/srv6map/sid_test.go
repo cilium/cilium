@@ -47,7 +47,6 @@ func TestSIDMapsHive(t *testing.T) {
 				require.NoError(t, merged.Merge(def))
 			}
 
-			require.Contains(t, merged, "SRV6_SID_MAP")
 			require.Contains(t, merged, "SRV6_SID_MAP_SIZE")
 
 			// Setup cleanup

@@ -10,6 +10,33 @@
 #include "maps.h"
 
 #ifdef ENABLE_SRV6
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct srv6_vrf_key6);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SRV6_VRF_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_srv6_vrf_v6 __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct srv6_policy_key6);
+	__type(value, union v6addr);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SRV6_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_srv6_policy_v6 __section_maps_btf;
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, union v6addr); /* SID */
+    __type(value, __u32);      /* VRF ID */
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    __uint(max_entries, SRV6_SID_MAP_SIZE);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_srv6_sid __section_maps_btf;
+
 struct srv6_srh {
 	struct ipv6_rt_hdr rthdr;
 	__u8 first_segment;
@@ -19,6 +46,24 @@ struct srv6_srh {
 };
 
 # ifdef ENABLE_IPV4
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct srv6_vrf_key4);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SRV6_VRF_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_srv6_vrf_v4 __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct srv6_policy_key4);
+	__type(value, union v6addr);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SRV6_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_srv6_policy_v4 __section_maps_btf;
 
 /* SRV6_VRF_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
  * srv6_vrf_key4.
@@ -36,7 +81,7 @@ srv6_lookup_vrf4(__be32 sip, __be32 dip)
 		.src_ip = sip,
 		.dst_cidr = dip,
 	};
-	return map_lookup_elem(&SRV6_VRF_MAP4, &key);
+	return map_lookup_elem(&cilium_srv6_vrf_v4, &key);
 }
 
 /* SRV6_POLICY_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
@@ -55,7 +100,7 @@ srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
 		.vrf_id = vrf_id,
 		.dst_cidr = dip,
 	};
-	return map_lookup_elem(&SRV6_POLICY_MAP4, &key);
+	return map_lookup_elem(&cilium_srv6_policy_v4, &key);
 }
 # endif /* ENABLE_IPV4 */
 
@@ -75,7 +120,7 @@ srv6_lookup_vrf6(const struct in6_addr *sip, const struct in6_addr *dip)
 		.src_ip = *(union v6addr *)sip,
 		.dst_cidr = *(union v6addr *)dip,
 	};
-	return map_lookup_elem(&SRV6_VRF_MAP6, &key);
+	return map_lookup_elem(&cilium_srv6_vrf_v6, &key);
 }
 
 /* SRV6_POLICY_STATIC_PREFIX6 gets sizeof non-IP, non-prefix part of
@@ -95,7 +140,7 @@ srv6_lookup_policy6(__u32 vrf_id, const struct in6_addr *dip)
 		.vrf_id = vrf_id,
 		.dst_cidr = *(union v6addr *)dip,
 	};
-	return map_lookup_elem(&SRV6_POLICY_MAP6, &key);
+	return map_lookup_elem(&cilium_srv6_policy_v6, &key);
 }
 
 static __always_inline __u32
@@ -103,7 +148,7 @@ srv6_lookup_sid(const struct in6_addr *sid)
 {
 	__u32 *vrf_id;
 
-	vrf_id = map_lookup_elem(&SRV6_SID_MAP, sid);
+	vrf_id = map_lookup_elem(&cilium_srv6_sid, sid);
 	if (vrf_id)
 		return *vrf_id;
 	return 0;
