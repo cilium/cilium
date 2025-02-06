@@ -156,9 +156,9 @@ struct {
 	__uint(max_entries, 256);
 	__array(values, struct per_cluster_snat_mapping_ipv4_inner_map);
 #ifndef BPF_TEST
-} PER_CLUSTER_SNAT_MAPPING_IPV4 __section_maps_btf;
+} cilium_per_cluster_snat_v4_external __section_maps_btf;
 #else
-} PER_CLUSTER_SNAT_MAPPING_IPV4 __section_maps_btf = {
+} cilium_per_cluster_snat_v4_external __section_maps_btf = {
 	.values = {
 		[1] = &per_cluster_snat_mapping_ipv4_1,
 		[2] = &per_cluster_snat_mapping_ipv4_2,
@@ -183,7 +183,7 @@ get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
-		return map_lookup_elem(&PER_CLUSTER_SNAT_MAPPING_IPV4, &cluster_id);
+		return map_lookup_elem(&cilium_per_cluster_snat_v4_external, &cluster_id);
 #endif
 	return &SNAT_MAPPING_IPV4;
 }
@@ -1150,7 +1150,7 @@ struct {
 		__type(value, struct ipv6_nat_entry);
 		__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
 	});
-} PER_CLUSTER_SNAT_MAPPING_IPV6 __section_maps_btf;
+} cilium_per_cluster_snat_v6_external __section_maps_btf;
 #endif
 
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
@@ -1169,7 +1169,7 @@ get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
-		return map_lookup_elem(&PER_CLUSTER_SNAT_MAPPING_IPV6, &cluster_id);
+		return map_lookup_elem(&cilium_per_cluster_snat_v6_external, &cluster_id);
 #endif
 	return &SNAT_MAPPING_IPV6;
 }
