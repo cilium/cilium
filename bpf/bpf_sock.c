@@ -508,7 +508,7 @@ static __always_inline int __sock4_pre_bind(struct bpf_sock_addr *ctx,
 	};
 	int ret;
 
-	ret = map_update_elem(&LB4_HEALTH_MAP, &key, &val, 0);
+	ret = map_update_elem(&cilium_lb4_health, &key, &val, 0);
 	if (!ret)
 		sock4_auto_bind(ctx);
 	return ret;
@@ -931,7 +931,7 @@ static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 		return sock6_pre_bind_v4_in_v6(ctx);
 #ifdef ENABLE_IPV6
 	key = get_socket_cookie(ctx);
-	ret = map_update_elem(&LB6_HEALTH_MAP, &key, &val, 0);
+	ret = map_update_elem(&cilium_lb6_health, &key, &val, 0);
 	if (!ret)
 		sock6_auto_bind(ctx);
 #endif

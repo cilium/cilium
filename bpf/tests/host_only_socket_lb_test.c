@@ -83,11 +83,11 @@ int test1_check(__maybe_unused struct xdp_md *ctx)
 
 	/* Insert the service and backend map values */
 	for (i = 0; i < ARRAY_SIZE(services); i++)
-		map_update_elem(&LB4_SERVICES_MAP_V2, &services[i].key, &services[i].value,
+		map_update_elem(&cilium_lb4_services_v2, &services[i].key, &services[i].value,
 				BPF_ANY);
 
 	for (i = 0; i < ARRAY_SIZE(backends); i++)
-		map_update_elem(&LB4_BACKEND_MAP, &backends[i].key, &backends[i].value,
+		map_update_elem(&cilium_lb4_backends_v3, &backends[i].key, &backends[i].value,
 				BPF_ANY);
 
 	test_init();
