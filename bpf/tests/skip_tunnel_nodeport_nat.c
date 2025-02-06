@@ -153,7 +153,7 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	 * Otherwise, leftover state from previous tests will have an impact,
 	 * as the tests and checks assume we have a fresh state every time.
 	 */
-	clear_map(&METRICS_MAP);
+	clear_map(&cilium_metrics);
 	clear_map(&cilium_ct4_global);
 	clear_map(&cilium_ct6_global);
 	clear_map(get_cluster_snat_map_v4(0));
@@ -233,7 +233,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 		key.reason = REASON_FORWARDED;
 		key.dir = METRIC_EGRESS;
 
-		entry = map_lookup_elem(&METRICS_MAP, &key);
+		entry = map_lookup_elem(&cilium_metrics, &key);
 		if (!entry)
 			test_fatal("metrics entry not found")
 
