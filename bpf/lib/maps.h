@@ -9,15 +9,6 @@
 
 #include "bpf/compiler.h"
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_HASH);
-	__type(key, struct metrics_key);
-	__type(value, struct metrics_value);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, METRICS_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-} METRICS_MAP __section_maps_btf;
-
 #ifndef SKIP_POLICY_MAP
 /* Global map to jump into policy enforcement of receiving endpoint */
 struct {

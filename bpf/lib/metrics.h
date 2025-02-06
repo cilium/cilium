@@ -9,8 +9,16 @@
 
 #include "common.h"
 #include "utils.h"
-#include "maps.h"
 #include "dbg.h"
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+	__type(key, struct metrics_key);
+	__type(value, struct metrics_value);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, METRICS_MAP_SIZE);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} cilium_metrics __section_maps_btf;
 
 /**
  * update_metrics
@@ -33,14 +41,14 @@ static __always_inline void _update_metrics(__u64 bytes, __u8 direction,
 	key.line   = line;
 	key.file   = file;
 
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (entry) {
 		entry->count += 1;
 		entry->bytes += bytes;
 	} else {
 		new_entry.count = 1;
 		new_entry.bytes = bytes;
-		map_update_elem(&METRICS_MAP, &key, &new_entry, 0);
+		map_update_elem(&cilium_metrics, &key, &new_entry, 0);
 	}
 }
 
