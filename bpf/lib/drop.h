@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include "maps.h"
 #include "dbg.h"
 #include "events.h"
 #include "common.h"
