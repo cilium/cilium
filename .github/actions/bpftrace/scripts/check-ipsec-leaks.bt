@@ -193,7 +193,7 @@ kprobe:br_forward
 }
 
 // Trace TCP connections established by the L7 proxy, even if the source address belongs to the host.
-// Ignore connections with the destination address outside pod CIDRs.
+// Ignore connections with the destination address outside PodCIDR or CiliumInternalIPs.
 kprobe:tcp_connect
 {
   if (strncmp(comm, "wrk:", 4) != 0) {
@@ -204,8 +204,11 @@ kprobe:tcp_connect
   $inet_family = $sk->__sk_common.skc_family;
 
   if ($inet_family == AF_INET) {
-    // Skip packets with destination IP outside PodCIDR.
-    if ((bswap($sk->__sk_common.skc_daddr) & MASK4) != CIDR4) {
+    // Skip packets with destination IP outside PodCIDR or CiliumInternalIP.
+    if ((bswap($sk->__sk_common.skc_daddr) & MASK4) != CIDR4 ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(NODE1_CILIUM_INTERNAL_IPV4) ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(NODE2_CILIUM_INTERNAL_IPV4) ||
+        $sk->__sk_common.skc_daddr == (uint32)pton(NODE3_CILIUM_INTERNAL_IPV4)) {
       return;
     }
 
@@ -215,8 +218,11 @@ kprobe:tcp_connect
   }
 
   if ($inet_family == AF_INET6) {
-    // Skip packets with destination IP outside PodCIDR.
-    if (bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) != CIDR6) {
+    // Skip packets with destination IP outside PodCIDR or CiliumInternalIP.
+    if (bswap($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr16[0]) != CIDR6 ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(NODE1_CILIUM_INTERNAL_IPV6) ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(NODE2_CILIUM_INTERNAL_IPV6) ||
+        $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(NODE3_CILIUM_INTERNAL_IPV6)) {
       return;
     }
 
