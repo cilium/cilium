@@ -100,7 +100,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 # endif /* ENABLE_MASQUERADE_IPV4 */
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
-#define PER_CLUSTER_SNAT_MAPPING_IPV4 test_cilium_per_cluster_snat_v4_external
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 #define IPV4_INTER_CLUSTER_SNAT 0xfffff50a
 #endif
@@ -118,7 +117,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 # endif /* ENABLE_MASQUERADE_IPV6 */
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
-#define PER_CLUSTER_SNAT_MAPPING_IPV6 test_cilium_per_cluster_snat_v6_external
 #define SNAT_MAPPING_IPV6_SIZE 524288
 #define NODEPORT_NEIGH6_SIZE 524288
 #endif /* ENABLE_NODEPORT */
@@ -173,10 +171,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define MTU 1500
 #define EPHEMERAL_MIN 32768
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_NAT_46X64)
-#define PER_CLUSTER_CT_TCP6 test_cilium_per_cluster_ct_tcp6
-#define PER_CLUSTER_CT_ANY6 test_cilium_per_cluster_ct_any6
-#define PER_CLUSTER_CT_TCP4 test_cilium_per_cluster_ct_tcp4
-#define PER_CLUSTER_CT_ANY4 test_cilium_per_cluster_ct_any4
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING
 
