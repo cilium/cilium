@@ -93,7 +93,7 @@ int wireguard_egress_metrics_check(__maybe_unused const struct __ctx_buff *ctx)
 	key.reason = REASON_ENCRYPTING;
 	key.dir = METRIC_EGRESS;
 
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found")
 

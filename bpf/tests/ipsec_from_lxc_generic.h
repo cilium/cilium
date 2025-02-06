@@ -100,7 +100,7 @@ int ipv4_from_lxc_no_node_id_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	key.reason = (__u8)-DROP_NO_NODE_ID;
 	key.dir = METRIC_EGRESS;
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
 
