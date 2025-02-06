@@ -25,7 +25,7 @@ struct {
 	__type(value, struct encrypt_config);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 1);
-} ENCRYPT_MAP __section_maps_btf;
+} cilium_encrypt_state __section_maps_btf;
 #endif
 
 static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
@@ -35,7 +35,7 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 	__u32 encrypt_key = 0;
 	struct encrypt_config *cfg;
 
-	cfg = map_lookup_elem(&ENCRYPT_MAP, &encrypt_key);
+	cfg = map_lookup_elem(&cilium_encrypt_state, &encrypt_key);
 	/* Having no key info for a context is the same as no encryption */
 	if (cfg)
 		local_key = cfg->encrypt_key;

@@ -71,7 +71,7 @@ int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
-	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+	map_update_elem(&cilium_encrypt_state, &encrypt_key, &encrypt_value, BPF_ANY);
 
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -213,7 +213,7 @@ int ipv4_from_lxc_new_local_key_setup(struct __ctx_buff *ctx)
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY + 1 };
 
-	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+	map_update_elem(&cilium_encrypt_state, &encrypt_key, &encrypt_value, BPF_ANY);
 
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -258,7 +258,7 @@ int ipv4_from_lxc_new_remote_key_setup(struct __ctx_buff *ctx)
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
-	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+	map_update_elem(&cilium_encrypt_state, &encrypt_key, &encrypt_value, BPF_ANY);
 
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -321,7 +321,7 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
-	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+	map_update_elem(&cilium_encrypt_state, &encrypt_key, &encrypt_value, BPF_ANY);
 
 	node_v4_add_entry(v4_node_two, NODE_ID, 0);
 
