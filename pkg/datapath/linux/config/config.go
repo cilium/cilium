@@ -235,28 +235,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["EVENTS_MAP_RATE_LIMIT"] = fmt.Sprintf("%d", option.Config.BPFEventsDefaultRateLimit)
 	cDefinesMap["EVENTS_MAP_BURST_LIMIT"] = fmt.Sprintf("%d", option.Config.BPFEventsDefaultBurstLimit)
 	cDefinesMap["SIGNAL_MAP"] = signalmap.MapName
-	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
-	cDefinesMap["LB6_SERVICES_MAP_V2"] = "cilium_lb6_services_v2"
-	cDefinesMap["LB6_BACKEND_MAP"] = "cilium_lb6_backends_v3"
 	cDefinesMap["LB6_REVERSE_NAT_SK_MAP"] = lbmap.SockRevNat6MapName
 	cDefinesMap["LB6_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat6MapEntries)
-	cDefinesMap["LB4_REVERSE_NAT_MAP"] = "cilium_lb4_reverse_nat"
-	cDefinesMap["LB4_SERVICES_MAP_V2"] = "cilium_lb4_services_v2"
-	cDefinesMap["LB4_BACKEND_MAP"] = "cilium_lb4_backends_v3"
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP"] = lbmap.SockRevNat4MapName
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat4MapEntries)
-	cDefinesMap["LB4_SKIP_MAP"] = lbmap.SkipLB4MapName
-	cDefinesMap["LB6_SKIP_MAP"] = lbmap.SkipLB6MapName
 
 	if option.Config.EnableSessionAffinity {
 		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
-		cDefinesMap["LB_AFFINITY_MATCH_MAP"] = lbmap.AffinityMatchMapName
-		if option.Config.EnableIPv4 {
-			cDefinesMap["LB4_AFFINITY_MAP"] = lbmap.Affinity4MapName
-		}
-		if option.Config.EnableIPv6 {
-			cDefinesMap["LB6_AFFINITY_MAP"] = lbmap.Affinity6MapName
-		}
 	}
 
 	cDefinesMap["TRACE_PAYLOAD_LEN"] = fmt.Sprintf("%dULL", option.Config.TracePayloadlen)
@@ -412,16 +397,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv4 {
 			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
 			cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
-			if option.Config.EnableHealthDatapath {
-				cDefinesMap["LB4_HEALTH_MAP"] = lbmap.HealthProbe4MapName
-			}
 		}
 		if option.Config.EnableIPv6 {
 			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
 			cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
-			if option.Config.EnableHealthDatapath {
-				cDefinesMap["LB6_HEALTH_MAP"] = lbmap.HealthProbe6MapName
-			}
 		}
 		if option.Config.EnableNat46X64Gateway {
 			cDefinesMap["ENABLE_NAT_46X64_GATEWAY"] = "1"
@@ -497,12 +476,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableSVCSourceRangeCheck {
 			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
 			if option.Config.EnableIPv4 {
-				cDefinesMap["LB4_SRC_RANGE_MAP"] = lbmap.SourceRange4MapName
 				cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] =
 					fmt.Sprintf("%d", lbmap.SourceRange4Map.MaxEntries())
 			}
 			if option.Config.EnableIPv6 {
-				cDefinesMap["LB6_SRC_RANGE_MAP"] = lbmap.SourceRange6MapName
 				cDefinesMap["LB6_SRC_RANGE_MAP_SIZE"] =
 					fmt.Sprintf("%d", lbmap.SourceRange6Map.MaxEntries())
 			}
@@ -541,12 +518,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.LoadBalancerAlgorithmAnnotation ||
 		option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", h.maglev.Config.MaglevTableSize)
-		if option.Config.EnableIPv6 {
-			cDefinesMap["LB6_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter6MapName
-		}
-		if option.Config.EnableIPv4 {
-			cDefinesMap["LB4_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter4MapName
-		}
 	}
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", h.maglev.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", h.maglev.SeedJhash1)
