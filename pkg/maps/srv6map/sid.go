@@ -92,7 +92,6 @@ func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap],
 
 	nodeOut := defines.NodeOut{
 		NodeDefines: defines.Map{
-			"SRV6_SID_MAP":      sidMapName,
 			"SRV6_SID_MAP_SIZE": strconv.FormatUint(maxSIDEntries, 10),
 		},
 	}
