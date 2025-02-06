@@ -32,7 +32,7 @@ struct {
 	__type(value, struct ipv4_frag_l4ports);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES);
-} IPV4_FRAG_DATAGRAMS_MAP __section_maps_btf;
+} cilium_ipv4_frag_datagrams __section_maps_btf;
 #endif
 
 static __always_inline int
@@ -118,7 +118,7 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 {
 	struct ipv4_frag_l4ports *tmp;
 
-	tmp = map_lookup_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id);
+	tmp = map_lookup_elem(&cilium_ipv4_frag_datagrams, frag_id);
 	if (!tmp)
 		return DROP_FRAG_NOT_FOUND;
 
@@ -165,7 +165,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 		/* First logical fragment for this datagram (not necessarily the first
 		 * we receive). Fragment has L4 header, create an entry in datagrams map.
 		 */
-		if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, &frag_id, ports, BPF_ANY))
+		if (map_update_elem(&cilium_ipv4_frag_datagrams, &frag_id, ports, BPF_ANY))
 			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
 				       REASON_FRAG_PACKET_UPDATE);
 

@@ -175,7 +175,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define SRV6_SID_MAP_SIZE 16384
 #define L2_RESPONSER_MAP4_SIZE 4096
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
-#define IPV4_FRAG_DATAGRAMS_MAP test_cilium_ipv4_frag_datagrams
 #define CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES 8192
 #ifndef SKIP_DEBUG
 #define LB_DEBUG
