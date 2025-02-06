@@ -77,7 +77,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
-} EGRESS_POLICY_MAP __section_maps_btf;
+} cilium_egress_gw_policy_v4 __section_maps_btf;
 
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
@@ -87,7 +87,7 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 		.saddr = saddr,
 		.daddr = daddr,
 	};
-	return map_lookup_elem(&EGRESS_POLICY_MAP, &key);
+	return map_lookup_elem(&cilium_egress_gw_policy_v4, &key);
 }
 #endif /* ENABLE_EGRESS_GATEWAY */
 
