@@ -4,9 +4,19 @@
 #pragma once
 
 #include "common.h"
-#include "maps.h"
 #include "utime.h"
 #include "signal.h"
+#include "maps.h"
+
+/* Global auth map for enforcing authentication policy */
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct auth_key);
+	__type(value, struct auth_info);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, AUTH_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_auth_map __section_maps_btf;
 
 static __always_inline int
 auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remote_node_ip,
@@ -35,7 +45,7 @@ auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remot
 	}
 
 	/* Check L3-proto policy */
-	auth = map_lookup_elem(&AUTH_MAP, &key);
+	auth = map_lookup_elem(&cilium_auth_map, &key);
 	if (likely(auth)) {
 		/* check that entry has not expired */
 		if (utime_get_time() < auth->expiration)
