@@ -1005,7 +1005,7 @@ int nodeport_nat_fwd_reply_punt_setup(struct __ctx_buff *ctx)
 	rtuple.sport = BACKEND_PORT;
 	rtuple.dport = nat_source_port;
 
-	if IS_ERR(map_delete_elem(&SNAT_MAPPING_IPV4, &rtuple))
+	if IS_ERR(map_delete_elem(&cilium_snat_v4_external, &rtuple))
 		return TEST_ERROR;
 
 	/* Jump into the entrypoint */

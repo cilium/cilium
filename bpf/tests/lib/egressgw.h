@@ -100,7 +100,7 @@ static __always_inline int egressgw_pktgen(struct __ctx_buff *ctx,
 			.sport   = client_port(test_ctx.test),
 			.nexthdr = IPPROTO_TCP,
 		};
-		struct ipv4_nat_entry *nat_entry = __snat_lookup(&SNAT_MAPPING_IPV4, &tuple);
+		struct ipv4_nat_entry *nat_entry = __snat_lookup(&cilium_snat_v4_external, &tuple);
 
 		if (!nat_entry)
 			return TEST_ERROR;
@@ -215,7 +215,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 		tuple.saddr = CLIENT_IP;
 		tuple.daddr = EXTERNAL_SVC_IP;
 
-		struct ipv4_nat_entry *nat_entry = __snat_lookup(&SNAT_MAPPING_IPV4, &tuple);
+		struct ipv4_nat_entry *nat_entry = __snat_lookup(&cilium_snat_v4_external, &tuple);
 
 		if (!nat_entry)
 			test_fatal("could not find a NAT entry for the packet");
