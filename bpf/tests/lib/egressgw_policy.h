@@ -16,7 +16,7 @@ static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr
 		.gateway_ip = gateway_ip,
 	};
 
-	map_update_elem(&EGRESS_POLICY_MAP, &in_key, &in_val, 0);
+	map_update_elem(&cilium_egress_gw_policy_v4, &in_key, &in_val, 0);
 }
 
 static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr)
@@ -27,6 +27,6 @@ static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr
 		.daddr   = daddr,
 	};
 
-	map_delete_elem(&EGRESS_POLICY_MAP, &in_key);
+	map_delete_elem(&cilium_egress_gw_policy_v4, &in_key);
 }
 #endif /* ENABLE_EGRESS_GATEWAY */
