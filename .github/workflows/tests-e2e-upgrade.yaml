@@ -111,7 +111,7 @@ jobs:
             kpr: 'false'
             tunnel: 'vxlan'
             host-fw: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -120,7 +120,7 @@ jobs:
             kpr: 'false'
             tunnel: 'disabled'
             host-fw: 'true'
-            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
+            misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
