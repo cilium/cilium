@@ -177,8 +177,6 @@ func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*Poli
 
 	nodeOut := defines.NodeOut{
 		NodeDefines: defines.Map{
-			"SRV6_POLICY_MAP4":     policyMapName4,
-			"SRV6_POLICY_MAP6":     policyMapName6,
 			"SRV6_POLICY_MAP_SIZE": strconv.FormatUint(maxPolicyEntries, 10),
 		},
 	}
