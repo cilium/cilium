@@ -13,5 +13,5 @@ node_v4_add_entry(__be32 node_ip, __u16 node_id, __u8 spi)
 		.spi = spi,
 	};
 
-	map_update_elem(&NODE_MAP_V2, &key, &value, BPF_ANY);
+	map_update_elem(&cilium_node_map_v2, &key, &value, BPF_ANY);
 }

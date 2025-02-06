@@ -141,7 +141,6 @@ volatile const __u64 __config_ROUTER_IP_2;
 #define EVENTS_MAP_BURST_LIMIT 0
 #define SIGNAL_MAP test_cilium_signals
 #define POLICY_STATS_MAP_SIZE 200
-#define NODE_MAP_V2 test_cilium_node_map
 #define ENCRYPT_MAP test_cilium_encrypt_state
 #define L2_RESPONDER_MAP4 test_cilium_l2_responder_v4
 #define RATELIMIT_MAP test_cilium_ratelimit
