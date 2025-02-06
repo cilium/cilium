@@ -135,7 +135,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct ct_buffer6);
 	__uint(max_entries, 1);
-} CT_TAIL_CALL_BUFFER6 __section_maps_btf;
+} cilium_tail_call_buffer6 __section_maps_btf;
 
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
@@ -215,7 +215,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (need_hostfw) {
 		__u32 zero = 0;
 
-		if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)
+		if (map_update_elem(&cilium_tail_call_buffer6, &zero, &ct_buffer, 0) < 0)
 			return DROP_INVALID_TC_BUFFER;
 	}
 #endif /* ENABLE_HOST_FIREWALL */
@@ -270,7 +270,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		__u32 zero = 0;
 		__u32 remote_id = WORLD_IPV6_ID;
 
-		ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 		if (!ct_buffer)
 			return DROP_INVALID_TC_BUFFER;
 		if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
@@ -586,7 +586,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct ct_buffer4);
 	__uint(max_entries, 1);
-} CT_TAIL_CALL_BUFFER4 __section_maps_btf;
+} cilium_tail_call_buffer4 __section_maps_btf;
 
 static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
@@ -667,7 +667,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (need_hostfw) {
 		__u32 zero = 0;
 
-		if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)
+		if (map_update_elem(&cilium_tail_call_buffer4, &zero, &ct_buffer, 0) < 0)
 			return DROP_INVALID_TC_BUFFER;
 	}
 
@@ -717,7 +717,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		__u32 zero = 0;
 		__u32 remote_id = 0;
 
-		ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 		if (!ct_buffer)
 			return DROP_INVALID_TC_BUFFER;
 		if (ct_buffer->tuple.saddr == 0)
