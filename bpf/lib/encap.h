@@ -20,7 +20,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} TUNNEL_MAP __section_maps_btf;
+} cilium_tunnel_map __section_maps_btf;
 
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
@@ -130,7 +130,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 						encrypt_key, seclabel, dstid,
 						trace);
 
-	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
+	tunnel = map_lookup_elem(&cilium_tunnel_map, key);
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
@@ -153,7 +153,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 {
 	struct tunnel_value *tunnel;
 
-	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
+	tunnel = map_lookup_elem(&cilium_tunnel_map, k);
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
