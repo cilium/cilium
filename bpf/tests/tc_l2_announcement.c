@@ -154,8 +154,8 @@ int l2_announcement_arp_happy_path_pktgen(struct __ctx_buff *ctx)
 	return build_packet(ctx);
 }
 
-/* Test that sending a ARP broadcast request matching an entry in the
- * L2_RESPONDER_MAP4 results in a valid ARP reply.
+/* Test that sending a ARP broadcast request matching an entry in
+ * cilium_l2_responder_v4 results in a valid ARP reply.
  */
 SETUP("tc", "1_happy_path")
 int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
@@ -165,7 +165,7 @@ int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 
 	key.ifindex = 0;
 	key.ip4 = v4_svc_one;
-	map_update_elem(&L2_RESPONDER_MAP4, &key, &value, BPF_ANY);
+	map_update_elem(&cilium_l2_responder_v4, &key, &value, BPF_ANY);
 
 	config_set(RUNTIME_CONFIG_AGENT_LIVENESS, ktime_get_ns());
 
