@@ -88,7 +88,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 		.ifindex        = ctx_get_ifindex(ctx),
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP,
+	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 

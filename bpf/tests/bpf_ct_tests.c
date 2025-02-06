@@ -10,8 +10,6 @@
 #define ENABLE_NODEPORT
 #include <node_config.h>
 
-#undef EVENTS_MAP
-#define EVENTS_MAP test_events_map
 #define DEBUG
 
 #include <lib/dbg.h>

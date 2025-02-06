@@ -258,7 +258,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
 
-	ctx_event_output(ctx, &EVENTS_MAP,
+	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
@@ -303,7 +303,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.orig_ip4	= orig_addr,
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP,
+	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
@@ -350,7 +350,7 @@ send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
 
-	ctx_event_output(ctx, &EVENTS_MAP,
+	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
