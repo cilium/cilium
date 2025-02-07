@@ -285,6 +285,9 @@ const (
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
 
+	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
+	LoadBalancerIPIPSockMark = "bpf-lb-ipip-sock-mark"
+
 	// LoadBalancerExternalControlPlane switch skips connectivity to kube-apiserver
 	// which is relevant in lb-only mode
 	LoadBalancerExternalControlPlane = "bpf-lb-external-control-plane"
@@ -1874,6 +1877,9 @@ type DaemonConfig struct {
 	// level annotation for configuring bpf load balancing algorithm.
 	LoadBalancerModeAnnotation bool
 
+	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
+	LoadBalancerIPIPSockMark bool
+
 	// NodePortAlg indicates which backend selection algorithm is used
 	// ("random" or "maglev")
 	NodePortAlg string
@@ -2959,6 +2965,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
+	c.LoadBalancerIPIPSockMark = vp.GetBool(LoadBalancerIPIPSockMark)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
