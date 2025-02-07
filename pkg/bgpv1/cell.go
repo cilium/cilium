@@ -5,6 +5,7 @@ package bgpv1
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	bgp_metrics "github.com/cilium/cilium/pkg/bgpv1/metrics"
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -79,6 +81,11 @@ var Cell = cell.Module(
 		api.NewGetRoutePoliciesHandler,
 	),
 
+	// statedb tables
+	cell.ProvidePrivate(
+		tables.NewBGPReconcileErrorTable,
+	),
+
 	// provide privates for reconciler v2
 	cell.ProvidePrivate(
 		reconcilerv2.NewCiliumPeerAdvertisement,
@@ -98,6 +105,8 @@ var Cell = cell.Module(
 		func(*agent.Controller) {},
 		// Register the bgp_metrics collector
 		bgp_metrics.RegisterCollector,
+		// Register statedb tables
+		statedb.RegisterTable[*tables.BGPReconcileError],
 	),
 
 	metrics.Metric(manager.NewBGPManagerMetrics),
