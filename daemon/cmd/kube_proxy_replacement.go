@@ -121,11 +121,14 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 			option.Config.LoadBalancerRSSv6 = *cidr
 		}
 
-		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&
-			(option.Config.NodePortMode != option.NodePortModeDSR ||
-				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP) {
-			return fmt.Errorf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
-				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR)
+		dsrIPIP := option.Config.LoadBalancerUsesDSR() && option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+		if dsrIPIP && option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
+			return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
+		}
+
+		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") && !dsrIPIP {
+			return fmt.Errorf("Invalid value for --%s/%s: currently only supported under %s dispatch for DSR",
+				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR, option.DSRDispatchIPIP)
 		}
 
 		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
@@ -164,21 +167,7 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, tunnel.Geneve)
 		}
 
-		if option.Config.NodePortMode == option.NodePortModeDSR &&
-			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
-			if !option.Config.LoadBalancerOnly {
-				return fmt.Errorf("DSR dispatch mode %s only supported for --%s=true", option.Config.LoadBalancerDSRDispatch, option.LoadBalancerOnly)
-			}
-			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
-				return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
-			}
-		}
-
-		option.Config.EnableHealthDatapath =
-			option.Config.LoadBalancerOnly &&
-				(option.Config.NodePortMode == option.NodePortModeDSR ||
-					option.Config.LoadBalancerModeAnnotation) &&
-				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+		option.Config.EnableHealthDatapath = option.Config.LoadBalancerOnly && dsrIPIP
 	}
 
 	if option.Config.InstallNoConntrackIptRules {
