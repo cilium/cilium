@@ -272,6 +272,9 @@ const (
 	// Alias to NodePortAlg
 	LoadBalancerAlgorithm = "bpf-lb-algorithm"
 
+	// LoadBalancerNat46X64 enables NAT46 and NAT64 for services
+	LoadBalancerNat46X64 = "bpf-lb-nat46x64"
+
 	// LoadBalancerAlgorithmAnnotation tells whether controller should check service
 	// level annotation for configuring bpf loadbalancing algorithm.
 	LoadBalancerAlgorithmAnnotation = "bpf-lb-algorithm-annotation"
@@ -2881,6 +2884,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableHostPort = vp.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
+	c.NodePortNat46X64 = vp.GetBool(LoadBalancerNat46X64)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = vp.GetBool(EnableSessionAffinity)
@@ -3023,10 +3027,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.AddressScopeMax = defaults.AddressScopeMax
 	}
 
-	if c.EnableNat46X64Gateway {
+	if c.EnableNat46X64Gateway || c.NodePortNat46X64 {
 		if !c.EnableIPv4 || !c.EnableIPv6 {
-			log.Fatalf("--%s requires both --%s and --%s enabled",
-				EnableNat46X64Gateway, EnableIPv4Name, EnableIPv6Name)
+			log.Fatalf("NAT46/NAT64 requires both --%s and --%s enabled",
+				EnableIPv4Name, EnableIPv6Name)
 		}
 	}
 

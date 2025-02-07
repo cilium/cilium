@@ -352,8 +352,9 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		}
 	}
 
-	option.Config.NodePortNat46X64 = option.Config.IsDualStack() &&
-		option.Config.LoadBalancerOnly && option.Config.NodePortMode == option.NodePortModeSNAT
+	if option.Config.NodePortNat46X64 && option.Config.NodePortMode != option.NodePortModeSNAT {
+		return fmt.Errorf("NAT46/NAT64 requires SNAT mode for services")
+	}
 
 	// In the case where the fib lookup does not return the outgoing ifindex
 	// the datapath needs to store it in our CT map, and the map's field is
