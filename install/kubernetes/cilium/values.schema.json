@@ -5067,6 +5067,9 @@
       },
       "type": "object"
     },
+    "secretsNamespaceAnnotations": {
+      "type": "object"
+    },
     "securityContext": {
       "properties": {
         "capabilities": {
