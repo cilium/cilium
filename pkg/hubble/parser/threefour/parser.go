@@ -153,23 +153,11 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		return fmt.Errorf("not enough bytes to decode %d", data)
 	}
 
-	p.packet.Lock()
-	defer p.packet.Unlock()
-
-	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
-	// https://github.com/google/gopacket/issues/846
-	// TODO: reconsider this check if the issue is fixed upstream
-	if len(data[packetOffset:]) > 0 {
-		err := p.packet.decLayer.DecodeLayers(data[packetOffset:], &p.packet.Layers)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Truncate layers to avoid accidental re-use.
-		p.packet.Layers = p.packet.Layers[:0]
+	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary, err := decodeLayers(data[packetOffset:], p.packet)
+	if err != nil {
+		return err
 	}
 
-	ether, ip, l4, srcIP, dstIP, srcPort, dstPort, summary := decodeLayers(p.packet)
 	if tn != nil && ip != nil {
 		if !tn.OriginalIP().IsUnspecified() {
 			// Ignore invalid IP - getters will handle invalid value.
@@ -246,13 +234,32 @@ func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	return nil
 }
 
-func decodeLayers(packet *packet) (
+func decodeLayers(payload []byte, packet *packet) (
 	ethernet *pb.Ethernet,
 	ip *pb.IP,
 	l4 *pb.Layer4,
 	sourceIP, destinationIP netip.Addr,
 	sourcePort, destinationPort uint16,
-	summary string) {
+	summary string,
+	err error,
+) {
+	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
+	// https://github.com/google/gopacket/issues/846
+	// TODO: reconsider this check if the issue is fixed upstream
+	if len(payload) == 0 {
+		return
+	}
+
+	packet.Lock()
+	defer packet.Unlock()
+
+	// Truncate layers to avoid accidental re-use.
+	packet.Layers = packet.Layers[:0]
+	err = packet.decLayer.DecodeLayers(payload, &packet.Layers)
+	if err != nil {
+		return
+	}
+
 	for _, typ := range packet.Layers {
 		summary = typ.String()
 		switch typ {
