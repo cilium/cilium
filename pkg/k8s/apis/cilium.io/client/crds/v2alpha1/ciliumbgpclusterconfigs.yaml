@@ -64,6 +64,15 @@ spec:
                       maximum: 4294967295
                       minimum: 1
                       type: integer
+                    localPort:
+                      description: |-
+                        LocalPort is the port on which the BGP daemon listens for incoming connections.
+
+                        If not specified, BGP instance will not listen for incoming connections.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
                     name:
                       description: |-
                         Name is the name of the BGP instance. It is a unique identifier for the BGP instance

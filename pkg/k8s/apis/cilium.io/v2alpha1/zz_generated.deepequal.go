@@ -352,6 +352,14 @@ func (in *CiliumBGPInstance) DeepEqual(other *CiliumBGPInstance) bool {
 		}
 	}
 
+	if (in.LocalPort == nil) != (other.LocalPort == nil) {
+		return false
+	} else if in.LocalPort != nil {
+		if *in.LocalPort != *other.LocalPort {
+			return false
+		}
+	}
+
 	if ((in.Peers != nil) && (other.Peers != nil)) || ((in.Peers == nil) != (other.Peers == nil)) {
 		in, other := &in.Peers, &other.Peers
 		if other == nil {
