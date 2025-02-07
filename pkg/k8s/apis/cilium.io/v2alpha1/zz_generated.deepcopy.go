@@ -393,6 +393,11 @@ func (in *CiliumBGPInstance) DeepCopyInto(out *CiliumBGPInstance) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.LocalPort != nil {
+		in, out := &in.LocalPort, &out.LocalPort
+		*out = new(int32)
+		**out = **in
+	}
 	if in.Peers != nil {
 		in, out := &in.Peers, &out.Peers
 		*out = make([]CiliumBGPPeer, len(*in))
