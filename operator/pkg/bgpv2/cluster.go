@@ -291,8 +291,9 @@ func toNodeBGPInstance(clusterBGPInstances []v2alpha1.CiliumBGPInstance, overrid
 
 	for _, clusterBGPInstance := range clusterBGPInstances {
 		nodeBGPInstance := v2alpha1.CiliumBGPNodeInstance{
-			Name:     clusterBGPInstance.Name,
-			LocalASN: clusterBGPInstance.LocalASN,
+			Name:      clusterBGPInstance.Name,
+			LocalASN:  clusterBGPInstance.LocalASN,
+			LocalPort: clusterBGPInstance.LocalPort,
 		}
 
 		// find BGPResourceManager global override for this instance
@@ -300,7 +301,9 @@ func toNodeBGPInstance(clusterBGPInstances []v2alpha1.CiliumBGPInstance, overrid
 		for _, overrideBGPInstance := range overrideBGPInstances {
 			if overrideBGPInstance.Name == clusterBGPInstance.Name {
 				nodeBGPInstance.RouterID = overrideBGPInstance.RouterID
-				nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
+				if overrideBGPInstance.LocalPort != nil {
+					nodeBGPInstance.LocalPort = overrideBGPInstance.LocalPort
+				}
 				if overrideBGPInstance.LocalASN != nil {
 					nodeBGPInstance.LocalASN = overrideBGPInstance.LocalASN
 				}

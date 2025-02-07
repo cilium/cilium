@@ -29,8 +29,9 @@ import (
 
 var (
 	cluster1 = cilium_api_v2alpha1.CiliumBGPInstance{
-		Name:     "cluster-1-instance-65001",
-		LocalASN: ptr.To[int64](65001),
+		Name:      "cluster-1-instance-65001",
+		LocalASN:  ptr.To[int64](65001),
+		LocalPort: ptr.To[int32](1179),
 		Peers: []cilium_api_v2alpha1.CiliumBGPPeer{
 			{
 				Name:        "cluster-1-instance-65002-peer-10.0.0.2",
@@ -44,8 +45,9 @@ var (
 	}
 
 	expectedNode1 = cilium_api_v2alpha1.CiliumBGPNodeInstance{
-		Name:     "cluster-1-instance-65001",
-		LocalASN: ptr.To[int64](65001),
+		Name:      "cluster-1-instance-65001",
+		LocalASN:  ptr.To[int64](65001),
+		LocalPort: ptr.To[int32](1179),
 		Peers: []cilium_api_v2alpha1.CiliumBGPNodePeer{
 			{
 				Name:        "cluster-1-instance-65002-peer-10.0.0.2",
@@ -80,6 +82,41 @@ var (
 		LocalASN:  ptr.To[int64](65010),
 		RouterID:  ptr.To[string]("10.10.10.10"),
 		LocalPort: ptr.To[int32](5400),
+		Peers: []cilium_api_v2alpha1.CiliumBGPNodePeer{
+			{
+				Name:         "cluster-1-instance-65002-peer-10.0.0.2",
+				PeerAddress:  ptr.To[string]("10.0.0.2"),
+				PeerASN:      ptr.To[int64](65002),
+				LocalAddress: ptr.To[string]("10.10.10.1"),
+				PeerConfigRef: &cilium_api_v2alpha1.PeerConfigReference{
+					Name: "peer-1",
+				},
+			},
+		},
+	}
+
+	nodeOverride2 = cilium_api_v2alpha1.CiliumBGPNodeConfigOverrideSpec{
+		BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeConfigInstanceOverride{
+			{
+				Name:      "cluster-1-instance-65001",
+				RouterID:  ptr.To[string]("10.10.10.10"),
+				LocalPort: nil,
+				LocalASN:  ptr.To[int64](65010),
+				Peers: []cilium_api_v2alpha1.CiliumBGPNodeConfigPeerOverride{
+					{
+						Name:         "cluster-1-instance-65002-peer-10.0.0.2",
+						LocalAddress: ptr.To[string]("10.10.10.1"),
+					},
+				},
+			},
+		},
+	}
+
+	expectedNodeWithOverride2 = cilium_api_v2alpha1.CiliumBGPNodeInstance{
+		Name:      "cluster-1-instance-65001",
+		LocalASN:  ptr.To[int64](65010),
+		RouterID:  ptr.To[string]("10.10.10.10"),
+		LocalPort: ptr.To[int32](1179),
 		Peers: []cilium_api_v2alpha1.CiliumBGPNodePeer{
 			{
 				Name:         "cluster-1-instance-65002-peer-10.0.0.2",
@@ -391,7 +428,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			},
 		},
 		{
-			description:   "add node override",
+			description:   "add node override1",
 			clusterConfig: nil,
 			nodes:         nil,
 			nodeOverrides: []*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride{
@@ -416,6 +453,52 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
 						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
 							expectedNodeWithOverride1,
+						},
+					},
+				},
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node-2",
+						OwnerReferences: []meta_v1.OwnerReference{
+							{
+								Name: "bgp-cluster-config",
+							},
+						},
+					},
+					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
+						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+							expectedNode1,
+						},
+					},
+				},
+			},
+		},
+		{
+			description:   "add node override2",
+			clusterConfig: nil,
+			nodes:         nil,
+			nodeOverrides: []*cilium_api_v2alpha1.CiliumBGPNodeConfigOverride{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node-1",
+					},
+
+					Spec: nodeOverride2,
+				},
+			},
+			expectedNodeConfigs: []*cilium_api_v2alpha1.CiliumBGPNodeConfig{
+				{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: "node-1",
+						OwnerReferences: []meta_v1.OwnerReference{
+							{
+								Name: "bgp-cluster-config",
+							},
+						},
+					},
+					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
+						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
+							expectedNodeWithOverride2,
 						},
 					},
 				},
@@ -462,7 +545,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 					},
 					Spec: cilium_api_v2alpha1.CiliumBGPNodeSpec{
 						BGPInstances: []cilium_api_v2alpha1.CiliumBGPNodeInstance{
-							expectedNodeWithOverride1,
+							expectedNodeWithOverride2,
 						},
 					},
 				},
