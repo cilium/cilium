@@ -676,6 +676,7 @@ func ipSecReplacePolicyOut(params *IPSecParameters) error {
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
+	policy.Mark.Value |= 0x42
 	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, false)
 	return netlink.XfrmPolicyUpdate(policy)
 }
