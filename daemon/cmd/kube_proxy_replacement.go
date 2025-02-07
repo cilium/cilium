@@ -167,7 +167,13 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, tunnel.Geneve)
 		}
 
-		option.Config.EnableHealthDatapath = option.Config.LoadBalancerOnly && dsrIPIP
+		if option.Config.LoadBalancerIPIPSockMark {
+			if !dsrIPIP {
+				return fmt.Errorf("Node Port %q mode with IPIP socket mark logic requires %s dispatch.",
+					option.Config.NodePortMode, option.DSRDispatchIPIP)
+			}
+			option.Config.EnableHealthDatapath = true
+		}
 	}
 
 	if option.Config.InstallNoConntrackIptRules {
