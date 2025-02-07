@@ -261,10 +261,23 @@ policies to a particular cluster.
 Note the ``io.kubernetes.pod.namespace: default`` in the policy
 rule. It makes sure the policy applies to ``rebel-base`` in the
 ``default`` namespace of ``cluster2`` regardless of the namespace in
-``cluster1`` where ``x-wing`` is deployed in. If the namespace label
-of policy rules is omitted it defaults to the same namespace where the
-policy itself is applied in, which may be not what is wanted when
-deploying cross-cluster policies.
+``cluster1`` where ``x-wing`` is deployed in.
+
+If the namespace label of policy rules is omitted it defaults to the same namespace
+where the policy itself is applied in, which may be not what is wanted when deploying
+cross-cluster policies. To allow access from/to any namespace, use ``matchExpressions``
+combined with an ``Exists`` operator.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/kubernetes/clustermesh/cross-cluster-any-namespace-policy.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../../examples/policies/kubernetes/clustermesh/cross-cluster-any-namespace-policy.yaml
 
 Clusterwide Policies
 ~~~~~~~~~~~~~~~~~~~~
