@@ -1273,15 +1273,6 @@ func initEnv(vp *viper.Viper) {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
 
-	// Legacy / compatibility setting. This one has been remapped into the
-	// option.Config.LoadBalancerOnly flag.
-	if option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
-		option.Config.DatapathMode = datapathOption.DatapathModeVeth
-		option.Config.LoadBalancerOnly = true
-		log.Warnf("Value --%s=%s has been deprecated, Future releases might require to pick individual KPR flags instead",
-			option.DatapathMode, datapathOption.DatapathModeLBOnly)
-	}
-
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
 	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
