@@ -82,6 +82,15 @@ type CiliumBGPInstance struct {
 	// +kubebuilder:validation:Maximum=4294967295
 	LocalASN *int64 `json:"localASN,omitempty"`
 
+	// LocalPort is the port on which the BGP daemon listens for incoming connections.
+	//
+	// If not specified, BGP instance will not listen for incoming connections.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	LocalPort *int32 `json:"localPort,omitempty"`
+
 	// Peers is a list of neighboring BGP peers for this virtual router
 	//
 	// +kubebuilder:validation:Optional
