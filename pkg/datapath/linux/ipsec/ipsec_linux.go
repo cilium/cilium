@@ -543,6 +543,8 @@ func ipSecReplaceStateOut(log *slog.Logger, params *IPSecParameters) (uint8, err
 	state.Src = *params.SourceTunnelIP
 	state.Dst = *params.DestTunnelIP
 	state.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
+	state.Mark.Value |= 0x0
+	state.Mark.Mask |= 0xf
 	state.OutputMark = &netlink.XfrmMark{
 		Value: linux_defaults.RouteMarkEncrypt,
 		Mask:  linux_defaults.OutputMarkMask,
