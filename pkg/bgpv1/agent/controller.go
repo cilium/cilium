@@ -338,13 +338,8 @@ func (c *Controller) cleanupBGPP(ctx context.Context) {
 }
 
 func (c *Controller) reconcileBGPNC(ctx context.Context, bgpnc *v2alpha1api.CiliumBGPNodeConfig) error {
-	err := c.BGPMgr.ReconcileInstances(ctx, bgpnc, c.LocalCiliumNode)
-	if err != nil {
-		return fmt.Errorf("failed to reconcile BGPNodeConfig: %w", err)
-	}
-
 	c.ConfigMode.Set(mode.BGPv2)
-	return nil
+	return c.BGPMgr.ReconcileInstances(ctx, bgpnc, c.LocalCiliumNode)
 }
 
 func (c *Controller) cleanupBGPNC(ctx context.Context) {
