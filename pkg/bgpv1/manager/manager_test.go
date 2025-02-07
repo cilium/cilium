@@ -9,13 +9,18 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
@@ -216,6 +221,301 @@ func TestGetRoutes(t *testing.T) {
 				retrievedPrefixes = append(retrievedPrefixes, netip.MustParsePrefix(r.Prefix))
 			}
 			require.EqualValues(t, tt.expectedPrefixes, retrievedPrefixes)
+		})
+	}
+}
+
+func TestStatedbReconcileErrors(t *testing.T) {
+	var tests = []struct {
+		name            string
+		instances       []*instance.BGPInstance
+		reconcilers     []reconcilerv2.ConfigReconciler
+		initStatedb     []*tables.BGPReconcileError
+		expectedError   bool
+		expectedStatedb []*tables.BGPReconcileError
+	}{
+		{
+			name: "No reconciler error",
+			instances: []*instance.BGPInstance{
+				instance.NewFakeBGPInstanceWithName("instance-1"),
+				instance.NewFakeBGPInstanceWithName("instance-2"),
+			},
+			reconcilers: []reconcilerv2.ConfigReconciler{
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-1",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return nil
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-2",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return nil
+					},
+				}),
+			},
+			initStatedb:     []*tables.BGPReconcileError{},
+			expectedStatedb: []*tables.BGPReconcileError{},
+		},
+		{
+			name: "Both reconcilers return error, for two instances",
+			instances: []*instance.BGPInstance{
+				instance.NewFakeBGPInstanceWithName("instance-1"),
+				instance.NewFakeBGPInstanceWithName("instance-2"),
+			},
+			reconcilers: []reconcilerv2.ConfigReconciler{
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-1",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-1 error")
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-2",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-2 error")
+					},
+				}),
+			},
+			initStatedb:   []*tables.BGPReconcileError{},
+			expectedError: true,
+			expectedStatedb: []*tables.BGPReconcileError{
+				{
+					Instance: "instance-1",
+					ErrorID:  0,
+					Error:    "reconciler-1 error",
+				},
+				{
+					Instance: "instance-1",
+					ErrorID:  1,
+					Error:    "reconciler-2 error",
+				},
+				{
+					Instance: "instance-2",
+					ErrorID:  0,
+					Error:    "reconciler-1 error",
+				},
+				{
+					Instance: "instance-2",
+					ErrorID:  1,
+					Error:    "reconciler-2 error",
+				},
+			},
+		},
+		{
+			name: "Reconcilers recover from previous error condition",
+			instances: []*instance.BGPInstance{
+				instance.NewFakeBGPInstanceWithName("instance-1"),
+				instance.NewFakeBGPInstanceWithName("instance-2"),
+			},
+			reconcilers: []reconcilerv2.ConfigReconciler{
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-1",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return nil
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-2",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return nil
+					},
+				}),
+			},
+			initStatedb: []*tables.BGPReconcileError{
+				{
+					Instance: "instance-1",
+					ErrorID:  0,
+					Error:    "reconciler-1 error",
+				},
+				{
+					Instance: "instance-1",
+					ErrorID:  1,
+					Error:    "reconciler-2 error",
+				},
+				{
+					Instance: "instance-2",
+					ErrorID:  0,
+					Error:    "reconciler-1 error",
+				},
+				{
+					Instance: "instance-2",
+					ErrorID:  1,
+					Error:    "reconciler-2 error",
+				},
+			},
+			expectedStatedb: []*tables.BGPReconcileError{},
+			expectedError:   false,
+		},
+		{
+			name: "Maximum 5 errors allowed per instance",
+			instances: []*instance.BGPInstance{
+				instance.NewFakeBGPInstanceWithName("instance-1"),
+			},
+			reconcilers: []reconcilerv2.ConfigReconciler{
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-1",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-1 error")
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-2",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-2 error")
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-3",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-3 error")
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-4",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-4 error")
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-5",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-5 error")
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{ // this error is not saved
+					Name: "reconciler-6",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-6 error")
+					},
+				}),
+			},
+			initStatedb: []*tables.BGPReconcileError{},
+			expectedStatedb: []*tables.BGPReconcileError{
+				{
+					Instance: "instance-1",
+					ErrorID:  0,
+					Error:    "reconciler-1 error",
+				},
+				{
+					Instance: "instance-1",
+					ErrorID:  1,
+					Error:    "reconciler-2 error",
+				},
+				{
+					Instance: "instance-1",
+					ErrorID:  2,
+					Error:    "reconciler-3 error",
+				},
+				{
+					Instance: "instance-1",
+					ErrorID:  3,
+					Error:    "reconciler-4 error",
+				},
+				{
+					Instance: "instance-1",
+					ErrorID:  4,
+					Error:    "reconciler-5 error",
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "abort reconcile error only logged once",
+			instances: []*instance.BGPInstance{
+				instance.NewFakeBGPInstanceWithName("instance-1"),
+			},
+			reconcilers: []reconcilerv2.ConfigReconciler{
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-1",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return reconcilerv2.ErrAbortReconcile // abort reconcile error
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-2",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-2 error")
+					},
+				}),
+				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+					Name: "reconciler-3",
+					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+						return fmt.Errorf("reconciler-3 error")
+					},
+				}),
+			},
+			initStatedb: []*tables.BGPReconcileError{},
+			expectedStatedb: []*tables.BGPReconcileError{
+				{
+					Instance: "instance-1",
+					ErrorID:  0,
+					Error:    reconcilerv2.ErrAbortReconcile.Error(),
+				},
+			},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := statedb.New()
+			reconcileErrTbl, err := tables.NewBGPReconcileErrorTable()
+			require.NoError(t, err)
+
+			err = db.RegisterTable(reconcileErrTbl)
+			require.NoError(t, err)
+
+			testInstances := make(map[string]*instance.BGPInstance)
+			for _, inst := range tt.instances {
+				testInstances[inst.Name] = inst
+			}
+
+			m := BGPRouterManager{
+				BGPInstances:        testInstances,
+				ConfigReconcilers:   tt.reconcilers,
+				DB:                  db,
+				ReconcileErrorTable: reconcileErrTbl,
+				metrics:             NewBGPManagerMetrics(),
+			}
+
+			// init statedb with test data
+			txn := db.WriteTxn(m.ReconcileErrorTable)
+			for _, errObj := range tt.initStatedb {
+				_, _, err = m.ReconcileErrorTable.Insert(txn, errObj)
+				require.NoError(t, err)
+			}
+			txn.Commit()
+
+			// call reconcile for each instance
+			for _, inst := range tt.instances {
+				err = m.reconcileBGPConfigV2(
+					context.Background(),
+					inst,
+					&v2alpha1api.CiliumBGPNodeInstance{
+						Name: inst.Name,
+					},
+					&v2api.CiliumNode{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node-1",
+						},
+					},
+				)
+				if tt.expectedError {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+				}
+			}
+
+			// check if the statedb is updated correctly
+			var runningStatedb []*tables.BGPReconcileError
+			iter := m.ReconcileErrorTable.All(db.ReadTxn())
+			for errObj := range iter {
+				runningStatedb = append(runningStatedb, errObj)
+			}
+
+			require.ElementsMatch(t, tt.expectedStatedb, runningStatedb)
 		})
 	}
 }
