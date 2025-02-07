@@ -609,10 +609,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.LoadBalancerProtocolDifferentiation, true, "Enable support for service protocol differentiation (TCP, UDP, SCTP)")
 	option.BindEnv(vp, option.LoadBalancerProtocolDifferentiation)
 
-	flags.Bool(option.LoadBalancerOnly, false, "Enable support for legacy lb-only mode")
-	option.BindEnv(vp, option.LoadBalancerOnly)
-	flags.MarkDeprecated(option.LoadBalancerOnly, "Future releases might require to pick individual KPR flags instead")
-
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
 		"Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps "+
 			"with ephemeral port range (net.ipv4.ip_local_port_range)")
@@ -1294,25 +1290,6 @@ func initEnv(vp *viper.Viper) {
 		}
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
-	}
-
-	if option.Config.LoadBalancerOnly {
-		log.Info("Running in LB-only mode")
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-			option.Config.EnablePMTUDiscovery = true
-		}
-		option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
-		option.Config.EnableSocketLB = true
-		option.Config.EnableSocketLBPodConnectionTermination = true
-		option.Config.EnableHostPort = false
-		option.Config.EnableNodePort = true
-		option.Config.EnableExternalIPs = true
-		option.Config.RoutingMode = option.RoutingModeNative
-		option.Config.EnableHealthChecking = false
-		option.Config.EnableIPv4Masquerade = false
-		option.Config.EnableIPv6Masquerade = false
-		option.Config.InstallIptRules = false
-		option.Config.EnableL7Proxy = false
 	}
 
 	if option.Config.EnableL7Proxy && !option.Config.InstallIptRules {
