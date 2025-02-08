@@ -14,7 +14,7 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	ipam_types "github.com/cilium/cilium/pkg/ipam/types"
@@ -1141,7 +1141,7 @@ func Test_AdvertisedPathAttributes(t *testing.T) {
 					Communities: &v2alpha1.BGPCommunities{
 						Standard: []v2alpha1.BGPStandardCommunity{v2alpha1.BGPStandardCommunity("64125:100")},
 					},
-					LocalPreference: pointer.Int64(150),
+					LocalPreference: ptr.To[int64](150),
 				},
 			},
 			expectedRouteEvent: routeEvent{
