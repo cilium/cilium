@@ -286,6 +286,12 @@ Users (Alphabetically)
       L: https://www.equinix.nl/products/support-services/managed-services/netherlands
       Q: @jonkerj
 
+    * N: EvoCloud
+      D: EvoCloud uses Cilium as a Kubernetes proxy replacement, CNI with Gateway API integration, Cluster mesh with BGP enabled, Network policy and Hubble Observability.
+      U: L4/L7 Networking, L2 Announcement, Network Policies, Kube-proxy replacement, CNI with Gateway API, Hubble for tracing and observability, ClusterMesh and ServiceMesh
+      L: https://github.com/evocloud-dev/evocloud-paas
+      Q: @geanttechnology, @escapevelocity17321
+
     * N: Exoscale
       D: Exoscale is offering Cilium as a CNI option on its managed Kubernetes service named SKS (Scalable Kubernetes Service)
       U: CNI, Networking
