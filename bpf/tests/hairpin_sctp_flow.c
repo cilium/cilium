@@ -10,6 +10,7 @@
 #undef QUIET_CT
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test*/
@@ -129,14 +130,7 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	if (l3->saddr != IPV4_LOOPBACK)
-		test_fatal("src IP was not SNAT'ed");
-
-	if (l3->daddr != v4_pod_one)
-		test_fatal("dest IP hasn't been changed to the pod IP");
-
-	if (l3->check != bpf_htons(0xb09c))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_SCTP, IPV4_LOOPBACK, v4_pod_one));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -220,14 +214,7 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	if (l3->saddr != IPV4_LOOPBACK)
-		test_fatal("src IP changed");
-
-	if (l3->daddr != v4_pod_one)
-		test_fatal("dest IP changed");
-
-	if (l3->check != bpf_htons(0xaf9c))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_SCTP, IPV4_LOOPBACK, v4_pod_one));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -305,11 +292,7 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	if (l3->saddr != v4_pod_one)
-		test_fatal("src IP changed");
-
-	if (l3->daddr != IPV4_LOOPBACK)
-		test_fatal("dest IP changed");
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_SCTP, v4_pod_one, IPV4_LOOPBACK));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -392,14 +375,7 @@ int hairpin_sctp_flow_4_reverse_ingress_v4_check(const struct __ctx_buff *ctx)
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("l3 out of bounds");
 
-	if (l3->saddr != v4_svc_one)
-		test_fatal("src IP was not NAT'ed back to the svc IP");
-
-	if (l3->daddr != v4_pod_one)
-		test_fatal("dest IP hasn't been NAT'ed to the original source IP");
-
-	if (l3->check != bpf_htons(0x3a0))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_SCTP, v4_svc_one, v4_pod_one));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 

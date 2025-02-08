@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -365,14 +366,7 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the client MAC")
 
-	if (l3->saddr != FRONTEND_IP)
-		test_fatal("src IP hasn't been RevNATed to frontend IP");
-
-	if (l3->daddr != CLIENT_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x4baa))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, FRONTEND_IP, CLIENT_IP));
 
 	if (l4->source != FRONTEND_PORT)
 		test_fatal("src port hasn't been RevNATed to frontend port");
@@ -654,14 +648,7 @@ int nodeport_dsr_backend_redirect_reply_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the client MAC")
 
-	if (l3->saddr != BACKEND_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != CLIENT_IP_2)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x3611))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, BACKEND_IP, CLIENT_IP_2));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");

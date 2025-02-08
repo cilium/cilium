@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include <bpf/ctx/skb.h>
+#include "pktcheck.h"
 #include "pktgen.h"
 
 /* Enable code paths under test */
@@ -172,14 +173,7 @@ int l4lb_health_check_host_check(const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the backend MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
-
-	if (l3->daddr != FRONTEND_IP)
-		test_fatal("dst IP has changed");
-
-	if (l3->check != bpf_htons(0x402))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+	assert(!pktcheck__validate_ipv4(l3, IPPROTO_TCP, CLIENT_IP, FRONTEND_IP));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
