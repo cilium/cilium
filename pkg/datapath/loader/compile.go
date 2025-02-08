@@ -53,7 +53,6 @@ const (
 
 	xdpPrefix = "bpf_xdp"
 	xdpProg   = xdpPrefix + "." + string(outputSource)
-	xdpObj    = xdpPrefix + ".o"
 
 	overlayPrefix = "bpf_overlay"
 	overlayProg   = overlayPrefix + "." + string(outputSource)
