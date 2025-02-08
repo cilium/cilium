@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"net/netip"
+	"sort"
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
@@ -535,14 +536,21 @@ func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, desiredPeerAdve
 				}
 
 				for _, prefix := range desiredPrefixes {
-					path := types.NewPathForPrefix(prefix)
-					path.Family = agentFamily
-
 					// we only add path corresponding to the family of the prefix.
 					if agentFamily.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
+						if advert.Service.AggregationLengthIPv4 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+							prefix = netip.PrefixFrom(prefix.Addr(), int(*advert.Service.AggregationLengthIPv4))
+						}
+						path := types.NewPathForPrefix(prefix)
+						path.Family = agentFamily
 						addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
 					}
 					if agentFamily.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
+						if advert.Service.AggregationLengthIPv6 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+							prefix = netip.PrefixFrom(prefix.Addr(), int(*advert.Service.AggregationLengthIPv6))
+						}
+						path := types.NewPathForPrefix(prefix)
+						path.Family = agentFamily
 						addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
 					}
 				}
@@ -706,18 +714,34 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p ReconcileParams, peer
 			continue
 		}
 
+		mask := addr.BitLen()
+
 		if family.Afi == types.AfiIPv4 && addr.Is4() {
-			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, addr.BitLen()), PrefixLenMin: addr.BitLen(), PrefixLenMax: addr.BitLen()})
+			if advert.Service.AggregationLengthIPv4 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+				mask = int(*advert.Service.AggregationLengthIPv4)
+			}
+			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 		}
 
 		if family.Afi == types.AfiIPv6 && addr.Is6() {
-			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, addr.BitLen()), PrefixLenMin: addr.BitLen(), PrefixLenMax: addr.BitLen()})
+			if advert.Service.AggregationLengthIPv6 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+				mask = int(*advert.Service.AggregationLengthIPv6)
+			}
+			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 		}
 	}
 
 	if len(v4Prefixes) == 0 && len(v6Prefixes) == 0 {
 		return nil, nil
 	}
+
+	sort.SliceStable(v4Prefixes, func(i, j int) bool {
+		return v4Prefixes[i].PrefixLenMax < v4Prefixes[j].PrefixLenMax
+	})
+
+	sort.SliceStable(v6Prefixes, func(i, j int) bool {
+		return v6Prefixes[i].PrefixLenMax < v6Prefixes[j].PrefixLenMax
+	})
 
 	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPLoadBalancerIPAddr))
 	policy, err := CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
@@ -763,18 +787,34 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p ReconcileParams, peer str
 			continue
 		}
 
+		mask := addr.BitLen()
+
 		if family.Afi == types.AfiIPv4 && addr.Is4() {
-			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, addr.BitLen()), PrefixLenMin: addr.BitLen(), PrefixLenMax: addr.BitLen()})
+			if advert.Service.AggregationLengthIPv4 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+				mask = int(*advert.Service.AggregationLengthIPv4)
+			}
+			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 		}
 
 		if family.Afi == types.AfiIPv6 && addr.Is6() {
-			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, addr.BitLen()), PrefixLenMin: addr.BitLen(), PrefixLenMax: addr.BitLen()})
+			if advert.Service.AggregationLengthIPv6 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+				mask = int(*advert.Service.AggregationLengthIPv6)
+			}
+			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 		}
 	}
 
 	if len(v4Prefixes) == 0 && len(v6Prefixes) == 0 {
 		return nil, nil
 	}
+
+	sort.SliceStable(v4Prefixes, func(i, j int) bool {
+		return v4Prefixes[i].PrefixLenMax < v4Prefixes[j].PrefixLenMax
+	})
+
+	sort.SliceStable(v6Prefixes, func(i, j int) bool {
+		return v6Prefixes[i].PrefixLenMax < v6Prefixes[j].PrefixLenMax
+	})
 
 	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPExternalIPAddr))
 	policy, err := CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
@@ -828,18 +868,34 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p ReconcileParams, peer stri
 			continue
 		}
 
+		mask := addr.BitLen()
+
 		if family.Afi == types.AfiIPv4 && addr.Is4() {
-			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, addr.BitLen()), PrefixLenMin: addr.BitLen(), PrefixLenMax: addr.BitLen()})
+			if advert.Service.AggregationLengthIPv4 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+				mask = int(*advert.Service.AggregationLengthIPv4)
+			}
+			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 		}
 
 		if family.Afi == types.AfiIPv6 && addr.Is6() {
-			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, addr.BitLen()), PrefixLenMin: addr.BitLen(), PrefixLenMax: addr.BitLen()})
+			if advert.Service.AggregationLengthIPv6 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+				mask = int(*advert.Service.AggregationLengthIPv6)
+			}
+			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 		}
 	}
 
 	if len(v4Prefixes) == 0 && len(v6Prefixes) == 0 {
 		return nil, nil
 	}
+
+	sort.SliceStable(v4Prefixes, func(i, j int) bool {
+		return v4Prefixes[i].PrefixLenMax < v4Prefixes[j].PrefixLenMax
+	})
+
+	sort.SliceStable(v6Prefixes, func(i, j int) bool {
+		return v6Prefixes[i].PrefixLenMax < v6Prefixes[j].PrefixLenMax
+	})
 
 	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPClusterIPAddr))
 	policy, err := CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
