@@ -535,14 +535,21 @@ func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, desiredPeerAdve
 				}
 
 				for _, prefix := range desiredPrefixes {
-					path := types.NewPathForPrefix(prefix)
-					path.Family = agentFamily
-
 					// we only add path corresponding to the family of the prefix.
 					if agentFamily.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
+						if advert.Service.AggregationLengthIPv4 != nil {
+							prefix = netip.PrefixFrom(prefix.Addr(), int(*advert.Service.AggregationLengthIPv4))
+						}
+						path := types.NewPathForPrefix(prefix)
+						path.Family = agentFamily
 						addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
 					}
 					if agentFamily.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
+						if advert.Service.AggregationLengthIPv4 != nil {
+							prefix = netip.PrefixFrom(prefix.Addr(), int(*advert.Service.AggregationLengthIPv6))
+						}
+						path := types.NewPathForPrefix(prefix)
+						path.Family = agentFamily
 						addPathToAFPathsMap(desiredFamilyAdverts, agentFamily, path)
 					}
 				}
@@ -706,12 +713,19 @@ func (r *ServiceReconciler) getLoadBalancerIPRoutePolicy(p ReconcileParams, peer
 			continue
 		}
 
+		var mask int
+		if advert.Service.AggregationLengthIPv4 != nil && svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+			mask = int(*advert.Service.AggregationLengthIPv4)
+		} else {
+			mask = addr.BitLen()
+		}
+
 		if family.Afi == types.AfiIPv4 && addr.Is4() {
-			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, addr.BitLen()), PrefixLenMin: addr.BitLen(), PrefixLenMax: addr.BitLen()})
+			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 		}
 
 		if family.Afi == types.AfiIPv6 && addr.Is6() {
-			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, addr.BitLen()), PrefixLenMin: addr.BitLen(), PrefixLenMax: addr.BitLen()})
+			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: netip.PrefixFrom(addr, mask), PrefixLenMin: mask, PrefixLenMax: mask})
 		}
 	}
 
