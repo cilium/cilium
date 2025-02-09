@@ -9,7 +9,7 @@ set -o pipefail
 set -o nounset
 
 # renovate: datasource=github-release-attachments depName=protocolbuffers/protobuf
-protoc_version="24.0"
+protoc_version="v29.3"
 arch=$(arch)
 if [[ "${arch}" == "aarch64" ]]; then
   arch="aarch_64"
