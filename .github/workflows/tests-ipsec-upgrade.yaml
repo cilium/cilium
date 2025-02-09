@@ -316,7 +316,7 @@ jobs:
         with:
           images-folder-parent: "/tmp"
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: v0.0.20
+          lvh-version: v0.0.23
           test-name: e2e-conformance
           kernel: ${{ matrix.kernel }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
