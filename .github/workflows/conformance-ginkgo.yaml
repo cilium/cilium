@@ -280,7 +280,7 @@ jobs:
 
       - name: Provision LVH VMs
         id: provision-vh-vms
-        uses: cilium/little-vm-helper@7976bb91330b82248bc296b53f0e45fdd147d551 # v0.0.20
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           test-name: datapath-conformance
           install-dependencies: true
@@ -290,7 +290,7 @@ jobs:
           cpu: 4
           mem: 12G
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.20"
+          lvh-version: "v0.0.23"
           cmd: |
             git config --global --add safe.directory /host
             mv /host/helm /usr/bin
@@ -298,7 +298,7 @@ jobs:
 
       - name: Provision kind
         timeout-minutes: 5
-        uses: cilium/little-vm-helper@7976bb91330b82248bc296b53f0e45fdd147d551 # v0.0.20
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -367,7 +367,7 @@ jobs:
       - name: Run tests
         id: run-tests
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@7976bb91330b82248bc296b53f0e45fdd147d551 # v0.0.20
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -427,7 +427,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
-        uses: cilium/little-vm-helper@7976bb91330b82248bc296b53f0e45fdd147d551 # v0.0.20
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
@@ -454,7 +454,7 @@ jobs:
       - name: Fetch features tested
         if: ${{ always() && steps.provision-vh-vms.outcome == 'success' }}
         continue-on-error: true
-        uses: cilium/little-vm-helper@7976bb91330b82248bc296b53f0e45fdd147d551 # v0.0.20
+        uses: cilium/little-vm-helper@e87948476ca97050b1f149ab2aec379d0de19b84 # v0.0.23
         with:
           provision: 'false'
           cmd: |
