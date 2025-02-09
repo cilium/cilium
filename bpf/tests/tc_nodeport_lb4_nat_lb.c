@@ -152,9 +152,9 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 	return CTX_ACT_DROP;
 }
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/egressgw_policy.h"
 #include "lib/endpoint.h"
@@ -1005,7 +1005,7 @@ int nodeport_nat_fwd_reply_punt_setup(struct __ctx_buff *ctx)
 	rtuple.sport = BACKEND_PORT;
 	rtuple.dport = nat_source_port;
 
-	if IS_ERR(map_delete_elem(&SNAT_MAPPING_IPV4, &rtuple))
+	if IS_ERR(map_delete_elem(&cilium_snat_v4_external, &rtuple))
 		return TEST_ERROR;
 
 	/* Jump into the entrypoint */

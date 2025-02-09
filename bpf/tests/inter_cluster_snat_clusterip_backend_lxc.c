@@ -26,9 +26,6 @@
 /* Set dummy ifindex for tunnel device */
 #define ENCAP_IFINDEX 1
 
-/* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 BACKEND_IP
-
 /* Overlapping PodCIDR is only supported for IPv4 for now */
 #define ENABLE_IPV4
 
@@ -57,6 +54,9 @@
 
 /* Include an actual datapath code */
 #include <bpf_lxc.c>
+
+/* Set the LXC source address to be the address of the backend pod */
+ASSIGN_CONFIG(__u32, endpoint_ipv4, BACKEND_IP)
 
 #include "lib/ipcache.h"
 #include "lib/policy.h"
@@ -233,7 +233,7 @@ int overlay_to_lxc_syn_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags   = TUPLE_F_IN;
 
-	entry = map_lookup_elem(&CT_MAP_TCP4, &tuple);
+	entry = map_lookup_elem(&cilium_ct4_global, &tuple);
 	if (!entry)
 		test_fatal("couldn't find ingress conntrack entry");
 
@@ -330,7 +330,7 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags   = TUPLE_F_IN;
 
-	entry = map_lookup_elem(&CT_MAP_TCP4, &tuple);
+	entry = map_lookup_elem(&cilium_ct4_global, &tuple);
 	if (!entry)
 		test_fatal("couldn't find egress conntrack entry");
 
@@ -429,7 +429,7 @@ int overlay_to_lxc_ack_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags   = TUPLE_F_IN;
 
-	entry = map_lookup_elem(&CT_MAP_TCP4, &tuple);
+	entry = map_lookup_elem(&cilium_ct4_global, &tuple);
 	if (!entry)
 		test_fatal("couldn't find ingress conntrack entry");
 

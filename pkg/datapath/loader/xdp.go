@@ -17,9 +17,10 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-	"github.com/cilium/cilium/pkg/mac"
+
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -95,22 +96,11 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode xdp.Mode, bpffsBas
 }
 
 // xdpCompileArgs derives compile arguments for bpf_xdp.c.
-func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
-	link, err := safenetlink.LinkByName(xdpDev)
-	if err != nil {
-		return nil, err
-	}
-
-	args := []string{
-		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
-		fmt.Sprintf("-DCALLS_MAP=cilium_calls_xdp_%d", link.Attrs().Index),
-	}
-	args = append(args, extraCArgs...)
+func xdpCompileArgs(extraCArgs []string) ([]string, error) {
+	args := []string{}
+	copy(args, extraCArgs)
 	if option.Config.EnableNodePort {
-		args = append(args, []string{
-			fmt.Sprintf("-DTHIS_MTU=%d", link.Attrs().MTU),
-			"-DDISABLE_LOOPBACK_LB",
-		}...)
+		args = append(args, "-DDISABLE_LOOPBACK_LB")
 	}
 
 	return args, nil
@@ -118,7 +108,7 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
 func compileAndLoadXDPProg(ctx context.Context, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
-	args, err := xdpCompileArgs(xdpDev, extraCArgs)
+	args, err := xdpCompileArgs(extraCArgs)
 	if err != nil {
 		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
 	}
@@ -154,10 +144,15 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev string, xdpMode xdp.Mode,
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
+	cfg := config.NewBPFXDP()
+	cfg.InterfaceIfindex = uint32(iface.Attrs().Index)
+	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
+
 	var obj xdpObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
-		Constants: map[string]uint64{
-			"interface_ifindex": uint64(iface.Attrs().Index),
+		Constants: cfg,
+		MapRenames: map[string]string{
+			"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
 		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},

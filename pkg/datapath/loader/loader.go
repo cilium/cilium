@@ -10,7 +10,7 @@ import (
 	"net"
 	"net/netip"
 	"path/filepath"
-	"strings"
+	maps "strings"
 	"sync"
 
 	"github.com/cilium/ebpf"
@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -29,11 +30,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -170,62 +172,59 @@ func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, m
 	return
 }
 
-// hostRewrites calculates the changes necessary to attach the host endpoint
-// programs to different interfaces.
-func hostRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
-	opts := ELFVariableSubstitutions(ep)
-	strings := ELFMapSubstitutions(ep)
+// netdevRewrites prepares configuration data for attaching bpf_host.c to the
+// specified externally-facing network device.
+func netdevRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.EndpointConfiguration, link netlink.Link) (*config.BPFHost, map[string]string) {
+	hcfg := config.NewBPFHost()
 
-	iface, err := safenetlink.LinkByName(ifName)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// The THIS_INTERFACE_MAC value is specific to each attachment interface.
-	mac := mac.MAC(iface.Attrs().HardwareAddr)
-	if mac == nil {
-		// L2-less device
-		mac = make([]byte, 6)
-		opts["ETH_HLEN"] = uint64(0)
-	}
-	opts["THIS_INTERFACE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
-	opts["THIS_INTERFACE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
-
-	ifIndex := uint32(iface.Attrs().Index)
-
-	if !option.Config.EnableHostLegacyRouting {
-		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheEnabled)
+	// External devices can be L2-less, in which case it won't have a MAC address
+	// and its ethernet header length is set to 0.
+	em := link.Attrs().HardwareAddr
+	if len(em) == 6 {
+		hcfg.InterfaceMAC1 = sliceToBe32(em[0:4])
+		hcfg.InterfaceMAC2 = sliceToBe16(em[4:6])
 	} else {
-		opts["SECCTX_FROM_IPCACHE"] = uint64(secctxFromIpcacheDisabled)
+		hcfg.EthHeaderLength = 0
 	}
 
-	// Overwrite the host endpoint ifindex assigned in ELFVariableSubstitutions
-	// with the external device's.
-	opts["interface_ifindex"] = uint64(ifIndex)
+	hcfg.HostSecctxFromIPCache = secctxFromIpcacheEnabled
+	if option.Config.EnableHostLegacyRouting {
+		hcfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
+	}
 
-	if option.Config.EnableBPFMasquerade && ifName != defaults.SecondHostDevice {
-		ipv4, ipv6 := bpfMasqAddrs(ifName, cfg)
+	hcfg.SecurityLabel = ep.GetIdentity().Uint32()
+
+	ifindex := link.Attrs().Index
+	hcfg.InterfaceIfindex = uint32(ifindex)
+
+	// Enable masquerading on external interfaces.
+	if option.Config.EnableBPFMasquerade {
+		ipv4, ipv6 := bpfMasqAddrs(link.Attrs().Name, cfg)
 
 		if option.Config.EnableIPv4Masquerade && ipv4.IsValid() {
-			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4.AsSlice()))
+			hcfg.NATIPv4Masquerade = byteorder.NetIPv4ToHost32(ipv4.AsSlice())
 		}
 		if option.Config.EnableIPv6Masquerade && ipv6.IsValid() {
 			ipv6Bytes := ipv6.AsSlice()
-			opts["IPV6_MASQUERADE_1"] = sliceToBe64(ipv6Bytes[0:8])
-			opts["IPV6_MASQUERADE_2"] = sliceToBe64(ipv6Bytes[8:16])
+			hcfg.NATIPv6Masquerade1 = sliceToBe64(ipv6Bytes[0:8])
+			hcfg.NATIPv6Masquerade2 = sliceToBe64(ipv6Bytes[8:16])
 		}
 	}
 
-	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, templateLxcID)
-	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifIndex))
+	renames := map[string]string{
+		// Rename the calls map to include the device's ifindex.
+		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
+		// Rename the policy map to include the host's endpoint id.
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+	}
 
-	return opts, strings, nil
+	return hcfg, renames
 }
 
 func isObsoleteDev(dev string, devices []string) bool {
 	// exclude devices we never attach to/from_netdev to.
 	for _, prefix := range defaults.ExcludedDevicePrefixes {
-		if strings.HasPrefix(dev, prefix) {
+		if maps.HasPrefix(dev, prefix) {
 			return false
 		}
 	}
@@ -277,7 +276,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 		}
 		for _, filter := range ingressFilters {
 			if bpfFilter, ok := filter.(*netlink.BpfFilter); ok {
-				if strings.HasPrefix(bpfFilter.Name, symbolFromHostNetdevEp) {
+				if maps.HasPrefix(bpfFilter.Name, symbolFromHostNetdevEp) {
 					ingressDevs = append(ingressDevs, l)
 				}
 			}
@@ -289,7 +288,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 		}
 		for _, filter := range egressFilters {
 			if bpfFilter, ok := filter.(*netlink.BpfFilter); ok {
-				if strings.HasPrefix(bpfFilter.Name, symbolToHostNetdevEp) {
+				if maps.HasPrefix(bpfFilter.Name, symbolToHostNetdevEp) {
 					egressDevs = append(egressDevs, l)
 				}
 			}
@@ -321,7 +320,7 @@ func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoi
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachCiliumNet(cfg, ep, spec); err != nil {
+	if err := attachCiliumNet(ep, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
@@ -332,6 +331,33 @@ func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoi
 	return nil
 }
 
+// ciliumHostRewrites prepares configuration data for attaching bpf_host.c to
+// the cilium_host network device.
+func ciliumHostRewrites(ep datapath.EndpointConfiguration) (*config.BPFHost, map[string]string) {
+	cfg := config.NewBPFHost()
+
+	em := ep.GetNodeMAC()
+	if len(em) != 6 {
+		panic(fmt.Sprintf("invalid MAC address for cilium_host: %q", em))
+	}
+	cfg.InterfaceMAC1 = sliceToBe32(em[0:4])
+	cfg.InterfaceMAC2 = sliceToBe16(em[4:6])
+
+	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
+
+	cfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
+
+	cfg.SecurityLabel = ep.GetIdentity().Uint32()
+
+	renames := map[string]string{
+		// Rename calls and policy maps to include the host endpoint's id.
+		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+	}
+
+	return cfg, renames
+}
+
 // attachCiliumHost inserts the host endpoint's policy program into the global
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
 func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
@@ -340,13 +366,15 @@ func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
 	}
 
+	co, renames := ciliumHostRewrites(ep)
+
 	var hostObj hostObjects
 	commit, err := bpf.LoadAndAssign(&hostObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		MapRenames: ELFMapSubstitutions(ep),
-		Constants:  ELFVariableSubstitutions(ep),
+		Constants:  co,
+		MapRenames: renames,
 	})
 	if err != nil {
 		return err
@@ -376,25 +404,54 @@ func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
+// ciliumNetRewrites prepares configuration data for attaching bpf_host.c to
+// the cilium_net network device.
+func ciliumNetRewrites(ep datapath.EndpointConfiguration, link netlink.Link) (*config.BPFHost, map[string]string) {
+	cfg := config.NewBPFHost()
+
+	cfg.SecurityLabel = ep.GetIdentity().Uint32()
+
+	em := link.Attrs().HardwareAddr
+	if len(em) != 6 {
+		panic(fmt.Sprintf("invalid MAC address for %s: %q", link.Attrs().Name, em))
+	}
+	cfg.InterfaceMAC1 = sliceToBe32(em[0:4])
+	cfg.InterfaceMAC2 = sliceToBe16(em[4:6])
+
+	cfg.HostSecctxFromIPCache = secctxFromIpcacheEnabled
+	if option.Config.EnableHostLegacyRouting {
+		cfg.HostSecctxFromIPCache = secctxFromIpcacheDisabled
+	}
+
+	ifindex := link.Attrs().Index
+	cfg.InterfaceIfindex = uint32(ifindex)
+
+	renames := map[string]string{
+		// Rename the calls map to include cilium_net's ifindex.
+		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
+		// Rename the policy map to include the host endpoint's id.
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+	}
+
+	return cfg, renames
+}
+
 // attachCiliumNet attaches programs from bpf_host.c to cilium_net.
-func attachCiliumNet(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func attachCiliumNet(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	net, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
 	}
 
-	consts, renames, err := hostRewrites(cfg, ep, defaults.SecondHostDevice)
-	if err != nil {
-		return err
-	}
+	co, renames := ciliumNetRewrites(ep, net)
 
 	var netObj hostNetObjects
 	commit, err := bpf.LoadAndAssign(&netObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		Constants:  co,
 		MapRenames: renames,
-		Constants:  consts,
 	})
 	if err != nil {
 		return err
@@ -435,18 +492,15 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 
 		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
 
-		consts, renames, err := hostRewrites(cfg, ep, device)
-		if err != nil {
-			return err
-		}
+		co, renames := netdevRewrites(cfg, ep, iface)
 
 		var netdevObj hostNetdevObjects
 		commit, err := bpf.LoadAndAssign(&netdevObj, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
+			Constants:  co,
 			MapRenames: renames,
-			Constants:  consts,
 		})
 		if err != nil {
 			return err
@@ -492,6 +546,49 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 	return nil
 }
 
+// endpointRewrites prepares configuration data for attaching bpf_lxc.c to the
+// specified workload endpoint.
+func endpointRewrites(ep datapath.EndpointConfiguration) (*config.BPFLXC, map[string]string) {
+	cfg := config.NewBPFLXC()
+
+	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
+		cfg.EndpointIPv61 = sliceToBe64(ipv6[0:8])
+		cfg.EndpointIPv62 = sliceToBe64(ipv6[8:16])
+	}
+	if ipv4 := ep.IPv4Address().AsSlice(); ipv4 != nil {
+		cfg.EndpointIPv4 = byteorder.NetIPv4ToHost32(net.IP(ipv4))
+	}
+
+	// Netkit devices can be L2-less, meaning they operate with a zero MAC
+	// address. Unlike other L2-less devices, the ethernet header length remains
+	// at its default non-zero value.
+	em := ep.GetNodeMAC()
+	if len(em) == 6 {
+		cfg.InterfaceMAC1 = sliceToBe32(em[0:4])
+		cfg.InterfaceMAC2 = sliceToBe16(em[4:6])
+	}
+
+	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
+
+	cfg.EndpointID = uint16(ep.GetID())
+	cfg.EndpointNetNSCookie = ep.GetEndpointNetNsCookie()
+
+	cfg.SecurityLabel = ep.GetIdentity().Uint32()
+
+	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
+
+	renames := map[string]string{
+		// Rename the calls and policy maps to include the endpoint's id.
+		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+	}
+	if option.Config.EnableCustomCalls {
+		renames["cilium_calls_custom"] = bpf.LocalMapName(callsmap.CustomCallsMapName, uint16(ep.GetID()))
+	}
+
+	return cfg, renames
+}
+
 // reloadEndpoint loads programs in spec into the device used by ep.
 //
 // spec is modified by the method and it is the callers responsibility to copy
@@ -499,13 +596,15 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
+	co, renames := endpointRewrites(ep)
+
 	var obj lxcObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		MapRenames: ELFMapSubstitutions(ep),
-		Constants:  ELFVariableSubstitutions(ep),
+		Constants:  co,
+		MapRenames: renames,
 	})
 	if err != nil {
 		return err
@@ -581,10 +680,14 @@ func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
 
+	cfg := config.NewBPFOverlay()
+	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
+
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
-		Constants: map[string]uint64{
-			"interface_ifindex": uint64(device.Attrs().Index),
+		Constants: cfg,
+		MapRenames: map[string]string{
+			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
@@ -612,8 +715,8 @@ func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.
 	return nil
 }
 
-func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlink.Link) (err error) {
-	if err := compileWireguard(ctx, cArgs); err != nil {
+func replaceWireguardDatapath(ctx context.Context, device netlink.Link) (err error) {
+	if err := compileWireguard(ctx); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
 
@@ -622,10 +725,14 @@ func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlin
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}
 
+	cfg := config.NewBPFWireguard()
+	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
+
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
-		Constants: map[string]uint64{
-			"interface_ifindex": uint64(device.Attrs().Index),
+		Constants: cfg,
+		MapRenames: map[string]string{
+			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
 		},
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},

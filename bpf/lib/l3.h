@@ -12,6 +12,7 @@
 #include "l4.h"
 #include "icmp6.h"
 #include "csum.h"
+#include "maps.h"
 
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,

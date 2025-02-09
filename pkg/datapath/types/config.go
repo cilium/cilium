@@ -40,16 +40,14 @@ type LoadTimeConfiguration interface {
 	// GetIdentity returns a globally-significant numeric security identity.
 	GetIdentity() identity.NumericIdentity
 
-	// GetIdentityLocked returns a globally-significant numeric security
-	// identity while assuming that the backing data structure is locked.
-	// This function should be removed in favour of GetIdentity()
-	GetIdentityLocked() identity.NumericIdentity
-
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
 	GetNodeMAC() mac.MAC
 	GetIfIndex() int
 	GetEndpointNetNsCookie() uint64
+
+	// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter for the endpoint
+	GetPolicyVerdictLogFilter() uint32
 }
 
 // CompileTimeConfiguration provides datapath implementations a clean interface
@@ -78,9 +76,6 @@ type CompileTimeConfiguration interface {
 	// per endpoint route installed in the host's routing table to point to
 	// the endpoint's interface
 	RequireEndpointRoute() bool
-
-	// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter for the endpoint
-	GetPolicyVerdictLogFilter() uint32
 
 	// IsHost returns true if the endpoint is the host endpoint.
 	IsHost() bool

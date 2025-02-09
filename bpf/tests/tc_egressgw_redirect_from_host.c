@@ -13,9 +13,9 @@
 #define ENABLE_MASQUERADE_IPV4
 #define ENCAP_IFINDEX 0
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #include "lib/egressgw.h"
 #include "lib/endpoint.h"
@@ -153,7 +153,7 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 
 	key.reason = (__u8)-DROP_NO_EGRESS_GATEWAY;
 	key.dir = METRIC_EGRESS;
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
 	assert(entry->count == 1);
@@ -206,7 +206,7 @@ int egressgw_drop_no_egress_ip_check(const struct __ctx_buff *ctx)
 
 	key.reason = (__u8)-DROP_NO_EGRESS_IP;
 	key.dir = METRIC_EGRESS;
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
 	assert(entry->count == 1);

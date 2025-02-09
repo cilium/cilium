@@ -71,9 +71,9 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 	return 0;
 }
 
-#define SECCTX_FROM_IPCACHE 1
-
 #include "bpf_host.c"
+
+ASSIGN_CONFIG(__u32, host_secctx_from_ipcache, 1)
 
 #define TO_NETDEV	0
 
@@ -126,7 +126,7 @@ int l4lb_health_check_host_setup(struct __ctx_buff *ctx)
 		}
 	};
 
-	map_update_elem(&LB4_HEALTH_MAP, &key, &value, 0);
+	map_update_elem(&cilium_lb4_health, &key, &value, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);

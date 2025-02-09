@@ -12,8 +12,6 @@
 #define ENABLE_NODEPORT
 #include <node_config.h>
 
-#undef EVENTS_MAP
-#define EVENTS_MAP test_events_map
 #define DEBUG
 
 #include <lib/dbg.h>
@@ -63,7 +61,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress)
 		.code           = ICMP_FRAG_NEEDED,
 		.un = {
 			.frag = {
-				.mtu = bpf_htons(THIS_MTU),
+				.mtu = bpf_htons(MTU),
 			},
 		},
 	};
@@ -1022,7 +1020,7 @@ static __u32 retries_100percent[SNAT_COLLISION_RETRIES + 1];
 static __always_inline bool store_retries(__u32 *buf, bool dump)
 {
 	for (__u32 i = 0; i <= SNAT_COLLISION_RETRIES; i++) {
-		__u32 *v = map_lookup_elem(&SNAT_ALLOC_RETRIES_IPV4, &(__u32){i});
+		__u32 *v = map_lookup_elem(&cilium_snat_v4_alloc_retries, &(__u32){i});
 
 		if (!v)
 			return false;

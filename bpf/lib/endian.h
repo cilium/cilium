@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
+#include <bpf/types_mapper.h>
 
 #define ___bpf_mvb(x, b, n, m) ((__u##b)(x) << (b-(n+1)*8) >> (b-8) << (m*8))
 

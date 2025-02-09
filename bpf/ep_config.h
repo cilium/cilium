@@ -9,51 +9,14 @@
  */
 #include "lib/utils.h"
 
-DEFINE_IPV6(LXC_IP, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
-
-#ifndef LXC_IPV4
-DEFINE_U32(LXC_IPV4, 0x10203040);
-#define LXC_IPV4 fetch_u32(LXC_IPV4)
-#endif /* LXC_IPV4 */
-
-/*
- * Both the LXC_ID and the HOST_EP_ID are defined here to ease compile testing,
- * but in the actual header files, only one of them will be present.
- */
-DEFINE_U16(LXC_ID, 0x2A);
-#define LXC_ID fetch_u16(LXC_ID)
-
-/* Security identity of endpoint programs are identical across v4/v6. */
-DEFINE_U32(SECLABEL, 0xfffff);
-#define SECLABEL fetch_u32(SECLABEL)
-#define SECLABEL_IPV4 SECLABEL
-#define SECLABEL_IPV6 SECLABEL
-
-DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
-#define POLICY_VERDICT_LOG_FILTER fetch_u32(POLICY_VERDICT_LOG_FILTER)
-
-#ifndef ENDPOINT_NETNS_COOKIE
-DEFINE_U64(ENDPOINT_NETNS_COOKIE, 0xFFFFFFFFFFFFFFFF);
-#define ENDPOINT_NETNS_COOKIE fetch_u64(ENDPOINT_NETNS_COOKIE)
-#endif /*ENDPOINT_NETNS_COOKIE*/
-
 #define HOST_EP_ID 0x1092
-
-#define POLICY_MAP test_cilium_policy_v2_65535
 
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif
 #define DROP_NOTIFY
 #define TRACE_NOTIFY
-#define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
-#define CT_MAP_ANY6 test_cilium_ct_any6_65535
-#define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
-#define CT_MAP_ANY4 test_cilium_ct_any4_65535
-#define CT_MAP_SIZE_TCP 4096
-#define CT_MAP_SIZE_ANY 4096
-#define CALLS_MAP test_cilium_calls_65535
-#define CUSTOM_CALLS_MAP test_cilium_calls_custom_65535
+
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING

@@ -36,13 +36,6 @@
 #define EVENT_SOURCE 0
 #endif
 
-#ifndef THIS_MTU
-/* If not available, fall back to generically detected MTU instead of more
- * fine-grained per-device MTU.
- */
-# define THIS_MTU MTU
-#endif
-
 #ifdef PREALLOCATE_MAPS
 #define CONDITIONAL_PREALLOC 0
 #else
@@ -431,17 +424,6 @@ struct auth_info {
 	__u64       expiration;
 };
 
-/*
- * Runtime configuration items for the datapath.
- */
-enum {
-	RUNTIME_CONFIG_UTIME_OFFSET = 0, /* Index to Unix time offset in 512 ns units */
-	/* Last monotonic time, periodically set by the agent to
-	 * tell the datapath its still updating maps
-	 */
-	RUNTIME_CONFIG_AGENT_LIVENESS = 1,
-};
-
 struct metrics_key {
 	__u8      reason;	/* 0: forwarded, >0 dropped */
 	__u8      dir:2,	/* 1: ingress 2: egress */
@@ -490,15 +472,6 @@ struct srv6_policy_key6 {
 	struct bpf_lpm_trie_key lpm;
 	__u32 vrf_id;
 	union v6addr dst_cidr;
-};
-
-struct vtep_key {
-	__u32 vtep_ip;
-};
-
-struct vtep_value {
-	__u64 vtep_mac;
-	__u32 tunnel_endpoint;
 };
 
 struct node_key {
