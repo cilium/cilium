@@ -110,14 +110,14 @@ Address NodePort Primary DeviceName
 -- services.table --
 Name                   Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   HealthCheckNodePort
 test/echo              k8s                  Local              Local              $HEALTHPORT1
-test/echo-healthserver local                Local              Local              0
+test/echo:healthserver local                Local              Local              0
 
 -- frontends.table --
 Address               Type         ServiceName            PortName   Status  Backends
 0.0.0.0:30781/TCP     NodePort     test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
 10.96.50.104:80/TCP   ClusterIP    test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
 172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    10.244.1.1:80/TCP (active), 10.244.1.2:80/TCP (active)
-172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo-healthserver            Done    1.1.1.1:$HEALTHPORT/TCP/i (active)
+172.16.1.1:$HEALTHPORT/TCP  LoadBalancer test/echo:healthserver            Done    1.1.1.1:$HEALTHPORT/TCP/i (active)
 
 -- frontends_nohealthcheck.table --
 Address               Type         ServiceName            PortName   Status  Backends
@@ -136,7 +136,7 @@ Address               Type        ServiceName   PortName   Status  Backends
 
 -- backends.table --
 State    Instances              Address
-active   test/echo-healthserver 1.1.1.1:$HEALTHPORT/TCP/i
+active   test/echo:healthserver 1.1.1.1:$HEALTHPORT/TCP/i
 active   test/echo (http)       10.244.1.1:80/TCP
 active   test/echo (http)       10.244.1.2:80/TCP
 active   test/echo (http)       10.244.1.3:80/TCP
