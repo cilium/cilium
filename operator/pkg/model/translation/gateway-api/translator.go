@@ -30,16 +30,13 @@ const (
 
 type gatewayAPITranslator struct {
 	cecTranslator translation.CECTranslator
-
-	hostNetworkEnabled    bool
-	externalTrafficPolicy string
+	cfg           translation.Config
 }
 
-func NewTranslator(cecTranslator translation.CECTranslator, hostNetworkEnabled bool, externalTrafficPolicy string) translation.Translator {
+func NewTranslator(cecTranslator translation.CECTranslator, cfg translation.Config) translation.Translator {
 	return &gatewayAPITranslator{
-		cecTranslator:         cecTranslator,
-		hostNetworkEnabled:    hostNetworkEnabled,
-		externalTrafficPolicy: externalTrafficPolicy,
+		cecTranslator: cecTranslator,
+		cfg:           cfg,
 	}
 }
 
@@ -152,12 +149,12 @@ func (t *gatewayAPITranslator) desiredService(owner *model.FullyQualifiedResourc
 		},
 		Spec: corev1.ServiceSpec{
 			Type:                  corev1.ServiceTypeLoadBalancer,
-			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(t.externalTrafficPolicy),
+			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(t.cfg.ServiceConfig.ExternalTrafficPolicy),
 			Ports:                 servicePorts,
 		},
 	}
 
-	if t.hostNetworkEnabled {
+	if t.cfg.HostNetworkConfig.Enabled {
 		res.Spec.Type = corev1.ServiceTypeClusterIP
 		res.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
 	}
