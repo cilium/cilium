@@ -5,12 +5,13 @@ package sockets
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -194,91 +195,72 @@ const (
 	servAddr = "127.0.0.1:0"
 )
 
-func TestIterateDestroy(t *testing.T) {
-	testutils.PrivilegedTest(t)
-	setupAndRunTest := func(n int, proto netlink.Proto, testFn func(t *testing.T, clientConns []net.Conn)) {
-		conns := []net.Conn{}
-		waitFor := []chan struct{}{}
-		for range n {
-			//clientConnClosed := make(chan struct{})
-			serverConnClosed := make(chan struct{})
-			waitFor = append(waitFor, serverConnClosed)
-			u8p, err := u8proto.FromNumber(uint8(proto))
-			assert.NoError(t, err)
+func setupAndRunTest(t *testing.T, n int, proto netlink.Proto, testFn func(t *testing.T, clientConns []net.Conn)) {
+	conns := []net.Conn{}
+	for range n {
+		u8p, err := u8proto.FromNumber(uint8(proto))
+		assert.NoError(t, err)
 
-			var lis net.Listener
-			if proto == unix.IPPROTO_TCP {
-				lis, err = net.Listen(strings.ToLower(u8p.String()), servAddr)
-				require.NoError(t, err)
-				go func() {
-					conn, err := lis.Accept()
-					for {
-						require.NoError(t, err)
-						buf := make([]byte, 1)
-						_, err := conn.Read(buf)
-						if errors.Is(err, io.EOF) {
-							fmt.Println("server_closed:", err)
-							close(serverConnClosed)
-							return
-						}
-					}
-				}()
-			} else {
-				// Don't need a listener socket for UDP, so we just close.
-				fmt.Println("udp:", err)
-				close(serverConnClosed)
-			}
-
-			lisAddr := servAddr
-			if lis != nil {
-				lisAddr = lis.Addr().String()
-			}
-
-			clientConn, err := net.Dial(strings.ToLower(u8p.String()), lisAddr)
+		var lis net.Listener
+		var dst string
+		if proto == unix.IPPROTO_TCP {
+			lis, err = net.Listen(strings.ToLower(u8p.String()), servAddr)
 			require.NoError(t, err)
-			defer clientConn.Close()
-			/*go func() {
+			go func() {
+				conn, err := lis.Accept()
 				for {
-					_, err := clientConn.Write([]byte("ping"))
-					if err != nil {
-						fmt.Println("client_closed:", err)
-						close(clientConnClosed)
+					require.NoError(t, err)
+					buf := make([]byte, 1)
+					_, err := conn.Read(buf)
+					if errors.Is(err, io.EOF) {
 						return
 					}
-					time.Sleep(time.Second)
 				}
-			}()*/
+			}()
+			dst = lis.Addr().String()
+		} else {
+			dst = "127.0.0.0:8080"
+		}
 
-		}
-		// buffered channels still will wait on conn/servers closing.
-		testFn(t, conns)
-		for _, done := range waitFor {
-			fmt.Println("waiting:", done)
-			<-done
-		}
+		clientConn, err := net.Dial(strings.ToLower(u8p.String()), dst)
+		require.NoError(t, err)
+		defer clientConn.Close()
+		conns = append(conns, clientConn)
 	}
+	testFn(t, conns)
+}
 
-	runUDPFilterTest := func(n int, cb func(id netlink.SocketID) bool) {
-		setupAndRunTest(n, unix.IPPROTO_UDP, func(t *testing.T, conns []net.Conn) {
-			for _, cc := range conns {
-				addr := cc.RemoteAddr().String()
-				toks := strings.Split(addr, ":")
-				dport, err := strconv.Atoi(toks[1])
-				assert.NoError(t, err)
-				daddr := net.ParseIP(toks[0])
-				assert.NoError(t, Destroy(SocketFilter{
-					DestIp:    daddr,
-					DestPort:  uint16(dport),
-					Family:    unix.AF_INET,
-					Protocol:  unix.IPPROTO_UDP,
-					DestroyCB: cb,
-				}))
+func TestDestroy(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	n := 3
+	setupAndRunTest(t, n, unix.IPPROTO_UDP, func(t *testing.T, conns []net.Conn) {
+		var cc net.Conn
+		for _, cc = range conns {
+			break
+		}
+
+		addr := cc.RemoteAddr().String()
+		toks := strings.Split(addr, ":")
+		dport, err := strconv.Atoi(toks[1])
+		assert.NoError(t, err)
+		daddr := net.ParseIP(toks[0])
+		matches := 0
+		assert.NoError(t, Destroy(SocketFilter{
+			DestIp:   daddr,
+			DestPort: uint16(dport),
+			Family:   unix.AF_INET,
+			Protocol: unix.IPPROTO_UDP,
+			DestroyCB: func(id netlink.SocketID) bool {
+				matches++
+				return true
+			},
+		}))
+		assert.Equal(t, n, matches)
+		assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+			for _, conn := range conns {
+				_, err := conn.Read([]byte{0})
+				assert.ErrorIs(collect, err, syscall.ECONNABORTED)
 			}
-		})
-	}
-
-	runUDPFilterTest(10, func(id netlink.SocketID) bool {
-		fmt.Println("killing:", id)
-		return true
+		}, time.Second*3, time.Millisecond*50)
 	})
 }
