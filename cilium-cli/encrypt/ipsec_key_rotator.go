@@ -25,11 +25,10 @@ func newGcmAesKey(key ipsecKey) (ipsecKey, error) {
 		return ipsecKey{}, err
 	}
 	newKey := ipsecKey{
-		spi:       key.nextSPI(),
-		spiSuffix: key.spiSuffix,
-		algo:      "rfc4106(gcm(aes))",
-		key:       authKey,
-		size:      128,
+		spi:  key.nextSPI(),
+		algo: "rfc4106(gcm(aes))",
+		key:  authKey,
+		size: 128,
 	}
 	return newKey, nil
 }
@@ -53,7 +52,6 @@ func newCbcAesKey(key ipsecKey, algo string, authKeylen int, cipherKeyLen int) (
 	}
 	newKey := ipsecKey{
 		spi:        key.nextSPI(),
-		spiSuffix:  key.spiSuffix,
 		algo:       algo,
 		key:        authKey,
 		cipherMode: "cbc(aes)",
