@@ -54,6 +54,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -189,6 +190,8 @@ type Daemon struct {
 	lrpManager   *redirectpolicy.Manager
 	ctMapGC      ctmap.GCRunner
 	maglevConfig maglev.Config
+
+	explbConfig experimental.Config
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -404,6 +407,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		lrpManager:        params.LRPManager,
 		ctMapGC:           params.CTNATMapGC,
 		maglevConfig:      params.MaglevConfig,
+		explbConfig:       params.ExpLBConfig,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
