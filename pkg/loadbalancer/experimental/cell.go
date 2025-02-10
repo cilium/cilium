@@ -40,11 +40,12 @@ var Cell = cell.Module(
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
 
-	//
 	// Health server runs an HTTP server for each service on port [HealthCheckNodePort]
 	// (when non-zero) and responds with the number of healthy backends.
 	healthServerCell,
 
+	// Register a background job to re-reconcile NodePort and HostPort frontends when
+	// the node addresses change.
 	cell.Invoke(registerNodePortAddressReconciler),
 
 	// Replace the [k8s.ServiceCacheReader] and [service.ServiceReader] if this
