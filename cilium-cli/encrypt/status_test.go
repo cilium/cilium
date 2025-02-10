@@ -266,7 +266,7 @@ func Test_getClusterStatus(t *testing.T) {
 	testCases := []struct {
 		name                  string
 		nodeStatusMap         map[string]models.EncryptionStatus
-		ikProps               ipsecKeyProps
+		expectedKeyCount      int
 		expectedClusterStatus clusterStatus
 	}{
 		{
@@ -305,7 +305,7 @@ func Test_getClusterStatus(t *testing.T) {
 					},
 				},
 			},
-			ikProps: ipsecKeyProps{expectedCount: 1},
+			expectedKeyCount: 1,
 			expectedClusterStatus: clusterStatus{
 				TotalNodeCount:          2,
 				EncIPsecNodeCount:       2,
@@ -343,7 +343,7 @@ func Test_getClusterStatus(t *testing.T) {
 					},
 				},
 			},
-			ikProps: ipsecKeyProps{expectedCount: 1},
+			expectedKeyCount: 1,
 			expectedClusterStatus: clusterStatus{
 				TotalNodeCount:             2,
 				EncIPsecNodeCount:          2,
@@ -392,16 +392,12 @@ func Test_getClusterStatus(t *testing.T) {
 					Mode: "Disabled",
 				},
 			},
-			ikProps: ipsecKeyProps{
-				perNode:       true,
-				expectedCount: 1,
-			},
+			expectedKeyCount: 1,
 			expectedClusterStatus: clusterStatus{
 				TotalNodeCount:             3,
 				EncDisabledNodeCount:       1,
 				EncIPsecNodeCount:          2,
 				IPsecExpectedKeyCount:      1,
-				IPsecPerNodeKey:            true,
 				IPsecKeyRotationInProgress: true,
 				IPsecKeysInUseNodeCount:    map[int64]int64{1: 1, 2: 1},
 				IPsecMaxSeqNum:             "0x77c/0xffffffff",
@@ -420,7 +416,7 @@ func Test_getClusterStatus(t *testing.T) {
 
 	for _, tt := range testCases {
 		// function to test
-		actualClusterStatus, err := getClusterStatus(tt.nodeStatusMap, tt.ikProps)
+		actualClusterStatus, err := getClusterStatus(tt.nodeStatusMap, tt.expectedKeyCount)
 
 		require.NoError(t, err)
 		require.Equal(t, tt.expectedClusterStatus, actualClusterStatus)
@@ -468,25 +464,11 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 	testCases := []struct {
 		ciliumPods int
 		fs         features.Set
-		perNodeKey bool
 		expected   int
 	}{
 		{
-			ciliumPods: 1,
-			fs:         features.Set{},
-			perNodeKey: false,
-			expected:   1,
-		},
-		{
-			ciliumPods: 100,
-			fs:         features.Set{},
-			perNodeKey: false,
-			expected:   1,
-		},
-		{
 			ciliumPods: 10,
 			fs:         features.Set{},
-			perNodeKey: true,
 			expected:   18,
 		},
 		{
@@ -494,16 +476,14 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 			fs: features.Set{
 				features.IPv6: features.Status{Enabled: true},
 			},
-			perNodeKey: true,
-			expected:   36,
+			expected: 36,
 		},
 		{
 			ciliumPods: 10,
 			fs: features.Set{
 				features.CiliumIPAMMode: features.Status{Mode: "eni"},
 			},
-			perNodeKey: true,
-			expected:   27,
+			expected: 27,
 		},
 		{
 			ciliumPods: 10,
@@ -511,22 +491,20 @@ func Test_expectedIPsecKeyCount(t *testing.T) {
 				features.IPv6:           features.Status{Enabled: true},
 				features.CiliumIPAMMode: features.Status{Mode: "azure"},
 			},
-			perNodeKey: true,
-			expected:   54,
+			expected: 54,
 		},
 		{
 			ciliumPods: 20,
 			fs: features.Set{
 				features.CiliumIPAMMode: features.Status{Mode: "eni"},
 			},
-			perNodeKey: true,
-			expected:   57,
+			expected: 57,
 		},
 	}
 
 	for _, tt := range testCases {
 		// function to test
-		actual := expectedIPsecKeyCount(tt.ciliumPods, tt.fs, tt.perNodeKey)
+		actual := expectedIPsecKeyCount(tt.ciliumPods, tt.fs)
 
 		require.Equal(t, tt.expected, actual)
 	}
