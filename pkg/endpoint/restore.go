@@ -78,7 +78,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 			continue
 		}
 
-		ep, err := parseEndpoint(ctx, owner, policyGetter, namedPortsGetter, state)
+		ep, err := parseEndpoint(owner, policyGetter, namedPortsGetter, state)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
