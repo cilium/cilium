@@ -29,6 +29,10 @@ const (
 
 var _ CECTranslator = (*cecTranslator)(nil)
 
+type ServiceConfig struct {
+	ExternalTrafficPolicy string `json:"external_traffic_policy,omitempty"`
+}
+
 type HostNetworkConfig struct {
 	Enabled           bool                       `json:"enabled,omitempty"`
 	NodeLabelSelector *slim_metav1.LabelSelector `json:"node_label_selector,omitempty"`
@@ -65,6 +69,7 @@ type OriginalIPDetectionConfig struct {
 type Config struct {
 	SecretsNamespace string `json:"secrets_namespace,omitempty"`
 
+	ServiceConfig             ServiceConfig             `json:"service_config"`
 	HostNetworkConfig         HostNetworkConfig         `json:"host_network_config"`
 	IPConfig                  IPConfig                  `json:"ip_config"`
 	ListenerConfig            ListenerConfig            `json:"listener_config"`

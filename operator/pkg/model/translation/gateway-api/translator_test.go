@@ -116,54 +116,50 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 	}
 	for _, tt := range tests {
 		translatorCases := []struct {
-			name                 string
-			gatewayAPITranslator *gatewayAPITranslator
+			name string
+			cfg  translation.Config
 		}{
 			{
 				name: "without_external_traffic_policy",
-				gatewayAPITranslator: &gatewayAPITranslator{
-					cecTranslator: translation.NewCECTranslator(translation.Config{
-						SecretsNamespace: "cilium-secrets",
-						RouteConfig: translation.RouteConfig{
-							HostNameSuffixMatch: true,
-						},
-						ClusterConfig: translation.ClusterConfig{
-							IdleTimeoutSeconds: 60,
-						},
-						HostNetworkConfig: translation.HostNetworkConfig{
-							Enabled:           true,
-							NodeLabelSelector: tt.nodeLabelSelector,
-						},
-						IPConfig: translation.IPConfig{
-							IPv4Enabled: tt.ipv4Enabled,
-							IPv6Enabled: tt.ipv6Enabled,
-						},
-					}),
-					hostNetworkEnabled: true,
+				cfg: translation.Config{
+					SecretsNamespace: "cilium-secrets",
+					RouteConfig: translation.RouteConfig{
+						HostNameSuffixMatch: true,
+					},
+					ClusterConfig: translation.ClusterConfig{
+						IdleTimeoutSeconds: 60,
+					},
+					HostNetworkConfig: translation.HostNetworkConfig{
+						Enabled:           true,
+						NodeLabelSelector: tt.nodeLabelSelector,
+					},
+					IPConfig: translation.IPConfig{
+						IPv4Enabled: tt.ipv4Enabled,
+						IPv6Enabled: tt.ipv6Enabled,
+					},
 				},
 			},
 			{
 				name: "with_external_traffic_policy",
-				gatewayAPITranslator: &gatewayAPITranslator{
-					cecTranslator: translation.NewCECTranslator(translation.Config{
-						SecretsNamespace: "cilium-secrets",
-						RouteConfig: translation.RouteConfig{
-							HostNameSuffixMatch: true,
-						},
-						ClusterConfig: translation.ClusterConfig{
-							IdleTimeoutSeconds: 60,
-						},
-						HostNetworkConfig: translation.HostNetworkConfig{
-							Enabled:           true,
-							NodeLabelSelector: tt.nodeLabelSelector,
-						},
-						IPConfig: translation.IPConfig{
-							IPv4Enabled: tt.ipv4Enabled,
-							IPv6Enabled: tt.ipv6Enabled,
-						},
-					}),
-					hostNetworkEnabled:    true,
-					externalTrafficPolicy: "Cluster",
+				cfg: translation.Config{
+					SecretsNamespace: "cilium-secrets",
+					ServiceConfig: translation.ServiceConfig{
+						ExternalTrafficPolicy: "Cluster",
+					},
+					RouteConfig: translation.RouteConfig{
+						HostNameSuffixMatch: true,
+					},
+					ClusterConfig: translation.ClusterConfig{
+						IdleTimeoutSeconds: 60,
+					},
+					HostNetworkConfig: translation.HostNetworkConfig{
+						Enabled:           true,
+						NodeLabelSelector: tt.nodeLabelSelector,
+					},
+					IPConfig: translation.IPConfig{
+						IPv4Enabled: tt.ipv4Enabled,
+						IPv6Enabled: tt.ipv6Enabled,
+					},
 				},
 			},
 		}
@@ -171,6 +167,10 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, translatorCase := range translatorCases {
 				t.Run(translatorCase.name, func(t *testing.T) {
+					trans := &gatewayAPITranslator{
+						cecTranslator: translation.NewCECTranslator(translatorCase.cfg),
+						cfg:           translatorCase.cfg,
+					}
 					input := &model.Model{}
 					readInput(t, fmt.Sprintf("testdata/%s/%s/input.yaml", tt.name, translatorCase.name), input)
 					output := &ciliumv2.CiliumEnvoyConfig{}
@@ -178,7 +178,7 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					expectedService := &corev1.Service{}
 					readOutput(t, fmt.Sprintf("testdata/%s/%s/service-output.yaml", tt.name, translatorCase.name), expectedService)
 
-					cec, svc, ep, err := translatorCase.gatewayAPITranslator.Translate(input)
+					cec, svc, ep, err := trans.Translate(input)
 					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 					require.Equal(t, expectedService, svc, "Service mismatch")
 
@@ -202,20 +202,24 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cfg := translation.Config{
+				HostNetworkConfig: translation.HostNetworkConfig{
+					Enabled: true,
+				},
+				OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+					XFFNumTrustedHops: 2,
+				},
+				ClusterConfig: translation.ClusterConfig{
+					IdleTimeoutSeconds: 60,
+				},
+				IPConfig: translation.IPConfig{
+					IPv4Enabled: true,
+					IPv6Enabled: true,
+				},
+			}
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator(translation.Config{
-					OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
-						XFFNumTrustedHops: 2,
-					},
-					ClusterConfig: translation.ClusterConfig{
-						IdleTimeoutSeconds: 60,
-					},
-					IPConfig: translation.IPConfig{
-						IPv4Enabled: true,
-						IPv6Enabled: true,
-					},
-				}),
-				hostNetworkEnabled: true,
+				cecTranslator: translation.NewCECTranslator(cfg),
+				cfg:           cfg,
 			}
 
 			input := &model.Model{}
@@ -345,7 +349,11 @@ func Test_getService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &gatewayAPITranslator{externalTrafficPolicy: tt.args.externalTrafficPolicy}
+			trans := &gatewayAPITranslator{cfg: translation.Config{
+				ServiceConfig: translation.ServiceConfig{
+					ExternalTrafficPolicy: tt.args.externalTrafficPolicy,
+				},
+			}}
 			got := trans.desiredService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.Equalf(t, tt.want, got, "desiredService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
