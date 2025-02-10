@@ -35,9 +35,9 @@ type lbmapsParams struct {
 	Writer       *Writer
 }
 
-func newLBMaps(p lbmapsParams) LBMaps {
+func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
 	if !p.Writer.IsEnabled() {
-		return nil
+		return bpf.MapOut[LBMaps]{}
 	}
 
 	pinned := true
@@ -56,13 +56,13 @@ func newLBMaps(p lbmapsParams) LBMaps {
 					failureProbability: p.TestConfig.TestFaultProbability,
 				}
 			}
-			return m
+			return bpf.NewMapOut(m)
 		}
 	}
 
 	r := &BPFLBMaps{Pinned: pinned, ExtCfg: p.ExtConfig, Cfg: p.MapsConfig, MaglevCfg: p.MaglevConfig}
 	p.Lifecycle.Append(r)
-	return r
+	return bpf.NewMapOut(LBMaps(r))
 }
 
 // LBMapsConfig specifies the configuration for the load-balancing BPF
