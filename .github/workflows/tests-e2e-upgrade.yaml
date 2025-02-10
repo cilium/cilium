@@ -173,8 +173,8 @@ jobs:
             bgp-control-plane: 'true'
 
           - name: '7'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-next-20250110.013326'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -189,8 +189,8 @@ jobs:
             misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
 
           - name: '8'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-next-20250110.013326'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -246,8 +246,8 @@ jobs:
             node-local-dns: 'true'
 
           - name: '12'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-next-20250110.013326'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -286,8 +286,8 @@ jobs:
             ingress-controller: 'true'
 
           - name: '15'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-next-20250110.013326'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -314,8 +314,8 @@ jobs:
             ingress-controller: 'true'
 
           - name: '17'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -326,8 +326,8 @@ jobs:
             ingress-controller: 'true'
 
           - name: '18'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -338,8 +338,8 @@ jobs:
             ingress-controller: 'true'
 
           - name: '19'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit'
             kube-proxy: 'none'
             kpr: 'true'
@@ -350,8 +350,8 @@ jobs:
             kvstore: 'true'
 
           - name: '20'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit-l2'
             kube-proxy: 'none'
             kpr: 'true'
@@ -361,8 +361,8 @@ jobs:
             ingress-controller: 'true'
 
           - name: '21'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit'
             kube-proxy: 'none'
             kpr: 'true'
@@ -372,8 +372,8 @@ jobs:
             ingress-controller: 'true'
 
           - name: '22'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit-l2'
             kube-proxy: 'none'
             kpr: 'true'
@@ -383,8 +383,8 @@ jobs:
             ingress-controller: 'true'
 
           - name: '23'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-20250110.013326'
             misc: 'bpf.datapathMode=netkit'
             kube-proxy: 'none'
             kpr: 'true'
@@ -396,8 +396,8 @@ jobs:
             host-fw: 'true'
 
           - name: '24'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-net-20250110.013326'
             misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -408,8 +408,8 @@ jobs:
             ingress-controller: 'true'
 
           - name: '25'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-net-20250131.013253'
+            # Skip kernel updates due to https://github.com/cilium/cilium/issues/37520.
+            kernel: 'bpf-net-20250110.013326'
             misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
