@@ -36,14 +36,15 @@ import (
 type adapterParams struct {
 	cell.In
 
-	Log       *slog.Logger
-	Config    Config
-	DB        *statedb.DB
-	Services  statedb.Table[*Service]
-	Backends  statedb.Table[*Backend]
-	Frontends statedb.Table[*Frontend]
-	Ops       *BPFOps
-	Writer    *Writer
+	Log        *slog.Logger
+	Config     Config
+	DB         *statedb.DB
+	Services   statedb.Table[*Service]
+	Backends   statedb.Table[*Backend]
+	Frontends  statedb.Table[*Frontend]
+	Ops        *BPFOps
+	Writer     *Writer
+	TestConfig *TestConfig `optional:"true"`
 
 	SC k8s.ServiceCache       `optional:"true"`
 	SM service.ServiceManager `optional:"true"`
@@ -60,12 +61,25 @@ func decorateAdapters(p adapterParams) (sc k8s.ServiceCache, sm service.ServiceM
 		backends: p.Backends,
 		writer:   p.Writer,
 	}
+	// If we are not running in tests we should register a table initializer to
+	// delay pruning until ClusterMesh has catched up. This happens via
+	// (*Daemon).initRestore in daemon/cmd/state.go. Once ClusterMesh has switched
+	// to using the Writer directly this can be removed.
+	var initDone func(WriteTxn)
+	if p.TestConfig == nil {
+		initDone = p.Writer.RegisterInitializer("adapters")
+	} else {
+		initDone = func(WriteTxn) {}
+	}
 	sm = &serviceManagerAdapter{
 		log:       p.Log,
 		db:        p.DB,
 		services:  p.Services,
 		frontends: p.Frontends,
+		writer:    p.Writer,
+		initDone:  initDone,
 	}
+
 	return
 }
 
@@ -430,6 +444,9 @@ type serviceManagerAdapter struct {
 	db        *statedb.DB
 	services  statedb.Table[*Service]
 	frontends statedb.Table[*Frontend]
+	writer    *Writer
+
+	initDone func(WriteTxn)
 }
 
 // DeleteService implements service.ServiceManager.
@@ -585,7 +602,11 @@ func (s *serviceManagerAdapter) SyncNodePortFrontends(sets.Set[netip.Addr]) erro
 
 // SyncWithK8sFinished implements service.ServiceManager.
 func (s *serviceManagerAdapter) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s.ServiceID]) (stale []k8s.ServiceID, err error) {
-	s.log.Debug("serviceManagerAdapter: Ignoring SyncWithK8sFinished")
+	if !localOnly {
+		txn := s.writer.WriteTxn()
+		s.initDone(txn)
+		txn.Commit()
+	}
 	return
 }
 
