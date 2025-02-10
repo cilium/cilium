@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/blang/semver/v4"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/status"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // PrintEncryptStatus prints encryption status from all/specific cilium agent pods.
@@ -31,12 +33,17 @@ func (s *Encrypt) PrintEncryptStatus(ctx context.Context) error {
 		return err
 	}
 
+	ciliumVersion, err := s.fetchAndCheckCiliumVersion(ctx, pods)
+	if err != nil {
+		return err
+	}
+
 	nodeMap, err := s.fetchEncryptStatusConcurrently(ctx, pods)
 	if err != nil {
 		return err
 	}
 
-	ikProps, err := s.getIPsecKeyProps(ctx, len(pods))
+	ikProps, err := s.getIPsecKeyProps(ctx, ciliumVersion, len(pods))
 	if err != nil {
 		return err
 	}
@@ -52,6 +59,46 @@ func (s *Encrypt) PrintEncryptStatus(ctx context.Context) error {
 	return printClusterStatus(cs, s.params.Output)
 }
 
+func (s *Encrypt) fetchAndCheckCiliumVersion(ctx context.Context, pods []corev1.Pod) (*semver.Version, error) {
+	// res contains data returned from cilium pod
+	type res struct {
+		version *semver.Version
+		err     error
+	}
+	resCh := make(chan res)
+	defer close(resCh)
+
+	// concurrently fetch state from each cilium pod
+	for _, pod := range pods {
+		go func(ctx context.Context, pod corev1.Pod) {
+			version, err := s.client.GetCiliumVersion(ctx, &pod)
+			resCh <- res{
+				version: version,
+				err:     err,
+			}
+		}(ctx, pod)
+	}
+
+	// read from the channel, on error, store error and continue to next node
+	var err error
+	var version *semver.Version
+	for range pods {
+		r := <-resCh
+		if r.err != nil {
+			err = errors.Join(err, r.err)
+			continue
+		}
+		if version == nil {
+			version = r.version
+			continue
+		}
+		if version.NE(*r.version) {
+			return nil, fmt.Errorf("detected different Cilium versions: %s / %s (probably upgrade in progress ...)", version.String(), r.version.String())
+		}
+	}
+	return version, err
+}
+
 func (s *Encrypt) fetchEncryptStatusConcurrently(ctx context.Context, pods []corev1.Pod) (map[string]models.EncryptionStatus, error) {
 	// res contains data returned from cilium pod
 	type res struct {
@@ -65,10 +112,10 @@ func (s *Encrypt) fetchEncryptStatusConcurrently(ctx context.Context, pods []cor
 	// concurrently fetch state from each cilium pod
 	for _, pod := range pods {
 		go func(ctx context.Context, pod corev1.Pod) {
-			st, err := s.fetchEncryptStatusFromPod(ctx, pod)
+			status, err := s.fetchEncryptStatusFromPod(ctx, pod)
 			resCh <- res{
 				nodeName: pod.Spec.NodeName,
-				status:   st,
+				status:   status,
 				err:      err,
 			}
 		}(ctx, pod)
@@ -170,7 +217,7 @@ type ipsecKeyProps struct {
 	expectedCount int
 }
 
-func (s *Encrypt) getIPsecKeyProps(ctx context.Context, nodeCount int) (ipsecKeyProps, error) {
+func (s *Encrypt) getIPsecKeyProps(ctx context.Context, ciliumVersion *semver.Version, nodeCount int) (ipsecKeyProps, error) {
 	cm, err := s.client.GetConfigMap(ctx, s.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return ipsecKeyProps{}, fmt.Errorf("unable get ConfigMap %q: %w", defaults.ConfigMapName, err)
@@ -178,6 +225,7 @@ func (s *Encrypt) getIPsecKeyProps(ctx context.Context, nodeCount int) (ipsecKey
 
 	fs := features.Set{}
 	fs.ExtractFromConfigMap(cm)
+	fs.ExtractFromVersionedConfigMap(*ciliumVersion, cm)
 	if !fs[features.IPsecEnabled].Enabled {
 		return ipsecKeyProps{}, nil
 	}
@@ -190,14 +238,28 @@ func (s *Encrypt) getIPsecKeyProps(ctx context.Context, nodeCount int) (ipsecKey
 	perNode := strings.Contains(key, "+")
 	return ipsecKeyProps{
 		perNode:       perNode,
-		expectedCount: expectedIPsecKeyCount(nodeCount, fs, perNode),
+		expectedCount: expectedIPsecKeyCount(ciliumVersion, nodeCount, fs, perNode),
 	}, nil
 }
 
-func expectedIPsecKeyCount(ciliumPods int, fs features.Set, perNodeKey bool) int {
+func expectedIPsecKeyCount(ciliumVersion *semver.Version, ciliumPods int, fs features.Set, perNodeKey bool) int {
 	if !perNodeKey {
 		return 1
 	}
+
+	if versioncheck.MustCompile(">=1.17.0")(*ciliumVersion) {
+		// Two keys per node, per direction, per IP family.
+		expectedKeys := ciliumPods * 2
+		if fs[features.IPv6].Enabled {
+			expectedKeys *= 2
+		}
+		// If tunnel mode is enabled, we have 4 more IPv4 keys for the overlay.
+		if fs[features.Tunnel].Enabled {
+			expectedKeys += 4
+		}
+		return expectedKeys
+	}
+
 	// IPsec key states for `local_cilium_internal_ip` and `remote_node_ip`
 	xfrmStates := 2
 	if fs[features.CiliumIPAMMode].Mode == "eni" || fs[features.CiliumIPAMMode].Mode == "azure" {
