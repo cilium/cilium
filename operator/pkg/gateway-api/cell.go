@@ -129,8 +129,11 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	cecTranslator := translation.NewCECTranslator(translation.Config{
+	cfg := translation.Config{
 		SecretsNamespace: params.GatewayApiConfig.GatewayAPISecretsNamespace,
+		ServiceConfig: translation.ServiceConfig{
+			ExternalTrafficPolicy: params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy,
+		},
 		HostNetworkConfig: translation.HostNetworkConfig{
 			Enabled:           params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
 			NodeLabelSelector: translation.ParseNodeLabelSelector(params.GatewayApiConfig.GatewayAPIHostnetworkNodelabelselector),
@@ -153,13 +156,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 			XFFNumTrustedHops: params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 		},
-	})
+	}
+	cecTranslator := translation.NewCECTranslator(cfg)
 
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(
-		cecTranslator,
-		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
-		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy,
-	)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, cfg)
 
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
