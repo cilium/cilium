@@ -4,11 +4,22 @@
 package sockets
 
 import (
+	"errors"
+	"io"
 	"net"
+	"strconv"
+	"strings"
+	"syscall"
 	"testing"
+	"time"
+
+	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 func TestSocketReqSerialize(t *testing.T) {
@@ -179,4 +190,80 @@ func BenchmarkSocketDeserialize(b *testing.B) {
 			sock.Deserialize(buf)
 		}
 	}
+}
+
+const (
+	servAddr = "127.0.0.1:0"
+)
+
+func setupAndRunTest(t *testing.T, n int, proto netlink.Proto, testFn func(t *testing.T, clientConns []net.Conn)) {
+	conns := []net.Conn{}
+	for range n {
+		u8p, err := u8proto.FromNumber(uint8(proto))
+		assert.NoError(t, err)
+
+		var lis net.Listener
+		var dst string
+		if proto == unix.IPPROTO_TCP {
+			lis, err = net.Listen(strings.ToLower(u8p.String()), servAddr)
+			require.NoError(t, err)
+			go func() {
+				conn, err := lis.Accept()
+				for {
+					require.NoError(t, err)
+					buf := make([]byte, 1)
+					_, err := conn.Read(buf)
+					if errors.Is(err, io.EOF) {
+						return
+					}
+				}
+			}()
+			dst = lis.Addr().String()
+		} else {
+			dst = "127.0.0.0:8080"
+		}
+
+		clientConn, err := net.Dial(strings.ToLower(u8p.String()), dst)
+		require.NoError(t, err)
+		_, err = clientConn.Write([]byte("ping"))
+		assert.NoError(t, err)
+		defer clientConn.Close()
+		conns = append(conns, clientConn)
+	}
+	testFn(t, conns)
+}
+
+func TestDestroy(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	n := 3
+	setupAndRunTest(t, n, unix.IPPROTO_UDP, func(t *testing.T, conns []net.Conn) {
+		var cc net.Conn
+		for _, cc = range conns {
+			break
+		}
+
+		addr := cc.RemoteAddr().String()
+		toks := strings.Split(addr, ":")
+		dport, err := strconv.Atoi(toks[1])
+		assert.NoError(t, err)
+		daddr := net.ParseIP(toks[0])
+		matches := 0
+		assert.NoError(t, Destroy(SocketFilter{
+			DestIp:   daddr,
+			DestPort: uint16(dport),
+			Family:   unix.AF_INET,
+			Protocol: unix.IPPROTO_UDP,
+			DestroyCB: func(id netlink.SocketID) bool {
+				matches++
+				return true
+			},
+		}))
+		assert.Equal(t, n, matches)
+		assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+			for _, conn := range conns {
+				_, err := conn.Read([]byte{0})
+				assert.ErrorIs(collect, err, syscall.ECONNABORTED)
+			}
+		}, time.Second*3, time.Millisecond*50)
+	})
 }
