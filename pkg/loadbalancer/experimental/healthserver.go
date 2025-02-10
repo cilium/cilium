@@ -125,13 +125,13 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 		changes, watch := frontendChanges.Next(s.params.DB.ReadTxn())
 		for change := range changes {
 			fe := change.Object
-			if fe.Type != lb.SVCTypeLoadBalancer {
+			if fe.Type != lb.SVCTypeLoadBalancer && fe.Type != lb.SVCTypeNodePort {
 				continue
 			}
 
 			svc := fe.service
 			name := svc.Name
-			healthServiceName := name.AppendSuffix("-healthserver")
+			healthServiceName := name.AppendSuffix(":healthserver")
 			port := svc.HealthCheckNodePort
 
 			// Health server is only for LoadBalancer services with a local
@@ -142,83 +142,92 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 
 			// Check if a health checker server exists already for this service and remove it if port has changed
 			// or if the service is no longer applicable.
+			// NOTE: A complication here is that we may have both a NodePort and a LoadBalancer frontend and
+			// we will process both here. We may see the NodePort first and create the listener and then we'll
+			// see the LoadBalancer and create the Frontend for providing access to the health server using the
+			// LoadBalancer VIP.
 			oldPort, exists := s.portByService[name]
 			if exists && (oldPort != port || !needsServer) {
 				s.removeListener(ctx, oldPort)
 				delete(s.portByService, name)
 				exists = false
-				wtxn := s.params.Writer.WriteTxn()
-				s.params.Writer.DeleteBackendsOfService(wtxn, healthServiceName, source.Local)
-				s.params.Writer.DeleteServiceAndFrontends(wtxn, healthServiceName)
-				wtxn.Commit()
 			}
 
-			if !needsServer || exists {
-				continue
+			if needsServer && !exists {
+				s.serverByPort[port] = s.addListener(svc, port)
+				s.portByService[name] = port
 			}
 
-			s.serverByPort[port] = s.addListener(svc, port)
-			s.portByService[name] = port
-
-			// Create a LoadBalancer service to expose the health server.
-			wtxn := s.params.Writer.WriteTxn()
-			s.params.Writer.UpsertServiceAndFrontends(
-				wtxn,
-				&Service{
-					Name:             healthServiceName,
-					Source:           source.Local,
-					ExtTrafficPolicy: lb.SVCTrafficPolicyLocal,
-					IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
-				},
-				FrontendParams{
-					Address: lb.L3n4Addr{
-						AddrCluster: fe.Address.AddrCluster,
-						L4Addr: lb.L4Addr{
-							Protocol: lb.TCP,
-							Port:     port,
+			if fe.Type == lb.SVCTypeLoadBalancer {
+				if !needsServer {
+					wtxn := s.params.Writer.WriteTxn()
+					s.params.Writer.DeleteBackendsOfService(wtxn, healthServiceName, source.Local)
+					s.params.Writer.DeleteServiceAndFrontends(wtxn, healthServiceName)
+					wtxn.Commit()
+				} else {
+					// Create a LoadBalancer service to expose the health server on the $LB_VIP.
+					// For NodePort we don't need anything as the HealthServer is already listening on
+					// all node addresses.
+					wtxn := s.params.Writer.WriteTxn()
+					s.params.Writer.UpsertServiceAndFrontends(
+						wtxn,
+						&Service{
+							Name:             healthServiceName,
+							Source:           source.Local,
+							ExtTrafficPolicy: lb.SVCTrafficPolicyLocal,
+							IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
 						},
-						Scope: lb.ScopeExternal,
-					},
-					Type:        lb.SVCTypeLoadBalancer,
-					ServiceName: healthServiceName,
-					ServicePort: port,
-				},
-			)
+						FrontendParams{
+							Address: lb.L3n4Addr{
+								AddrCluster: fe.Address.AddrCluster,
+								L4Addr: lb.L4Addr{
+									Protocol: lb.TCP,
+									Port:     port,
+								},
+								Scope: lb.ScopeExternal,
+							},
+							Type:        lb.SVCTypeLoadBalancer,
+							ServiceName: healthServiceName,
+							ServicePort: port,
+						},
+					)
 
-			// Find NodePort addr to use as a backend for $LB_VIP:$HC_NODEPORT frontend.
-			beAddr := netip.IPv4Unspecified()
-			is4 := fe.Address.AddrCluster.Is4()
-			if !is4 {
-				beAddr = netip.IPv6Unspecified()
-			}
-			for addr := range s.params.NodeAddresses.List(wtxn, tables.NodeAddressNodePortIndex.Query(true)) {
-				if is4 && addr.Addr.Is4() {
-					beAddr = addr.Addr
-					break
-				} else if !is4 && addr.Addr.Is6() {
-					beAddr = addr.Addr
-					break
+					// Find NodePort addr to use as a backend for $LB_VIP:$HC_NODEPORT frontend.
+					beAddr := netip.IPv4Unspecified()
+					is4 := fe.Address.AddrCluster.Is4()
+					if !is4 {
+						beAddr = netip.IPv6Unspecified()
+					}
+					for addr := range s.params.NodeAddresses.List(wtxn, tables.NodeAddressNodePortIndex.Query(true)) {
+						if is4 && addr.Addr.Is4() {
+							beAddr = addr.Addr
+							break
+						} else if !is4 && addr.Addr.Is6() {
+							beAddr = addr.Addr
+							break
+						}
+					}
+
+					s.params.Writer.SetBackends(
+						wtxn,
+						healthServiceName,
+						source.Local,
+						BackendParams{
+							L3n4Addr: lb.L3n4Addr{
+								AddrCluster: cmtypes.AddrClusterFrom(beAddr, 0),
+								L4Addr: lb.L4Addr{
+									Protocol: lb.TCP,
+									Port:     port,
+								},
+								Scope: lb.ScopeInternal,
+							},
+							NodeName: s.nodeName,
+							State:    lb.BackendStateActive,
+						},
+					)
+					wtxn.Commit()
 				}
 			}
-
-			s.params.Writer.SetBackends(
-				wtxn,
-				healthServiceName,
-				source.Local,
-				BackendParams{
-					L3n4Addr: lb.L3n4Addr{
-						AddrCluster: cmtypes.AddrClusterFrom(beAddr, 0),
-						L4Addr: lb.L4Addr{
-							Protocol: lb.TCP,
-							Port:     port,
-						},
-						Scope: lb.ScopeInternal,
-					},
-					NodeName: s.nodeName,
-					State:    lb.BackendStateActive,
-				},
-			)
-			wtxn.Commit()
 		}
 		health.OK(fmt.Sprintf("%d health servers running", len(s.serverByPort)))
 
