@@ -9,7 +9,6 @@ import (
 	"math/rand/v2"
 	"os"
 	"reflect"
-	"strings"
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
@@ -172,6 +171,7 @@ type BPFLBMaps struct {
 	affinityMatchMap                 *ebpf.Map
 	sourceRange4Map, sourceRange6Map *ebpf.Map
 	maglev4Map, maglev6Map           *ebpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
+	maglevInnerMapSpec               *ebpf.MapSpec
 }
 
 func sizeOf[T any]() uint32 {
@@ -243,32 +243,22 @@ var (
 		KeySize:   sizeOf[lbmap.SourceRangeKey6](),
 		ValueSize: sizeOf[lbmap.SourceRangeValue](),
 	}
-
-	maglevInnerMapSpec = &ebpf.MapSpec{
-		Name:       lbmap.MaglevInnerMapName,
-		Type:       ebpf.Array,
-		KeySize:    uint32(unsafe.Sizeof(lbmap.MaglevInnerKey{})),
-		MaxEntries: 1,
-	}
-
-	maglev4MapSpec = &ebpf.MapSpec{
-		Name:      lbmap.MaglevOuter4MapName,
-		Type:      ebpf.HashOfMaps,
-		KeySize:   uint32(unsafe.Sizeof(lbmap.MaglevOuterKey{})),
-		ValueSize: uint32(unsafe.Sizeof(lbmap.MaglevOuterVal{})),
-		InnerMap:  maglevInnerMapSpec,
-		Pinning:   ebpf.PinByName,
-	}
-
-	maglev6MapSpec = &ebpf.MapSpec{
-		Name:      lbmap.MaglevOuter6MapName,
-		Type:      ebpf.HashOfMaps,
-		KeySize:   uint32(unsafe.Sizeof(lbmap.MaglevOuterKey{})),
-		ValueSize: uint32(unsafe.Sizeof(lbmap.MaglevOuterVal{})),
-		InnerMap:  maglevInnerMapSpec,
-		Pinning:   ebpf.PinByName,
-	}
 )
+
+func maglevMapSpec(ipv6 bool, innerSpec *ebpf.MapSpec) *ebpf.MapSpec {
+	name := lbmap.MaglevOuter4MapName
+	if ipv6 {
+		name = lbmap.MaglevOuter6MapName
+	}
+	return &ebpf.MapSpec{
+		Name:      name,
+		Type:      ebpf.HashOfMaps,
+		KeySize:   uint32(unsafe.Sizeof(lbmap.MaglevOuterKey{})),
+		ValueSize: uint32(unsafe.Sizeof(lbmap.MaglevOuterVal{})),
+		InnerMap:  innerSpec.Copy(),
+		Pinning:   ebpf.PinByName,
+	}
+}
 
 type mapDesc struct {
 	target     **ebpf.Map // pointer to the field in realLBMaps
@@ -277,12 +267,13 @@ type mapDesc struct {
 }
 
 func (r *BPFLBMaps) allMaps() []mapDesc {
+	maglev4, maglev6 := maglevMapSpec(false, r.maglevInnerMapSpec), maglevMapSpec(true, r.maglevInnerMapSpec)
 	v4Maps := []mapDesc{
 		{&r.service4Map, service4MapSpec, r.Cfg.ServiceMapMaxEntries},
 		{&r.backend4Map, backend4MapSpec, r.Cfg.BackendMapMaxEntries},
 		{&r.revNat4Map, revNat4MapSpec, r.Cfg.RevNatMapMaxEntries},
 		{&r.sourceRange4Map, sourceRange4MapSpec, r.Cfg.SourceRangeMapMaxEntries},
-		{&r.maglev4Map, maglev4MapSpec, r.Cfg.MaglevMapMaxEntries},
+		{&r.maglev4Map, maglev4, r.Cfg.MaglevMapMaxEntries},
 	}
 	v6Maps := []mapDesc{
 		{&r.service6Map, service6MapSpec, r.Cfg.ServiceMapMaxEntries},
@@ -290,7 +281,7 @@ func (r *BPFLBMaps) allMaps() []mapDesc {
 		{&r.revNat6Map, revNat6MapSpec, r.Cfg.RevNatMapMaxEntries},
 		{&r.affinityMatchMap, affinityMatchMapSpec, r.Cfg.AffinityMapMaxEntries},
 		{&r.sourceRange6Map, sourceRange6MapSpec, r.Cfg.SourceRangeMapMaxEntries},
-		{&r.maglev6Map, maglev6MapSpec, r.Cfg.MaglevMapMaxEntries},
+		{&r.maglev6Map, maglev6, r.Cfg.MaglevMapMaxEntries},
 	}
 	maps := []mapDesc{
 		{&r.affinityMatchMap, affinityMatchMapSpec, r.Cfg.AffinityMapMaxEntries},
@@ -306,16 +297,24 @@ func (r *BPFLBMaps) allMaps() []mapDesc {
 
 // Start implements cell.HookInterface.
 func (r *BPFLBMaps) Start(cell.HookContext) error {
+	r.maglevInnerMapSpec = &ebpf.MapSpec{
+		Name:       lbmap.MaglevInnerMapName,
+		Type:       ebpf.Array,
+		KeySize:    uint32(unsafe.Sizeof(lbmap.MaglevInnerKey{})),
+		MaxEntries: 1,
+		ValueSize:  lbmap.MaglevBackendLen * uint32(r.MaglevCfg.MaglevTableSize),
+	}
 	for _, desc := range r.allMaps() {
+		// Make a shallow copy of the spec. We might be running tests in parallel
+		// and thus shouldn't mutate the original.
+		desc.spec = desc.spec.Copy()
+
 		if r.Pinned {
 			desc.spec.Pinning = ebpf.PinByName
 		} else {
 			desc.spec.Pinning = ebpf.PinNone
 		}
 		desc.spec.MaxEntries = uint32(desc.maxEntries)
-		if strings.HasSuffix(desc.spec.Name, "maglev") {
-			desc.spec.InnerMap.ValueSize = lbmap.MaglevBackendLen * uint32(r.MaglevCfg.MaglevTableSize)
-		}
 		m := ebpf.NewMap(desc.spec)
 		*desc.target = m
 
@@ -562,7 +561,7 @@ func (r *BPFLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.Sou
 
 // UpdateMaglev implements lbmaps.
 func (r *BPFLBMaps) UpdateMaglev(key lbmap.MaglevOuterKey, backendIDs []loadbalancer.BackendID, ipv6 bool) error {
-	inner := ebpf.NewMap(maglevInnerMapSpec)
+	inner := ebpf.NewMap(r.maglevInnerMapSpec)
 	if err := inner.OpenOrCreate(); err != nil {
 		return err
 	}
