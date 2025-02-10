@@ -38,12 +38,24 @@ respectively. The configuration of the peers is defined by the ``peerConfigRef``
 to a peer configuration resource. ``Group`` and ``kind`` in ``peerConfigRef`` are optional and default to
 ``cilium.io`` and ``CiliumBGPPeerConfig``, respectively.
 
+By default, the BGP Control Plane instantiates each router instance without a listening port. This means
+the BGP router can only initiate connections to the configured peers, but cannot accept incoming connections.
+This is the default behavior because the BGP Control Plane is designed to function in environments where
+another BGP router (such as Bird) is running on the same node. When it is required to accept incoming
+connections, the ``localPort`` field can be used to specify the listening port.
 
 .. warning::
 
     The ``CiliumBGPPeeringPolicy`` and ``CiliumBGPClusterConfig`` should not be used together. If both
     resources are present and Cilium agent matches with both based on the node selector,
     ``CiliumBGPPeeringPolicy`` will take precedence.
+
+.. warning::
+
+    Listening on the default BGP port (179) requires ``CAP_NET_BIND_SERVICE``.
+    If you wish to use the default port, you must grant the
+    ``CAP_NET_BIND_SERVICE`` capability with
+    ``securityContext.capabilities.ciliumAgent`` Helm value.
 
 Here is an example configuration of the ``CiliumBGPClusterConfig`` with a BGP instance named ``instance-65000``
 and two peers configured under this BGP instance.
@@ -63,6 +75,7 @@ and two peers configured under this BGP instance.
         localASN: 65000
         peers:
         - name: "peer-65000-tor1"
+          localPort: 179
           peerASN: 65000
           peerAddress: fd00:10:0:0::1
           peerConfigRef:
@@ -863,11 +876,11 @@ In order to configure custom Router ID, you can set ``routerID`` field in an IPv
 Listening Port
 --------------
 
-By default, the BGP Control Plane instantiates each virtual router without a listening port. This means
-the BGP router can only initiate connections to the configured peers, but cannot accept incoming connections.
-This is the default behavior because the BGP Control Plane is designed to function in environments where
-another BGP router (such as Bird) is running on the same node. When it is required to accept incoming
-connections, the ``localPort`` field can be used to specify the listening port.
+The ``localPort`` field in the ``CiliumBGPClusterConfig`` can be used to
+specify the listening port. If you wish to override it on a per-node basis, you
+can set the ``localPort`` field in the ``CiliumBGPNodeConfigOverride``
+resource. This also works even if the ``localPort`` field is not set in the
+``CiliumBGPClusterConfig``.
 
 Local Peering Address
 ---------------------
