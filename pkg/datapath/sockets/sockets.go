@@ -75,7 +75,7 @@ func Destroy(filter SocketFilter) error {
 			}
 			if filter.MatchSocket(sock) {
 				log.Infof("socket %v", sock)
-				if err := destroySocket(sock, family, unix.IPPROTO_UDP); err != nil {
+				if err := destroySocket(sock, family, unix.IPPROTO_UDP, 0xffff, true); err != nil {
 					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
 					failed++
 					return
@@ -214,24 +214,51 @@ func (s *Socket) Deserialize(b []byte) error {
 	return nil
 }
 
-func destroySocket(sockId netlink.SocketID, family uint8, protocol uint8) error {
-	s, err := nl.Subscribe(unix.NETLINK_INET_DIAG)
+func destroySocket(sockId netlink.SocketID, family uint8, protocol uint8, stateFilter uint32, waitForAck bool) error {
+	s, err := openSubscribeHandle()
 	if err != nil {
 		return err
 	}
 	defer s.Close()
 
-	req := nl.NewNetlinkRequest(SOCK_DESTROY, unix.NLM_F_REQUEST)
+	params := unix.NLM_F_REQUEST
+	if waitForAck {
+		params |= unix.NLM_F_ACK
+	}
+	req := nl.NewNetlinkRequest(SOCK_DESTROY, params)
 	req.AddData(&SocketRequest{
 		Family:   family,
 		Protocol: protocol,
-		States:   uint32(0xfff),
+		States:   stateFilter,
 		ID:       sockId,
 	})
 	err = s.Send(req)
 	if err != nil {
-		fmt.Printf("error in destroying socket: %v", sockId)
+		return fmt.Errorf("error in destroying socket: %w", err)
 	}
+
+	if !waitForAck {
+		return nil
+	}
+	msg, _, err := s.Receive()
+	if err != nil {
+		return fmt.Errorf("failed to recv destroy resp: %w", err)
+	}
+	for _, m := range msg {
+		switch m.Header.Type {
+		case unix.NLMSG_ERROR:
+			error := int32(native.Uint32(m.Data[0:4]))
+			errno := syscall.Errno(-error)
+			if errno != 0 {
+				return fmt.Errorf("got error response to socket destroy: %w", errno)
+			}
+			return nil
+		default:
+			log.WithField("nlMsgType", m.Header.Type).
+				Info("netlink socket delete received was followed by an unexpected response header type.")
+		}
+	}
+
 	return err
 }
 
