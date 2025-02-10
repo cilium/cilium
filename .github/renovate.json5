@@ -22,7 +22,7 @@
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
-    ".github/actions/ipsec/configs.yml",
+    ".github/actions/ipsec/configs.yaml",
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "cilium-cli/**",
