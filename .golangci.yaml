@@ -98,6 +98,10 @@ linters-settings:
             recommendations:
               - slices
             reason: "Go 1.21+ provides many common operations for slices using generic functions, see https://go.dev/doc/go1.21#slices"
+        - k8s.io/utils/pointer:
+            recommendations:
+              - k8s.io/utils/ptr
+            reason: "k8s.io/utils/pointer is deprecated, see https://pkg.go.dev/k8s.io/utils/pointer"
 
   stylecheck:
     checks: ["ST1019"]
