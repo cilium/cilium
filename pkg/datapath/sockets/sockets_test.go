@@ -4,11 +4,20 @@
 package sockets
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"net"
+	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 func TestSocketReqSerialize(t *testing.T) {
@@ -179,4 +188,97 @@ func BenchmarkSocketDeserialize(b *testing.B) {
 			sock.deserialize(buf)
 		}
 	}
+}
+
+const (
+	servAddr = "127.0.0.1:0"
+)
+
+func TestIterateDestroy(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	setupAndRunTest := func(n int, proto netlink.Proto, testFn func(t *testing.T, clientConns []net.Conn)) {
+		conns := []net.Conn{}
+		waitFor := []chan struct{}{}
+		for range n {
+			//clientConnClosed := make(chan struct{})
+			serverConnClosed := make(chan struct{})
+			waitFor = append(waitFor, serverConnClosed)
+			u8p, err := u8proto.FromNumber(uint8(proto))
+			assert.NoError(t, err)
+
+			var lis net.Listener
+			if proto == unix.IPPROTO_TCP {
+				lis, err = net.Listen(strings.ToLower(u8p.String()), servAddr)
+				require.NoError(t, err)
+				go func() {
+					conn, err := lis.Accept()
+					for {
+						require.NoError(t, err)
+						buf := make([]byte, 1)
+						_, err := conn.Read(buf)
+						if errors.Is(err, io.EOF) {
+							fmt.Println("server_closed:", err)
+							close(serverConnClosed)
+							return
+						}
+					}
+				}()
+			} else {
+				// Don't need a listener socket for UDP, so we just close.
+				fmt.Println("udp:", err)
+				close(serverConnClosed)
+			}
+
+			lisAddr := servAddr
+			if lis != nil {
+				lisAddr = lis.Addr().String()
+			}
+
+			clientConn, err := net.Dial(strings.ToLower(u8p.String()), lisAddr)
+			require.NoError(t, err)
+			defer clientConn.Close()
+			/*go func() {
+				for {
+					_, err := clientConn.Write([]byte("ping"))
+					if err != nil {
+						fmt.Println("client_closed:", err)
+						close(clientConnClosed)
+						return
+					}
+					time.Sleep(time.Second)
+				}
+			}()*/
+
+		}
+		// buffered channels still will wait on conn/servers closing.
+		testFn(t, conns)
+		for _, done := range waitFor {
+			fmt.Println("waiting:", done)
+			<-done
+		}
+	}
+
+	runUDPFilterTest := func(n int, cb func(id netlink.SocketID) bool) {
+		setupAndRunTest(n, unix.IPPROTO_UDP, func(t *testing.T, conns []net.Conn) {
+			for _, cc := range conns {
+				addr := cc.RemoteAddr().String()
+				toks := strings.Split(addr, ":")
+				dport, err := strconv.Atoi(toks[1])
+				assert.NoError(t, err)
+				daddr := net.ParseIP(toks[0])
+				assert.NoError(t, Destroy(SocketFilter{
+					DestIp:    daddr,
+					DestPort:  uint16(dport),
+					Family:    unix.AF_INET,
+					Protocol:  unix.IPPROTO_UDP,
+					DestroyCB: cb,
+				}))
+			}
+		})
+	}
+
+	runUDPFilterTest(10, func(id netlink.SocketID) bool {
+		fmt.Println("killing:", id)
+		return true
+	})
 }
