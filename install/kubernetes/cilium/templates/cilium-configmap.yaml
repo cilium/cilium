@@ -1041,7 +1041,7 @@ data:
   ipam: {{ $ipam | quote }}
 {{- end }}
 {{- if hasKey .Values.ipam "multiPoolPreAllocation" }}
-  ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation }}
+  ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation | quote }}
 {{- end }}
 
 {{- if .Values.ipam.ciliumNodeUpdateRate }}
