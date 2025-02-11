@@ -663,8 +663,16 @@ func ipSecReplacePolicyOut(params *IPSecParameters) error {
 	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
-	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
-	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, false)
+	policy.Mark = &netlink.XfrmMark{
+		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, key.Spi),
+		Mask:  0xFF00,
+	}
+	policy.Tmpls = append(policy.Tmpls, netlink.XfrmPolicyTmpl{
+		Proto: netlink.XFRM_PROTO_ESP,
+		Mode:  netlink.XFRM_MODE_TUNNEL,
+		Dst:   nil,
+		Src:   nil,
+	})
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
