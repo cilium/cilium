@@ -48,7 +48,7 @@ db/cmp backends backends.table
 
 # Check that $HEALTHPORT2 now responds and old port does not.
 * http/get http://$HEALTHADDR:$HEALTHPORT2 healthserver.actual
-cmp healthserver.expected healthserver.actual
+* cmp healthserver.expected healthserver.actual
 !* http/get http://$HEALTHADDR:$HEALTHPORT1 healthserver.actual
 
 # Setting the traffic policy to Cluster makes the service
