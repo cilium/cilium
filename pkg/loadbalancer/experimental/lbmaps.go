@@ -266,7 +266,7 @@ type mapDesc struct {
 	maxEntries int
 }
 
-func (r *BPFLBMaps) allMaps() []mapDesc {
+func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 	maglev4, maglev6 := maglevMapSpec(false, r.maglevInnerMapSpec), maglevMapSpec(true, r.maglevInnerMapSpec)
 	v4Maps := []mapDesc{
 		{&r.service4Map, service4MapSpec, r.Cfg.ServiceMapMaxEntries},
@@ -279,20 +279,24 @@ func (r *BPFLBMaps) allMaps() []mapDesc {
 		{&r.service6Map, service6MapSpec, r.Cfg.ServiceMapMaxEntries},
 		{&r.backend6Map, backend6MapSpec, r.Cfg.BackendMapMaxEntries},
 		{&r.revNat6Map, revNat6MapSpec, r.Cfg.RevNatMapMaxEntries},
-		{&r.affinityMatchMap, affinityMatchMapSpec, r.Cfg.AffinityMapMaxEntries},
 		{&r.sourceRange6Map, sourceRange6MapSpec, r.Cfg.SourceRangeMapMaxEntries},
 		{&r.maglev6Map, maglev6, r.Cfg.MaglevMapMaxEntries},
 	}
-	maps := []mapDesc{
+	mapsToCreate := []mapDesc{
 		{&r.affinityMatchMap, affinityMatchMapSpec, r.Cfg.AffinityMapMaxEntries},
 	}
+	mapsToDelete := []mapDesc{}
 	if r.ExtCfg.EnableIPv4 {
-		maps = append(maps, v4Maps...)
+		mapsToCreate = append(mapsToCreate, v4Maps...)
+	} else {
+		mapsToDelete = append(mapsToDelete, v4Maps...)
 	}
 	if r.ExtCfg.EnableIPv6 {
-		maps = append(maps, v6Maps...)
+		mapsToCreate = append(mapsToCreate, v6Maps...)
+	} else {
+		mapsToDelete = append(mapsToDelete, v6Maps...)
 	}
-	return maps
+	return mapsToCreate, mapsToDelete
 }
 
 // Start implements cell.HookInterface.
@@ -304,7 +308,9 @@ func (r *BPFLBMaps) Start(cell.HookContext) error {
 		MaxEntries: 1,
 		ValueSize:  lbmap.MaglevBackendLen * uint32(r.MaglevCfg.MaglevTableSize),
 	}
-	for _, desc := range r.allMaps() {
+
+	mapsToCreate, mapsToDelete := r.allMaps()
+	for _, desc := range mapsToCreate {
 		// Make a shallow copy of the spec. We might be running tests in parallel
 		// and thus shouldn't mutate the original.
 		desc.spec = desc.spec.Copy()
@@ -322,13 +328,30 @@ func (r *BPFLBMaps) Start(cell.HookContext) error {
 			return fmt.Errorf("opening map %s: %w", desc.spec.Name, err)
 		}
 	}
+
+	if !r.Pinned {
+		// nothing to unpin, return early
+		return nil
+	}
+
+	for _, desc := range mapsToDelete {
+		mapPath := bpf.MapPath(desc.spec.Name)
+		m, err := ebpf.LoadPinnedMap(mapPath)
+		if err != nil {
+			continue
+		}
+		// TODO(brb) warn logging?
+		m.Unpin()
+	}
 	return nil
 }
 
 // Stop implements cell.HookInterface.
 func (r *BPFLBMaps) Stop(cell.HookContext) error {
 	var errs []error
-	for _, desc := range r.allMaps() {
+
+	mapsToCreate, _ := r.allMaps()
+	for _, desc := range mapsToCreate {
 		m := *desc.target
 		if m != nil {
 			if err := m.Close(); err != nil {
