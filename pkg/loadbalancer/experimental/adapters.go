@@ -4,12 +4,14 @@
 package experimental
 
 import (
+	"context"
 	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/cilium/stream"
@@ -36,6 +38,7 @@ import (
 type adapterParams struct {
 	cell.In
 
+	JobGroup   job.Group
 	Log        *slog.Logger
 	Config     Config
 	DB         *statedb.DB
@@ -45,22 +48,42 @@ type adapterParams struct {
 	Ops        *BPFOps
 	Writer     *Writer
 	TestConfig *TestConfig `optional:"true"`
-
-	SC k8s.ServiceCache       `optional:"true"`
-	SM service.ServiceManager `optional:"true"`
 }
 
-func decorateAdapters(p adapterParams) (sc k8s.ServiceCache, sm service.ServiceManager) {
+type decorateParams struct {
+	cell.In
+
+	Config Config
+	SCA    *serviceCacheAdapter
+	SC     k8s.ServiceCache `optional:"true"`
+	SMA    *serviceManagerAdapter
+	SM     service.ServiceManager `optional:"true"`
+}
+
+func decorateAdapters(p decorateParams) (k8s.ServiceCache, service.ServiceManager) {
 	if !p.Config.EnableExperimentalLB {
 		return p.SC, p.SM
 	}
-	sc = &serviceCacheAdapter{
+	return p.SCA, p.SMA
+}
+
+// newAdapters constructs the ServiceCache and ServiceManager adapters. This is separate
+// from [decorateAdapters] in order to have access to the module's job.Group which is not
+// accessibel in the [cell.DecorateAll] scope.
+func newAdapters(p adapterParams) (sca *serviceCacheAdapter, sma *serviceManagerAdapter) {
+	if !p.Config.EnableExperimentalLB {
+		return nil, nil
+	}
+	sca = &serviceCacheAdapter{
 		log:      p.Log,
 		db:       p.DB,
 		services: p.Services,
 		backends: p.Backends,
 		writer:   p.Writer,
 	}
+	sca.notifications, sca.emit, sca.complete = stream.Multicast[k8s.ServiceNotification]()
+	p.JobGroup.Add(job.OneShot("adapter-notifications", sca.feedNotifications))
+
 	// If we are not running in tests we should register a table initializer to
 	// delay pruning until ClusterMesh has catched up. This happens via
 	// (*Daemon).initRestore in daemon/cmd/state.go. Once ClusterMesh has switched
@@ -71,7 +94,7 @@ func decorateAdapters(p adapterParams) (sc k8s.ServiceCache, sm service.ServiceM
 	} else {
 		initDone = func(WriteTxn) {}
 	}
-	sm = &serviceManagerAdapter{
+	sma = &serviceManagerAdapter{
 		log:       p.Log,
 		db:        p.DB,
 		services:  p.Services,
@@ -79,16 +102,18 @@ func decorateAdapters(p adapterParams) (sc k8s.ServiceCache, sm service.ServiceM
 		writer:    p.Writer,
 		initDone:  initDone,
 	}
-
 	return
 }
 
 type serviceCacheAdapter struct {
-	log      *slog.Logger
-	db       *statedb.DB
-	services statedb.Table[*Service]
-	backends statedb.Table[*Backend]
-	writer   *Writer
+	log           *slog.Logger
+	db            *statedb.DB
+	services      statedb.Table[*Service]
+	backends      statedb.Table[*Backend]
+	writer        *Writer
+	notifications stream.Observable[k8s.ServiceNotification]
+	emit          func(k8s.ServiceNotification)
+	complete      func(error)
 }
 
 // DebugStatus implements k8s.ServiceCache.
@@ -353,91 +378,87 @@ func (s *serviceCacheAdapter) ForEachService(yield func(svcID k8s.ServiceID, svc
 
 // Notifications implements k8s.ServiceCacheReader.
 func (s *serviceCacheAdapter) Notifications() stream.Observable[k8s.ServiceNotification] {
-	notifications, emit, complete := stream.Multicast[k8s.ServiceNotification]()
+	return s.notifications
+}
 
-	go func() {
-		state := map[loadbalancer.ServiceName]*k8s.ServiceNotification{}
-		get := func(name loadbalancer.ServiceName) *k8s.ServiceNotification {
-			n, ok := state[name]
-			if !ok {
-				n = &k8s.ServiceNotification{
-					ID: k8s.ServiceID{
-						Cluster:   name.Cluster,
-						Name:      name.Name,
-						Namespace: name.Namespace,
-					},
-				}
+// Notifications implements k8s.ServiceCacheReader.
+func (s *serviceCacheAdapter) feedNotifications(ctx context.Context, _ cell.Health) error {
+	state := map[loadbalancer.ServiceName]*k8s.ServiceNotification{}
 
-				state[name] = n
+	wtxn := s.db.WriteTxn(s.services, s.backends)
+	defer wtxn.Abort()
+	serviceChanges, err := s.services.Changes(wtxn)
+	if err != nil {
+		s.complete(err)
+		return nil
+	}
+	backendChanges, err := s.backends.Changes(wtxn)
+	if err != nil {
+		s.complete(err)
+		return nil
+	}
+	wtxn.Commit()
+	defer s.complete(nil)
+
+	for {
+		txn := s.db.ReadTxn()
+		changed := sets.Set[loadbalancer.ServiceName]{}
+
+		services, watchServices := serviceChanges.Next(txn)
+		for ev := range services {
+			changed.Insert(ev.Object.Name)
+		}
+
+		backends, watchBackends := backendChanges.Next(txn)
+		for ev := range backends {
+			be := ev.Object
+			for inst := range be.Instances.All() {
+				changed.Insert(inst.ServiceName)
 			}
-			return n
 		}
 
-		wtxn := s.db.WriteTxn(s.services, s.backends)
-		defer wtxn.Abort()
-		serviceChanges, err := s.services.Changes(wtxn)
-		if err != nil {
-			complete(err)
-			return
-		}
-		backendChanges, err := s.backends.Changes(wtxn)
-		if err != nil {
-			complete(err)
-			return
-		}
-		wtxn.Commit()
-		defer complete(nil)
-
-		for {
-			txn := s.db.ReadTxn()
-			changed := sets.Set[loadbalancer.ServiceName]{}
-
-			services, watchServices := serviceChanges.Next(txn)
-			for ev := range services {
-				svc := ev.Object
-				n := get(svc.Name)
+		for name := range changed {
+			n, stateFound := state[name]
+			if svc, _, found := s.services.Get(txn, ServiceByName(name)); found {
+				if !stateFound {
+					n = &k8s.ServiceNotification{
+						ID: k8s.ServiceID{
+							Cluster:   name.Cluster,
+							Name:      name.Name,
+							Namespace: name.Namespace,
+						},
+					}
+					state[name] = n
+				}
+				n.Action = k8s.UpdateService
+				n.OldService = n.Service
+				n.OldEndpoints = n.Endpoints
 				n.Service = newMinimalService(svc)
-				if ev.Deleted {
-					n.Action = k8s.DeleteService
-				} else {
-					n.Action = k8s.UpdateService
-				}
-				changed.Insert(svc.Name)
-			}
-
-			backends, watchBackends := backendChanges.Next(txn)
-			for ev := range backends {
-				be := ev.Object
-				for inst := range be.Instances.All() {
-					changed.Insert(inst.ServiceName)
-				}
-			}
-
-			for name := range changed {
-				n := get(name)
 				backends := statedb.ToSeq(s.backends.List(txn, BackendByServiceName(name)))
 				n.Endpoints = newMinimalEndpoints(name, backends)
-				emit(*n)
-
-				if n.Action == k8s.DeleteService {
-					delete(state, name)
-				} else {
-					n.OldService = n.Service
-					n.Service = nil
-					n.OldEndpoints = n.Endpoints
-					n.Endpoints = nil
+			} else {
+				if !stateFound {
+					// We've never processed this one so nothing to do.
+					continue
 				}
+				n.Action = k8s.DeleteService
+				n.Service = n.OldService
+				n.Endpoints = n.OldEndpoints
+				n.OldService = nil
+				n.OldEndpoints = nil
+				delete(state, name)
 			}
 
-			select {
-			case <-watchServices:
-			case <-watchBackends:
-			}
+			s.emit(*n)
 		}
 
-	}()
-
-	return notifications
+		select {
+		case <-watchServices:
+		case <-watchBackends:
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
 
 var _ k8s.ServiceCache = &serviceCacheAdapter{}
