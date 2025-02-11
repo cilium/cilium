@@ -577,6 +577,9 @@ const (
 
 	// WireguardTrackAllIPsFallback forces the WireGuard agent to track all IPs.
 	WireguardTrackAllIPsFallback = false
+
+	// IPTracingOptionType is the default value for option.IPTracingOptionType
+	IPTracingOptionType = 0
 )
 
 var (
