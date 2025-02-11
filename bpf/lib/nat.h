@@ -598,6 +598,13 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
+	/* To prevent aliasing with masqueraded connections,
+	 * we need to track all host connections that use IPV4_MASQUERADE.
+	 *
+	 * This either reserves the source port (so that it's not used
+	 * for masquerading), or port-SNATs the host connection (if the sport
+	 * is already in use for a masqueraded connection).
+	 */
 	if (tuple->saddr == IPV4_MASQUERADE) {
 		target->addr = IPV4_MASQUERADE;
 		target->needs_ct = true;
@@ -642,12 +649,12 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		}
 	}
 
-/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
- *
- * This check must happen before the IPV4_SNAT_EXCLUSION_DST_CIDR check below as
- * the destination may be in the SNAT exclusion CIDR but regardless of that we
- * always want to SNAT a packet if it's matched by an egress NAT policy.
- */
+	/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
+	 *
+	 * This check must happen before the IPV4_SNAT_EXCLUSION_DST_CIDR check below as
+	 * the destination may be in the SNAT exclusion CIDR but regardless of that we
+	 * always want to SNAT a packet if it's matched by an egress NAT policy.
+	 */
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr,
 				       &target->ifindex)) {
@@ -663,10 +670,10 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 #endif
 
-#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
 	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
 	 */
+#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
 	if (ipv4_is_in_subnet(tuple->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
 			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
 		return NAT_PUNT_TO_STACK;
@@ -676,11 +683,9 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
+	/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
 #ifdef ENABLE_IP_MASQ_AGENT_IPV4
 	{
-		/* Do not SNAT if dst belongs to any ip-masq-agent
-		 * subnet.
-		 */
 		struct lpm_v4_key pfx;
 
 		pfx.lpm.prefixlen = 32;
