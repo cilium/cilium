@@ -675,6 +675,12 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		// purposes. In the rare cases where a user wants to load datapath
 		// programs onto them they can override device detection with --devices.
 		return false, "bridge-like device, use --devices to override"
+
+	case "ipoib":
+		// Skip IPoIB devices since they are untested and assumed to not work.
+		// In the rare cases where a user wants to load datapath programs onto
+		// them they can override device detection with --devices.
+		return false, "IPoIB device, use --devices to override"
 	}
 
 	if !hasGlobalRoute(d.Index, dc.params.RouteTable, txn) {
