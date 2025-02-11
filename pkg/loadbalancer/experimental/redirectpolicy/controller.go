@@ -19,6 +19,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
@@ -136,11 +137,24 @@ func (h *lrpController) run(ctx context.Context, health cell.Health) error {
 					h.p.Writer.SetRedirectToByName(wtxn, targetName, nil)
 				}
 			case lrpConfigTypeAddr:
-				for _, feM := range lrp.frontendMappings {
-					if !change.Deleted {
-						h.p.Writer.SetRedirectToByAddress(wtxn, feM.feAddr, &toName)
-					} else {
-						h.p.Writer.SetRedirectToByAddress(wtxn, feM.feAddr, nil)
+				// In address-based mode there is no existing service/frontend to match against, but rather we'll
+				// create the frontend here.
+				if !change.Deleted {
+					for _, feM := range lrp.frontendMappings {
+						_, err := h.p.Writer.UpsertFrontend(
+							wtxn,
+							experimental.FrontendParams{
+								Address:     feM.feAddr,
+								Type:        lb.SVCTypeLocalRedirect,
+								ServiceName: toName,
+								ServicePort: feM.feAddr.Port,
+							},
+						)
+						if err != nil {
+							// Error may occur when a frontend already exists as part of some other
+							// service.
+							h.p.Log.Warn("failed to upsert frontend", logfields.Error, err)
+						}
 					}
 				}
 			}
@@ -206,15 +220,13 @@ func (h *lrpController) run(ctx context.Context, health cell.Health) error {
 
 			lrp, _, found := h.p.LRPs.Get(wtxn, lrpServiceIndex.Query(serviceID))
 			if !found {
-				lrp, _, found = h.p.LRPs.Get(wtxn, lrpAddressIndex.Query(fe.Address))
-			}
-			if !found {
 				continue
 			}
 
 			// A local redirect policy matches this frontend, set the redirect.
 			toName := lrp.ServiceName()
-			h.p.Writer.SetRedirectToByAddress(wtxn, fe.Address, &toName)
+			targetName := lb.ServiceName{Name: lrp.serviceID.Name, Namespace: lrp.serviceID.Namespace}
+			h.p.Writer.SetRedirectToByName(wtxn, targetName, &toName)
 		}
 
 		wtxn.Commit()
@@ -292,9 +304,7 @@ func (h *lrpController) processLRPAndPod(wtxn experimental.WriteTxn, lrp *LocalR
 		targetName := lb.ServiceName{Name: lrp.serviceID.Name, Namespace: lrp.serviceID.Namespace}
 		h.p.Writer.RefreshFrontends(wtxn, targetName)
 	case lrpConfigTypeAddr:
-		for _, feM := range lrp.frontendMappings {
-			h.p.Writer.RefreshFrontendByAddress(wtxn, feM.feAddr)
-		}
+		h.p.Writer.RefreshFrontends(wtxn, toName)
 	}
 }
 

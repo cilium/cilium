@@ -26,14 +26,15 @@ db/cmp backends backends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 
-# "terminate" the pod and create a new pod that uses the same HostPort.
+# "terminate" the pod
 replace 'phase: Running' 'phase: Succeeded' pod.yaml
 k8s update pod.yaml
-k8s add other-pod.yaml
-
-# The frontend and its associated backends should now be updated.
-db/cmp frontends frontends2.table
 db/cmp services services2.table
+
+# Add a new pod to take over the HostPort
+k8s add other-pod.yaml
+db/cmp frontends frontends3.table
+db/cmp services services3.table
 
 # Check that BPF maps now contain the new pod for the same host port.
 lb/maps-dump lbmaps.actual
@@ -43,8 +44,8 @@ lb/maps-dump lbmaps.actual
 k8s delete pod.yaml
 
 # Check that tables and the BPF maps are the same.
-db/cmp frontends frontends2.table
-db/cmp services services2.table
+db/cmp frontends frontends3.table
+db/cmp services services3.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps2.expected lbmaps.actual
 
@@ -52,8 +53,8 @@ lb/maps-dump lbmaps.actual
 db/show backends
 replace 4444 5555 other-pod.yaml
 k8s update other-pod.yaml
-db/cmp frontends frontends3.table
-db/cmp backends backends3.table
+db/cmp frontends frontends4.table
+db/cmp backends backends4.table
 
 # Check that BPF maps now have the port 5555
 lb/maps-dump lbmaps.actual
@@ -83,17 +84,20 @@ default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8    k8s
 
 -- services2.table --
 Name                                                                  Source
+
+-- services3.table --
+Name                                                                  Source
 default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 k8s
 
 -- frontends.table --
 Address           Type      Status  ServiceName                                                         Backends
 0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8  10.244.1.113:80/TCP (active)
 
--- frontends2.table --
+-- frontends3.table --
 Address           Type      Status  ServiceName                                                           Backends
 0.0.0.0:4444/TCP  HostPort  Done    default/other-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP (active)
 
--- frontends3.table --
+-- frontends4.table --
 Address           Type      Status  ServiceName                                                           Backends
 0.0.0.0:5555/TCP  HostPort  Done    default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/TCP (active)
 
@@ -101,7 +105,7 @@ Address           Type      Status  ServiceName                                 
 Address             State    Instances 
 10.244.1.113:80/TCP active   default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8
 
--- backends3.table --
+-- backends4.table --
 Address             State    Instances 
 10.244.1.114:80/TCP active   default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8
 
@@ -207,17 +211,17 @@ SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=
 SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort
 -- lbmaps2.expected --
 BE: ID=2 ADDR=10.244.1.114:80/TCP STATE=active
-REV: ID=1 ADDR=0.0.0.0:4444
-REV: ID=2 ADDR=1.1.1.1:4444
-SVC: ID=1 ADDR=0.0.0.0:4444/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
-SVC: ID=1 ADDR=0.0.0.0:4444/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
-SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
-SVC: ID=2 ADDR=1.1.1.1:4444/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort
+REV: ID=3 ADDR=0.0.0.0:4444
+REV: ID=4 ADDR=1.1.1.1:4444
+SVC: ID=3 ADDR=0.0.0.0:4444/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:4444/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=4 ADDR=1.1.1.1:4444/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=4 ADDR=1.1.1.1:4444/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort
 -- lbmaps3.expected --
 BE: ID=2 ADDR=10.244.1.114:80/TCP STATE=active
-REV: ID=3 ADDR=0.0.0.0:5555
-REV: ID=4 ADDR=1.1.1.1:5555
-SVC: ID=3 ADDR=0.0.0.0:5555/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
-SVC: ID=3 ADDR=0.0.0.0:5555/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
-SVC: ID=4 ADDR=1.1.1.1:5555/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
-SVC: ID=4 ADDR=1.1.1.1:5555/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort
+REV: ID=5 ADDR=0.0.0.0:5555
+REV: ID=6 ADDR=1.1.1.1:5555
+SVC: ID=5 ADDR=0.0.0.0:5555/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=5 ADDR=0.0.0.0:5555/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:5555/TCP SLOT=0 LBALG=random AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=6 ADDR=1.1.1.1:5555/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort

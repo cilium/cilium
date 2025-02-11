@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	store "github.com/cilium/cilium/pkg/service/store"
 )
 
 // ServiceCacheCell initializes the service cache holds the list of known services
@@ -181,7 +180,7 @@ func newMinimalEndpoints(eps *Endpoints) *MinimalEndpoints {
 		return nil
 	}
 	meps := &MinimalEndpoints{
-		Backends: map[cmtypes.AddrCluster]store.PortConfiguration{},
+		Backends: map[cmtypes.AddrCluster]serviceStore.PortConfiguration{},
 	}
 	for addrCluster, cfg := range eps.Backends {
 		meps.Backends[addrCluster] = cfg.Ports

@@ -157,20 +157,47 @@ func (w *Writer) UpsertService(txn WriteTxn, svc *Service) (old *Service, err er
 }
 
 func (w *Writer) UpsertFrontend(txn WriteTxn, params FrontendParams) (old *Frontend, err error) {
+	if err := w.validateFrontends(txn, params); err != nil {
+		return nil, err
+	}
+
+	// Check if a frontend already exists that is associated to a different service.
+	fe, _, found := w.fes.Get(txn, FrontendByAddress(params.Address))
+	if found && !fe.ServiceName.Equal(params.ServiceName) {
+		return fe, fmt.Errorf("%w: %s is owned by %s", ErrFrontendConflict, params.Address.StringWithProtocol(), fe.ServiceName)
+	}
+
 	// Lookup the service associated with the frontend. A frontend cannot be added
 	// without the service already existing.
 	svc, _, found := w.svcs.Get(txn, ServiceByName(params.ServiceName))
 	if !found {
 		return nil, ErrServiceNotFound
 	}
-	fe := w.newFrontend(txn, params, svc)
+	fe = w.newFrontend(txn, params, svc)
 	old, _, err = w.fes.Insert(txn, fe)
 	return old, err
+}
+
+// validateFrontends checks that the frontends being added are not already owned by other
+// services.
+func (w *Writer) validateFrontends(txn WriteTxn, fes ...FrontendParams) error {
+	// Validate that the frontends are not owned by other services.
+	for _, params := range fes {
+		fe, _, found := w.fes.Get(txn, FrontendByAddress(params.Address))
+		if found && !fe.ServiceName.Equal(params.ServiceName) {
+			return fmt.Errorf("%w: %s is owned by %s", ErrFrontendConflict, params.Address.StringWithProtocol(), fe.ServiceName)
+		}
+	}
+	return nil
 }
 
 // UpsertServiceAndFrontends upserts the service and updates the set of associated frontends.
 // Any frontends that do not exist in the new set are deleted.
 func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *Service, fes ...FrontendParams) error {
+	if err := w.validateFrontends(txn, fes...); err != nil {
+		return err
+	}
+
 	for _, hook := range w.svcHooks {
 		hook(txn, svc)
 	}
@@ -591,23 +618,6 @@ func (w *Writer) SetRedirectToByName(txn WriteTxn, name loadbalancer.ServiceName
 			continue
 		}
 
-		fe = fe.Clone()
-		fe.RedirectTo = to
-		w.refreshFrontend(txn, fe)
-		w.fes.Insert(txn, fe)
-	}
-}
-
-func (w *Writer) SetRedirectToByAddress(txn WriteTxn, addr loadbalancer.L3n4Addr, to *loadbalancer.ServiceName) {
-	fe, _, found := w.fes.Get(txn, FrontendByAddress(addr))
-	if !found {
-		return
-	}
-	switch {
-	case to == nil && fe.RedirectTo == nil: // nop
-	case to != nil && fe.RedirectTo != nil && to.Equal(*fe.RedirectTo): // nop
-	case to != nil && fe.ServiceName.Namespace != to.Namespace: // nop
-	default:
 		fe = fe.Clone()
 		fe.RedirectTo = to
 		w.refreshFrontend(txn, fe)
