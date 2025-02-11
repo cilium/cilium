@@ -25,7 +25,7 @@ runs:
         # renovate: datasource=docker
         KIND_K8S_IMAGE="quay.io/cilium/kindest-node:v1.32.0@sha256:22cf2864f90cfab0d442fda2decf2eae107edd03483053a902614dec637eff76"
         KIND_K8S_VERSION=$(echo "$KIND_K8S_IMAGE" | sed -r 's|.+:(v[0-9a-z.-]+)(@.+)?|\1|')
-        CILIUM_RUNTIME_IMAGE="quay.io/cilium/cilium-runtime:9a53d5dd9aca7ece9bd124c7610c48d2c2402caf@sha256:0665f1133315718a9b352fd4b9bf376531f46fdd19443a4b7e6aaaa185c6e97f"
+        CILIUM_RUNTIME_IMAGE="quay.io/cilium/cilium-runtime:ee141f7d68c0732f4de937a96ad5ffecac820a1e@sha256:d2dbdef28678066fb2359b3d07996db2b4ab37fe968befa351ab1d0382461a9e"
 
         echo "CILIUM_RUNTIME_IMAGE=$CILIUM_RUNTIME_IMAGE" >> $GITHUB_ENV
         echo "KIND_VERSION=$KIND_VERSION" >> $GITHUB_ENV
